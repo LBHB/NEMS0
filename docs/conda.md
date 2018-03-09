@@ -7,10 +7,10 @@ Although NEMS will work with most python3 implementations, we recommend using th
 https://conda.io/miniconda.html
 
 # Set up an environment
-conda create -n nems-dev-intel python=3 -c intel
+conda create -n nemsenv python=3 -c intel
 
 # Get inside the environment
-source activate nems-dev-intel
+source activate nemsenv
 
 # Install any needed packages inside that
 pip install -e nems

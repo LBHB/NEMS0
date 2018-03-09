@@ -1,5 +1,3 @@
-#!/usr/bin/python3
-
 import sys
 import nems.xforms as xforms
 from nems.uri import load_resource

@@ -9,7 +9,7 @@ VERSION = 'pre-alpha'
 with codecs.open('README.md', encoding='utf-8') as f:
     long_description = f.read()
 
-GENERAL_REQUIRES = ['numpy', 'scipy', 'matplotlib', 'pandas']
+GENERAL_REQUIRES = ['numpy', 'scipy', 'matplotlib', 'pandas', 'requests']
 
 setup(
     name=NAME,
