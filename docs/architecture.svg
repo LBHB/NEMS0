@@ -1,0 +1,1812 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   version="1.1"
+   id="svg3632"
+   viewBox="0 0 5875.6774 1527.1591"
+   height="430.99823mm"
+   width="1658.2467mm">
+  <defs
+     id="defs3634">
+    <marker
+       style="overflow:visible"
+       id="marker7171"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-0"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-2" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-7"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-5" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-3"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-6" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-7-3"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-5-6" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-3-6"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-6-8" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-0-4"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-2-3" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-3-6-2"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-6-8-0" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-6"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-64" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-7-3-7"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-5-6-1" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-6-1"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-64-5" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-6-7"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-64-6" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-6-7-6"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-64-6-5" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-6-7-0"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-64-6-0" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-0-4-1"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-2-3-6" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-0-4-1-9"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-2-3-6-3" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-0-4-1-1"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-2-3-6-5" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-0-4-1-1-1"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-2-3-6-5-7" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-0-4-1-7"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-2-3-6-6" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-0-4-1-13"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-2-3-6-64" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-2"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-4" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-0-4-1-1-0"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-2-3-6-5-0" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow1Lend-5-2-3"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path4279-3-9-0" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow1Lend-5-2"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path4279-3-9" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-3-6-3"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-7-8" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-3-5"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-7-3" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-3-67"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-7" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-5"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-3" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow1Lend-5"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path4279-3" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-2-2"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-4-9" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow1Lend-5-3-5"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path4279-3-1-54" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow1Lend-5-3-2-0"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path4279-3-1-5-8" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow1Lend-5-3-2"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path4279-3-1-5" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Arrow1Lend-5-3"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path4279-3-1" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker7171-6-3"
+       refX="0"
+       refY="0"
+       orient="auto">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 0,0 Z"
+         id="path7173-64-7" />
+    </marker>
+  </defs>
+  <metadata
+     id="metadata3637">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     transform="translate(4208.5743,242.83418)"
+     id="layer1">
+    <text
+       id="text6501-8-2-0"
+       y="247.81625"
+       x="-1014.2827"
+       style="font-style:normal;font-weight:normal;font-size:40px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="247.81625"
+         x="-1014.2827"
+         id="tspan6503-5-4-6" /><tspan
+         id="tspan23920"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:22.50000191px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="277.84064"
+         x="-1014.2827">modelspec = [{'module': &quot;nems.modules.fir&quot;</tspan><tspan
+         id="tspan14452"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:22.50000191px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="305.96564"
+         x="-1014.2827">              'prior': {...}, </tspan><tspan
+         id="tspan14450"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:22.50000191px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="334.09064"
+         x="-1014.2827">              'phi': {...}},</tspan><tspan
+         id="tspan14478"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:22.50000191px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="362.21564"
+         x="-1014.2827">             {'module': &quot;nems.modules.nl&quot;,</tspan><tspan
+         id="tspan14484"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:22.50000191px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="390.34064"
+         x="-1014.2827">              'prior': {...},</tspan><tspan
+         id="tspan17227"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:22.50000191px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="418.46564"
+         x="-1014.2827">              'phi': {...}},</tspan><tspan
+         id="tspan5329"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:22.50000191px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="446.59064"
+         x="-1014.2827">              ...])</tspan><tspan
+         id="tspan23928"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:22.50000191px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="474.71567"
+         x="-1014.2827" /><tspan
+         id="tspan14482"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:22.50000191px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="502.84067"
+         x="-1014.2827" /><tspan
+         id="tspan14448"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:22.50000191px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="530.96564"
+         x="-1014.2827" /><tspan
+         id="tspan7231-9-0-9"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:22.50000191px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="559.09064"
+         x="-1014.2827" /><tspan
+         id="tspan7227-9-1-0"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:22.50000191px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="587.21564"
+         x="-1014.2827" /><tspan
+         style="font-size:22.50000191px"
+         id="tspan7225-8-2-8"
+         y="615.34064"
+         x="-1014.2827" /><tspan
+         style="font-size:22.50000191px"
+         id="tspan7223-0-0-3"
+         y="643.4657"
+         x="-1014.2827" /></text>
+    <rect
+       y="422.88821"
+       x="-422.78149"
+       height="285.10156"
+       width="554.81232"
+       id="rect3716"
+       style="fill:none;stroke:#000000;stroke-width:5.32503605;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       id="text3720"
+       y="477.7464"
+       x="-231.44391"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-weight:bold"
+         y="477.7464"
+         x="-231.44391"
+         id="tspan3722">Evaluator</tspan></text>
+    <text
+       id="text6501-8-2-0-3"
+       y="573.75623"
+       x="-394.41733"
+       style="font-style:normal;font-weight:normal;font-size:40px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="573.75623"
+         x="-394.41733"
+         id="tspan6503-5-4-6-6" /><tspan
+         id="tspan5335"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="611.25623"
+         x="-394.41733">pred = Model.evaluate(m, d)</tspan><tspan
+         id="tspan14482-9"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="648.75623"
+         x="-394.41733" /><tspan
+         id="tspan14448-3"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="686.25623"
+         x="-394.41733" /><tspan
+         id="tspan7231-9-0-9-6"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="723.75623"
+         x="-394.41733" /><tspan
+         id="tspan7227-9-1-0-0"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="761.25623"
+         x="-394.41733" /><tspan
+         id="tspan7225-8-2-8-6"
+         y="798.75623"
+         x="-394.41733" /><tspan
+         id="tspan7223-0-0-3-2"
+         y="836.25623"
+         x="-394.41733" /></text>
+    <text
+       id="text14515"
+       y="447.24573"
+       x="163.34573"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-size:22.50000191px"
+         y="447.24573"
+         x="163.34573"
+         id="tspan14517"> {'stim': &lt;SignalObj&gt;, </tspan><tspan
+         style="font-size:22.50000191px"
+         id="tspan14519"
+         y="475.37073"
+         x="163.34573">   'resp': &lt;SignalObj&gt;,</tspan><tspan
+         style="font-size:22.50000191px"
+         id="tspan14521"
+         y="503.49573"
+         x="163.34573">   'pupil': &lt;SignalObj&gt;,</tspan><tspan
+         style="font-size:22.50000191px"
+         id="tspan14523"
+         y="531.62073"
+         x="163.34573">   'pred': &lt;SignalObj&gt;}</tspan></text>
+    <text
+       id="text3720-6"
+       y="402.11774"
+       x="240.39012"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-weight:bold"
+         y="402.11774"
+         x="240.39012"
+         id="tspan3722-1">Pred</tspan></text>
+    <text
+       id="text3949"
+       y="548.81604"
+       x="-777.90161"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-weight:bold"
+         y="548.81604"
+         x="-777.90161"
+         id="tspan3951">Fitting Data</tspan></text>
+    <text
+       id="text6501-8"
+       y="591.83325"
+       x="-876.32642"
+       style="font-style:normal;font-weight:normal;font-size:40px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:22.50000191px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="591.83325"
+         x="-876.32642"
+         id="tspan6503-5">est = {'stim': &lt;SignalObj&gt;, </tspan><tspan
+         id="tspan7229-0"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:22.50000191px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="619.95825"
+         x="-876.32642">       'resp': &lt;SignalObj&gt;,</tspan><tspan
+         id="tspan7231-9"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:22.50000191px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="648.08325"
+         x="-876.32642">       'pupil': &lt;SignalObj&gt;}</tspan><tspan
+         id="tspan7227-9"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:22.50000191px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="676.20825"
+         x="-876.32642" /><tspan
+         style="font-size:22.50000191px"
+         id="tspan7225-8"
+         y="704.33325"
+         x="-876.32642" /><tspan
+         style="font-size:22.50000191px"
+         id="tspan7223-0"
+         y="732.45825"
+         x="-876.32642" /></text>
+    <g
+       transform="translate(-1514.2857,771.4286)"
+       id="g4129">
+      <path
+         style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54330707;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker7171)"
+         d="m -1655.1518,171.41124 c 159.3658,-16.04645 103.7071,191.22269 310.8181,241.41562 462.14171,94.83391 779.69513,34.10005 1270.423639,47.25734"
+         id="path4270-5-7-7" />
+    </g>
+    <path
+       id="path4270-5-7-7-3"
+       d="m -844.68159,670.52454 410.12201,0"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54330707;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker7171-0)" />
+    <path
+       id="path4270-5-7-7-9"
+       d="m 137.69008,562.91612 298.69347,5.71429"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54330707;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker7171-7)" />
+    <text
+       id="text4089"
+       y="1081.818"
+       x="1166.9326"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="1081.818"
+         x="1166.9326"
+         id="tspan4091">LEGEND:</tspan><tspan
+         id="tspan5443"
+         y="1119.318"
+         x="1166.9326">1) Boxes denote functions</tspan><tspan
+         id="tspan4093"
+         y="1156.818"
+         x="1166.9326">2) Names are in bold</tspan><tspan
+         id="tspan4095"
+         y="1194.318"
+         x="1166.9326">3) Solid arrows indicate data flow</tspan><tspan
+         id="tspan5472"
+         y="1231.818"
+         x="1166.9326">4) Dashed arrows indicate that</tspan><tspan
+         id="tspan5474"
+         y="1269.318"
+         x="1166.9326">   one function creates another</tspan></text>
+    <rect
+       y="-38.196774"
+       x="-1724.6656"
+       height="798.97681"
+       width="2646.085"
+       id="rect3716-2-9"
+       style="fill:none;stroke:#000000;stroke-width:5.32503605;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       id="path4270-5-7-7-1"
+       d="m -1051.6295,461.73987 622.45618,1.67367"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54330707;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker7171-3)" />
+    <text
+       id="text3640-2"
+       y="13.581061"
+       x="-475.88837"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-weight:bold"
+         y="13.581061"
+         x="-475.88837"
+         id="tspan3642-9">CostFn</tspan></text>
+    <text
+       id="text6501-8-2-0-3-3"
+       y="56.2211"
+       x="-894.43402"
+       style="font-style:normal;font-weight:normal;font-size:40px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="56.2211"
+         x="-894.43402"
+         id="tspan6503-5-4-6-6-1" /><tspan
+         id="tspan3945-9"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="93.7211"
+         x="-894.43402">cost = metric(evaluator(est, unprojector(sigma))</tspan><tspan
+         id="tspan14482-9-4"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="131.2211"
+         x="-894.43402" /><tspan
+         id="tspan14448-3-7"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="168.7211"
+         x="-894.43402" /><tspan
+         id="tspan7231-9-0-9-6-8"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="206.2211"
+         x="-894.43402" /><tspan
+         id="tspan7227-9-1-0-0-4"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="243.7211"
+         x="-894.43402" /><tspan
+         id="tspan7225-8-2-8-6-5"
+         y="281.2211"
+         x="-894.43402" /><tspan
+         id="tspan7223-0-0-3-2-0"
+         y="318.7211"
+         x="-894.43402" /></text>
+    <text
+       id="text4203"
+       y="475.92404"
+       x="-408.50775"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="475.92404"
+         x="-408.50775"
+         id="tspan4205">m</tspan></text>
+    <text
+       id="text4207"
+       y="675.68921"
+       x="-407.77243"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="675.68921"
+         x="-407.77243"
+         id="tspan4209">d</tspan></text>
+    <path
+       id="path4270-5-7-7-9-1"
+       d="M 922.04111,559.81385 C 1510.6424,895.44475 489.92375,1068.4217 179.02621,1068.3853"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54330707;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker7171-7-3)" />
+    <text
+       id="text4240"
+       y="544.1416"
+       x="942.61682"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-weight:bold"
+         y="544.1416"
+         x="942.61682"
+         id="tspan4242">Cost</tspan></text>
+    <rect
+       y="813.89197"
+       x="-939.37817"
+       height="445.32919"
+       width="1080.397"
+       id="rect3716-2-0"
+       style="fill:none;stroke:#000000;stroke-width:5.32503605;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       id="text3720-63"
+       y="861.4021"
+       x="-476.61441"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         id="tspan4304"
+         style="font-weight:bold"
+         y="861.4021"
+         x="-476.61441">Fitter</tspan></text>
+    <text
+       id="text6501-8-2-0-3-0"
+       y="1000.1675"
+       x="-791.06158"
+       style="font-style:normal;font-weight:normal;font-size:40px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="1000.1675"
+         x="-791.06158"
+         id="tspan6503-5-4-6-6-6" /><tspan
+         id="tspan5403"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="1037.6675"
+         x="-791.06158">improved_sigma = some_algorithm(sigma, costfn))</tspan><tspan
+         id="tspan14482-9-5"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="1075.1675"
+         x="-791.06158" /><tspan
+         id="tspan14448-3-5"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="1112.6675"
+         x="-791.06158" /><tspan
+         id="tspan7231-9-0-9-6-4"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="1150.1675"
+         x="-791.06158" /><tspan
+         id="tspan7227-9-1-0-0-7"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="1187.6675"
+         x="-791.06158" /><tspan
+         id="tspan7225-8-2-8-6-6"
+         y="1225.1675"
+         x="-791.06158" /><tspan
+         id="tspan7223-0-0-3-2-5"
+         y="1262.6675"
+         x="-791.06158" /></text>
+    <g
+       transform="translate(177.14286,20)"
+       id="g4451">
+      <rect
+         style="fill:none;stroke:#000000;stroke-width:5.32503605;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         id="rect3716-2-93"
+         width="503.43802"
+         height="219.60985"
+         x="-1732.9288"
+         y="281.21536" />
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         x="-1673.3326"
+         y="329.95386"
+         id="text3720-6-2-7"><tspan
+           x="-1673.3326"
+           y="329.95386"
+           style="font-weight:bold"
+           id="tspan4358">Unprojector/Unpacker</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         x="-1703.2677"
+         y="384.77124"
+         id="text4215-5"><tspan
+           id="tspan5294"
+           x="-1703.2677"
+           y="384.77124">(An unprojector function maps</tspan><tspan
+           id="tspan5300"
+           x="-1703.2677"
+           y="422.27124">a point sigma in &quot;fit space&quot; to</tspan><tspan
+           id="tspan5315"
+           x="-1703.2677"
+           y="459.77124">a point in &quot;modelspec space&quot;)</tspan><tspan
+           id="tspan5302"
+           x="-1703.2677"
+           y="497.27124" /><tspan
+           x="-1703.2677"
+           y="534.77124"
+           id="tspan4364" /></text>
+    </g>
+    <rect
+       y="1030.3909"
+       x="-1580.7063"
+       height="229.71153"
+       width="347.87445"
+       id="rect3716-2-93-5"
+       style="fill:none;stroke:#000000;stroke-width:5.32503605;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       id="text3720-6-2-7-4"
+       y="1081.4666"
+       x="-1471.469"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-weight:bold"
+         y="1081.4666"
+         x="-1471.469"
+         id="tspan3722-1-8-4-7">Projector/</tspan><tspan
+         id="tspan4358-4"
+         style="font-weight:bold"
+         y="1118.9666"
+         x="-1471.469">Packer</tspan></text>
+    <text
+       id="text4215-5-3"
+       y="1171.6394"
+       x="-1570.0944"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         id="tspan10461"
+         y="1171.6394"
+         x="-1570.0944">(Maps a modelspec to</tspan><tspan
+         id="tspan10457"
+         y="1209.1394"
+         x="-1570.0944">a point in &quot;fit space&quot;)</tspan></text>
+    <path
+       id="path4270-5-7-7-1-8"
+       d="m -1217.9828,1174.1777 258.09455,3.694"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54330707;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker7171-3-6)" />
+    <text
+       id="text4447"
+       y="431.03522"
+       x="-1672.4089"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="431.03522"
+         x="-1672.4089"
+         id="tspan4449">sigma</tspan></text>
+    <path
+       id="path4270-5-7-7-3-1"
+       d="m -1702.5712,458.07648 132.9792,-2.85714"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54330707;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker7171-0-4)" />
+    <text
+       id="text4447-4"
+       y="1180.1482"
+       x="-920.58136"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="1180.1482"
+         x="-920.58136"
+         id="tspan4449-9">sigma</tspan></text>
+    <g
+       transform="translate(794.18458,833.99556)"
+       id="g4129-9">
+      <path
+         style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54330707;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker7171-6)"
+         d="M -1749.6577,117.96237 C -2983.8604,95.295784 -2752.233,-365.38258 -2528.7779,-367.19335"
+         id="path4270-5-7-7-5" />
+    </g>
+    <text
+       id="text4615"
+       y="1199.0249"
+       x="-2132.5874"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-weight:bold"
+         y="1199.0249"
+         x="-2132.5874"
+         id="tspan4617">Modelspec</tspan></text>
+    <g
+       transform="translate(-51.428574,-222.85716)"
+       id="g5417">
+      <rect
+         style="fill:none;stroke:#000000;stroke-width:5.32503605;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         id="rect3716-2-2"
+         width="280.39743"
+         height="125.32931"
+         x="-483.05585"
+         y="1286.8405" />
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         x="-340.47852"
+         y="1340.9336"
+         id="text4543"><tspan
+           id="tspan4545"
+           x="-340.47852"
+           y="1340.9336"
+           style="font-weight:bold;text-align:center;text-anchor:middle">Termination</tspan><tspan
+           x="-340.47852"
+           y="1378.4336"
+           id="tspan4547"
+           style="font-weight:bold;text-align:center;text-anchor:middle">Condition</tspan></text>
+      <g
+         id="g4129-9-9"
+         transform="translate(2338.4116,1517.1542)">
+        <path
+           id="path4270-5-7-7-5-7"
+           d="m -2536.0864,-167.03764 c 125.8253,0.0231 164.9111,104.791031 -135.8541,99.998184 -319.7006,-3.822436 -369.2659,-103.040744 -153.266,-96.582474"
+           style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54330707;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker7171-6-1)" />
+      </g>
+    </g>
+    <text
+       id="text4713"
+       y="923.50507"
+       x="-1202.5714"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="923.50507"
+         x="-1202.5714"
+         id="tspan4715">Improved Sigma</tspan></text>
+    <text
+       id="text4725"
+       y="898.90729"
+       x="-2940.1208"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         id="tspan4729"
+         y="898.90729"
+         x="-2940.1208">The FitSpace &quot;projector&quot; and its inverse, </tspan><tspan
+         id="tspan4743"
+         y="936.40729"
+         x="-2940.1208">the &quot;unprojector&quot; are customized to support</tspan><tspan
+         id="tspan5256"
+         y="973.90729"
+         x="-2940.1208">the type of mathematical space (vector, dict, </tspan><tspan
+         id="tspan5514"
+         y="1011.4073"
+         x="-2940.1208">etc) that the fitter understands. </tspan></text>
+    <text
+       id="text5168"
+       y="830.74524"
+       x="-2747.9443"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-weight:bold"
+         y="830.74524"
+         x="-2747.9443"
+         id="tspan5170">FitSpaceMapping</tspan></text>
+    <g
+       transform="translate(333.32405,849.82302)"
+       id="g4129-9-7">
+      <path
+         style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54300022;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:21.25800117, 3.54300019;stroke-dashoffset:0;stroke-opacity:1;marker-end:url(#marker7171-6-7)"
+         d="m -2561.0863,75.105226 c 564.7107,24.631522 664.4976,-212.719526 809.4513,-376.584286"
+         id="path4270-5-7-7-5-3" />
+      <path
+         style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54330707;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:21.25984224, 3.54330704;stroke-dashoffset:0;stroke-opacity:1;marker-end:url(#marker7171-6-7-6)"
+         d="m -2560.9493,74.44412 c 458.9964,4.631529 521.6404,17.994758 640.8799,139.8443"
+         id="path4270-5-7-7-5-3-6" />
+      <path
+         style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54300022;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;marker-end:url(#marker7171-6-7-0)"
+         d="m -2336.6635,-210.14257 c 564.7107,24.63153 973.069,-47.00525 1115.1656,-53.72714"
+         id="path4270-5-7-7-5-3-4" />
+      <g
+         transform="matrix(0.81270813,0,0,0.81270813,-72.537848,-174.39796)"
+         id="g18252" />
+    </g>
+    <text
+       id="text5266"
+       y="1151.5125"
+       x="-1155.3555"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-weight:bold"
+         y="1151.5125"
+         x="-1155.3555"
+         id="tspan5268">sigma</tspan></text>
+    <text
+       id="text5274"
+       y="-86.397781"
+       x="-2993.6592"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         id="tspan7391"
+         y="-86.397781"
+         x="-2993.6592">An analysis is the largest reusable NEMS component. It excludes data loading,</tspan><tspan
+         id="tspan12227"
+         y="-48.897781"
+         x="-2993.6592">initial model specification, and plotting. Analyses do two things repeatedly:</tspan><tspan
+         id="tspan7315"
+         y="-11.397781"
+         x="-2993.6592" /><tspan
+         id="tspan5453"
+         y="26.102219"
+         x="-2993.6592">1) Run a FitSpaceMapping that creates a projector and unprojector. </tspan><tspan
+         id="tspan7286"
+         y="63.602219"
+         x="-2993.6592">    You may use this to fit only a single module's parameters at a time,</tspan><tspan
+         id="tspan5286"
+         y="101.10222"
+         x="-2993.6592">    run different fitters on each module, or select random parameter subsets. </tspan><tspan
+         id="tspan5500"
+         y="138.60222"
+         x="-2993.6592">2) Runs a Segmentor to pick the part of the data that you want to fit on.</tspan><tspan
+         id="tspan15665"
+         y="176.10222"
+         x="-2993.6592">    You may use this to jacknife the data, or select only data matching specific</tspan><tspan
+         id="tspan15667"
+         y="213.60222"
+         x="-2993.6592">    experimental conditions.</tspan><tspan
+         id="tspan7299"
+         y="251.10222"
+         x="-2993.6592" /><tspan
+         id="tspan7301"
+         y="288.60223"
+         x="-2993.6592">It is common to iterate many times and use various fitters, projectors, and</tspan><tspan
+         id="tspan15671"
+         y="326.10223"
+         x="-2993.6592">segmentors to accomplish some arbitrarily complex fitting task. It is also</tspan><tspan
+         id="tspan15684"
+         y="363.60223"
+         x="-2993.6592">common to manage multiple modelspecs, such as one for each jackknife of</tspan><tspan
+         id="tspan15688"
+         y="401.10223"
+         x="-2993.6592">the data, or a swarm of modelspecs that sample from the Bayesian posterior.</tspan><tspan
+         id="tspan12221"
+         y="438.60223"
+         x="-2993.6592" /><tspan
+         id="tspan12223"
+         y="476.10223"
+         x="-2993.6592">Please make analyses pure functions with no side effects. </tspan></text>
+    <text
+       id="text5331"
+       y="152.06755"
+       x="-804.00079"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-weight:bold"
+         y="152.06755"
+         x="-804.00079"
+         id="tspan5333">Modelspec</tspan></text>
+    <text
+       id="text5339"
+       y="196.45952"
+       x="-1070.802"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="196.45952"
+         x="-1070.802"
+         id="tspan5341">A modelspec completely defines the input-output</tspan><tspan
+         id="tspan5345"
+         y="233.95952"
+         x="-1070.802">'black box' model that is run by the evaluator.</tspan></text>
+    <text
+       id="text5339-1"
+       y="524.55737"
+       x="-391.16507"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         id="tspan5345-9"
+         y="524.55737"
+         x="-391.16507">The evaluator runs the modelspec</tspan><tspan
+         id="tspan5372"
+         y="562.05737"
+         x="-391.16507">on the data to make a prediction.</tspan></text>
+    <g
+       transform="translate(-111.42858,14.285715)"
+       id="g5554">
+      <rect
+         style="fill:none;stroke:#000000;stroke-width:5.32503605;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         id="rect3716-2"
+         width="445.71582"
+         height="211.36046"
+         x="566.99304"
+         y="446.21085" />
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         x="711.52618"
+         y="490.07187"
+         id="text3720-6-2"><tspan
+           id="tspan3722-1-8"
+           x="711.52618"
+           y="490.07187"
+           style="font-weight:bold">Metric</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         x="582.27936"
+         y="630.87122"
+         id="text4215"><tspan
+           id="tspan4217"
+           x="582.27936"
+           y="630.87122"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'">error = MSE(resp, pred)</tspan></text>
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         x="608.84686"
+         y="538.8537"
+         id="text5339-1-3"><tspan
+           x="608.84686"
+           y="538.8537"
+           id="tspan5372-0">Metrics return the &quot;error&quot;</tspan><tspan
+           x="608.84686"
+           y="576.3537"
+           id="tspan5399">between resp and pred.</tspan><tspan
+           x="608.84686"
+           y="613.8537"
+           id="tspan5397" /></text>
+    </g>
+    <text
+       id="text5407"
+       y="899.31665"
+       x="-893.65894"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         id="tspan5425"
+         y="899.31665"
+         x="-893.65894">A fitter evaluates the costfn() one or more times on perturbations</tspan><tspan
+         id="tspan5415"
+         y="936.81665"
+         x="-893.65894">of sigma until the termination condition is met. It then returns</tspan><tspan
+         id="tspan5433"
+         y="974.31665"
+         x="-893.65894">the sigma it found with the lowest cost. </tspan></text>
+    <text
+       id="text5449"
+       y="587.88806"
+       x="-2539.3735"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-weight:bold"
+         y="587.88806"
+         x="-2539.3735"
+         id="tspan5451">Segmentor</tspan></text>
+    <rect
+       style="fill:none;stroke:#000000;stroke-width:5.32503605;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       id="rect3716-2-93-7"
+       width="712.00964"
+       height="245.32408"
+       x="-2959.6636"
+       y="792.36902" />
+    <text
+       id="text5476"
+       y="50.745235"
+       x="-1027.9446"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="50.745235"
+         x="-1027.9446"
+         id="tspan5478">A costfn computes the error between the model prediction and the true response.</tspan></text>
+    <text
+       id="text4725-0"
+       y="638.20001"
+       x="-2896.5503"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         id="tspan5588"
+         y="638.20001"
+         x="-2896.5503">The data segmentor selects a subset of the data set, such</tspan><tspan
+         id="tspan8975"
+         y="675.70001"
+         x="-2896.5503">as for jackknifed n-fold cross validation, or fitting a model</tspan><tspan
+         id="tspan5592"
+         y="713.20001"
+         x="-2896.5503">to only the data with specific experimental conditions. </tspan></text>
+    <rect
+       style="fill:none;stroke:#000000;stroke-width:5.32503605;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       id="rect3716-2-93-7-3"
+       width="932.00977"
+       height="202.46695"
+       x="-2926.8066"
+       y="545.22614" />
+    <text
+       id="text6501-8-2-0-3-3-5"
+       y="-175.64319"
+       x="-2993.7214"
+       style="font-style:normal;font-weight:normal;font-size:40px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="-175.64319"
+         x="-2993.7214"
+         id="tspan6503-5-4-6-6-1-4" /><tspan
+         id="tspan3945-9-2"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="-138.14319"
+         x="-2993.7214">[modelspec, ...] = some_very_complex_function(data, initial_modelspec)</tspan><tspan
+         id="tspan14482-9-4-4"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="-100.64319"
+         x="-2993.7214" /><tspan
+         id="tspan14448-3-7-9"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="-63.143188"
+         x="-2993.7214" /><tspan
+         id="tspan7231-9-0-9-6-8-9"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="-25.643188"
+         x="-2993.7214" /><tspan
+         id="tspan7227-9-1-0-0-4-9"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="11.856812"
+         x="-2993.7214" /><tspan
+         id="tspan7225-8-2-8-6-5-4"
+         y="49.356812"
+         x="-2993.7214" /><tspan
+         id="tspan7223-0-0-3-2-0-9"
+         y="86.856812"
+         x="-2993.7214" /></text>
+    <text
+       id="text7360"
+       y="-186.39761"
+       x="-2510.8018"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-weight:bold"
+         y="-186.39761"
+         x="-2510.8018"
+         id="tspan7362">Analysis</tspan><tspan
+         style="font-weight:bold"
+         id="tspan7364"
+         y="-148.89761"
+         x="-2510.8018" /></text>
+    <rect
+       y="-240.17172"
+       x="-3039.5588"
+       height="1521.8341"
+       width="4186.0869"
+       id="rect3716-2-9-8"
+       style="fill:none;stroke:#000000;stroke-width:5.32503605;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       id="text7385"
+       y="627.88812"
+       x="-3225.0874"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-weight:bold"
+         y="627.88812"
+         x="-3225.0874"
+         id="tspan7387">Data Set</tspan></text>
+    <path
+       id="path4270-5-7-7-3-1-3"
+       d="m -4143.2854,646.3452 1190.0542,6.06092"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54330707;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker7171-0-4-1)" />
+    <text
+       id="text7385-3"
+       y="868.73334"
+       x="-3131.8425"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         id="tspan8017"
+         style="font-weight:bold;text-align:center;text-anchor:middle"
+         y="868.73334"
+         x="-3131.8425">Initial</tspan><tspan
+         id="tspan8021"
+         style="font-weight:bold;text-align:center;text-anchor:middle"
+         y="906.23334"
+         x="-3131.8425">Modelspec</tspan></text>
+    <path
+       id="path4270-5-7-7-3-1-3-6"
+       d="m -3236.5159,939.31674 258.6935,0"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54330707;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker7171-0-4-1-1)" />
+    <path
+       id="path4270-5-7-7-3-1-3-6-2"
+       d="m 1128.0557,245.03103 258.6935,0"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54330707;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker7171-0-4-1-1-1)" />
+    <text
+       id="text8969"
+       y="602.17383"
+       x="-836.51617"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="602.17383"
+         x="-836.51617"
+         id="tspan8971">j</tspan></text>
+    <text
+       id="text5339-2"
+       y="294.55737"
+       x="1165.9779"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         id="tspan9366"
+         y="294.55737"
+         x="1165.9779">A list of modelspecs</tspan><tspan
+         id="tspan9374"
+         y="332.05737"
+         x="1165.9779">is returned. Returning a</tspan><tspan
+         id="tspan9380"
+         y="369.55737"
+         x="1165.9779">list of a single modelspec</tspan><tspan
+         id="tspan9382"
+         y="407.05737"
+         x="1165.9779">is acceptable for EM or </tspan><tspan
+         id="tspan9384"
+         y="444.55737"
+         x="1165.9779">MAP models; CV or swarm</tspan><tspan
+         id="tspan9386"
+         y="482.05737"
+         x="1165.9779">models may return a long</tspan><tspan
+         id="tspan9388"
+         y="519.55737"
+         x="1165.9779">list of modelspecs</tspan></text>
+    <path
+       id="path4270-5-7-7-3-1-3-8"
+       d="m -2283.3628,1116.0229 c -162.9295,-11.1918 -420.478,95.9145 16.2569,123.2386"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54330707;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker7171-0-4-1-7)" />
+    <text
+       id="text12203"
+       y="1091.7792"
+       x="-2265.9492"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         id="tspan12211"
+         y="1091.7792"
+         x="-2265.9492">(It is common to use a modelspec</tspan><tspan
+         id="tspan12215"
+         y="1129.2792"
+         x="-2265.9492">from a previous fitting round)</tspan></text>
+    <text
+       id="text5449-0"
+       y="875.6239"
+       x="-3636.5459"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-weight:bold"
+         y="875.6239"
+         x="-3636.5459"
+         id="tspan5451-3">Initializer</tspan></text>
+    <text
+       id="text4725-0-5"
+       y="921.89526"
+       x="-3817.9561"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         id="tspan5592-0"
+         y="921.89526"
+         x="-3817.9561">An initializer uses the data set</tspan><tspan
+         id="tspan12410"
+         y="959.39526"
+         x="-3817.9561">dimensionality and a list of keywords</tspan><tspan
+         id="tspan12418"
+         y="996.89526"
+         x="-3817.9561">to produce an initial modelspec. </tspan></text>
+    <rect
+       style="fill:none;stroke:#000000;stroke-width:5.32503605;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       id="rect3716-2-93-7-3-9"
+       width="608.76086"
+       height="198.42639"
+       x="-3852.2529"
+       y="832.96198" />
+    <text
+       id="text7385-9"
+       y="616.61877"
+       x="-4152.5542"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-weight:bold"
+         y="616.61877"
+         x="-4152.5542"
+         id="tspan7387-8">Data Set</tspan></text>
+    <path
+       id="path4270-5-7-7-12"
+       d="m -4132.4864,645.67444 c 351.9367,-5.3942 -111.4367,221.63544 268.0433,232.10441"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54330707;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker7171-2)" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       x="-4202.6689"
+       y="932.03149"
+       id="text13338"><tspan
+         id="tspan13340"
+         x="-4202.6689"
+         y="932.03149"
+         style="font-weight:bold">Model Keywords</tspan></text>
+    <path
+       id="path4270-5-7-7-3-1-3-6-6"
+       d="m -4208.5743,994.75536 339.5353,0"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:4.05936909;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker7171-0-4-1-1-0)" />
+    <text
+       id="text4250"
+       y="-194.62337"
+       x="-4168.1807"
+       style="font-style:normal;font-weight:normal;font-size:31.90376663px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         id="tspan4254"
+         y="-194.62337"
+         x="-4168.1807">HTTP, Jerbs, DAT, DB, S3, etc</tspan><tspan
+         id="tspan7163"
+         y="-154.74365"
+         x="-4168.1807" /></text>
+    <text
+       id="text4260"
+       y="0.63818407"
+       x="-4072.8"
+       style="font-style:normal;font-weight:normal;font-size:31.90376663px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="0.63818407"
+         x="-4072.8"
+         id="tspan4262">CSV + JSON file</tspan><tspan
+         id="tspan5165"
+         y="40.517891"
+         x="-4072.8">pairs on disk</tspan></text>
+    <text
+       id="text4264"
+       y="-131.49524"
+       x="-3788.8677"
+       style="font-style:normal;font-weight:normal;font-size:31.90376663px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="text-align:center;text-anchor:middle"
+         id="tspan4268"
+         y="-131.49524"
+         x="-3788.8677">Any transfer method</tspan></text>
+    <path
+       id="path4270"
+       d="m -3963.226,-165.33432 0,127.299308"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.82612109;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       id="path4270-5"
+       d="m -3761.6885,8.1493902 327.1108,0"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.82612109;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       id="text6115"
+       y="-17.087036"
+       x="-3760.1917"
+       style="font-style:normal;font-weight:normal;font-size:31.90376663px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:27.91579437px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="-17.087036"
+         x="-3760.1917"
+         id="tspan6117">nems.Signal.load()</tspan></text>
+    <ellipse
+       ry="61.232578"
+       rx="181.28065"
+       cy="8.6951246"
+       cx="-3954.3633"
+       id="path6499"
+       style="fill:none;stroke:#000000;stroke-width:2.82612109;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       id="text6501"
+       y="448.60287"
+       x="-3863.3203"
+       style="font-style:normal;font-weight:normal;font-size:31.90376663px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:23.92782402px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="448.60287"
+         x="-3863.3203"
+         id="tspan6503">sigs = {'stim': &lt;SignalObj&gt;, </tspan><tspan
+         id="tspan7229"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:23.92782402px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="478.51266"
+         x="-3863.3203">        'resp': &lt;SignalObj&gt;,</tspan><tspan
+         id="tspan7231"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:23.92782402px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="508.42242"
+         x="-3863.3203">        'pupil': &lt;SignalObj&gt;}   </tspan><tspan
+         id="tspan7227"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="538.33221"
+         x="-3863.3203" /><tspan
+         id="tspan7225"
+         y="568.242"
+         x="-3863.3203" /><tspan
+         id="tspan7223"
+         y="598.15179"
+         x="-3863.3203" /></text>
+    <rect
+       y="-39.646404"
+       x="-3439.5264"
+       height="117.631"
+       width="240.09616"
+       id="rect6505"
+       style="fill:none;stroke:#000000;stroke-width:2.82612109;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       id="text6507"
+       y="8.6951246"
+       x="-3423.4126"
+       style="font-style:normal;font-weight:normal;font-size:31.90376663px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="8.6951246"
+         x="-3423.4126"
+         id="tspan6509">Signal Obj</tspan><tspan
+         id="tspan6763"
+         y="48.574833"
+         x="-3423.4126">(Neural Resp)</tspan></text>
+    <text
+       id="text4260-9"
+       y="133.57738"
+       x="-4076.8286"
+       style="font-style:normal;font-weight:normal;font-size:31.90376663px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="133.57738"
+         x="-4076.8286"
+         id="tspan4262-1">CSV + JSON file</tspan><tspan
+         id="tspan5165-2"
+         y="173.45709"
+         x="-4076.8286">pairs on disk</tspan></text>
+    <path
+       id="path4270-5-7"
+       d="m -3765.717,141.08854 327.1109,0"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.82612109;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <ellipse
+       ry="61.232578"
+       rx="181.28065"
+       cy="141.63432"
+       cx="-3958.3921"
+       id="path6499-3"
+       style="fill:none;stroke:#000000;stroke-width:2.82612109;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <rect
+       y="93.292786"
+       x="-3443.5549"
+       height="117.631"
+       width="240.09616"
+       id="rect6505-6"
+       style="fill:none;stroke:#000000;stroke-width:2.82612109;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       id="text6507-0"
+       y="138.41151"
+       x="-3424.2183"
+       style="font-style:normal;font-weight:normal;font-size:31.90376663px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="138.41151"
+         x="-3424.2183"
+         id="tspan6509-6">Signal Obj</tspan><tspan
+         id="tspan6763-2"
+         y="178.29123"
+         x="-3424.2183">(Pupil Data)</tspan></text>
+    <text
+       id="text4260-9-0"
+       y="266.56934"
+       x="-4077.6255"
+       style="font-style:normal;font-weight:normal;font-size:31.90376663px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="266.56934"
+         x="-4077.6255"
+         id="tspan4262-1-2">CSV + JSON file</tspan><tspan
+         id="tspan5165-2-3"
+         y="306.44904"
+         x="-4077.6255">pairs on disk</tspan></text>
+    <path
+       id="path4270-5-7-7-56"
+       d="m -3766.5136,274.08052 327.111,0"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.82612109;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <rect
+       y="226.28473"
+       x="-3444.3513"
+       height="117.631"
+       width="240.09616"
+       id="rect6505-6-2"
+       style="fill:none;stroke:#000000;stroke-width:2.82612109;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       id="text6507-0-2"
+       y="271.40353"
+       x="-3425.0149"
+       style="font-style:normal;font-weight:normal;font-size:31.90376663px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="271.40353"
+         x="-3425.0149"
+         id="tspan6509-6-8">Signal Obj</tspan><tspan
+         id="tspan6763-2-9"
+         y="311.28323"
+         x="-3425.0149">(Stimulus)</tspan></text>
+    <text
+       transform="matrix(0,1,-1,0,0,0)"
+       id="text6972-7"
+       y="3966.4749"
+       x="354.38474"
+       style="font-style:normal;font-weight:normal;font-size:31.90376663px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-size:71.78347015px"
+         y="3966.4749"
+         x="354.38474"
+         id="tspan6974-3">...</tspan></text>
+    <text
+       transform="matrix(0,1,-1,0,0,0)"
+       id="text6972-6-6"
+       y="3340.0344"
+       x="360.44754"
+       style="font-style:normal;font-weight:normal;font-size:31.90376663px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-size:71.78347015px"
+         y="3340.0344"
+         x="360.44754"
+         id="tspan6974-1-1">...</tspan></text>
+    <ellipse
+       ry="61.232578"
+       rx="181.28065"
+       cy="268.12784"
+       cx="-3956.7805"
+       id="path6499-3-2"
+       style="fill:none;stroke:#000000;stroke-width:2.82612109;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       transform="matrix(0,-1,1,0,0,0)"
+       id="text7159"
+       y="-4157.5034"
+       x="-426.86554"
+       style="font-style:normal;font-weight:normal;font-size:31.90376663px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="-4157.5034"
+         x="-426.86554"
+         id="tspan7161">Local data lives in /signals directory</tspan></text>
+    <path
+       id="path4270-5-7-7-2"
+       d="m -3191.528,289.07586 c 54.7673,1.77238 227.8746,146.654 -196.4273,149.36292 -14.9629,0.0955 -43.4752,-0.57367 -59.7826,-1.11562"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.82612109;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       id="path4270-5-7-7-2-7"
+       d="m -3197.8339,176.42194 c 56.38,1.82458 333.2246,342.83473 -236.8733,323.88812"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.82612109;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       id="path4270-5-7-7-2-1"
+       d="m -3191.3884,47.51125 c 56.38,1.824576 284.4389,478.6352 -244.9302,418.95974"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:2.82612109;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <text
+       id="text11779"
+       y="371.54388"
+       x="-3726.2068"
+       style="font-style:normal;font-weight:normal;font-size:31.90376663px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-weight:bold"
+         y="371.54388"
+         x="-3726.2068"
+         id="tspan11781">Data Set</tspan></text>
+    <text
+       id="text6115-5"
+       y="113.05909"
+       x="-3758.2922"
+       style="font-style:normal;font-weight:normal;font-size:31.90376663px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:27.91579437px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="113.05909"
+         x="-3758.2922"
+         id="tspan6117-5">nems.Signal.load()</tspan></text>
+    <text
+       id="text6115-5-6"
+       y="254.86079"
+       x="-3761.5149"
+       style="font-style:normal;font-weight:normal;font-size:31.90376663px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:27.91579437px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="254.86079"
+         x="-3761.5149"
+         id="tspan6117-5-0">nems.Signal.load()</tspan></text>
+    <path
+       id="path4270-5-7-7-12-1"
+       d="m -3862.3189,450.37732 c -333.7776,-5.3942 -402.8654,195.92117 -237.671,194.96157"
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54330707;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker7171-2-2)" />
+    <text
+       id="text6501-8-2-0-3-3-5-2"
+       y="932.61334"
+       x="-4198.4351"
+       style="font-style:normal;font-weight:normal;font-size:40px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="932.61334"
+         x="-4198.4351"
+         id="tspan6503-5-4-6-6-1-4-7" /><tspan
+         id="tspan3945-9-2-0"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="970.11334"
+         x="-4198.4351">wc2_fir30_dexp</tspan><tspan
+         id="tspan14482-9-4-4-9"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="1007.6133"
+         x="-4198.4351" /><tspan
+         id="tspan14448-3-7-9-3"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="1045.1133"
+         x="-4198.4351" /><tspan
+         id="tspan7231-9-0-9-6-8-9-6"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:30px;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="1082.6133"
+         x="-4198.4351" /><tspan
+         id="tspan7227-9-1-0-0-4-9-0"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono'"
+         y="1120.1133"
+         x="-4198.4351" /><tspan
+         id="tspan7225-8-2-8-6-5-4-6"
+         y="1157.6133"
+         x="-4198.4351" /><tspan
+         id="tspan7223-0-0-3-2-0-9-2"
+         y="1195.1133"
+         x="-4198.4351" /></text>
+    <text
+       id="text23310"
+       y="1131.4471"
+       x="-143.304"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-size:22.50000191px"
+         y="1131.4471"
+         x="-143.304"
+         id="tspan23312">Time exceeded?</tspan><tspan
+         style="font-size:22.50000191px"
+         id="tspan23314"
+         y="1159.5721"
+         x="-143.304">Too many steps?</tspan><tspan
+         style="font-size:22.50000191px"
+         id="tspan23320"
+         y="1187.6971"
+         x="-143.304">Stepsize too small?</tspan><tspan
+         style="font-size:22.50000191px"
+         id="tspan23318"
+         y="1215.8221"
+         x="-143.304">Error change too small?</tspan></text>
+    <text
+       id="text24127"
+       y="620.30981"
+       x="1163.8335"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="620.30981"
+         x="1163.8335"
+         id="tspan24129">You may save the modelspecs,</tspan><tspan
+         id="tspan24155"
+         y="657.80981"
+         x="1163.8335">plot their predicitons on this data</tspan><tspan
+         id="tspan10447"
+         y="695.30981"
+         x="1163.8335">or other data sets, or send them </tspan><tspan
+         id="tspan10441"
+         y="732.80981"
+         x="1163.8335">to a database somewhere using</tspan><tspan
+         id="tspan10443"
+         y="770.30981"
+         x="1163.8335">HTTP. The modelspecs are all</tspan><tspan
+         id="tspan10445"
+         y="807.80981"
+         x="1163.8335">JSONs so this should be trivial.</tspan></text>
+    <g
+       transform="translate(797.39409,848.38382)"
+       id="g4129-9-5">
+      <path
+         style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3.54330707;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker7171-6-3)"
+         d="m -1749.6577,105.84053 c -660.436,-34.788409 -727.8138,43.95473 -962.968,108.81403"
+         id="path4270-5-7-7-5-9" />
+    </g>
+    <text
+       id="text15690"
+       y="410.93637"
+       x="-3857.9495"
+       style="font-style:normal;font-weight:normal;font-size:30px;line-height:125%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         y="410.93637"
+         x="-3857.9495"
+         id="tspan15692">Actually a &quot;Recording&quot; object</tspan></text>
+  </g>
+</svg>
