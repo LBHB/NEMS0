@@ -21,6 +21,13 @@ Finally, if for some reason they are not installed already, you will also need t
 pip install requests numpy scipy matplotlib pandas
 ```
 
+Alternatively, you may use pip to automatically install all libraries specified as required by NEMS.
+
+```
+# Where 'NEMS' refers to the name of the directory containing the installation
+pip install -e NEMS 
+```
+
 ## Your First Model Fit
 
 You may test if everything is working by telling NEMS to download some sample auditory stimulus-response data, use a simple linear-nonlinear model (which should taking about 2 minutes to fit), and then save the results locally:
