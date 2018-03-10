@@ -16,11 +16,3 @@ source activate nemsenv
 pip install -e nems
 
 ```
-
-I (Ivar) had bad luck using conda to install packages in the environment before activating the environment. This should have worked but did not:
-
-```
-conda install numpy scipy pandas matplotlib 
-```
-
-This is probably due to my inexperience with conda. The workaround is simply to use `pip` to install once I was in the conda environment.
