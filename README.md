@@ -62,6 +62,7 @@ This documentation is a work in progress as of March 9, 2018.
 4. Fitting your Models
    - [Priors](docs/priors.md) -- TODO
    - [Fitters](docs/fitters.md) -- TODO
+   - [Xforms](docs/xforms.md)
 5. Detailed Guides
    - [Architectural Diagram](docs/architecture.svg)
    - Creating your own modules
@@ -71,3 +72,5 @@ This documentation is a work in progress as of March 9, 2018.
    - [How To Contribute](docs/contributing.md)
    - [Design Discussion Archive](docs/discussions.md)
    - [Development History](docs/history.md)
+7. Other
+   - [NGINX Caching](docs/nginx.md)
