@@ -1,10 +1,13 @@
 # Fitters
 
+To keep fitters as simple and re-useable as possible, they should only require `sigma` (some representatio of a point in fit-space, like a vector) and `cost_fn` (some function for determining error based on sigma) as arguments. This keeps fitter functions from needing to know anything about the model architecture, and ensures easy compatibility with popular fitting packages like scipy.minimize.
+Any additional functionality related to fitting, such as only fitting certain subsets of data or using a different fitter for a specific module, should be handled by an analysis (for a generalizeable function) or a script (for a very specific problem) as appropriate.
+
 ## Termination Conditions
 
 The termination conditions fitters are usually pretty similar, so we placed some generic termination condition functions in `fitters/termination_conditions.py`. Most fitters will have similar conditions for when to stop the fitting process: when the elapsed time, step size, or error delta reaches some value.
 
-Termination condition functions should take in a step_info dict and return a boolean. If more than one condition should be checked, fitters may combine more than one permination conditions using the appropriate `and` or `or` expressions and a lambda function.
+Termination condition functions should take in a step_info dict and return a boolean. If more than one condition should be checked, fitters may combine more than one termination conditions using the appropriate `and` or `or` expressions and a lambda function.
 
 For example, many fitters look like:
 
@@ -19,12 +22,12 @@ def my_fitter(sigma, cost_fn):
 
     while not stop_fit():
         better_sigma = ...     # Find a better sigma somehow
-        sigma = better_sigma 
+        sigma = better_sigma
         err = cost_fn(sigma=sigma)
         update_stepinfo(err=err, sigma=sigma)
 
     return sigma
-``` 
+```
 
 ### Conventions for Termination Conditions
 

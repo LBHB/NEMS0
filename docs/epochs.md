@@ -61,7 +61,7 @@ A [signal object](signal.md) can use epochs to perform two basic operations:
 * Extract regions of data. For example, perhaps you want to plot the average response to a particular epoch:
 
      torc = signal.extract_epoch('TORC_3983')
-	 average_torc = np.nanmean(torc, axis=0)
+     average_torc = np.nanmean(torc, axis=0)
 
 ## Epoch manipulation
 
@@ -196,7 +196,7 @@ Zero-length epochs are events. They work best with `epochs_contain`:
 
 	# Assume a laser is an event (i.e., a zero-length epoch)
 	laser_pulse = signal.get_epochs('Laser')
-	
+
 	laser_trials = epochs_contain(trials, laser_pulse, mode='start')
 
 They will not work with set operations.
@@ -217,5 +217,5 @@ They will not work with set operations.
 		result = fit_model(est, val, model)
 		result.append(result)
 
-	plot_result(result)	
+	plot_result(result)
 	publish_paper(result)
