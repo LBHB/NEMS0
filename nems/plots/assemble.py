@@ -32,10 +32,6 @@ def get_modelspec_names(modelspecs):
     names = [ms.get_modelspec_name(m) for m in modelspecs]
     return names
 
-def quick_plot():
-    raise NotImplementedError
-    # TODO
-
 def plot_layout(plot_fn_struct):
     '''
     Accepts a list of lists of functions of 1 argument (ax).
