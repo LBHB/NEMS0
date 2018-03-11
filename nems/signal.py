@@ -46,12 +46,10 @@ class Signal:
         self.ntimes = T
 
         # Cached properties for speed; their use is however optional
-        # TODO: Can these be made lazy? There is actually a big performance hit in precalculating these
-        #self.channel_max = np.nanmax(self._matrix, axis=-1, keepdims=True)
-        #self.channel_min = np.nanmin(self._matrix, axis=-1, keepdims=True)
-        #self.channel_mean = np.nanmean(self._matrix, axis=-1, keepdims=True)
-        #self.channel_var = np.nanvar(self._matrix, axis=-1, keepdims=True)
-        #self.channel_std = np.nanstd(self._matrix, axis=-1, keepdims=True)
+        # TODO: Can these be made lazy? There is actually a big
+        # performance hit in precalculating these
+        # For now, don't set until a method needs them.
+        #self._set_cached_props()
 
         if safety_checks and not isinstance(self.name, str):
             m = 'Name of signal must be a string: {}'.format(self.name)
@@ -91,6 +89,17 @@ class Signal:
 
         # not implemented yet in epoch.py -- 2/4/2018f
         # verify_epoch_integrity(self.epochs)
+
+    def _set_cached_props(self):
+        """Sets channel_max, channel_min, channel_mean, channel_var,
+        and channel_std.
+
+        """
+        self.channel_max = np.nanmax(self._matrix, axis=-1, keepdims=True)
+        self.channel_min = np.nanmin(self._matrix, axis=-1, keepdims=True)
+        self.channel_mean = np.nanmean(self._matrix, axis=-1, keepdims=True)
+        self.channel_var = np.nanvar(self._matrix, axis=-1, keepdims=True)
+        self.channel_std = np.nanstd(self._matrix, axis=-1, keepdims=True)
 
     def as_file_streams(self, fmt='%.18e'):
         '''
@@ -248,7 +257,7 @@ class Signal:
         Returns a copy of this signal.
         '''
         return copy.copy(self)
-    
+
     def _modified_copy(self, data, **kwargs):
         '''
         For internal use when making various immutable copies of this signal.
@@ -262,6 +271,11 @@ class Signal:
         Returns a copy of this signal with each channel normalized to have a
         mean of 0 and standard deviation of 1.
         '''
+        # TODO: this is a workaround/hack until a less expensive
+        #       method for calculating these is available.
+        if not (hasattr(self, 'channel_mean')
+                and hasattr(self, 'channel_std')):
+            self._set_cached_props()
         m = self._matrix
         m_normed = (m - self.channel_mean) / self.channel_std
         return self._modified_copy(m_normed)
@@ -271,6 +285,12 @@ class Signal:
         Returns a copy of this signal with each channel normalized to the range
         [-1, 1]
         '''
+        # TODO: this is a workaround/hack until a less expensive
+        #       method for calculating these is available.
+        if not (hasattr(self, 'channel_max')
+                and hasattr(self, 'channel_std')
+                and hasattr(self, 'channel_max')):
+            self._set_cached_props()
         m = self._matrix
         ptp = self.channel_max - self.channel_mean
         m_normed = (m - self.channel_min) / ptp - 1

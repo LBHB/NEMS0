@@ -62,8 +62,8 @@ rec = Recording.load("http://potoroo/baphy/271/bbl086b-11-1")
 #names = ['stim', 'resp', 'reference']
 # a list of keyword arguments for each signal,
 # such as channel names or epochs (also optional)
-#kwargs = [{'chans': ['2 kHz', '4 kHz', '8 kHz']},
-#          {'chans': ['Spike Rate']},
+#kwargs = [{'chans': ['2kHz', '4kHz', '8kHz']},
+#          {'chans': ['spike_rate']},
 #          {'meta': {'experiment': 'oddball_2'}}]
 #rec = Recording.load_from_arrays(arrays, rec_name, fs, sig_names=names,
 #                                 signal_kwargs = kwargs)
