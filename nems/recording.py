@@ -8,6 +8,7 @@ import requests
 import pandas as pd
 import numpy as np
 import copy
+
 from nems.uri import local_uri, http_uri, targz_uri
 import nems.epoch as ep
 from .signal import Signal
@@ -171,7 +172,6 @@ class Recording:
         obj = io.BytesIO(r.raw.read()) # Not sure why I need this!
         return Recording.load_from_targz_stream(obj)
 
-    # TODO: This needs tests!
     @staticmethod
     def load_from_arrays(arrays, rec_name, fs, sig_names=None,
                          signal_kwargs={}):
