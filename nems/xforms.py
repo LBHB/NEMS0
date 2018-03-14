@@ -153,7 +153,24 @@ def use_all_data_for_est_and_val(rec, **context):
     val = rec
     return {'est': est, 'val': val}
 
+def split_for_jackknife(est, modelspecs=None, njacks=10, IsReload=False, **context):
+    est_out=[]
+    log.info("Generating  {} jackknifes".format(njacks))
+    for i in range(njacks):
+        est_out += [est.jackknife_by_time(njacks, i)]
+        
+    if (not IsReload) and (modelspecs is not None):
+        if len(modelspecs)==1:
+            log.info("Duplicating modelspec {} times".format(njacks))
+            modelspecs_out=[copy.deepcopy(modelspecs[0]) for i in range(njacks)]
+        elif len(modelspecs)==njacks:
+            # assume modelspecs already generated for njacks
+            modelspecs_out=modelspecs
+        else:
+            raise ValueError('modelspecs must be len 1 or njacks')
+    return {'est': est_out, 'modelspecs': modelspecs_out}
 
+            
 def init_from_keywords(keywordstring, IsReload=False, **context):
     if not IsReload:
         modelspec = init.from_keywords(keywordstring)
@@ -195,10 +212,24 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
 def fit_basic(modelspecs, est, IsReload=False, **context):
     ''' A basic fit that optimizes every input modelspec. '''
     if not IsReload:
-        modelspecs = [nems.analysis.api.fit_basic(est,
-                                                  modelspec,
-                                                  fitter=scipy_minimize)[0]
-                      for modelspec in modelspecs]
+        if type(est) is list:
+            # jackknife!
+            modelspecs_out=[]
+            njacks=len(modelspecs)
+            i=0
+            for modelspec,d in zip(modelspecs,est):
+                i+=1
+                log.info("Fitting JK {}/{}".format(i,njacks))
+                modelspecs_out += \
+                        nems.analysis.api.fit_basic(d,
+                                                    modelspec,
+                                                    fitter=scipy_minimize)
+        else:
+            # standard single shot
+            modelspecs = [nems.analysis.api.fit_basic(est,
+                                                      modelspec,
+                                                      fitter=scipy_minimize)[0]
+                          for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
 
 

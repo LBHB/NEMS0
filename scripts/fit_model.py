@@ -14,9 +14,12 @@ def fit_model(recording_uri, modelstring, destination):
                                          'new_signalname': 'resp',
                                          'epoch_regex': '^STIM_'}],
         ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}],
+        ['nems.xforms.average_away_stim_occurrences',{}],
         ['nems.xforms.init_from_keywords', {'keywordstring': modelstring}],
         # ['nems.xforms.set_random_phi',  {}],
+        ['nems.xforms.split_for_jackknife', {'njacks': 5}],
         ['nems.xforms.fit_basic',       {}],
+        # to do: generate val set and merge.
         # ['nems.xforms.add_summary_statistics',    {}],
         ['nems.xforms.plot_summary',    {}],
         # ['nems.xforms.save_recordings', {'recordings': ['est', 'val']}],
@@ -35,8 +38,8 @@ def fit_model(recording_uri, modelstring, destination):
 
 epilog = '''
 examples of valid arguments:
-  recording      http://potoroo/recordings/TAR010c-02-1.tar.gz
-  recording      file:///home/ivar/recordings/
+  recording      http://hyrax/recordings/TAR010c-02-1.tar.gz
+  recording      file:///home/svd/python/nems/recordings/TAR010c-02-1.tar.gz
   modelkwstring  wc18x1_lvl1_fir15x1
   modelkwstring  wc18x1_lvl1_fir15x1_dexp1
   destination    http://potoroo/recordings/
