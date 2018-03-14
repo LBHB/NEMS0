@@ -44,7 +44,16 @@ class Recording:
         '''
         The epochs of a recording is the superset of all signal epochs.
         '''
-        return pd.concat([s.epochs for s in self.signals.values()])
+        # Merge the epochs. Be sure to ignore index since it's just a standard
+        # sequential index for each signal's epoch (e.g., index 1 in signal1 has
+        # no special meaning compared to index 1 in signal2). Drop all
+        # duplicates since we sometimes replicate epochs across signals and
+        # return the sorted values.
+        epoch_set = [s.epochs for s in self.signals.values()]
+        df = pd.concat(epoch_set, ignore_index=True)
+        df.drop_duplicates(inplace=True)
+        df.sort_values('start', inplace=True)
+        return df
 
     # Defining __getitem__ and __setitem__ make recording objects behave
     # like dictionaries when subscripted. e.g. recording['signal_name']
