@@ -18,17 +18,17 @@ import nems.distributions.api
 # a last resort to initialize a module. They do so based only upon the function
 # name rather than a keyword, and so must be 1x1 distributions which can be
 # broadcast to match the array size that is needed.
-default_priors = {'nems.modules.fir.fir_filter':
-                  {'coefficients': ('Normal', {'mu': [0], 'sd': [1]})},
+default_priors = {'nems.modules.fir.basic':
+                  {'coefficients': ('Normal', {'mean': [0], 'sd': [1]})},
 
                   'nems.modules.levelshift.levelshift':
                   {'level': ('Normal', {'mu': [0], 'sd': [10]})},
 
                   'nems.modules.nonlinearity.double_exponential':
-                  {'base': ('Normal', {'mu': [0], 'sd': [1]}),
+                  {'base': ('Normal', {'mean': [0], 'sd': [1]}),
                    'amplitude': ('Normal', {'mu': [0.2], 'sd': [1]}),
-                   'shift': ('Normal', {'mu': [0], 'sd': [1]}),
-                   'kappa': ('Normal', {'mu': [0], 'sd': [0.1]})}}
+                   'shift': ('Normal', {'mean': [0], 'sd': [1]}),
+                   'kappa': ('Normal', {'mean': [0], 'sd': [0.1]})}}
 # TODO: I don't like that this is here. Where to put it? -- Ivar
 
 

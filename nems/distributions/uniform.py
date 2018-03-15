@@ -1,5 +1,5 @@
-import numpy as np
 from scipy import stats
+import numpy as np
 
 from .distribution import Distribution
 
@@ -17,10 +17,15 @@ class Uniform(Distribution):
     '''
 
     def __init__(self, lower, upper):
-        self.lower = np.array(lower)
-        self.upper = np.array(upper)
+        self._lower = np.asarray(lower)
+        self._upper = np.asarray(upper)
 
         # The beauty of using the scipy stats module is it correctly handles
         # scalar and multidimensional arrays of distributions.
-        self.distribution = stats.uniform(loc=self.lower,
-                                          scale=self.upper-self.lower)
+        self.distribution = stats.uniform(loc=self._lower,
+                                          scale=self._upper-self._lower)
+
+    def __repr__(self):
+        lower = self.value_to_string(self._lower)
+        upper = self.value_to_string(self._upper)
+        return 'Uniform({}, {})'.format(lower, upper)
