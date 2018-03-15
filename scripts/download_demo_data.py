@@ -25,17 +25,26 @@ def get_demo_recordings(directory=None, unpack=False):
     specifying unpack=True will instead save them uncompressed
     in a subdirectory.
     '''
-    if directory is None:
+    if not directory:
         directory = os.path.abspath('../recordings')
     if not os.path.exists(directory):
-        os.makedirs(directory)
-        os.chmod(directory, 0o666)
+        try:
+            os.makedirs(directory)
+            os.chmod(directory, 0o666)
+        except PermissionError as e:
+            log.warn("Couldn't write in directory: \n{}\n"
+                     "due to permission issues. Make sure the"
+                     "parent directory grants write permission"
+                     .format(directory))
+            log.exception(e)
+
     names = DEMO_NAMES
     prefix = 'https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/'
     uris = [(prefix + n) for n in names]
     if unpack:
         recs = [Recording.load(uri) for uri in uris]
         for rec in recs:
+            log.info("Saving file at {} in {}".format(rec.uri, directory))
             rec.save_dir(directory)
     else:
         """
@@ -58,21 +67,33 @@ def get_demo_recordings(directory=None, unpack=False):
                 log.info('got response: {}, {}'
                          .format(r.headers, r.status_code))
                 raise Exception('Error loading from uri: {}'.format(uri))
-            with open(local, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=1024):
-                    if chunk:
-                        f.write(chunk)
+
+            try:
+                with open(local, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=1024):
+                        if chunk:
+                            f.write(chunk)
+            except PermissionError as e:
+                log.warn("Couldn't write in directory: \n{}\n"
+                         "due to permission issues. Make sure the "
+                         "parent directory grants write permission."
+                         .format(directory))
+                log.exception(e)
 
 
-# TODO: make this smarter and use argparse? or remove command line
-#       arguments entirely and convert to a utility function for
-#       other demo scripts?
 def main():
-    directory = input("Specify a directory (ENTER for default: ../recordings)")
-    if not directory:
-        directory = None
-    unpack = input("Unpack the data? (TRUE to uncompress, FALSE otherwise)")
-    get_demo_recordings(directory, unpack)
+    import argparse
+    parser = argparse.ArgumentParser('Download NEMS demo data')
+    parser.add_argument(
+        '--directory', type=str, default='',
+        help='Storage location for recordings (nems/recordings/ by default)'
+        )
+    parser.add_argument(
+        '--unpack', action='store_true',
+        help='Recordings compressed by default, set --unpack to decompress'
+        )
+    args = parser.parse_args()
+    get_demo_recordings(args.directory, args.unpack)
 
 
 if __name__ == '__main__':
