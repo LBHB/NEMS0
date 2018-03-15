@@ -1,5 +1,5 @@
-import numpy as np
 from scipy import stats
+import numpy as np
 
 from .distribution import Distribution
 
@@ -32,11 +32,11 @@ class Gamma(Distribution):
         return cls(alpha, beta)
 
     def __init__(self, alpha, beta):
-        self.alpha = np.asarray(alpha)
-        self.beta = np.asarray(beta)
-        self.distribution = stats.gamma(a=self.alpha, scale=1/self.beta)
+        self._alpha = np.asarray(alpha)
+        self._beta = np.asarray(beta)
+        self.distribution = stats.gamma(a=self._alpha, scale=1/self._beta)
 
     def __repr__(self):
-        alpha = self.value_to_string(self.alpha)
-        beta = self.value_to_string(self.beta)
+        alpha = self.value_to_string(self._alpha)
+        beta = self.value_to_string(self._beta)
         return 'Gamma(α={}, β={})'.format(alpha, beta)

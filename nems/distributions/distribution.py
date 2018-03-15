@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 
 class Distribution:
@@ -9,14 +9,11 @@ class Distribution:
 
     @classmethod
     def value_to_string(cls, value):
-        return str(value)
-       # @brad: Do we need this? What's it for? I'm going to let
-       #        concrete classes decide this rather than here. -- Ivar
-        # if value.ndim == 0:
-        #     return 'scalar'
-        # else:
-        #     shape = ', '.join(str(v) for v in value.shape)
-        #     return 'array({})'.format(shape)
+        if value.ndim == 0:
+            return 'scalar'
+        else:
+            shape = ', '.join(str(v) for v in value.shape)
+            return 'array({})'.format(shape)
 
     def mean(self):
         '''
@@ -69,29 +66,29 @@ class Distribution:
         l = [name, d]
         return l
 
-    # TODO: Move to plots.py
-    def plot(self, ax=None, **plot_kw):
-        # Get mi and max percentiles across the full set of priors.
-        prior_min = self.percentile(0.01)
-        prior_max = self.percentile(0.99)
-        x_min = np.min(prior_min)
-        x_max = np.max(prior_max)
+    ## TODO: Move to plots.py
+    #def plot(self, ax=None, **plot_kw):
+    #    # Get mi and max percentiles across the full set of priors.
+    #    prior_min = self.percentile(0.01)
+    #    prior_max = self.percentile(0.99)
+    #    x_min = np.min(prior_min)
+    #    x_max = np.max(prior_max)
 
-        # Create x and reshape so that it broadcasts across all dimensions of
-        # the set of priors.
-        x = np.linspace(x_min, x_max, 1000)
-        x.shape = [x.size] + [1]*len(self.shape)
-        y = self.distribution.pdf(x)
+    #    # Create x and reshape so that it broadcasts across all dimensions of
+    #    # the set of priors.
+    #    x = np.linspace(x_min, x_max, 1000)
+    #    x.shape = [x.size] + [1]*len(self.shape)
+    #    y = self.distribution.pdf(x)
 
-        # Reshape x and y to facilitate plotting
-        x = x.ravel()
-        y.shape = (x.size, -1)
+    #    # Reshape x and y to facilitate plotting
+    #    x = x.ravel()
+    #    y.shape = (x.size, -1)
 
-        if ax is None:
-            figure, ax = plt.subplots(1, 1)
+    #    if ax is None:
+    #        figure, ax = plt.subplots(1, 1)
 
-        ax.plot(x, y, **plot_kw)
-        ax.set_xlabel('Value')
-        ax.set_ylabel('PDF')
+    #    ax.plot(x, y, **plot_kw)
+    #    ax.set_xlabel('Value')
+    #    ax.set_ylabel('PDF')
 
-        return ax
+    #    return ax
