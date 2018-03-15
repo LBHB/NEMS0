@@ -17,7 +17,7 @@ DEMO_NAMES = [
         ]
 
 
-def get_demo_recordings(directory=None, unpack=False):
+def get_demo_recordings(directory, unpack=False):
     '''
     Saves all sample recordings in the LBHB public s3 bucket to
     nems/recordings/, or to the specified directory. By default,
@@ -25,19 +25,6 @@ def get_demo_recordings(directory=None, unpack=False):
     specifying unpack=True will instead save them uncompressed
     in a subdirectory.
     '''
-    if not directory:
-        directory = os.path.abspath('../recordings')
-    if not os.path.exists(directory):
-        try:
-            os.makedirs(directory)
-            os.chmod(directory, 0o666)
-        except PermissionError as e:
-            log.warn("Couldn't write in directory: \n{}\n"
-                     "due to permission issues. Make sure the"
-                     "parent directory grants write permission"
-                     .format(directory))
-            log.exception(e)
-
     names = DEMO_NAMES
     prefix = 'https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/'
     uris = [(prefix + n) for n in names]
@@ -84,9 +71,8 @@ def get_demo_recordings(directory=None, unpack=False):
 def main():
     import argparse
     parser = argparse.ArgumentParser('Download NEMS demo data')
-    parser.add_argument(
-        '--directory', type=str, default='',
-        help='Storage location for recordings (nems/recordings/ by default)'
+    parser.add_argument('directory', type=str, default='.',
+        help='Storage location for recordings (defaults to current directory)',
         )
     parser.add_argument(
         '--unpack', action='store_true',
