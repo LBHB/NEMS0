@@ -40,7 +40,7 @@ logging.info('Loading data...')
 
 # Method #2: Load the data from baphy using the nems_baphy HTTP API:
 # rec = Recording.load("http://potoroo/recordings/TAR010c-18-1.tar.gz")
-rec = Recording.load("http://potoroo/baphy/271/bbl086b-11-1")
+rec = Recording.load("http://hyrax.ohsu.edu:3000/baphy/271/bbl086b-11-1")
 
 # Method #3: Load the data from S3: (TODO)
 # stimfile=("https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/"

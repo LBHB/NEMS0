@@ -27,11 +27,11 @@ def split_to_api_and_fn(mystring):
 
 
 def shrinkage(mH, eH, sigrat=1, thresh=0):
-    """ 
+    """
     apply shrinkage transformation to estimated mean value (mH),
     based on the relative size of the standard error (eH)
     """
-    
+
     smd = np.abs(mH) / (eH + np.finfo(float).eps * (eH == 0)) / sigrat
 
     if thresh:
