@@ -5,7 +5,7 @@ from nems.recording import Recording
 
 log = logging.getLogger(__name__)
 DEMO_NAMES = [
-        'TAR010c-18-1',
+        'TAR010c-18-1', 'eno052d-a1.tgz'
         ]
 
 # TODO: getting 403 response when attempting to access nemspublic through
@@ -17,8 +17,8 @@ def get_demo_recordings(directory=None, unpack=False):
         os.makedirs(directory)
         os.chmod(directory, 0o666)
     names = DEMO_NAMES
-    prefix = 'https://nemspublic.s3.amazonaws.com/recordings/'
-    uris = [(prefix + n + '.tar.gz') for n in names]
+    prefix = 'https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/'
+    uris = [(prefix + n + '.tgz') for n in names]
     if unpack:
         recs = [Recording.load(uri) for uri in uris]
         for rec in recs:
