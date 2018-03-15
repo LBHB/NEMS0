@@ -163,6 +163,8 @@ class Recording:
         r = requests.get(url, stream=True)
         if not (r.status_code == 200 and
                 (r.headers['content-type'] == 'application/gzip' or
+                 r.headers['content-type'] == 'application/x-gzip' or
+                 r.headers['content-type'] == 'application/x-compressed' or
                  r.headers['content-type'] == 'application/x-tar' or
                  r.headers['content-type'] == 'application/x-tgz')):
             log.info('got response: {}, {}'.format(r.headers, r.status_code))
