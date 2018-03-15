@@ -73,6 +73,7 @@ def test_signal_save_load(signal, signal_tmpdir):
 
     # TODO: add a test for the various signal attributes
 
+
 def test_epoch_save_load(signal, signal_tmpdir):
     '''
     Test that epochs save and load properly
@@ -95,11 +96,15 @@ def test_epoch_save_load(signal, signal_tmpdir):
 
 def test_as_continuous(signal):
     assert signal.as_continuous().shape == (3, 200)
+    assert signal.as_continuous(chans=['chan0']).shape == (1, 200)
 
 
 def test_extract_epoch(signal):
     result = signal.extract_epoch('pupil_closed')
     assert result.shape == (2, 3, 45)
+
+    result = signal.extract_epoch('pupil_closed', chans=['chan0'])
+    assert result.shape == (2, 1, 45)
 
 
 def test_trial_epochs_from_occurrences(signal):
@@ -223,9 +228,9 @@ def test_merge_selections(signal):
 
 
 def test_extract_channels(signal):
-    two_sig = signal.extract_channels([0, 1])
+    two_sig = signal.extract_channels(['chan0', 'chan1'])
     assert two_sig.shape == (2, 200)
-    one_sig = signal.extract_channels(2)
+    one_sig = signal.extract_channels(['chan2'])
     assert one_sig.shape == (1, 200)
     recombined = Signal.concatenate_channels([two_sig, one_sig])
     before = signal.as_continuous()

@@ -242,11 +242,24 @@ class Signal:
         else:
             return True
 
-    def as_continuous(self):
+    def as_continuous(self, chans=None):
         '''
-        Return a copy of signal data, as a 2D numpy array (channel x time).
+        Return a copy of signal data as a Numpy array of shape (chans, time).
+
+        Parameters
+        ----------
+        chans : {None, iterable of strings}
+            Names of channels to return. If None, return the full signal. If an
+            iterable of strings, return those channels (in the order specified
+            by the iterable).
         '''
-        return self._matrix.copy()
+        m = self._matrix.copy()
+        if chans is not None:
+            # s is shorthand for slice. Return a 2D array.
+            s = [self.chans.index(c) for c in chans]
+            return m[s]
+        else:
+            return m
 
     def _get_attributes(self):
         md_attributes = ['name', 'chans', 'fs', 'meta', 'recording', 'epochs']
@@ -559,9 +572,6 @@ class Signal:
             if signal.chans:
                 chans.extend(signal.chans)
 
-        #epochs = []
-        #for signal in signals:
-        #    epochs.append(signal.epochs)
         epochs=signals[0].epochs
 
         return Signal(
@@ -580,16 +590,8 @@ class Signal:
         Returns a new signal object containing only the specified
         channel indices.
         '''
-        array = self.as_continuous()
-        if isinstance(chans, int):
-            chans = [chans]
-        c,t = self.shape
-        removals = []
-        for i in range(c):
-            if i not in chans:
-                removals.append(i)
-        new_array = np.delete(array, removals, axis=0)
-        return self._modified_copy(new_array)
+        array = self.as_continuous(chans)
+        return self._modified_copy(array, chans=chans)
 
     def get_epoch_bounds(self, epoch, trim=False, fix_overlap=None):
         '''
@@ -673,9 +675,12 @@ class Signal:
             time.
         '''
         bounds = self.get_epoch_bounds(epoch, trim)
-        return (bounds * self.fs).astype('i')
+        indices = bounds * self.fs
+        # Be sure to round before converting to an integer otherwise an index of
+        # 1.999...999 will get converted to 1 rather than 2.
+        return indices.round().astype('i')
 
-    def extract_epoch(self, epoch):
+    def extract_epoch(self, epoch, chans=None):
         '''
         Extracts all occurances of epoch from the signal.
 
@@ -686,6 +691,10 @@ class Signal:
             extract. If Nx2 array, the first column indicates the start time (in
             seconds) and the second column indicates the end time (in seconds)
             to extract.
+        chans : {None, iterable of strings}
+            Names of channels to return. If None, return the full set of
+            channels.  If an iterable of strings, return those channels (in the
+            order specified by the iterable).
 
         Returns
         -------
@@ -707,10 +716,16 @@ class Signal:
         n_samples = np.max(epoch_indices[:, 1]-epoch_indices[:, 0])
         n_epochs = len(epoch_indices)
 
-        epoch_data = np.full((n_epochs, self.nchans, n_samples), np.nan)
+        data = self.as_continuous(chans)
+        if data.ndim == 1:
+            epoch_data = np.full((n_epochs, n_samples), np.nan)
+        else:
+            n_chans = data.shape[0]
+            epoch_data = np.full((n_epochs, n_chans, n_samples), np.nan)
+
         for i, (lb, ub) in enumerate(epoch_indices):
             samples = ub-lb
-            epoch_data[i, :, :samples] = self._matrix[:, lb:ub]
+            epoch_data[i, ..., :samples] = data[..., lb:ub]
 
         return epoch_data
 
@@ -741,7 +756,7 @@ class Signal:
         epoch_data = self.extract_epoch(epoch)
         return np.nanmean(epoch_data, axis=0)
 
-    def extract_epochs(self, epoch_names):
+    def extract_epochs(self, epoch_names, chans=None):
         '''
         Returns a dictionary of the data matching each element in epoch_names.
 
@@ -750,6 +765,10 @@ class Signal:
         epoch_names : list
             List of epoch names to extract. These will be keys in the result
             dictionary.
+        chans : {None, iterable of strings}
+            Names of channels to return. If None, return the full set of
+            channels.  If an iterable of strings, return those channels (in the
+            order specified by the iterable).
 
         Returns
         -------
@@ -759,7 +778,7 @@ class Signal:
         '''
         # TODO: Update this to work with a mapping of key -> Nx2 epoch
         # structure as well.
-        return {name: self.extract_epoch(name) for name in epoch_names}
+        return {name: self.extract_epoch(name, chans) for name in epoch_names}
 
     def replace_epoch(self, epoch, epoch_data):
         '''
