@@ -994,7 +994,7 @@ class Signal:
         # structure as well.
         new_data = np.full(self.shape, np.nan)
         for epoch_name in list_of_epoch_names:
-            for (lb, ub) in self.get_epoch_indices(epoch_name, trim=True):
+            for (lb, ub) in self.get_epoch_indices(epoch_name):
                 new_data[:, lb:ub] = self._matrix[:, lb:ub]
         if np.all(np.isnan(new_data)):
             raise RuntimeWarning("No matched occurrences for epochs: \n{}\n"
