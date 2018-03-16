@@ -171,7 +171,8 @@ def evaluate(rec, modelspec, start=None, stop=None):
     d = copy.copy(rec)  # About 10x faster & fine if Signals are immutable
     for m in modelspec[start:stop]:
         fn = _lookup_fn_at(m['fn'])
-        kwargs = {**m['fn_kwargs'], **m['phi']}  # Merges both dicts
+        fn_kwargs = m.get('fn_kwargs', {})
+        kwargs = {**fn_kwargs, **m['phi']}  # Merges both dicts
         new_signals = fn(rec=d, **kwargs)
         if type(new_signals) is not list:
             raise ValueError('Fn did not return list of signals: {}'.format(m))
