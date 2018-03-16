@@ -160,7 +160,7 @@ def split_for_jackknife(est, modelspecs=None, njacks=10, IsReload=False, **conte
     for i in range(njacks):
         est_out += [est.jackknife_by_time(njacks, i)]
         val_out += [est.jackknife_by_time(njacks, i, invert=True)]
-        
+
     if (not IsReload) and (modelspecs is not None):
         if len(modelspecs)==1:
             log.info("Duplicating modelspec {} times".format(njacks))
@@ -172,7 +172,7 @@ def split_for_jackknife(est, modelspecs=None, njacks=10, IsReload=False, **conte
             raise ValueError('modelspecs must be len 1 or njacks')
     return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
-            
+
 def init_from_keywords(keywordstring, IsReload=False, **context):
     if not IsReload:
         modelspec = init.from_keywords(keywordstring)
@@ -207,7 +207,7 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
         modelspecs = [nems.initializers.prefit_to_target(
                 est, modelspec, nems.analysis.api.fit_basic, 'levelshift',
                 fitter=scipy_minimize,
-                fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}}) 
+                fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
                 for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
 
@@ -292,9 +292,9 @@ def save_recordings(modelspecs, est, val, **context):
 def add_summary_statistics(modelspecs, est, val, **context):
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
     # TODO: Add statistics to metadata of every modelspec
-    
+
     modelspecs=nems.analysis.api.standard_correlation(est,val,modelspecs)
-    
+
     return {'modelspecs': modelspecs}
 
 
@@ -391,4 +391,4 @@ def save_analysis(destination,
                       data=figure)
     save_resource(base_uri + 'log.txt', data=log)
     save_resource(xfspec_uri, json=xfspec)
-    return {}
+    return {'savepath': base_uri}

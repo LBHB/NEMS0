@@ -122,7 +122,6 @@ defkey_wcg(2)
 
 defkey_fir(10, 1)
 defkey_fir(15, 1)
-defkey_fir(15, 1)
 defkey_fir(18, 1)
 
 
