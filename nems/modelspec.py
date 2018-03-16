@@ -96,9 +96,6 @@ def load_modelspec(uri):
     '''
     Returns a single modelspecs loaded from uri
     '''
-
-    #json_data = open(filepath).read()
-    #ms = json.loads(json_data)
     ms = nems.uri.load_resource(uri)
     return ms
 
