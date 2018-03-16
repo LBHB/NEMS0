@@ -16,6 +16,24 @@ You may request this array using the `.as_continuous()` method of any signal.
 
 A Signal can represent any type of data, such as subject pupil diameter, Local Field Potential (LFP), or a measurement of average neural spike rate during each discrete sampling period. 
 
+## Working with signals
+
+`Signal` objects support basic and label-based indexing, which returns a new `Signal` object. Basic indexing is accessed using the special `Signal.iloc[channel_slice, time_slice]` syntax. You must use integers. For example, to select the first 5 channels and the second set of 25 timepoints:
+```
+trimmed = signal.iloc[:5, 25:50]
+```
+
+In contrast, label-based indexing allows you to select by channel name and/or time. To select the named channels up to (and including) 'chan5' and the timepoints from 1.5 to 2 seconds:
+```
+# Get all channels up to, and including chan5, include only timepoints from 1.5
+# to 2 seconds.
+trimmed = signal.loc[:'chan5', 1.5:2]
+
+# Get only chan5. Include all timepoints.
+trimmed = signal.loc['chan5']
+```
+
+Note that the named-channel slice endpoint *includes* the label. This is in contrast to Python index conventions where endpoints are usually exclusive. The endpoints are exclusive for the basic indexing and time portion of the slice.
 
 ## Loading Signals from files
 

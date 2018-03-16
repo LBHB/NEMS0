@@ -9,10 +9,111 @@ import tempfile
 import copy
 from nems.epoch import remove_overlap, merge_epoch, verify_epoch_integrity
 
+
+class BaseSignalIndexer:
+
+    def __init__(self, obj):
+        self.obj = obj
+
+    def __getitem__(self, index):
+        if isinstance(index, tuple) and len(index) > 2:
+            raise IndexError('Cannot add dimensions')
+
+        # Parse the slice into the channel and time portions
+        if isinstance(index, tuple):
+            c_slice, t_slice = index
+        else:
+            c_slice = index
+            t_slice = slice(None)
+
+        # Make sure the channel and time slices are slices. If they're integers,
+        # that dimension will be dropped. We don't want that as we need to
+        # preserve dimensionality to create a new Signal object, so the parsers
+        # need to return the appropriate dimensionality-preserving slice.
+        c_slice = self._parse_c_slice(c_slice)
+        t_slice = self._parse_t_slice(t_slice)
+
+        data = self.obj.as_continuous()[c_slice, t_slice]
+        chans = np.array(self.obj.chans)[c_slice].tolist()
+        kwattrs = {'chans': chans}
+        if t_slice.start is not None:
+            kwattrs['t0'] = t_slice.start/self.obj.fs
+        return self.obj._modified_copy(data, **kwattrs)
+
+    def _parse_c_slice(self, c_slice):
+        raise NotImplementedError
+
+    def _parse_t_slice(self, t_slice):
+        raise NotImplementedError
+
+
+class SimpleSignalIndexer(BaseSignalIndexer):
+    '''
+    Index-based signal indexer that supports selecting channels and timepoints
+    by index
+    '''
+    def _parse_c_slice(self, c_slice):
+        if isinstance(c_slice, int):
+            c_slice = slice(c_slice, c_slice+1)
+        return c_slice
+
+    def _parse_t_slice(self, t_slice):
+        if isinstance(t_slice, int):
+            t_slice = slice(t_slice, t_slice+1)
+        elif isinstance(t_slice, list):
+            m = 'List-based selection on time-based indexers not supported'
+            raise IndexError(m)
+        return t_slice
+
+
+class LabelSignalIndexer(BaseSignalIndexer):
+    '''
+    Label-based signal indexer that supports selecting by named channels and
+    time (in seconds).
+    '''
+
+    def _parse_t_slice(self, t_slice):
+        if isinstance(t_slice, slice):
+            if t_slice.step is not None:
+                m = 'Strides on time-based indexers not supported'
+                raise IndexError(m)
+            start = None if t_slice.start is None else \
+                int(t_slice.start*self.obj.fs)
+            stop = None if t_slice.stop is None else \
+                int(t_slice.stop*self.obj.fs)
+            return slice(start, stop)
+        elif isinstance(t_slice, (float, int)):
+            t = int(t_slice*self.obj.fs)
+            return slice(t, t+1)
+        elif isinstance(t_slice, list):
+            m = 'List-based selection on time-based indexers not supported'
+            raise IndexError(m)
+
+    def _parse_c_slice(self, c_slice):
+        if isinstance(c_slice, slice):
+            if c_slice.step is not None:
+                m = 'Strides on label-based indexers not supported'
+                raise IndexError(m)
+            start = None if c_slice.start is None else \
+                self.obj.chans.index(c_slice.start)
+            # Note that we add 1 to the label-based index becasue we're
+            # duplicating Pandas loc behavior (where the end of a label slice is
+            # included).
+            stop = None if c_slice.stop is None else \
+                self.obj.chans.index(c_slice.stop)+1
+            return slice(start, stop)
+        elif isinstance(c_slice, str):
+            return [self.obj.chans.index(c_slice)]
+        elif isinstance(c_slice, list):
+            return [self.obj.chans.index(c) for c in c_slice]
+        else:
+            raise IndexError('Slice not understood')
+
+
 class Signal:
 
     def __init__(self, fs, matrix, name, recording, chans=None, epochs=None,
-                 meta=None, safety_checks=True):
+                 t0=0, meta=None, safety_checks=True):
         '''
         Parameters
         ----------
@@ -24,6 +125,10 @@ class Signal:
             denoting the start and end of the time of an epoch (in seconds).
             You may use the same epoch name multiple times; this is common when
             tagging epochs that correspond to occurrences of the same stimulus.
+        t0 : float, default 0
+            Start time of signal relative to the recording you're working with.
+            Typically all signals should start at the same time (i.e. 0
+            seconds); however, this may not always be the case.
         ...
         '''
         self._matrix = matrix
@@ -34,6 +139,11 @@ class Signal:
         self.fs = fs
         self.epochs = epochs
         self.meta = meta
+        self.t0 = t0
+
+        # Install the indexers
+        self.iloc = SimpleSignalIndexer(self)
+        self.loc = LabelSignalIndexer(self)
 
         # Verify that we have a long time series
         (C, T) = self._matrix.shape
@@ -242,7 +352,7 @@ class Signal:
         else:
             return True
 
-    def as_continuous(self, chans=None):
+    def as_continuous(self):
         '''
         Return a copy of signal data as a Numpy array of shape (chans, time).
 
@@ -253,16 +363,11 @@ class Signal:
             iterable of strings, return those channels (in the order specified
             by the iterable).
         '''
-        m = self._matrix.copy()
-        if chans is not None:
-            # s is shorthand for slice. Return a 2D array.
-            s = [self.chans.index(c) for c in chans]
-            return m[s]
-        else:
-            return m
+        return self._matrix.copy()
 
     def _get_attributes(self):
-        md_attributes = ['name', 'chans', 'fs', 'meta', 'recording', 'epochs']
+        md_attributes = ['name', 'chans', 'fs', 'meta', 'recording', 'epochs',
+                         't0']
         return {name: getattr(self, name) for name in md_attributes}
 
     def copy(self):
@@ -590,10 +695,12 @@ class Signal:
         Returns a new signal object containing only the specified
         channel indices.
         '''
-        array = self.as_continuous(chans)
-        return self._modified_copy(array, chans=chans)
+        array = self.as_continuous()
+        # s is shorthand for slice. Return a 2D array.
+        s = [self.chans.index(c) for c in chans]
+        return self._modified_copy(array[s], chans=chans)
 
-    def get_epoch_bounds(self, epoch, trim=False, fix_overlap=None):
+    def get_epoch_bounds(self, epoch, boundary_mode=None, fix_overlap=None):
         '''
         Get boundaries of named epoch.
 
@@ -604,16 +711,20 @@ class Signal:
             extract. If Nx2 array, the first column indicates the start time (in
             seconds) and the second column indicates the end time (in seconds)
             to extract.
-        trim : boolean
-            If True, ensure that epoch boundaries fall within the range of the
-            signal. Epochs with boundaries falling outside the signal range will
-            be truncated. For example, if an epoch runs from -1.5 to 10, it will
-            be truncated to 0 to 10 (all signals start at time 0).
+        boundary_mode : {None, 'exclude', 'trim'}
+            If 'exclude', discard all epochs where the boundaries are not fully
+            contained within the range of the signal. If 'trim', epochs with
+            boundaries falling outside the signal range will be truncated. For
+            example, if an epoch runs from -1.5 to 10, it will be truncated to 0
+            to 10 (all signals start at time 0). If None, return all epochs.
         fix_overlap : {None, 'merge', 'first'}
             Indicates how to handle overlapping epochs. If None, return
             boundaries as-is. If 'merge', merge overlapping epochs into a single
             epoch. If 'first', keep only the first of an overlapping set of
             epochs.
+        complete : boolean
+            If True, eliminate any epochs whose boundaries are not fully
+            contained within the signal.
 
         Returns
         -------
@@ -630,8 +741,15 @@ class Signal:
             mask = self.epochs['name'] == epoch
             bounds = self.epochs.loc[mask, ['start', 'end']].values
 
-        if trim:
-            bounds = np.clip(bounds, 0, self.ntimes*self.fs)
+        if boundary_mode is None:
+            pass
+        elif boundary_mode == 'exclude':
+            m_lb = bounds[:, 0] >= self.t0
+            m_ub = bounds[:, 1] < (self.ntimes*self.fs)
+            m = m_lb & m_ub
+            bounds = bounds[m]
+        elif boundary_mode == 'trim':
+            bounds = np.clip(bounds, self.t0, self.ntimes*self.fs)
 
         if fix_overlap is None:
             pass
@@ -645,7 +763,7 @@ class Signal:
 
         return bounds
 
-    def get_epoch_indices(self, epoch, trim=False):
+    def get_epoch_indices(self, epoch, boundary_mode=None, fix_overlap=None):
         '''
         Get boundaries of named epoch as index.
 
@@ -656,11 +774,12 @@ class Signal:
             extract. If Nx2 array, the first column indicates the start time (in
             seconds) and the second column indicates the end time (in seconds)
             to extract.
-        trim : boolean
-            If True, ensure that epoch boundaries fall within the range of the
-            signal. Epochs with boundaries falling outside the signal range will
-            be truncated. For example, if an epoch runs from -1.5 to 10, it will
-            be truncated to 0 to 10 (all signals start at time 0).
+        boundary_mode : {None, 'exclude', 'trim'}
+            If 'exclude', discard all epochs where the boundaries are not fully
+            contained within the range of the signal. If 'trim', epochs with
+            boundaries falling outside the signal range will be truncated. For
+            example, if an epoch runs from -1.5 to 10, it will be truncated to 0
+            to 10 (all signals start at time 0). If None, return all epochs.
         fix_overlap : {None, 'merge', 'first'}
             Indicates how to handle overlapping epochs. If None, return
             boundaries as-is. If 'merge', merge overlapping epochs into a single
@@ -674,13 +793,13 @@ class Signal:
             first column is the start time and the second column is the end
             time.
         '''
-        bounds = self.get_epoch_bounds(epoch, trim)
-        indices = bounds * self.fs
+        bounds = self.get_epoch_bounds(epoch, boundary_mode, fix_overlap)
+        indices = (bounds-self.t0) * self.fs
         # Be sure to round before converting to an integer otherwise an index of
         # 1.999...999 will get converted to 1 rather than 2.
         return indices.round().astype('i')
 
-    def extract_epoch(self, epoch, chans=None):
+    def extract_epoch(self, epoch):
         '''
         Extracts all occurances of epoch from the signal.
 
@@ -691,10 +810,6 @@ class Signal:
             extract. If Nx2 array, the first column indicates the start time (in
             seconds) and the second column indicates the end time (in seconds)
             to extract.
-        chans : {None, iterable of strings}
-            Names of channels to return. If None, return the full set of
-            channels.  If an iterable of strings, return those channels (in the
-            order specified by the iterable).
 
         Returns
         -------
@@ -708,7 +823,7 @@ class Signal:
         Epochs tagged with the same name may have various lengths. Shorter
         epochs will be padded with NaN.
         '''
-        epoch_indices = self.get_epoch_indices(epoch, trim=True)
+        epoch_indices = self.get_epoch_indices(epoch, boundary_mode='exclude')
         if epoch_indices.size == 0:
             raise IndexError("No matching epochs to extract for: {0}\n"
                              "In signal: {1}"
@@ -716,12 +831,9 @@ class Signal:
         n_samples = np.max(epoch_indices[:, 1]-epoch_indices[:, 0])
         n_epochs = len(epoch_indices)
 
-        data = self.as_continuous(chans)
-        if data.ndim == 1:
-            epoch_data = np.full((n_epochs, n_samples), np.nan)
-        else:
-            n_chans = data.shape[0]
-            epoch_data = np.full((n_epochs, n_chans, n_samples), np.nan)
+        data = self.as_continuous()
+        n_chans = data.shape[0]
+        epoch_data = np.full((n_epochs, n_chans, n_samples), np.nan)
 
         for i, (lb, ub) in enumerate(epoch_indices):
             samples = ub-lb
@@ -756,7 +868,7 @@ class Signal:
         epoch_data = self.extract_epoch(epoch)
         return np.nanmean(epoch_data, axis=0)
 
-    def extract_epochs(self, epoch_names, chans=None):
+    def extract_epochs(self, epoch_names):
         '''
         Returns a dictionary of the data matching each element in epoch_names.
 
@@ -778,7 +890,7 @@ class Signal:
         '''
         # TODO: Update this to work with a mapping of key -> Nx2 epoch
         # structure as well.
-        return {name: self.extract_epoch(name, chans) for name in epoch_names}
+        return {name: self.extract_epoch(name) for name in epoch_names}
 
     def replace_epoch(self, epoch, epoch_data):
         '''
