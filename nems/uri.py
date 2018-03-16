@@ -136,10 +136,16 @@ def load_resource(uri):
             return r.data
     elif local_uri(uri):
         filepath = local_uri(uri)
-        with open(filepath, mode='r') as f:
-            if filepath[-5:] == '.json':
-                resource = jsonlib.load(f)
-            else:
+        try:
+            with open(filepath, mode='r') as f:
+                if filepath[-5:] == '.json':
+                    resource = jsonlib.load(f)
+                else:
+                    resource = f.read()
+        except UnicodeDecodeError:
+            log.warn("Couldn't read file at {}\nTrying in binary mode."
+                     .format(filepath))
+            with open(filepath, mode='rb') as f:
                 resource = f.read()
         return resource
     else:
