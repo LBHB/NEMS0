@@ -154,22 +154,9 @@ def use_all_data_for_est_and_val(rec, **context):
     return {'est': est, 'val': val}
 
 def split_for_jackknife(est, modelspecs=None, njacks=10, IsReload=False, **context):
-    est_out=[]
-    val_out=[]
-    log.info("Generating  {} jackknifes".format(njacks))
-    for i in range(njacks):
-        est_out += [est.jackknife_by_time(njacks, i)]
-        val_out += [est.jackknife_by_time(njacks, i, invert=True)]
-        
-    if (not IsReload) and (modelspecs is not None):
-        if len(modelspecs)==1:
-            log.info("Duplicating modelspec {} times".format(njacks))
-            modelspecs_out=[copy.deepcopy(modelspecs[0]) for i in range(njacks)]
-        elif len(modelspecs)==njacks:
-            # assume modelspecs already generated for njacks
-            modelspecs_out=modelspecs
-        else:
-            raise ValueError('modelspecs must be len 1 or njacks')
+    
+    est_out,val_out,modelspecs_out=preproc.split_est_val_for_jackknife(est, modelspecs=modelspecs, njacks=njacks, IsReload=IsReload)
+    
     return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
             
@@ -219,13 +206,13 @@ def fit_basic(modelspecs, est, IsReload=False, **context):
             modelspecs_out=[]
             njacks=len(modelspecs)
             i=0
-            for modelspec,d in zip(modelspecs,est):
+            for m,d in zip(modelspecs,est):
                 i+=1
                 log.info("Fitting JK {}/{}".format(i,njacks))
                 modelspecs_out += \
-                        nems.analysis.api.fit_basic(d,
-                                                    modelspec,
+                        nems.analysis.api.fit_basic(d,m,
                                                     fitter=scipy_minimize)
+            modelspecs=modelspecs_out
         else:
             # standard single shot
             modelspecs = [nems.analysis.api.fit_basic(est,
@@ -293,9 +280,9 @@ def add_summary_statistics(modelspecs, est, val, **context):
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
     # TODO: Add statistics to metadata of every modelspec
     
-    modelspecs=nems.analysis.api.standard_correlation(est,val,modelspecs)
+    modelspecs,est,val=nems.analysis.api.standard_correlation(est,val,modelspecs)
     
-    return {'modelspecs': modelspecs}
+    return {'modelspecs': modelspecs,'est': est, 'val': val}
 
 
 def plot_summary(modelspecs, val, figures=None, **context):

@@ -140,14 +140,11 @@ def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
 
     return newrec
 
-def generate_psth_from_est_for_both_est_and_val(est, val):
+def generate_psth_from_est_for_both_est_and_val(est,val):
     '''
     Estimates a PSTH from the EST set, and returns two signals based on the
     est and val, in which each repetition of a stim uses the EST PSTH?
     '''
-    # Method #0: Try to guess which stimuli have the most reps, use those for val
-    est = rec.jackknife_by_time(10, 1, invert=False, excise=False)
-    val = rec.jackknife_by_time(10, 1, invert=True, excise=False)
 
     epoch_regex='^STIM_'
     resp_est=est['resp']
@@ -174,21 +171,46 @@ def generate_psth_from_est_for_both_est_and_val(est, val):
     return est, val
 
 
-def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_signalname='state'):
+def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_signalname='state'):    
     
-    # TODO support for signals_permute
-    if len(permute_signals):
-        raise ValueError("permute_signals not yet supported") 
-
     x = np.ones([1,rec[state_signals[0]]._matrix.shape[1]])  # Much faster; TODO: Test if throws warnings
     ones_sig = rec[state_signals[0]]._modified_copy(x)
     ones_sig.name="baseline"
     
-    state=signal.Signal.concatenate_channels([ones_sig]+[rec[x] for x in state_signals])
+    state_sig_list=[ones_sig]
+    print(state_sig_list[-1].shape)
+    for x in state_signals:
+        if x in permute_signals:
+            # TODO support for signals_permute
+            #raise ValueError("permute_signals not yet supported") 
+            state_sig_list+=[rec[x].shuffle_time()]
+            print(state_sig_list[-1].shape)
+        else:
+            state_sig_list+=[rec[x]]
+            
+    state=signal.Signal.concatenate_channels(state_sig_list)
+    
     state.name=new_signalname
     newrec = rec.copy()
     
     newrec.add_signal(state)
 
     return newrec
+
+def split_est_val_for_jackknife(est, modelspecs=None, njacks=10, IsReload=False, **context):
+    est_out=[]
+    val_out=[]
+    for i in range(njacks):
+        est_out += [est.jackknife_by_time(njacks, i)]
+        val_out += [est.jackknife_by_time(njacks, i, invert=True)]
+    modelspecs_out=[]
+    if (not IsReload) and (modelspecs is not None):
+        if len(modelspecs)==1:
+            modelspecs_out=[copy.deepcopy(modelspecs[0]) for i in range(njacks)]
+        elif len(modelspecs)==njacks:
+            # assume modelspecs already generated for njacks
+            modelspecs_out=modelspecs
+        else:
+            raise ValueError('modelspecs must be len 1 or njacks')
+    return est_out, val_out, modelspecs_out
 
