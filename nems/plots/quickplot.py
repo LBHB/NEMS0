@@ -1,5 +1,6 @@
 import importlib
 import logging
+import copy
 
 import matplotlib.pyplot as plt
 
@@ -29,8 +30,6 @@ _FALLBACK = ['nems.plots.quickplot.before_and_after',
 
 # Entries in defaults should have the form:
 #     'module_fn_name': ['plot_fn_name', {arg1=value1, arg2=value2,...}]
-
-# TODO: What about plots based on multiple modules like strf_heatmap?
 _DEFAULTS = {
         'nems.modules.fir.basic': [
                 'nems.plots.quickplot.fir_heatmap_quick',
@@ -98,6 +97,9 @@ def quickplot(rec, modelspec):
     'idx' and 'ax' will additionally be passed to each plot
     function as keyword arguments.
     '''
+    # TODO: add in special checks for plots like strf_heatmap
+    #       that depend on multiple modules?
+
     n = len(modelspec)
     o = len(_PERFORMANCE)
     # expand rows and height based on number of modules
@@ -168,7 +170,9 @@ def _set_to_fallback(key):
     # TODO: take out title stuff? adds a somewhat-hidden
     #       additional kwarg that could cause problems if
     #       plot function doens't allow title argument.
-    entry = _FALLBACK.copy()
+    #       Alternatively, require plot functions to allow
+     #       title argument - not totally unreasonable?
+    entry = copy.deepcopy(_FALLBACK)
     if 'title' not in entry[1].keys():
         entry[1]['title'] = ('Plot: {} for Module: {}'
                              .format(entry[0], key))
