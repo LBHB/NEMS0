@@ -17,10 +17,7 @@ def fit_basic(data, modelspec,
               fitter=scipy_minimize,
               segmentor=nems.segmentors.use_all_data,
               mapper=nems.fitters.mappers.simple_vector,
-              metric=lambda data: nems.metrics.api.nmse(
-                                {'pred': data.get_signal('pred').as_continuous(),
-                                 'resp': data.get_signal('resp').as_continuous()}
-                                ),
+              metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp'),
               metaname='fit_basic', fit_kwargs={}):
     '''
     Required Arguments:

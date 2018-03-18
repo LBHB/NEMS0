@@ -99,7 +99,6 @@ def quickplot(rec, modelspec):
     '''
     # TODO: add in special checks for plots like strf_heatmap
     #       that depend on multiple modules?
-
     n = len(modelspec)
     o = len(_PERFORMANCE)
     # expand rows and height based on number of modules
@@ -171,7 +170,7 @@ def _set_to_fallback(key):
     #       additional kwarg that could cause problems if
     #       plot function doens't allow title argument.
     #       Alternatively, require plot functions to allow
-     #       title argument - not totally unreasonable?
+    #       title argument - not totally unreasonable?
     entry = copy.deepcopy(_FALLBACK)
     if 'title' not in entry[1].keys():
         entry[1]['title'] = ('Plot: {} for Module: {}'
