@@ -18,6 +18,15 @@ def per_channel(x, coefficients):
     Private function used by fir_filter().
     '''
     result = []
+
+    # Make sure the number of input channels (x) match the number FIR filters
+    # provided (we have a separate filter for each channel). The `zip` function
+    # doesn't require the iterables to be the same length.
+    if len(x) != len(coefficients):
+        m = 'Dimension mismatch. Number of channels and filters must match. ' \
+            '{} channels provided for {} FIR filters.'
+        raise ValueError(m.format(len(x), len(coefficients)))
+
     for x, c in zip(x, coefficients):
         # It is slightly more "correct" to use lfilter than convolve at edges, but
         # but also about 25% slower (Measured on Intel Python Dist, using i5-4300M)

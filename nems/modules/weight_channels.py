@@ -37,7 +37,7 @@ def basic(rec, i, o, coefficients):
     return [rec[i].transform(fn, o)]
 
 
-def gaussian(rec, i, o, mean, sd):
+def gaussian(rec, i, o, n_chan_in, mean, sd):
     '''
     Parameters
     ----------
@@ -52,7 +52,6 @@ def gaussian(rec, i, o, mean, sd):
     sd : array-like
         Standard deviation of Gaussian channel weights
     '''
-    n_chan_in = rec[i].nchans
     coefficients = gaussian_coefficients(mean, sd, n_chan_in)
     fn = lambda x: coefficients @ x
     return [rec[i].transform(fn, o)]
