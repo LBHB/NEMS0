@@ -60,10 +60,10 @@ def defkey_wcg(n_inputs, n_outputs):
     '''
     name = 'wcg{}x{}'.format(n_inputs, n_outputs)
 
-    # Generate evenly-spaced filter centers for the starting pints
-    mean = np.arange(n_outputs + 2)/n_outputs
+    # Generate evenly-spaced filter centers for the starting points
+    mean = np.arange(n_outputs + 2)/(n_outputs + 2)
     mean = mean[1:-1]
-    sd = 1/n_outputs
+    sd = np.full_like(mean, 1/n_outputs)
 
     mean_prior_coefficients = {
         'mean': mean,
