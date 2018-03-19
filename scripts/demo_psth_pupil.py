@@ -52,6 +52,19 @@ logging.info('Generating state signal...')
 rec=preproc.make_state_signal(rec,['pupil'],[''],'state')
 
 # ----------------------------------------------------------------------------
+# INITIALIZE MODELSPEC
+
+# GOAL: Define the model that you wish to test
+
+logging.info('Initializing modelspec(s)...')
+
+# Method #1: create from "shorthand" keyword string
+#modelspec = nems.initializers.from_keywords('wcg18x1_fir15x1_lvl1_dexp1')
+modelspec = nems.initializers.from_keywords('stategain2')
+#modelspecs=[copy.deepcopy(modelspec) for x in range(nfolds)]
+modelspecs=[modelspec]
+
+# ----------------------------------------------------------------------------
 # DATA WITHHOLDING
 
 # GOAL: Split your data into estimation and validation sets so that you can
@@ -69,18 +82,6 @@ ests,vals=preproc.generate_psth_from_est_for_both_est_and_val_nfold(ests, vals)
 
 
 
-# ----------------------------------------------------------------------------
-# INITIALIZE MODELSPEC
-
-# GOAL: Define the model that you wish to test
-
-logging.info('Initializing modelspec(s)...')
-
-# Method #1: create from "shorthand" keyword string
-#modelspec = nems.initializers.from_keywords('wcg18x1_fir15x1_lvl1_dexp1')
-modelspec = nems.initializers.from_keywords('stategain2')
-#modelspecs=[copy.deepcopy(modelspec) for x in range(nfolds)]
-modelspecs=[modelspec]
 
 
 # ----------------------------------------------------------------------------
@@ -102,7 +103,7 @@ modelspecs_out = nems.analysis.api.fit_nfold(
 #    logging.info("Fitting JK {}/{}".format(i,nfolds))
 #    modelspecs_out += \
 #        nems.analysis.api.fit_basic(d,m,fitter=scipy_minimize)
-        
+
 modelspecs=modelspecs_out
 
 # ----------------------------------------------------------------------------

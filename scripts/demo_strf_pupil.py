@@ -53,30 +53,29 @@ rec=preproc.make_state_signal(rec,['pupil'],[''],'state')
 
 
 # ----------------------------------------------------------------------------
-# DATA WITHHOLDING
-
-# GOAL: Split your data into estimation and validation sets so that you can
-#       know when your model exhibits overfitting.
-
-logging.info('Withholding validation set data...')
-
-# create all jackknife sets
-nfolds=10
-ests,vals,m=preproc.split_est_val_for_jackknife(rec, modelspecs=None, njacks=nfolds)
-
-
-# ----------------------------------------------------------------------------
 # INITIALIZE MODELSPEC
 
 # GOAL: Define the model that you wish to test
 
-logging.info('Initializing modelspec(s)...')
+logging.info('Initializing modelspec...')
 
 # Method #1: create from "shorthand" keyword string
 #modelspec = nems.initializers.from_keywords('pup_wcg18x1_fir15x1_lvl1_dexp1')
 modelspec = nems.initializers.from_keywords('wcgNx2_fir15x2_lvl1_stategain2')
 #modelspec = nems.initializers.from_keywords('wcgNx2_fir15x2_lvl1')
 #modelspec = nems.initializers.from_keywords('pup_wcg18x2_fir15x2_lvl1_stategain2')
+
+# ----------------------------------------------------------------------------
+# DATA WITHHOLDING
+
+# GOAL: Split your data into estimation and validation sets so that you can
+#       know when your model exhibits overfitting.
+
+logging.info('Generating jackknife sets...')
+
+# create all jackknife sets
+nfolds=3
+ests,vals,m=preproc.split_est_val_for_jackknife(rec, modelspecs=None, njacks=nfolds)
 
 # ----------------------------------------------------------------------------
 # RUN AN ANALYSIS
@@ -99,7 +98,7 @@ for d in ests:
         )
     modelspecs_out += \
         nems.analysis.api.fit_basic(d,m,fitter=scipy_minimize)
-        
+
 modelspecs=modelspecs_out
 
 # ----------------------------------------------------------------------------

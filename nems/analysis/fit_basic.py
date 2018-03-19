@@ -46,11 +46,14 @@ def fit_basic(data, modelspec,
     start_time = time.time()
 
     # Ensure that phi exists for all modules; choose prior mean if not found
+    print('CHECKING PRIORS')
+
     for i, m in enumerate(modelspec):
         if not m.get('phi'):
             log.debug('Phi not found for module, using mean of prior: {}'.format(m))
             m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
             modelspec[i] = m
+        print(m)
 
     # Create the mapper object that translates to and from modelspecs.
     # It has two methods that, when defined as mathematical functions, are:
@@ -122,21 +125,21 @@ def fit_random_subsets(data, modelspec, nsplits=1, rebuild_every=10000):
                      segmentor=segmentor,
                      metaname='fit_random_subsets')
 
-def fit_nfold(data_list, modelspec, fitter=scipy_minimize):
+def fit_nfold(data_list, modelspecs, generate_psth=False, fitter=scipy_minimize):
     '''
     Takes njacks jackknifes, where each jackknife has some small
     fraction of data NaN'd out, and fits modelspec to them.
     '''
     nfolds=len(data_list)
-    if type(modelspec) is not list:
-        modelspecs=[modelspec]*nfolds
-    elif len(modelspec)==1:
-        modelspec=modelspec*nfolds
-        
+#    if type(modelspec) is not list:
+#        modelspecs=[modelspec]*nfolds
+#    elif len(modelspec)==1:
+#        modelspec=modelspec*nfolds
+
     models = []
     for i in range(nfolds):
         log.info("Fitting fold {}/{}".format(i+1, nfolds))
-        models += fit_basic(data_list[i], modelspec[i], fitter=fitter,
+        models += fit_basic(data_list[i], modelspecs[0], fitter=fitter,
                             metaname='fit_nfold')
 
     return models

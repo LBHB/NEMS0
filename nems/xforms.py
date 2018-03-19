@@ -107,7 +107,7 @@ def evaluate(xformspec, context={}, stop=None):
 # Stuff below this line are useful resuable components.
 # See xforms_test.py for how to use it.
 
-
+# loader
 def load_recordings(recording_uri_list, **context):
     '''
     Load one or more recordings into memory given a list of URIs.
@@ -119,12 +119,19 @@ def load_recordings(recording_uri_list, **context):
     return {'rec': rec}
 
 
+# preprocessing
 def add_average_sig(rec, signal_to_average, new_signalname, epoch_regex,
                     **context):
     rec = preproc.add_average_sig(rec,
                                   signal_to_average=signal_to_average,
                                   new_signalname=new_signalname,
                                   epoch_regex=epoch_regex)
+    return {'rec': rec}
+
+def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_signalname='state', **context):
+    rec=preproc.make_state_signal(rec, state_signals=state_signals,
+                                  permute_signals=permute_signals,
+                                  new_signalname=new_signalname)
     return {'rec': rec}
 
 
@@ -153,11 +160,19 @@ def use_all_data_for_est_and_val(rec, **context):
     val = rec
     return {'est': est, 'val': val}
 
-def split_for_jackknife(est, modelspecs=None, njacks=10, IsReload=False, **context):
-    
-    est_out,val_out,modelspecs_out=preproc.split_est_val_for_jackknife(est, modelspecs=modelspecs, njacks=njacks, IsReload=IsReload)
-    
+def split_for_jackknife(rec, modelspecs=None, njacks=10, IsReload=False, **context):
+
+    est_out,val_out,modelspecs_out=preproc.split_est_val_for_jackknife(rec, modelspecs=modelspecs, njacks=njacks, IsReload=IsReload)
+
     return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
+
+def generate_psth_from_est_for_both_est_and_val_nfold(est, val, **context):
+     '''
+     generate PSTH prediction for each set
+     '''
+     est_out,val_out=preproc.generate_psth_from_est_for_both_est_and_val_nfold(est, val)
+     return {'est': est_out, 'val': val_out}
+
 
 
 def init_from_keywords(keywordstring, IsReload=False, **context):
@@ -270,6 +285,14 @@ def fit_jackknifes(modelspecs, est, njacks,
                                                       njacks=njacks)
     return {'modelspecs': modelspecs}
 
+def fit_nfold(modelspecs, est, IsReload=False, **context):
+    ''' fitting n fold, one from each entry in est '''
+    if not IsReload:
+         modelspecs = nems.analysis.api.fit_nfold(
+                   est,modelspecs,fitter=scipy_minimize)
+    return {'modelspecs': modelspecs}
+
+
 
 def save_recordings(modelspecs, est, val, **context):
     # TODO: Save the recordings somehow?
@@ -279,9 +302,9 @@ def save_recordings(modelspecs, est, val, **context):
 def add_summary_statistics(modelspecs, est, val, **context):
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
     # TODO: Add statistics to metadata of every modelspec
-    
+
     modelspecs,est,val=nems.analysis.api.standard_correlation(est,val,modelspecs)
-    
+
     return {'modelspecs': modelspecs,'est': est, 'val': val}
 
 
