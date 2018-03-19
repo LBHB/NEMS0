@@ -42,8 +42,8 @@ def nmse(result, pred_name='pred', resp_name='resp'):
     equivalent, we suggest using the MSE for fitting and use this as a
     post-fit performance metric only.
     '''
-    pred = result[pred_name]
-    resp = result[resp_name]
+    pred = result[pred_name].as_continuous()
+    resp = result[resp_name].as_continuous()
     respstd = np.nanstd(resp)
     squared_errors = (pred-resp)**2
     mse = np.nanmean(squared_errors)
