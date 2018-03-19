@@ -130,16 +130,29 @@ def load_resource(uri):
             err = 'HTTP GET failed. Got {}: {}'.format(r.status_code,
                                                        r.text)
             raise ConnectionError(err)
-        if r.json:
-            return r.json
-        else:
+        if hasattr(r, 'data'):
             return r.data
+        else:
+            try:
+                return r.json()
+            except jsonlib.decoder.JSONDecodeError as e:
+                log.warn("Decode error when retrieving json from: \n{}\n."
+                         "Response payload from server may have been empty\n."
+                         "Make sure the uri is correct!"
+                         .format(uri))
+                log.exception(e)
     elif local_uri(uri):
         filepath = local_uri(uri)
-        with open(filepath, mode='r') as f:
-            if filepath[-5:] == '.json':
-                resource = jsonlib.load(f)
-            else:
+        try:
+            with open(filepath, mode='r') as f:
+                if filepath[-5:] == '.json':
+                    resource = jsonlib.load(f)
+                else:
+                    resource = f.read()
+        except UnicodeDecodeError:
+            log.warn("Couldn't read file at {}\nTrying in binary mode."
+                     .format(filepath))
+            with open(filepath, mode='rb') as f:
                 resource = f.read()
         return resource
     else:

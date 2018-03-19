@@ -1,3 +1,6 @@
+# NEMS-specific
+modelspecs/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -118,6 +121,7 @@ ENV/
 nems.log*
 **/nems_logs/*
 !**/nems_logs/__init__.py
+**/modelspecs/*
 
 ### Emacs ###
 # -*- mode: gitignore; -*-

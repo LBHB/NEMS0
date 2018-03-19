@@ -26,7 +26,8 @@ setup(
     classifiers=[],
     entry_points={
         'console_scripts': [
-            'fit-model=scripts.fit_model:main'
+            'fit-model=scripts.fit_model:main',
+            'download-demo-data=scripts.download_demo_data:main'
         ],
     }
 )

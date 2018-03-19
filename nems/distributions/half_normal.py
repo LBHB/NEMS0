@@ -1,4 +1,5 @@
 from scipy import stats
+import numpy as np
 
 from .distribution import Distribution
 
@@ -14,9 +15,9 @@ class HalfNormal(Distribution):
     '''
 
     def __init__(self, sd, shape=None):
-        self.sd = sd
-        self.distribution = stats.halfnorm(scale=self.sd)
+        self._sd = np.asarray(sd)
+        self.distribution = stats.halfnorm(scale=self._sd)
 
     def __repr__(self):
-        sd = self.value_to_string(self.sd)
+        sd = self.value_to_string(self._sd)
         return 'HalfNormal(σ={})'.format(sd)

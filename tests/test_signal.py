@@ -73,6 +73,7 @@ def test_signal_save_load(signal, signal_tmpdir):
 
     # TODO: add a test for the various signal attributes
 
+
 def test_epoch_save_load(signal, signal_tmpdir):
     '''
     Test that epochs save and load properly
@@ -223,9 +224,9 @@ def test_merge_selections(signal):
 
 
 def test_extract_channels(signal):
-    two_sig = signal.extract_channels([0, 1])
+    two_sig = signal.extract_channels(['chan0', 'chan1'])
     assert two_sig.shape == (2, 200)
-    one_sig = signal.extract_channels(2)
+    one_sig = signal.extract_channels(['chan2'])
     assert one_sig.shape == (1, 200)
     recombined = Signal.concatenate_channels([two_sig, one_sig])
     before = signal.as_continuous()
@@ -246,3 +247,122 @@ def test_jackknifes_by_epoch(signal):
               np.nansum(val.as_continuous()[:]),)
     # This is not much of a test -- I'm just running the generator fn!
     assert(True)
+
+
+def test_iloc(signal):
+    s = signal.iloc[:1, :10]
+    assert s.as_continuous().shape == (1, 10)
+    assert s.chans == ['chan0']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[:1, :10])
+
+    s = signal.iloc[:, :10]
+    assert s.as_continuous().shape == (3, 10)
+    assert s.chans == ['chan0', 'chan1', 'chan2']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[:, :10])
+
+    s = signal.iloc[1:, :100]
+    assert s.as_continuous().shape == (2, 100)
+    assert s.chans == ['chan1', 'chan2']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[1:, :100])
+
+    s = signal.iloc[1]
+    assert s.as_continuous().shape == (1, 200)
+    assert s.chans == ['chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[1][np.newaxis])
+
+    # Test some special-case indexing
+    s = signal.iloc[:, 1]
+    assert s.as_continuous().shape == (3, 1)
+    assert s.chans == ['chan0', 'chan1', 'chan2']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[:, 1][:, np.newaxis])
+
+    s = signal.iloc[1, :]
+    assert s.as_continuous().shape == (1, 200)
+    assert s.chans == ['chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[1, :][np.newaxis])
+
+    s = signal.iloc[1, 1]
+    assert s.as_continuous().shape == (1, 1)
+    assert s.chans == ['chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[1, 1])
+
+    s = signal.iloc[[0, 2], 1]
+    assert s.as_continuous().shape == (2, 1)
+    assert s.chans == ['chan0', 'chan2']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[[0, 2], 1][:, np.newaxis])
+
+    with pytest.raises(IndexError):
+        assert signal.iloc[None, 1, 1]
+
+    with pytest.raises(IndexError):
+        assert signal.iloc[:, [1, 2]]
+
+
+def test_loc(signal):
+    s = signal.loc['chan1']
+    assert s.as_continuous().shape == (1, 200)
+    assert s.chans == ['chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[1])
+
+    s = signal.loc[['chan1', 'chan2']]
+    assert s.as_continuous().shape == (2, 200)
+    assert s.chans == ['chan1', 'chan2']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[[1, 2]])
+
+    s = signal.loc[:, 1.5:2]
+    assert s.as_continuous().shape == (3, 25)
+    assert s.chans == ['chan0', 'chan1', 'chan2']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[:, 75:100])
+
+    s = signal.loc['chan1', 1.5:2]
+    assert s.as_continuous().shape == (1, 25)
+    assert s.chans == ['chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[1, 75:100])
+
+    s = signal.loc[:'chan1', 1.5:2]
+    assert s.as_continuous().shape == (2, 25)
+    assert s.chans == ['chan0', 'chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[:2, 75:100])
+
+    s = signal.loc[:'chan1', 1.5]
+    assert s.as_continuous().shape == (2, 1)
+    assert s.chans == ['chan0', 'chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[:2, 75][:, np.newaxis])
+
+    s = signal.loc[:'chan1', :1.5]
+    assert s.as_continuous().shape == (2, 75)
+    assert s.chans == ['chan0', 'chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[:2, :75])
+
+    s = signal.loc[:'chan1', 2.5:]
+    assert s.as_continuous().shape == (2, 75)
+    assert s.chans == ['chan0', 'chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[:2, 125:])
+
+    with pytest.raises(IndexError):
+        signal.loc[:, :, :]
+
+    with pytest.raises(IndexError):
+        signal.loc[:'chan1', [1.5, 2]]
+
+    s = signal.loc['chan1', 0.732:]
+    s_epochs = s.extract_epoch('pupil_closed')
+    assert s_epochs.shape == (1, 1, 40)
+    signal_epochs = signal.loc['chan1'].extract_epoch('pupil_closed')
+    assert np.allclose(s_epochs, signal_epochs[1, :, :40])

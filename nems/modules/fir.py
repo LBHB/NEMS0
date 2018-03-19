@@ -30,6 +30,6 @@ def _fir_filter(x, coefficients):
     return np.sum(result, axis=-2, keepdims=True)
 
 
-def fir_filter(rec, i, o, coefficients):
+def basic(rec, i, o, coefficients):
     fn = lambda x: _fir_filter(x, coefficients)
     return [rec[i].transform(fn, o)]

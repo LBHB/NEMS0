@@ -19,6 +19,7 @@ def standard_correlation(est,val,modelspecs):
         new_est = [ms.evaluate(d, m) for m,d in zip(modelspecs,est)]
         new_val=new_val[0].jackknife_inverse_merge(new_val)
         #r_test = [nems.metrics.api.corrcoef(p, 'pred', 'resp') for p in new_val]
+        r_test = [nems.metrics.api.corrcoef(new_val, 'pred', 'resp')]
         r_fit = [nems.metrics.api.corrcoef(p, 'pred', 'resp') for p in new_est]
     else:
         new_val = [ms.evaluate(val, m) for m in modelspecs]
@@ -29,5 +30,5 @@ def standard_correlation(est,val,modelspecs):
     modelspecs[0][0]['meta']['r_fit']=np.mean(r_fit)
     modelspecs[0][0]['meta']['r_test']=np.mean(r_test)
     
-    return modelspecs
+    return modelspecs,new_est,new_val
 

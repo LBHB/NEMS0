@@ -1,6 +1,5 @@
 import io
 import copy
-import logging
 import socket
 import nems.analysis.api
 import nems.initializers as init
@@ -15,6 +14,7 @@ from nems.utils import iso8601_datestring
 from nems.fitters.api import scipy_minimize
 from nems.recording import Recording
 
+import logging
 log = logging.getLogger(__name__)
 
 xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
@@ -159,7 +159,7 @@ def split_for_jackknife(est, modelspecs=None, njacks=10, IsReload=False, **conte
     
     return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
-            
+
 def init_from_keywords(keywordstring, IsReload=False, **context):
     if not IsReload:
         modelspec = init.from_keywords(keywordstring)
@@ -194,7 +194,7 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
         modelspecs = [nems.initializers.prefit_to_target(
                 est, modelspec, nems.analysis.api.fit_basic, 'levelshift',
                 fitter=scipy_minimize,
-                fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}}) 
+                fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
                 for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
 
@@ -378,4 +378,4 @@ def save_analysis(destination,
                       data=figure)
     save_resource(base_uri + 'log.txt', data=log)
     save_resource(xfspec_uri, json=xfspec)
-    return {}
+    return {'savepath': base_uri}

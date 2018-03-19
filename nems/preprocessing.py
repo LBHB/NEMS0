@@ -3,6 +3,10 @@ import numpy as np
 import nems.epoch as ep
 import pandas as pd
 import nems.signal as signal
+import copy
+
+import logging
+logging.basicConfig(level=logging.INFO)
 
 def generate_average_sig(signal_to_average,
                          new_signalname='respavg', epoch_regex='^STIM_'):
@@ -145,7 +149,7 @@ def generate_psth_from_est_for_both_est_and_val(est,val):
     Estimates a PSTH from the EST set, and returns two signals based on the
     est and val, in which each repetition of a stim uses the EST PSTH?
     '''
-
+        
     epoch_regex='^STIM_'
     resp_est=est['resp']
     resp_val=val['resp']
@@ -170,6 +174,15 @@ def generate_psth_from_est_for_both_est_and_val(est,val):
 
     return est, val
 
+def generate_psth_from_est_for_both_est_and_val_nfold(ests,vals):
+    '''
+    call generate_psth_from_est_for_both_est_and_val for each e,v 
+    pair in ests,vals
+    '''
+    for e,v in zip(ests,vals):
+        e,v=generate_psth_from_est_for_both_est_and_val(e,v)
+        
+    return ests,vals
 
 def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_signalname='state'):    
     
@@ -184,7 +197,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_sign
             # TODO support for signals_permute
             #raise ValueError("permute_signals not yet supported") 
             state_sig_list+=[rec[x].shuffle_time()]
-            print(state_sig_list[-1].shape)
+            #print(state_sig_list[-1].shape)
         else:
             state_sig_list+=[rec[x]]
             
@@ -198,8 +211,10 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_sign
     return newrec
 
 def split_est_val_for_jackknife(est, modelspecs=None, njacks=10, IsReload=False, **context):
+
     est_out=[]
     val_out=[]
+    logging.info("Generating  {} jackknifes".format(njacks))
     for i in range(njacks):
         est_out += [est.jackknife_by_time(njacks, i)]
         val_out += [est.jackknife_by_time(njacks, i, invert=True)]
