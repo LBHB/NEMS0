@@ -88,7 +88,7 @@ def evaluate(xformspec, context={}, stop=None):
         merged_args = {**xfargs, **context}
         args = copy.deepcopy(merged_args)
         # Run the xf
-        log.info('Evaluating: {}({})'.format(xf, args))
+        log.info('Evaluating: {}'.format(xf))
         new_context = fn(**args)
         # Use the new context for the next step
         if type(new_context) is not dict:
@@ -308,13 +308,15 @@ def add_summary_statistics(modelspecs, est, val, **context):
     return {'modelspecs': modelspecs,'est': est, 'val': val}
 
 
-def plot_summary(modelspecs, val, figures=None, **context):
+def plot_summary(modelspecs, val, figures=None, IsReload=False, **context):
     # CANNOT initialize figures=[] in optional args our you will create a bug
     if not figures:
         figures = []
-    fig = nplt.plot_summary(val, modelspecs)
-    # Needed to make into a Bytes because you can't deepcopy figures!
-    figures.append(nplt.fig2BytesIO(fig))
+    if not IsReload:
+        fig = nplt.plot_summary(val, modelspecs)
+        # Needed to make into a Bytes because you can't deepcopy figures!
+        figures.append(nplt.fig2BytesIO(fig))
+
     return {'figures': figures}
 
 
@@ -383,12 +385,16 @@ def save_analysis(destination,
                   modelspecs,
                   xfspec,
                   figures,
-                  log):
+                  log,
+                  add_tree_path=False):
     '''Save an analysis file collection to a particular destination.'''
-
-    treepath = tree_path(recording, modelspecs, xfspec)
-    destination = destination[:-1] if destination[-1] == '/' else destination
-    base_uri = destination + treepath
+    if add_tree_path:
+        treepath = tree_path(recording, modelspecs, xfspec)
+        destination = destination[:-1] if destination[-1] == '/' else destination
+        base_uri = destination + treepath
+    else:
+        destination = destination if destination[-1] == '/' else destination + '/'
+        base_uri = destination
 
     xfspec_uri = base_uri + 'xfspec.json'  # For attaching to modelspecs
 

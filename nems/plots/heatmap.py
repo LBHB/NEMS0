@@ -52,7 +52,7 @@ def _get_wc_coefficients(modelspec):
 
 def _get_fir_coefficients(modelspec):
     for m in modelspec:
-        if 'fir_filter' in m['fn']:
+        if 'fir' in m['fn']:
             return m['phi']['coefficients']
     return None
 

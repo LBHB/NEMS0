@@ -136,7 +136,7 @@ def fit_nfold(data_list, modelspecs, generate_psth=False, fitter=scipy_minimize)
     models = []
     for i in range(nfolds):
         log.info("Fitting fold {}/{}".format(i+1, nfolds))
-        models += fit_basic(data_list[i], modelspecs[0], fitter=fitter,
+        models += fit_basic(data_list[i], copy.deepcopy(modelspecs[0]), fitter=fitter,
                             metaname='fit_nfold')
 
     return models
