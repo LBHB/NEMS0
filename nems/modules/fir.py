@@ -13,7 +13,7 @@ def get_zi(b, x):
     return scipy.signal.lfilter(b, [1], null_data, zi=zi)[1]
 
 
-def _fir_filter(x, coefficients):
+def per_channel(x, coefficients):
     '''
     Private function used by fir_filter().
     '''
@@ -31,5 +31,5 @@ def _fir_filter(x, coefficients):
 
 
 def basic(rec, i, o, coefficients):
-    fn = lambda x: _fir_filter(x, coefficients)
+    fn = lambda x: per_channel(x, coefficients)
     return [rec[i].transform(fn, o)]

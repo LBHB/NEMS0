@@ -42,7 +42,7 @@ def defkey_wc(n_inputs, n_outputs):
     return defkey(name, template)
 
 
-def defkey_wcg(n_outputs):
+def defkey_wcg(n_inputs, n_outputs):
     '''
     Generate and register default modulespec for gaussian channel weighting
 
@@ -56,7 +56,7 @@ def defkey_wcg(n_outputs):
     Gaussian channel weighting does not need to know the number of input
     channels to work properly.
     '''
-    name = 'wcgNx{}'.format(n_outputs)
+    name = 'wcg{}x{}'.format(n_inputs, n_outputs)
 
     # Generate evenly-spaced filter centers for the starting pints
     mean = np.arange(n_outputs + 2)/n_outputs
@@ -72,6 +72,7 @@ def defkey_wcg(n_outputs):
     template = {
         'fn': 'nems.modules.weight_channels.gaussian',
         'fn_kwargs': {'i': 'pred', 'o': 'pred'},
+        'fn_coefficients': 'nems.modules.weight_channels.gaussian_coefficients',
         'prior': {
             'mean': ('Normal', mean_prior_coefficients),
             'sd': ('HalfNormal', sd_prior_coefficients),
@@ -80,7 +81,7 @@ def defkey_wcg(n_outputs):
     return defkey(name, template)
 
 
-def defkey_fir(n_inputs, n_outputs):
+def defkey_fir(n_coefs, n_outputs):
     '''
     Generate and register default modulespec for basic channel weighting
 
@@ -91,13 +92,13 @@ def defkey_fir(n_inputs, n_outputs):
     n_outputs : int
         Number of output channels.
     '''
-    name = 'fir{}x{}'.format(n_inputs, n_outputs)
+    name = 'fir{}x{}'.format(n_coefs, n_outputs)
     p_coefficients = {
-        'mean': np.zeros((n_outputs, n_inputs)),
-        'sd': np.ones((n_outputs, n_inputs)),
+        'mean': np.zeros((n_outputs, n_coefs)),
+        'sd': np.ones((n_outputs, n_coefs)),
     }
 
-    if n_inputs > 1:
+    if n_coefs > 1:
         p_coefficients['mean'][:, 1] = 1
     else:
         p_coefficients['mean'][:, 0] = 1
@@ -112,17 +113,17 @@ def defkey_fir(n_inputs, n_outputs):
     return defkey(name, template)
 
 
-defkey_wc(18, 1)
-defkey_wc(40, 1)
-defkey_wc(18, 2)
-defkey_wc(18, 3)
+# Autogenerate some standard keywords. TODO: this should be parseable from the
+# keyword name rather than requring an explicit definition for each. Port over
+# the parsing code from old NEMS?
+for n_inputs in (15, 18, 40):
+    for n_outputs in (1, 2, 3, 4):
+        defkey_wc(n_inputs, n_outputs)
+        defkey_wcg(n_inputs, n_outputs)
 
-defkey_wcg(1)
-defkey_wcg(2)
 
-defkey_fir(10, 1)
-defkey_fir(15, 1)
-defkey_fir(18, 1)
+for n_coefs in (10, 15, 18):
+    defkey_fir(n_coefs, 1)
 
 defkey_fir(10, 2)
 defkey_fir(15, 2)
