@@ -48,6 +48,8 @@ def defkey_wcg(n_inputs, n_outputs):
 
     Parameters
     ----------
+    n_inputs : int
+        Number of input channels.
     n_outputs : int
         Number of output channels.
 
@@ -71,12 +73,12 @@ def defkey_wcg(n_inputs, n_outputs):
 
     template = {
         'fn': 'nems.modules.weight_channels.gaussian',
-        'fn_kwargs': {'i': 'pred', 'o': 'pred'},
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_chan_in': n_inputs},
         'fn_coefficients': 'nems.modules.weight_channels.gaussian_coefficients',
         'prior': {
             'mean': ('Normal', mean_prior_coefficients),
             'sd': ('HalfNormal', sd_prior_coefficients),
-        }
+        },
     }
     return defkey(name, template)
 
