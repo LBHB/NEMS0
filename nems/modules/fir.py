@@ -13,11 +13,20 @@ def get_zi(b, x):
     return scipy.signal.lfilter(b, [1], null_data, zi=zi)[1]
 
 
-def _fir_filter(x, coefficients):
+def per_channel(x, coefficients):
     '''
     Private function used by fir_filter().
     '''
     result = []
+
+    # Make sure the number of input channels (x) match the number FIR filters
+    # provided (we have a separate filter for each channel). The `zip` function
+    # doesn't require the iterables to be the same length.
+    if len(x) != len(coefficients):
+        m = 'Dimension mismatch. Number of channels and filters must match. ' \
+            '{} channels provided for {} FIR filters.'
+        raise ValueError(m.format(len(x), len(coefficients)))
+
     for x, c in zip(x, coefficients):
         # It is slightly more "correct" to use lfilter than convolve at edges, but
         # but also about 25% slower (Measured on Intel Python Dist, using i5-4300M)
@@ -31,5 +40,5 @@ def _fir_filter(x, coefficients):
 
 
 def basic(rec, i, o, coefficients):
-    fn = lambda x: _fir_filter(x, coefficients)
+    fn = lambda x: per_channel(x, coefficients)
     return [rec[i].transform(fn, o)]
