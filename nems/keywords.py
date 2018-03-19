@@ -92,7 +92,7 @@ def defkey_fir(n_coefs, n_outputs):
     n_outputs : int
         Number of output channels.
     '''
-    name = 'fir{}x{}'.format(n_coefs, n_outputs)
+    name = 'fir{}x{}'.format(n_outputs, n_coefs)
     p_coefficients = {
         'mean': np.zeros((n_outputs, n_coefs)),
         'sd': np.ones((n_outputs, n_coefs)),
@@ -122,8 +122,9 @@ for n_inputs in (15, 18, 40):
         defkey_wcg(n_inputs, n_outputs)
 
 
-for n_coefs in (10, 15, 18):
-    defkey_fir(n_coefs, 1)
+for n_outputs in (1, 2, 3, 4):
+    for n_coefs in (10, 15, 18):
+        defkey_fir(n_coefs, n_outputs)
 
 
 defkey('lvl1',
