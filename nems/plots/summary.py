@@ -20,12 +20,15 @@ def plot_summary(rec, modelspecs):
     if not modelspecs:
         raise ValueError('No modelspecs defined')
 
+    if type(rec) is list:
+        rec=rec[0]
+
     stim = rec['stim']
     resp = rec['respavg'] if 'respavg' in rec.signals else rec['resp']
 
     # Make predictions on the data set using the modelspecs
     pred = [ms.evaluate(rec, m)['pred'] for m in modelspecs]
-    
+
     sigs = [resp]
     sigs.extend(pred)
 

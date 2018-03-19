@@ -196,7 +196,6 @@ defkey('stategain2',
                   'd': ('Normal', {'mean': [1,0], 'sd': [1,1]})}
         })
 
-
 defkey('psth',
        {'fn': 'nems.modules.signal_mod.average_sig',
         'fn_kwargs': {'i': 'resp',

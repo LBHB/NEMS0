@@ -4,7 +4,7 @@ import numpy as np
 #-------------------------------------------------------------------------------
 # Helper functions
 #-------------------------------------------------------------------------------
-def gaussian_coefficients(mean, sd, n_chan_in):
+def gaussian_coefficients(mean, sd, n_chan_in, **kwargs):
     '''
     Generate Gaussian-constrained coefficients vector for channel weighting
 
