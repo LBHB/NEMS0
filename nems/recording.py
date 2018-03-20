@@ -369,7 +369,7 @@ class Recording:
         directory = os.path.dirname(uri)
         if not os.path.isdir(directory):
             os.makedirs(directory)
-        os.umask(0o0111)
+        os.umask(0o0000)
         with open(uri, 'wb') as archive:
             tgz = self.as_targz()
             archive.write(tgz.read())
