@@ -133,7 +133,12 @@ def fit_nfold(data_list, modelspecs, generate_psth=False, fitter=scipy_minimize)
     models = []
     for i in range(nfolds):
         log.info("Fitting fold {}/{}".format(i+1, nfolds))
-        models += fit_basic(data_list[i], copy.deepcopy(modelspecs[0]), fitter=fitter,
+        tms = nems.initializers.prefit_to_target(
+                data_list[i], copy.deepcopy(modelspecs[0]), nems.analysis.api.fit_basic, 'levelshift',
+                fitter=scipy_minimize,
+                fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
+
+        models += fit_basic(data_list[i], tms, fitter=fitter,
                             metaname='fit_nfold')
 
     return models
