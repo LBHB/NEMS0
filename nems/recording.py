@@ -172,6 +172,7 @@ class Recording:
         r = requests.get(url, stream=True)
         if not (r.status_code == 200 and
                 (r.headers['content-type'] == 'application/gzip' or
+                 r.headers['content-type'] == 'text/plain' or
                  r.headers['content-type'] == 'application/x-gzip' or
                  r.headers['content-type'] == 'application/x-compressed' or
                  r.headers['content-type'] == 'application/x-tar' or
@@ -327,7 +328,8 @@ class Recording:
             elif uncompressed:
                 return self.save_dir(uri)
             else:
-                return self.save_targz(uri[7:] + '/' + guessed_filename)
+                #print(uri + '/' + guessed_filename)
+                return self.save_targz(uri + '/' + guessed_filename)
         elif http_uri(uri):
             uri = http_uri(uri)
             if targz_uri(uri):
