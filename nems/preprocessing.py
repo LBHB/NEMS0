@@ -190,22 +190,43 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_sign
     ones_sig = rec[state_signals[0]]._modified_copy(x)
     ones_sig.name="baseline"
     
+    newrec = rec.copy()
+    resp=newrec['resp']
+
+    # generate stask tate signals    
+    fpre=(resp.epochs['name']=="PRE_PASSIVE")
+    fpost=(resp.epochs['name']=="POST_PASSIVE")
+    INCLUDE_PRE_POST=(np.sum(fpre)>0) & (np.sum(fpost)>0)
+    if INCLUDE_PRE_POST:
+        # only include pre-passive if post-passive also exists
+        # otherwise the regression gets screwed up
+        newrec['pre_passive']=resp.epoch_to_signal('PRE_PASSIVE')
+    else:
+        # place-holder, all zeros
+        newrec['pre_passive']=resp.epoch_to_signal('XXX')
+        newrec['pre_passive'].chans=['PRE_PASSIVE']
+    
+    newrec['hit_trials']=resp.epoch_to_signal('HIT_TRIAL')
+    newrec['miss_trials']=resp.epoch_to_signal('MISS_TRIAL')
+    newrec['fa_trials']=resp.epoch_to_signal('FA_TRIAL')
+    newrec['puretone_trials']=resp.epoch_to_signal('PURETONE_BEHAVIOR')
+    newrec['easy_trials']=resp.epoch_to_signal('EASY_BEHAVIOR')
+    newrec['hard_trials']=resp.epoch_to_signal('HARD_BEHAVIOR')
+    newrec['behavior_state']=resp.epoch_to_signal('ACTIVE_EXPERIMENT')
+
     state_sig_list=[ones_sig]
-    print(state_sig_list[-1].shape)
+    #print(state_sig_list[-1].shape)
     for x in state_signals:
         if x in permute_signals:
             # TODO support for signals_permute
             #raise ValueError("permute_signals not yet supported") 
-            state_sig_list+=[rec[x].shuffle_time()]
+            state_sig_list+=[newrec[x].shuffle_time()]
             #print(state_sig_list[-1].shape)
         else:
-            state_sig_list+=[rec[x]]
+            state_sig_list+=[newrec[x]]
             
-    state=signal.Signal.concatenate_channels(state_sig_list)
-    
-    state.name=new_signalname
-    newrec = rec.copy()
-    
+    state=signal.Signal.concatenate_channels(state_sig_list)    
+    state.name=new_signalname    
     newrec.add_signal(state)
 
     return newrec

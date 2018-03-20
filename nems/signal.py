@@ -834,7 +834,7 @@ class Signal:
         Epochs tagged with the same name may have various lengths. Shorter
         epochs will be padded with NaN.
         '''
-        epoch_indices = self.get_epoch_indices(epoch, boundary_mode='exclude')
+        epoch_indices = self.get_epoch_indices(epoch, boundary_mode='exclude', fix_overlap='first')
         if epoch_indices.size == 0:
             raise IndexError("No matching epochs to extract for: {0}\n"
                              "In signal: {1}"
@@ -983,8 +983,8 @@ class Signal:
             A signal whose value is 1 for each occurrence of the epoch, 0
             otherwise.
         '''
-        data = np.zeros([1,self.ntimes], dtype=np.bool)
-        for lb, ub in self.get_epoch_indices(epoch_name, trim=True):
+        data = np.zeros([1,self.ntimes], dtype=np.float)
+        for lb, ub in self.get_epoch_indices(epoch_name, boundary_mode="trim"):
             data[:, lb:ub] = 1
         return self._modified_copy(data, chans=[epoch_name])
 
