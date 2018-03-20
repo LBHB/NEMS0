@@ -605,7 +605,7 @@ class Signal:
                    self.jackknife_by_time(njacks, jack_idx, invert=True))
             jack_idx += 1
 
-    
+
     @staticmethod
     def jackknife_inverse_merge(sig_list):
         m=sig_list[0].as_continuous()
@@ -615,7 +615,7 @@ class Signal:
             m[:,gidx]=m2[:,gidx]
         sig_new=sig_list[0]._modified_copy(data=m)
         return sig_new
-    
+
     @classmethod
     def concatenate_time(cls, signals):
         '''
@@ -808,7 +808,7 @@ class Signal:
         indices = (bounds-self.t0) * self.fs
         # Be sure to round before converting to an integer otherwise an index of
         # 1.999...999 will get converted to 1 rather than 2.
-        return indices.round().astype('i')
+        return indices.astype('float').round().astype('i')
 
     def extract_epoch(self, epoch):
         '''

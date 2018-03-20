@@ -366,6 +366,10 @@ class Recording:
         Saves all the signals (CSV/JSON pairs) in this recording
         as a .tar.gz file at a local URI.
         '''
+        directory = os.path.dirname(uri)
+        if not os.path.isdir(directory):
+            os.makedirs(directory)
+        os.umask(0o0111)
         with open(uri, 'wb') as archive:
             tgz = self.as_targz()
             archive.write(tgz.read())
