@@ -19,5 +19,6 @@ def test_gaussian_coefficients():
 
     coefs = wc.gaussian_coefficients(mean, sd, n_chan_in)
     assert coefs.shape == (2, 4)
+
     np.testing.assert_allclose(coefs.sum(axis=1), 1)
     np.testing.assert_allclose(expected, coefs, rtol=1e-5)

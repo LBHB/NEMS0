@@ -967,7 +967,7 @@ class Signal:
             data[:,nan_bins]=np.nan;
         return self._modified_copy(data)
 
-    def epoch_to_signal(self, epoch_name):
+    def epoch_to_signal(self, epoch, boundary_mode='trim', fix_overlap='merge'):
         '''
         Convert an epoch to a signal using the same sampling rate and duration
         as this signal.
@@ -983,9 +983,11 @@ class Signal:
             A signal whose value is 1 for each occurrence of the epoch, 0
             otherwise.
         '''
-        data = np.zeros([1,self.ntimes], dtype=np.float)
-        for lb, ub in self.get_epoch_indices(epoch_name, boundary_mode="trim"):
-            data[:, lb:ub] = 1
+        data = np.zeros([1, self.ntimes], dtype=np.bool)
+        indices = self.get_epoch_indices(epoch, boundary_mode, fix_overlap)
+        for lb, ub in indices:
+            data[:, lb:ub] = True
+        epoch_name = epoch if isinstance(epoch, str) else 'epoch'
         return self._modified_copy(data, chans=[epoch_name])
 
     def select_epoch(self, epoch):

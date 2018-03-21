@@ -366,3 +366,9 @@ def test_loc(signal):
     assert s_epochs.shape == (1, 1, 40)
     signal_epochs = signal.loc['chan1'].extract_epoch('pupil_closed')
     assert np.allclose(s_epochs, signal_epochs[1, :, :40])
+
+
+def test_epoch_to_signal(signal):
+    s = signal.epoch_to_signal('pupil_closed')
+    assert s.as_continuous().shape == (1, 200)
+    assert s.as_continuous().sum() == 85
