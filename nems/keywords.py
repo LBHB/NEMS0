@@ -128,6 +128,9 @@ for n_outputs in (1, 2, 3, 4):
     for n_coefs in (10, 15, 18):
         defkey_fir(n_coefs, n_outputs)
 
+#defkey_fir(10, 2)
+#defkey_fir(15, 2)
+#defkey_fir(18, 2)
 
 defkey('lvl1',
        {'fn': 'nems.modules.levelshift.levelshift',
@@ -195,7 +198,6 @@ defkey('stategain2',
         'prior': {'g': ('Normal', {'mean': [1,0], 'sd': [1,1]}),
                   'd': ('Normal', {'mean': [1,0], 'sd': [1,1]})}
         })
-
 
 defkey('psth',
        {'fn': 'nems.modules.signal_mod.average_sig',

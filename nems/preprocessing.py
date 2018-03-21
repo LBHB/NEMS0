@@ -3,6 +3,10 @@ import numpy as np
 import nems.epoch as ep
 import pandas as pd
 import nems.signal as signal
+import copy
+
+import logging
+logging.basicConfig(level=logging.INFO)
 
 def generate_average_sig(signal_to_average,
                          new_signalname='respavg', epoch_regex='^STIM_'):
@@ -140,15 +144,12 @@ def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
 
     return newrec
 
-def generate_psth_from_est_for_both_est_and_val(est, val):
+def generate_psth_from_est_for_both_est_and_val(est,val):
     '''
     Estimates a PSTH from the EST set, and returns two signals based on the
     est and val, in which each repetition of a stim uses the EST PSTH?
     '''
-    # Method #0: Try to guess which stimuli have the most reps, use those for val
-    est = rec.jackknife_by_time(10, 1, invert=False, excise=False)
-    val = rec.jackknife_by_time(10, 1, invert=True, excise=False)
-
+        
     epoch_regex='^STIM_'
     resp_est=est['resp']
     resp_val=val['resp']
@@ -173,22 +174,79 @@ def generate_psth_from_est_for_both_est_and_val(est, val):
 
     return est, val
 
+def generate_psth_from_est_for_both_est_and_val_nfold(ests,vals):
+    '''
+    call generate_psth_from_est_for_both_est_and_val for each e,v 
+    pair in ests,vals
+    '''
+    for e,v in zip(ests,vals):
+        e,v=generate_psth_from_est_for_both_est_and_val(e,v)
+        
+    return ests,vals
 
-def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_signalname='state'):
+def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_signalname='state'):    
     
-    # TODO support for signals_permute
-    if len(permute_signals):
-        raise ValueError("permute_signals not yet supported") 
-
     x = np.ones([1,rec[state_signals[0]]._matrix.shape[1]])  # Much faster; TODO: Test if throws warnings
     ones_sig = rec[state_signals[0]]._modified_copy(x)
     ones_sig.name="baseline"
     
-    state=signal.Signal.concatenate_channels([ones_sig]+[rec[x] for x in state_signals])
-    state.name=new_signalname
     newrec = rec.copy()
+    resp=newrec['resp']
+
+    # generate stask tate signals    
+    fpre=(resp.epochs['name']=="PRE_PASSIVE")
+    fpost=(resp.epochs['name']=="POST_PASSIVE")
+    INCLUDE_PRE_POST=(np.sum(fpre)>0) & (np.sum(fpost)>0)
+    if INCLUDE_PRE_POST:
+        # only include pre-passive if post-passive also exists
+        # otherwise the regression gets screwed up
+        newrec['pre_passive']=resp.epoch_to_signal('PRE_PASSIVE')
+    else:
+        # place-holder, all zeros
+        newrec['pre_passive']=resp.epoch_to_signal('XXX')
+        newrec['pre_passive'].chans=['PRE_PASSIVE']
     
+    newrec['hit_trials']=resp.epoch_to_signal('HIT_TRIAL')
+    newrec['miss_trials']=resp.epoch_to_signal('MISS_TRIAL')
+    newrec['fa_trials']=resp.epoch_to_signal('FA_TRIAL')
+    newrec['puretone_trials']=resp.epoch_to_signal('PURETONE_BEHAVIOR')
+    newrec['easy_trials']=resp.epoch_to_signal('EASY_BEHAVIOR')
+    newrec['hard_trials']=resp.epoch_to_signal('HARD_BEHAVIOR')
+    newrec['behavior_state']=resp.epoch_to_signal('ACTIVE_EXPERIMENT')
+
+    state_sig_list=[ones_sig]
+    #print(state_sig_list[-1].shape)
+    for x in state_signals:
+        if x in permute_signals:
+            # TODO support for signals_permute
+            #raise ValueError("permute_signals not yet supported") 
+            state_sig_list+=[newrec[x].shuffle_time()]
+            #print(state_sig_list[-1].shape)
+        else:
+            state_sig_list+=[newrec[x]]
+            
+    state=signal.Signal.concatenate_channels(state_sig_list)    
+    state.name=new_signalname    
     newrec.add_signal(state)
 
     return newrec
+
+def split_est_val_for_jackknife(est, modelspecs=None, njacks=10, IsReload=False, **context):
+
+    est_out=[]
+    val_out=[]
+    logging.info("Generating  {} jackknifes".format(njacks))
+    for i in range(njacks):
+        est_out += [est.jackknife_by_time(njacks, i)]
+        val_out += [est.jackknife_by_time(njacks, i, invert=True)]
+    modelspecs_out=[]
+    if (not IsReload) and (modelspecs is not None):
+        if len(modelspecs)==1:
+            modelspecs_out=[copy.deepcopy(modelspecs[0]) for i in range(njacks)]
+        elif len(modelspecs)==njacks:
+            # assume modelspecs already generated for njacks
+            modelspecs_out=modelspecs
+        else:
+            raise ValueError('modelspecs must be len 1 or njacks')
+    return est_out, val_out, modelspecs_out
 

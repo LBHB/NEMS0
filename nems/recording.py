@@ -11,7 +11,7 @@ import copy
 
 from nems.uri import local_uri, http_uri, targz_uri
 import nems.epoch as ep
-from .signal import Signal
+from .signal import Signal, merge_selections
 
 log = logging.getLogger(__name__)
 
@@ -172,6 +172,7 @@ class Recording:
         r = requests.get(url, stream=True)
         if not (r.status_code == 200 and
                 (r.headers['content-type'] == 'application/gzip' or
+                 r.headers['content-type'] == 'text/plain' or
                  r.headers['content-type'] == 'application/x-gzip' or
                  r.headers['content-type'] == 'application/x-compressed' or
                  r.headers['content-type'] == 'application/x-tar' or
@@ -327,7 +328,8 @@ class Recording:
             elif uncompressed:
                 return self.save_dir(uri)
             else:
-                return self.save_targz(uri[7:] + '/' + guessed_filename)
+                #print(uri + '/' + guessed_filename)
+                return self.save_targz(uri + '/' + guessed_filename)
         elif http_uri(uri):
             uri = http_uri(uri)
             if targz_uri(uri):
@@ -364,6 +366,10 @@ class Recording:
         Saves all the signals (CSV/JSON pairs) in this recording
         as a .tar.gz file at a local URI.
         '''
+        directory = os.path.dirname(uri)
+        if not os.path.isdir(directory):
+            os.makedirs(directory)
+        os.umask(0o0000)
         with open(uri, 'wb') as archive:
             tgz = self.as_targz()
             archive.write(tgz.read())
@@ -547,6 +553,21 @@ class Recording:
                 s = self.signals[sn]
                 new_sigs[sn] = s.jackknife_by_time(nsplits, split_idx,
                                                    invert=invert, excise=excise)
+        return Recording(signals=new_sigs)
+
+    @staticmethod
+    def jackknife_inverse_merge(rec_list):
+        '''
+        merges list of jackknife validation data into a signal recording
+        '''
+        if type(rec_list) is not list:
+            raise ValueError('Expecting list of recordings')
+        new_sigs = {}
+        rec1=rec_list[0]
+        for sn in rec1.signals.keys():
+            sig_list=[r[sn] for r in rec_list]
+            #new_sigs[sn]=sig_list[0].jackknife_inverse_merge(sig_list)
+            new_sigs[sn]=merge_selections(sig_list)
         return Recording(signals=new_sigs)
 
     def jackknifes_by_epoch(self, nsplits, epoch_name, only_signals=None):

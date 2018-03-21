@@ -80,6 +80,7 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True):
     firc = _get_fir_coefficients(modelspec)
     if wcc is None and firc is None:
         log.warn('Unable to generate STRF.')
+        return
     elif wcc is None and firc is not None:
         strf = np.array(firc)
         show_factorized = False

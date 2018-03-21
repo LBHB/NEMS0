@@ -10,13 +10,13 @@ def test_recording_loading():
     # blah.tar.gz or TAR010c-18-1.tar.gz in it.
 
     # Local filesystem
-    rec0 = Recording.load("/home/ivar/git/nems/signals/TAR010c-18-1.tar.gz")
-    rec1 = Recording.load("/auto/data/tmp/recordings/TAR010c-18-1.tar.gz")
-    rec2 = Recording.load("file:///auto/data/tmp/recordings/TAR010c-18-1.tar.gz")
+    #rec0 = Recording.load("/home/ivar/git/nems/signals/TAR010c-18-1.tar.gz")
+    rec0 = Recording.load("/auto/data/nems_db/recordings/eno052d-a1.tgz")
+    rec2 = Recording.load("file:///auto/data/nems_db/recordings/eno052d-a1.tgz")
 
     # HTTP
-    rec3 = Recording.load("http://potoroo:3001/recordings/TAR010c-18-1.tar.gz")
-    rec4 = Recording.load("http://potoroo/baphy/271/TAR010c-18-1")
+    rec3 = Recording.load("http://hyrax.ohsu.edu:3000/recordings/eno052d-a1.tgz")
+    rec4 = Recording.load("http://hyrax.ohsu.edu:3000/baphy/294/eno052d-a1?stim=0&pupil=0")
 
     # S3
     # Direct access (would need AWS CLI lib? Maybe not best idea!)
@@ -26,24 +26,25 @@ def test_recording_loading():
 
     # Indirect access via http:
     rec6 = Recording.load("https://s3-us-west-2.amazonaws.com/nemspublic/"
-                          "sample_data/TAR010c-18-1.tar.gz")
+                          "sample_data/eno052d-a1.tgz")
 
     # Save to a specific tar.gz file
-    rec0.save('/home/ivar/tmp/tmp.tar.gz')
+    rec0.save('/tmp/tmp.tar.gz')
 
-    # Save in a newly created directory under /home/ivar/tmp
-    rec0.save('/home/ivar/tmp/', uncompressed=True)
+    # Save in a newly created directory under /tmp
+    rec0.save('/tmp/', uncompressed=True)
 
     # Save ina  newly created tar.gz under /home/ivar/tmp
-    rec0.save('/home/ivar/tmp/')
+    rec0.save('file:///tmp/')
 
-    if not rec0.save('http://potoroo/recordings/blah.tar.gz'):
-        print('Error saving to explicit file URI')
-        assert 0
+    # TODO: these will fail if test has already been run
+    #if not rec0.save('http://hyrax:3000/recordings/blah.tar.gz'):
+    #    print('Error saving to explicit file URI')
+    #    assert 0
 
-    if not rec0.save('http://potoroo/recordings/'):
-        print('Error saving to a directory URI')
-        assert 0
+    #if not rec0.save('http://hyrax:3000/recordings/'):
+    #    print('Error saving to a directory URI')
+    #    assert 0
 
 def test_recording_from_arrays():
     # need a list of array-like data structures

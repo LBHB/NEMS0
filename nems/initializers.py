@@ -56,8 +56,9 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
             break
 
     if not target_i:
-        raise RuntimeWarning("target_module: {} not found in modelspec."
+        log.info("target_module: {} not found in modelspec."
                              .format(target_module))
+        return modelspec
     else:
         log.info("target_module: {0} found at modelspec[{1}]."
                              .format(target_module,target_i-1))

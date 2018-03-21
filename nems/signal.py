@@ -605,6 +605,17 @@ class Signal:
                    self.jackknife_by_time(njacks, jack_idx, invert=True))
             jack_idx += 1
 
+
+    @staticmethod
+    def jackknife_inverse_merge(sig_list):
+        m=sig_list[0].as_continuous()
+        for s in sig_list[1:]:
+            m2=s.as_continuous()
+            gidx=np.isfinite(m2[0,:])
+            m[:,gidx]=m2[:,gidx]
+        sig_new=sig_list[0]._modified_copy(data=m)
+        return sig_new
+
     @classmethod
     def concatenate_time(cls, signals):
         '''
@@ -797,7 +808,7 @@ class Signal:
         indices = (bounds-self.t0) * self.fs
         # Be sure to round before converting to an integer otherwise an index of
         # 1.999...999 will get converted to 1 rather than 2.
-        return indices.round().astype('i')
+        return indices.astype('float').round().astype('i')
 
     def extract_epoch(self, epoch):
         '''
@@ -823,7 +834,7 @@ class Signal:
         Epochs tagged with the same name may have various lengths. Shorter
         epochs will be padded with NaN.
         '''
-        epoch_indices = self.get_epoch_indices(epoch, boundary_mode='exclude')
+        epoch_indices = self.get_epoch_indices(epoch, boundary_mode='exclude', fix_overlap='first')
         if epoch_indices.size == 0:
             raise IndexError("No matching epochs to extract for: {0}\n"
                              "In signal: {1}"
@@ -892,23 +903,27 @@ class Signal:
         # structure as well.
         return {name: self.extract_epoch(name) for name in epoch_names}
 
-    def replace_epoch(self, epoch, epoch_data):
+    def replace_epoch(self, epoch, epoch_data, preserve_nan=True):
         '''
         Returns a new signal, created by replacing every occurrence of
         epoch with epoch_data, assumed to be a 2D matrix of data
         (chans x time).
         '''
         data = self.as_continuous()
+        if preserve_nan:
+            nan_bins=np.isnan(data[0,:])
         indices = self.get_epoch_indices(epoch)
         if indices.size == 0:
             raise RuntimeWarning("No occurrences of epoch were found: \n{}\n"
                                  "Nothing to replace.".format(epoch))
         for lb, ub in indices:
             data[:, lb:ub] = epoch_data
+        if preserve_nan:
+            data[:,nan_bins]=np.nan;
 
         return self._modified_copy(data)
 
-    def replace_epochs(self, epoch_dict):
+    def replace_epochs(self, epoch_dict, preserve_nan=True):
         '''
         Returns a new signal, created by replacing every occurrence of epochs
         in this signal with whatever is found in the replacement_dict under
@@ -926,6 +941,8 @@ class Signal:
         # TODO: Update this to work with a mapping of key -> Nx2 epoch
         # structure as well.
         data = self.as_continuous()
+        if preserve_nan:
+            nan_bins=np.isnan(data[0,:])
         for epoch, epoch_data in epoch_dict.items():
             for lb, ub in self.get_epoch_indices(epoch):
 
@@ -946,7 +963,8 @@ class Signal:
                 #print(data[:, lb:ub].shape)
                 #print(epoch_data.shape)
                 data[:, lb:ub] = epoch_data
-
+        if preserve_nan:
+            data[:,nan_bins]=np.nan;
         return self._modified_copy(data)
 
     def epoch_to_signal(self, epoch, boundary_mode='trim', fix_overlap='merge'):
@@ -1071,6 +1089,27 @@ class Signal:
         newsig = self._modified_copy(y)
         if newname:
             newsig.name = newname
+        return newsig
+
+    def shuffle_time(self):
+        '''
+        Applies this signal's 2d .as_continuous() matrix representation to
+        function fn, which must be a pure (curried) function of one argument.
+
+        It then packs the return value of fn into a new signal object,
+        identical to this one but with different data.
+
+        Optional argument newname allows a new signal name to be returned.
+        '''
+        # x = self.as_continuous()   # Always Safe but makes a copy
+        x = self._matrix.copy()  # Much faster; TODO: Test if throws warnings
+        arr=np.arange(x.shape[1])
+        arr0=arr[np.isfinite(x[0,:])]
+        arr=arr0.copy()
+        np.random.shuffle(arr)
+        x[:,arr0]=x[:,arr]
+        newsig = self._modified_copy(x)
+        newsig.name = newsig.name+'_shuf'
         return newsig
 
     def nan_outliers(self, trim_outside_zscore=2.0):

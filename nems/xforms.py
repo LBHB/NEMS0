@@ -1,6 +1,5 @@
 import io
 import copy
-import logging
 import socket
 import nems.analysis.api
 import nems.initializers as init
@@ -15,6 +14,7 @@ from nems.utils import iso8601_datestring
 from nems.fitters.api import scipy_minimize
 from nems.recording import Recording
 
+import logging
 log = logging.getLogger(__name__)
 
 xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
@@ -88,7 +88,7 @@ def evaluate(xformspec, context={}, stop=None):
         merged_args = {**xfargs, **context}
         args = copy.deepcopy(merged_args)
         # Run the xf
-        log.info('Evaluating: {}({})'.format(xf, args))
+        log.info('Evaluating: {}'.format(xf))
         new_context = fn(**args)
         # Use the new context for the next step
         if type(new_context) is not dict:
@@ -107,7 +107,7 @@ def evaluate(xformspec, context={}, stop=None):
 # Stuff below this line are useful resuable components.
 # See xforms_test.py for how to use it.
 
-
+# loader
 def load_recordings(recording_uri_list, **context):
     '''
     Load one or more recordings into memory given a list of URIs.
@@ -119,12 +119,19 @@ def load_recordings(recording_uri_list, **context):
     return {'rec': rec}
 
 
+# preprocessing
 def add_average_sig(rec, signal_to_average, new_signalname, epoch_regex,
                     **context):
     rec = preproc.add_average_sig(rec,
                                   signal_to_average=signal_to_average,
                                   new_signalname=new_signalname,
                                   epoch_regex=epoch_regex)
+    return {'rec': rec}
+
+def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_signalname='state', **context):
+    rec=preproc.make_state_signal(rec, state_signals=state_signals,
+                                  permute_signals=permute_signals,
+                                  new_signalname=new_signalname)
     return {'rec': rec}
 
 
@@ -153,24 +160,19 @@ def use_all_data_for_est_and_val(rec, **context):
     val = rec
     return {'est': est, 'val': val}
 
-def split_for_jackknife(est, modelspecs=None, njacks=10, IsReload=False, **context):
-    est_out=[]
-    val_out=[]
-    log.info("Generating  {} jackknifes".format(njacks))
-    for i in range(njacks):
-        est_out += [est.jackknife_by_time(njacks, i)]
-        val_out += [est.jackknife_by_time(njacks, i, invert=True)]
+def split_for_jackknife(rec, modelspecs=None, njacks=10, IsReload=False, **context):
 
-    if (not IsReload) and (modelspecs is not None):
-        if len(modelspecs)==1:
-            log.info("Duplicating modelspec {} times".format(njacks))
-            modelspecs_out=[copy.deepcopy(modelspecs[0]) for i in range(njacks)]
-        elif len(modelspecs)==njacks:
-            # assume modelspecs already generated for njacks
-            modelspecs_out=modelspecs
-        else:
-            raise ValueError('modelspecs must be len 1 or njacks')
+    est_out,val_out,modelspecs_out=preproc.split_est_val_for_jackknife(rec, modelspecs=modelspecs, njacks=njacks, IsReload=IsReload)
+
     return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
+
+def generate_psth_from_est_for_both_est_and_val_nfold(est, val, **context):
+     '''
+     generate PSTH prediction for each set
+     '''
+     est_out,val_out=preproc.generate_psth_from_est_for_both_est_and_val_nfold(est, val)
+     return {'est': est_out, 'val': val_out}
+
 
 
 def init_from_keywords(keywordstring, IsReload=False, **context):
@@ -219,13 +221,13 @@ def fit_basic(modelspecs, est, IsReload=False, **context):
             modelspecs_out=[]
             njacks=len(modelspecs)
             i=0
-            for modelspec,d in zip(modelspecs,est):
+            for m,d in zip(modelspecs,est):
                 i+=1
                 log.info("Fitting JK {}/{}".format(i,njacks))
                 modelspecs_out += \
-                        nems.analysis.api.fit_basic(d,
-                                                    modelspec,
+                        nems.analysis.api.fit_basic(d,m,
                                                     fitter=scipy_minimize)
+            modelspecs=modelspecs_out
         else:
             # standard single shot
             modelspecs = [nems.analysis.api.fit_basic(est,
@@ -283,6 +285,14 @@ def fit_jackknifes(modelspecs, est, njacks,
                                                       njacks=njacks)
     return {'modelspecs': modelspecs}
 
+def fit_nfold(modelspecs, est, IsReload=False, **context):
+    ''' fitting n fold, one from each entry in est '''
+    if not IsReload:
+         modelspecs = nems.analysis.api.fit_nfold(
+                   est,modelspecs,fitter=scipy_minimize)
+    return {'modelspecs': modelspecs}
+
+
 
 def save_recordings(modelspecs, est, val, **context):
     # TODO: Save the recordings somehow?
@@ -293,18 +303,20 @@ def add_summary_statistics(modelspecs, est, val, **context):
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
     # TODO: Add statistics to metadata of every modelspec
 
-    modelspecs=nems.analysis.api.standard_correlation(est,val,modelspecs)
+    modelspecs,est,val=nems.analysis.api.standard_correlation(est,val,modelspecs)
 
-    return {'modelspecs': modelspecs}
+    return {'modelspecs': modelspecs,'est': est, 'val': val}
 
 
-def plot_summary(modelspecs, val, figures=None, **context):
+def plot_summary(modelspecs, val, figures=None, IsReload=False, **context):
     # CANNOT initialize figures=[] in optional args our you will create a bug
     if not figures:
         figures = []
-    fig = nplt.plot_summary(val, modelspecs)
-    # Needed to make into a Bytes because you can't deepcopy figures!
-    figures.append(nplt.fig2BytesIO(fig))
+    if not IsReload:
+        fig = nplt.plot_summary(val, modelspecs)
+        # Needed to make into a Bytes because you can't deepcopy figures!
+        figures.append(nplt.fig2BytesIO(fig))
+
     return {'figures': figures}
 
 
@@ -373,12 +385,16 @@ def save_analysis(destination,
                   modelspecs,
                   xfspec,
                   figures,
-                  log):
+                  log,
+                  add_tree_path=False):
     '''Save an analysis file collection to a particular destination.'''
-
-    treepath = tree_path(recording, modelspecs, xfspec)
-    destination = destination[:-1] if destination[-1] == '/' else destination
-    base_uri = destination + treepath
+    if add_tree_path:
+        treepath = tree_path(recording, modelspecs, xfspec)
+        destination = destination[:-1] if destination[-1] == '/' else destination
+        base_uri = destination + treepath
+    else:
+        destination = destination if destination[-1] == '/' else destination + '/'
+        base_uri = destination
 
     xfspec_uri = base_uri + 'xfspec.json'  # For attaching to modelspecs
 

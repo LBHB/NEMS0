@@ -21,6 +21,9 @@ def plot_summary(rec, modelspecs):
     if not modelspecs:
         raise ValueError('No modelspecs defined')
 
+    if type(rec) is list:
+        rec=rec[0]
+
     stim = rec['stim']
     resp = rec['respavg'] if 'respavg' in rec.signals else rec['resp']
 
