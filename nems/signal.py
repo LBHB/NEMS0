@@ -576,7 +576,6 @@ class Signal:
             split_end = self.ntimes
         else:
             split_end = (jack_idx + 1) * splitsize
-
         m = self.as_continuous()
         if excise:
             if invert:
@@ -1184,10 +1183,14 @@ def merge_selections(signals):
     # If there are no overlapping values, then nanmean() will be equal
     # to the value found in each position
     the_mean = np.nanmean(bigary, axis=2)
-    for a in arys:
-        if not np.array_equal(a[np.isfinite(a)],
-                              the_mean[np.isfinite(a)]):
-            raise ValueError("Overlapping, unequal non-NaN values found.")
+    if type(signals[0]._matrix[0][0]) is np.bool_:
+        return signals[0]._modified_copy(the_mean)
+    else:
+        for a in arys:
+            if not np.array_equal(a[np.isfinite(a)],
+                                  the_mean[np.isfinite(a)]):
 
-    # Use the first signal as a template for setting fs, chans, etc.
-    return signals[0]._modified_copy(the_mean)
+                raise ValueError("Overlapping, unequal non-NaN values found in signal {}.".format(signals[0].name))
+
+        # Use the first signal as a template for setting fs, chans, etc.
+        return signals[0]._modified_copy(the_mean)

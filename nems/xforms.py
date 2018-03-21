@@ -49,6 +49,35 @@ def xfspec_shortname(xformspec):
     return name
 
 
+def evaluate_step(xfa, context_in={}):
+    '''
+    Helper function for evaluate. Take one step
+    '''
+    if len(xfa) != 2:
+        raise ValueError('got non 2-tuple for xform: {}'.format(xfa))
+    xf = xfa[0]
+    xfargs = xfa[1]
+    fn = ms._lookup_fn_at(xf)
+    # Check for collisions; more to avoid confusion than for correctness:
+    for k in xfargs:
+        if k in context_in:
+            m = 'xf arg {} overlaps with context: {}'.format(k, xf)
+            raise ValueError(m)
+    # Merge args into context, and make a deepcopy so that mutation
+    # inside xforms will not be propogated unless the arg is returned.
+    merged_args = {**xfargs, **context_in}
+    args = copy.deepcopy(merged_args)
+    # Run the xf
+    log.info('Evaluating: {}'.format(xf))
+    new_context = fn(**args)
+    # Use the new context for the next step
+    if type(new_context) is not dict:
+        raise ValueError('xf did not return a context dict: {}'.format(xf))
+    context_out = {**context_in, **new_context}
+
+    return context_out
+
+
 def evaluate(xformspec, context={}, stop=None):
     '''
     Similar to modelspec.evaluate, but for xformspecs, which is a list of
@@ -73,27 +102,7 @@ def evaluate(xformspec, context={}, stop=None):
 
     # Evaluate the xforms
     for xfa in xformspec[:stop]:
-        if len(xfa) != 2:
-            raise ValueError('got non 2-tuple for xform: {}'.format(xfa))
-        xf = xfa[0]
-        xfargs = xfa[1]
-        fn = ms._lookup_fn_at(xf)
-        # Check for collisions; more to avoid confusion than for correctness:
-        for k in xfargs:
-            if k in context:
-                m = 'xf arg {} overlaps with context: {}'.format(k, xf)
-                raise ValueError(m)
-        # Merge args into context, and make a deepcopy so that mutation
-        # inside xforms will not be propogated unless the arg is returned.
-        merged_args = {**xfargs, **context}
-        args = copy.deepcopy(merged_args)
-        # Run the xf
-        log.info('Evaluating: {}'.format(xf))
-        new_context = fn(**args)
-        # Use the new context for the next step
-        if type(new_context) is not dict:
-            raise ValueError('xf did not return a context dict: {}'.format(xf))
-        context = {**context, **new_context}
+        context = evaluate_step(xfa, context)
 
     # Close the log, remove the handler, and add the 'log' string to context
     log.info('Done (re-)evaluating xforms.')
@@ -299,13 +308,22 @@ def save_recordings(modelspecs, est, val, **context):
     return {'modelspecs': modelspecs}
 
 
-def add_summary_statistics(modelspecs, est, val, **context):
+def predict(modelspecs, est, val, **context):
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
     # TODO: Add statistics to metadata of every modelspec
 
-    modelspecs,est,val=nems.analysis.api.standard_correlation(est,val,modelspecs)
+    est,val=nems.analysis.api.generate_prediction(est,val,modelspecs)
 
-    return {'modelspecs': modelspecs,'est': est, 'val': val}
+    return {'val': val, 'est': est}
+
+
+def add_summary_statistics(est, val, modelspecs, **context):
+    # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
+    # TODO: Add statistics to metadata of every modelspec
+
+    modelspecs=nems.analysis.api.standard_correlation(est,val,modelspecs)
+
+    return {'modelspecs': modelspecs}
 
 
 def plot_summary(modelspecs, val, figures=None, IsReload=False, **context):
