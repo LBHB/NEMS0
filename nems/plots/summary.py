@@ -14,7 +14,7 @@ import nems.modelspec as ms
 log = logging.getLogger(__name__)
 
 
-def plot_summary(rec, modelspecs):
+def plot_summary(rec, modelspecs, stimidx=0):
     '''
     Plots a summary of the modelspecs and their performance predicting on rec.
     '''
@@ -37,7 +37,9 @@ def plot_summary(rec, modelspecs):
     extracted = resp.extract_epoch('TRIAL')
     finite_trial = [np.sum(np.isfinite(x)) > 0 for x in extracted]
     occurrences, = np.where(finite_trial)
-    occurrence = occurrences[0]
+    if stimidx>len(occurrences)-1:
+        stimidx=0
+    occurrence = occurrences[stimidx]
 
     def my_scatter_raw(idx, ax):
         plot_scatter(pred[idx], resp, ax=ax, title=rec.name)

@@ -356,7 +356,7 @@ class Recording:
         else:
             os.mkdir(directory)
         if not os.path.isdir(directory):
-            os.makedirs(directory)
+            os.makedirs(directory, mode=0o0777)
         for s in self.signals.values():
             s.save(directory)
         return directory
@@ -368,7 +368,7 @@ class Recording:
         '''
         directory = os.path.dirname(uri)
         if not os.path.isdir(directory):
-            os.makedirs(directory)
+            os.makedirs(directory, mode=0o0777)
         os.umask(0o0000)
         with open(uri, 'wb') as archive:
             tgz = self.as_targz()
