@@ -1135,6 +1135,14 @@ class Signal:
         m[m > min_val] = np.nan
         return self._modified_copy(m)
 
+    def nan_mask(self, mask):
+        '''
+        NaN out all time points where matrix mask[0,:]==False
+        '''
+        m = self.as_continuous()
+        m[:,mask[0,:]==False] = np.nan
+        return self._modified_copy(m)
+
     @property
     def shape(self):
         return self._matrix.shape
