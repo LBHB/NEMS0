@@ -96,7 +96,7 @@ def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
     newrec = rec.copy()
 
     counter=0
-    
+
     # iterate through each signal
     for signal_name, signal_to_average in rec.signals.items():
         # 1. Find matching epochs
@@ -111,7 +111,7 @@ def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
             sorted_keys=list(folded_matrices.keys())
             sorted_keys.sort()
         counter+=1
-        
+
         # 3. Average over all occurrences of each epoch, and append to data
         fs = signal_to_average.fs
         data = np.zeros([signal_to_average.nchans, 0])
@@ -133,7 +133,7 @@ def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
                 epochs = df
             current_time = epoch[0, 1]
             #print("{0} epoch: {1}-{2}".format(k,epoch[0,0],epoch[0,1]))
-            
+
         avg_signal = signal.Signal(fs=fs, matrix=data,
                                    name=signal_to_average.name,
                                    recording=signal_to_average.recording,
@@ -149,7 +149,7 @@ def generate_psth_from_est_for_both_est_and_val(est,val):
     Estimates a PSTH from the EST set, and returns two signals based on the
     est and val, in which each repetition of a stim uses the EST PSTH?
     '''
-        
+
     epoch_regex='^STIM_'
     resp_est=est['resp']
     resp_val=val['resp']
@@ -176,24 +176,28 @@ def generate_psth_from_est_for_both_est_and_val(est,val):
 
 def generate_psth_from_est_for_both_est_and_val_nfold(ests,vals):
     '''
-    call generate_psth_from_est_for_both_est_and_val for each e,v 
+    call generate_psth_from_est_for_both_est_and_val for each e,v
     pair in ests,vals
     '''
     for e,v in zip(ests,vals):
         e,v=generate_psth_from_est_for_both_est_and_val(e,v)
-        
+
     return ests,vals
 
-def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_signalname='state'):    
-    
+def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_signalname='state'):
+
     x = np.ones([1,rec[state_signals[0]]._matrix.shape[1]])  # Much faster; TODO: Test if throws warnings
     ones_sig = rec[state_signals[0]]._modified_copy(x)
     ones_sig.name="baseline"
-    
+
     newrec = rec.copy()
     resp=newrec['resp']
 
-    # generate stask tate signals    
+    if 'pupil' in state_signals:
+        # normalize by 100
+        newrec["pupil"]=newrec["pupil"]._modified_copy(newrec["pupil"].as_continuous()/100)
+
+    # generate stask tate signals
     fpre=(resp.epochs['name']=="PRE_PASSIVE")
     fpost=(resp.epochs['name']=="POST_PASSIVE")
     INCLUDE_PRE_POST=(np.sum(fpre)>0) & (np.sum(fpost)>0)
@@ -205,7 +209,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_sign
         # place-holder, all zeros
         newrec['pre_passive']=resp.epoch_to_signal('XXX')
         newrec['pre_passive'].chans=['PRE_PASSIVE']
-    
+
     newrec['hit_trials']=resp.epoch_to_signal('HIT_TRIAL')
     newrec['miss_trials']=resp.epoch_to_signal('MISS_TRIAL')
     newrec['fa_trials']=resp.epoch_to_signal('FA_TRIAL')
@@ -219,14 +223,14 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_sign
     for x in state_signals:
         if x in permute_signals:
             # TODO support for signals_permute
-            #raise ValueError("permute_signals not yet supported") 
+            #raise ValueError("permute_signals not yet supported")
             state_sig_list+=[newrec[x].shuffle_time()]
             #print(state_sig_list[-1].shape)
         else:
             state_sig_list+=[newrec[x]]
-            
-    state=signal.Signal.concatenate_channels(state_sig_list)    
-    state.name=new_signalname    
+
+    state=signal.Signal.concatenate_channels(state_sig_list)
+    state.name=new_signalname
     newrec.add_signal(state)
 
     return newrec

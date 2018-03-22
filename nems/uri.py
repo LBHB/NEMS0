@@ -80,7 +80,7 @@ def save_resource(uri, data=None, json=None):
             # Create any necessary directories
             dirpath = os.path.dirname(filepath)
             if not os.path.exists(dirpath):
-                os.makedirs(dirpath)
+                os.makedirs(dirpath, mode=0o0777)
             with open(filepath, mode='w+') as f:
                 jsonlib.dump(json, f, cls=NumpyAwareJSONEncoder)
                 f.close()
@@ -103,7 +103,7 @@ def save_resource(uri, data=None, json=None):
             filepath = local_uri(uri)
             dirpath = os.path.dirname(filepath)
             if not os.path.exists(dirpath):
-                os.makedirs(dirpath)
+                os.makedirs(dirpath, mode=0o0777)
             if type(data) is str:
                 d = io.BytesIO(data.encode())
             elif type(data) is io.BytesIO:

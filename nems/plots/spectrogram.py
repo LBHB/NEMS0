@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
 
-def plot_spectrogram(array, fs=None, ax=None):
+def plot_spectrogram(array, fs=None, ax=None,title=None):
     if not ax:
         ax = plt
 
@@ -18,19 +18,20 @@ def plot_spectrogram(array, fs=None, ax=None):
         newlabels = ["{:0.3f}".format(l/fs) for l in locs]
         ax.set_xticklabels(newlabels)
 
-    # TODO: Is there a way the colorbar can overlap part of the image rather than shift it over?    
+    # TODO: Is there a way the colorbar can overlap part of the image rather than shift it over?
     # cbar = plt.colorbar(fraction=0.05)
     # cbar.set_label('Amplitude')
     ax.set_xlabel('Time')
     ax.set_ylabel('Channel')
+    if title:
+        ax.set_title(title)
 
 def spectrogram_from_signal(signal):
     # TODO: How can the colorbar be scaled to match other signals?
     array = signal.as_continuous()
     plot_spectrogram(array, fs=signal.fs)
 
-def spectrogram_from_epoch(signal, epoch, occurrence=0, ax=None):
+def spectrogram_from_epoch(signal, epoch, occurrence=0, ax=None,title=None):
     extracted = signal.extract_epoch(epoch)
     array = extracted[occurrence]
-    plot_spectrogram(array, fs=signal.fs, ax=ax)
-    
+    plot_spectrogram(array, fs=signal.fs, ax=ax,title=title)

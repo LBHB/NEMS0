@@ -117,7 +117,9 @@ ms.save_modelspecs(modelspecs_dir, modelspecs)
 # GENERATE SUMMARY STATISTICS
 
 logging.info('Generating summary statistics...')
-modelspecs,est,val=nems.analysis.api.standard_correlation(ests,vals,modelspecs)
+
+est,val=nems.analysis.api.generate_prediction(ests,vals,modelspecs)
+modelspecs=nems.analysis.api.standard_correlation(ests,vals,modelspecs)
 #new_rec = [ms.evaluate(v,m) for m,v in zip(modelspecs,vals)]
 #r_test = [nems.metrics.api.corrcoef(p, 'pred', 'resp') for p in new_rec]
 #
@@ -143,9 +145,9 @@ logging.info('Generating summary plot...')
 
 # Generate a summary plot
 plt.figure();
-plt.plot(val['resp'].as_continuous().T)
-plt.plot(val['pred'].as_continuous().T)
-plt.plot(val['state'].as_continuous().T/100)
+plt.plot(val[0]['resp'].as_continuous().T)
+plt.plot(val[0]['pred'].as_continuous().T)
+plt.plot(val[0]['state'].as_continuous().T/100)
 
 
 # Optional: Save your figure

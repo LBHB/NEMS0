@@ -20,7 +20,9 @@ def fit_model(recording_uri, modelstring, destination):
         ['nems.xforms.split_for_jackknife', {'njacks': 5}],
         ['nems.xforms.fit_basic',       {}],
         # to do: generate val set and merge.
-        # ['nems.xforms.add_summary_statistics',    {}],
+
+        ['nems.xforms.predict',    {}],
+        ['nems.xforms.add_summary_statistics',    {}],
         ['nems.xforms.plot_summary',    {}],
         # ['nems.xforms.save_recordings', {'recordings': ['est', 'val']}],
     ]
