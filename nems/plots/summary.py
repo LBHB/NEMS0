@@ -1,6 +1,8 @@
 from functools import partial
 import logging
 import numpy as np
+import matplotlib.pyplot as plt
+import scipy.signal
 
 from nems.plots.assemble import plot_layout
 from nems.plots.heatmap import (weight_channels_heatmap, fir_heatmap,
@@ -48,7 +50,8 @@ def plot_summary(rec, modelspecs, stimidx=0):
         plot_scatter(pred[idx], resp, ax=ax, title=rec.name)
 
     def my_scatter(idx, ax):
-        plot_scatter(pred[idx], resp, ax=ax, title=rec.name,
+        plot_scatter(pred[idx], resp, ax=ax,
+                     title="{0} r_test={1:.3f}".format(rec.name,modelspecs[0][0]['meta']['r_test']),
                      smoothing_bins=100)
 
     def my_spectro(ax):
@@ -66,6 +69,28 @@ def plot_summary(rec, modelspecs, stimidx=0):
     def my_fir(idx, ax):
         fir_heatmap(modelspecs[idx], ax=ax)
 
+    def my_state(ax):
+        plt.sca(ax)
+
+        r1=scipy.signal.decimate(resp.as_continuous().T,q=5,axis=0)
+        p1=pred[0].as_continuous().T
+        p1[np.isnan(p1)]=0
+        p1=scipy.signal.decimate(p1,q=5,axis=0)
+
+
+        plt.plot(r1)
+        plt.plot(p1)
+        mmax=np.nanmax(p1)
+        if 'state' in rec.signals.keys():
+            for i in range(1,rec['state'].shape[0]):
+                d=rec['state'].as_continuous()[i,:].T
+                d[np.isnan(d)]=0
+                d=scipy.signal.decimate(d,q=5,axis=0)
+                d=d/np.nanmax(d)*mmax - mmax*1.1
+                plt.plot(d)
+
+        plt.axis('tight')
+
     def my_hist(idx, ax):
         pred_error_hist(resp, pred[idx])
 
@@ -73,18 +98,23 @@ def plot_summary(rec, modelspecs, stimidx=0):
         partials = [partial(fn, i) for i in range(len(items))]
         return partials
 
+    module_names=[m['fn'] for m in modelspecs[0]]
     if len(modelspecs) <= 10:
-        fig = plot_layout([[my_spectro],
-                           #make_partials(my_wc, modelspecs),
-                           #make_partials(my_fir, modelspecs),
-                           make_partials(my_strf, modelspecs),
-                           [my_timeseries],
-                           make_partials(my_scatter, modelspecs),
-                           make_partials(my_hist, modelspecs)])
+
+        plot_list=[[my_spectro],
+                   [my_timeseries]]
+        if any('fir' in n for n in module_names):
+            plot_list.append(make_partials(my_strf, modelspecs))
+        if any('state' in n for n in module_names):
+            plot_list.append([my_state])
+
+        plot_list.append(make_partials(my_scatter, pred))
+        #plot_list.append(make_partials(my_hist, modelspecs))
+
     else:
         # Don't plot the scatters/strfs when you have more than 10
-        fig = plot_layout([[my_spectro],
-                           [my_timeseries]])
+        plot_list=[[my_spectro],[my_timeseries]]
 
+    fig = plot_layout(plot_list)
     fig.tight_layout()
     return fig

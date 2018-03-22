@@ -3,7 +3,7 @@ import numpy as np
 
 import nems.modelspec as ms
 import nems.metrics.api as nmet
-
+import nems.recording as recording
 
 def generate_prediction(est,val,modelspecs):
 
@@ -11,7 +11,7 @@ def generate_prediction(est,val,modelspecs):
         # ie, if jackknifing
         new_est = [ms.evaluate(d, m) for m,d in zip(modelspecs,est)]
         new_val = [ms.evaluate(d, m) for m,d in zip(modelspecs,val)]
-        new_val=[new_val[0].jackknife_inverse_merge(new_val)]
+        new_val = [recording.jackknife_inverse_merge(new_val)]
     else:
         # Evaluate estimation and validation data
         new_est = [ms.evaluate(est, m) for m in modelspecs]

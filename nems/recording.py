@@ -555,20 +555,21 @@ class Recording:
                                                    invert=invert, excise=excise)
         return Recording(signals=new_sigs)
 
-    @staticmethod
-    def jackknife_inverse_merge(rec_list):
-        '''
-        merges list of jackknife validation data into a signal recording
-        '''
-        if type(rec_list) is not list:
-            raise ValueError('Expecting list of recordings')
-        new_sigs = {}
-        rec1=rec_list[0]
-        for sn in rec1.signals.keys():
-            sig_list=[r[sn] for r in rec_list]
-            #new_sigs[sn]=sig_list[0].jackknife_inverse_merge(sig_list)
-            new_sigs[sn]=merge_selections(sig_list)
-        return Recording(signals=new_sigs)
+# moved to independent function, below
+#    @staticmethod
+#    def jackknife_inverse_merge(rec_list):
+#        '''
+#        merges list of jackknife validation data into a signal recording
+#        '''
+#        if type(rec_list) is not list:
+#            raise ValueError('Expecting list of recordings')
+#        new_sigs = {}
+#        rec1=rec_list[0]
+#        for sn in rec1.signals.keys():
+#            sig_list=[r[sn] for r in rec_list]
+#            #new_sigs[sn]=sig_list[0].jackknife_inverse_merge(sig_list)
+#            new_sigs[sn]=merge_selections(sig_list)
+#        return Recording(signals=new_sigs)
 
     def jackknifes_by_epoch(self, nsplits, epoch_name, only_signals=None):
         raise NotImplementedError         # TODO
@@ -601,3 +602,19 @@ class Recording:
         # TODO: copy the epochs as well
     def select_epoch():
         raise NotImplementedError    # TODO
+
+
+def jackknife_inverse_merge(rec_list):
+    '''
+    merges list of jackknife validation data into a signal recording
+    '''
+    if type(rec_list) is not list:
+        raise ValueError('Expecting list of recordings')
+    new_sigs = {}
+    rec1=rec_list[0]
+    for sn in rec1.signals.keys():
+        sig_list=[r[sn] for r in rec_list]
+        #new_sigs[sn]=sig_list[0].jackknife_inverse_merge(sig_list)
+        new_sigs[sn]=merge_selections(sig_list)
+    return Recording(signals=new_sigs)
+
