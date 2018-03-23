@@ -55,7 +55,8 @@ def plot_summary(rec, modelspecs, stimidx=0):
                      smoothing_bins=100)
 
     def my_spectro(ax):
-        spectrogram_from_epoch(stim, 'TRIAL', ax=ax, occurrence=occurrence)
+        spectrogram_from_epoch(stim, 'TRIAL', ax=ax, occurrence=occurrence,
+                               title=modelspecs[0][0]['meta']['cellid']+" - "+modelspecs[0][0]['meta']['modelname'])
 
     def my_timeseries(ax):
         timeseries_from_epoch(sigs, 'TRIAL', ax=ax, occurrences=occurrence)
