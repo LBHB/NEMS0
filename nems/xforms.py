@@ -49,14 +49,26 @@ def xfspec_shortname(xformspec):
     return name
 
 
-def evaluate_step(xfa, context_in={}):
+def evaluate_step(xfa, context={}):
     '''
     Helper function for evaluate. Take one step
+    SVD revised 2018-03-23 so specialized xforms wrapper functions not required
+      but now xfa can be len 4, where xfa[2] indicates context in keys and
+      xfa[3] is context out keys
     '''
-    if len(xfa) != 2:
-        raise ValueError('got non 2-tuple for xform: {}'.format(xfa))
+    if not(len(xfa) == 2 or len(xfa) == 4):
+        raise ValueError('got non 2-tuple or 4-tuple for xform: {}'.format(xfa))
     xf = xfa[0]
     xfargs = xfa[1]
+    if len(xfa)>2:
+        context_in={k: context[k] for k in xfa[2]}
+    else:
+        context_in=context
+    if len(xfa)>3:
+        context_out_keys=xfa[3]
+    else:
+        context_out_keys=[]
+
     fn = ms._lookup_fn_at(xf)
     # Check for collisions; more to avoid confusion than for correctness:
     for k in xfargs:
@@ -70,10 +82,18 @@ def evaluate_step(xfa, context_in={}):
     # Run the xf
     log.info('Evaluating: {}'.format(xf))
     new_context = fn(**args)
+    if len(context_out_keys):
+        if type(new_context) is tuple:
+            print(new_context)
+            new_context={k: new_context[i] for i,k in enumerate(context_out_keys)}
+        elif len(context_out_keys)==1:
+            new_context={context_out_keys[0]: new_context}
+        else:
+            raise ValueError('len(context_out_keys) needs to match number of outputs from xf fun')
     # Use the new context for the next step
     if type(new_context) is not dict:
         raise ValueError('xf did not return a context dict: {}'.format(xf))
-    context_out = {**context_in, **new_context}
+    context_out = {**context, **new_context}
 
     return context_out
 
@@ -187,10 +207,6 @@ def generate_psth_from_est_for_both_est_and_val_nfold(est, val, **context):
 def init_from_keywords(keywordstring, meta={}, IsReload=False, **context):
     if not IsReload:
         modelspec = init.from_keywords(keywordstring)
-        if not 'meta' in modelspec[0].keys():
-            modelspec[0]['meta'] = meta
-        else:
-            modelspec[0]['meta'].update(meta)
 
         return {'modelspecs': [modelspec]}
     else:

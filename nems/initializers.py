@@ -7,7 +7,7 @@ from nems.utils import split_keywords
 from nems import keywords
 from nems.fitters.api import scipy_minimize
 
-def from_keywords(keyword_string, registry=keywords.defaults):
+def from_keywords(keyword_string, registry=keywords.defaults, meta={}):
     '''
     Returns a modelspec created by splitting keyword_string on underscores
     and replacing each keyword with what is found in the nems.keywords.defaults
@@ -40,7 +40,21 @@ def from_keywords(keyword_string, registry=keywords.defaults):
             first_input_to_stim=True
         i+=1
 
+    # insert metadata, if provided
+    if not 'meta' in modelspec[0].keys():
+        modelspec[0]['meta'] = meta
+    else:
+        modelspec[0]['meta'].update(meta)
+
     return modelspec
+
+def from_keywords_as_list(keyword_string, registry=keywords.defaults, meta={}):
+    '''
+    wrapper for from_keywords that returns modelspec as a modelspecs list,
+    ie, [modelspec]
+    '''
+    return [from_keywords(keyword_string, registry, meta)]
+
 
 def prefit_to_target(rec, modelspec, analysis_function, target_module,
                      fitter=scipy_minimize, fit_kwargs={}):
