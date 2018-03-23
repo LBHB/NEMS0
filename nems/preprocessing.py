@@ -166,10 +166,14 @@ def generate_psth_from_est_for_both_est_and_val(est,val):
     #   replacing all epochs in the signal with their average (psth)
     respavg_est = resp_est.replace_epochs(per_stim_psth)
     respavg_est.name = 'stim'  # TODO: SVD suggests rename 2018-03-08
+    ref_phase=est['resp'].epoch_to_signal('REFERENCE')
+    respavg_est=respavg_est.nan_mask(ref_phase.as_continuous())
     est.add_signal(respavg_est)
 
     respavg_val = resp_val.replace_epochs(per_stim_psth)
     respavg_val.name = 'stim' # TODO: SVD suggests rename 2018-03-08
+    ref_phase=val['resp'].epoch_to_signal('REFERENCE')
+    respavg_val=respavg_val.nan_mask(ref_phase.as_continuous())
     val.add_signal(respavg_val)
 
     return est, val
