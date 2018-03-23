@@ -16,7 +16,9 @@ def gaussian_coefficients(mean, sd, n_chan_in, **kwargs):
     mean = np.asanyarray(mean)[..., np.newaxis]
     sd = np.asanyarray(sd)[..., np.newaxis]
     coefficients = 1/(sd*(2*np.pi)**0.5) * np.exp(-0.5*((x-mean)/sd)**2)
-    coefficients /= np.sum(coefficients, axis=1, keepdims=True)
+    csum=np.sum(coefficients, axis=1, keepdims=True)
+    csum[csum==0]=1
+    coefficients /= csum
     return coefficients
 
 

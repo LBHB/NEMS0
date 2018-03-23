@@ -162,8 +162,8 @@ defkey('logsig1',
                       'o': 'pred'},
         'prior': {'base': ('Normal', {'mean': [0], 'sd': [1]}),
                   'amplitude': ('Normal', {'mean': [0.2], 'sd': [1]}),
-                  'shift': ('Normal', {'mean': [0], 'sd': [1]}),
-                  'kappa': ('Normal', {'mean': [0], 'sd': [0.1]})}})
+                  'shift': ('Normal', {'mean': [1], 'sd': [1]}),
+                  'kappa': ('Normal', {'mean': [-2], 'sd': [1]})}})
 
 defkey('tanh1',
        {'fn': 'nems.modules.nonlinearity.tanh',
