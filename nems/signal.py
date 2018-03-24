@@ -10,6 +10,35 @@ import copy
 from nems.epoch import remove_overlap, merge_epoch, verify_epoch_integrity
 
 
+""" Proposed modifications for non-raster signals:
+
+    1. create base class with subclasses:
+            SignalRasterized
+            SignalTimeSeries (for spike events)
+            SignalDictionary (for stimulus events)
+    2. for latter two, raw data gets stored in a ._data field
+    3. for saving, save _data to an HDF5 file (using pytables lib?)
+    4. for SignalTimeSeries use spike_time_to_raster to generate _matrix first
+       time it's needed. then save
+    5. for SignalDictionary use dict_to_signal for the same purpose
+    6. clear_matrix() method to clear/delete _matrix
+
+    7. next steps: SignalSubset subclass to which is a masked/subset of a
+        SignalRasterized where epochs are discarded but enough information
+        is saved from the masking so that the signal can be cast back into
+        its original shape & size
+        example sig_sub=original_signal.subset(np.array([0,1,2,3..,10,21,...30]))
+          or ..= signal.subset([True,True,...True,False,False...True...])
+          or ..= signal.subset([range variables])
+          sig_sub contains only the indexed samples and the masking information
+            so that it can be inverted back to the original signal
+        original_signal.replace_matrix(sig_sub)
+            --- note this should only replace the samples from sig_sub and
+            preserve other samples already in original_signal
+    8. Then RecordingSubset is a contained for SignalSubset?
+"""
+
+
 class BaseSignalIndexer:
 
     def __init__(self, obj):
@@ -1216,3 +1245,44 @@ def jackknife_inverse_merge(sig_list):
         m[:,gidx]=m2[:,gidx]
     sig_new=sig_list[0]._modified_copy(data=m)
     return sig_new
+
+
+def spike_time_to_raster(spike_dict,fs=100,event_times=None):
+    """
+    convert list of spike times to a raster of spike rate, with duration
+    matching max end time in the event_times list
+    """
+
+    # event times is the baphy term for epochs
+    if event_times is not None:
+        maxtime=np.max(event_times["end"])
+
+    maxbin=int(fs*maxtime)
+    unitcount=len(spike_dict.keys())
+    raster=np.zeros([unitcount,maxbin])
+
+    # dictionary has one entry per cell. The output raster should be cell X time
+    cellids=sorted(spike_dict)
+    for i,key in enumerate(cellids):
+        for t in spike_dict[key]:
+            b=int(np.floor(t*fs))
+            if b<maxbin:
+                raster[i,b]+=1
+
+    return raster,cellids
+
+
+def dict_to_signal(stim_dict,fs=100,event_times=None,signal_name='stim',recording_name='rec'):
+
+    maxtime=np.max(event_times["end"])
+    maxbin=int(fs*maxtime)
+
+    tags=list(stim_dict.keys())
+    chancount=stim_dict[tags[0]].shape[0]
+
+    z=np.zeros([chancount,maxbin])
+
+    empty_stim=nems.signal.Signal(matrix=z,fs=fs,name=signal_name,epochs=event_times,recording=recording_name)
+    stim=empty_stim.replace_epochs(stim_dict)
+
+    return stim
