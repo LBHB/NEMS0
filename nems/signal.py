@@ -14,6 +14,10 @@ from nems.epoch import remove_overlap, merge_epoch, verify_epoch_integrity
 
 log = logging.getLogger(__name__)
 
+# TODO: Different names for the signal subclasses?
+#       Not sure I like these but couldn't think of anything
+#       better at the time. --jacob 3/25/18
+
 """ Proposed modifications for non-raster signals:
 
     1. create base class with subclasses:
@@ -252,6 +256,10 @@ class SignalBase():
         '''
         return self._matrix.copy()
 
+    def _delete_cached_matrix(self):
+        log.info("Deleting cached matrix...")
+        del self._cached_matrix
+        self._cached_matrix = None
 
 # TODO: Rename this SignalRasterized and rename SignalBase to Signal?
 #       Might make more sense, but lots of code calls Signal() at the moment.
@@ -1310,6 +1318,9 @@ def jackknife_inverse_merge(sig_list):
     return sig_new
 
 
+# Two functions below from baphy just for reference,
+# can delete after new signal subclasses are working.
+'''
 def spike_time_to_raster(spike_dict,fs=100,event_times=None):
     """
     convert list of spike times to a raster of spike rate, with duration
@@ -1351,7 +1362,7 @@ def dict_to_signal(stim_dict,fs=100,event_times=None,signal_name='stim',recordin
     stim=empty_stim.replace_epochs(stim_dict)
 
     return stim
-
+'''
 
 class SignalTimeSeries(SignalBase):
     '''
@@ -1407,7 +1418,44 @@ class SignalTimeSeries(SignalBase):
 
         self._cached_matrix = raster
 
-    def _delete_cached_matrix(self):
-        log.info("Deleting cached matrix...")
-        del self._cached_matrix
-        self._cached_matrix = None
+
+class SignalDictionary(SignalBase):
+    '''
+    Expects data to be a dictionary of the form:
+        {<string>: <ndarray of stim data, two dimensional>}
+    '''
+    def __init__(self, fs, data, name, recording, chans=None, epochs=None,
+                 t0=0, meta=None, safety_checks=True):
+        super().__init__(fs=fs, data=data, name=name, recording=recording,
+                         chans=chans, epochs=epochs, t0=t0, meta=meta,
+                         safety_checks=safety_checks)
+        # TODO: any subclass-specific __init__ stuff needed?
+        #       if not can just delete method
+
+    @property
+    def _matrix(self):
+        if self._cached_matrix is not None:
+            pass
+        else:
+            log.info("matrix doesn't exist yet, "
+                     "generating from stim dict")
+            self._generate_matrix()
+        return self._cached_matrix
+
+    def _generate_matrix(self):
+        maxtime = np.max(self.epochs["end"])
+        maxbin = int(self.fs*maxtime)
+        tags = list(self._data.keys())
+        chancount = self._data[tags[0]].shape[0]
+
+        # HACK: Creating a whole other signal object just
+        #       to create the matrix for this one is less than ideal.
+        #       But it works for now and it's fairly fast.
+        #       Need to repurpose replace_epochs functionality to
+        #       operate on self._cached_matrix?  --jacob 3/25/18
+        z = np.zeros([chancount, maxbin])
+        empty_stim = Signal(matrix=z, fs=self.fs, name=self.name,
+                            epochs=self.epochs, recording=self.recording)
+        stim = empty_stim.replace_epochs(self._data)
+        self._cached_matrix = copy.deepcopy(stim._matrix)
+        del stim
