@@ -103,19 +103,15 @@ def test_extract_epoch(signal):
     assert result.shape == (2, 3, 45)
 
 
-def test_trial_epochs_from_occurrences(signal):
-    signal.epochs = signal.trial_epochs_from_occurrences(occurrences=10)
-    result1 = signal.extract_epoch('trial')
-    assert result1.shape == (10, 3, 20)
-
-    with pytest.raises(ValueError):
-        signal.epochs = signal.trial_epochs_from_occurrences(occurrences=11)
-
-
+# TODO: Why is this breaking now? Related to SignalBase
+#       changes?
 def test_as_trials(signal):
     signal.epochs = signal.trial_epochs_from_occurrences(occurrences=10)
     result = signal.extract_epoch('trial')
     assert result.shape == (10, 3, 20)
+
+    with pytest.raises(ValueError):
+        signal.epochs = signal.trial_epochs_from_occurrences(occurrences=11)
 
 
 def test_as_average_trial(signal):

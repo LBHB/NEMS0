@@ -1,14 +1,18 @@
 import io
 import os
+import logging
 import json
 import re
 import math
-import pandas as pd
-import numpy as np
 import tempfile
 import copy
+
+import pandas as pd
+import numpy as np
+
 from nems.epoch import remove_overlap, merge_epoch, verify_epoch_integrity
 
+log = logging.getLogger(__name__)
 
 """ Proposed modifications for non-raster signals:
 
@@ -55,9 +59,11 @@ class BaseSignalIndexer:
             c_slice = index
             t_slice = slice(None)
 
-        # Make sure the channel and time slices are slices. If they're integers,
+        # Make sure the channel and time slices are slices.
+        # If they're integers,
         # that dimension will be dropped. We don't want that as we need to
-        # preserve dimensionality to create a new Signal object, so the parsers
+        # preserve dimensionality to create a new Signal object,
+        # so the parsers
         # need to return the appropriate dimensionality-preserving slice.
         c_slice = self._parse_c_slice(c_slice)
         t_slice = self._parse_t_slice(t_slice)
@@ -126,8 +132,8 @@ class LabelSignalIndexer(BaseSignalIndexer):
             start = None if c_slice.start is None else \
                 self.obj.chans.index(c_slice.start)
             # Note that we add 1 to the label-based index becasue we're
-            # duplicating Pandas loc behavior (where the end of a label slice is
-            # included).
+            # duplicating Pandas loc behavior (where the end of a label
+            # slice is included).
             stop = None if c_slice.stop is None else \
                 self.obj.chans.index(c_slice.stop)+1
             return slice(start, stop)
@@ -139,8 +145,121 @@ class LabelSignalIndexer(BaseSignalIndexer):
             raise IndexError('Slice not understood')
 
 
-class Signal:
+class SignalBase():
 
+    def __init__(self, fs, data, name, recording, chans=None, epochs=None,
+                 t0=0, meta=None, safety_checks=True):
+        '''
+        Parameters
+        ----------
+        ... TODO
+        epochs : {None, DataFrame}
+            Epochs are periods of time that are tagged with a name
+            When defined, the DataFrame should have these first three columns:
+                 ('start', 'end', 'name')
+            denoting the start and end of the time of an epoch (in seconds).
+            You may use the same epoch name multiple times; this is common when
+            tagging epochs that correspond to occurrences of the same stimulus.
+        t0 : float, default 0
+            Start time of signal relative to the recording you're working with.
+            Typically all signals should start at the same time (i.e. 0
+            seconds); however, this may not always be the case.
+        ...
+
+        '''
+        self._data = data
+        # TODO: keep immutable requirement? or just for
+        #       Rasterized subclass? Have to disable for now b/c
+        #       not useable for dicts, but could hack around it if needed.
+        # self._data.flags.writeable = False  # Make it immutable
+        # Used by some subclasses
+        self._cached_matrix = None
+        self.name = name
+        self.recording = recording
+        self.chans = chans
+        self.fs = fs
+        self.epochs = epochs
+        self.meta = meta
+        self.t0 = t0
+
+        if safety_checks:
+            self._run_safety_checks()
+
+    def _run_safety_checks(self):
+        """
+        Additional subclass-specific checks can be added by
+        redefiing _run_safety_checks in that class and calling
+        super()._run_safety_checks() within that function.
+        """
+        if not isinstance(self.name, str):
+            m = 'Name of signal must be a string: {}'.format(self.name)
+            raise ValueError(m)
+
+        if not isinstance(self.recording, str):
+            m = 'Name of recording must be a string: {}'.format(self.recording)
+            raise ValueError(m)
+
+        if self.chans:
+            if type(self.chans) is not list:
+                raise ValueError('Chans must be a list.')
+            typesok = [(True if type(c) is str else False) for c in self.chans]
+            if not all(typesok):
+                raise ValueError('Chans must be a list of strings:' +
+                                 str(self.chans) + str(typesok))
+            # Test that channel names use only
+            # lowercase letters and numbers 0-9
+            for s in self.chans:
+                if s and not self._string_syntax_valid(s):
+                    raise ValueError("Disallowed characters in: {0}\n"
+                                     .format(s))
+
+        # Test that other names use only lowercase letters and numbers 0-9
+        for s in [self.name, self.recording]:
+            if s and not self._string_syntax_valid(s):
+                raise ValueError("Disallowed characters in: {0}\n"
+                                 .format(s))
+
+        if self.fs < 0:
+            m = 'Sampling rate of signal must be a positive number. Got {}.'
+            raise ValueError(m.format(self.fs))
+
+        # not implemented yet in epoch.py -- 2/4/2018
+        # verify_epoch_integrity(self.epochs)
+
+    @staticmethod
+    def _string_syntax_valid(s):
+        '''
+        Returns True iff the string is valid for use in signal names,
+        recording names, or channel names. Else False.
+        '''
+        disallowed = re.compile('[^a-zA-Z0-9_\-]')
+        match = disallowed.findall(s)
+        if match:
+            return False
+        else:
+            return True
+
+    def as_continuous(self):
+        '''
+        Return a copy of signal data as a Numpy array of shape (chans, time).
+
+        Parameters
+        ----------
+        chans : {None, iterable of strings}
+            Names of channels to return. If None, return the full signal. If an
+            iterable of strings, return those channels (in the order specified
+            by the iterable).
+        '''
+        return self._matrix.copy()
+
+
+# TODO: Rename this SignalRasterized and rename SignalBase to Signal?
+#       Might make more sense, but lots of code calls Signal() at the moment.
+#       Alternatively, would it make sense to have current Signal be the
+#       base class, or is some of its functionality too different from
+#       SignalDictionary and SignalTimeSeries?
+class Signal(SignalBase):
+    # TODO: switch 'matrix' argument to 'data' to match base class?
     def __init__(self, fs, matrix, name, recording, chans=None, epochs=None,
                  t0=0, meta=None, safety_checks=True):
         '''
@@ -184,50 +303,14 @@ class Signal:
         self.nchans = C
         self.ntimes = T
 
-        # Cached properties for speed; their use is however optional
-        # TODO: Can these be made lazy? There is actually a big
-        # performance hit in precalculating these
-        # For now, don't set until a method needs them.
-        #self._set_cached_props()
-
-        if safety_checks and not isinstance(self.name, str):
-            m = 'Name of signal must be a string: {}'.format(self.name)
-            raise ValueError(m)
-
-        if safety_checks and not isinstance(self.recording, str):
-            m = 'Name of recording must be a string: {}'.format(self.recording)
-            raise ValueError(m)
-
-        if safety_checks and self.chans:
-            if type(self.chans) is not list:
-                raise ValueError('Chans must be a list.')
-            typesok = [(True if type(c) is str else False) for c in self.chans]
-            if not all(typesok):
-                raise ValueError('Chans must be a list of strings:' +
-                                 str(self.chans) + str(typesok))
-            # Test that channel names use only lowercase letters and numbers 0-9
-            for s in self.chans:
-                if s and not self._string_syntax_valid(s):
-                    raise ValueError("Disallowed characters in: {0}\n"
-                                     .format(s))
-
-        # Test that other names use only lowercase letters and numbers 0-9
         if safety_checks:
-            for s in [name, recording]:
-                if s and not self._string_syntax_valid(s):
-                    raise ValueError("Disallowed characters in: {0}\n"
-                                     .format(s))
+            self._run_safety_checks()
 
-        if safety_checks and self.fs < 0:
-            m = 'Sampling rate of signal must be a positive number. Got {}.'
-            raise ValueError(m.format(self.fs))
-
-        if safety_checks and type(self._matrix) is not np.ndarray:
+    def _run_safety_checks(self):
+        super()._run_safety_checks()
+        if type(self._matrix) is not np.ndarray:
             raise ValueError('matrix must be a np.ndarray:' +
                              type(self._matrix))
-
-        # not implemented yet in epoch.py -- 2/4/2018f
-        # verify_epoch_integrity(self.epochs)
 
     def _set_cached_props(self):
         """Sets channel_max, channel_min, channel_mean, channel_var,
@@ -367,32 +450,6 @@ class Signal:
         jsons = [just_fileroot(f) for f in files if f.endswith('.json')]
         overlap = set.intersection(set(csvs), set(jsons))
         return list(overlap)
-
-    @staticmethod
-    def _string_syntax_valid(s):
-        '''
-        Returns True iff the string is valid for use in signal names,
-        recording names, or channel names. Else False.
-        '''
-        disallowed = re.compile('[^a-zA-Z0-9_\-]')
-        match = disallowed.findall(s)
-        if match:
-            return False
-        else:
-            return True
-
-    def as_continuous(self):
-        '''
-        Return a copy of signal data as a Numpy array of shape (chans, time).
-
-        Parameters
-        ----------
-        chans : {None, iterable of strings}
-            Names of channels to return. If None, return the full signal. If an
-            iterable of strings, return those channels (in the order specified
-            by the iterable).
-        '''
-        return self._matrix.copy()
 
     def _get_attributes(self):
         md_attributes = ['name', 'chans', 'fs', 'meta', 'recording', 'epochs',
@@ -810,20 +867,20 @@ class Signal:
         ----------
         epoch : {string, Nx2 array}
             If string, name of epoch (as stored in internal dataframe) to
-            extract. If Nx2 array, the first column indicates the start time (in
-            seconds) and the second column indicates the end time (in seconds)
-            to extract.
+            extract. If Nx2 array, the first column indicates the start time
+            (in seconds) and the second column indicates the end time
+            (in seconds) to extract.
         boundary_mode : {None, 'exclude', 'trim'}
             If 'exclude', discard all epochs where the boundaries are not fully
             contained within the range of the signal. If 'trim', epochs with
             boundaries falling outside the signal range will be truncated. For
-            example, if an epoch runs from -1.5 to 10, it will be truncated to 0
-            to 10 (all signals start at time 0). If None, return all epochs.
+            example, if an epoch runs from -1.5 to 10, it will be truncated to
+            0 to 10 (all signals start at time 0). If None, return all epochs.
         fix_overlap : {None, 'merge', 'first'}
             Indicates how to handle overlapping epochs. If None, return
-            boundaries as-is. If 'merge', merge overlapping epochs into a single
-            epoch. If 'first', keep only the first of an overlapping set of
-            epochs.
+            boundaries as-is. If 'merge', merge overlapping epochs into a
+            single epoch. If 'first', keep only the first of an overlapping
+            set of epochs.
 
         Returns
         -------
@@ -834,8 +891,8 @@ class Signal:
         '''
         bounds = self.get_epoch_bounds(epoch, boundary_mode, fix_overlap)
         indices = (bounds-self.t0) * self.fs
-        # Be sure to round before converting to an integer otherwise an index of
-        # 1.999...999 will get converted to 1 rather than 2.
+        # Be sure to round before converting to an integer otherwise an
+        # index of 1.999...999 will get converted to 1 rather than 2.
         return indices.astype('float').round().astype('i')
 
     def extract_epoch(self, epoch):
@@ -846,9 +903,9 @@ class Signal:
         ----------
         epoch : {string, Nx2 array}
             If string, name of epoch (as stored in internal dataframe) to
-            extract. If Nx2 array, the first column indicates the start time (in
-            seconds) and the second column indicates the end time (in seconds)
-            to extract.
+            extract. If Nx2 array, the first column indicates the start time
+            (in seconds) and the second column indicates the end time
+            (in seconds) to extract.
 
         Returns
         -------
@@ -862,7 +919,8 @@ class Signal:
         Epochs tagged with the same name may have various lengths. Shorter
         epochs will be padded with NaN.
         '''
-        epoch_indices = self.get_epoch_indices(epoch, boundary_mode='exclude', fix_overlap='first')
+        epoch_indices = self.get_epoch_indices(epoch, boundary_mode='exclude',
+                                               fix_overlap='first')
         if epoch_indices.size == 0:
             raise IndexError("No matching epochs to extract for: {0}\n"
                              "In signal: {1}"
@@ -894,9 +952,9 @@ class Signal:
         ----------
         epoch : {string, Nx2 array}
             If string, name of epoch (as stored in internal dataframe) to
-            extract. If Nx2 array, the first column indicates the start time (in
-            seconds) and the second column indicates the end time (in seconds)
-            to extract.
+            extract. If Nx2 array, the first column indicates the start time
+            (in seconds) and the second column indicates the end time
+            (in seconds) to extract.
 
         Returns
         -------
@@ -939,7 +997,7 @@ class Signal:
         '''
         data = self.as_continuous()
         if preserve_nan:
-            nan_bins=np.isnan(data[0,:])
+            nan_bins = np.isnan(data[0, :])
         indices = self.get_epoch_indices(epoch)
         if indices.size == 0:
             raise RuntimeWarning("No occurrences of epoch were found: \n{}\n"
@@ -947,7 +1005,7 @@ class Signal:
         for lb, ub in indices:
             data[:, lb:ub] = epoch_data
         if preserve_nan:
-            data[:,nan_bins]=np.nan;
+            data[:, nan_bins] = np.nan
 
         return self._modified_copy(data)
 
@@ -970,7 +1028,7 @@ class Signal:
         # structure as well.
         data = self.as_continuous()
         if preserve_nan:
-            nan_bins=np.isnan(data[0,:])
+            nan_bins = np.isnan(data[0, :])
         for epoch, epoch_data in epoch_dict.items():
             for lb, ub in self.get_epoch_indices(epoch):
 
@@ -979,21 +1037,23 @@ class Signal:
                 if ub-lb < epoch_data.shape[1]:
                     # epoch data may be too long bc padded with nans,
                     # truncate!
-                    epoch_data=epoch_data[:,0:(ub-lb)]
-                    #ub += epoch_data.shape[1]-(ub-lb)
+                    epoch_data = epoch_data[:, 0:(ub-lb)]
+                    # ub += epoch_data.shape[1]-(ub-lb)
                 elif ub-lb > epoch_data.shape[1]:
                     ub -= (ub-lb)-epoch_data.shape[1]
-                if ub>data.shape[1]:
+                if ub > data.shape[1]:
                     ub -= ub-data.shape[1]
-                    epoch_data=epoch_data[:,0:(ub-lb)]
-                #print("Data len {0} {1}-{2} {3}".format(
-                #        data.shape[1],lb,ub,ub-lb))
-                #print(data[:, lb:ub].shape)
-                #print(epoch_data.shape)
+                    epoch_data = epoch_data[:, 0:(ub-lb)]
+                # print("Data len {0} {1}-{2} {3}"
+                #       .format(data.shape[1],lb,ub,ub-lb))
+                # print(data[:, lb:ub].shape)
+                # print(epoch_data.shape)
                 data[:, lb:ub] = epoch_data
+
         if preserve_nan:
-            data[:,nan_bins]=np.nan;
+            data[:, nan_bins] = np.nan
         return self._modified_copy(data)
+
 
     def epoch_to_signal(self, epoch, boundary_mode='trim', fix_overlap='merge'):
         '''
@@ -1074,7 +1134,7 @@ class Signal:
             m = 'Signal not evenly divisible into fixed-length trials'
             raise ValueError(m)
 
-        starts = np.arange(occurrences) * trial_size
+        starts = np.arange(occurrences)*trial_size
         ends = starts + trial_size
         return pd.DataFrame({
             'start': starts,
@@ -1131,13 +1191,13 @@ class Signal:
         '''
         # x = self.as_continuous()   # Always Safe but makes a copy
         x = self._matrix.copy()  # Much faster; TODO: Test if throws warnings
-        arr=np.arange(x.shape[1])
-        arr0=arr[np.isfinite(x[0,:])]
-        arr=arr0.copy()
+        arr = np.arange(x.shape[1])
+        arr0 = arr[np.isfinite(x[0, :])]
+        arr = arr0.copy()
         np.random.shuffle(arr)
-        x[:,arr0]=x[:,arr]
+        x[:, arr0] = x[:, arr]
         newsig = self._modified_copy(x)
-        newsig.name = newsig.name+'_shuf'
+        newsig.name = newsig.name + '_shuf'
         return newsig
 
     def nan_outliers(self, trim_outside_zscore=2.0):
@@ -1169,7 +1229,7 @@ class Signal:
         NaN out all time points where matrix mask[0,:]==False
         '''
         m = self.as_continuous()
-        m[:,mask[0,:]==False] = np.nan
+        m[:, mask[0, :] == False] = np.nan
         return self._modified_copy(m)
 
     @property
@@ -1227,7 +1287,9 @@ def merge_selections(signals):
             if not np.array_equal(a[np.isfinite(a)],
                                   the_mean[np.isfinite(a)]):
 
-                raise ValueError("Overlapping, unequal non-NaN values found in signal {}.".format(signals[0].name))
+                raise ValueError("Overlapping, unequal non-NaN values"
+                                 "found in signal {}."
+                                 .format(signals[0].name))
 
         # Use the first signal as a template for setting fs, chans, etc.
         return signals[0]._modified_copy(the_mean)
@@ -1235,15 +1297,16 @@ def merge_selections(signals):
 
 def jackknife_inverse_merge(sig_list):
     """
-    given a list of signals, merge into a single signal. superceded by merge_selections?
+    given a list of signals, merge into a single signal.
+    superceded by merge_selections?
     """
 
-    m=sig_list[0].as_continuous()
+    m = sig_list[0].as_continuous()
     for s in sig_list[1:]:
-        m2=s.as_continuous()
-        gidx=np.isfinite(m2[0,:])
-        m[:,gidx]=m2[:,gidx]
-    sig_new=sig_list[0]._modified_copy(data=m)
+        m2 = s.as_continuous()
+        gidx = np.isfinite(m2[0, :])
+        m[:, gidx] = m2[:, gidx]
+    sig_new = sig_list[0]._modified_copy(data=m)
     return sig_new
 
 
@@ -1252,6 +1315,8 @@ def spike_time_to_raster(spike_dict,fs=100,event_times=None):
     convert list of spike times to a raster of spike rate, with duration
     matching max end time in the event_times list
     """
+
+    # NOTE: converting to _generate_matrix method in SignalTimeSeries
 
     # event times is the baphy term for epochs
     if event_times is not None:
@@ -1286,3 +1351,63 @@ def dict_to_signal(stim_dict,fs=100,event_times=None,signal_name='stim',recordin
     stim=empty_stim.replace_epochs(stim_dict)
 
     return stim
+
+
+class SignalTimeSeries(SignalBase):
+    '''
+    Expects data to be a dictionary of the form:
+        {<string>: <ndarray of spike times, one dimensional>}
+    '''
+    def __init__(self, fs, data, name, recording, chans=None, epochs=None,
+                 t0=0, meta=None, safety_checks=True):
+        super().__init__(fs=fs, data=data, name=name, recording=recording,
+                         chans=chans, epochs=epochs, t0=t0, meta=meta,
+                         safety_checks=safety_checks)
+        # TODO: any subclass-specific __init__ stuff needed?
+        #       if not can just delete method
+
+    @property
+    def _matrix(self):
+        if self._cached_matrix is not None:
+            pass
+        else:
+            log.info("matrix doesn't exist yet, "
+                     "generating from time dict")
+            self._generate_matrix()
+        return self._cached_matrix
+
+    def _generate_matrix(self):
+        """
+        convert list of spike times to a raster of spike rate,
+        with duration matching max end time in the event_times list
+        """
+        if self.epochs is not None:
+            maxtime = np.max(self.epochs["end"])
+        else:
+            # TODO
+            maxtime = 'what? or should this be an error?'
+
+        # TODO: test for floating point error?
+        #       Tried using round() instead of int() but
+        #       it caused errors with indexing.
+        #       --jacob 3/24/18
+
+        maxbin = int(self.fs*maxtime)
+        unitcount = len(self._data.keys())
+        raster = np.zeros([unitcount, maxbin])
+
+        # _data dictionary has one entry per cell.
+        # The output raster should be cell X time
+        cellids = sorted(self._data)
+        for i, key in enumerate(cellids):
+            for t in self._data[key]:
+                b = int(np.floor(t*self.fs))
+                if b < maxbin:
+                    raster[i, b] += 1
+
+        self._cached_matrix = raster
+
+    def _delete_cached_matrix(self):
+        log.info("Deleting cached matrix...")
+        del self._cached_matrix
+        self._cached_matrix = None
