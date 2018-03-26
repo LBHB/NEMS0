@@ -33,8 +33,32 @@ log = logging.getLogger(__name__)
     4. for SignalTimeSeries use spike_time_to_raster to generate _matrix first
        time it's needed. then save --DONE
     5. for SignalDictionary use dict_to_signal for the same purpose --DONE
-    6. clear_matrix() method to clear/delete _matrix --Maybe done? unreliable,
-                                                       need help from bburan?
+    6. delete_cached_matrix() method to clear/delete _matrix
+                    --Maybe done? But hard to test. Python memory is weird.
+
+-----------
+    @SVD I didn't get to the subset stuff yet, but it's stubbed out at
+         the very bottom of the file
+
+         The other two new subclasses and the new base class have been created
+         and are functional with save/load  and caching their _matrix  etc,
+         but can't do much else yet. However, I think once we decide which
+         methods should be useable by all signals (i.e. move those methods
+         to the base class) the new subclass *should* "just work" for
+         the most part.
+
+         I was not able to start on the concatenate_time
+         method for SignalTimeSeries which is needed for baphy_load_recording.
+
+         Just for your reference: the saved hdf5 files for stim and resp
+         were a total of about 9mb combined for me, including epochs stored
+         in each. Not sure how that compares to the csv setup. Re-creating
+         the cached_matrix also only took about a second, so not bad if
+         the memory savings end up being susbtantial.
+
+                --jacob 3/25/2018
+
+-----------
 
     7. next steps: SignalSubset subclass to which is a masked/subset of a
         SignalRasterized where epochs are discarded but enough information

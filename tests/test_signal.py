@@ -30,7 +30,7 @@ def signal(signal_name='dummy_signal', recording_name='dummy_recording', fs=50,
     epochs['start'] /= fs
     epochs['end'] /= fs
     kwargs = {
-        'matrix': data,
+        'data': data,
         'name': signal_name,
         'recording': recording_name,
         'chans': ['chan' + str(n) for n in range(nchans)],
