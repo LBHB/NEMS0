@@ -6,7 +6,7 @@ import numpy as np
 from numpy import nan
 import pandas as pd
 import nems.signal
-from nems.signal import Signal, merge_selections
+from nems.signal import RasterizedSignal, merge_selections, _string_syntax_valid
 
 
 @pytest.fixture()
@@ -43,7 +43,7 @@ def signal(signal_name='dummy_signal', recording_name='dummy_recording', fs=50,
             'windmills': 'tilting'
         },
     }
-    return Signal(**kwargs)
+    return RasterizedSignal(**kwargs)
 
 
 @pytest.fixture()
@@ -63,13 +63,13 @@ def test_signal_save_load(signal, signal_tmpdir):
 #        os.mkdir(signal_tmpdir)
     signal.save(str(signal_tmpdir), fmt='%1.3e')
 
-    signals_found = Signal.list_signals(str(signal_tmpdir))
+    signals_found = RasterizedSignal.list_signals(str(signal_tmpdir))
     assert len(signals_found) == 1
 
     save_directory = os.path.join(str(signal_tmpdir), signals_found[0])
-    signal_loaded = Signal.load(save_directory)
+    signal_loaded = RasterizedSignal.load(save_directory)
 
-    assert np.all(signal._matrix == signal_loaded._matrix)
+    assert np.all(signal.as_continuous() == signal_loaded.as_continuous())
 
     # TODO: add a test for the various signal attributes
 
@@ -82,9 +82,9 @@ def test_epoch_save_load(signal, signal_tmpdir):
     before = signal.epochs
 
     signal.save(str(signal_tmpdir), fmt='%1.3e')
-    signals_found = Signal.list_signals(str(signal_tmpdir))
+    signals_found = RasterizedSignal.list_signals(str(signal_tmpdir))
     save_directory = os.path.join(str(signal_tmpdir), signals_found[0])
-    signal_loaded = Signal.load(save_directory)
+    signal_loaded = RasterizedSignal.load(save_directory)
 
     after = signal_loaded.epochs
     print("Dataframes equal?\n"
@@ -144,7 +144,7 @@ def test_split_at_time(signal):
 def test_jackknife_by_epoch(signal):
     signal.epochs = signal.trial_epochs_from_occurrences(occurrences=50)
     s1 = signal.jackknife_by_epoch(10, 0, 'trial', tiled=False, invert=True)
-    assert s1._matrix.shape == (3, 200)  # shape shouldn't change
+    assert s1.as_continuous().shape == (3, 200)  # shape shouldn't change
     assert(1770.0 == np.nansum(s1.as_continuous()[:]))
 
 
@@ -164,7 +164,7 @@ def test_jackknife_by_time(signal):
 def test_concatenate_time(signal):
     sig1 = signal
     sig2 = sig1.jackknife_by_time(20, 2)
-    sig3 = Signal.concatenate_time([sig1, sig2])
+    sig3 = RasterizedSignal.concatenate_time([sig1, sig2])
     assert sig1.as_continuous().shape == (3, 200)
     assert sig3.as_continuous().shape == (3, 400)
 
@@ -172,7 +172,7 @@ def test_concatenate_time(signal):
 def test_concatenate_channels(signal):
     sig1 = signal
     sig2 = sig1.jackknife_by_time(20, 2)
-    sig3 = Signal.concatenate_channels([sig1, sig2])
+    sig3 = RasterizedSignal.concatenate_channels([sig1, sig2])
     assert sig1.as_continuous().shape == (3, 200)
     assert sig3.as_continuous().shape == (6, 200)
 
@@ -224,16 +224,16 @@ def test_extract_channels(signal):
     assert two_sig.shape == (2, 200)
     one_sig = signal.extract_channels(['chan2'])
     assert one_sig.shape == (1, 200)
-    recombined = Signal.concatenate_channels([two_sig, one_sig])
+    recombined = RasterizedSignal.concatenate_channels([two_sig, one_sig])
     before = signal.as_continuous()
     after = recombined.as_continuous()
     assert np.array_equal(before, after)
 
 
 def test_string_syntax_valid(signal):
-    assert(signal._string_syntax_valid('this_is_fine'))
-    assert(signal._string_syntax_valid('THIS_IS_FINE_TOO'))
-    assert(not signal._string_syntax_valid('But this is not ok'))
+    assert(_string_syntax_valid('this_is_fine'))
+    assert(_string_syntax_valid('THIS_IS_FINE_TOO'))
+    assert(not _string_syntax_valid('But this is not ok'))
 
 
 def test_jackknifes_by_epoch(signal):
