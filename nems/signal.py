@@ -4,13 +4,13 @@ import logging
 import json
 import re
 import math
-import tempfile
 import copy
 
 import pandas as pd
 import numpy as np
+import h5py
 
-from nems.epoch import remove_overlap, merge_epoch, verify_epoch_integrity
+from nems.epoch import remove_overlap, merge_epoch
 
 log = logging.getLogger(__name__)
 
@@ -22,14 +22,15 @@ log = logging.getLogger(__name__)
 
     1. create base class with subclasses:
             SignalRasterized
-            SignalTimeSeries (for spike events)
-            SignalDictionary (for stimulus events)
-    2. for latter two, raw data gets stored in a ._data field
-    3. for saving, save _data to an HDF5 file (using pytables lib?)
+            SignalTimeSeries (for spike events) --DONE
+            SignalDictionary (for stimulus events) --DONE
+    2. for latter two, raw data gets stored in a ._data field --DONE
+    3. for saving, save _data to an HDF5 file (using pytables lib?) --DONE
     4. for SignalTimeSeries use spike_time_to_raster to generate _matrix first
-       time it's needed. then save
-    5. for SignalDictionary use dict_to_signal for the same purpose
-    6. clear_matrix() method to clear/delete _matrix
+       time it's needed. then save --DONE
+    5. for SignalDictionary use dict_to_signal for the same purpose --DONE
+    6. clear_matrix() method to clear/delete _matrix --Maybe done? unreliable,
+                                                       need help from bburan?
 
     7. next steps: SignalSubset subclass to which is a masked/subset of a
         SignalRasterized where epochs are discarded but enough information
@@ -185,6 +186,7 @@ class SignalBase():
         self.epochs = epochs
         self.meta = meta
         self.t0 = t0
+        self.safety_checks = safety_checks
 
         if safety_checks:
             self._run_safety_checks()
@@ -256,10 +258,11 @@ class SignalBase():
         '''
         return self._matrix.copy()
 
-    def _delete_cached_matrix(self):
+    def delete_cached_matrix(self):
         log.info("Deleting cached matrix...")
         del self._cached_matrix
         self._cached_matrix = None
+
 
 # TODO: Rename this SignalRasterized and rename SignalBase to Signal?
 #       Might make more sense, but lots of code calls Signal() at the moment.
@@ -296,6 +299,7 @@ class Signal(SignalBase):
         self.epochs = epochs
         self.meta = meta
         self.t0 = t0
+        self.safety_checks = safety_checks
 
         # Install the indexers
         self.iloc = SimpleSignalIndexer(self)
@@ -1418,6 +1422,46 @@ class SignalTimeSeries(SignalBase):
 
         self._cached_matrix = raster
 
+    def save(self, path):
+        if self.epochs is not None:
+            self.epochs.to_hdf(path, '/epochs', mode='w')
+        with h5py.File(path, 'a') as f:
+            f.attrs['class'] = 'SignalTimeSeries'
+            f.attrs['fs'] = self.fs
+            f.attrs['recording'] = self.recording
+            f.attrs['name'] = self.name
+            f.attrs['chans'] = json.dumps(self.chans)
+            f.attrs['t0'] = self.t0
+            f.attrs['meta'] = json.dumps(self.meta)
+            f.attrs['safety_checks'] = self.safety_checks
+            # TODO: any other attrs we should save?
+            for key, array in self._data.items():
+                f.create_dataset(key, data=array, compression='gzip')
+
+    @staticmethod
+    def load(path):
+        with h5py.File(path, 'r') as f:
+            fs = f.attrs['fs']
+            recording = f.attrs['recording']
+            name = f.attrs['name']
+            chans = json.loads(f.attrs['chans'])
+            t0 = f.attrs['t0']
+            meta = json.loads(f.attrs['meta'])
+            safety_checks = f.attrs['safety_checks']
+
+            epochs = None
+            data = {}
+            for key, dataset in f.items():
+                if 'epochs' in key:
+                    epochs = pd.read_hdf(path, key=key)
+                else:
+                    data[key] = np.array(dataset[:])
+
+            return SignalTimeSeries(fs=fs, data=data, name=name,
+                                    recording=recording, chans=chans,
+                                    epochs=epochs, t0=t0, meta=meta,
+                                    safety_checks=safety_checks)
+
 
 class SignalDictionary(SignalBase):
     '''
@@ -1457,5 +1501,44 @@ class SignalDictionary(SignalBase):
         empty_stim = Signal(matrix=z, fs=self.fs, name=self.name,
                             epochs=self.epochs, recording=self.recording)
         stim = empty_stim.replace_epochs(self._data)
-        self._cached_matrix = copy.deepcopy(stim._matrix)
-        del stim
+        self._cached_matrix = stim._matrix
+
+    def save(self, path):
+        if self.epochs is not None:
+            self.epochs.to_hdf(path, '/epochs', mode='w')
+        with h5py.File(path, 'a') as f:
+            f.attrs['class'] = 'SignalDictionary'
+            f.attrs['fs'] = self.fs
+            f.attrs['recording'] = self.recording
+            f.attrs['name'] = self.name
+            f.attrs['chans'] = json.dumps(self.chans)
+            f.attrs['t0'] = self.t0
+            f.attrs['meta'] = json.dumps(self.meta)
+            f.attrs['safety_checks'] = self.safety_checks
+            # TODO: any other attrs we should save?
+            for key, array in self._data.items():
+                f.create_dataset(key, data=array, compression='gzip')
+
+    @staticmethod
+    def load(path):
+        with h5py.File(path, 'r') as f:
+            fs = f.attrs['fs']
+            recording = f.attrs['recording']
+            name = f.attrs['name']
+            chans = json.loads(f.attrs['chans'])
+            t0 = f.attrs['t0']
+            meta = json.loads(f.attrs['meta'])
+            safety_checks = f.attrs['safety_checks']
+
+            epochs = None
+            data = {}
+            for key, dataset in f.items():
+                if 'epochs' in key:
+                    epochs = pd.read_hdf(path, key=key)
+                else:
+                    data[key] = np.array(dataset[:])
+
+            return SignalDictionary(fs=fs, data=data, name=name,
+                                    recording=recording, chans=chans,
+                                    epochs=epochs, t0=t0, meta=meta,
+                                    safety_checks=safety_checks)
