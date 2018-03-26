@@ -18,10 +18,14 @@ log = logging.getLogger(__name__)
 #       Not sure I like these but couldn't think of anything
 #       better at the time. --jacob 3/25/18
 
+# TODO: May be worth moving the signal base class into a separate file
+#       once all of the common methods are identified. Getting
+#       very cluttered in here!
+
 """ Proposed modifications for non-raster signals:
 
     1. create base class with subclasses:
-            SignalRasterized
+            SignalRasterized --DONE? Not much needs to change
             SignalTimeSeries (for spike events) --DONE
             SignalDictionary (for stimulus events) --DONE
     2. for latter two, raw data gets stored in a ._data field --DONE
@@ -271,12 +275,13 @@ class SignalBase():
 #       SignalDictionary and SignalTimeSeries?
 class Signal(SignalBase):
     # TODO: switch 'matrix' argument to 'data' to match base class?
-    def __init__(self, fs, matrix, name, recording, chans=None, epochs=None,
+    def __init__(self, fs, data, name, recording, chans=None, epochs=None,
                  t0=0, meta=None, safety_checks=True):
         '''
         Parameters
         ----------
         ... TODO
+        data : ndarray, 2 dimensional
         epochs : {None, DataFrame}
             Epochs are periods of time that are tagged with a name
             When defined, the DataFrame should have these first three columns:
@@ -290,8 +295,8 @@ class Signal(SignalBase):
             seconds); however, this may not always be the case.
         ...
         '''
-        self._matrix = matrix
-        self._matrix.flags.writeable = False  # Make it immutable
+        self._data = data
+        self._data.flags.writeable = False  # Make it immutable
         self.name = name
         self.recording = recording
         self.chans = chans
@@ -323,6 +328,11 @@ class Signal(SignalBase):
         if type(self._matrix) is not np.ndarray:
             raise ValueError('matrix must be a np.ndarray:' +
                              type(self._matrix))
+
+    @property
+    def _matrix(self):
+        # For rasterized signal, just pass through data
+        return self._data
 
     def _set_cached_props(self):
         """Sets channel_max, channel_min, channel_mean, channel_var,
@@ -417,7 +427,7 @@ class Signal(SignalBase):
                        recording=js['recording'],
                        fs=js['fs'],
                        meta=js['meta'],
-                       matrix=mat)
+                       data=mat)
             return s
 
     @staticmethod
@@ -439,7 +449,7 @@ class Signal(SignalBase):
                    recording=js['recording'],
                    fs=js['fs'],
                    meta=js['meta'],
-                   matrix=mat)
+                   data=mat)
         return s
 
     @staticmethod
@@ -480,7 +490,7 @@ class Signal(SignalBase):
         '''
         attributes = self._get_attributes()
         attributes.update(kwargs)
-        return Signal(matrix=data, safety_checks=False, **attributes)
+        return Signal(data=data, safety_checks=False, **attributes)
 
     def normalized_by_mean(self):
         '''
@@ -754,7 +764,7 @@ class Signal(SignalBase):
             chans=base.chans,
             fs=base.fs,
             meta=base.meta,
-            matrix=data,
+            data=data,
             epochs=epochs,
             safety_checks=False
         )
@@ -794,7 +804,7 @@ class Signal(SignalBase):
             fs=base.fs,
             meta=base.meta,
             epochs=epochs,
-            matrix=data,
+            data=data,
             safety_checks=False
             )
 
@@ -1322,52 +1332,6 @@ def jackknife_inverse_merge(sig_list):
     return sig_new
 
 
-# Two functions below from baphy just for reference,
-# can delete after new signal subclasses are working.
-'''
-def spike_time_to_raster(spike_dict,fs=100,event_times=None):
-    """
-    convert list of spike times to a raster of spike rate, with duration
-    matching max end time in the event_times list
-    """
-
-    # NOTE: converting to _generate_matrix method in SignalTimeSeries
-
-    # event times is the baphy term for epochs
-    if event_times is not None:
-        maxtime=np.max(event_times["end"])
-
-    maxbin=int(fs*maxtime)
-    unitcount=len(spike_dict.keys())
-    raster=np.zeros([unitcount,maxbin])
-
-    # dictionary has one entry per cell. The output raster should be cell X time
-    cellids=sorted(spike_dict)
-    for i,key in enumerate(cellids):
-        for t in spike_dict[key]:
-            b=int(np.floor(t*fs))
-            if b<maxbin:
-                raster[i,b]+=1
-
-    return raster,cellids
-
-
-def dict_to_signal(stim_dict,fs=100,event_times=None,signal_name='stim',recording_name='rec'):
-
-    maxtime=np.max(event_times["end"])
-    maxbin=int(fs*maxtime)
-
-    tags=list(stim_dict.keys())
-    chancount=stim_dict[tags[0]].shape[0]
-
-    z=np.zeros([chancount,maxbin])
-
-    empty_stim=nems.signal.Signal(matrix=z,fs=fs,name=signal_name,epochs=event_times,recording=recording_name)
-    stim=empty_stim.replace_epochs(stim_dict)
-
-    return stim
-'''
-
 class SignalTimeSeries(SignalBase):
     '''
     Expects data to be a dictionary of the form:
@@ -1462,6 +1426,10 @@ class SignalTimeSeries(SignalBase):
                                     epochs=epochs, t0=t0, meta=meta,
                                     safety_checks=safety_checks)
 
+    def concatenate_time(self, signals):
+        # TODO
+        raise NotImplementedError
+
 
 class SignalDictionary(SignalBase):
     '''
@@ -1542,3 +1510,30 @@ class SignalDictionary(SignalBase):
                                     recording=recording, chans=chans,
                                     epochs=epochs, t0=t0, meta=meta,
                                     safety_checks=safety_checks)
+
+
+class SignalSubset(SignalBase):
+    '''
+    Expects data to be a 2-dim ndarray of chans x time
+    '''
+    def __init__(self, fs, data, name, recording, chans=None, fakepochs=None,
+                 t0=0, meta=None, safety_checks=True):
+        super().__init__(fs=fs, data=data, name=name, recording=recording,
+                         chans=chans, epochs=fakepochs, t0=t0, meta=meta,
+                         safety_checks=safety_checks)
+        # TODO: any class-specific initialization?
+
+        # Fakepochs just to keep track of where data came from
+        # for recombining, not really useful as epochs.
+        # But re-using the epochs datastructure is convenient.
+
+def join_signal_subsets(subsets):
+    # TODO
+    raise NotImplementedError
+    return Signal(...)
+
+def split_signal_to_subsets(signal):
+    # TODO
+    # Maybe just existing jackknifing method with minor changes?
+    raise NotImplementedError
+    return [SignalSubset(...) for data, fakepochs in something]
