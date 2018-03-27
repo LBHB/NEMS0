@@ -1,7 +1,7 @@
 from functools import partial
 import matplotlib.pyplot as plt
 import nems.modelspec as ms
-from nems.signal import Signal
+from nems.signal import concatenate_channels
 import numpy as np
 
 
@@ -60,7 +60,7 @@ def combine_signal_channels(signals, i, j):
     # TODO: Doesn't seem to be working with plots?
     to_concat = signals[i:j]
     del signals[i:j]
-    concatenated = Signal.concatenate_channels(to_concat)
+    concatenated = concatenate_channels(to_concat)
     signals.append(concatenated)
     return signals
 

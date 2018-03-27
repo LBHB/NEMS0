@@ -1451,8 +1451,6 @@ class PointProcess(SignalBase):
             epochs=epochs,
             safety_checks=False
         )
-        # TODO
-        raise NotImplementedError
 
 
 class TiledSignal(SignalBase):
@@ -1521,6 +1519,82 @@ class RasterizedSignalSubset(SignalBase):
 # -----------------------------------------------------------------------------
 # Functions that work on multiple signal objects
 
+def list_signals(directory):
+    '''
+    Returns a list of all CSV/JSON pairs files found in DIRECTORY,
+    Paths are relative, not absolute.
+    '''
+    files = os.listdir(directory)
+    return _list_json_files(files)
+
+def _list_json_files(files):
+    '''
+    Given a list of files, return the file basenames (i.e. no extensions)
+    that for which a .CSV and a .JSON file exists.
+    '''
+    just_fileroot = lambda f: os.path.splitext(os.path.basename(f))[0]
+    jsons = [just_fileroot(f) for f in files if f.endswith('.json')]
+    return list(jsons)
+
+def load_signal(basepath):
+    '''
+    Generic signal loader. Load JSON file, figure out signal type and
+    call appropriate loader
+    '''
+    raise NotImplementedError
+
+def load_rasterized_signal(basepath):
+    csvfilepath = basepath + '.csv'
+    epochfilepath = basepath + '.epoch.csv'
+    jsonfilepath = basepath + '.json'
+    # TODO: reduce code duplication and call load_from_streams
+    mat = pd.read_csv(csvfilepath, header=None).values
+    if os.path.isfile(epochfilepath):
+        epochs = pd.read_csv(epochfilepath)
+    else:
+        epochs = None
+    mat = mat.astype('float')
+    mat = np.swapaxes(mat, 0, 1)
+    with open(jsonfilepath, 'r') as f:
+        js = json.load(f)
+        s = RasterizedSignal(name=js['name'],
+                    chans=js.get('chans', None),
+                    epochs=epochs,
+                    recording=js['recording'],
+                    fs=js['fs'],
+                    meta=js['meta'],
+                    data=mat)
+        return s
+
+def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
+    ''' Loads from BytesIO objects rather than files. epoch stream was formerly
+        csv stream, but this could be an hdf5 file (or something else?)
+    '''
+    # Read the epochs stream if it exists
+    epochs = pd.read_csv(epoch_stream) if epoch_stream else None
+    # Read the json metadata
+    js = json.load(json_stream)
+
+    raise NotImplementedError('Need to implement handling for different signal types')
+
+    # TODO add logic for different signal subclasses, identified by metadata
+    # in the JSON file
+    # ONLY if data_stream is csv then do this:
+
+    # Read the CSV
+    mat = pd.read_csv(data_stream, header=None).values
+    mat = mat.astype('float')
+    mat = np.swapaxes(mat, 0, 1)
+    # mat = np.genfromtxt(csv_stream, delimiter=',')
+    # Now build the signal
+    s = RasterizedSignal(name=js['name'],
+               chans=js.get('chans', None),
+               epochs=epochs,
+               recording=js['recording'],
+               fs=js['fs'],
+               meta=js['meta'],
+               data=mat)
+    return s
 
 ################################################################################
 # Signals
@@ -1608,25 +1682,45 @@ def split_signal_to_subsets(signal):
     return [SignalSubset(...) for data, fakepochs in something]
 
 
-def load_rasterized_signal(basepath):
-    csvfilepath = basepath + '.csv'
-    epochfilepath = basepath + '.epoch.csv'
-    jsonfilepath = basepath + '.json'
-    # TODO: reduce code duplication and call load_from_streams
-    mat = pd.read_csv(csvfilepath, header=None).values
-    if os.path.isfile(epochfilepath):
-        epochs = pd.read_csv(epochfilepath)
-    else:
-        epochs = None
-    mat = mat.astype('float')
-    mat = np.swapaxes(mat, 0, 1)
-    with open(jsonfilepath, 'r') as f:
-        js = json.load(f)
-        s = RasterizedSignal(name=js['name'],
-                    chans=js.get('chans', None),
-                    epochs=epochs,
-                    recording=js['recording'],
-                    fs=js['fs'],
-                    meta=js['meta'],
-                    data=mat)
-        return s
+def concatenate_channels(cls, signals):
+    '''
+    Given signals=[sig1, sig2, sig3, ..., sigN], concatenate all channels
+    of [sig2, ...sigN] as new channels on sig1. All signals must be equal-
+    length time series sampled at the same rate (i.e. ntimes and fs are the
+    same for all signals).
+    '''
+    for signal in signals:
+        if not isinstance(signal, cls):
+            raise ValueError('Cannot merge these signals')
+
+    base = signals[0]
+    for signal in signals[1:]:
+        if not base.fs == signal.fs:
+            raise ValueError('Cannot append signal with different fs')
+        if not base.ntimes == signal.ntimes:
+            raise ValueError('Cannot append signal with different channels')
+
+    raise NotImplementedError
+
+    # TODO get this working for other subtypes or throw an error.
+    # this is called by plotting functions, so I think it only needs to
+    # support RasterizedSignal
+    data = np.concatenate([s.as_continuous() for s in signals], axis=0)
+
+    chans = []
+    for signal in signals:
+        if signal.chans:
+            chans.extend(signal.chans)
+
+    epochs=signals[0].epochs
+
+    return RasterizedSignal(
+        name=base.name,
+        recording=base.recording,
+        chans=chans,
+        fs=base.fs,
+        meta=base.meta,
+        epochs=epochs,
+        data=data,
+        safety_checks=False
+        )

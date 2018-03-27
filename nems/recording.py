@@ -11,7 +11,7 @@ import copy
 
 from nems.uri import local_uri, http_uri, targz_uri
 import nems.epoch as ep
-from .signal import Signal, merge_selections
+from .signal import RasterizedSignal, merge_selections, list_signals, load_signal, load_signal_from_streams
 
 log = logging.getLogger(__name__)
 
@@ -111,9 +111,9 @@ class Recording:
         .tar.gz file, and returns a Recording object containing all of them.
         '''
         if os.path.isdir(directory_or_targz):
-            files = Signal.list_signals(directory_or_targz)
+            files = list_signals(directory_or_targz)
             basepaths = [os.path.join(directory_or_targz, f) for f in files]
-            signals = [Signal.load(f) for f in basepaths]
+            signals = [load_signal(f) for f in basepaths]
             signals_dict = {s.name: s for s in signals}
             return Recording(signals=signals_dict)
         else:
@@ -160,7 +160,7 @@ class Recording:
                 streams[signame][keyname] = f
         # Now that the streams are organized, convert them into signals
         # log.debug({k: streams[k].keys() for k in streams})
-        signals = [Signal.load_from_streams(**sg) for sg in streams.values()]
+        signals = [load_signal_from_streams(**sg) for sg in streams.values()]
         signals_dict = {s.name: s for s in signals}
         return Recording(signals=signals_dict)
 
@@ -281,7 +281,7 @@ class Recording:
         # Construct the signals
         to_sigs = zip(fs, arrays, sig_names, recs, signal_kwargs)
         signals = [
-                Signal(fs, a, name, rec, **kw)
+                RasterizedSignal(fs, a, name, rec, **kw)
                 for fs, a, name, rec, kw in to_sigs
                 ]
         signals = {s.name:s for s in signals}
@@ -535,10 +535,10 @@ class Recording:
             if (not only_signals or sn in set(only_signals)):
                 s = self.signals[sn]
                 new_sigs[sn] = s.jackknife_by_epoch(njacks, jack_idx,
-                                epoch_name=epoch_name,invert=invert, 
+                                epoch_name=epoch_name,invert=invert,
                                 tiled=True)
         return Recording(signals=new_sigs)
-    
+
         # if signal_names is not None:
         #     signals = {n: self.signals[n] for n in signal_names}
         # else:
