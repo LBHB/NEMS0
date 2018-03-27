@@ -519,15 +519,26 @@ class Recording:
         hi_rep_epochs = groups[n_occurrences[1]]
         return self.split_by_epochs(lo_rep_epochs, hi_rep_epochs)
 
-    def jackknife_by_epoch(self, regex, signal_names=None,
-                           invert=False):
+    def jackknife_by_epoch(self, njacks, jack_idx, epoch_name,
+                           tiled=True,invert=False,
+                           only_signals=None, excise=False):
         '''
         By default, calls jackknifed_by_epochs on all signals and returns a new
         set of data. If you would only like to jackknife certain signals,
         while copying all other signals intact, provide their names in a
         list to optional argument 'only_signals'.
         '''
-        raise NotImplementedError
+        if excise and only_signals:
+            raise Exception('Excising only some signals makes signals ragged!')
+        new_sigs = {}
+        for sn in self.signals.keys():
+            if (not only_signals or sn in set(only_signals)):
+                s = self.signals[sn]
+                new_sigs[sn] = s.jackknife_by_epoch(njacks, jack_idx,
+                                epoch_name=epoch_name,invert=invert, 
+                                tiled=True)
+        return Recording(signals=new_sigs)
+    
         # if signal_names is not None:
         #     signals = {n: self.signals[n] for n in signal_names}
         # else:

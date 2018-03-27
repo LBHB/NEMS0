@@ -810,7 +810,7 @@ class RasterizedSignal(SignalBase):
 
     def jackknife_by_epoch(self, njacks, jack_idx, epoch_name,
                            tiled=True,
-                           invert=False):
+                           invert=False, excise=False):
         '''
         Returns a new signal, with epochs matching epoch_name NaN'd out.
         Optional argument 'invert' causes everything BUT the matched epochs
@@ -850,6 +850,8 @@ class RasterizedSignal(SignalBase):
         epoch_indices = (epochs * self.fs).astype('i').tolist()
         occurrences, _ = epochs.shape
 
+        if excise:
+            raise ValueError('excise not supported for jackknife_by_epoch')
         if len(epochs) == 0:
             m = 'No epochs found matching that epoch_name. Unable to jackknife.'
             raise ValueError(m)

@@ -45,6 +45,9 @@ def plot_summary(rec, modelspecs, stimidx=0):
     if stimidx>len(occurrences)-1:
         stimidx=0
     occurrence = occurrences[stimidx]
+    
+    module_names=[m['fn'] for m in modelspecs[0]]
+
 
     def my_scatter_raw(idx, ax):
         plot_scatter(pred[idx], resp, ax=ax, title=rec.name)
@@ -70,6 +73,11 @@ def plot_summary(rec, modelspecs, stimidx=0):
     def my_fir(idx, ax):
         fir_heatmap(modelspecs[idx], ax=ax)
 
+    def my_nl(idx, ax):
+        plot_scatter(pred[idx], resp, ax=ax,
+                     title="{0} r_test={1:.3f}".format(rec.name,modelspecs[0][0]['meta']['r_test']),
+                     smoothing_bins=100)
+        
     def my_state(ax):
         plt.sca(ax)
 
@@ -99,13 +107,14 @@ def plot_summary(rec, modelspecs, stimidx=0):
         partials = [partial(fn, i) for i in range(len(items))]
         return partials
 
-    module_names=[m['fn'] for m in modelspecs[0]]
     if len(modelspecs) <= 10:
 
         plot_list=[[my_spectro],
                    [my_timeseries]]
         if any('fir' in n for n in module_names):
             plot_list.append(make_partials(my_strf, modelspecs))
+        if any('nonlinearity' in n for n in module_names):            
+            plot_list.append([my_nl])
         if any('state' in n for n in module_names):
             plot_list.append([my_state])
 

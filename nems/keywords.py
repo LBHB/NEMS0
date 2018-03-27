@@ -138,6 +138,22 @@ defkey('lvl1',
                       'o': 'pred'},
         'prior': {'level': ('Normal', {'mean': [0], 'sd': [1]})}})
 
+defkey('stp1',
+       {'fn': 'nems.modules.stp.short_term_plasticity',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'crosstalk': 0},
+        'prior': {'u': ('Normal', {'mean': [0.05], 'sd': [1]}),
+                  'tau': ('Normal', {'mean': [0.1], 'sd': [1]})}})
+
+defkey('stp2',
+       {'fn': 'nems.modules.stp.short_term_plasticity',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'crosstalk': 0},
+        'prior': {'u': ('Normal', {'mean': [0.001, 0.001], 'sd': [1, 1]}),
+                  'tau': ('Normal', {'mean': [5, 5], 'sd': [5, 5]})}})
+
 defkey('dexp1',
        {'fn': 'nems.modules.nonlinearity.double_exponential',
         'fn_kwargs': {'i': 'pred',
