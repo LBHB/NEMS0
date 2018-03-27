@@ -241,6 +241,9 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                 fitter=scipy_minimize,
                 fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
                 for modelspec in modelspecs]
+        modelspecs = [nems.initializers.init_dexp(
+                est, modelspec)
+                for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
 
 def fit_basic(modelspecs, est, IsReload=False, **context):
