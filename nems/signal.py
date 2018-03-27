@@ -220,6 +220,15 @@ class SignalBase:
         self.epochs = epochs
         self.meta = meta
         self.t0 = t0
+        
+        if self.epochs is not None:
+            max_epoch_time = self.epochs["end"].max()
+        else:
+            max_epoch_time = 0
+        #max_event_times = [max(et) for et in self._data.values()]
+        max_event_times=[0]
+        max_time = max(max_epoch_time, *max_event_times)
+        self.ntimes = np.ceil(fs*max_time)
 
         if safety_checks:
             self._run_safety_checks()
@@ -1277,7 +1286,7 @@ class RasterizedSignal(SignalBase):
         return self._data.shape
 
 
-class EventTimes(SignalBase):
+class PointProcess(SignalBase):
     '''
     Expects data to be a dictionary of the form:
         {<string>: <ndarray of spike times, one dimensional>}
@@ -1314,10 +1323,10 @@ class EventTimes(SignalBase):
         for i, key in enumerate(cellids):
             for t in self._data[key]:
                 b = int(np.floor(t*fs))
-                if b < maxbin:
+                if b < max_bin:
                     raster[i, b] += 1
 
-        return RasterizedSignal(self._data, name=self.name,
+        return RasterizedSignal(raster, name=self.name,
                                 recording=self.recording, chans=cellids,
                                 epochs=self.epochs, t0=self.t0, meta=self.meta)
 
@@ -1356,11 +1365,56 @@ class EventTimes(SignalBase):
                 else:
                     data[key] = np.array(dataset[:])
 
-            return EventTimes(fs=fs, data=data, name=name, recording=recording,
+            return PointProcess(fs=fs, data=data, name=name, recording=recording,
                               chans=chans, epochs=epochs, t0=t0, meta=meta,
                               safety_checks=safety_checks)
 
     def concatenate_time(self, signals):
+        '''
+        Combines the signals along the time axis. All signals must have the
+        same number of channels (and the same sampling rates?).
+        '''
+        # Make sure all objects passed are instances of the Signal class
+        for signal in signals:
+            if not isinstance(signal, cls):
+                raise ValueError('Cannot merge these signals')
+
+        # Make sure that important attributes match up
+        base = signals[0]
+        for signal in signals[1:]:
+            #if not base.fs == signal.fs:
+            #    raise ValueError('Cannot concat signals with unequal fs')
+            if not base.chans == signal.chans:
+                raise ValueError('Cannot concat signals with unequal # of chans')
+
+        # Now, concatenate data along time axis, adding an offset
+        # to each successive signal to account for the duration of 
+        # the preceeding signals
+        offset = 0
+        for signal in signals:
+            if offset==0:
+                data=signal._data
+            else:
+                cellids = sorted(signal._data)
+                for i, key in enumerate(cellids):
+                    data[k]+=signal._data[key]+offset
+
+            # increment offset by duration (sec) of current signal
+            offset+=signal.ntimes*signal.fs
+            
+        # basically do the same thing for epochs, using the Base routine
+        epochs = cls._merge_epochs(signals)
+
+        return cls(
+            name=base.name,
+            recording=base.recording,
+            chans=base.chans,
+            fs=base.fs,
+            meta=base.meta,
+            data=data,
+            epochs=epochs,
+            safety_checks=False
+        )
         # TODO
         raise NotImplementedError
 
