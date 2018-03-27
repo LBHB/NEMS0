@@ -3,7 +3,8 @@ import pytest
 import numpy as np
 
 from nems.epoch import (epoch_union, epoch_difference, epoch_intersection,
-                        epoch_contains, adjust_epoch_bounds, remove_overlap)
+                        epoch_contains, epoch_contained, adjust_epoch_bounds,
+                        remove_overlap)
 
 @pytest.fixture()
 def epoch_a():
@@ -26,6 +27,15 @@ def epoch_b():
      ])
 
 
+@pytest.fixture()
+def epoch_c():
+    return np.array([
+        [  0,  70],
+        [ 85, 100],
+        [ 92, 115],
+     ])
+
+
 def test_intersection(epoch_a, epoch_b):
     expected = np.array([
         [ 60,  70],
@@ -34,6 +44,7 @@ def test_intersection(epoch_a, epoch_b):
     ])
     result = epoch_intersection(epoch_a, epoch_b)
     assert np.all(result == expected)
+
 
 def test_empty_intersection():
     a = np.array([
@@ -49,6 +60,7 @@ def test_empty_intersection():
     with pytest.raises(RuntimeWarning,
                        message="Expected RuntimeWarning for size 0"):
         result = epoch_intersection(a, b)
+
 
 def test_union(epoch_a, epoch_b):
     expected = np.array([
@@ -73,6 +85,7 @@ def test_difference(epoch_a, epoch_b):
     result = epoch_difference(epoch_a, epoch_b)
     assert np.all(result == expected)
 
+
 def test_empty_difference():
     a = b = np.array([
         [  0,  50],
@@ -82,6 +95,7 @@ def test_empty_difference():
     with pytest.raises(RuntimeWarning,
                        message="Expected RuntimeWarning for size 0"):
         result = epoch_difference(a, b)
+
 
 def test_contains(epoch_a, epoch_b):
     expected_any = np.array([
@@ -106,8 +120,8 @@ def test_contains(epoch_a, epoch_b):
 
     expected_end = np.array([
         False,
-        False,
-        False,
+        True,
+        True,
         False,
         True,
     ])
@@ -117,6 +131,45 @@ def test_contains(epoch_a, epoch_b):
     expected_both = expected_start & expected_end
     actual = epoch_contains(epoch_a, epoch_b, 'both')
     assert np.all(actual == expected_both)
+
+
+def test_epoch_contained(epoch_a, epoch_b, epoch_c):
+    expected = np.array([
+        False,
+        True,
+        True,
+        False,
+        False,
+    ])
+    actual = epoch_contained(epoch_a, epoch_b)
+    assert np.all(actual == expected)
+
+    expected = np.array([
+        False,
+        True,
+        True,
+        False,
+    ])
+    actual = epoch_contained(epoch_b, epoch_a)
+    assert np.all(actual == expected)
+
+    expected = np.array([
+        True,
+        True,
+        False,
+        False,
+        True,
+    ])
+    actual = epoch_contained(epoch_a, epoch_c)
+    assert np.all(actual == expected)
+
+    expected = np.array([
+        False,
+        True,
+        False,
+    ])
+    actual = epoch_contained(epoch_c, epoch_a)
+    assert np.all(actual == expected)
 
 
 def test_adjust_epoch_bounds(epoch_a):

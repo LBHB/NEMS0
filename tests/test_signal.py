@@ -245,6 +245,7 @@ def test_jackknifes_by_epoch(signal):
     assert(True)
 
 
+@pytest.mark.skip
 def test_iloc(signal):
     s = signal.iloc[:1, :10]
     assert s.as_continuous().shape == (1, 10)
@@ -302,6 +303,7 @@ def test_iloc(signal):
         assert signal.iloc[:, [1, 2]]
 
 
+@pytest.mark.skip
 def test_loc(signal):
     s = signal.loc['chan1']
     assert s.as_continuous().shape == (1, 200)
@@ -362,6 +364,17 @@ def test_loc(signal):
     assert s_epochs.shape == (1, 1, 40)
     signal_epochs = signal.loc['chan1'].extract_epoch('pupil_closed')
     assert np.allclose(s_epochs, signal_epochs[1, :, :40])
+
+
+def test_rasterized_signal_subset(signal):
+    subset = signal.select_times([(0, 0.2), (0.3, 2)])
+    assert subset.as_continuous().shape == (3, 95)
+    epoch_subset = subset.extract_epoch('pupil_closed')
+    assert epoch_subset.shape == (1, 3, 45)
+    assert np.all(epoch_subset[0] == signal.extract_epoch('pupil_closed')[0])
+    with pytest.raises(IndexError):
+        epoch_subset = subset.extract_epoch('trial')
+    assert subset.average_epoch('pupil_closed').shape == (3, 45)
 
 
 def test_epoch_to_signal(signal):

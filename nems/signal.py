@@ -10,7 +10,8 @@ import pandas as pd
 import numpy as np
 import h5py
 
-from nems.epoch import remove_overlap, merge_epoch
+from nems.epoch import (remove_overlap, merge_epoch, epoch_contained,
+                        epoch_intersection)
 
 log = logging.getLogger(__name__)
 
@@ -77,7 +78,6 @@ def _string_syntax_valid(s):
     '''
     disallowed = re.compile(r'[^a-zA-Z0-9_\-]')
     match = disallowed.match(s)
-    print(match)
     if match:
         return False
     else:
@@ -190,12 +190,12 @@ class LabelSignalIndexer(BaseSignalIndexer):
 
 
 ################################################################################
-# Indexing support
+# Signals
 ################################################################################
 class SignalBase:
 
-    def __init__(self, fs, data, name, recording, chans=None, epochs=None, t0=0,
-                 meta=None, safety_checks=True):
+    def __init__(self, fs, data, name, recording, chans=None, epochs=None,
+                 segments=None, meta=None, safety_checks=True):
         '''
         Parameters
         ----------
@@ -207,10 +207,6 @@ class SignalBase:
             denoting the start and end of the time of an epoch (in seconds).
             You may use the same epoch name multiple times; this is common when
             tagging epochs that correspond to occurrences of the same stimulus.
-        t0 : float, default 0
-            Start time of signal relative to the recording you're working with.
-            Typically all signals should start at the same time (i.e. 0
-            seconds); however, this may not always be the case.
         '''
         self.fs = fs
         self._data = data
@@ -219,8 +215,7 @@ class SignalBase:
         self.chans = chans
         self.epochs = epochs
         self.meta = meta
-        self.t0 = t0
-        
+
         if self.epochs is not None:
             max_epoch_time = self.epochs["end"].max()
         else:
@@ -229,6 +224,10 @@ class SignalBase:
         max_event_times=[0]
         max_time = max(max_epoch_time, *max_event_times)
         self.ntimes = np.ceil(fs*max_time)
+
+        if segments is None:
+            segments = np.array([[0, self.ntimes]])
+        self.segments = segments
 
         if safety_checks:
             self._run_safety_checks()
@@ -287,7 +286,8 @@ class SignalBase:
         '''
         return self._data
 
-    def get_epoch_bounds(self, epoch, boundary_mode=None, fix_overlap=None):
+    def get_epoch_bounds(self, epoch, boundary_mode='exclude',
+                         fix_overlap=None):
         '''
         Get boundaries of named epoch.
 
@@ -298,12 +298,12 @@ class SignalBase:
             extract. If Nx2 array, the first column indicates the start time (in
             seconds) and the second column indicates the end time (in seconds)
             to extract.
-        boundary_mode : {None, 'exclude', 'trim'}
+        boundary_mode : {'exclude', 'trim'}
             If 'exclude', discard all epochs where the boundaries are not fully
             contained within the range of the signal. If 'trim', epochs with
             boundaries falling outside the signal range will be truncated. For
             example, if an epoch runs from -1.5 to 10, it will be truncated to 0
-            to 10 (all signals start at time 0). If None, return all epochs.
+            to 10.
         fix_overlap : {None, 'merge', 'first'}
             Indicates how to handle overlapping epochs. If None, return
             boundaries as-is. If 'merge', merge overlapping epochs into a single
@@ -329,14 +329,12 @@ class SignalBase:
             bounds = self.epochs.loc[mask, ['start', 'end']].values
 
         if boundary_mode is None:
-            pass
+            raise NotImplementedError
         elif boundary_mode == 'exclude':
-            m_lb = bounds[:, 0] >= self.t0
-            m_ub = bounds[:, 1] < (self.ntimes*self.fs)
-            m = m_lb & m_ub
+            m = epoch_contained(bounds, self.segments)
             bounds = bounds[m]
         elif boundary_mode == 'trim':
-            bounds = np.clip(bounds, self.t0, self.ntimes*self.fs)
+            bounds = epoch_intersection(bounds, self.segments)
 
         if fix_overlap is None:
             pass
@@ -348,6 +346,7 @@ class SignalBase:
             m = 'Unsupported mode, {}, for fix_overlap'.format(fix_overlap)
             raise ValueError(m)
 
+        bounds = np.sort(bounds, axis=0)
         return bounds
 
     def get_epoch_indices(self, epoch, boundary_mode=None, fix_overlap=None):
@@ -381,10 +380,45 @@ class SignalBase:
             time.
         '''
         bounds = self.get_epoch_bounds(epoch, boundary_mode, fix_overlap)
-        indices = (bounds-self.t0) * self.fs
-        # Be sure to round before converting to an integer otherwise an
-        # index of 1.999...999 will get converted to 1 rather than 2.
-        return indices.astype('float').round().astype('i')
+
+        # Indices of segments and epochs
+        s = 0
+        e = 0
+
+        # Running list of segment offsets
+        o = 0
+        n_segments = len(self.segments)
+        n_epochs = len(bounds)
+        indices = []
+        while True:
+            if s >= n_segments:
+                break
+            if e >= n_epochs:
+                break
+
+            s_lb, s_ub = self.segments[s]
+            while True:
+                # For given segment, loop through epochs that fall within that
+                # segment and calculate correct indices.
+                e_lb, e_ub = bounds[e]
+                if s_lb <= e_lb < s_ub:
+                    # Be sure to round otherwise an index of 1.999...999 will
+                    # get converted to 1 rather than 2.
+                    lb = round((e_lb-s_lb)*self.fs) + o
+                    ub = round((e_ub-s_lb)*self.fs) + o
+                    indices.append((lb, ub))
+                    e += 1
+                else:
+                    # We are now at an epoch that falls in a different segment.
+                    # Update the running offset. Break out of the loop and pull
+                    # out the next segment.
+                    s += 1
+                    o += round((s_ub-s_lb)*self.fs)
+                    break
+                if e >= n_epochs:
+                    break
+
+        return np.asarray(indices, dtype='i')
 
     def count_epoch(self, epoch):
         """Returns the number of occurrences of the given epoch."""
@@ -394,7 +428,7 @@ class SignalBase:
 
     def _get_attributes(self):
         md_attributes = ['name', 'chans', 'fs', 'meta', 'recording', 'epochs',
-                         't0']
+                         'segments']
         return {name: getattr(self, name) for name in md_attributes}
 
     def _split_epochs(self, split_time):
@@ -482,6 +516,10 @@ class SignalBase:
         # structure as well.
         return {name: self.extract_epoch(name) for name in epoch_names}
 
+    @property
+    def shape(self):
+        return self.nchans, self.ntimes
+
     def select_times(self, times):
         raise NotImplementedError
 
@@ -506,7 +544,7 @@ class SignalBase:
     def concatenate_channels(cls, signals):
         raise NotImplementedError
 
-    def _extract_times(self, times):
+    def select_times(self, times):
         '''
         Parameters
         ----------
@@ -517,7 +555,7 @@ class SignalBase:
         '''
         raise NotImplementedError
 
-    def _extract_channels(self, channels):
+    def select_channels(self, channels):
         '''
         Parameters
         ----------
@@ -529,8 +567,7 @@ class SignalBase:
 
     def as_raster(self):
         '''
-        Returns a RasterizedSignal or RasterizedSubsetSignal (if a subset of
-        times have already been extracted using `_extract_times`).
+        Returns a RasterizedSignal or RasterizedSubsetSignal
         '''
         raise NotImplementedError
 
@@ -544,7 +581,7 @@ class SignalBase:
 class RasterizedSignal(SignalBase):
 
     def __init__(self, fs, data, name, recording, chans=None, epochs=None,
-                 t0=0, meta=None, safety_checks=True):
+                 segments=None, meta=None, safety_checks=True):
         '''
         Parameters
         ----------
@@ -556,13 +593,9 @@ class RasterizedSignal(SignalBase):
             denoting the start and end of the time of an epoch (in seconds).
             You may use the same epoch name multiple times; this is common when
             tagging epochs that correspond to occurrences of the same stimulus.
-        t0 : float, default 0
-            Start time of signal relative to the recording you're working with.
-            Typically all signals should start at the same time (i.e. 0
-            seconds); however, this may not always be the case.
         '''
-        super().__init__(fs, data, name, recording, chans, epochs, t0, meta,
-                         safety_checks)
+        super().__init__(fs, data, name, recording, chans, epochs, segments,
+                         meta, safety_checks)
         self._data.flags.writeable = False
 
         # Install the indexers
@@ -639,6 +672,7 @@ class RasterizedSignal(SignalBase):
         with open(jsonfilepath, 'w') as fh:
             attributes = self._get_attributes()
             del attributes['epochs']
+            attributes['segments'] = attributes['segments'].tolist()
             json.dump(attributes, fh)
 
         return (csvfilepath, jsonfilepath, epochfilepath)
@@ -1094,10 +1128,6 @@ class RasterizedSignal(SignalBase):
                 if ub > data.shape[1]:
                     ub -= ub-data.shape[1]
                     epoch_data = epoch_data[:, 0:(ub-lb)]
-                # print("Data len {0} {1}-{2} {3}"
-                #       .format(data.shape[1],lb,ub,ub-lb))
-                # print(data[:, lb:ub].shape)
-                # print(epoch_data.shape)
                 data[:, lb:ub] = epoch_data
 
         if preserve_nan:
@@ -1281,9 +1311,17 @@ class RasterizedSignal(SignalBase):
         m[:, mask[0, :] == False] = np.nan
         return self._modified_copy(m)
 
-    @property
-    def shape(self):
-        return self._data.shape
+    def select_times(self, times, padding=0):
+        times = np.asarray(times)
+        indices = np.round(times*self.fs).astype('i')
+        data = self.as_continuous()
+
+        subsets = [data[..., lb:ub] for lb, ub in indices]
+        data = np.concatenate(subsets, axis=-1)
+        return self._modified_copy(data, segments=times)
+
+    def as_continuous(self):
+        return self._data
 
 
 class PointProcess(SignalBase):
@@ -1328,7 +1366,7 @@ class PointProcess(SignalBase):
 
         return RasterizedSignal(raster, name=self.name,
                                 recording=self.recording, chans=cellids,
-                                epochs=self.epochs, t0=self.t0, meta=self.meta)
+                                epochs=self.epochs, meta=self.meta)
 
     def save(self, path):
         if self.epochs is not None:
@@ -1339,7 +1377,6 @@ class PointProcess(SignalBase):
             f.attrs['recording'] = self.recording
             f.attrs['name'] = self.name
             f.attrs['chans'] = json.dumps(self.chans)
-            f.attrs['t0'] = self.t0
             f.attrs['meta'] = json.dumps(self.meta)
             f.attrs['safety_checks'] = self.safety_checks
             # TODO: any other attrs we should save?
@@ -1353,7 +1390,6 @@ class PointProcess(SignalBase):
             recording = f.attrs['recording']
             name = f.attrs['name']
             chans = json.loads(f.attrs['chans'])
-            t0 = f.attrs['t0']
             meta = json.loads(f.attrs['meta'])
             safety_checks = f.attrs['safety_checks']
 
@@ -1366,7 +1402,7 @@ class PointProcess(SignalBase):
                     data[key] = np.array(dataset[:])
 
             return PointProcess(fs=fs, data=data, name=name, recording=recording,
-                              chans=chans, epochs=epochs, t0=t0, meta=meta,
+                              chans=chans, epochs=epochs, meta=meta,
                               safety_checks=safety_checks)
 
     def concatenate_time(self, signals):
@@ -1388,7 +1424,7 @@ class PointProcess(SignalBase):
                 raise ValueError('Cannot concat signals with unequal # of chans')
 
         # Now, concatenate data along time axis, adding an offset
-        # to each successive signal to account for the duration of 
+        # to each successive signal to account for the duration of
         # the preceeding signals
         offset = 0
         for signal in signals:
@@ -1401,7 +1437,7 @@ class PointProcess(SignalBase):
 
             # increment offset by duration (sec) of current signal
             offset+=signal.ntimes*signal.fs
-            
+
         # basically do the same thing for epochs, using the Base routine
         epochs = cls._merge_epochs(signals)
 
@@ -1448,7 +1484,6 @@ class TiledSignal(SignalBase):
             f.attrs['recording'] = self.recording
             f.attrs['name'] = self.name
             f.attrs['chans'] = json.dumps(self.chans)
-            f.attrs['t0'] = self.t0
             f.attrs['meta'] = json.dumps(self.meta)
             f.attrs['safety_checks'] = self.safety_checks
             # TODO: any other attrs we should save?
@@ -1462,7 +1497,6 @@ class TiledSignal(SignalBase):
             recording = f.attrs['recording']
             name = f.attrs['name']
             chans = json.loads(f.attrs['chans'])
-            t0 = f.attrs['t0']
             meta = json.loads(f.attrs['meta'])
 
             epochs = None
@@ -1475,10 +1509,10 @@ class TiledSignal(SignalBase):
 
             return SignalDictionary(fs=fs, data=data, name=name,
                                     recording=recording, chans=chans,
-                                    epochs=epochs, t0=t0, meta=meta)
+                                    epochs=epochs, meta=meta)
 
 
-class DiscontinuousSignal(SignalBase):
+class RasterizedSignalSubset(SignalBase):
     '''
     Expects data to be a list of lists.
     '''
@@ -1488,6 +1522,9 @@ class DiscontinuousSignal(SignalBase):
 # Functions that work on multiple signal objects
 
 
+################################################################################
+# Signals
+################################################################################
 def merge_selections(signals):
     '''
     Returns a new signal object by combining a list of signals of the same
