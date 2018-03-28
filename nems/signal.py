@@ -1329,15 +1329,15 @@ class PointProcess(SignalBase):
     Expects data to be a dictionary of the form:
         {<string>: <ndarray of spike times, one dimensional>}
     '''
-    @property
-    def _data(self):
-        if self._cached_data is not None:
-            pass
-        else:
-            log.info("matrix doesn't exist yet, "
-                     "generating from time dict")
-            self._generate_data()
-        return self._cached_data
+#    @property
+#    def _data(self):
+#        if self._cached_data is not None:
+#            pass
+#        else:
+#            log.info("matrix doesn't exist yet, "
+#                     "generating from time dict")
+#            self._generate_data()
+#        return self._cached_data
 
     def rasterize(self, fs):
         """
@@ -1412,7 +1412,7 @@ class PointProcess(SignalBase):
         '''
         # Make sure all objects passed are instances of the Signal class
         for signal in signals:
-            if not isinstance(signal, cls):
+            if not isinstance(signal, PointProcess):
                 raise ValueError('Cannot merge these signals')
 
         # Make sure that important attributes match up
@@ -1433,15 +1433,16 @@ class PointProcess(SignalBase):
             else:
                 cellids = sorted(signal._data)
                 for i, key in enumerate(cellids):
-                    data[k]+=signal._data[key]+offset
+                    # append new data to list, after adding offset
+                    data[key] += signal._data[key]+offset
 
             # increment offset by duration (sec) of current signal
             offset+=signal.ntimes*signal.fs
 
         # basically do the same thing for epochs, using the Base routine
-        epochs = cls._merge_epochs(signals)
+        epochs = _merge_epochs(signals)
 
-        return cls(
+        return PointProcess(
             name=base.name,
             recording=base.recording,
             chans=base.chans,
@@ -1451,6 +1452,46 @@ class PointProcess(SignalBase):
             epochs=epochs,
             safety_checks=False
         )
+
+    def append_time(self, new_signal):
+        '''
+        Combines the signals along the time axis. All signals must have the
+        same number of channels (and the same sampling rates?).
+        '''
+        # Make sure all objects passed are instances of the Signal class
+        if not isinstance(new_signal, PointProcess):
+            raise ValueError('Wrong signal type to append')
+
+        # Make sure that important attributes match up
+        #if not self.fs == new_signal.fs:
+        #    raise ValueError('Cannot append signal with unequal fs')
+        if not self.chans == new_signal.chans:
+            raise ValueError('Cannot append signal with unequal # of chans')
+
+        # Now, concatenate data along time axis, adding an offset
+        # to each successive signal to account for the duration of
+        # the preceeding signals
+        new_data=copy.deepcopy(self._data)
+
+        offset = self.ntimes*self.fs
+        for key in cellids:
+            # append new data to list, after adding offset
+            new_data[key] += new_signal._data[key]+offset
+
+        # basically do the same thing for epochs, using the Base routine
+        epochs = _merge_epochs([self,new_signal])
+
+        return PointProcess(
+            name=self.name,
+            recording=self.recording,
+            chans=self.chans,
+            fs=self.fs,
+            meta=self.meta,
+            data=new_data,
+            epochs=epochs,
+            safety_checks=False
+        )
+
 
 
 class TiledSignal(SignalBase):
@@ -1508,6 +1549,79 @@ class TiledSignal(SignalBase):
             return SignalDictionary(fs=fs, data=data, name=name,
                                     recording=recording, chans=chans,
                                     epochs=epochs, meta=meta)
+
+    def concatenate_time(self, signals):
+        '''
+        Combines the signals along the time axis. All signals must have the
+        same number of channels (and the same sampling rates?).
+        '''
+        # Make sure all objects passed are instances of the Signal class
+        for signal in signals:
+            if not isinstance(signal, TiledSignal):
+                raise ValueError('Cannot merge these signals')
+
+        # Make sure that important attributes match up
+        base = signals[0]
+        for signal in signals[1:]:
+            #if not base.fs == signal.fs:
+            #    raise ValueError('Cannot concat signals with unequal fs')
+            if not base.chans == signal.chans:
+                raise ValueError('Cannot concat signals with unequal # of chans')
+
+        # Data is concatenated simply by merging the dictionaries. Assuming
+        # no duplicate keys or that if there are duplicates, self supercedes
+        # new_signal.
+        new_data={}
+        for signal in signals:
+            new_data={**new_data,**signal._data}
+
+        # append epochs, adding offset to account for length of self
+        epochs = _merge_epochs(signals)
+
+        return TiledSignal(
+            name=base.name,
+            recording=base.recording,
+            chans=base.chans,
+            fs=base.fs,
+            meta=base.meta,
+            data=new_data,
+            epochs=epochs,
+            safety_checks=False
+        )
+
+    def append_time(self, new_signal):
+        '''
+        Combines the signals along the time axis. All signals must have the
+        same number of channels (and the same sampling rates?).
+        '''
+        # Make sure all objects passed are instances of the Signal class
+        if not isinstance(new_signal, TiledSignal):
+            raise ValueError('Wrong signal type to append')
+
+        # Make sure that important attributes match up
+        if not self.fs == new_signal.fs:
+            raise ValueError('Cannot append signal with unequal fs')
+        if not self.chans == new_signal.chans:
+            raise ValueError('Cannot append signal with unequal # of chans')
+
+        # Data is concatenated simply by merging the dictionaries. Assuming
+        # no duplicate keys or that if there are duplicates, self supercedes
+        # new_signal.
+        new_data={**self._data,**new_signal._data}
+
+        # append epochs, adding offset to account for length of self
+        epochs = _merge_epochs([self,new_signal])
+
+        return TiledSignal(
+            name=self.name,
+            recording=self.recording,
+            chans=self.chans,
+            fs=self.fs,
+            meta=self.meta,
+            data=new_data,
+            epochs=epochs,
+            safety_checks=False
+        )
 
 
 class RasterizedSignalSubset(SignalBase):
@@ -1724,3 +1838,42 @@ def concatenate_channels(cls, signals):
         data=data,
         safety_checks=False
         )
+
+def _split_epochs(epochs,split_time):
+    if epochs is None:
+        lepochs = None
+        repochs = None
+    else:
+        mask = epochs['start'] < split_time
+        lepochs = epochs.loc[mask]
+        mask = epochs['end'] > split_time
+        repochs = epochs.loc[mask]
+        repochs[['start', 'end']] -= split_time
+
+    # If epochs were present initially but missing after split,
+    # raise a warning.
+    portion = None
+    if lepochs.size == 0:
+        portion = 'first'
+    elif repochs.size == 0:
+        portion = 'second'
+    if portion:
+        raise RuntimeWarning("Epochs for {0} portion of signal"
+                             "ended up empty after splitting by time."
+                             .format(portion))
+
+    return lepochs, repochs
+
+def _merge_epochs(signals):
+    # Merge the epoch tables. For all signals after the first signal,
+    # we need to offset the start and end indices to ensure that they
+    # reflect the correct position of the trial in the merged array.
+    offset = 0
+    epochs = []
+    for signal in signals:
+        ti = signal.epochs.copy()
+        ti['end'] += offset
+        ti['start'] += offset
+        offset += signal.ntimes/signal.fs
+        epochs.append(ti)
+    return pd.concat(epochs, ignore_index=True)
