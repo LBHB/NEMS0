@@ -195,7 +195,7 @@ class LabelSignalIndexer(BaseSignalIndexer):
 class SignalBase:
 
     def __init__(self, fs, data, name, recording, chans=None, epochs=None,
-                 segments=None, meta=None, safety_checks=True):
+                 segments=None, meta=None, safety_checks=True, signal_type=None):
         '''
         Parameters
         ----------
@@ -215,6 +215,7 @@ class SignalBase:
         self.chans = chans
         self.epochs = epochs
         self.meta = meta
+        self.signal_type = str(type(self))
 
         if self.epochs is not None:
             max_epoch_time = self.epochs["end"].max()
@@ -272,6 +273,49 @@ class SignalBase:
 
         # not implemented yet in epoch.py -- 2/4/2018
         # verify_epoch_integrity(self.epochs)
+
+    ##
+    ## I/O method(s)
+    ##
+    def _save_metadata(self, dirpath, fmt='%.18e'):
+        '''
+        Save this signal to a CSV file + JSON sidecar. If desired,
+        you may use optional parameter fmt (for example, fmt='%1.3e')
+        to alter the precision of the floating point matrices.
+        '''
+        if not os.path.isdir(dirpath):
+            os.makedirs(dirpath, mode=0o0777)
+
+        filebase = self.recording + '.' + self.name
+        basepath = os.path.join(dirpath, filebase)
+        jsonfilepath = basepath + '.json'
+        epochfilepath = basepath + '.epoch.csv'
+
+        self.epochs.to_csv(epochfilepath, sep=',', index=False)
+        with open(jsonfilepath, 'w') as fh:
+            attributes = self._get_attributes()
+            del attributes['epochs']
+            attributes['segments'] = attributes['segments'].tolist()
+            json.dump(attributes, fh)
+
+        return (jsonfilepath, epochfilepath)
+
+    def _save_data_to_h5(self, dirpath):
+
+        if not os.path.isdir(dirpath):
+            os.makedirs(dirpath, mode=0o0777)
+
+        filebase = self.recording + '.' + self.name
+        basepath = os.path.join(dirpath, filebase)
+        hdf5filepath = basepath + '.h5'
+
+        with h5py.File(hdf5filepath, 'a') as f:
+            # TODO: any other attrs we should save?
+            for key, array in self._data.items():
+                f.create_dataset(key, data=array, compression='gzip')
+
+        return hdf5filepath
+
 
     def as_continuous(self):
         '''
@@ -349,7 +393,7 @@ class SignalBase:
         bounds = np.sort(bounds, axis=0)
         return bounds
 
-    def get_epoch_indices(self, epoch, boundary_mode=None, fix_overlap=None):
+    def get_epoch_indices(self, epoch, boundary_mode='exclude', fix_overlap=None):
         '''
         Get boundaries of named epoch as index.
 
@@ -428,7 +472,7 @@ class SignalBase:
 
     def _get_attributes(self):
         md_attributes = ['name', 'chans', 'fs', 'meta', 'recording', 'epochs',
-                         'segments']
+                         'segments', 'signal_type']
         return {name: getattr(self, name) for name in md_attributes}
 
     def _split_epochs(self, split_time):
@@ -581,7 +625,7 @@ class SignalBase:
 class RasterizedSignal(SignalBase):
 
     def __init__(self, fs, data, name, recording, chans=None, epochs=None,
-                 segments=None, meta=None, safety_checks=True):
+                 segments=None, meta=None, safety_checks=True, signal_type=None):
         '''
         Parameters
         ----------
@@ -602,6 +646,7 @@ class RasterizedSignal(SignalBase):
         self.iloc = SimpleSignalIndexer(self)
         self.loc = LabelSignalIndexer(self)
         self.nchans, self.ntimes = self._data.shape
+        self.signal_type=str(type(self))
 
         # Verify that we have a long time series
         if safety_checks and self.ntimes < self.nchans:
@@ -658,22 +703,17 @@ class RasterizedSignal(SignalBase):
         you may use optional parameter fmt (for example, fmt='%1.3e')
         to alter the precision of the floating point matrices.
         '''
+
+        jsonfilepath,epochfilepath=self._save_metadata(dirpath)
+
         filebase = self.recording + '.' + self.name
         basepath = os.path.join(dirpath, filebase)
         csvfilepath = basepath + '.csv'
-        jsonfilepath = basepath + '.json'
-        epochfilepath = basepath + '.epoch.csv'
 
         mat = self.as_continuous()
         mat = np.swapaxes(mat, 0, 1)
         # TODO: Why does numpy not support fileobjs like streams?
         np.savetxt(csvfilepath, mat, delimiter=",", fmt=fmt)
-        self.epochs.to_csv(epochfilepath, sep=',', index=False)
-        with open(jsonfilepath, 'w') as fh:
-            attributes = self._get_attributes()
-            del attributes['epochs']
-            attributes['segments'] = attributes['segments'].tolist()
-            json.dump(attributes, fh)
 
         return (csvfilepath, jsonfilepath, epochfilepath)
 
@@ -1110,7 +1150,7 @@ class RasterizedSignal(SignalBase):
         '''
         # TODO: Update this to work with a mapping of key -> Nx2 epoch
         # structure as well.
-        data = self.as_continuous()
+        data = self.as_continuous().copy()
         if preserve_nan:
             nan_bins = np.isnan(data[0, :])
         for epoch, epoch_data in epoch_dict.items():
@@ -1339,19 +1379,30 @@ class PointProcess(SignalBase):
 #            self._generate_data()
 #        return self._cached_data
 
-    def rasterize(self, fs):
+    def rasterize(self, fs=None):
         """
         convert list of spike times to a raster of spike rate, with duration
         matching max end time in the event_times list
+
+        by default, fs=self.fs, which can be preset to match other signals in a
+        recording
         """
+        if not fs:
+
+            fs=self.fs
+
         if self.epochs is not None:
             max_epoch_time = self.epochs["end"].max()
         else:
             max_epoch_time = 0
 
-        max_event_times = [max(et) for et in self._data.values()]
-        max_time = max(max_epoch_time, *max_event_times)
-        max_bin = np.ceil(fs*max_time)
+        if max_epoch_time==0:
+            max_event_times = [max(et) for et in self._data.values()]
+            max_time = max(max_epoch_time, *max_event_times)
+        else:
+            max_time=max_epoch_time
+
+        max_bin = np.int(np.ceil(fs*max_time))
         unit_count = len(self._data.keys())
         raster = np.zeros([unit_count, max_bin])
 
@@ -1364,24 +1415,20 @@ class PointProcess(SignalBase):
                 if b < max_bin:
                     raster[i, b] += 1
 
-        return RasterizedSignal(raster, name=self.name,
+        return RasterizedSignal(fs=self.fs, data=raster, name=self.name,
                                 recording=self.recording, chans=cellids,
                                 epochs=self.epochs, meta=self.meta)
 
-    def save(self, path):
-        if self.epochs is not None:
-            self.epochs.to_hdf(path, '/epochs', mode='w')
-        with h5py.File(path, 'a') as f:
-            f.attrs['class'] = 'SignalTimeSeries'
-            f.attrs['fs'] = self.fs
-            f.attrs['recording'] = self.recording
-            f.attrs['name'] = self.name
-            f.attrs['chans'] = json.dumps(self.chans)
-            f.attrs['meta'] = json.dumps(self.meta)
-            f.attrs['safety_checks'] = self.safety_checks
-            # TODO: any other attrs we should save?
-            for key, array in self._data.items():
-                f.create_dataset(key, data=array, compression='gzip')
+    def save(self, dirpath, fmt='%.18e'):
+        '''
+        Save this signal to a HDF5 file + JSON sidecar.
+        '''
+
+        jsonfilepath,epochfilepath=self._save_metadata(dirpath)
+        hdf5filepath = self._save_data_to_h5(dirpath)
+
+        return (hdf5filepath, jsonfilepath, epochfilepath)
+
 
     @staticmethod
     def load(path):
@@ -1509,25 +1556,36 @@ class TiledSignal(SignalBase):
         chancount = self._data[tags[0]].shape[0]
 
         z = np.zeros([chancount, maxbin])
-        signal = RasterizedSignal(matrix=z, fs=self.fs, name=self.name,
-                                  epochs=self.epochs, recording=self.recording)
-        signal.replace_epochs(self._data)
+        empty_signal=RasterizedSignal(fs=self.fs, data=z, name=self.name,
+                                recording=self.recording, chans=self.chans,
+                                epochs=self.epochs, meta=self.meta)
+        signal=empty_signal.replace_epochs(self._data)
         return signal
 
-    def save(self, path):
-        if self.epochs is not None:
-            self.epochs.to_hdf(path, '/epochs', mode='w')
-        with h5py.File(path, 'a') as f:
-            f.attrs['class'] = 'SignalDictionary'
-            f.attrs['fs'] = self.fs
-            f.attrs['recording'] = self.recording
-            f.attrs['name'] = self.name
-            f.attrs['chans'] = json.dumps(self.chans)
-            f.attrs['meta'] = json.dumps(self.meta)
-            f.attrs['safety_checks'] = self.safety_checks
-            # TODO: any other attrs we should save?
-            for key, array in self._data.items():
-                f.create_dataset(key, data=array, compression='gzip')
+    def save(self, dirpath, fmt='%.18e'):
+        '''
+        Save this signal to a HDF5 file + JSON sidecar.
+        '''
+
+        jsonfilepath,epochfilepath=self._save_metadata(dirpath)
+        hdf5filepath = self._save_data_to_h5(dirpath)
+
+        return (hdf5filepath, jsonfilepath, epochfilepath)
+
+#OLD save code
+#        if self.epochs is not None:
+#            self.epochs.to_hdf(path, '/epochs', mode='w')
+#        with h5py.File(path, 'a') as f:
+#            f.attrs['class'] = 'SignalDictionary'
+#            f.attrs['fs'] = self.fs
+#            f.attrs['recording'] = self.recording
+#            f.attrs['name'] = self.name
+#            f.attrs['chans'] = json.dumps(self.chans)
+#            f.attrs['meta'] = json.dumps(self.meta)
+#            f.attrs['safety_checks'] = self.safety_checks
+#            # TODO: any other attrs we should save?
+#            for key, array in self._data.items():
+#                f.create_dataset(key, data=array, compression='gzip')
 
     @staticmethod
     def load(path):
@@ -1710,6 +1768,8 @@ def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
                data=mat)
     return s
 
+
+
 ################################################################################
 # Signals
 ################################################################################
@@ -1877,3 +1937,4 @@ def _merge_epochs(signals):
         offset += signal.ntimes/signal.fs
         epochs.append(ti)
     return pd.concat(epochs, ignore_index=True)
+
