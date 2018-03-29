@@ -65,7 +65,7 @@ def load_recording_from_targz(targz):
     signals_dict = {s.name: s for s in signals}
     return Recording(signals=signals_dict)
 
-targz='/tmp/test/resp1.tgz'
+targz='/auto/data/nems_db/test/resp1.tgz'
 rec1=load_recording_from_targz(targz)
-targz='/tmp/test/resp2.tgz'
+targz='/auto/data/nems_db/test/resp2.tgz'
 rec2=load_recording_from_targz(targz)
