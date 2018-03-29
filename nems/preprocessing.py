@@ -193,7 +193,6 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_sign
     x = np.ones([1,rec[state_signals[0]]._matrix.shape[1]])  # Much faster; TODO: Test if throws warnings
     ones_sig = rec[state_signals[0]]._modified_copy(x)
     ones_sig.name="baseline"
-    ones_sig.chans=["baseline"]
 
     newrec = rec.copy()
     resp=newrec['resp']
@@ -248,9 +247,9 @@ def split_est_val_for_jackknife(est, modelspecs=None, njacks=10, IsReload=False,
     for i in range(njacks):
         #est_out += [est.jackknife_by_time(njacks, i)]
         #val_out += [est.jackknife_by_time(njacks, i, invert=True)]
-        est_out += [est.jackknife_by_epoch(njacks, i,
+        est_out += [est.jackknife_by_epoch(njacks, i, 
                         epoch_name='TRIAL',tiled=True)]
-        val_out += [est.jackknife_by_epoch(njacks, i,
+        val_out += [est.jackknife_by_epoch(njacks, i, 
                         epoch_name='TRIAL',tiled=True,invert=True)]
     modelspecs_out=[]
     if (not IsReload) and (modelspecs is not None):
