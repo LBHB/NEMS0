@@ -12,7 +12,7 @@ import nems.priors as priors
 from nems.uri import save_resource, load_resource
 from nems.utils import iso8601_datestring
 from nems.fitters.api import scipy_minimize
-from nems.recording import Recording
+from nems.recording import load_recording
 
 import logging
 log = logging.getLogger(__name__)
@@ -141,8 +141,8 @@ def load_recordings(recording_uri_list, **context):
     '''
     Load one or more recordings into memory given a list of URIs.
     '''
-    rec = Recording.load(recording_uri_list[0])
-    other_recordings = [Recording.load(uri) for uri in recording_uri_list[1:]]
+    rec = load_recording(recording_uri_list[0])
+    other_recordings = [load_recording(uri) for uri in recording_uri_list[1:]]
     if other_recordings:
         rec.concatenate_recordings(other_recordings)
     return {'rec': rec}
@@ -192,10 +192,8 @@ def use_all_data_for_est_and_val(rec, **context):
 def split_for_jackknife(rec, modelspecs=None, njacks=10, IsReload=False, **context):
 
     est_out,val_out,modelspecs_out=preproc.split_est_val_for_jackknife(rec, modelspecs=modelspecs, njacks=njacks, IsReload=IsReload)
-    if IsReload:
-        return {'est': est_out, 'val': val_out}
-    else:
-        return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
+
+    return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
 def generate_psth_from_est_for_both_est_and_val_nfold(est, val, **context):
      '''
@@ -208,7 +206,7 @@ def generate_psth_from_est_for_both_est_and_val_nfold(est, val, **context):
 
 def init_from_keywords(keywordstring, meta={}, IsReload=False, **context):
     if not IsReload:
-        modelspec = init.from_keywords(keyword_string=keywordstring, meta=meta)
+        modelspec = init.from_keywords(keywordstring)
 
         return {'modelspecs': [modelspec]}
     else:

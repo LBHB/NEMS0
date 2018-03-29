@@ -277,7 +277,10 @@ def epoch_intersection(a, b):
             # [       b     ]
             # Current epoch in a is fully contained in b
             intersection.append((lb, ub))
-            lb, ub = a.pop()
+            try:
+                lb, ub = a.pop()
+            except IndexError:
+                break
         elif (ub > lb_b) and (lb > ub_b):
             #   [  a    ]
             # [ b    ]
@@ -302,7 +305,12 @@ def epoch_intersection(a, b):
 
 
 def _epoch_contains_mask(a, b):
-    mask = [(b >= lb) & (b < ub) for lb, ub in a]
+    '''
+    3d array. 1st dimension is index in a. Second dimension is index in b. Third
+    dimension is whether start (index 0) or end (index 1) in b falls within the
+    corresponding epoch in a.
+    '''
+    mask = [(b >= lb) & (b <= ub) for lb, ub in a]
     return np.concatenate([m[np.newaxis] for m in mask], axis=0)
 
 
@@ -346,6 +354,14 @@ def epoch_contains(a, b, mode):
         mask = _epoch_contains_mask(b, a)
         a_in_b = mask.any(axis=2).any(axis=0)
         return b_in_a | a_in_b
+
+
+def epoch_contained(a, b):
+    '''
+    Tests whether an occurence of a is fully contained inside b
+    '''
+    mask = _epoch_contains_mask(b, a)
+    return mask.all(axis=2).any(axis=0)
 
 
 def adjust_epoch_bounds(a, pre=0, post=0):
@@ -397,10 +413,11 @@ def epoch_names_matching(epochs, regex_str):
     matches = filter(r.match, names)
     return matches
 
+
 def epoch_occurrences(epochs, regex=None):
     '''
     Returns a dataframe of the number of occurrences of each epoch. Optionally,
-    provide regex to match only certain epoch names. 
+    provide regex to match only certain epoch names.
     '''
     epoch_counts = epochs.name.value_counts()
     if regex:
@@ -409,7 +426,7 @@ def epoch_occurrences(epochs, regex=None):
 
 
 def group_epochs_by_occurrence_counts(epochs, regex=None):
-    ''' 
+    '''
     Returns a dictionary mapping the number of occurrences to a list of epoch names.
     This is essentially the inverse mapping of epoch_occurrences().
     '''
@@ -422,7 +439,3 @@ def group_epochs_by_occurrence_counts(epochs, regex=None):
         else:
             d[count] = [name]
     return d
-
-
-
-
