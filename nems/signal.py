@@ -5,6 +5,7 @@ import json
 import re
 import math
 import copy
+import tempfile
 
 import pandas as pd
 import numpy as np
@@ -277,12 +278,21 @@ class SignalBase:
     ##
     ## I/O method(s)
     ##
-    def _save_metadata(self, dirpath, fmt='%.18e'):
+    def _save_metadata(self, epoch_fh, md_fh, fmt='%.18e'):
         '''
         Save this signal to a CSV file + JSON sidecar. If desired,
         you may use optional parameter fmt (for example, fmt='%1.3e')
         to alter the precision of the floating point matrices.
         '''
+
+        self.epochs.to_csv(epoch_fh, sep=',', index=False)
+        attributes = self._get_attributes()
+        del attributes['epochs']
+        attributes['segments'] = attributes['segments'].tolist()
+        json.dump(attributes, md_fh)
+
+    def _save_metadata_to_dirpath(self, dirpath, fmt='%.18e'):
+        # create files
         if not os.path.isdir(dirpath):
             os.makedirs(dirpath, mode=0o0777)
 
@@ -290,15 +300,10 @@ class SignalBase:
         basepath = os.path.join(dirpath, filebase)
         jsonfilepath = basepath + '.json'
         epochfilepath = basepath + '.epoch.csv'
-
-        self.epochs.to_csv(epochfilepath, sep=',', index=False)
-        with open(jsonfilepath, 'w') as fh:
-            attributes = self._get_attributes()
-            del attributes['epochs']
-            attributes['segments'] = attributes['segments'].tolist()
-            json.dump(attributes, fh)
-
+        with open(jsonfilepath) as md_fh, open(epochfilepath) as epoch_fh:
+            self._save_metadata(epoch_fh, md_fh, fmt)
         return (jsonfilepath, epochfilepath)
+
 
     def _save_data_to_h5(self, dirpath):
 
@@ -315,6 +320,7 @@ class SignalBase:
                 f.create_dataset(key, data=array, compression='gzip')
 
         return hdf5filepath
+
 
 
     def as_continuous(self):
@@ -689,12 +695,9 @@ class RasterizedSignal(SignalBase):
         mat = np.swapaxes(mat, 0, 1)
         np.savetxt(files[csvfile], mat, delimiter=",", fmt=fmt)
         files[csvfile].seek(0)  # Seek back to start of file
-        # TODO: make epochs optional?
-        self.epochs.to_csv(files[epochfile], sep=',', index=False)
-        # Write the JSON stream
-        attributes = self._get_attributes()
-        del attributes['epochs']
-        json.dump(attributes, files[jsonfile])
+
+        self._save_metadata(files[epochfile],files[jsonfile], fmt)
+
         return files
 
     def save(self, dirpath, fmt='%.18e'):
@@ -704,7 +707,7 @@ class RasterizedSignal(SignalBase):
         to alter the precision of the floating point matrices.
         '''
 
-        jsonfilepath,epochfilepath=self._save_metadata(dirpath)
+        jsonfilepath,epochfilepath=self._save_metadata_to_dirpath(dirpath)
 
         filebase = self.recording + '.' + self.name
         basepath = os.path.join(dirpath, filebase)
@@ -1363,6 +1366,12 @@ class RasterizedSignal(SignalBase):
     def as_continuous(self):
         return self._data
 
+    def rasterize(self, fs=None):
+        """
+        basically a pass-through. we don't need to rasterize, since the
+        signal is already a raster!
+        """
+        return self
 
 class PointProcess(SignalBase):
     '''
@@ -1423,33 +1432,68 @@ class PointProcess(SignalBase):
         Save this signal to a HDF5 file + JSON sidecar.
         '''
 
-        jsonfilepath,epochfilepath=self._save_metadata(dirpath)
+        jsonfilepath,epochfilepath=self._save_metadata_to_dirpath(dirpath)
         hdf5filepath = self._save_data_to_h5(dirpath)
 
         return (hdf5filepath, jsonfilepath, epochfilepath)
 
+    def as_file_streams(self, fmt='%.18e'):
+        '''
+        Returns 3 filestreams for this signal: the csv, json, and epoch.
+        TODO: Better docs and a refactoring of this and save()
+        '''
+        # TODO: actually compute these instead of cheating with a tempfile
+        files = {}
+        filebase = self.recording + '.' + self.name
+        h5file = filebase + '.h5'
+        jsonfile = filebase + '.json'
+        epochfile = filebase + '.epoch.csv'
 
-    @staticmethod
-    def load(path):
-        with h5py.File(path, 'r') as f:
-            fs = f.attrs['fs']
-            recording = f.attrs['recording']
-            name = f.attrs['name']
-            chans = json.loads(f.attrs['chans'])
-            meta = json.loads(f.attrs['meta'])
-            safety_checks = f.attrs['safety_checks']
+        tmppath=tempfile.mkdtemp()
 
-            epochs = None
-            data = {}
-            for key, dataset in f.items():
-                if 'epochs' in key:
-                    epochs = pd.read_hdf(path, key=key)
-                else:
-                    data[key] = np.array(dataset[:])
+        temph5=self._save_data_to_h5(tmppath)
+        th=io.open(temph5,'rb')
+        files[h5file]=io.BytesIO(th.read())
 
-            return PointProcess(fs=fs, data=data, name=name, recording=recording,
-                              chans=chans, epochs=epochs, meta=meta,
-                              safety_checks=safety_checks)
+        # Create textfile streams
+        files[jsonfile] = io.StringIO()
+        files[epochfile] = io.StringIO()
+
+        self._save_metadata(files[epochfile],files[jsonfile], fmt)
+
+        return files
+
+#    @staticmethod
+#    def load(path):
+#        with h5py.File(path, 'r') as f:
+#            fs = f.attrs['fs']
+#            recording = f.attrs['recording']
+#            name = f.attrs['name']
+#            chans = json.loads(f.attrs['chans'])
+#            meta = json.loads(f.attrs['meta'])
+#            safety_checks = f.attrs['safety_checks']
+#
+#            epochs = None
+#            data = {}
+#            for key, dataset in f.items():
+#                if 'epochs' in key:
+#                    epochs = pd.read_hdf(path, key=key)
+#                else:
+#                    data[key] = np.array(dataset[:])
+#
+#            return PointProcess(fs=fs, data=data, name=name, recording=recording,
+#                              chans=chans, epochs=epochs, meta=meta,
+#                              safety_checks=safety_checks)
+
+    def split_by_epochs(self, epochs_for_est, epochs_for_val):
+        '''
+        Returns a tuple of estimation and validation data splits: (est, val).
+        Arguments should be lists of epochs that define the estimation and
+        validation sets. Both est and val will have non-matching data NaN'd out.
+        '''
+        est = self.rasterize().select_epochs(epochs_for_est)
+        val = self.rasterize().select_epochs(epochs_for_val)
+        return (est, val)
 
     def concatenate_time(self, signals):
         '''
@@ -1545,9 +1589,11 @@ class TiledSignal(SignalBase):
     Expects data to be a dictionary of the form:
         {<string>: <ndarray of stim data, two dimensional>}
     '''
-    def rasterize(self):
+    def rasterize(self, fs=None):
         '''
         Create a rasterized version of the signal and return it
+
+        fs is not used but in parameters for compatibility with PointProcess
         '''
         maxtime = np.max(self.epochs["end"])
         maxbin = int(self.fs*maxtime)
@@ -1566,46 +1612,67 @@ class TiledSignal(SignalBase):
         Save this signal to a HDF5 file + JSON sidecar.
         '''
 
-        jsonfilepath,epochfilepath=self._save_metadata(dirpath)
+        jsonfilepath,epochfilepath=self._save_metadata_to_dirpath(dirpath)
         hdf5filepath = self._save_data_to_h5(dirpath)
 
         return (hdf5filepath, jsonfilepath, epochfilepath)
 
-#OLD save code
-#        if self.epochs is not None:
-#            self.epochs.to_hdf(path, '/epochs', mode='w')
-#        with h5py.File(path, 'a') as f:
-#            f.attrs['class'] = 'SignalDictionary'
-#            f.attrs['fs'] = self.fs
-#            f.attrs['recording'] = self.recording
-#            f.attrs['name'] = self.name
-#            f.attrs['chans'] = json.dumps(self.chans)
-#            f.attrs['meta'] = json.dumps(self.meta)
-#            f.attrs['safety_checks'] = self.safety_checks
-#            # TODO: any other attrs we should save?
-#            for key, array in self._data.items():
-#                f.create_dataset(key, data=array, compression='gzip')
+    def as_file_streams(self, fmt='%.18e'):
+        '''
+        Returns 3 filestreams for this signal: the csv, json, and epoch.
+        TODO: Better docs and a refactoring of this and save()
+        '''
+        # TODO: actually compute these instead of cheating with a tempfile
+        files = {}
+        filebase = self.recording + '.' + self.name
+        h5file = filebase + '.h5'
+        jsonfile = filebase + '.json'
+        epochfile = filebase + '.epoch.csv'
 
-    @staticmethod
-    def load(path):
-        with h5py.File(path, 'r') as f:
-            fs = f.attrs['fs']
-            recording = f.attrs['recording']
-            name = f.attrs['name']
-            chans = json.loads(f.attrs['chans'])
-            meta = json.loads(f.attrs['meta'])
+        tmppath=tempfile.mkdtemp()
 
-            epochs = None
-            data = {}
-            for key, dataset in f.items():
-                if 'epochs' in key:
-                    epochs = pd.read_hdf(path, key=key)
-                else:
-                    data[key] = np.array(dataset[:])
+        temph5=self._save_data_to_h5(tmppath)
+        th=io.open(temph5,'rb')
+        files[h5file]=io.BytesIO(th.read())
 
-            return SignalDictionary(fs=fs, data=data, name=name,
-                                    recording=recording, chans=chans,
-                                    epochs=epochs, meta=meta)
+        # Create textfile streams
+        files[jsonfile] = io.StringIO()
+        files[epochfile] = io.StringIO()
+
+        self._save_metadata(files[epochfile],files[jsonfile], fmt)
+
+        return files
+
+#    @staticmethod
+#    def load(path):
+#        with h5py.File(path, 'r') as f:
+#            fs = f.attrs['fs']
+#            recording = f.attrs['recording']
+#            name = f.attrs['name']
+#            chans = json.loads(f.attrs['chans'])
+#            meta = json.loads(f.attrs['meta'])
+#
+#            epochs = None
+#            data = {}
+#            for key, dataset in f.items():
+#                if 'epochs' in key:
+#                    epochs = pd.read_hdf(path, key=key)
+#                else:
+#                    data[key] = np.array(dataset[:])
+#
+#            return TiledSignal(fs=fs, data=data, name=name,
+#                                    recording=recording, chans=chans,
+#                                    epochs=epochs, meta=meta)
+
+    def split_by_epochs(self, epochs_for_est, epochs_for_val):
+        '''
+        Returns a tuple of estimation and validation data splits: (est, val).
+        Arguments should be lists of epochs that define the estimation and
+        validation sets. Both est and val will have non-matching data NaN'd out.
+        '''
+        est = self.rasterize().select_epochs(epochs_for_est)
+        val = self.rasterize().select_epochs(epochs_for_val)
+        return (est, val)
 
     def concatenate_time(self, signals):
         '''

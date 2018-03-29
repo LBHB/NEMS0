@@ -45,7 +45,7 @@ def plot_summary(rec, modelspecs, stimidx=0):
     if stimidx>len(occurrences)-1:
         stimidx=0
     occurrence = occurrences[stimidx]
-    
+
     module_names=[m['fn'] for m in modelspecs[0]]
 
 
@@ -77,7 +77,7 @@ def plot_summary(rec, modelspecs, stimidx=0):
         plot_scatter(pred[idx], resp, ax=ax,
                      title="{0} r_test={1:.3f}".format(rec.name,modelspecs[0][0]['meta']['r_test']),
                      smoothing_bins=100)
-        
+
     def my_state(ax):
         plt.sca(ax)
 
@@ -113,8 +113,8 @@ def plot_summary(rec, modelspecs, stimidx=0):
                    [my_timeseries]]
         if any('fir' in n for n in module_names):
             plot_list.append(make_partials(my_strf, modelspecs))
-        if any('nonlinearity' in n for n in module_names):            
-            plot_list.append([my_nl])
+        if any('nonlinearity' in n for n in module_names):
+            plot_list.append(make_partials(my_nl, pred))
         if any('state' in n for n in module_names):
             plot_list.append([my_state])
 

@@ -8,10 +8,13 @@ import requests
 import pandas as pd
 import numpy as np
 import copy
+import tempfile
+import shutil
 
 from nems.uri import local_uri, http_uri, targz_uri
 import nems.epoch as ep
-from nems.signal import RasterizedSignal, merge_selections, list_signals, load_signal, load_signal_from_streams
+from nems.signal import RasterizedSignal, TiledSignal, PointProcess, RasterizedSignalSubset, \
+    merge_selections, list_signals, load_signal, load_signal_from_streams
 
 log = logging.getLogger(__name__)
 
@@ -449,9 +452,12 @@ class Recording:
         Adds the signal equal to this recording. Any existing signal
         with the same name will be overwritten. No return value.
         '''
-        if not isinstance(signal, Signal):
+        if not (isinstance(signal, RasterizedSignal) or
+                isinstance(signal, PointProcess) or
+                isinstance(signal, TiledSignal) or
+                isinstance(signal, RasterizedSignalSubset)):
             raise TypeError("Recording signals must be instances of"
-                            "of class Signal.")
+                            "of a Signal class.")
         self.signals[signal.name] = signal
 
     def _split_helper(self, fn):
@@ -618,7 +624,6 @@ class Recording:
         raise NotImplementedError    # TODO
 
 
-
 ## I/O functions
 def load_recording_from_targz(targz):
     if os.path.exists(targz):
@@ -633,7 +638,10 @@ def load_recording_from_targz_stream(tgz_stream):
     '''
     Loads the recording object from the given .tar.gz stream, which
     is expected to be a io.BytesIO object.
+    For hdf5 files, copy to temporary directory and load with hdf5 utility
     '''
+    tpath=None
+
     streams = {}  # For holding file streams as we unpack
     with tarfile.open(fileobj=tgz_stream, mode='r:gz') as t:
         for member in t.getmembers():
@@ -645,15 +653,25 @@ def load_recording_from_targz_stream(tgz_stream):
             if basename.endswith('epoch.csv'):
                 keyname = 'epoch_stream'
                 f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
+
             elif basename.endswith('.csv'):
                 keyname = 'data_stream'
                 f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
+
             elif basename.endswith('.h5'):
                 keyname = 'data_stream'
-                f = io.BytesIO(t.extractfile(member).read())
+                #f_in = io.BytesIO(t.extractfile(member).read())
+
+                # current non-optimal solution. extract hdf5 file to disk and then load
+                if not tpath:
+                    tpath=tempfile.mktemp()
+                t.extract(member,tpath)
+                f=tpath+'/'+member.name
+
             elif basename.endswith('.json'):
                 keyname = 'json_stream'
                 f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
+
             else:
                 m = 'Unexpected file found in tar.gz: {} (size={})'.format(member.name, member.size)
                 raise ValueError(m)
@@ -668,7 +686,185 @@ def load_recording_from_targz_stream(tgz_stream):
     # log.debug({k: streams[k].keys() for k in streams})
     signals = [load_signal_from_streams(**sg) for sg in streams.values()]
     signals_dict = {s.name: s for s in signals}
-    return Recording(signals=signals_dict)
+
+    rec = Recording(signals=signals_dict)
+
+    if tpath:
+        shutil.rmtree(tpath) # clean up if tpath is not None
+
+    return rec
+
+def load_recording(uri):
+    '''
+    Loads from a local .tar.gz file, a local directory, from s3,
+    or from an HTTP URL containing a .tar.gz file. Examples:
+
+    # Load all signals in the gus016c-a2 directory
+    rec = Recording.load('/home/myuser/gus016c-a2')
+    rec = Recording.load('file:///home/myuser/gus016c-a2')
+
+    # Load the local tar gz directory.
+    rec = Recording.load('file:///home/myuser/gus016c-a2.tar.gz')
+
+    # Load a tar.gz file served from a flat filesystem
+    rec = Recording.load('http://potoroo/recordings/gus016c-a2.tar.gz')
+
+    # Load a tar.gz file created by the nems-baphy interafce
+    rec = Recording.load('http://potoroo/baphy/271/gus016c-a2')
+
+    # Load from S3:
+    rec = Recording.load('s3://nems.lbhb... TODO')
+    '''
+    if local_uri(uri):
+        if targz_uri(uri):
+            rec = load_recording_from_targz(local_uri(uri))
+        else:
+            rec = load_recording_from_dir(local_uri(uri))
+    elif http_uri(uri):
+        rec = load_recording_from_url(http_uri(uri))
+    elif uri[0:6] == 's3://':
+        raise NotImplementedError
+    else:
+        raise ValueError('Invalid URI: {}'.format(uri))
+    rec.uri = uri
+    return rec
+
+def load_recording_from_dir(directory_or_targz):
+    '''
+    Loads all the signals (CSV/JSON pairs) found in DIRECTORY or
+    .tar.gz file, and returns a Recording object containing all of them.
+    '''
+    if os.path.isdir(directory_or_targz):
+        files = list_signals(directory_or_targz)
+        basepaths = [os.path.join(directory_or_targz, f) for f in files]
+        signals = [load_signal(f) for f in basepaths]
+        signals_dict = {s.name: s for s in signals}
+        return Recording(signals=signals_dict)
+    else:
+        m = 'Not a directory: {}'.format(directory_or_targz)
+        raise ValueError(m)
+
+def load_recording_from_url(url):
+    '''
+    Loads the recording object from a URL. File must be tar.gz format.
+    '''
+    r = requests.get(url, stream=True)
+    if not (r.status_code == 200 and
+            (r.headers['content-type'] == 'application/gzip' or
+             r.headers['content-type'] == 'text/plain' or
+             r.headers['content-type'] == 'application/x-gzip' or
+             r.headers['content-type'] == 'application/x-compressed' or
+             r.headers['content-type'] == 'application/x-tar' or
+             r.headers['content-type'] == 'application/x-tgz')):
+        log.info('got response: {}, {}'.format(r.headers, r.status_code))
+        m = 'Error loading URL: {}'.format(url)
+        log.error(m)
+        raise Exception(m)
+    obj = io.BytesIO(r.raw.read()) # Not sure why I need this!
+    return Recording.load_from_targz_stream(obj)
+
+def load_recording_from_arrays(arrays, rec_name, fs, sig_names=None,
+                     signal_kwargs={}):
+    '''
+    Generates a recording object, and the signal objects it contains,
+    from a list of array-like structures of the form channels x time
+    (see signal.py for more details about how arrays are represented
+     by signals).
+
+    If any of the arrays are more than 2-dimensional,
+    an error will be thrown. Also pay close attention to any
+    RuntimeWarnings from the signal class regarding improperly-shaped
+    arrays, which may indicate that an array was passed as
+    time x channels instead of the reverse.
+
+    Arguments:
+    ----------
+    arrays : list of array-like
+        The data to be converted to a recording of signal objects.
+        Each item should be 2-dimensional and convertible to a
+        numpy ndarray via np.array(x). No constraints are enforced
+        on the dtype of the arrays, but in general float values
+        are expected by most native NEMS functions.
+
+    rec_name : str
+        The name to be given to the new recording object. This will
+        also be assigned as the recording attribute of each new signal.
+
+    fs : int or list of ints
+        The frequency of sampling of the data arrays - used to
+        interconvert between real time and time bins (see signal.py).
+        If int, the same fs will be assigned to each signal.
+        If list, the length must match the length of arrays.
+
+    sig_names : list of strings (optional)
+        Name to attach to the signal created from
+        each array. The length of this list should match that of
+        arrays.
+        If not specified, the signals will be given the generic
+        names: ['signal1', 'signal2', ...].
+
+    signal_kwargs : list of dicts
+        Keyword arguments to be passed through to
+        each signal object. The length of this list should
+        match the length of arrays, and may be padded with empty
+        dictionaries to ensure this constraint.
+        For example:
+            [{'chans': ['1 kHz', '3 kHz']}, {'chans': ['one', 'two']}, {}]
+        Would assign channel names '1 kHz' and '3 kHz' to the signal
+        for the first array, 'one' and 'two' for the second array,
+        and no channel names (or any other arguments) for the third array.
+
+        Valid keyword arguments are: chans, epochs, meta,
+                                     and safety_checks
+
+    Returns:
+    --------
+    rec : recording object
+        New recording containing a signal for each array.
+    '''
+    # Assemble and validate lists for signal construction
+    arrays = [np.array(a) for a in arrays]
+    for i, a in enumerate(arrays):
+        if len(a.shape) != 2:
+            raise ValueError("Arrays should have shape chans x time."
+                             "Array {} had shape: {}"
+                             .format(i, a.shape))
+    n = len(arrays)
+    recs = [rec_name]*len(arrays)
+    if sig_names:
+        if not len(sig_names) == n:
+            raise ValueError("Length of sig_names must match"
+                             "the length of arrays.\n"
+                             "Got sig_names: {} and arrays: {}"
+                             .format(len(sig_names), n))
+    else:
+        sig_names = ['sig%s'%i for i in range(n)]
+    if isinstance(fs, int):
+        fs = [fs]*n
+    else:
+        if not len(fs) == n:
+            raise ValueError("Length of fs must match"
+                             "the length of arrays.\n"
+                             "Got fs: {} and arrays: {}"
+                             .format(len(fs), n))
+    if not signal_kwargs:
+        signal_kwargs = [{}]*n
+    else:
+        if not len(signal_kwargs) == n:
+            raise ValueError("Length of signal_kwargs must match"
+                             "the length of arrays.\n"
+                             "Got signal_kwargs: {} and arrays: {}"
+                             .format(len(signal_kwargs), n))
+
+    # Construct the signals
+    to_sigs = zip(fs, arrays, sig_names, recs, signal_kwargs)
+    signals = [
+            RasterizedSignal(fs, a, name, rec, **kw)
+            for fs, a, name, rec, kw in to_sigs
+            ]
+    signals = {s.name:s for s in signals}
+    # Combine into recording and return
+    return Recording(signals)
 
 
 

@@ -99,6 +99,12 @@ def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
 
     # iterate through each signal
     for signal_name, signal_to_average in rec.signals.items():
+        # TODO: for TiledSignals, there is a much simpler way to do this!
+
+        # 0. rasterize
+        signal_to_average=signal_to_average.rasterize()
+
+
         # 1. Find matching epochs
         epochs_to_extract = ep.epoch_names_matching(rec.epochs, epoch_regex)
 
@@ -134,7 +140,7 @@ def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
             current_time = epoch[0, 1]
             #print("{0} epoch: {1}-{2}".format(k,epoch[0,0],epoch[0,1]))
 
-        avg_signal = signal.Signal(fs=fs, matrix=data,
+        avg_signal = signal.RasterizedSignal(fs=fs, data=data,
                                    name=signal_to_average.name,
                                    recording=signal_to_average.recording,
                                    chans=signal_to_average.chans,
@@ -247,9 +253,9 @@ def split_est_val_for_jackknife(est, modelspecs=None, njacks=10, IsReload=False,
     for i in range(njacks):
         #est_out += [est.jackknife_by_time(njacks, i)]
         #val_out += [est.jackknife_by_time(njacks, i, invert=True)]
-        est_out += [est.jackknife_by_epoch(njacks, i, 
+        est_out += [est.jackknife_by_epoch(njacks, i,
                         epoch_name='TRIAL',tiled=True)]
-        val_out += [est.jackknife_by_epoch(njacks, i, 
+        val_out += [est.jackknife_by_epoch(njacks, i,
                         epoch_name='TRIAL',tiled=True,invert=True)]
     modelspecs_out=[]
     if (not IsReload) and (modelspecs is not None):
