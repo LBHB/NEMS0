@@ -113,8 +113,9 @@ def plot_summary(rec, modelspecs, stimidx=0):
                    [my_timeseries]]
         if any('fir' in n for n in module_names):
             plot_list.append(make_partials(my_strf, modelspecs))
-        if any('nonlinearity' in n for n in module_names):
-            plot_list.append(make_partials(my_nl, pred))
+        # TODO add plot to show effects of static NL
+        #if any('nonlinearity' in n for n in module_names):
+        #    plot_list.append(make_partials(my_nl, pred))
         if any('state' in n for n in module_names):
             plot_list.append([my_state])
 

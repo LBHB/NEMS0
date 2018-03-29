@@ -1,4 +1,5 @@
 import io
+import os
 import copy
 import socket
 import nems.analysis.api
@@ -241,9 +242,9 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                 fitter=scipy_minimize,
                 fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
                 for modelspec in modelspecs]
-        modelspecs = [nems.initializers.init_dexp(
-                est, modelspec)
-                for modelspec in modelspecs]
+#        modelspecs = [nems.initializers.init_dexp(
+#                est, modelspec)
+#                for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
 
 def fit_basic(modelspecs, est, IsReload=False, **context):
@@ -450,3 +451,24 @@ def save_analysis(destination,
     save_resource(base_uri + 'log.txt', data=log)
     save_resource(xfspec_uri, json=xfspec)
     return {'savepath': base_uri}
+
+def load_analysis(filepath,eval_model=True):
+    """
+    load xforms and modelspec(s) from a specified directory
+    """
+    logging.info('Loading modelspecs from {0}...'.format(filepath))
+
+    xfspec=load_xform(filepath + 'xfspec.json')
+
+    mspaths=[]
+    for file in os.listdir(filepath):
+        if file.startswith("modelspec"):
+            mspaths.append(filepath + "/" + file)
+    ctx=load_modelspecs([],uris=mspaths,IsReload=False)
+    ctx['IsReload']=True
+
+    if eval_model:
+        ctx,log_xf=xforms.evaluate(xfspec,ctx)
+
+    return xfspec,ctx
+
