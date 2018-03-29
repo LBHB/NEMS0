@@ -208,7 +208,7 @@ def generate_psth_from_est_for_both_est_and_val_nfold(est, val, **context):
 
 def init_from_keywords(keywordstring, meta={}, IsReload=False, **context):
     if not IsReload:
-        modelspec = init.from_keywords(keywordstring)
+        modelspec = init.from_keywords(keyword_string=keywordstring, meta=meta)
 
         return {'modelspecs': [modelspec]}
     else:
