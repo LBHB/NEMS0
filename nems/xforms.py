@@ -192,8 +192,10 @@ def use_all_data_for_est_and_val(rec, **context):
 def split_for_jackknife(rec, modelspecs=None, njacks=10, IsReload=False, **context):
 
     est_out,val_out,modelspecs_out=preproc.split_est_val_for_jackknife(rec, modelspecs=modelspecs, njacks=njacks, IsReload=IsReload)
-
-    return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
+    if IsReload:
+        return {'est': est_out, 'val': val_out}
+    else:
+        return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
 def generate_psth_from_est_for_both_est_and_val_nfold(est, val, **context):
      '''
@@ -206,7 +208,7 @@ def generate_psth_from_est_for_both_est_and_val_nfold(est, val, **context):
 
 def init_from_keywords(keywordstring, meta={}, IsReload=False, **context):
     if not IsReload:
-        modelspec = init.from_keywords(keywordstring)
+        modelspec = init.from_keywords(keyword_string=keywordstring, meta=meta)
 
         return {'modelspecs': [modelspec]}
     else:
@@ -240,6 +242,9 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                 est, modelspec, nems.analysis.api.fit_basic, 'levelshift',
                 fitter=scipy_minimize,
                 fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
+                for modelspec in modelspecs]
+        modelspecs = [nems.initializers.init_dexp(
+                est, modelspec)
                 for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
 

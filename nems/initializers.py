@@ -2,10 +2,12 @@ import logging
 log = logging.getLogger(__name__)
 
 import copy
+import numpy as np
 
 from nems.utils import split_keywords
 from nems import keywords
 from nems.fitters.api import scipy_minimize
+import nems.modelspec as ms
 
 def from_keywords(keyword_string, registry=keywords.defaults, meta={}):
     '''
@@ -88,3 +90,51 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
                                   fit_kwargs=fit_kwargs)[0]
     modelspec.extend(nonfit_portion)
     return modelspec
+
+def init_dexp(rec,modelspec):
+    """
+    choose initial values for dexp applied after preceeding fir is 
+    initialized
+    """
+    target_i = None
+    target_module='double_exponential'
+    for i, m in enumerate(modelspec):
+        if target_module in m['fn']:
+            target_i = i
+            break
+
+    if not target_i:
+        log.info("target_module: {} not found in modelspec."
+                             .format(target_module))
+        return modelspec
+    else:
+        log.info("target_module: {0} found at modelspec[{1}]."
+                             .format(target_module,target_i-1))
+
+    if target_i == len(modelspec):
+        fit_portion = modelspec
+    else:
+        fit_portion = modelspec[:target_i]
+
+    # generate prediction from module preceeding dexp
+    rec=ms.evaluate(rec,fit_portion)
+    resp = rec['resp'].as_continuous()
+    pred = rec['pred'].as_continuous()
+    keepidx = np.isfinite(resp) * np.isfinite(pred)
+    resp = resp[keepidx]
+    pred = pred[keepidx]
+    
+    # choose phi s.t. dexp starts as almost a straight line
+    # phi=[max_out min_out slope mean_in]
+    meanr = np.nanmean(resp)
+    stdr = np.nanstd(resp)
+    modelspec[target_i]['phi']={}
+    modelspec[target_i]['phi']['amplitude']=stdr * 8
+    modelspec[target_i]['phi']['base']=meanr - stdr * 4
+    modelspec[target_i]['phi']['kappa']=np.log(np.std(pred) / 10)
+    modelspec[target_i]['phi']['shift']=np.mean(pred)
+    log.info(modelspec[target_i])
+    
+    return modelspec
+
+    
