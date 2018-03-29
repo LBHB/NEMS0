@@ -98,11 +98,19 @@ def plot_summary(rec, modelspecs, stimidx=0):
         plt.plot(p1)
         mmax=np.nanmax(p1)
         if 'state' in rec.signals.keys():
+            for m in modelspecs[0]:
+                if 'state_dc_gain' in m['fn']:
+                    g=np.array(m['phi']['g'])
+                    d=np.array(m['phi']['d'])
+                s=",".join(rec["state"].chans)
+                s=s+ " g="+np.array2string(g,precision=3)+" d="+np.array2string(d,precision=3)+""
+
             for i in range(1,rec['state'].shape[0]):
                 d=rec['state'].as_continuous()[[i],:].T
                 d=scipy.signal.decimate(d[nnidx],q=5,axis=0)
                 d=d/np.nanmax(d)*mmax - mmax*1.1
                 plt.plot(d)
+            plt.text(0,2,s)
 
         plt.axis('tight')
 
