@@ -1388,7 +1388,6 @@ class PointProcess(SignalBase):
         recording
         """
         if not fs:
-
             fs=self.fs
 
         if self.epochs is not None:
@@ -1713,7 +1712,147 @@ def load_signal(basepath):
     Generic signal loader. Load JSON file, figure out signal type and
     call appropriate loader
     '''
-    raise NotImplementedError
+    csvfilepath = basepath + '.csv'
+    h5filepath = basepath + '.h5'
+    epochfilepath = basepath + '.epoch.csv'
+    jsonfilepath = basepath + '.json'
+    if os.path.isfile(epochfilepath):
+        epochs = pd.read_csv(epochfilepath)
+    else:
+        epochs = None
+    # TODO: reduce code duplication and call load_from_streams
+    with open(jsonfilepath, 'r') as f:
+        js = json.load(f)
+
+    if 'signal_type' in js.keys():
+        signal_type=js['signal_type']
+    else:
+        signal_type="nems.signal.RasterizedSignal"
+
+    if 'RasterizedSignal' in signal_type:
+        mat = pd.read_csv(csvfilepath, header=None).values
+        mat = mat.astype('float')
+        mat = np.swapaxes(mat, 0, 1)
+
+        s = RasterizedSignal(name=js['name'],
+                    chans=js.get('chans', None),
+                    epochs=epochs,
+                    recording=js['recording'],
+                    fs=js['fs'],
+                    meta=js['meta'],
+                    data=mat)
+
+    elif 'PointProcess' in signal_type:
+        with h5py.File(h5filepath, 'r') as f:
+            data = {}
+            for key, dataset in f.items():
+                data[key] = np.array(dataset[:])
+
+        s = PointProcess(name=js['name'],
+                    chans=js.get('chans', None),
+                    epochs=epochs,
+                    recording=js['recording'],
+                    fs=js['fs'],
+                    meta=js['meta'],
+                    data=data)
+
+    elif 'TiledSignal' in signal_type:
+        with h5py.File(h5filepath, 'r') as f:
+            data = {}
+            for key, dataset in f.items():
+                data[key] = np.array(dataset[:])
+
+        s = TiledSignal(name=js['name'],
+                    chans=js.get('chans', None),
+                    epochs=epochs,
+                    recording=js['recording'],
+                    fs=js['fs'],
+                    meta=js['meta'],
+                    data=data)
+
+    else:
+        raise ValueError('signal_type unknown')
+
+    return s
+
+def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
+    ''' Loads from BytesIO objects rather than files. epoch stream was formerly
+        csv stream, but this could be an hdf5 file (or something else?)
+    '''
+    # Read the epochs stream if it exists
+    epochs = pd.read_csv(epoch_stream) if epoch_stream else None
+    # Read the json metadata
+    js = json.load(json_stream)
+
+    if 'signal_type' in js.keys():
+        signal_type=js['signal_type']
+    else:
+        signal_type="nems.signal.RasterizedSignal"
+
+    if 'RasterizedSignal' in signal_type:
+        mat = pd.read_csv(data_stream, header=None).values
+        mat = mat.astype('float')
+        mat = np.swapaxes(mat, 0, 1)
+
+        s = RasterizedSignal(name=js['name'],
+                    chans=js.get('chans', None),
+                    epochs=epochs,
+                    recording=js['recording'],
+                    fs=js['fs'],
+                    meta=js['meta'],
+                    data=mat)
+
+    elif 'PointProcess' in signal_type:
+        with h5py.File(data_stream, 'r') as f:
+            data = {}
+            for key, dataset in f.items():
+                data[key] = np.array(dataset[:])
+
+        s = PointProcess(name=js['name'],
+                    chans=js.get('chans', None),
+                    epochs=epochs,
+                    recording=js['recording'],
+                    fs=js['fs'],
+                    meta=js['meta'],
+                    data=data)
+
+    elif 'TiledSignal' in signal_type:
+        with h5py.File(data_stream, 'r') as f:
+            data = {}
+            for key, dataset in f.items():
+                data[key] = np.array(dataset[:])
+
+        s = TiledSignal(name=js['name'],
+                    chans=js.get('chans', None),
+                    epochs=epochs,
+                    recording=js['recording'],
+                    fs=js['fs'],
+                    meta=js['meta'],
+                    data=data)
+
+    else:
+        raise ValueError('signal_type unknown')
+
+    return s
+
+    # TODO add logic for different signal subclasses, identified by metadata
+    # in the JSON file
+    # ONLY if data_stream is csv then do this:
+
+    # Read the CSV
+    mat = pd.read_csv(data_stream, header=None).values
+    mat = mat.astype('float')
+    mat = np.swapaxes(mat, 0, 1)
+    # mat = np.genfromtxt(csv_stream, delimiter=',')
+    # Now build the signal
+    s = RasterizedSignal(name=js['name'],
+               chans=js.get('chans', None),
+               epochs=epochs,
+               recording=js['recording'],
+               fs=js['fs'],
+               meta=js['meta'],
+               data=mat)
+    return s
 
 def load_rasterized_signal(basepath):
     csvfilepath = basepath + '.csv'
@@ -1737,36 +1876,6 @@ def load_rasterized_signal(basepath):
                     meta=js['meta'],
                     data=mat)
         return s
-
-def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
-    ''' Loads from BytesIO objects rather than files. epoch stream was formerly
-        csv stream, but this could be an hdf5 file (or something else?)
-    '''
-    # Read the epochs stream if it exists
-    epochs = pd.read_csv(epoch_stream) if epoch_stream else None
-    # Read the json metadata
-    js = json.load(json_stream)
-
-    raise NotImplementedError('Need to implement handling for different signal types')
-
-    # TODO add logic for different signal subclasses, identified by metadata
-    # in the JSON file
-    # ONLY if data_stream is csv then do this:
-
-    # Read the CSV
-    mat = pd.read_csv(data_stream, header=None).values
-    mat = mat.astype('float')
-    mat = np.swapaxes(mat, 0, 1)
-    # mat = np.genfromtxt(csv_stream, delimiter=',')
-    # Now build the signal
-    s = RasterizedSignal(name=js['name'],
-               chans=js.get('chans', None),
-               epochs=epochs,
-               recording=js['recording'],
-               fs=js['fs'],
-               meta=js['meta'],
-               data=mat)
-    return s
 
 
 
