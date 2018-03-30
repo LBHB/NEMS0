@@ -44,7 +44,10 @@ def plot_summary(rec, modelspecs, stimidx=0):
     occurrences, = np.where(finite_trial)
     if stimidx>len(occurrences)-1:
         stimidx=0
-    occurrence = occurrences[stimidx]
+    if len(occurrences)==0:
+        occurrence=None
+    else:
+        occurrence = occurrences[stimidx]
 
     module_names=[m['fn'] for m in modelspecs[0]]
 
