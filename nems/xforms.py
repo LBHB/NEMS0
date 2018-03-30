@@ -468,7 +468,7 @@ def load_analysis(filepath,eval_model=True):
     ctx['IsReload']=True
 
     if eval_model:
-        ctx,log_xf=xforms.evaluate(xfspec,ctx)
+        ctx,log_xf=evaluate(xfspec,ctx)
 
     return xfspec,ctx
 
