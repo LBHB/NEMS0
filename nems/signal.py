@@ -1524,10 +1524,11 @@ class PointProcess(SignalBase):
                 cellids = sorted(signal._data)
                 for i, key in enumerate(cellids):
                     # append new data to list, after adding offset
-                    data[key] += signal._data[key]+offset
+                    data[key]=np.concatenate((data[key],(signal._data[key]+offset)))
 
             # increment offset by duration (sec) of current signal
             offset+=signal.ntimes*signal.fs
+
 
         # basically do the same thing for epochs, using the Base routine
         epochs = _merge_epochs(signals)
@@ -1562,11 +1563,12 @@ class PointProcess(SignalBase):
         # to each successive signal to account for the duration of
         # the preceeding signals
         new_data=copy.deepcopy(self._data)
-
+        cellids = sorted(self._data)
         offset = self.ntimes*self.fs
+
         for key in cellids:
             # append new data to list, after adding offset
-            new_data[key] += new_signal._data[key]+offset
+            new_data[key]=np.concatenate((new_data[key],(new_signal._data[key]+offset)))
 
         # basically do the same thing for epochs, using the Base routine
         epochs = _merge_epochs([self,new_signal])
