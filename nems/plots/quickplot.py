@@ -69,7 +69,7 @@ _DEFAULTS = {
 #       use pred and resp signal names.
 _PERFORMANCE = [
         ['nems.plots.quickplot.pred_resp_scatter',
-         {'smoothing_bins': False, 'title': 'Prediction versus Response'}],
+         {'smoothing_bins': 200, 'title': 'Prediction versus Response'}],
         ]
 
 # copied from nems/modelspec for now
