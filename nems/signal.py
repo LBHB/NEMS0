@@ -1350,7 +1350,7 @@ class RasterizedSignal(SignalBase):
         '''
         NaN out all time points where matrix mask[0,:]==False
         '''
-        m = self.as_continuous()
+        m = self.as_continuous().copy()
         m[:, mask[0, :] == False] = np.nan
         return self._modified_copy(m)
 

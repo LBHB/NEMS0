@@ -16,8 +16,8 @@ def state_dc_gain(rec, i, o, s, g, d):
     g - gain to scale s by
     d - dc to offset by
     '''
-    
-    fn = lambda x: g @ rec[s]._matrix * x + d @ rec[s]._matrix
-    
+
+    fn = lambda x: g @ rec[s]._data * x + d @ rec[s]._data
+
     return [rec[i].transform(fn, o)]
 

@@ -215,6 +215,11 @@ def epoch_intersection(a, b):
     b.sort(reverse=True)
 
     intersection = []
+    if len(a)==0 or len(b)==0:
+        # lists are empty, just exit
+        result = np.array([])
+        return result
+
     lb, ub = a.pop()
     lb_b, ub_b = b.pop()
 

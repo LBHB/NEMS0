@@ -196,7 +196,7 @@ def generate_psth_from_est_for_both_est_and_val_nfold(ests,vals):
 
 def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_signalname='state'):
 
-    x = np.ones([1,rec[state_signals[0]]._matrix.shape[1]])  # Much faster; TODO: Test if throws warnings
+    x = np.ones([1,rec[state_signals[0]]._data.shape[1]])  # Much faster; TODO: Test if throws warnings
     ones_sig = rec[state_signals[0]]._modified_copy(x)
     ones_sig.name="baseline"
 
@@ -239,7 +239,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_sign
         else:
             state_sig_list+=[newrec[x]]
 
-    state=signal.Signal.concatenate_channels(state_sig_list)
+    state=signal.RasterizedSignal.concatenate_channels(state_sig_list)
     state.name=new_signalname
     newrec.add_signal(state)
 
