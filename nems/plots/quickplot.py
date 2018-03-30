@@ -4,9 +4,16 @@ import copy
 
 import matplotlib.pyplot as plt
 
+from nems.plots.assemble import plot_layout
+from nems.plots.heatmap import (weight_channels_heatmap, fir_heatmap,
+                                strf_heatmap)
+from nems.plots.scatter import plot_scatter
+from nems.plots.spectrogram import spectrogram_from_epoch
+from nems.plots.timeseries import timeseries_from_epoch, timeseries_from_signals
+from nems.plots.histogram import pred_error_hist
+
 import nems.utils
 import nems.modelspec as ms
-import nems.plots.api as nplt
 
 log = logging.getLogger(__name__)
 
@@ -215,7 +222,7 @@ def before_and_after(rec, modelspec, sig_name, idx, ax=None, title=None,
 
     after = ms.evaluate(rec, modelspec, start=idx, stop=idx+1)[sig_name].copy()
     after.name += ' after'
-    nplt.timeseries_from_signals([before, after], channels=channels,
+    timeseries_from_signals([before, after], channels=channels,
                                  xlabel=xlabel, ylabel=ylabel, ax=ax,
                                  title=title)
 
@@ -225,12 +232,12 @@ def before_and_after(rec, modelspec, sig_name, idx, ax=None, title=None,
 #       kind of standardization in order for quickplot to work.
 def fir_heatmap_quick(rec, modelspec, idx=None, ax=None, title=None,
                       clim=None):
-    nplt.fir_heatmap(modelspec, ax=ax, clim=clim, title=title)
+    fir_heatmap(modelspec, ax=ax, clim=clim, title=title)
 
 
 def wc_heatmap_quick(rec, modelspec, idx=None, ax=None, title=None,
                      clim=None):
-    nplt.weight_channels_heatmap(modelspec, ax=ax, clim=clim, title=title)
+    weight_channels_heatmap(modelspec, ax=ax, clim=clim, title=title)
 
 
 def pred_resp_scatter(rec, modelspec, idx=None, ax=None, title=None,
@@ -238,6 +245,6 @@ def pred_resp_scatter(rec, modelspec, idx=None, ax=None, title=None,
     with_pred = ms.evaluate(rec, modelspec)
     pred = with_pred['pred']
     resp = with_pred['resp']
-    nplt.plot_scatter(pred, resp, ax=ax, title=title,
+    plot_scatter(pred, resp, ax=ax, title=title,
                       smoothing_bins=smoothing_bins, xlabel='Time',
                       ylabel='Firing Rate')
