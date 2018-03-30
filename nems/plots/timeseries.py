@@ -54,6 +54,8 @@ def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
 def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
                           xlabel='Time', ylabel='Value', ax=None):
     """TODO: doc"""
+    if occurrences is None:
+        return
     occurrences = pad_to_signals(signals, occurrences)
     channels = pad_to_signals(signals, channels)
 

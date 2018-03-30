@@ -99,6 +99,12 @@ def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
 
     # iterate through each signal
     for signal_name, signal_to_average in rec.signals.items():
+        # TODO: for TiledSignals, there is a much simpler way to do this!
+
+        # 0. rasterize
+        signal_to_average=signal_to_average.rasterize()
+
+
         # 1. Find matching epochs
         epochs_to_extract = ep.epoch_names_matching(rec.epochs, epoch_regex)
 
@@ -134,7 +140,7 @@ def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
             current_time = epoch[0, 1]
             #print("{0} epoch: {1}-{2}".format(k,epoch[0,0],epoch[0,1]))
 
-        avg_signal = signal.Signal(fs=fs, matrix=data,
+        avg_signal = signal.RasterizedSignal(fs=fs, data=data,
                                    name=signal_to_average.name,
                                    recording=signal_to_average.recording,
                                    chans=signal_to_average.chans,
@@ -190,10 +196,9 @@ def generate_psth_from_est_for_both_est_and_val_nfold(ests,vals):
 
 def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_signalname='state'):
 
-    x = np.ones([1,rec[state_signals[0]]._matrix.shape[1]])  # Much faster; TODO: Test if throws warnings
+    x = np.ones([1,rec[state_signals[0]]._data.shape[1]])  # Much faster; TODO: Test if throws warnings
     ones_sig = rec[state_signals[0]]._modified_copy(x)
     ones_sig.name="baseline"
-    ones_sig.chans=["baseline"]
 
     newrec = rec.copy()
     resp=newrec['resp']
@@ -234,7 +239,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_sign
         else:
             state_sig_list+=[newrec[x]]
 
-    state=signal.Signal.concatenate_channels(state_sig_list)
+    state=signal.RasterizedSignal.concatenate_channels(state_sig_list)
     state.name=new_signalname
     newrec.add_signal(state)
 

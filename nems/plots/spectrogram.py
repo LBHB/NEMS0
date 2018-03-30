@@ -32,6 +32,8 @@ def spectrogram_from_signal(signal):
     plot_spectrogram(array, fs=signal.fs)
 
 def spectrogram_from_epoch(signal, epoch, occurrence=0, ax=None,title=None):
+    if occurrence is None:
+        return
     extracted = signal.extract_epoch(epoch)
     array = extracted[occurrence]
     plot_spectrogram(array, fs=signal.fs, ax=ax,title=title)
