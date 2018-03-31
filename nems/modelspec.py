@@ -232,37 +232,43 @@ def summary_stats(modelspecs):
     # Create a dictionary with a key for each parameter associated with
     # to a list of one value per modelspec
     columns = {}
-    for i, m in enumerate(modelspecs[0]):
-        name = m['fn']
-        if name.startswith('nems.modules.'):
-            name = name[13:]
-        phi = m['phi']
-        params = phi.keys()
-        for p in params:
-            column_entry = '{0}---{1}'.format(name, p)
-            if column_entry in columns.keys():
-                columns[column_entry].append(phi[p])
-            else:
-                columns.update({column_entry: [phi[p]]})
+    for mspec in modelspecs:
+        for i, m in enumerate(mspec):
+            name = m['fn']
+            if name.startswith('nems.modules.'):
+                name = name[13:]
+            phi = m['phi']
+            params = phi.keys()
+            for p in params:
+                column_entry = '{0}---{1}'.format(name, p)
+                if column_entry in columns.keys():
+                    columns[column_entry].append(phi[p])
+                else:
+                    columns.update({column_entry: [phi[p]]})
+
+    print("\n\ncolumns before adding stats: {}".format(columns))
 
     # Convert entries from lists of values to dictionaries
     # containing keys for mean, std and the raw values.
     with_stats = {}
     for col, values in columns.items():
-        mean = _try_scalar((np.mean(values, axis=0)))
-        std = _try_scalar((np.std(values, axis=0)))
-        values = _try_scalar((np.array(values)))
+        mean = try_scalar((np.mean(values, axis=0)))
+        std = try_scalar((np.std(values, axis=0)))
+        values = try_scalar((np.array(values)))
 
         with_stats[col] = {}
         with_stats[col]['mean'] = mean
         with_stats[col]['std'] = std
         with_stats[col]['values'] = values
 
+    print("\n\ncolumns after adding stats: {}".format(with_stats))
+
     return with_stats
 
 
-def _try_scalar(x):
+def try_scalar(x):
     """Try to convert x to scalar, in case of ValueError just return x."""
+    # TODO: Maybe move this to an appropriate utilities module?
     try:
         x = np.asscalar(x)
     except ValueError:
