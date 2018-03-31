@@ -227,23 +227,24 @@ def summary_stats(modelspecs):
         if not sorted(fns) == sorted(m_fns):
             raise ValueError("All modelspecs must have the same modules")
 
+    # TODO: there should definitely be a more efficient way to do this.
+    #       shouldn't need two for loops.
+
     # Assumble a dict of columns for creating a Dataframe, with
     # the column name format: <modelspec_index>_<parameter>
     columns = {}
     for i, m in enumerate(modelspecs[0]):
-        params = m['phi'].keys()
+        name = m['fn']
+        if name.startswith('nems.modules.'):
+            name = name[13:]
+        phi = m['phi']
+        params = phi.keys()
         for p in params:
-            columns.update({'{0}_{1}'.format(i, p): []})
-
-    for col in columns.keys():
-        # First chunk, before _, is the 'module' index within modelspec
-        split = col.split('_')
-        m = int(split[0])
-        # Second chunk, after _, is the parameter
-        p = '_'.join(split[1:])
-        for mspec in modelspecs:
-            this_p = mspec[m]['phi'][p]
-            columns[col].append(this_p)
+            column_entry = '{0}---{1}'.format(name, p)
+            if column_entry in columns.keys():
+                columns[column_entry].append(phi[p])
+            else:
+                columns.update({column_entry: [phi[p]]})
 
     # Now columns should look something like:
     # {'0_mu': [1, 1, 3, 4],
@@ -256,8 +257,15 @@ def summary_stats(modelspecs):
     means = columns.copy()
     stds = columns.copy()
     for col, values in columns.items():
-        means[col] = np.mean(values)
-        stds[col] = np.std(values)
+        # Note: this will work by using axis=0 for everything, but then
+        #       scalar means get converted to one-item arrays
+        if np.isscalar(values[0]):
+            means[col] = np.mean(values)
+            stds[col] = np.std(values)
+        else:
+            # Assume entries are ndarrays, or something that behaves similarly.
+            means[col] = np.squeeze(np.mean(values, axis=0))
+            stds[col] = np.squeeze(np.std(values, axis=0))
 
     # TODO: Might be better to have this end up as a single dictionary
     #       of the form:
@@ -265,8 +273,9 @@ def summary_stats(modelspecs):
     #       ex:
     #       {'nems.modules.nonlinearity.dexp_kappa': {'mean': 1.0,
     #                                                 'std': 0.37}}
+    # or with 'nems.modules' prefix removed?
 
-    return means, stds
+    return means, stds, columns
 
 # TODO: Check that the word 'phi' is not used in fn_kwargs
 # TODO: Error checking the modelspec before execution;

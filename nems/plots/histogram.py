@@ -56,6 +56,8 @@ def pred_error_hist(resp, pred, ax=None, channel=0, bins=None,
     None
 
     '''
+    # TODO: Delete this and move to quickplot?
+    #       Would want to fully switch over from summary_plot first
     if ax:
         plt.sca(ax)
 

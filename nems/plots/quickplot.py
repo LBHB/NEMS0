@@ -6,11 +6,23 @@ import matplotlib.pyplot as plt
 
 import nems.utils
 import nems.modelspec as ms
-import nems.plots.api as nplt
+from nems.plots.heatmap import (weight_channels_heatmap, fir_heatmap,
+                                strf_heatmap)
+from nems.plots.scatter import plot_scatter
+from nems.plots.spectrogram import spectrogram_from_epoch
+from nems.plots.timeseries import (timeseries_from_epoch,
+                                   timeseries_from_signals)
+from nems.plots.histogram import pred_error_hist
 
 log = logging.getLogger(__name__)
 
 # TODO: work in progress
+
+# TODO: 'pred' and 'resp' are hard-coded into a lot of plot stuff,
+#       which isn't great. should modelspec[0]['meta'] specify
+#       pred and resp name? i and o solved a similar problem
+#       for modules so right answer is likely somethign along
+#       the same lines.
 
 # NOTE: If you are adding a new module to the plot defaults,
 #       and are unsure what plot to use, the value can be
@@ -22,11 +34,6 @@ log = logging.getLogger(__name__)
 _FALLBACK = ['nems.plots.quickplot.before_and_after',
              {'sig_name': 'pred', 'xlabel': 'Time', 'ylabel': 'Firing Rate',
               'channels': 0}]
-
-# NOTE: Plot functions referenced by defaults should have
-#       rec and modelspec as their first two positional arguments.
-#       This may require defining a wrapper function for an
-#       existing plot function.
 
 # Entries in defaults should have the form:
 #     'module_fn_name': ['plot_fn_name', {arg1=value1, arg2=value2,...}]
@@ -62,7 +69,9 @@ _DEFAULTS = {
 #       use pred and resp signal names.
 _PERFORMANCE = [
         ['nems.plots.quickplot.pred_resp_scatter',
-         {'smoothing_bins': False, 'title': 'Prediction versus Response'}],
+         {'smoothing_bins': False, 'title': 'Prediction versus Response',
+          'pred_name': 'pred', 'resp_name': 'resp'}],
+        ['nems.plots.quickplot.pred_error_hist', {}],
         ]
 
 # copied from nems/modelspec for now
@@ -178,6 +187,16 @@ def _set_to_fallback(key):
     _DEFAULTS[key] = entry
 
 
+#######################      QUICKPLOT WRAPPERS      ##########################
+# NOTE: Plot functions referenced by defaults should have
+#       rec and modelspec as their first two positional arguments.
+#       This will likely require defining a wrapper function for an
+#       existing plot function that computes the necessary arguments.
+# TODO: Is this a good idiom? Simplest standardization I coudl think of
+#       that ensures plot functions still get the information they
+#       are dependent on. Alternative solutions seem equally awkward,
+#       maybe a question for bburan.
+
 def before_and_after(rec, modelspec, sig_name, idx, ax=None, title=None,
                      channels=0, xlabel='Time', ylabel='Value'):
     '''
@@ -215,29 +234,40 @@ def before_and_after(rec, modelspec, sig_name, idx, ax=None, title=None,
 
     after = ms.evaluate(rec, modelspec, start=idx, stop=idx+1)[sig_name].copy()
     after.name += ' after'
-    nplt.timeseries_from_signals([before, after], channels=channels,
-                                 xlabel=xlabel, ylabel=ylabel, ax=ax,
-                                 title=title)
+    timeseries_from_signals([before, after], channels=channels,
+                            xlabel=xlabel, ylabel=ylabel, ax=ax,
+                            title=title)
 
 
-# TODO: Feels silly to forcibly define rec, modelspec etc even for
-#       plot functions that don't actually use them. But need some
-#       kind of standardization in order for quickplot to work.
 def fir_heatmap_quick(rec, modelspec, idx=None, ax=None, title=None,
                       clim=None):
-    nplt.fir_heatmap(modelspec, ax=ax, clim=clim, title=title)
+    fir_heatmap(modelspec, ax=ax, clim=clim, title=title)
 
 
 def wc_heatmap_quick(rec, modelspec, idx=None, ax=None, title=None,
                      clim=None):
-    nplt.weight_channels_heatmap(modelspec, ax=ax, clim=clim, title=title)
+    weight_channels_heatmap(modelspec, ax=ax, clim=clim, title=title)
 
 
-def pred_resp_scatter(rec, modelspec, idx=None, ax=None, title=None,
-                      smoothing_bins=False):
-    with_pred = ms.evaluate(rec, modelspec)
-    pred = with_pred['pred']
-    resp = with_pred['resp']
-    nplt.plot_scatter(pred, resp, ax=ax, title=title,
-                      smoothing_bins=smoothing_bins, xlabel='Time',
-                      ylabel='Firing Rate')
+def _get_pred_resp(rec, modelspec, pred_name, resp_name):
+    """Evaluates rec using a fitted modelspec, then returns pred and resp
+    signals."""
+    new_rec = ms.evaluate(rec, modelspec)
+    return [new_rec[pred_name], new_rec[resp_name]]
+
+
+def pred_resp_scatter(rec, modelspec, pred_name='pred', resp_name='resp',
+                      idx=None, ax=None, title=None, smoothing_bins=False):
+    pred, resp = _get_pred_resp(rec, modelspec, pred_name, resp_name)
+    plot_scatter(pred, resp, ax=ax, title=title,
+                 smoothing_bins=smoothing_bins, xlabel='Time',
+                 ylabel='Firing Rate')
+
+
+def error_hist(rec, modelspec, pred_name='pred', resp_name='resp', ax=None,
+               channel=0, bins=None, bin_mult=5.0, xlabel='|Resp - Pred|',
+               ylabel='Count', title='Prediction Error'):
+    pred, resp = _get_pred_resp(rec, modelspec, pred_name, resp_name)
+    pred_error_hist(resp, pred, ax=ax, channel=channel, bins=bins,
+                    bin_mult=bin_mult, xlabel=xlabel, ylabel=ylabel,
+                    title=title)
