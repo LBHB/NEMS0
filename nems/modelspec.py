@@ -200,13 +200,15 @@ def summary_stats(modelspecs):
 
     Returns:
     --------
-    means, stds : dicts
-        Each contains one key for each parameter, of the form:
-            {'<modelspec_index>_<parameter_name>': <mean value>}
-            or {'<modelspec_index>_<parameter_name>': <standard deviation>}
+    stats : nested dictionary
+        {'module.function---parameter':
+            {'mean':M, 'std':S, 'values':[v1,v2 ...]}}
+        Where M, S and v might be scalars or arrays depending on the
+        typical type for the parameter.
     '''
-    # Don't modify the modelspecs themselves
-    modelspecs = [m.copy() for m in modelspecs]
+    # Make sure the modelspecs themselves aren't modified
+    # deepcopy for nested container structure
+    modelspecs = [copy.deepcopy(m) for m in modelspecs]
 
     # Modelspecs must have the same length to compare
     # TODO: Remove this requirement? Would just need some handling of
@@ -227,11 +229,6 @@ def summary_stats(modelspecs):
         if not sorted(fns) == sorted(m_fns):
             raise ValueError("All modelspecs must have the same modules")
 
-    # TODO: there should definitely be a more efficient way to do this.
-    #       shouldn't need two for loops.
-
-    # Assumble a dict of columns for creating a Dataframe, with
-    # the column name format: <modelspec_index>_<parameter>
     columns = {}
     for i, m in enumerate(modelspecs[0]):
         name = m['fn']
@@ -246,26 +243,26 @@ def summary_stats(modelspecs):
             else:
                 columns.update({column_entry: [phi[p]]})
 
-    # Now columns should look something like:
-    # {'0_mu': [1, 1, 3, 4],
-    #  '0_sd': [0.5, 1, 0.5, 1],
-    #  '1_kappa': [1.0, 3.0, 2.0, 4.0]}
-
-    # TODO: Currently gets a single scalar mean/std for parameters like
-    #       weight_channels' coefficients. Might want to end up with
-    #       an array of mean/stds for those instead?
-    means = columns.copy()
-    stds = columns.copy()
+    with_stats = {}
     for col, values in columns.items():
         # Note: this will work by using axis=0 for everything, but then
         #       scalar means get converted to one-item arrays
-        if np.isscalar(values[0]):
-            means[col] = np.mean(values)
-            stds[col] = np.std(values)
-        else:
+        #if np.isscalar(values[0]):
+        mean = _try_scalar(np.squeeze(np.mean(values, axis=0)))
+        std = _try_scalar(np.squeeze(np.std(values, axis=0)))
+        values = _try_scalar(np.squeeze(values))
+        # If stat got squeezed down to a one-item array, set as scalar
+        # If values got squeezed down, do the same - must have been
+        # a one-modelspec list.
+
+        with_stats[col] = {}
+        with_stats[col]['mean'] = mean
+        with_stats[col]['std'] = std
+        with_stats[col]['values'] = values
+        #else:
             # Assume entries are ndarrays, or something that behaves similarly.
-            means[col] = np.squeeze(np.mean(values, axis=0))
-            stds[col] = np.squeeze(np.std(values, axis=0))
+        #    means[col] = np.squeeze(np.mean(values, axis=0))
+        #    stds[col] = np.squeeze(np.std(values, axis=0))
 
     # TODO: Might be better to have this end up as a single dictionary
     #       of the form:
@@ -275,8 +272,16 @@ def summary_stats(modelspecs):
     #                                                 'std': 0.37}}
     # or with 'nems.modules' prefix removed?
 
-    return means, stds, columns
+    return with_stats
 
+
+def _try_scalar(x):
+    """Try to convert x to scalar, in case of ValueError just return x."""
+    try:
+        x = np.asscalar(x)
+    except ValueError:
+        pass
+    return x
 # TODO: Check that the word 'phi' is not used in fn_kwargs
 # TODO: Error checking the modelspec before execution;
 # TODO: Validation of modules json schema; all require args should be present
