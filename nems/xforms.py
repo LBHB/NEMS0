@@ -452,23 +452,23 @@ def save_analysis(destination,
     save_resource(xfspec_uri, json=xfspec)
     return {'savepath': base_uri}
 
-def load_analysis(filepath,eval_model=True):
+
+def load_analysis(filepath, eval_model=True):
     """
     load xforms and modelspec(s) from a specified directory
     """
     logging.info('Loading modelspecs from {0}...'.format(filepath))
 
-    xfspec=load_xform(filepath + 'xfspec.json')
+    xfspec = load_xform(filepath + 'xfspec.json')
 
-    mspaths=[]
+    mspaths = []
     for file in os.listdir(filepath):
         if file.startswith("modelspec"):
             mspaths.append(filepath + "/" + file)
-    ctx=load_modelspecs([],uris=mspaths,IsReload=False)
-    ctx['IsReload']=True
+    ctx = load_modelspecs([], uris=mspaths, IsReload=False)
+    ctx['IsReload'] = True
 
     if eval_model:
-        ctx,log_xf=evaluate(xfspec,ctx)
+        ctx, log_xf = evaluate(xfspec, ctx)
 
-    return xfspec,ctx
-
+    return xfspec, ctx

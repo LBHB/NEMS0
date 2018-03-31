@@ -229,6 +229,8 @@ def summary_stats(modelspecs):
         if not sorted(fns) == sorted(m_fns):
             raise ValueError("All modelspecs must have the same modules")
 
+    # Create a dictionary with a key for each parameter associated with
+    # to a list of one value per modelspec
     columns = {}
     for i, m in enumerate(modelspecs[0]):
         name = m['fn']
@@ -243,34 +245,18 @@ def summary_stats(modelspecs):
             else:
                 columns.update({column_entry: [phi[p]]})
 
+    # Convert entries from lists of values to dictionaries
+    # containing keys for mean, std and the raw values.
     with_stats = {}
     for col, values in columns.items():
-        # Note: this will work by using axis=0 for everything, but then
-        #       scalar means get converted to one-item arrays
-        #if np.isscalar(values[0]):
-        mean = _try_scalar(np.squeeze(np.mean(values, axis=0)))
-        std = _try_scalar(np.squeeze(np.std(values, axis=0)))
-        values = _try_scalar(np.squeeze(values))
-        # If stat got squeezed down to a one-item array, set as scalar
-        # If values got squeezed down, do the same - must have been
-        # a one-modelspec list.
+        mean = _try_scalar((np.mean(values, axis=0)))
+        std = _try_scalar((np.std(values, axis=0)))
+        values = _try_scalar((np.array(values)))
 
         with_stats[col] = {}
         with_stats[col]['mean'] = mean
         with_stats[col]['std'] = std
         with_stats[col]['values'] = values
-        #else:
-            # Assume entries are ndarrays, or something that behaves similarly.
-        #    means[col] = np.squeeze(np.mean(values, axis=0))
-        #    stds[col] = np.squeeze(np.std(values, axis=0))
-
-    # TODO: Might be better to have this end up as a single dictionary
-    #       of the form:
-    #       {'<fn entry>_<param name>': {'mean': x, 'std': y}}
-    #       ex:
-    #       {'nems.modules.nonlinearity.dexp_kappa': {'mean': 1.0,
-    #                                                 'std': 0.37}}
-    # or with 'nems.modules' prefix removed?
 
     return with_stats
 
@@ -282,6 +268,7 @@ def _try_scalar(x):
     except ValueError:
         pass
     return x
+
 # TODO: Check that the word 'phi' is not used in fn_kwargs
 # TODO: Error checking the modelspec before execution;
 # TODO: Validation of modules json schema; all require args should be present
