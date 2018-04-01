@@ -33,6 +33,19 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value',
         plt.title(title)
 
 
+def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
+                            legend=None, ax=None, title=None):
+    times = []
+    values = []
+    for v in vectors:
+        values.append(v)
+        if fs is None:
+            times.append(np.arange(0, len(v)))
+        else:
+            times.append(np.arange(0, len(v))/fs)
+    plot_timeseries(times, values, xlabel, ylabel, legend, ax, title)
+
+
 def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
                             ax=None, title=None):
     """TODO: doc"""

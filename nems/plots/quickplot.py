@@ -15,7 +15,8 @@ from .spectrogram import (plot_spectrogram, spectrogram_from_signal,
 from .timeseries import timeseries_from_signals, timeseries_from_epoch
 from .heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap
 from .histogram import pred_error_hist
-from .state import state_vars_timeseries
+from .state import (state_vars_timeseries, state_var_psth_from_epochs,
+                    state_var_psth)
 
 log = logging.getLogger(__name__)
 
@@ -313,9 +314,11 @@ def _get_plot_fns(ctx, default='val', occurrence=0, m_idx=0, r_idx=0):
 
         elif 'state' in fn:
             if 'state.state_dc_gain' in fn:
-                fn = partial(state_vars_timeseries, rec, modelspec)
-                plot = (fn, 1)
-                plot_fns.append(plot)
+                fn1 = partial(state_vars_timeseries, rec, modelspec)
+                fns = get_state_vars_psths(rec, modelspec, psth_name='stim')
+                plot1 = (fn1, 1)
+                plot2 = (fns, [1]*len(fns))
+                plot_fns.extend([plot1, plot2])
             else:
                 pass
 
@@ -330,8 +333,10 @@ def quickplot_no_xforms(rec, est, val, modelspecs, default='val', occurrence=0,
                      figsize=figsize, height_mult=height_mult, m_idx=m_idx)
 
 
-# TODO: maybe a better place to put this? but the functionality of returning
+# TODO: maybe a better place to put these? but the functionality of returning
 #       partial plots is pretty specific to quickplot/summary
+
+
 def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
                              compare='resp', smoothing_bins=False,
                              mod_name='Unknown', xlabel1=None, xlabel2=None,
@@ -368,3 +373,12 @@ def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
                   ylabel=ylabel2, text=text2)
 
     return fn1, fn2
+
+
+def get_state_vars_psths(rec, modelspec, psth_name='stim'):
+    var_list = rec['state'].chans
+    psth_list = [
+            partial(state_var_psth, rec, psth_name=psth_name, var_name=var)
+            for var in var_list
+            ]
+    return psth_list
