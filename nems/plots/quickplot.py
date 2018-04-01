@@ -35,9 +35,9 @@ log = logging.getLogger(__name__)
 #       which follows the format (within each iteration):
 #
 #       if 'module_name' matched:
-#           if 'function_name' matched:
+#           if 'module_name.function_name' matched:
 #               <append a partial plot for this>
-#           elif 'other_function_name' matched:
+#           elif 'module_name.other_function_name' matched:
 #               <append a partial plot for this instead>
 #           else:
 #               <don't plot anything>
@@ -45,6 +45,7 @@ log = logging.getLogger(__name__)
 #       The 'partial plot' that gets appended should be a tuple of lists,
 #       of the form:
 #           ([plot_fn1, fn2, ...], [col_span1, span2, ...])
+#
 #       Or if only one plot is needed, a special shorthand: (plot_fn, 1)
 #       (See _get_plot_fns for examples)
 #                                                           -jacob 3/31/2018
@@ -57,7 +58,7 @@ log = logging.getLogger(__name__)
 #      annoying or have a better solution, feel free to re-organize.
 #      -jacob 3/31/2018
 
-def quickplot(rec, modelspec, occurrence=0, figsize=None, height_mult=2):
+def quickplot(rec, modelspec, occurrence=0, figsize=None, height_mult=3.0):
     plot_fns = _get_plot_fns(rec, modelspec, occurrence=occurrence)
 
     # Need to know how many total plots for outer gridspec (n).
@@ -66,10 +67,12 @@ def quickplot(rec, modelspec, occurrence=0, figsize=None, height_mult=2):
     # If other independent plots are added, will need to
     # adjust this calculation.
     n = len(plot_fns)+2
+    print("number of plots should be: {}".format(n))
     if figsize is None:
-        fig = plt.figure()
+        fig = plt.figure(figsize=(12, n*height_mult))
     else:
-        fig = plt.figure(figsize=(9, n*height_mult))
+        fig = plt.figure(figsize=figsize)
+
     gs_outer = gridspec.GridSpec(n, 1)
 
     # Each plot will be represented as a nested gridspec.
