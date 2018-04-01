@@ -13,6 +13,7 @@ def plot_heatmap(array, xlabel='Dim One', ylabel='Dim Two',
     '''
     if ax is not None:
         plt.sca(ax)
+
     # Make sure array is converted to ndarray if passed as list
     array = np.array(array)
 

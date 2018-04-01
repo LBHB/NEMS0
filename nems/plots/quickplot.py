@@ -1,190 +1,241 @@
 import importlib
 import logging
 import copy
+from functools import partial
 
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 import nems.utils
 import nems.modelspec as ms
-from nems.plots.heatmap import (weight_channels_heatmap, fir_heatmap,
-                                strf_heatmap)
-from nems.plots.scatter import plot_scatter
-from nems.plots.spectrogram import spectrogram_from_epoch
-from nems.plots.timeseries import (timeseries_from_epoch,
-                                   timeseries_from_signals)
-from nems.plots.histogram import pred_error_hist
+
+# Better way to do this than to copy all of .api's imports?
+# Can't use api b/c get circular import issue
+from .scatter import plot_scatter
+from .spectrogram import (plot_spectrogram, spectrogram_from_signal,
+                          spectrogram_from_epoch)
+from .timeseries import timeseries_from_signals, timeseries_from_epoch
+from .heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap
+from .file import save_figure, load_figure_img, load_figure_bytes, fig2BytesIO
+from .histogram import pred_error_hist
 
 log = logging.getLogger(__name__)
 
-# TODO: work in progress
+# NOTE: Currently the quickplot function is set up to hard-code LBHB-specific
+#       conventions (like signal names 'resp', 'pred', and 'stim')
+#       so it may not be useable as-is by other groups. Making it 100%
+#       flexible and agnostic was just unfeasible. However, none of it
+#       depends on anything outside of the main nems repository so it should
+#       serve as a good model for a plot script that others can adapt to their
+#       needs.
 
-# TODO: 'pred' and 'resp' are hard-coded into a lot of plot stuff,
-#       which isn't great. should modelspec[0]['meta'] specify
-#       pred and resp name? i and o solved a similar problem
-#       for modules so right answer is likely somethign along
-#       the same lines.
-
-# NOTE: If you are adding a new module to the plot defaults,
-#       and are unsure what plot to use, the value can be
-#       left as None. In this case, the quick_plot function
-#       will use whichever plot-type is currently chosen
-#       as the fallback (currently timeseries.before_and_after)
-#       -jacob 3/16/2018
-
-_FALLBACK = ['nems.plots.quickplot.before_and_after',
-             {'sig_name': 'pred', 'xlabel': 'Time', 'ylabel': 'Firing Rate',
-              'channels': 0}]
-
-# Entries in defaults should have the form:
-#     'module_fn_name': ['plot_fn_name', {arg1=value1, arg2=value2,...}]
-_DEFAULTS = {
-        'nems.modules.fir.basic': [
-                'nems.plots.quickplot.fir_heatmap_quick',
-                {'clim': None, 'title': 'FIR heatmap'}
-                ],
-        'nems.modules.weight_channels.gaussian': [
-                'nems.plots.quickplot.wc_heatmap_quick',
-                {'clim': None, 'title': 'Weight Channels Gaussian heatmap'}
-                ],
-        'nems.modules.weight_channels.basic': [
-                'nems.plots.quickplot.wc_heatmap_quick',
-                {'clim': None, 'title': 'Weight Channels Basic heatmap'}
-                ],
-        'nems.modules.levelshift.levelshift': None,
-        'nems.modules.nonlinearity.double_exponential': None,
-        'nems.modules.nonlinearity.quick_sigmoid': None,
-        'nems.modules.nonlinearity.logistic_sigmoid': None,
-        'nems.modules.nonlinearity.tanh': None,
-        'nems.modules.nonlinearity.dlog': None,
-        'nems.modules.signal_mod.make_state_signal': None,
-        'nems.modules.state.state_dc_gain': None,
-        'nems.modules.signal_mod.average_sig': None
-        }
-
-# These will all be included after the plots specified by _DEFAULTS,
-# regardless of what's included in the modelspec.
-# Make sure these are going to work with any kind of model!
-
-# TODO: Current pred vs act is good for LBHB but others might not
-#       use pred and resp signal names.
-_PERFORMANCE = [
-        ['nems.plots.quickplot.pred_resp_scatter',
-         {'smoothing_bins': False, 'title': 'Prediction versus Response',
-          'pred_name': 'pred', 'resp_name': 'resp'}],
-        ['nems.plots.quickplot.pred_error_hist', {}],
-        ]
-
-# copied from nems/modelspec for now
-lookup_table = {}  # TODO: Replace with real memoization/joblib later
+# NOTE: To LBHB team or other contributors:
+#       To support additional modules with quickplot, their behavior
+#       should be specified within the if/else loop in _get_plot_fns,
+#       which follows the format (within each iteration):
+#
+#       if 'module_name' matched:
+#           if 'function_name' matched:
+#               <append a partial plot for this>
+#           elif 'other_function_name' matched:
+#               <append a partial plot for this instead>
+#           else:
+#               <don't plot anything>
+#
+#       The 'partial plot' that gets appended should be a tuple of lists,
+#       of the form:
+#           ([plot_fn1, fn2, ...], [col_span1, span2, ...])
+#       Or if only one plot is needed, a special shorthand: (plot_fn, 1)
+#       (See _get_plot_fns for examples)
+#                                                           -jacob 3/31/2018
 
 
-def _lookup_fn_at(fn_path):
-    '''
-    Private function that returns a function handle found at a
-    given module. Basically, a way to import a single function.
-    e.g.
-        myfn = _lookup_fn_at('nems.modules.fir.fir_filter')
-        myfn(data)
-        ...
-    '''
-    if fn_path in lookup_table:
-        fn = lookup_table[fn_path]
+# TODO: _get_plot_fns has a lot of extra spacing in an attempt to make
+#      the module names stand out for easy scanning. I felt this was
+#      necessary since it is meant to be edited frequently as modules
+#      are added or changed. If others find this
+#      annoying or have a better solution, feel free to re-organize.
+#      -jacob 3/31/2018
+
+def quickplot(rec, modelspec, occurrence=0, figsize=None, height_mult=2):
+    plot_fns = _get_plot_fns(rec, modelspec, occurrence=occurrence)
+
+    # Need to know how many total plots for outer gridspec (n).
+    # +2 is to account for module-independent scatter at end
+    # and spectrogram at beginning.
+    # If other independent plots are added, will need to
+    # adjust this calculation.
+    n = len(plot_fns)+2
+    if figsize is None:
+        fig = plt.figure()
     else:
-        api, fn_name = nems.utils.split_to_api_and_fn(fn_path)
-        api_obj = importlib.import_module(api)
-        fn = getattr(api_obj, fn_name)
-        lookup_table[fn_path] = fn
-    return fn
+        fig = plt.figure(figsize=(9, n*height_mult))
+    gs_outer = gridspec.GridSpec(n, 1)
+
+    # Each plot will be represented as a nested gridspec.
+    # That way, plots have control over how many subplots
+    # they use etc. Only restriction is that they get
+    # one row (but the if/else flow control above could
+    # add more than one plot for a module if multiple
+    # rows are needed).
+
+    def _plot_axes(col_spans, fns, outer_index):
+        """Expects col_spans and fns to be lists, outer_index integer."""
+        # Special check to allow shorthand for single column and fn
+        if isinstance(col_spans, int):
+            if not isinstance(fns, list):
+                fns = [fns]
+                col_spans = [col_spans]
+            else:
+                raise ValueError("col_spans and fns must either both be"
+                                 "lists or both be singular, got:\n {}\n{}"
+                                 .format(col_spans, fns))
+
+        n_cols = sum(col_spans)
+        g = gridspec.GridSpecFromSubplotSpec(
+                1, n_cols, subplot_spec=gs_outer[outer_index]
+                )
+        i = 0
+        for j, span in enumerate(col_spans):
+            ax = plt.Subplot(fig, g[0, i:i+span])
+            fig.add_subplot(ax)
+            fns[j](ax=ax)
+            i += span
 
 
-def quickplot(rec, modelspec):
-    '''
-    Generates plots on a per-module basis as specified
-    by 'defaults,' using only plot functions that take
-    rec and modelspecs as the first two positional arguments.
+    ### Special plots that go *BEFORE* iterated modules
 
-    'idx' and 'ax' will additionally be passed to each plot
-    function as keyword arguments.
-    '''
-    # TODO: add in special checks for plots like strf_heatmap
-    #       that depend on multiple modules?
-    n = len(modelspec)
-    o = len(_PERFORMANCE)
-    # expand rows and height based on number of modules
-    fig, axes = plt.subplots(n+o, 1, figsize=(12, (n+o)*4))
-    for idx, m, ax in zip(list(range(n)), modelspec, axes[:n]):
-        if m['fn'] not in _DEFAULTS.keys():
-            log.warn("No default plot type set for: {}\n"
-                     "Using fallback plot: {}"
-                     .format(m['fn'], _FALLBACK))
-            _set_to_fallback(m['fn'])
-        if not _verify_default(m['fn']):
-            log.warn("Invalid plot specified for: {}\n"
-                     "Got: {}\n Changed to fallback: {}"
-                     .format(m['fn'], _DEFAULTS[m['fn']], _FALLBACK))
-            _set_to_fallback(m['fn'])
-        plot_fn_def, plot_args = _DEFAULTS[m['fn']]
-        plot_args['ax'] = ax
-        plot_args['idx'] = idx
-        plot_fn = _lookup_fn_at(plot_fn_def)
-        plt.sca(ax)
-        plot_fn(rec, modelspec, **plot_args)
+    # Stimulus Spectrogram
+    fn_spectro = partial(
+            spectrogram_from_epoch, rec['stim'], 'TRIAL',
+            occurrence=occurrence, title='Stimulus Spectrogram'
+            )
+    _plot_axes([1], [fn_spectro], 0)
 
-    for idx, p, ax in zip(list(range(o)), _PERFORMANCE, axes[n:]):
-        plot_fn_def, plot_args = p
-        plot_args['ax'] = ax
-        plot_args['idx'] = idx
-        plot_fn = _lookup_fn_at(plot_fn_def)
-        plt.sca(ax)
-        plot_fn(rec, modelspec, **plot_args)
+
+    ### Iterated module plots (defined in _get_plot_fns)
+    for i, (fns, col_spans) in enumerate(plot_fns):
+        # +1 because we did spectrogram above. Adjust as necessary.
+        j = i+1
+        _plot_axes(col_spans, fns, j)
+
+
+    ### Special plots that go *AFTER* iterated modules
+
+    # Pred v Act Scatter Smoothed
+    r_test = modelspec[0]['meta']['r_test']
+    pred = rec['pred']
+    resp = rec['resp']
+    title = "{0} r_test={1:.3f}".format(rec.name, r_test)
+    smoothed = partial(
+            plot_scatter, pred, resp, title=title, smoothing_bins=100
+            )
+    not_smoothed = partial(
+            plot_scatter, pred, resp, title=title, smoothing_bins=False
+            )
+    _plot_axes([1, 1], [smoothed, not_smoothed], -1)
 
     fig.tight_layout(pad=1.5, w_pad=1.0, h_pad=2.5)
     return fig
 
 
-def _verify_default(key):
-    '''
-    Checks if the key and its corresponding entry in _DEFAULTS
-    conforms to expectations. Mostly just to provide more
-    helpful information for debugging.
-    '''
-    try:
-        if key not in _DEFAULTS.keys():
-            log.warn("Key not in _DEFAULTS")
-            return False
-        entry = _DEFAULTS[key]
-        if not entry:
-            log.warn("Entry was empty for key: {}".format(key))
-            return False
-        if len(entry) != 2:
-            log.warn("Key is not length 2, got: {}".format(len(entry)))
-            return False
-        if not isinstance(entry[0], str):
-            log.warn("First entry was not a string, got: {}".format(entry[0]))
-            return False
-        if not isinstance(entry[1], dict):
-            log.warn("Second entry was not a dict, got: {}".format(entry[1]))
-            return False
-    except Exception as e:
-        log.warn("Uncaught exception while verifying default plot for: {}"
-                 .format(key))
-        log.exception(e)
-        return False
+def _get_plot_fns(rec, modelspec, occurrence=0):
+    plot_fns = []
 
-    return True
+    # TODO: This feels a bit hacky, likely needs review.
+    modules = [m['fn'] for m in modelspec]
+    check_wc = [('weight_channels' in mod) for mod in modules]
+    check_fir = [('fir' in mod) for mod in modules]
+    if (sum(check_wc) > 0) and (sum(check_fir) > 0):
+        # if both weight channels and fir are present, do STRF heatmap
+        # instead of either of the individual heatmaps for those modules
+        do_strf = True
+    else:
+        do_strf = False
+    # Only do STRF once
+    strf_done = False
+
+    for m in modelspec:
+        fn = m['fn']
+
+        # STRF is a special case that relies on multiple modules, so
+        # the dependent modules are wrapped here
+        # in a separate logic heirarchy.
+        if not do_strf:
+            if 'weight_channels' in fn:
+
+                if 'weight_channels.basic' in fn:
+                    fn = partial(weight_channels_heatmap, modelspec)
+                    plot = (fn, 1)
+                    plot_fns.append(plot)
+
+                elif 'weight_channels.gaussian' in fn:
+                    fn = partial(weight_channels_heatmap, modelspec)
+                    plot = (fn, 1)
+                    plot_fns.append(plot)
+
+                else:
+                    # Don't plot anything
+                    pass
+
+            elif 'fir' in fn:
+
+                if 'fir.basic' in fn:
+                    fn = partial(fir_heatmap, modelspec)
+                    plot = (fn, 1)
+                    plot_fns.append(plot)
+                else:
+                    pass
+        # do strf
+        else:
+            if not strf_done:
+                fn = partial(strf_heatmap, modelspec)
+                plot = (fn, 1)
+                plot_fns.append(plot)
+                strf_done = True
+                continue
+            else:
+                pass
 
 
-def _set_to_fallback(key):
-    # TODO: take out title stuff? adds a somewhat-hidden
-    #       additional kwarg that could cause problems if
-    #       plot function doens't allow title argument.
-    #       Alternatively, require plot functions to allow
-    #       title argument - not totally unreasonable?
-    entry = copy.deepcopy(_FALLBACK)
-    if 'title' not in entry[1].keys():
-        entry[1]['title'] = ('Plot: {} for Module: {}'
-                             .format(entry[0], key))
-    _DEFAULTS[key] = entry
+        if 'levelshift' in fn:
+            if 'levelshift.levelshift' in fn:
+                # TODO
+                pass
+            else:
+                pass
+
+
+        elif 'nonlinearity' in fn:
+
+            if 'nonlinearity.double_exponential' in fn:
+                pass
+            elif 'nonlinearity.quick_sigmoid' in fn:
+                pass
+            elif 'nonlinearity.logistic_sigmoid' in fn:
+                pass
+            elif 'nonlinearity.tanh' in fn:
+                pass
+            elif 'nonlinearity.dlog' in fn:
+                pass
+            else:
+                pass
+
+        elif 'signal_mod' in fn:
+            if 'signal_mod.make_state_signal' in fn:
+                pass
+            elif 'signal_mod.average_sig' in fn:
+                pass
+            else:
+                pass
+
+        elif 'state' in fn:
+            if 'state.state_dc_gain' in fn:
+                pass
+            else:
+                pass
+
+    return plot_fns
 
 
 #######################      QUICKPLOT WRAPPERS      ##########################
@@ -196,6 +247,7 @@ def _set_to_fallback(key):
 #       that ensures plot functions still get the information they
 #       are dependent on. Alternative solutions seem equally awkward,
 #       maybe a question for bburan.
+
 
 def before_and_after(rec, modelspec, sig_name, idx, ax=None, title=None,
                      channels=0, xlabel='Time', ylabel='Value'):
@@ -266,7 +318,7 @@ def pred_resp_scatter(rec, modelspec, pred_name='pred', resp_name='resp',
 
 def error_hist(rec, modelspec, pred_name='pred', resp_name='resp', ax=None,
                channel=0, bins=None, bin_mult=5.0, xlabel='|Resp - Pred|',
-               ylabel='Count', title='Prediction Error'):
+               ylabel='Count', title='Prediction Error', idx=None):
     pred, resp = _get_pred_resp(rec, modelspec, pred_name, resp_name)
     pred_error_hist(resp, pred, ax=ax, channel=channel, bins=bins,
                     bin_mult=bin_mult, xlabel=xlabel, ylabel=ylabel,
