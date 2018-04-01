@@ -15,6 +15,7 @@ from .spectrogram import (plot_spectrogram, spectrogram_from_signal,
 from .timeseries import timeseries_from_signals, timeseries_from_epoch
 from .heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap
 from .histogram import pred_error_hist
+from .state import state_vars_timeseries
 
 log = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ log = logging.getLogger(__name__)
 
 
 def quickplot(ctx, default='val', occurrence=0, figsize=None, height_mult=3.0,
-              m_idx=0, r_idx=0):
+              width_mult=1.0, m_idx=0, r_idx=0):
     """Expects an *evaluated* context dictionary ('ctx') returned by xforms."""
     # TODO: Or do we want 'est' by default?
     #       Could also just
@@ -76,14 +77,14 @@ def quickplot(ctx, default='val', occurrence=0, figsize=None, height_mult=3.0,
                              m_idx=m_idx)
 
     # Need to know how many total plots for outer gridspec (n).
-    # +2 is to account for module-independent scatter at end
+    # +3 is to account for module-independent plots at end
     # and spectrogram at beginning.
     # If other independent plots are added, will need to
     # adjust this calculation.
-    n = len(plot_fns)+2
+    n = len(plot_fns)+3
     print("number of plots should be: {}".format(n))
     if figsize is None:
-        fig = plt.figure(figsize=(12, n*height_mult))
+        fig = plt.figure(figsize=(10*width_mult, n*height_mult))
     else:
         fig = plt.figure(figsize=figsize)
 
@@ -119,6 +120,9 @@ def quickplot(ctx, default='val', occurrence=0, figsize=None, height_mult=3.0,
             fns[j](ax=ax)
             i += span
 
+    # TODO: Move pre- and post- plots to separate subfunctions?
+    #       Not too awful at the moment but if we add more will
+    #       get pretty crowded here
 
     ### Special plots that go *BEFORE* iterated modules
 
@@ -139,7 +143,14 @@ def quickplot(ctx, default='val', occurrence=0, figsize=None, height_mult=3.0,
 
     ### Special plots that go *AFTER* iterated modules
 
-    # Pred v Act Scatter Smoothed
+    # Pred v Resp Timeseries
+    sigs = [rec['resp'], rec['pred']]
+    timeseries = partial(timeseries_from_epoch, sigs, 'TRIAL',
+                         title='Final Prediction versus Response',
+                         occurrences=occurrence)
+    _plot_axes(1, timeseries, -2)
+
+    # Pred v Resp Scatter Smoothed
     r_test = modelspec[0]['meta']['r_test']
     r_fit = modelspec[0]['meta']['r_fit']
     pred = rec['pred']
@@ -157,7 +168,19 @@ def quickplot(ctx, default='val', occurrence=0, figsize=None, height_mult=3.0,
 
     # TODO: Pred Error histogram too? Or was that not useful?
 
-    fig.tight_layout(pad=1.5, w_pad=1.0, h_pad=2.5)
+    # Whole-figure title
+    cellid = modelspec[0]['meta']['cellid']
+    modelname = modelspec[0]['meta']['modelname']
+    batch = modelspec[0]['meta']['batch']
+    fig.suptitle('Cell: {}, from Batch: {},\nUsing model: {}'
+                 .format(cellid, batch, modelname))
+
+    # Space subplots appropriately
+    # TODO: More dynamic way to determine the y-max for suptitle?
+    #y_max = 1.00 - (height_mult+1)/100
+    y_max=0.955
+    gs_outer.tight_layout(fig, rect=[0, 0, 1, y_max],
+                          pad=1.5, w_pad=1.0, h_pad=2.5)
     return fig
 
 
@@ -214,7 +237,7 @@ def _get_plot_fns(ctx, default='val', occurrence=0, m_idx=0, r_idx=0):
         # do strf
         else:
             if not strf_done:
-                fn = partial(strf_heatmap, modelspec)
+                fn = partial(strf_heatmap, modelspec, title='STRF')
                 plot = (fn, 1)
                 plot_fns.append(plot)
                 strf_done = True
@@ -225,7 +248,7 @@ def _get_plot_fns(ctx, default='val', occurrence=0, m_idx=0, r_idx=0):
 
         if 'levelshift' in fn:
             if 'levelshift.levelshift' in fn:
-                # TODO
+                # TODO - Should levelshift plot anything?
                 pass
             else:
                 pass
@@ -240,19 +263,46 @@ def _get_plot_fns(ctx, default='val', occurrence=0, m_idx=0, r_idx=0):
                         )
                 plots = ([fn1, fn2], [1, 1])
                 plot_fns.append(plots)
+
             elif 'nonlinearity.quick_sigmoid' in fn:
-                pass
+                fn1, fn2 = before_and_after_scatter(
+                        rec, modelspec, idx, smoothing_bins=200,
+                        mod_name='quick_sig'
+                        )
+                plots = ([fn1, fn2], [1, 1])
+                plot_fns.append(plots)
+
             elif 'nonlinearity.logistic_sigmoid' in fn:
-                pass
+                fn1, fn2 = before_and_after_scatter(
+                        rec, modelspec, idx, smoothing_bins=200,
+                        mod_name='log_sig'
+                        )
+                plots = ([fn1, fn2], [1, 1])
+                plot_fns.append(plots)
+
             elif 'nonlinearity.tanh' in fn:
-                pass
+                fn1, fn2 = before_and_after_scatter(
+                        rec, modelspec, idx, smoothing_bins=200,
+                        mod_name='tanh'
+                        )
+                plots = ([fn1, fn2], [1, 1])
+                plot_fns.append(plots)
+
             elif 'nonlinearity.dlog' in fn:
-                pass
+                fn1, fn2 = before_and_after_scatter(
+                        rec, modelspec, idx, smoothing_bins=200,
+                        mod_name='dlog'
+                        )
+                plots = ([fn1, fn2], [1, 1])
+                plot_fns.append(plots)
+
             else:
+                # Unrecognized nonlinearity
                 pass
 
         elif 'signal_mod' in fn:
             if 'signal_mod.make_state_signal' in fn:
+                # TODO
                 pass
             elif 'signal_mod.average_sig' in fn:
                 pass
@@ -261,7 +311,9 @@ def _get_plot_fns(ctx, default='val', occurrence=0, m_idx=0, r_idx=0):
 
         elif 'state' in fn:
             if 'state.state_dc_gain' in fn:
-                pass
+                fn = state_vars_timeseries(rec, modelspec)
+                plot = (fn, 1)
+                plot_fns.append(plot)
             else:
                 pass
 

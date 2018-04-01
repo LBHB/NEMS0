@@ -52,7 +52,7 @@ def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
 
 
 def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
-                          xlabel='Time', ylabel='Value', ax=None):
+                          xlabel='Time', ylabel='Value', ax=None, title=None):
     """TODO: doc"""
     if occurrences is None:
         return
@@ -72,7 +72,7 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
         time_vector = np.arange(0, len(value_vector)) / s.fs
         times.append(time_vector)
         values.append(value_vector)
-    plot_timeseries(times, values, xlabel, ylabel, legend, ax=ax)
+    plot_timeseries(times, values, xlabel, ylabel, legend, ax=ax, title=title)
 
 
 def before_and_after(rec, modelspec, sig_name, ax=None, title=None,

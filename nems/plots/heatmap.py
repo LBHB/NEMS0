@@ -76,7 +76,8 @@ def fir_heatmap(modelspec, ax=None, clim=None, title=None):
                  ax=ax, clim=clim, title=title)
 
 
-def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True):
+def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
+                 title=None):
     wcc = _get_wc_coefficients(modelspec)
     firc = _get_fir_coefficients(modelspec)
     if wcc is None and firc is None:
@@ -124,4 +125,4 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True):
         skip = 0
 
     plot_heatmap(everything, xlabel='Time Bin',
-                 ylabel='Channel In', ax=ax, skip=skip)
+                 ylabel='Channel In', ax=ax, skip=skip, title=title)
