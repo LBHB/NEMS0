@@ -82,7 +82,6 @@ def quickplot(ctx, default='val', occurrence=0, figsize=None, height_mult=3.0,
     # If other independent plots are added, will need to
     # adjust this calculation.
     n = len(plot_fns)+3
-    print("number of plots should be: {}".format(n))
     if figsize is None:
         fig = plt.figure(figsize=(10*width_mult, n*height_mult))
     else:
@@ -127,6 +126,8 @@ def quickplot(ctx, default='val', occurrence=0, figsize=None, height_mult=3.0,
     ### Special plots that go *BEFORE* iterated modules
 
     # Stimulus Spectrogram
+    # TODO: This is a bit screwy for state_gain model, do we want
+
     fn_spectro = partial(
             spectrogram_from_epoch, rec['stim'], 'TRIAL',
             occurrence=occurrence, title='Stimulus Spectrogram'
@@ -138,6 +139,7 @@ def quickplot(ctx, default='val', occurrence=0, figsize=None, height_mult=3.0,
     for i, (fns, col_spans) in enumerate(plot_fns):
         # +1 because we did spectrogram above. Adjust as necessary.
         j = i+1
+        print('plot index: %d' % i)
         _plot_axes(col_spans, fns, j)
 
 
@@ -311,7 +313,7 @@ def _get_plot_fns(ctx, default='val', occurrence=0, m_idx=0, r_idx=0):
 
         elif 'state' in fn:
             if 'state.state_dc_gain' in fn:
-                fn = state_vars_timeseries(rec, modelspec)
+                fn = partial(state_vars_timeseries, rec, modelspec)
                 plot = (fn, 1)
                 plot_fns.append(plot)
             else:

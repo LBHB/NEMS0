@@ -10,7 +10,7 @@ def state_vars_timeseries(rec, modelspec, ax=None):
     resp = rec['resp']
 
     r1 = resp.as_continuous().T
-    p1 = pred[0].as_continuous().T
+    p1 = pred.as_continuous().T
     nnidx = np.isfinite(p1)
 
     r1 = scipy.signal.decimate(r1[nnidx], q=5, axis=0)
@@ -36,5 +36,7 @@ def state_vars_timeseries(rec, modelspec, ax=None):
             d = scipy.signal.decimate(d[nnidx], q=5, axis=0)
             d = d/np.nanmax(d)*mmax - mmax*1.1
             plt.plot(d)
-        plt.text(0, 2, s)
+        ax = plt.gca()
+        plt.text(0.5, 0.9, s, transform=ax.transAxes,
+                 horizontalalignment='center')
     plt.axis('tight')
