@@ -58,8 +58,25 @@ log = logging.getLogger(__name__)
 #      annoying or have a better solution, feel free to re-organize.
 #      -jacob 3/31/2018
 
-def quickplot(rec, modelspec, occurrence=0, figsize=None, height_mult=3.0):
-    plot_fns = _get_plot_fns(rec, modelspec, occurrence=occurrence)
+
+def quickplot(ctx, default='val', occurrence=0, figsize=None, height_mult=3.0,
+              m_idx=0, r_idx=0):
+    """Expects an *evaluated* context dictionary ('ctx') returned by xforms."""
+    # TODO: Or do we want 'est' by default?
+    #       Could also just
+    #       ditch default altogether and force plots to explicityly state which
+    #       dataset they're plotting, but then we lose the ability to quickly
+    #       choose between plotting est or val.
+
+    # Most plots will just use the default (typically 'val' for LBHB),
+    # but some plots might want to plot est vs val or need access to the
+    # full recording. Keeping the full ctx reference lets those plots
+    # use ctx['est'], ctx['rec'], etc.
+    rec = ctx[default][r_idx]
+    modelspec = ctx['modelspecs'][m_idx]
+
+    plot_fns = _get_plot_fns(ctx, default=default, occurrence=occurrence,
+                             m_idx=m_idx)
 
     # Need to know how many total plots for outer gridspec (n).
     # +2 is to account for module-independent scatter at end
@@ -138,11 +155,16 @@ def quickplot(rec, modelspec, occurrence=0, figsize=None, height_mult=3.0):
             )
     _plot_axes([1, 1], [smoothed, not_smoothed], -1)
 
+    # TODO: Pred Error histogram too? Or was that not useful?
+
     fig.tight_layout(pad=1.5, w_pad=1.0, h_pad=2.5)
     return fig
 
 
-def _get_plot_fns(rec, modelspec, occurrence=0):
+def _get_plot_fns(ctx, default='val', occurrence=0, m_idx=0, r_idx=0):
+    rec = ctx[default][r_idx]
+    modelspec = ctx['modelspecs'][m_idx]
+
     plot_fns = []
 
     # TODO: This feels a bit hacky, likely needs review.
@@ -158,7 +180,7 @@ def _get_plot_fns(rec, modelspec, occurrence=0):
     # Only do STRF once
     strf_done = False
 
-    for m in modelspec:
+    for idx, m in enumerate(modelspec):
         fn = m['fn']
 
         # STRF is a special case that relies on multiple modules, so
@@ -212,7 +234,12 @@ def _get_plot_fns(rec, modelspec, occurrence=0):
         elif 'nonlinearity' in fn:
 
             if 'nonlinearity.double_exponential' in fn:
-                pass
+                fn1, fn2 = before_and_after_scatter(
+                        rec, modelspec, 'pred', idx, compare='resp',
+                        smoothing_bins=200, mod_name='dexp'
+                        )
+                plots = ([fn1, fn2], [1, 1])
+                plot_fns.append(plots)
             elif 'nonlinearity.quick_sigmoid' in fn:
                 pass
             elif 'nonlinearity.logistic_sigmoid' in fn:
@@ -241,42 +268,19 @@ def _get_plot_fns(rec, modelspec, occurrence=0):
     return plot_fns
 
 
-#######################      QUICKPLOT WRAPPERS      ##########################
-# NOTE: Plot functions referenced by defaults should have
-#       rec and modelspec as their first two positional arguments.
-#       This will likely require defining a wrapper function for an
-#       existing plot function that computes the necessary arguments.
-# TODO: Is this a good idiom? Simplest standardization I coudl think of
-#       that ensures plot functions still get the information they
-#       are dependent on. Alternative solutions seem equally awkward,
-#       maybe a question for bburan.
+def quickplot_no_xforms(rec, est, val, modelspecs, default='val', occurrence=0,
+                        figsize=None, height_mult=3.0, m_idx=0):
+    """Compatibility wrapper for quickplot."""
+    ctx = {'rec': rec, 'est': est, 'val': val, 'modelspecs': modelspecs}
+    return quickplot(ctx, default=default, occurrence=occurrence,
+                     figsize=figsize, height_mult=height_mult, m_idx=m_idx)
 
 
-def before_and_after(rec, modelspec, sig_name, idx, ax=None, title=None,
-                     channels=0, xlabel='Time', ylabel='Value'):
-    '''
-    Plots a timeseries of specified signal just before and just after
-    the transformation performed at some step in the modelspec.
+# TODO: maybe a better place to put this? but the functionality of returning
+#       partial plots is pretty specific to quickplot/summary
+def before_and_after_scatter(rec, modelspec, sig_name, idx, compare='resp',
+                             smoothing_bins=False, mod_name=None):
 
-    Arguments:
-    ----------
-    rec : recording object
-        The dataset to use. See nems/recording.py.
-
-    modelspec : list of dicts
-        The transformations to perform. See nems/modelspec.py.
-
-    sig_name : str
-        Specifies the signal in 'rec' to be examined.
-
-    idx : int
-        An index into the modelspec. rec[sig_name] will be plotted
-        as it exists after step idx-1 and after step idx.
-
-    Returns:
-    --------
-    None
-    '''
     # HACK: shouldn't hardcode 'stim', might be named something else
     #       or not present at all. Need to figure out a better solution
     #       for special case of idx = 0
@@ -286,43 +290,16 @@ def before_and_after(rec, modelspec, sig_name, idx, ax=None, title=None,
     else:
         before = ms.evaluate(rec, modelspec, start=None, stop=idx)[sig_name]
         before.name += ' before'
-
     after = ms.evaluate(rec, modelspec, start=idx, stop=idx+1)[sig_name].copy()
-    after.name += ' after'
-    timeseries_from_signals([before, after], channels=channels,
-                            xlabel=xlabel, ylabel=ylabel, ax=ax,
-                            title=title)
+    compare_to = rec[compare]
 
+    if mod_name is None:
+        mod_name = 'Unknown'
+    title1 = '{} vs {} before {}'.format(sig_name, compare, mod_name)
+    title2 = '{} vs {} after {}'.format(sig_name, compare, mod_name)
+    fn1 = partial(plot_scatter, before, compare_to, title=title1,
+                  smoothing_bins=smoothing_bins)
+    fn2 = partial(plot_scatter, after, compare_to, title=title2,
+                  smoothing_bins=smoothing_bins)
 
-def fir_heatmap_quick(rec, modelspec, idx=None, ax=None, title=None,
-                      clim=None):
-    fir_heatmap(modelspec, ax=ax, clim=clim, title=title)
-
-
-def wc_heatmap_quick(rec, modelspec, idx=None, ax=None, title=None,
-                     clim=None):
-    weight_channels_heatmap(modelspec, ax=ax, clim=clim, title=title)
-
-
-def _get_pred_resp(rec, modelspec, pred_name, resp_name):
-    """Evaluates rec using a fitted modelspec, then returns pred and resp
-    signals."""
-    new_rec = ms.evaluate(rec, modelspec)
-    return [new_rec[pred_name], new_rec[resp_name]]
-
-
-def pred_resp_scatter(rec, modelspec, pred_name='pred', resp_name='resp',
-                      idx=None, ax=None, title=None, smoothing_bins=False):
-    pred, resp = _get_pred_resp(rec, modelspec, pred_name, resp_name)
-    plot_scatter(pred, resp, ax=ax, title=title,
-                 smoothing_bins=smoothing_bins, xlabel='Time',
-                 ylabel='Firing Rate')
-
-
-def error_hist(rec, modelspec, pred_name='pred', resp_name='resp', ax=None,
-               channel=0, bins=None, bin_mult=5.0, xlabel='|Resp - Pred|',
-               ylabel='Count', title='Prediction Error', idx=None):
-    pred, resp = _get_pred_resp(rec, modelspec, pred_name, resp_name)
-    pred_error_hist(resp, pred, ax=ax, channel=channel, bins=bins,
-                    bin_mult=bin_mult, xlabel=xlabel, ylabel=ylabel,
-                    title=title)
+    return fn1, fn2

@@ -28,7 +28,7 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
 
     m1 = sig1.as_continuous()
     m2 = sig2.as_continuous()
-    
+
     # remove NaNs
     keepidx = np.isfinite(m1[0,:]) * np.isfinite(m2[0,:])
     m1 = m1[0:1, keepidx]
@@ -42,7 +42,7 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
         y = m2[[i], :]
 
         if smoothing_bins:
-            
+
             # Concatenate and sort
             s2 = np.append(x, y, 0)
             s2 = s2[:, s2[0, :].argsort()]

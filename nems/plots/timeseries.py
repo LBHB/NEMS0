@@ -73,3 +73,45 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
         times.append(time_vector)
         values.append(value_vector)
     plot_timeseries(times, values, xlabel, ylabel, legend, ax=ax)
+
+
+def before_and_after(rec, modelspec, sig_name, ax=None, title=None,
+                     channels=0, xlabel='Time', ylabel='Value'):
+    '''
+    Plots a timeseries of specified signal just before and just after
+    the transformation performed at some step in the modelspec.
+
+    Arguments:
+    ----------
+    rec : recording object
+        The dataset to use. See nems/recording.py.
+
+    modelspec : list of dicts
+        The transformations to perform. See nems/modelspec.py.
+
+    sig_name : str
+        Specifies the signal in 'rec' to be examined.
+
+    idx : int
+        An index into the modelspec. rec[sig_name] will be plotted
+        as it exists after step idx-1 and after step idx.
+
+    Returns:
+    --------
+    None
+    '''
+    # HACK: shouldn't hardcode 'stim', might be named something else
+    #       or not present at all. Need to figure out a better solution
+    #       for special case of idx = 0
+    if idx == 0:
+        before = rec['stim'].copy()
+        before.name += ' before**'
+    else:
+        before = ms.evaluate(rec, modelspec, start=None, stop=idx)[sig_name]
+        before.name += ' before'
+
+    after = ms.evaluate(rec, modelspec, start=idx, stop=idx+1)[sig_name].copy()
+    after.name += ' after'
+    timeseries_from_signals([before, after], channels=channels,
+                            xlabel=xlabel, ylabel=ylabel, ax=ax,
+                            title=title)
