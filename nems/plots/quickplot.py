@@ -1,13 +1,11 @@
-import importlib
 import logging
-import copy
 from functools import partial
 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-import nems.utils
 import nems.modelspec as ms
+import nems.metrics.api as nm
 
 # Better way to do this than to copy all of .api's imports?
 # Can't use api b/c get circular import issue
@@ -16,7 +14,6 @@ from .spectrogram import (plot_spectrogram, spectrogram_from_signal,
                           spectrogram_from_epoch)
 from .timeseries import timeseries_from_signals, timeseries_from_epoch
 from .heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap
-from .file import save_figure, load_figure_img, load_figure_bytes, fig2BytesIO
 from .histogram import pred_error_hist
 
 log = logging.getLogger(__name__)
@@ -144,14 +141,17 @@ def quickplot(ctx, default='val', occurrence=0, figsize=None, height_mult=3.0,
 
     # Pred v Act Scatter Smoothed
     r_test = modelspec[0]['meta']['r_test']
+    r_fit = modelspec[0]['meta']['r_fit']
     pred = rec['pred']
     resp = rec['resp']
-    title = "{0} r_test={1:.3f}".format(rec.name, r_test)
+    text = 'r_test: {0:.3f}\nr_fit: {0:.3f}'.format(r_test, r_fit)
     smoothed = partial(
-            plot_scatter, pred, resp, title=title, smoothing_bins=100
+            plot_scatter, pred, resp, text=text, smoothing_bins=100,
+            title='Smoothed, bins={}'.format(100), force_square=False
             )
     not_smoothed = partial(
-            plot_scatter, pred, resp, title=title, smoothing_bins=False
+            plot_scatter, pred, resp, text=text, smoothing_bins=False,
+            title='Unsmoothed', force_square=False,
             )
     _plot_axes([1, 1], [smoothed, not_smoothed], -1)
 
@@ -235,8 +235,8 @@ def _get_plot_fns(ctx, default='val', occurrence=0, m_idx=0, r_idx=0):
 
             if 'nonlinearity.double_exponential' in fn:
                 fn1, fn2 = before_and_after_scatter(
-                        rec, modelspec, 'pred', idx, compare='resp',
-                        smoothing_bins=200, mod_name='dexp'
+                        rec, modelspec, idx, smoothing_bins=200,
+                        mod_name='dexp'
                         )
                 plots = ([fn1, fn2], [1, 1])
                 plot_fns.append(plots)
@@ -278,28 +278,39 @@ def quickplot_no_xforms(rec, est, val, modelspecs, default='val', occurrence=0,
 
 # TODO: maybe a better place to put this? but the functionality of returning
 #       partial plots is pretty specific to quickplot/summary
-def before_and_after_scatter(rec, modelspec, sig_name, idx, compare='resp',
-                             smoothing_bins=False, mod_name=None):
+def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
+                             compare='resp', smoothing_bins=False,
+                             mod_name='Unknown', xlabel1=None, xlabel2=None,
+                             ylabel1=None, ylabel2=None):
 
     # HACK: shouldn't hardcode 'stim', might be named something else
     #       or not present at all. Need to figure out a better solution
     #       for special case of idx = 0
     if idx == 0:
-        before = rec['stim'].copy()
-        before.name += ' before**'
+        # Can't have anything before index 0, so use input stimulus
+        before = rec
+        before_sig = rec['stim']
+        before.name = '**stim'
     else:
-        before = ms.evaluate(rec, modelspec, start=None, stop=idx)[sig_name]
-        before.name += ' before'
-    after = ms.evaluate(rec, modelspec, start=idx, stop=idx+1)[sig_name].copy()
+        before = ms.evaluate(rec, modelspec, start=None, stop=idx)
+        before_sig = before[sig_name]
+    after = ms.evaluate(rec, modelspec, start=idx, stop=idx+1)
+    after_sig = after[sig_name]
     compare_to = rec[compare]
 
-    if mod_name is None:
-        mod_name = 'Unknown'
     title1 = '{} vs {} before {}'.format(sig_name, compare, mod_name)
     title2 = '{} vs {} after {}'.format(sig_name, compare, mod_name)
-    fn1 = partial(plot_scatter, before, compare_to, title=title1,
-                  smoothing_bins=smoothing_bins)
-    fn2 = partial(plot_scatter, after, compare_to, title=title2,
-                  smoothing_bins=smoothing_bins)
+    # TODO: These are coming out the same, but that seems unlikely
+    corr1 = nm.corrcoef(before, pred_name=sig_name, resp_name=compare)
+    corr2 = nm.corrcoef(after, pred_name=sig_name, resp_name=compare)
+    text1 = "r = {0:.3f}".format(corr1)
+    text2 = "r = {0:.3f}".format(corr2)
+
+    fn1 = partial(plot_scatter, before_sig, compare_to, title=title1,
+                  smoothing_bins=smoothing_bins, xlabel=xlabel1,
+                  ylabel=ylabel1, text=text1)
+    fn2 = partial(plot_scatter, after_sig, compare_to, title=title2,
+                  smoothing_bins=smoothing_bins, xlabel=xlabel2,
+                  ylabel=ylabel2, text=text2)
 
     return fn1, fn2
