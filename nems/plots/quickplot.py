@@ -15,7 +15,7 @@ from .spectrogram import (plot_spectrogram, spectrogram_from_signal,
 from .timeseries import timeseries_from_signals, timeseries_from_epoch
 from .heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap
 from .histogram import pred_error_hist
-from .state import (state_vars_timeseries, state_var_psth_from_epochs,
+from .state import (state_vars_timeseries, state_var_psth_from_epoch,
                     state_var_psth)
 
 log = logging.getLogger(__name__)
@@ -58,8 +58,8 @@ log = logging.getLogger(__name__)
 #      -jacob 3/31/2018
 
 
-def quickplot(ctx, default='val', occurrence=0, figsize=None, height_mult=3.0,
-              width_mult=1.0, m_idx=0, r_idx=0):
+def quickplot(ctx, default='val', epoch='TRIAL', occurrence=0, figsize=None,
+              height_mult=3.0, width_mult=1.0, m_idx=0, r_idx=0):
     """Expects an *evaluated* context dictionary ('ctx') returned by xforms."""
     # TODO: Or do we want 'est' by default?
     #       Could also just
@@ -75,7 +75,7 @@ def quickplot(ctx, default='val', occurrence=0, figsize=None, height_mult=3.0,
     modelspec = ctx['modelspecs'][m_idx]
 
     plot_fns = _get_plot_fns(ctx, default=default, occurrence=occurrence,
-                             m_idx=m_idx)
+                             epoch=epoch, m_idx=m_idx)
 
     # Need to know how many total plots for outer gridspec (n).
     # +3 is to account for module-independent plots at end
@@ -130,7 +130,7 @@ def quickplot(ctx, default='val', occurrence=0, figsize=None, height_mult=3.0,
     # TODO: This is a bit screwy for state_gain model, do we want
 
     fn_spectro = partial(
-            spectrogram_from_epoch, rec['stim'], 'TRIAL',
+            spectrogram_from_epoch, rec['stim'], epoch,
             occurrence=occurrence, title='Stimulus Spectrogram'
             )
     _plot_axes([1], [fn_spectro], 0)
@@ -140,7 +140,6 @@ def quickplot(ctx, default='val', occurrence=0, figsize=None, height_mult=3.0,
     for i, (fns, col_spans) in enumerate(plot_fns):
         # +1 because we did spectrogram above. Adjust as necessary.
         j = i+1
-        print('plot index: %d' % i)
         _plot_axes(col_spans, fns, j)
 
 
@@ -148,8 +147,8 @@ def quickplot(ctx, default='val', occurrence=0, figsize=None, height_mult=3.0,
 
     # Pred v Resp Timeseries
     sigs = [rec['resp'], rec['pred']]
-    timeseries = partial(timeseries_from_epoch, sigs, 'TRIAL',
-                         title='Final Prediction versus Response',
+    title = 'Final Prediction vs Response, {} #{}'.format(epoch, occurrence)
+    timeseries = partial(timeseries_from_epoch, sigs, epoch, title=title,
                          occurrences=occurrence)
     _plot_axes(1, timeseries, -2)
 
@@ -175,8 +174,8 @@ def quickplot(ctx, default='val', occurrence=0, figsize=None, height_mult=3.0,
     cellid = modelspec[0]['meta']['cellid']
     modelname = modelspec[0]['meta']['modelname']
     batch = modelspec[0]['meta']['batch']
-    fig.suptitle('Cell: {}, from Batch: {},\nUsing model: {}'
-                 .format(cellid, batch, modelname))
+    fig.suptitle('Cell: {}, from Batch: {},\nUsing model: {},\n {} #{}'
+                 .format(cellid, batch, modelname, epoch, occurrence))
 
     # Space subplots appropriately
     # TODO: More dynamic way to determine the y-max for suptitle?
@@ -187,7 +186,8 @@ def quickplot(ctx, default='val', occurrence=0, figsize=None, height_mult=3.0,
     return fig
 
 
-def _get_plot_fns(ctx, default='val', occurrence=0, m_idx=0, r_idx=0):
+def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
+                  r_idx=0):
     rec = ctx[default][r_idx]
     modelspec = ctx['modelspecs'][m_idx]
 
@@ -315,7 +315,8 @@ def _get_plot_fns(ctx, default='val', occurrence=0, m_idx=0, r_idx=0):
         elif 'state' in fn:
             if 'state.state_dc_gain' in fn:
                 fn1 = partial(state_vars_timeseries, rec, modelspec)
-                fns = get_state_vars_psths(rec, modelspec, psth_name='stim')
+                fns = get_state_vars_psths(rec, epoch, psth_name='stim',
+                                           occurrence=occurrence)
                 plot1 = (fn1, 1)
                 plot2 = (fns, [1]*len(fns))
                 plot_fns.extend([plot1, plot2])
@@ -326,10 +327,10 @@ def _get_plot_fns(ctx, default='val', occurrence=0, m_idx=0, r_idx=0):
 
 
 def quickplot_no_xforms(rec, est, val, modelspecs, default='val', occurrence=0,
-                        figsize=None, height_mult=3.0, m_idx=0):
+                        epoch='TRIAL', figsize=None, height_mult=3.0, m_idx=0):
     """Compatibility wrapper for quickplot."""
     ctx = {'rec': rec, 'est': est, 'val': val, 'modelspecs': modelspecs}
-    return quickplot(ctx, default=default, occurrence=occurrence,
+    return quickplot(ctx, default=default, epoch=epoch, occurrence=occurrence,
                      figsize=figsize, height_mult=height_mult, m_idx=m_idx)
 
 
@@ -375,10 +376,11 @@ def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
     return fn1, fn2
 
 
-def get_state_vars_psths(rec, modelspec, psth_name='stim'):
+def get_state_vars_psths(rec, epoch, psth_name='stim', occurrence=0):
     var_list = rec['state'].chans
     psth_list = [
-            partial(state_var_psth, rec, psth_name=psth_name, var_name=var)
+            partial(state_var_psth_from_epoch, rec, epoch, psth_name=psth_name,
+                    var_name=var, occurrence=occurrence)
             for var in var_list
             ]
     return psth_list
