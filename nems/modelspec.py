@@ -246,8 +246,6 @@ def summary_stats(modelspecs):
                 else:
                     columns.update({column_entry: [phi[p]]})
 
-    print("\n\ncolumns before adding stats: {}".format(columns))
-
     # Convert entries from lists of values to dictionaries
     # containing keys for mean, std and the raw values.
     with_stats = {}
@@ -260,8 +258,6 @@ def summary_stats(modelspecs):
         with_stats[col]['mean'] = mean
         with_stats[col]['std'] = std
         with_stats[col]['values'] = values
-
-    print("\n\ncolumns after adding stats: {}".format(with_stats))
 
     return with_stats
 
