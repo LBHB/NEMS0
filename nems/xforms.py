@@ -193,8 +193,10 @@ def use_all_data_for_est_and_val(rec, **context):
 def split_for_jackknife(rec, modelspecs=None, njacks=10, IsReload=False, **context):
 
     est_out,val_out,modelspecs_out=preproc.split_est_val_for_jackknife(rec, modelspecs=modelspecs, njacks=njacks, IsReload=IsReload)
-
-    return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
+    if IsReload:
+        return {'est': est_out, 'val': val_out}
+    else:
+        return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
 def generate_psth_from_est_for_both_est_and_val_nfold(est, val, **context):
      '''
@@ -452,23 +454,23 @@ def save_analysis(destination,
     save_resource(xfspec_uri, json=xfspec)
     return {'savepath': base_uri}
 
-def load_analysis(filepath,eval_model=True):
+
+def load_analysis(filepath, eval_model=True):
     """
     load xforms and modelspec(s) from a specified directory
     """
     logging.info('Loading modelspecs from {0}...'.format(filepath))
 
-    xfspec=load_xform(filepath + 'xfspec.json')
+    xfspec = load_xform(filepath + 'xfspec.json')
 
-    mspaths=[]
+    mspaths = []
     for file in os.listdir(filepath):
         if file.startswith("modelspec"):
             mspaths.append(filepath + "/" + file)
-    ctx=load_modelspecs([],uris=mspaths,IsReload=False)
-    ctx['IsReload']=True
+    ctx = load_modelspecs([], uris=mspaths, IsReload=False)
+    ctx['IsReload'] = True
 
     if eval_model:
-        ctx,log_xf=evaluate(xfspec,ctx)
+        ctx, log_xf = evaluate(xfspec, ctx)
 
-    return xfspec,ctx
-
+    return xfspec, ctx

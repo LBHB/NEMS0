@@ -33,6 +33,19 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value',
         plt.title(title)
 
 
+def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
+                            legend=None, ax=None, title=None):
+    times = []
+    values = []
+    for v in vectors:
+        values.append(v)
+        if fs is None:
+            times.append(np.arange(0, len(v)))
+        else:
+            times.append(np.arange(0, len(v))/fs)
+    plot_timeseries(times, values, xlabel, ylabel, legend, ax, title)
+
+
 def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
                             ax=None, title=None):
     """TODO: doc"""
@@ -52,7 +65,7 @@ def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
 
 
 def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
-                          xlabel='Time', ylabel='Value', ax=None):
+                          xlabel='Time', ylabel='Value', ax=None, title=None):
     """TODO: doc"""
     if occurrences is None:
         return
@@ -72,4 +85,46 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
         time_vector = np.arange(0, len(value_vector)) / s.fs
         times.append(time_vector)
         values.append(value_vector)
-    plot_timeseries(times, values, xlabel, ylabel, legend, ax=ax)
+    plot_timeseries(times, values, xlabel, ylabel, legend, ax=ax, title=title)
+
+
+def before_and_after(rec, modelspec, sig_name, ax=None, title=None,
+                     channels=0, xlabel='Time', ylabel='Value'):
+    '''
+    Plots a timeseries of specified signal just before and just after
+    the transformation performed at some step in the modelspec.
+
+    Arguments:
+    ----------
+    rec : recording object
+        The dataset to use. See nems/recording.py.
+
+    modelspec : list of dicts
+        The transformations to perform. See nems/modelspec.py.
+
+    sig_name : str
+        Specifies the signal in 'rec' to be examined.
+
+    idx : int
+        An index into the modelspec. rec[sig_name] will be plotted
+        as it exists after step idx-1 and after step idx.
+
+    Returns:
+    --------
+    None
+    '''
+    # HACK: shouldn't hardcode 'stim', might be named something else
+    #       or not present at all. Need to figure out a better solution
+    #       for special case of idx = 0
+    if idx == 0:
+        before = rec['stim'].copy()
+        before.name += ' before**'
+    else:
+        before = ms.evaluate(rec, modelspec, start=None, stop=idx)[sig_name]
+        before.name += ' before'
+
+    after = ms.evaluate(rec, modelspec, start=idx, stop=idx+1)[sig_name].copy()
+    after.name += ' after'
+    timeseries_from_signals([before, after], channels=channels,
+                            xlabel=xlabel, ylabel=ylabel, ax=ax,
+                            title=title)

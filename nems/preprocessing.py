@@ -174,12 +174,16 @@ def generate_psth_from_est_for_both_est_and_val(est,val):
     respavg_est.name = 'stim'  # TODO: SVD suggests rename 2018-03-08
     ref_phase=est['resp'].epoch_to_signal('REFERENCE')
     respavg_est=respavg_est.nan_mask(ref_phase.as_continuous())
+    #hit_phase=est['resp'].epoch_to_signal('HIT_TRIAL')
+    #respavg_est=respavg_est.nan_mask(hit_phase.as_continuous())
     est.add_signal(respavg_est)
 
     respavg_val = resp_val.replace_epochs(per_stim_psth)
     respavg_val.name = 'stim' # TODO: SVD suggests rename 2018-03-08
     ref_phase=val['resp'].epoch_to_signal('REFERENCE')
     respavg_val=respavg_val.nan_mask(ref_phase.as_continuous())
+    #hit_phase=est['resp'].epoch_to_signal('HIT_TRIAL')
+    #respavg_val=respavg_val.nan_mask(hit_phase.as_continuous())
     val.add_signal(respavg_val)
 
     return est, val
@@ -199,6 +203,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_sign
     x = np.ones([1,rec[state_signals[0]]._data.shape[1]])  # Much faster; TODO: Test if throws warnings
     ones_sig = rec[state_signals[0]]._modified_copy(x)
     ones_sig.name="baseline"
+    ones_sig.chans=["baseline"]
 
     newrec = rec.copy()
     resp=newrec['resp']
