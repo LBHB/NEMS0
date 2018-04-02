@@ -154,11 +154,27 @@ def generate_psth_from_est_for_both_est_and_val(est,val):
     '''
     Estimates a PSTH from the EST set, and returns two signals based on the
     est and val, in which each repetition of a stim uses the EST PSTH?
+
+    subtract spont rate based on pre-stim silence for ALL estimation data.
     '''
 
     epoch_regex='^STIM_'
-    resp_est=est['resp']
+    resp_est=est['resp'].copy()
     resp_val=val['resp']
+
+    # find all valid references in est data-- passive or correct trials
+    ref_phase=resp_est.epoch_to_signal('REFERENCE')
+    active_phase=resp_est.epoch_to_signal('ACTIVE_EXPERIMENT')
+    correct_phase=resp_est.epoch_to_signal('HIT_TRIAL')
+    valid_phase=np.logical_and(ref_phase.as_continuous(),
+                               np.logical_or(np.logical_not(active_phase.as_continuous()),
+                                             correct_phase.as_continuous()))
+    ref_phase=ref_phase._modified_copy(valid_phase)
+    resp_est=resp_est.nan_mask(ref_phase.as_continuous())
+
+    # compute PSTH response and spont rate during those valid trials
+    prestimsilence = resp_est.extract_epoch('PreStimSilence')
+    spont_rate=np.nanmean(prestimsilence)
 
     epochs_to_extract = ep.epoch_names_matching(resp_est.epochs, epoch_regex)
     folded_matrices = resp_est.extract_epochs(epochs_to_extract)
@@ -166,24 +182,32 @@ def generate_psth_from_est_for_both_est_and_val(est,val):
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()
     for k in folded_matrices.keys():
-        per_stim_psth[k] = np.nanmean(folded_matrices[k], axis=0)
+        per_stim_psth[k] = np.nanmean(folded_matrices[k], axis=0)-spont_rate
 
     # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
     #   replacing all epochs in the signal with their average (psth)
     respavg_est = resp_est.replace_epochs(per_stim_psth)
     respavg_est.name = 'stim'  # TODO: SVD suggests rename 2018-03-08
-    ref_phase=est['resp'].epoch_to_signal('REFERENCE')
+
+    # mark invalid phases as nan
     respavg_est=respavg_est.nan_mask(ref_phase.as_continuous())
-    #hit_phase=est['resp'].epoch_to_signal('HIT_TRIAL')
-    #respavg_est=respavg_est.nan_mask(hit_phase.as_continuous())
+
+    # add signal to the recording
     est.add_signal(respavg_est)
 
     respavg_val = resp_val.replace_epochs(per_stim_psth)
     respavg_val.name = 'stim' # TODO: SVD suggests rename 2018-03-08
     ref_phase=val['resp'].epoch_to_signal('REFERENCE')
+    active_phase=val['resp'].epoch_to_signal('ACTIVE_EXPERIMENT')
+    correct_phase=val['resp'].epoch_to_signal('HIT_TRIAL')
+    valid_phase=np.logical_and(ref_phase.as_continuous(),
+                               np.logical_or(np.logical_not(active_phase.as_continuous()),
+                                             correct_phase.as_continuous()))
+    ref_phase=ref_phase._modified_copy(valid_phase)
+
     respavg_val=respavg_val.nan_mask(ref_phase.as_continuous())
-    #hit_phase=est['resp'].epoch_to_signal('HIT_TRIAL')
-    #respavg_val=respavg_val.nan_mask(hit_phase.as_continuous())
+
+    # add signal to the recording
     val.add_signal(respavg_val)
 
     return est, val
@@ -231,8 +255,8 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_sign
     newrec['puretone_trials']=resp.epoch_to_signal('PURETONE_BEHAVIOR')
     newrec['easy_trials']=resp.epoch_to_signal('EASY_BEHAVIOR')
     newrec['hard_trials']=resp.epoch_to_signal('HARD_BEHAVIOR')
-    newrec['behavior_state']=resp.epoch_to_signal('ACTIVE_EXPERIMENT')
-
+    newrec['active']=resp.epoch_to_signal('ACTIVE_EXPERIMENT')
+    newrec['active'].chans=['active']
     state_sig_list=[ones_sig]
     #print(state_sig_list[-1].shape)
     for x in state_signals:
