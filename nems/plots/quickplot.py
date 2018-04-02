@@ -3,19 +3,20 @@ from functools import partial
 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import numpy as np
 
 import nems.modelspec as ms
 import nems.metrics.api as nm
 
 # Better way to do this than to copy all of .api's imports?
 # Can't use api b/c get circular import issue
-from .scatter import plot_scatter
-from .spectrogram import (plot_spectrogram, spectrogram_from_signal,
+from nems.plots.scatter import plot_scatter
+from nems.plots.spectrogram import (plot_spectrogram, spectrogram_from_signal,
                           spectrogram_from_epoch)
-from .timeseries import timeseries_from_signals, timeseries_from_epoch
-from .heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap
-from .histogram import pred_error_hist
-from .state import (state_vars_timeseries, state_var_psth_from_epoch,
+from nems.plots.timeseries import timeseries_from_signals, timeseries_from_epoch
+from nems.plots.heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap
+from nems.plots.histogram import pred_error_hist
+from nems.plots.state import (state_vars_timeseries, state_var_psth_from_epoch,
                     state_var_psth)
 
 log = logging.getLogger(__name__)
@@ -157,7 +158,7 @@ def quickplot(ctx, default='val', epoch='TRIAL', occurrence=0, figsize=None,
     r_fit = modelspec[0]['meta']['r_fit']
     pred = rec['pred']
     resp = rec['resp']
-    text = 'r_test: {0:.3f}\nr_fit: {0:.3f}'.format(r_test, r_fit)
+    text = 'r_test: {0:.3f}\nr_fit: {1:.3f}'.format(r_test, r_fit)
     smoothed = partial(
             plot_scatter, pred, resp, text=text, smoothing_bins=100,
             title='Smoothed, bins={}'.format(100), force_square=False
@@ -315,7 +316,7 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
         elif 'state' in fn:
             if 'state.state_dc_gain' in fn:
                 fn1 = partial(state_vars_timeseries, rec, modelspec)
-                fns = get_state_vars_psths(rec, epoch, psth_name='stim',
+                fns = get_state_vars_psths(rec, epoch, psth_name='resp',
                                            occurrence=occurrence)
                 plot1 = (fn1, 1)
                 plot2 = (fns, [1]*len(fns))
@@ -354,17 +355,21 @@ def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
     else:
         before = ms.evaluate(rec, modelspec, start=None, stop=idx)
         before_sig = before[sig_name]
-    after = ms.evaluate(rec, modelspec, start=idx, stop=idx+1)
-    after_sig = after[sig_name]
-    compare_to = rec[compare]
 
+    # compute correlation for pre-module before it's over-written
+    corr1 = nm.corrcoef(before, pred_name=sig_name, resp_name=compare)
+
+    # now evaluate next module step
+    after = ms.evaluate(before.copy(), modelspec, start=idx, stop=idx+1)
+    after_sig = after[sig_name]
+    corr2 = nm.corrcoef(after, pred_name=sig_name, resp_name=compare)
+
+    compare_to = rec[compare]
     title1 = '{} vs {} before {}'.format(sig_name, compare, mod_name)
     title2 = '{} vs {} after {}'.format(sig_name, compare, mod_name)
     # TODO: These are coming out the same, but that seems unlikely
-    corr1 = nm.corrcoef(before, pred_name=sig_name, resp_name=compare)
-    corr2 = nm.corrcoef(after, pred_name=sig_name, resp_name=compare)
-    text1 = "r = {0:.3f}".format(corr1)
-    text2 = "r = {0:.3f}".format(corr2)
+    text1 = "r = {0:.5f}".format(corr1)
+    text2 = "r = {0:.5f}".format(corr2)
 
     fn1 = partial(plot_scatter, before_sig, compare_to, title=title1,
                   smoothing_bins=smoothing_bins, xlabel=xlabel1,
@@ -376,7 +381,7 @@ def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
     return fn1, fn2
 
 
-def get_state_vars_psths(rec, epoch, psth_name='stim', occurrence=0):
+def get_state_vars_psths(rec, epoch, psth_name='resp', occurrence=0):
     var_list = rec['state'].chans
     psth_list = [
             partial(state_var_psth_from_epoch, rec, epoch, psth_name=psth_name,

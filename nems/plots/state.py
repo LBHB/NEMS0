@@ -45,7 +45,7 @@ def state_vars_timeseries(rec, modelspec, ax=None):
     plt.axis('tight')
 
 
-def state_var_psth(rec, psth_name='stim', var_name='pupil', ax=None):
+def state_var_psth(rec, psth_name='resp', var_name='pupil', ax=None):
     if ax is not None:
         plt.sca(ax)
 
@@ -55,13 +55,14 @@ def state_var_psth(rec, psth_name='stim', var_name='pupil', ax=None):
     mean = np.nanmean(var)
     low = psth[var < mean]
     high = psth[var >= mean]
-
     timeseries_from_vectors([low, high], fs=fs, title=var_name, ax=ax)
 
 
-def state_var_psth_from_epoch(rec, epoch, psth_name='stim', var_name='pupil',
+def state_var_psth_from_epoch(rec, epoch, psth_name='resp', var_name='pupil',
                                occurrence=0, ax=None):
     # TODO: Does using epochs make sense for these?
+    # SVD changed default so that psth_name is 'resp'. want to plot actual
+    # response averaged across different subsets of trials.
     if ax is not None:
         plt.sca(ax)
 
@@ -69,15 +70,27 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='stim', var_name='pupil',
 
     full_psth = rec[psth_name]
     folded_psth = full_psth.extract_epoch(epoch)
-    psth = folded_psth[occurrence]
+    # ignore occurence. We want to average across all occurrences
+    #psth = folded_psth[occurrence]
 
     full_var = rec['state'].loc[var_name]
-    folded_var = full_var.extract_epoch(epoch)
-    var = folded_var[occurrence]
+    folded_var = np.squeeze(full_var.extract_epoch(epoch))
+    #var = folded_var[occurrence]
 
-    mean = np.nanmean(var)
-    low = psth[var < mean]
-    high = psth[var >= mean]
+    # compute the mean state for each occurrence
+    m = np.nanmean(folded_var,axis=1)
+
+    # compute the mean state across all occurrences
+    mean=np.nanmean(m)
+
+    # low = response on epochs when state less than mean
+    if np.sum(m<mean):
+        low = np.nanmean(folded_psth[m < mean,:,:],axis=0).T
+    else:
+        low = np.ones(folded_psth[0,:,:].shape).T * np.nan
+
+    # high = response on epochs when state less than mean
+    high = np.nanmean(folded_psth[m >= mean,:,:],axis=0).T
 
     legend=('< Mean', '>= Mean')
     title='{}, {} #{}'.format(var_name, epoch, occurrence)
