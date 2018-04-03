@@ -359,7 +359,7 @@ def plot_summary(modelspecs, val, figures=None, IsReload=False, **context):
         figures = []
     if not IsReload:
         #fig = nplt.plot_summary(val, modelspecs)
-        fig = nplt.quickplot({'modelspecs': modelspecs, 'val': val}, epoch="REFERENCE")
+        fig = nplt.quickplot({'modelspecs': modelspecs, 'val': val})
         # Needed to make into a Bytes because you can't deepcopy figures!
         figures.append(nplt.fig2BytesIO(fig))
 

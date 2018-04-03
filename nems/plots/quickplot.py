@@ -59,7 +59,7 @@ log = logging.getLogger(__name__)
 #      -jacob 3/31/2018
 
 
-def quickplot(ctx, default='val', epoch='TRIAL', occurrence=0, figsize=None,
+def quickplot(ctx, default='val', epoch=None, occurrence=0, figsize=None,
               height_mult=3.0, width_mult=1.0, m_idx=0, r_idx=0):
     """Expects an *evaluated* context dictionary ('ctx') returned by xforms."""
     # TODO: Or do we want 'est' by default?
@@ -74,6 +74,11 @@ def quickplot(ctx, default='val', epoch='TRIAL', occurrence=0, figsize=None,
     # use ctx['est'], ctx['rec'], etc.
     rec = ctx[default][r_idx]
     modelspec = ctx['modelspecs'][m_idx]
+    if not epoch:
+        if rec['resp'].count_epoch('REFERENCE'):
+            epoch='REFERENCE'
+        else:
+            epoch='TRIAL'
 
     plot_fns = _get_plot_fns(ctx, default=default, occurrence=occurrence,
                              epoch=epoch, m_idx=m_idx)

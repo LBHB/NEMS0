@@ -223,7 +223,7 @@ class SignalBase:
         else:
             max_epoch_time = 0
         #max_event_times = [max(et) for et in self._data.values()]
-        max_event_times=[0]
+        max_event_times = [0]
         max_time = max(max_epoch_time, *max_event_times)
         self.ntimes = np.ceil(fs*max_time)
 
@@ -472,7 +472,7 @@ class SignalBase:
 
     def count_epoch(self, epoch):
         """Returns the number of occurrences of the given epoch."""
-        epoch_indices = self.get_epoch_indices(epoch, trim=True)
+        epoch_indices = self.get_epoch_indices(epoch)
         count = len(epoch_indices)
         return count
 
