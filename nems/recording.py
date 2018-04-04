@@ -513,13 +513,24 @@ class Recording:
             hi=np.max(l[k])
             lo=np.min(l[k==False])
 
-            g={hi: [], lo: []}
+            # generate two groups
+            g = {hi: [], lo: []}
             for i in list(np.where(k)[0]):
-                g[hi]=g[hi]+groups[l[i]]
-            for i in list(np.where(k==False)[0]):
-                g[lo]=g[lo]+groups[l[i]]
-        elif len(groups)<2:
-            m = "Fewer than two types of occurrences (low and hi rep). Unable to split:"
+                g[hi] = g[hi] + groups[l[i]]
+            for i in list(np.where(k == False)[0]):
+                g[lo] = g[lo] + groups[l[i]]
+            groups = g
+            print(groups)
+        elif len(groups)==1:
+            k = list(groups.keys())[0]
+            g1 = groups[k]
+            n = len(g)
+            vset = np.int(np.floor(n*0.8))
+
+            g={1: g1[:vset], 2: g1[vset:]}
+
+        elif len(groups)==0:
+            m = "No occurrences?? Unable to split recording into est/val sets"
             m += str(groups)
             raise ValueError(m)
 

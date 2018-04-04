@@ -223,9 +223,9 @@ class SignalBase:
         else:
             max_epoch_time = 0
         #max_event_times = [max(et) for et in self._data.values()]
-        max_event_times=[0]
+        max_event_times = [0]
         max_time = max(max_epoch_time, *max_event_times)
-        self.ntimes = np.ceil(fs*max_time)
+        self.ntimes = np.int(np.ceil(fs*max_time))
 
         if segments is None:
             segments = np.array([[0, self.ntimes]])
@@ -472,7 +472,7 @@ class SignalBase:
 
     def count_epoch(self, epoch):
         """Returns the number of occurrences of the given epoch."""
-        epoch_indices = self.get_epoch_indices(epoch, trim=True)
+        epoch_indices = self.get_epoch_indices(epoch)
         count = len(epoch_indices)
         return count
 
@@ -565,6 +565,32 @@ class SignalBase:
         # TODO: Update this to work with a mapping of key -> Nx2 epoch
         # structure as well.
         return {name: self.extract_epoch(name) for name in epoch_names}
+
+    def epoch_to_signal(self, epoch, boundary_mode='trim', fix_overlap='merge'):
+        '''
+        Convert an epoch to a RasterizedSignal using the same sampling rate and duration
+        as this signal.
+
+        Parameters
+        ----------
+        epoch_name : string
+            Epoch to convert to a signal
+
+        Returns
+        -------
+        signal : instance of Signal
+            A signal whose value is 1 for each occurrence of the epoch, 0
+            otherwise.
+        '''
+        data = np.zeros([1, self.ntimes], dtype=np.bool)
+        indices = self.get_epoch_indices(epoch, boundary_mode, fix_overlap)
+        for lb, ub in indices:
+            data[:, lb:ub] = True
+        epoch_name = epoch if isinstance(epoch, str) else 'epoch'
+        attributes = self._get_attributes()
+        attributes['chans']=[epoch_name]
+        return RasterizedSignal(data=data, safety_checks=False, **attributes)
+        #return self._modified_copy(data, chans=[epoch_name])
 
     @property
     def shape(self):
@@ -1176,29 +1202,6 @@ class RasterizedSignal(SignalBase):
         if preserve_nan:
             data[:, nan_bins] = np.nan
         return self._modified_copy(data)
-
-    def epoch_to_signal(self, epoch, boundary_mode='trim', fix_overlap='merge'):
-        '''
-        Convert an epoch to a signal using the same sampling rate and duration
-        as this signal.
-
-        Parameters
-        ----------
-        epoch_name : string
-            Epoch to convert to a signal
-
-        Returns
-        -------
-        signal : instance of Signal
-            A signal whose value is 1 for each occurrence of the epoch, 0
-            otherwise.
-        '''
-        data = np.zeros([1, self.ntimes], dtype=np.bool)
-        indices = self.get_epoch_indices(epoch, boundary_mode, fix_overlap)
-        for lb, ub in indices:
-            data[:, lb:ub] = True
-        epoch_name = epoch if isinstance(epoch, str) else 'epoch'
-        return self._modified_copy(data, chans=[epoch_name])
 
     def select_epoch(self, epoch):
         '''
