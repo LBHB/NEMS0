@@ -300,10 +300,10 @@ class SignalBase:
         basepath = os.path.join(dirpath, filebase)
         jsonfilepath = basepath + '.json'
         epochfilepath = basepath + '.epoch.csv'
-        with open(jsonfilepath) as md_fh, open(epochfilepath) as epoch_fh:
+        print(jsonfilepath)
+        with open(jsonfilepath, 'w') as md_fh, open(epochfilepath, 'w') as epoch_fh:
             self._save_metadata(epoch_fh, md_fh, fmt)
         return (jsonfilepath, epochfilepath)
-
 
     def _save_data_to_h5(self, dirpath):
 

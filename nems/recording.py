@@ -329,6 +329,7 @@ class Recording:
             self.uri = uri
         if local_uri(uri):
             uri = local_uri(uri)
+            print(uri)
             if targz_uri(uri):
                 return self.save_targz(uri)
             elif uncompressed:
