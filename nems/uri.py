@@ -101,8 +101,8 @@ def json_numpy_obj_hook_old(dct):
         try:
             if dct[0] in ['level','coefficients','amplitude','kappa','base',
                   'shift','mean','sd','u','tau']:
-                print("json_numpy_obj_hook: {0} type {1}".format(dct,type(dct)))
-            dct[1] = np.asarray(dct[1])
+                #print("json_numpy_obj_hook: {0} type {1}".format(dct,type(dct)))
+                dct[1] = np.asarray(dct[1])
         except:
             pass
 
@@ -228,9 +228,9 @@ def load_resource(uri):
             with open(filepath, mode='r') as f:
                 if filepath[-5:] == '.json':
                     resource = f.read()
-                    print(resource)
+                    # print(resource)
                     resource = jsonlib.loads(resource, object_hook=json_numpy_obj_hook)
-                    #resource = jsonlib.loads(resource)
+                    # resource = jsonlib.loads(resource)
                 else:
                     resource = f.read()
         except UnicodeDecodeError:

@@ -225,7 +225,7 @@ class SignalBase:
         #max_event_times = [max(et) for et in self._data.values()]
         max_event_times = [0]
         max_time = max(max_epoch_time, *max_event_times)
-        self.ntimes = np.ceil(fs*max_time)
+        self.ntimes = np.int(np.ceil(fs*max_time))
 
         if segments is None:
             segments = np.array([[0, self.ntimes]])

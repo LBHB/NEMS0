@@ -223,7 +223,10 @@ def generate_psth_from_est_for_both_est_and_val_nfold(ests,vals):
     return ests,vals
 
 def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_signalname='state'):
-
+    """
+    generate state signal for stategainX models
+    TODO: SVD document this and/or move it out of generic nems code
+    """
     x = np.ones([1,rec[state_signals[0]]._data.shape[1]])  # Much faster; TODO: Test if throws warnings
     ones_sig = rec[state_signals[0]]._modified_copy(x)
     ones_sig.name="baseline"

@@ -4,6 +4,7 @@ from functools import partial
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
+import copy
 
 import nems.modelspec as ms
 import nems.metrics.api as nm
@@ -177,9 +178,18 @@ def quickplot(ctx, default='val', epoch=None, occurrence=0, figsize=None,
     # TODO: Pred Error histogram too? Or was that not useful?
 
     # Whole-figure title
-    cellid = modelspec[0]['meta']['cellid']
-    modelname = modelspec[0]['meta']['modelname']
-    batch = modelspec[0]['meta']['batch']
+    try:
+        cellid = modelspec[0]['meta']['cellid']
+    except KeyError:
+        cellid = "UNKNOWN"
+    try:
+        modelname = modelspec[0]['meta']['modelname']
+    except KeyError:
+        modelname = "UNKNOWN"
+    try:
+        batch = modelspec[0]['meta']['batch']
+    except KeyError:
+        batch = 0
     fig.suptitle('Cell: {}, from Batch: {},\nUsing model: {},\n {} #{}'
                  .format(cellid, batch, modelname, epoch, occurrence))
 
@@ -254,7 +264,6 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
             else:
                 pass
 
-
         if 'levelshift' in fn:
             if 'levelshift.levelshift' in fn:
                 # TODO - Should levelshift plot anything?
@@ -262,6 +271,12 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
             else:
                 pass
 
+        elif 'stp' in fn:
+            fn = before_and_after_psth(rec, modelspec, idx, sig_name='pred',
+                                       epoch=epoch, occurrences=0, channels=0,
+                                       mod_name='stp')
+            plot = (fn, 1)
+            plot_fns.append(plot)
 
         elif 'nonlinearity' in fn:
 
@@ -342,6 +357,38 @@ def quickplot_no_xforms(rec, est, val, modelspecs, default='val', occurrence=0,
 
 # TODO: maybe a better place to put these? but the functionality of returning
 #       partial plots is pretty specific to quickplot/summary
+
+def before_and_after_signal(rec, modelspec, idx, sig_name='pred'):
+    # HACK: shouldn't hardcode 'stim', might be named something else
+    #       or not present at all. Need to figure out a better solution
+    #       for special case of idx = 0
+    if idx == 0:
+        # Can't have anything before index 0, so use input stimulus
+        before = rec
+        before_sig = copy.deepcopy(rec['stim'])
+        before.name = '**stim'
+    else:
+        before = ms.evaluate(rec, modelspec, start=None, stop=idx)
+        before_sig = copy.deepcopy(before[sig_name])
+
+    # now evaluate next module step
+    after = ms.evaluate(before.copy(), modelspec, start=idx, stop=idx+1)
+    after_sig = copy.deepcopy(after[sig_name])
+
+    return before_sig, after_sig
+
+
+def before_and_after_psth(rec, modelspec, idx, sig_name='pred',
+                          epoch='TRIAL', occurrences=0, channels=0,
+                          mod_name='Unknown'):
+
+    before_sig, after_sig = before_and_after_signal(rec, modelspec, idx,
+                                                    sig_name)
+    signals = [before_sig, after_sig]
+    fn = partial(timeseries_from_epoch, signals, epoch, occurrences=0,
+                 channels=0, xlabel='Time',
+                 ylabel='Value', title=mod_name)
+    return fn
 
 
 def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',

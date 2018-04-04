@@ -58,17 +58,17 @@ def evaluate_step(xfa, context={}):
       xfa[3] is context out keys
     '''
     if not(len(xfa) == 2 or len(xfa) == 4):
-        raise ValueError('got non 2-tuple or 4-tuple for xform: {}'.format(xfa))
+        raise ValueError('Got non 2- or 4-tuple for xform: {}'.format(xfa))
     xf = xfa[0]
     xfargs = xfa[1]
-    if len(xfa)>2:
-        context_in={k: context[k] for k in xfa[2]}
+    if len(xfa) > 2:
+        context_in = {k: context[k] for k in xfa[2]}
     else:
-        context_in=context
-    if len(xfa)>3:
-        context_out_keys=xfa[3]
+        context_in = context
+    if len(xfa) > 3:
+        context_out_keys = xfa[3]
     else:
-        context_out_keys=[]
+        context_out_keys = []
 
     fn = ms._lookup_fn_at(xf)
     # Check for collisions; more to avoid confusion than for correctness:
@@ -85,10 +85,10 @@ def evaluate_step(xfa, context={}):
     new_context = fn(**args)
     if len(context_out_keys):
         if type(new_context) is tuple:
-            print(new_context)
-            new_context={k: new_context[i] for i,k in enumerate(context_out_keys)}
-        elif len(context_out_keys)==1:
-            new_context={context_out_keys[0]: new_context}
+            # print(new_context)
+            new_context = {k: new_context[i] for i, k in enumerate(context_out_keys)}
+        elif len(context_out_keys) == 1:
+            new_context = {context_out_keys[0]: new_context}
         else:
             raise ValueError('len(context_out_keys) needs to match number of outputs from xf fun')
     # Use the new context for the next step
@@ -339,7 +339,7 @@ def predict(modelspecs, est, val, **context):
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
     # TODO: Add statistics to metadata of every modelspec
 
-    est,val=nems.analysis.api.generate_prediction(est,val,modelspecs)
+    est, val = nems.analysis.api.generate_prediction(est, val, modelspecs)
 
     return {'val': val, 'est': est}
 
@@ -348,17 +348,18 @@ def add_summary_statistics(est, val, modelspecs, **context):
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
     # TODO: Add statistics to metadata of every modelspec
 
-    modelspecs=nems.analysis.api.standard_correlation(est,val,modelspecs)
+    modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs)
 
     return {'modelspecs': modelspecs}
 
 
 def plot_summary(modelspecs, val, figures=None, IsReload=False, **context):
     # CANNOT initialize figures=[] in optional args our you will create a bug
+
     if not figures:
         figures = []
     if not IsReload:
-        #fig = nplt.plot_summary(val, modelspecs)
+        # fig = nplt.plot_summary(val, modelspecs)
         fig = nplt.quickplot({'modelspecs': modelspecs, 'val': val})
         # Needed to make into a Bytes because you can't deepcopy figures!
         figures.append(nplt.fig2BytesIO(fig))
