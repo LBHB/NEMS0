@@ -71,6 +71,13 @@ def json_numpy_obj_hook(dct):
         #data = base64.b64decode(dct['__ndarray__'])
         data = dct['__ndarray__']
         return np.asarray(data, dct['dtype']).reshape(dct['shape'])
+    special_keys=['level','coefficients','amplitude','kappa',
+                  'base','shift','mean','sd','u','tau','offset']
+    if isinstance(dct, dict) and any(k in special_keys for k in dct):
+        #print("json_numpy_obj_hook: {0} type {1}".format(dct,type(dct)))
+        for k in dct:
+            dct[k]=np.asarray(dct[k])
+
     return dct
 
 
