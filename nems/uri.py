@@ -27,6 +27,33 @@ class NumpyAwareJSONEncoder(jsonlib.JSONEncoder):
             return obj.tolist()
         return jsonlib.JSONEncoder.default(self, obj)
 
+def json_numpy_obj_hook(dct):
+    '''
+    For serializing Numpy arrays safely as JSONs. From:
+    https://stackoverflow.com/questions/3488934/simplejson-and-numpy-array
+
+    Decodes a previously encoded numpy ndarray with proper shape and dtype.
+
+    :param dct: (dict) json encoded ndarray
+    :return: (ndarray) if input was an encoded ndarray
+
+    expected = np.arange(100, dtype=np.float)
+    dumped = json.dumps(expected, cls=NumpyEncoder)
+    result = json.loads(dumped, object_hook=json_numpy_obj_hook)
+    '''
+    return dct
+
+    if isinstance(dct, list) and len(dct)>1 and isinstance(dct[1], list):
+        try:
+            if dct[0] in ['level','coefficients','amplitude','kappa','base',
+                  'shift','mean','sd','u','tau']:
+                print("json_numpy_obj_hook: {0} type {1}".format(dct,type(dct)))
+            dct[1] = np.asarray(dct[1])
+        except:
+            pass
+
+    return dct
+
 
 def local_uri(uri):
     '''Returns the local filepath if it is a local URI, else None.'''
@@ -134,7 +161,7 @@ def load_resource(uri):
             return r.data
         else:
             try:
-                return r.json()
+                return r.json(object_hook=json_numpy_obj_hook)
             except jsonlib.decoder.JSONDecodeError as e:
                 log.warn("Decode error when retrieving json from: \n{}\n."
                          "Response payload from server may have been empty\n."
@@ -146,7 +173,10 @@ def load_resource(uri):
         try:
             with open(filepath, mode='r') as f:
                 if filepath[-5:] == '.json':
-                    resource = jsonlib.load(f)
+                    resource = f.read()
+                    print(resource)
+                    resource = jsonlib.loads(resource, object_hook=json_numpy_obj_hook)
+                    #resource = jsonlib.loads(resource)
                 else:
                     resource = f.read()
         except UnicodeDecodeError:
