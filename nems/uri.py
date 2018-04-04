@@ -5,6 +5,8 @@ import json as jsonlib
 import logging
 import requests
 import numpy as np
+import base64
+
 from requests.exceptions import ConnectionError
 from nems.distributions.distribution import Distribution
 
@@ -27,7 +29,52 @@ class NumpyAwareJSONEncoder(jsonlib.JSONEncoder):
             return obj.tolist()
         return jsonlib.JSONEncoder.default(self, obj)
 
+
+class NumpyEncoder(jsonlib.JSONEncoder):
+    '''
+    For serializing Numpy arrays safely as JSONs. From:
+    https://stackoverflow.com/questions/3488934/simplejson-and-numpy-array
+    '''
+    def default(self, obj):
+        """
+        If input object is an ndarray it will be converted into a dict
+        holding dtype, shape and the data, base64 encoded.
+        """
+        if issubclass(type(obj), Distribution):
+            return obj.tolist()
+        if isinstance(obj, np.ndarray):
+            if obj.flags['C_CONTIGUOUS']:
+                obj_data = obj.data
+            else:
+                cont_obj = np.ascontiguousarray(obj)
+                assert(cont_obj.flags['C_CONTIGUOUS'])
+                obj_data = cont_obj.data
+            #print(obj)
+            data_b64 = base64.b64encode(obj_data)
+            #print(data_b64)
+            data=obj.tolist()
+            return dict(__ndarray__=data,
+                        dtype=str(obj.dtype),
+                        shape=obj.shape,
+                        encoding='list')
+        # Let the base class default method raise the TypeError
+        return jsonlib.JSONEncoder.default(self, obj)
+
 def json_numpy_obj_hook(dct):
+    """
+    Decodes a previously encoded numpy ndarray with proper shape and dtype.
+
+    :param dct: (dict) json encoded ndarray
+    :return: (ndarray) if input was an encoded ndarray
+    """
+    if isinstance(dct, dict) and '__ndarray__' in dct:
+        #data = base64.b64decode(dct['__ndarray__'])
+        data = dct['__ndarray__']
+        return np.asarray(data, dct['dtype']).reshape(dct['shape'])
+    return dct
+
+
+def json_numpy_obj_hook_old(dct):
     '''
     For serializing Numpy arrays safely as JSONs. From:
     https://stackoverflow.com/questions/3488934/simplejson-and-numpy-array
@@ -90,7 +137,7 @@ def save_resource(uri, data=None, json=None):
     if json:
         if http_uri(uri):
             # Serialize and unserialize to make numpy arrays safe
-            s = jsonlib.dumps(json, cls=NumpyAwareJSONEncoder)
+            s = jsonlib.dumps(json, cls=NumpyEncoder)
             js = jsonlib.loads(s)
             try:
                 r = requests.put(uri, json=js)
@@ -109,7 +156,7 @@ def save_resource(uri, data=None, json=None):
             if not os.path.exists(dirpath):
                 os.makedirs(dirpath, mode=0o0777)
             with open(filepath, mode='w+') as f:
-                jsonlib.dump(json, f, cls=NumpyAwareJSONEncoder)
+                jsonlib.dump(json, f, cls=NumpyEncoder)
                 f.close()
                 os.chmod(filepath, 0o666)
         else:
