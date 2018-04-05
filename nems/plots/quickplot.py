@@ -60,7 +60,7 @@ log = logging.getLogger(__name__)
 #      -jacob 3/31/2018
 
 
-def quickplot(ctx, default='val', epoch=None, occurrence=0, figsize=None,
+def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
               height_mult=3.0, width_mult=1.0, m_idx=0, r_idx=0):
     """Expects an *evaluated* context dictionary ('ctx') returned by xforms."""
     # TODO: Or do we want 'est' by default?
@@ -77,9 +77,20 @@ def quickplot(ctx, default='val', epoch=None, occurrence=0, figsize=None,
     modelspec = ctx['modelspecs'][m_idx]
     if not epoch:
         if rec['resp'].count_epoch('REFERENCE'):
-            epoch='REFERENCE'
+            epoch = 'REFERENCE'
         else:
-            epoch='TRIAL'
+            epoch = 'TRIAL'
+
+    extracted = rec['resp'].extract_epoch(epoch)
+    finite_trial = [np.sum(np.isfinite(x)) > 0 for x in extracted]
+    occurrences, = np.where(finite_trial)
+    if occurrence is None or occurrence>len(occurrence):
+        if len(occurrences)==0:
+            occurrence=None
+        else:
+            occurrence = occurrences[0]
+    else:
+        occurrence=occurrences[occurrence]
 
     plot_fns = _get_plot_fns(ctx, default=default, occurrence=occurrence,
                              epoch=epoch, m_idx=m_idx)
@@ -273,7 +284,7 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
 
         elif 'stp' in fname:
             fn = before_and_after_psth(rec, modelspec, idx, sig_name='pred',
-                                       epoch=epoch, occurrences=0, channels=0,
+                                       epoch=epoch, occurrences=occurrence, channels=0,
                                        mod_name='STP')
             plot = (fn, 1)
             plot_fns.append(plot)
@@ -385,7 +396,7 @@ def before_and_after_psth(rec, modelspec, idx, sig_name='pred',
     before_sig, after_sig = before_and_after_signal(rec, modelspec, idx,
                                                     sig_name)
     signals = [before_sig, after_sig]
-    fn = partial(timeseries_from_epoch, signals, epoch, occurrences=0,
+    fn = partial(timeseries_from_epoch, signals, epoch, occurrences=occurrences,
                  channels=0, xlabel='Time',
                  ylabel='Value', title=mod_name)
     return fn

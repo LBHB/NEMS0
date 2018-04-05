@@ -264,11 +264,11 @@ def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
                 modelspecs_out += nems.analysis.api.fit_basic(d, m,
                                                               fit_kwargs=fit_kwargs,
                                                               fitter=scipy_minimize)
-            modelspecs=modelspecs_out
+            modelspecs = modelspecs_out
         else:
             # standard single shot
-            print('Fitting fit_basic')
-            print(fit_kwargs)
+            # print('Fitting fit_basic')
+            # print(fit_kwargs)
 
             modelspecs = [nems.analysis.api.fit_basic(est, modelspec,
                                                       fit_kwargs=fit_kwargs,

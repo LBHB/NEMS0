@@ -34,13 +34,13 @@ def from_keywords(keyword_string, registry=keywords.defaults, meta={}):
     first_input_to_stim=False
     i=0
     while not first_input_to_stim and i<len(modelspec):
-        if 'i' in modelspec[i]['fn_kwargs'].keys() and modelspec[i]['fn_kwargs']['i']=='resp':
-            # psth-based prediction, never use stim, just feed resp to pred
-            first_input_to_stim=True
-        elif 'i' in modelspec[i]['fn_kwargs'].keys() and modelspec[i]['fn_kwargs']['i']=='pred':
-            modelspec[i]['fn_kwargs']['i']='stim'
-            first_input_to_stim=True
-        i+=1
+#        if 'i' in modelspec[i]['fn_kwargs'].keys() and modelspec[i]['fn_kwargs']['i']=='resp':
+#            # psth-based prediction, never use stim, just feed resp to pred
+#            first_input_to_stim=True
+        if 'i' in modelspec[i]['fn_kwargs'].keys() and modelspec[i]['fn_kwargs']['i']=='pred':
+            modelspec[i]['fn_kwargs']['i'] = 'stim'
+            first_input_to_stim = True
+        i += 1
 
     # insert metadata, if provided
     if not 'meta' in modelspec[0].keys():
@@ -87,6 +87,8 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
     tmodelspec=[]
     for i in fitidx:
         tmodelspec.append(modelspec[i])
+    if fitidx[0] > 0 and modelspec[0]['fn_kwargs']['i'] == 'stim':
+        tmodelspec[0]['fn_kwargs']['i'] = 'stim'
 
 #    tmodelspec=modelspec[fitidx.tolist()]
 #    if target_i == len(modelspec):
@@ -95,9 +97,14 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
 #    else:
 #        fit_portion = modelspec[:target_i]
 #        nonfit_portion = modelspec[target_i:]
-
+    print(tmodelspec)
     tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
                                   fit_kwargs=fit_kwargs)[0]
+    print(tmodelspec)
+
+
+    if fitidx[0]>1 and modelspec[0]['fn_kwargs']['i']=='stim':
+        tmodelspec[0]['fn_kwargs']['i']=='pred'
     for i,j in enumerate(fitidx):
         modelspec[j]=tmodelspec[i]
 
