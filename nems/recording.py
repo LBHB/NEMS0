@@ -525,7 +525,7 @@ class Recording:
         elif len(groups)==1:
             k = list(groups.keys())[0]
             g1 = groups[k]
-            n = len(g)
+            n = len(g1)
             vset = np.int(np.floor(n*0.8))
 
             g={1: g1[:vset], 2: g1[vset:]}
