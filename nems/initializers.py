@@ -70,6 +70,10 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
         if target_module in m['fn']:
             target_i = i+1
             break
+    stpidx=[]
+    for i, m in enumerate(modelspec):
+        if 'stp' in m['fn']:
+            stpidx.append(i)
 
     if not target_i:
         log.info("target_module: {} not found in modelspec."
@@ -79,21 +83,30 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
         log.info("target_module: {0} found at modelspec[{1}]."
                              .format(target_module,target_i-1))
 
-    if target_i == len(modelspec):
-        fit_portion = modelspec
-        nonfit_portion = []
-    else:
-        fit_portion = modelspec[:target_i]
-        nonfit_portion = modelspec[target_i:]
+    fitidx=np.setdiff1d(np.arange(target_i),np.array(stpidx))
+    tmodelspec=[]
+    for i in fitidx:
+        tmodelspec.append(modelspec[i])
 
-    modelspec = analysis_function(rec, fit_portion, fitter=fitter,
+#    tmodelspec=modelspec[fitidx.tolist()]
+#    if target_i == len(modelspec):
+#        fit_portion = modelspec
+#        nonfit_portion = []
+#    else:
+#        fit_portion = modelspec[:target_i]
+#        nonfit_portion = modelspec[target_i:]
+
+    tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
                                   fit_kwargs=fit_kwargs)[0]
-    modelspec.extend(nonfit_portion)
+    for i,j in enumerate(fitidx):
+        modelspec[j]=tmodelspec[i]
+
+    #modelspec.extend(nonfit_portion)
     return modelspec
 
 def init_dexp(rec,modelspec):
     """
-    choose initial values for dexp applied after preceeding fir is 
+    choose initial values for dexp applied after preceeding fir is
     initialized
     """
     target_i = None
@@ -123,7 +136,7 @@ def init_dexp(rec,modelspec):
     keepidx = np.isfinite(resp) * np.isfinite(pred)
     resp = resp[keepidx]
     pred = pred[keepidx]
-    
+
     # choose phi s.t. dexp starts as almost a straight line
     # phi=[max_out min_out slope mean_in]
     meanr = np.nanmean(resp)
@@ -134,7 +147,6 @@ def init_dexp(rec,modelspec):
     modelspec[target_i]['phi']['kappa']=np.log(np.std(pred) / 10)
     modelspec[target_i]['phi']['shift']=np.mean(pred)
     log.info(modelspec[target_i])
-    
+
     return modelspec
 
-    

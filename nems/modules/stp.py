@@ -15,9 +15,10 @@ def short_term_plasticity(rec, i, o, u, tau, crosstalk=0):
 
 
 def _stp(X, u, tau, crosstalk=0):
-
+    """
+    STP core function
+    """
     s = X.shape
-
     tstim=X.copy()
     tstim[np.isnan(tstim)]=0
     tstim[tstim<0]=0
@@ -35,30 +36,34 @@ def _stp(X, u, tau, crosstalk=0):
     taui[taui<0.5] = 0.5
 
     # TODO : enable crosstalk
-
     # TODO : allow >1 STP channel per input?
 
-    di = np.ones(s)
-
     # go through each stimulus channel
+    di = np.ones(s)  # allocate scaling term
     for i in range(0, s[0]):
-
-        for tt in range(1, s[1]):
-            td = di[i, tt - 1]  # previous time bin depression
-            if ui[i] > 0:
-                # facilitation
-                delta = (1 - td) / taui[i] - \
-                    ui[i] * td * tstim[i, tt - 1]
+        td = 1  # initialize, dep state of previous time bin
+        a = 1/taui[i]
+        ustim = 1.0/taui[i] + ui[i] * tstim[i, :]
+        #ustim = ui[i] * tstim[i, :]
+        if ui[i] > 0:
+            # depression
+            for tt in range(1, s[1]):
+                #td = di[i, tt - 1]  # previous time bin depression
+                #delta = (1 - td) / taui[i] - ui[i] * td * tstim[i, tt - 1]
+                #delta = (1 - td) / taui[i] - td * ustim[tt - 1]
+                delta = a - td * ustim[tt - 1]
                 td = td + delta
                 td = np.max([td,0])
-            else:
-                #depression
-                delta = (1 - td) / taui[i] - \
-                    ui[i] * td * tstim[i, tt - 1]
+                di[i, tt] = td
+        else:
+            # facilitation
+            for tt in range(1, s[1]):
+                delta = a - td * ustim[tt - 1]
                 td = td + delta
                 td = np.min([td,1])
-            di[i, tt] = td
-    #print("(u,tau)=({0},{1})".format(u,tau))
+                di[i, tt] = td
+    #print("(u,tau)=({0},{1})".format(ui,taui))
+
     return di * tstim
 
 
