@@ -312,13 +312,13 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                 plots = ([fn1, fn2], [1, 1])
                 plot_fns.append(plots)
 
-            elif 'nonlinearity.dlog' in fname:
-                fn1, fn2 = before_and_after_scatter(
-                        rec, modelspec, idx, smoothing_bins=200,
-                        mod_name='dlog'
-                        )
-                plots = ([fn1, fn2], [1, 1])
-                plot_fns.append(plots)
+#            elif 'nonlinearity.dlog' in fname:
+#                fn1, fn2 = before_and_after_scatter(
+#                        rec, modelspec, idx, smoothing_bins=200,
+#                        mod_name='dlog'
+#                        )
+#                plots = ([fn1, fn2], [1, 1])
+#                plot_fns.append(plots)
 
             else:
                 # Unrecognized nonlinearity
