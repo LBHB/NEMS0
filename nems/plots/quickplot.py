@@ -274,7 +274,7 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
         elif 'stp' in fname:
             fn = before_and_after_psth(rec, modelspec, idx, sig_name='pred',
                                        epoch=epoch, occurrences=0, channels=0,
-                                       mod_name='stp')
+                                       mod_name='STP')
             plot = (fn, 1)
             plot_fns.append(plot)
 

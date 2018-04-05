@@ -206,7 +206,6 @@ def generate_psth_from_est_for_both_est_and_val_nfold(est, val, **context):
      return {'est': est_out, 'val': val_out}
 
 
-
 def init_from_keywords(keywordstring, meta={}, IsReload=False, **context):
     if not IsReload:
         modelspec = init.from_keywords(keyword_string=keywordstring,meta=meta)
@@ -249,25 +248,30 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
 #                for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
 
-def fit_basic(modelspecs, est, IsReload=False, **context):
+def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
+              **context):
     ''' A basic fit that optimizes every input modelspec. '''
     if not IsReload:
+        fit_kwargs = {'options': {'ftol': ftol, 'maxiter': maxiter}}
         if type(est) is list:
             # jackknife!
-            modelspecs_out=[]
-            njacks=len(modelspecs)
-            i=0
-            for m,d in zip(modelspecs,est):
-                i+=1
-                log.info("Fitting JK {}/{}".format(i,njacks))
-                modelspecs_out += \
-                        nems.analysis.api.fit_basic(d,m,
-                                                    fitter=scipy_minimize)
+            modelspecs_out = []
+            njacks = len(modelspecs)
+            i = 0
+            for m, d in zip(modelspecs, est):
+                i += 1
+                log.info("Fitting JK {}/{}".format(i, njacks))
+                modelspecs_out += nems.analysis.api.fit_basic(d, m,
+                                                              fit_kwargs=fit_kwargs,
+                                                              fitter=scipy_minimize)
             modelspecs=modelspecs_out
         else:
             # standard single shot
-            modelspecs = [nems.analysis.api.fit_basic(est,
-                                                      modelspec,
+            print('Fitting fit_basic')
+            print(fit_kwargs)
+
+            modelspecs = [nems.analysis.api.fit_basic(est, modelspec,
+                                                      fit_kwargs=fit_kwargs,
                                                       fitter=scipy_minimize)[0]
                           for modelspec in modelspecs]
     return {'modelspecs': modelspecs}

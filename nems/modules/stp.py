@@ -27,13 +27,13 @@ def _stp(X, u, tau, crosstalk=0):
     # force only depression, no facilitation
     # TODO: move bounds to fitter?
     # limits, assumes input (X) range is approximately -1 to +1
-    ui = np.absolute(u)
+    ui = np.absolute(u) / 100
     ui[ui>0.5] = 0.5
 
     # convert tau units from sec to bins
     #taui = np.absolute(self.tau[:, j]) * self.d_in[0]['fs']
     taui = np.absolute(tau)
-    taui[taui<0.5] = 0.5
+    taui[taui<1] = 1
 
     # TODO : enable crosstalk
     # TODO : allow >1 STP channel per input?
