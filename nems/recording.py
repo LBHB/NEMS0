@@ -529,6 +529,7 @@ class Recording:
             vset = np.int(np.floor(n*0.8))
 
             g={1: g1[:vset], 2: g1[vset:]}
+            groups = g
 
         elif len(groups)==0:
             m = "No occurrences?? Unable to split recording into est/val sets"
