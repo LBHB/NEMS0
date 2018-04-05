@@ -1,6 +1,10 @@
 import pytest
 import numpy as np
 
+import nems.recording as recording
+import nems.signal as signal
+import nems.modules.stp as stp
+import matplotlib.pyplot as plt
 
 # ------------------------------------------------------------------------------
 # Weight channels
@@ -22,3 +26,40 @@ def test_gaussian_coefficients():
 
     np.testing.assert_allclose(coefs.sum(axis=1), 1)
     np.testing.assert_allclose(expected, coefs, rtol=1e-5)
+
+
+def test_stp():
+
+    nchans=1
+    fs=100
+    data=np.concatenate([np.zeros([1,10]),np.ones([1,20]),np.zeros([1,20]),
+                      np.ones([1,5]),np.zeros([1,5]),np.ones([1,5]),
+                      np.zeros([1,10])],axis=1)
+
+    kwargs = {
+        'data': data,
+        'name': 'pred',
+        'recording': 'rec',
+        'chans': ['chan' + str(n) for n in range(nchans)],
+        'fs': fs,
+        'meta': {
+            'for_testing': True,
+            'date': "2018-01-10",
+            'animal': "Donkey Hotey",
+            'windmills': 'tilting'
+        },
+    }
+    pred=signal.RasterizedSignal(**kwargs)
+    rec=recording.Recording({'pred': pred})
+
+    u=np.array([0.2])
+    tau=np.array([4])
+
+    r = stp.short_term_plasticity(rec, 'pred','pred_out', u=u, tau=tau)
+    pred_out=r[0]
+
+    plt.figure()
+    plt.plot(pred.as_continuous().T)
+    plt.plot(pred_out.as_continuous().T)
+    #Y = stp._stp(X, u, tau)
+

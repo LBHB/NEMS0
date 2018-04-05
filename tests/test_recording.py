@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from nems.recording import Recording
 
+
 def test_recording_loading():
     '''
     Test the loading and saving of files to various HTTP/S3/File routes.
@@ -10,7 +11,7 @@ def test_recording_loading():
     # blah.tar.gz or TAR010c-18-1.tar.gz in it.
 
     # Local filesystem
-    #rec0 = Recording.load("/home/ivar/git/nems/signals/TAR010c-18-1.tar.gz")
+    # rec0 = Recording.load("/home/ivar/git/nems/signals/TAR010c-18-1.tar.gz")
     rec0 = Recording.load("/auto/data/nems_db/recordings/eno052d-a1.tgz")
     rec2 = Recording.load("file:///auto/data/nems_db/recordings/eno052d-a1.tgz")
 
