@@ -238,14 +238,18 @@ def set_random_phi(modelspecs, IsReload=False, **context):
 def fit_basic_init(modelspecs, est, IsReload=False, **context):
     ''' A basic fit that optimizes every input modelspec. '''
     if not IsReload:
-        # first pre-fit without STP
-        modelspecs = [nems.initializers.prefit_to_target(
-                est, modelspec, nems.analysis.api.fit_basic,
-                target_module='levelshift',
-                extra_exclude=['stp'],
-                fitter=scipy_minimize,
-                fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
-                for modelspec in modelspecs]
+        # if STP is a module, then first pre-fit without STP
+        for m in modelspecs[0]:
+            if 'stp' in m['fn']:
+                modelspecs = [nems.initializers.prefit_to_target(
+                        est, modelspec, nems.analysis.api.fit_basic,
+                        target_module='levelshift',
+                        extra_exclude=['stp'],
+                        fitter=scipy_minimize,
+                        fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
+                        for modelspec in modelspecs]
+                break
+
         # then pre-fit with STP
         modelspecs = [nems.initializers.prefit_to_target(
                 est, modelspec, nems.analysis.api.fit_basic,

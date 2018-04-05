@@ -39,7 +39,7 @@ def _stp(X, u, tau, crosstalk=0):
     # TODO : allow >1 STP channel per input?
 
     # go through each stimulus channel
-    stim_out = np.ones(s)  # allocate scaling term
+    stim_out = tstim  # allocate scaling term
     for i in range(0, s[0]):
         td = 1  # initialize, dep state of previous time bin
         a = 1/taui[i]
@@ -65,3 +65,8 @@ def _stp(X, u, tau, crosstalk=0):
     #print("(u,tau)=({0},{1})".format(ui,taui))
 
     return stim_out
+
+
+
+
+

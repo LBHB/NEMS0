@@ -283,9 +283,11 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                 pass
 
         elif 'stp' in fname:
+            # channels = np.arange(m['phi']['u'].size)
+            channels = 0
             fn = before_and_after_psth(rec, modelspec, idx, sig_name='pred',
-                                       epoch=epoch, occurrences=occurrence, channels=0,
-                                       mod_name='STP')
+                                       epoch=epoch, occurrences=occurrence,
+                                       channels=channels, mod_name='STP')
             plot = (fn, 1)
             plot_fns.append(plot)
 
@@ -377,14 +379,16 @@ def before_and_after_signal(rec, modelspec, idx, sig_name='pred'):
         # Can't have anything before index 0, so use input stimulus
         before = rec
         before_sig = copy.deepcopy(rec['stim'])
-        before.name = '**stim'
     else:
         before = ms.evaluate(rec, modelspec, start=None, stop=idx)
         before_sig = copy.deepcopy(before[sig_name])
 
+    before_sig.name = 'before'
+
     # now evaluate next module step
     after = ms.evaluate(before.copy(), modelspec, start=idx, stop=idx+1)
     after_sig = copy.deepcopy(after[sig_name])
+    after_sig.name = 'after'
 
     return before_sig, after_sig
 
@@ -396,8 +400,8 @@ def before_and_after_psth(rec, modelspec, idx, sig_name='pred',
     before_sig, after_sig = before_and_after_signal(rec, modelspec, idx,
                                                     sig_name)
     signals = [before_sig, after_sig]
-    fn = partial(timeseries_from_epoch, signals, epoch, occurrences=occurrences,
-                 channels=0, xlabel='Time',
+    fn = partial(timeseries_from_epoch, signals, epoch,
+                 occurrences=occurrences, channels=channels, xlabel='Time',
                  ylabel='Value', title=mod_name)
     return fn
 
