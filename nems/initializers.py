@@ -43,12 +43,13 @@ def from_keywords(keyword_string, registry=keywords.defaults, meta={}):
         i += 1
 
     # insert metadata, if provided
-    if not 'meta' in modelspec[0].keys():
+    if 'meta' not in modelspec[0].keys():
         modelspec[0]['meta'] = meta
     else:
         modelspec[0]['meta'].update(meta)
 
     return modelspec
+
 
 def from_keywords_as_list(keyword_string, registry=keywords.defaults, meta={}):
     '''
@@ -59,37 +60,43 @@ def from_keywords_as_list(keyword_string, registry=keywords.defaults, meta={}):
 
 
 def prefit_to_target(rec, modelspec, analysis_function, target_module,
+                     extra_exclude=[],
                      fitter=scipy_minimize, fit_kwargs={}):
     """Removes all modules from the modelspec that come after the
     first occurrence of the target module, then performs a
     rough fit on the shortened modelspec, then adds the latter
     modules back on and returns the full modelspec.
     """
+
+    # figure out last modelspec module to fit
     target_i = None
     for i, m in enumerate(modelspec):
         if target_module in m['fn']:
             target_i = i+1
             break
-    stpidx=[]
-    for i, m in enumerate(modelspec):
-        if 'stp' in m['fn']:
-            stpidx.append(i)
 
     if not target_i:
-        log.info("target_module: {} not found in modelspec."
-                             .format(target_module))
+        log.info("target_module: {} not found in modelspec.".format(target_module))
         return modelspec
     else:
         log.info("target_module: {0} found at modelspec[{1}]."
-                             .format(target_module,target_i-1))
+                             .format(target_module, target_i-1))
 
-    fitidx=np.setdiff1d(np.arange(target_i),np.array(stpidx))
-    tmodelspec=[]
+    # HACK ALERT: identify any stp modules and take them out as well
+    exclude_idx = []
+    for i, m in enumerate(modelspec):
+        for fn in extra_exclude:
+            if fn in m['fn']:
+                exclude_idx.append(i)
+                log.info("excluding {0} from prefit".format(fn))
+
+    # find modelspec entries to keep (before target_i and not STP)
+    fitidx = np.setdiff1d(np.arange(target_i), np.array(exclude_idx))
+    tmodelspec = []
     for i in fitidx:
         tmodelspec.append(modelspec[i])
     if fitidx[0] > 0 and modelspec[0]['fn_kwargs']['i'] == 'stim':
         tmodelspec[0]['fn_kwargs']['i'] = 'stim'
-
 #    tmodelspec=modelspec[fitidx.tolist()]
 #    if target_i == len(modelspec):
 #        fit_portion = modelspec
@@ -97,21 +104,19 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
 #    else:
 #        fit_portion = modelspec[:target_i]
 #        nonfit_portion = modelspec[target_i:]
-    print(tmodelspec)
+
     tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-                                  fit_kwargs=fit_kwargs)[0]
-    print(tmodelspec)
+                                   fit_kwargs=fit_kwargs)[0]
 
+    if fitidx[0] > 1 and modelspec[0]['fn_kwargs']['i'] == 'stim':
+        tmodelspec[0]['fn_kwargs']['i'] == 'pred'
+    for i, j in enumerate(fitidx):
+        modelspec[j] = tmodelspec[i]
 
-    if fitidx[0]>1 and modelspec[0]['fn_kwargs']['i']=='stim':
-        tmodelspec[0]['fn_kwargs']['i']=='pred'
-    for i,j in enumerate(fitidx):
-        modelspec[j]=tmodelspec[i]
-
-    #modelspec.extend(nonfit_portion)
+    # modelspec.extend(nonfit_portion)
     return modelspec
 
-def init_dexp(rec,modelspec):
+def init_dexp(rec, modelspec):
     """
     choose initial values for dexp applied after preceeding fir is
     initialized

@@ -39,7 +39,7 @@ def _stp(X, u, tau, crosstalk=0):
     # TODO : allow >1 STP channel per input?
 
     # go through each stimulus channel
-    di = np.ones(s)  # allocate scaling term
+    stim_out = np.ones(s)  # allocate scaling term
     for i in range(0, s[0]):
         td = 1  # initialize, dep state of previous time bin
         a = 1/taui[i]
@@ -54,19 +54,14 @@ def _stp(X, u, tau, crosstalk=0):
                 delta = a - td * ustim[tt - 1]
                 td = td + delta
                 td = np.max([td,0])
-                di[i, tt] = td
+                stim_out[i, tt] *= td
         else:
             # facilitation
             for tt in range(1, s[1]):
                 delta = a - td * ustim[tt - 1]
                 td = td + delta
                 td = np.min([td,1])
-                di[i, tt] = td
+                stim_out[i, tt] *= td
     #print("(u,tau)=({0},{1})".format(ui,taui))
 
-    return di * tstim
-
-
-
-
-
+    return stim_out
