@@ -82,7 +82,8 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
         log.info("target_module: {0} found at modelspec[{1}]."
                              .format(target_module, target_i-1))
 
-    # HACK ALERT: identify any stp modules and take them out as well
+    # identify any excluded modules and take them out of temp modelspec
+    # that will be fit here
     exclude_idx = []
     for i, m in enumerate(modelspec):
         for fn in extra_exclude:
@@ -90,30 +91,24 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
                 exclude_idx.append(i)
                 log.info("excluding {0} from prefit".format(fn))
 
-    # find modelspec entries to keep (before target_i and not STP)
+    # find modeules to keep (before target_i and not exlcuded)
     fitidx = np.setdiff1d(np.arange(target_i), np.array(exclude_idx))
     tmodelspec = []
     for i in fitidx:
         tmodelspec.append(modelspec[i])
     if fitidx[0] > 0 and modelspec[0]['fn_kwargs']['i'] == 'stim':
         tmodelspec[0]['fn_kwargs']['i'] = 'stim'
-#    tmodelspec=modelspec[fitidx.tolist()]
-#    if target_i == len(modelspec):
-#        fit_portion = modelspec
-#        nonfit_portion = []
-#    else:
-#        fit_portion = modelspec[:target_i]
-#        nonfit_portion = modelspec[target_i:]
 
+    # fit the subset of modules
     tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
                                    fit_kwargs=fit_kwargs)[0]
 
+    # reassemble the full modelspec with updated phi values from tmodelspec
     if fitidx[0] > 1 and modelspec[0]['fn_kwargs']['i'] == 'stim':
         tmodelspec[0]['fn_kwargs']['i'] == 'pred'
     for i, j in enumerate(fitidx):
         modelspec[j] = tmodelspec[i]
 
-    # modelspec.extend(nonfit_portion)
     return modelspec
 
 def init_dexp(rec, modelspec):
