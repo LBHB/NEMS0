@@ -19,6 +19,7 @@ log = logging.getLogger(__name__)
 
 class NumpyAwareJSONEncoder(jsonlib.JSONEncoder):
     '''
+    DEPRECATED. DELETE ME?
     For serializing Numpy arrays safely as JSONs. From:
     https://stackoverflow.com/questions/3488934/simplejson-and-numpy-array
     '''
@@ -32,8 +33,9 @@ class NumpyAwareJSONEncoder(jsonlib.JSONEncoder):
 
 class NumpyEncoder(jsonlib.JSONEncoder):
     '''
-    For serializing Numpy arrays safely as JSONs. From:
+    For serializing Numpy arrays safely as JSONs. Modified from:
     https://stackoverflow.com/questions/3488934/simplejson-and-numpy-array
+    saving as byte64 doesn't work, but using lists instead seems ok.
     '''
     def default(self, obj):
         """
@@ -42,23 +44,26 @@ class NumpyEncoder(jsonlib.JSONEncoder):
         """
         if issubclass(type(obj), Distribution):
             return obj.tolist()
+
         if isinstance(obj, np.ndarray):
-            if obj.flags['C_CONTIGUOUS']:
-                obj_data = obj.data
-            else:
-                cont_obj = np.ascontiguousarray(obj)
-                assert(cont_obj.flags['C_CONTIGUOUS'])
-                obj_data = cont_obj.data
-            #print(obj)
-            data_b64 = base64.b64encode(obj_data)
-            #print(data_b64)
-            data=obj.tolist()
+            # if obj.flags['C_CONTIGUOUS']:
+            #     obj_data = obj.data
+            # else:
+            #     cont_obj = np.ascontiguousarray(obj)
+            #     assert(cont_obj.flags['C_CONTIGUOUS'])
+            #     obj_data = cont_obj.data
+            # print(obj)
+            # data_b64 = base64.b64encode(obj_data)
+            # print(data_b64)
+            data = obj.tolist()
             return dict(__ndarray__=data,
                         dtype=str(obj.dtype),
                         shape=obj.shape,
                         encoding='list')
+
         # Let the base class default method raise the TypeError
         return jsonlib.JSONEncoder.default(self, obj)
+
 
 def json_numpy_obj_hook(dct):
     """
@@ -68,43 +73,16 @@ def json_numpy_obj_hook(dct):
     :return: (ndarray) if input was an encoded ndarray
     """
     if isinstance(dct, dict) and '__ndarray__' in dct:
-        #data = base64.b64decode(dct['__ndarray__'])
+        # data = base64.b64decode(dct['__ndarray__'])
         data = dct['__ndarray__']
         return np.asarray(data, dct['dtype']).reshape(dct['shape'])
-    special_keys=['level','coefficients','amplitude','kappa',
-                  'base','shift','mean','sd','u','tau','offset']
+    special_keys = ['level', 'coefficients', 'amplitude', 'kappa',
+                    'base', 'shift', 'mean', 'sd', 'u', 'tau', 'offset']
+
     if isinstance(dct, dict) and any(k in special_keys for k in dct):
-        #print("json_numpy_obj_hook: {0} type {1}".format(dct,type(dct)))
+        # print("json_numpy_obj_hook: {0} type {1}".format(dct,type(dct)))
         for k in dct:
-            dct[k]=np.asarray(dct[k])
-
-    return dct
-
-
-def json_numpy_obj_hook_old(dct):
-    '''
-    For serializing Numpy arrays safely as JSONs. From:
-    https://stackoverflow.com/questions/3488934/simplejson-and-numpy-array
-
-    Decodes a previously encoded numpy ndarray with proper shape and dtype.
-
-    :param dct: (dict) json encoded ndarray
-    :return: (ndarray) if input was an encoded ndarray
-
-    expected = np.arange(100, dtype=np.float)
-    dumped = json.dumps(expected, cls=NumpyEncoder)
-    result = json.loads(dumped, object_hook=json_numpy_obj_hook)
-    '''
-    return dct
-
-    if isinstance(dct, list) and len(dct)>1 and isinstance(dct[1], list):
-        try:
-            if dct[0] in ['level','coefficients','amplitude','kappa','base',
-                  'shift','mean','sd','u','tau']:
-                #print("json_numpy_obj_hook: {0} type {1}".format(dct,type(dct)))
-                dct[1] = np.asarray(dct[1])
-        except:
-            pass
+            dct[k] = np.asarray(dct[k])
 
     return dct
 

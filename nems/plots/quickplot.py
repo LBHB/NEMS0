@@ -60,7 +60,7 @@ log = logging.getLogger(__name__)
 #      -jacob 3/31/2018
 
 
-def quickplot(ctx, default='val', epoch=None, occurrence=0, figsize=None,
+def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
               height_mult=3.0, width_mult=1.0, m_idx=0, r_idx=0):
     """Expects an *evaluated* context dictionary ('ctx') returned by xforms."""
     # TODO: Or do we want 'est' by default?
@@ -77,9 +77,20 @@ def quickplot(ctx, default='val', epoch=None, occurrence=0, figsize=None,
     modelspec = ctx['modelspecs'][m_idx]
     if not epoch:
         if rec['resp'].count_epoch('REFERENCE'):
-            epoch='REFERENCE'
+            epoch = 'REFERENCE'
         else:
-            epoch='TRIAL'
+            epoch = 'TRIAL'
+
+    extracted = rec['resp'].extract_epoch(epoch)
+    finite_trial = [np.sum(np.isfinite(x)) > 0 for x in extracted]
+    occurrences, = np.where(finite_trial)
+    if occurrence is None or occurrence>len(occurrence):
+        if len(occurrences)==0:
+            occurrence=None
+        else:
+            occurrence = occurrences[0]
+    else:
+        occurrence=occurrences[occurrence]
 
     plot_fns = _get_plot_fns(ctx, default=default, occurrence=occurrence,
                              epoch=epoch, m_idx=m_idx)
@@ -223,20 +234,20 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
     strf_done = False
 
     for idx, m in enumerate(modelspec):
-        fn = m['fn']
+        fname = m['fn']
 
         # STRF is a special case that relies on multiple modules, so
         # the dependent modules are wrapped here
         # in a separate logic heirarchy.
         if not do_strf:
-            if 'weight_channels' in fn:
+            if 'weight_channels' in fname:
 
-                if 'weight_channels.basic' in fn:
+                if 'weight_channels.basic' in fname:
                     fn = partial(weight_channels_heatmap, modelspec)
                     plot = (fn, 1)
                     plot_fns.append(plot)
 
-                elif 'weight_channels.gaussian' in fn:
+                elif 'weight_channels.gaussian' in fname:
                     fn = partial(weight_channels_heatmap, modelspec)
                     plot = (fn, 1)
                     plot_fns.append(plot)
@@ -245,9 +256,9 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                     # Don't plot anything
                     pass
 
-            elif 'fir' in fn:
+            elif 'fir' in fname:
 
-                if 'fir.basic' in fn:
+                if 'fir.basic' in fname:
                     fn = partial(fir_heatmap, modelspec)
                     plot = (fn, 1)
                     plot_fns.append(plot)
@@ -264,23 +275,25 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
             else:
                 pass
 
-        if 'levelshift' in fn:
-            if 'levelshift.levelshift' in fn:
+        if 'levelshift' in fname:
+            if 'levelshift.levelshift' in fname:
                 # TODO - Should levelshift plot anything?
                 pass
             else:
                 pass
 
-        elif 'stp' in fn:
+        elif 'stp' in fname:
+            # channels = np.arange(m['phi']['u'].size)
+            channels = 0
             fn = before_and_after_psth(rec, modelspec, idx, sig_name='pred',
-                                       epoch=epoch, occurrences=0, channels=0,
-                                       mod_name='stp')
+                                       epoch=epoch, occurrences=occurrence,
+                                       channels=channels, mod_name='STP')
             plot = (fn, 1)
             plot_fns.append(plot)
 
-        elif 'nonlinearity' in fn:
+        elif 'nonlinearity' in fname:
 
-            if 'nonlinearity.double_exponential' in fn:
+            if 'nonlinearity.double_exponential' in fname:
                 fn1, fn2 = before_and_after_scatter(
                         rec, modelspec, idx, smoothing_bins=200,
                         mod_name='dexp'
@@ -288,7 +301,7 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                 plots = ([fn1, fn2], [1, 1])
                 plot_fns.append(plots)
 
-            elif 'nonlinearity.quick_sigmoid' in fn:
+            elif 'nonlinearity.quick_sigmoid' in fname:
                 fn1, fn2 = before_and_after_scatter(
                         rec, modelspec, idx, smoothing_bins=200,
                         mod_name='quick_sig'
@@ -296,7 +309,7 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                 plots = ([fn1, fn2], [1, 1])
                 plot_fns.append(plots)
 
-            elif 'nonlinearity.logistic_sigmoid' in fn:
+            elif 'nonlinearity.logistic_sigmoid' in fname:
                 fn1, fn2 = before_and_after_scatter(
                         rec, modelspec, idx, smoothing_bins=200,
                         mod_name='log_sig'
@@ -304,7 +317,7 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                 plots = ([fn1, fn2], [1, 1])
                 plot_fns.append(plots)
 
-            elif 'nonlinearity.tanh' in fn:
+            elif 'nonlinearity.tanh' in fname:
                 fn1, fn2 = before_and_after_scatter(
                         rec, modelspec, idx, smoothing_bins=200,
                         mod_name='tanh'
@@ -312,29 +325,29 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                 plots = ([fn1, fn2], [1, 1])
                 plot_fns.append(plots)
 
-            elif 'nonlinearity.dlog' in fn:
-                fn1, fn2 = before_and_after_scatter(
-                        rec, modelspec, idx, smoothing_bins=200,
-                        mod_name='dlog'
-                        )
-                plots = ([fn1, fn2], [1, 1])
-                plot_fns.append(plots)
+#            elif 'nonlinearity.dlog' in fname:
+#                fn1, fn2 = before_and_after_scatter(
+#                        rec, modelspec, idx, smoothing_bins=200,
+#                        mod_name='dlog'
+#                        )
+#                plots = ([fn1, fn2], [1, 1])
+#                plot_fns.append(plots)
 
             else:
                 # Unrecognized nonlinearity
                 pass
 
-        elif 'signal_mod' in fn:
-            if 'signal_mod.make_state_signal' in fn:
+        elif 'signal_mod' in fname:
+            if 'signal_mod.make_state_signal' in fname:
                 # TODO
                 pass
-            elif 'signal_mod.average_sig' in fn:
+            elif 'signal_mod.average_sig' in fname:
                 pass
             else:
                 pass
 
-        elif 'state' in fn:
-            if 'state.state_dc_gain' in fn:
+        elif 'state' in fname:
+            if 'state.state_dc_gain' in fname:
                 fn1 = partial(state_vars_timeseries, rec, modelspec)
                 fns = get_state_vars_psths(rec, epoch, psth_name='resp',
                                            occurrence=occurrence)
@@ -366,14 +379,16 @@ def before_and_after_signal(rec, modelspec, idx, sig_name='pred'):
         # Can't have anything before index 0, so use input stimulus
         before = rec
         before_sig = copy.deepcopy(rec['stim'])
-        before.name = '**stim'
     else:
         before = ms.evaluate(rec, modelspec, start=None, stop=idx)
         before_sig = copy.deepcopy(before[sig_name])
 
+    before_sig.name = 'before'
+
     # now evaluate next module step
     after = ms.evaluate(before.copy(), modelspec, start=idx, stop=idx+1)
     after_sig = copy.deepcopy(after[sig_name])
+    after_sig.name = 'after'
 
     return before_sig, after_sig
 
@@ -385,8 +400,8 @@ def before_and_after_psth(rec, modelspec, idx, sig_name='pred',
     before_sig, after_sig = before_and_after_signal(rec, modelspec, idx,
                                                     sig_name)
     signals = [before_sig, after_sig]
-    fn = partial(timeseries_from_epoch, signals, epoch, occurrences=0,
-                 channels=0, xlabel='Time',
+    fn = partial(timeseries_from_epoch, signals, epoch,
+                 occurrences=occurrences, channels=channels, xlabel='Time',
                  ylabel='Value', title=mod_name)
     return fn
 

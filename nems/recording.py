@@ -521,14 +521,15 @@ class Recording:
             for i in list(np.where(k == False)[0]):
                 g[lo] = g[lo] + groups[l[i]]
             groups = g
-            print(groups)
+
         elif len(groups)==1:
             k = list(groups.keys())[0]
             g1 = groups[k]
-            n = len(g)
+            n = len(g1)
             vset = np.int(np.floor(n*0.8))
 
             g={1: g1[:vset], 2: g1[vset:]}
+            groups = g
 
         elif len(groups)==0:
             m = "No occurrences?? Unable to split recording into est/val sets"
@@ -739,6 +740,9 @@ def load_recording(uri):
     else:
         raise ValueError('Invalid URI: {}'.format(uri))
     rec.uri = uri
+
+    # TODO ? create copy of 'stim' to 'pred' ?
+
     return rec
 
 def load_recording_from_dir(directory_or_targz):
