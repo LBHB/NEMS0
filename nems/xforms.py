@@ -1,6 +1,6 @@
 import io
+import os
 import copy
-import logging
 import socket
 import nems.analysis.api
 import nems.initializers as init
@@ -13,8 +13,9 @@ import nems.priors as priors
 from nems.uri import save_resource, load_resource
 from nems.utils import iso8601_datestring
 from nems.fitters.api import scipy_minimize
-from nems.recording import Recording
+from nems.recording import load_recording
 
+import logging
 log = logging.getLogger(__name__)
 
 xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
@@ -49,6 +50,55 @@ def xfspec_shortname(xformspec):
     return name
 
 
+def evaluate_step(xfa, context={}):
+    '''
+    Helper function for evaluate. Take one step
+    SVD revised 2018-03-23 so specialized xforms wrapper functions not required
+      but now xfa can be len 4, where xfa[2] indicates context in keys and
+      xfa[3] is context out keys
+    '''
+    if not(len(xfa) == 2 or len(xfa) == 4):
+        raise ValueError('Got non 2- or 4-tuple for xform: {}'.format(xfa))
+    xf = xfa[0]
+    xfargs = xfa[1]
+    if len(xfa) > 2:
+        context_in = {k: context[k] for k in xfa[2]}
+    else:
+        context_in = context
+    if len(xfa) > 3:
+        context_out_keys = xfa[3]
+    else:
+        context_out_keys = []
+
+    fn = ms._lookup_fn_at(xf)
+    # Check for collisions; more to avoid confusion than for correctness:
+    for k in xfargs:
+        if k in context_in:
+            m = 'xf arg {} overlaps with context: {}'.format(k, xf)
+            raise ValueError(m)
+    # Merge args into context, and make a deepcopy so that mutation
+    # inside xforms will not be propogated unless the arg is returned.
+    merged_args = {**xfargs, **context_in}
+    args = copy.deepcopy(merged_args)
+    # Run the xf
+    log.info('Evaluating: {}'.format(xf))
+    new_context = fn(**args)
+    if len(context_out_keys):
+        if type(new_context) is tuple:
+            # print(new_context)
+            new_context = {k: new_context[i] for i, k in enumerate(context_out_keys)}
+        elif len(context_out_keys) == 1:
+            new_context = {context_out_keys[0]: new_context}
+        else:
+            raise ValueError('len(context_out_keys) needs to match number of outputs from xf fun')
+    # Use the new context for the next step
+    if type(new_context) is not dict:
+        raise ValueError('xf did not return a context dict: {}'.format(xf))
+    context_out = {**context, **new_context}
+
+    return context_out
+
+
 def evaluate(xformspec, context={}, stop=None):
     '''
     Similar to modelspec.evaluate, but for xformspecs, which is a list of
@@ -73,27 +123,7 @@ def evaluate(xformspec, context={}, stop=None):
 
     # Evaluate the xforms
     for xfa in xformspec[:stop]:
-        if len(xfa) != 2:
-            raise ValueError('got non 2-tuple for xform: {}'.format(xfa))
-        xf = xfa[0]
-        xfargs = xfa[1]
-        fn = ms._lookup_fn_at(xf)
-        # Check for collisions; more to avoid confusion than for correctness:
-        for k in xfargs:
-            if k in context:
-                m = 'xf arg {} overlaps with context: {}'.format(k, xf)
-                raise ValueError(m)
-        # Merge args into context, and make a deepcopy so that mutation
-        # inside xforms will not be propogated unless the arg is returned.
-        merged_args = {**xfargs, **context}
-        args = copy.deepcopy(merged_args)
-        # Run the xf
-        log.info('Evaluating: {}({})'.format(xf, args))
-        new_context = fn(**args)
-        # Use the new context for the next step
-        if type(new_context) is not dict:
-            raise ValueError('xf did not return a context dict: {}'.format(xf))
-        context = {**context, **new_context}
+        context = evaluate_step(xfa, context)
 
     # Close the log, remove the handler, and add the 'log' string to context
     log.info('Done (re-)evaluating xforms.')
@@ -107,24 +137,31 @@ def evaluate(xformspec, context={}, stop=None):
 # Stuff below this line are useful resuable components.
 # See xforms_test.py for how to use it.
 
-
+# loader
 def load_recordings(recording_uri_list, **context):
     '''
     Load one or more recordings into memory given a list of URIs.
     '''
-    rec = Recording.load(recording_uri_list[0])
-    other_recordings = [Recording.load(uri) for uri in recording_uri_list[1:]]
+    rec = load_recording(recording_uri_list[0])
+    other_recordings = [load_recording(uri) for uri in recording_uri_list[1:]]
     if other_recordings:
         rec.concatenate_recordings(other_recordings)
     return {'rec': rec}
 
 
+# preprocessing
 def add_average_sig(rec, signal_to_average, new_signalname, epoch_regex,
                     **context):
     rec = preproc.add_average_sig(rec,
                                   signal_to_average=signal_to_average,
                                   new_signalname=new_signalname,
                                   epoch_regex=epoch_regex)
+    return {'rec': rec}
+
+def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_signalname='state', **context):
+    rec=preproc.make_state_signal(rec, state_signals=state_signals,
+                                  permute_signals=permute_signals,
+                                  new_signalname=new_signalname)
     return {'rec': rec}
 
 
@@ -153,29 +190,27 @@ def use_all_data_for_est_and_val(rec, **context):
     val = rec
     return {'est': est, 'val': val}
 
-def split_for_jackknife(est, modelspecs=None, njacks=10, IsReload=False, **context):
-    est_out=[]
-    val_out=[]
-    log.info("Generating  {} jackknifes".format(njacks))
-    for i in range(njacks):
-        est_out += [est.jackknife_by_time(njacks, i)]
-        val_out += [est.jackknife_by_time(njacks, i, invert=True)]
-        
-    if (not IsReload) and (modelspecs is not None):
-        if len(modelspecs)==1:
-            log.info("Duplicating modelspec {} times".format(njacks))
-            modelspecs_out=[copy.deepcopy(modelspecs[0]) for i in range(njacks)]
-        elif len(modelspecs)==njacks:
-            # assume modelspecs already generated for njacks
-            modelspecs_out=modelspecs
-        else:
-            raise ValueError('modelspecs must be len 1 or njacks')
-    return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
+def split_for_jackknife(rec, modelspecs=None, njacks=10, IsReload=False, **context):
 
-            
-def init_from_keywords(keywordstring, IsReload=False, **context):
+    est_out,val_out,modelspecs_out=preproc.split_est_val_for_jackknife(rec, modelspecs=modelspecs, njacks=njacks, IsReload=IsReload)
+    if IsReload:
+        return {'est': est_out, 'val': val_out}
+    else:
+        return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
+
+def generate_psth_from_est_for_both_est_and_val_nfold(est, val, **context):
+     '''
+     generate PSTH prediction for each set
+     '''
+     est_out,val_out=preproc.generate_psth_from_est_for_both_est_and_val_nfold(est, val)
+     return {'est': est_out, 'val': val_out}
+
+
+
+def init_from_keywords(keywordstring, meta={}, IsReload=False, **context):
     if not IsReload:
-        modelspec = init.from_keywords(keywordstring)
+        modelspec = init.from_keywords(keyword_string=keywordstring,meta=meta)
+
         return {'modelspecs': [modelspec]}
     else:
         return {}
@@ -207,8 +242,11 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
         modelspecs = [nems.initializers.prefit_to_target(
                 est, modelspec, nems.analysis.api.fit_basic, 'levelshift',
                 fitter=scipy_minimize,
-                fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}}) 
+                fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
                 for modelspec in modelspecs]
+#        modelspecs = [nems.initializers.init_dexp(
+#                est, modelspec)
+#                for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
 
 def fit_basic(modelspecs, est, IsReload=False, **context):
@@ -219,13 +257,13 @@ def fit_basic(modelspecs, est, IsReload=False, **context):
             modelspecs_out=[]
             njacks=len(modelspecs)
             i=0
-            for modelspec,d in zip(modelspecs,est):
+            for m,d in zip(modelspecs,est):
                 i+=1
                 log.info("Fitting JK {}/{}".format(i,njacks))
                 modelspecs_out += \
-                        nems.analysis.api.fit_basic(d,
-                                                    modelspec,
+                        nems.analysis.api.fit_basic(d,m,
                                                     fitter=scipy_minimize)
+            modelspecs=modelspecs_out
         else:
             # standard single shot
             modelspecs = [nems.analysis.api.fit_basic(est,
@@ -283,28 +321,49 @@ def fit_jackknifes(modelspecs, est, njacks,
                                                       njacks=njacks)
     return {'modelspecs': modelspecs}
 
+def fit_nfold(modelspecs, est, IsReload=False, **context):
+    ''' fitting n fold, one from each entry in est '''
+    if not IsReload:
+         modelspecs = nems.analysis.api.fit_nfold(
+                   est,modelspecs,fitter=scipy_minimize)
+    return {'modelspecs': modelspecs}
+
+
 
 def save_recordings(modelspecs, est, val, **context):
     # TODO: Save the recordings somehow?
     return {'modelspecs': modelspecs}
 
 
-def add_summary_statistics(modelspecs, est, val, **context):
+def predict(modelspecs, est, val, **context):
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
     # TODO: Add statistics to metadata of every modelspec
-    
-    modelspecs=nems.analysis.api.standard_correlation(est,val,modelspecs)
-    
+
+    est, val = nems.analysis.api.generate_prediction(est, val, modelspecs)
+
+    return {'val': val, 'est': est}
+
+
+def add_summary_statistics(est, val, modelspecs, **context):
+    # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
+    # TODO: Add statistics to metadata of every modelspec
+
+    modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs)
+
     return {'modelspecs': modelspecs}
 
 
-def plot_summary(modelspecs, val, figures=None, **context):
+def plot_summary(modelspecs, val, figures=None, IsReload=False, **context):
     # CANNOT initialize figures=[] in optional args our you will create a bug
+
     if not figures:
         figures = []
-    fig = nplt.plot_summary(val, modelspecs)
-    # Needed to make into a Bytes because you can't deepcopy figures!
-    figures.append(nplt.fig2BytesIO(fig))
+    if not IsReload:
+        # fig = nplt.plot_summary(val, modelspecs)
+        fig = nplt.quickplot({'modelspecs': modelspecs, 'val': val})
+        # Needed to make into a Bytes because you can't deepcopy figures!
+        figures.append(nplt.fig2BytesIO(fig))
+
     return {'figures': figures}
 
 
@@ -373,12 +432,16 @@ def save_analysis(destination,
                   modelspecs,
                   xfspec,
                   figures,
-                  log):
+                  log,
+                  add_tree_path=False):
     '''Save an analysis file collection to a particular destination.'''
-
-    treepath = tree_path(recording, modelspecs, xfspec)
-    destination = destination[:-1] if destination[-1] == '/' else destination
-    base_uri = destination + treepath
+    if add_tree_path:
+        treepath = tree_path(recording, modelspecs, xfspec)
+        destination = destination[:-1] if destination[-1] == '/' else destination
+        base_uri = destination + treepath
+    else:
+        destination = destination if destination[-1] == '/' else destination + '/'
+        base_uri = destination
 
     xfspec_uri = base_uri + 'xfspec.json'  # For attaching to modelspecs
 
@@ -391,4 +454,25 @@ def save_analysis(destination,
                       data=figure)
     save_resource(base_uri + 'log.txt', data=log)
     save_resource(xfspec_uri, json=xfspec)
-    return {}
+    return {'savepath': base_uri}
+
+
+def load_analysis(filepath, eval_model=True):
+    """
+    load xforms and modelspec(s) from a specified directory
+    """
+    logging.info('Loading modelspecs from {0}...'.format(filepath))
+
+    xfspec = load_xform(filepath + 'xfspec.json')
+
+    mspaths = []
+    for file in os.listdir(filepath):
+        if file.startswith("modelspec"):
+            mspaths.append(filepath + "/" + file)
+    ctx = load_modelspecs([], uris=mspaths, IsReload=False)
+    ctx['IsReload'] = True
+
+    if eval_model:
+        ctx, log_xf = evaluate(xfspec, ctx)
+
+    return xfspec, ctx

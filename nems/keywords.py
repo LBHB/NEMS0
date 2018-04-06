@@ -11,18 +11,29 @@ def defkey(keyword, modulespec):
     file and part of a very large single multiline dict.
     '''
     if keyword in defaults:
-        raise ValueError("Keyword already defined! Choose another name.")
+        m = "Keyword {} already defined! Choose another name."
+        raise ValueError(m.format(keyword))
     defaults[keyword] = modulespec
 
 
 def defkey_wc(n_inputs, n_outputs):
+    '''
+    Generate and register default modulespec for basic channel weighting
+
+    Parameters
+    ----------
+    n_inputs : int
+        Number of input channels.
+    n_outputs : int
+        Number of output channels.
+    '''
     name = 'wc{}x{}'.format(n_inputs, n_outputs)
     p_coefficients = {
-        'mu': np.zeros((n_outputs, n_inputs)),
+        'mean': np.zeros((n_outputs, n_inputs)),
         'sd': np.ones((n_outputs, n_inputs)),
     }
     template = {
-        'fn': 'nems.modules.weight_channels.weight_channels',
+        'fn': 'nems.modules.weight_channels.basic',
         'fn_kwargs': {'i': 'pred', 'o': 'pred'},
         'prior': {
             'coefficients': ('Normal', p_coefficients),
@@ -31,106 +42,159 @@ def defkey_wc(n_inputs, n_outputs):
     return defkey(name, template)
 
 
-defkey_wc(40, 1)  # wc40x1
-defkey_wc(18, 1)  # wc18x1
-defkey_wc(18, 2)
+def defkey_wcg(n_inputs, n_outputs):
+    '''
+    Generate and register default modulespec for gaussian channel weighting
 
-# gaussian weight channels
-defkey('wcg18x1',
-       {'fn': 'nems.modules.weight_channels.gaussian',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      'num_chan_in': 18},
-        'fn_coefficients': 'nems.modules.weight_channels._gaussian_coefs',
-        'prior': {'mn': ('Normal', {'mu': [0.5], 'sd': [1]}),
-                  'sig': ('Normal', {'mu': [0.5], 'sd': [1]})
-            }
-        })
-defkey('wcg18x2',
-       {'fn': 'nems.modules.weight_channels.gaussian',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      'num_chan_in': 18},
-        'fn_coefficients': 'nems.modules.weight_channels._gaussian_coefs',
-        'prior': {'mn': ('Normal', {'mu': [0.4, 0.6], 'sd': [1, 1]}),
-                  'sig': ('Normal', {'mu': [0.5, 0.5], 'sd': [1, 1]})
-            }
-        })
-        
-defkey('fir10x1',
-       {'fn': 'nems.modules.fir.fir_filter',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred'},
-        'prior': {'coefficients':
-                  ('Normal', {'mu': [[0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0]],
-                              'sd': [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]})}})
+    Parameters
+    ----------
+    n_inputs : int
+        Number of input channels.
+    n_outputs : int
+        Number of output channels.
 
-defkey('fir15x1',
-       {'fn': 'nems.modules.fir.fir_filter',
-        
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred'},
-        'prior': {'coefficients':
-                  ('Normal', {'mu': [[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
-                              'sd': [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]})}})
+    Note
+    ----
+    Gaussian channel weighting does not need to know the number of input
+    channels to work properly.
+    '''
+    name = 'wcg{}x{}'.format(n_inputs, n_outputs)
 
-defkey('fir15x2',
-       {'fn': 'nems.modules.fir.fir_filter',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred'},
-        'prior': {'coefficients':
-                  ('Normal', {'mu': [[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                                     [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
-                              'sd': [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-                                     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]})}})
+    # Generate evenly-spaced filter centers for the starting points
+    mean = np.arange(n_outputs + 2)/(n_outputs + 2)
+    mean = mean[1:-1]
+    sd = np.full_like(mean, 1/n_outputs)
+
+    mean_prior_coefficients = {
+        'mean': mean,
+        'sd': np.ones_like(mean),
+    }
+    sd_prior_coefficients = {'sd': sd}
+
+    template = {
+        'fn': 'nems.modules.weight_channels.gaussian',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_chan_in': n_inputs},
+        'fn_coefficients': 'nems.modules.weight_channels.gaussian_coefficients',
+        'prior': {
+            'mean': ('Normal', mean_prior_coefficients),
+            'sd': ('HalfNormal', sd_prior_coefficients),
+        },
+    }
+    return defkey(name, template)
+
+
+def defkey_fir(n_coefs, n_outputs):
+    '''
+    Generate and register default modulespec for basic channel weighting
+
+    Parameters
+    ----------
+    n_inputs : int
+        Number of input channels.
+    n_outputs : int
+        Number of output channels.
+    '''
+    name = 'fir{}x{}'.format(n_outputs, n_coefs)
+    p_coefficients = {
+        'mean': np.zeros((n_outputs, n_coefs)),
+        'sd': np.ones((n_outputs, n_coefs)),
+    }
+
+    if n_coefs > 1:
+        p_coefficients['mean'][:, 1] = 1
+    else:
+        p_coefficients['mean'][:, 0] = 1
+
+    template = {
+        'fn': 'nems.modules.fir.basic',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred'},
+        'prior': {
+            'coefficients': ('Normal', p_coefficients),
+        }
+    }
+    return defkey(name, template)
+
+
+# Autogenerate some standard keywords. TODO: this should be parseable from the
+# keyword name rather than requring an explicit definition for each. Port over
+# the parsing code from old NEMS?
+for n_inputs in (15, 18, 40):
+    for n_outputs in (1, 2, 3, 4):
+        defkey_wc(n_inputs, n_outputs)
+        defkey_wcg(n_inputs, n_outputs)
+
+
+for n_outputs in (1, 2, 3, 4):
+    for n_coefs in (10, 15, 18):
+        defkey_fir(n_coefs, n_outputs)
+
+#defkey_fir(10, 2)
+#defkey_fir(15, 2)
+#defkey_fir(18, 2)
 
 defkey('lvl1',
        {'fn': 'nems.modules.levelshift.levelshift',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'level': ('Normal', {'mu': [0], 'sd': [1]})}})
+        'prior': {'level': ('Normal', {'mean': [0], 'sd': [1]})}})
+
+defkey('stp1',
+       {'fn': 'nems.modules.stp.short_term_plasticity',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'crosstalk': 0},
+        'prior': {'u': ('Normal', {'mean': [0.05], 'sd': [1]}),
+                  'tau': ('Normal', {'mean': [0.1], 'sd': [1]})}})
+
+defkey('stp2',
+       {'fn': 'nems.modules.stp.short_term_plasticity',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'crosstalk': 0},
+        'prior': {'u': ('Normal', {'mean': [0.001, 0.001], 'sd': [1, 1]}),
+                  'tau': ('Normal', {'mean': [5, 5], 'sd': [5, 5]})}})
 
 defkey('dexp1',
        {'fn': 'nems.modules.nonlinearity.double_exponential',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'base': ('Normal', {'mu': [0], 'sd': [1]}),
-                  'amplitude': ('Normal', {'mu': [0.2], 'sd': [0.1]}),
-                  'shift': ('Normal', {'mu': [0], 'sd': [1]}),
-                  'kappa': ('Normal', {'mu': [0], 'sd': [0.1]})}})
+        'prior': {'base': ('Normal', {'mean': [0], 'sd': [1]}),
+                  'amplitude': ('Normal', {'mean': [0.2], 'sd': [0.1]}),
+                  'shift': ('Normal', {'mean': [0], 'sd': [1]}),
+                  'kappa': ('Normal', {'mean': [0], 'sd': [0.1]})}})
 
 defkey('qsig1',
        {'fn': 'nems.modules.nonlinearity.quick_sigmoid',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'base': ('Normal', {'mu': [0.1], 'sd': [0.1]}),
-                  'amplitude': ('Normal', {'mu': [0.7], 'sd': [0.5]}),
-                  'shift': ('Normal', {'mu': [1.5], 'sd': [1.0]}),
-                  'kappa': ('Normal', {'mu': [0.1], 'sd': [0.1]})}})
+        'prior': {'base': ('Normal', {'mean': [0.1], 'sd': [0.1]}),
+                  'amplitude': ('Normal', {'mean': [0.7], 'sd': [0.5]}),
+                  'shift': ('Normal', {'mean': [1.5], 'sd': [1.0]}),
+                  'kappa': ('Normal', {'mean': [0.1], 'sd': [0.1]})}})
 
 defkey('logsig1',
        {'fn': 'nems.modules.nonlinearity.logistic_sigmoid',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'base': ('Normal', {'mu': [0], 'sd': [1]}),
-                  'amplitude': ('Normal', {'mu': [0.2], 'sd': [1]}),
-                  'shift': ('Normal', {'mu': [0], 'sd': [1]}),
-                  'kappa': ('Normal', {'mu': [0], 'sd': [0.1]})}})
+        'prior': {'base': ('Normal', {'mean': [0], 'sd': [1]}),
+                  'amplitude': ('Normal', {'mean': [0.2], 'sd': [1]}),
+                  'shift': ('Normal', {'mean': [1], 'sd': [1]}),
+                  'kappa': ('Normal', {'mean': [-2], 'sd': [1]})}})
 
 defkey('tanh1',
        {'fn': 'nems.modules.nonlinearity.tanh',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'base': ('Normal', {'mu': [0], 'sd': [1]}),
-                  'amplitude': ('Normal', {'mu': [0.2], 'sd': [1]}),
-                  'shift': ('Normal', {'mu': [0], 'sd': [1]}),
-                  'kappa': ('Normal', {'mu': [0], 'sd': [0.1]})}})
+        'prior': {'base': ('Normal', {'mean': [0], 'sd': [1]}),
+                  'amplitude': ('Normal', {'mean': [0.2], 'sd': [1]}),
+                  'shift': ('Normal', {'mean': [0], 'sd': [1]}),
+                  'kappa': ('Normal', {'mean': [0], 'sd': [0.1]})}})
 
 defkey('dlog',
        {'fn': 'nems.modules.nonlinearity.dlog',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'offset': ('Normal', {'mu': [-2], 'sd': [2]})}})
+        'prior': {'offset': ('Normal', {'mean': [-2], 'sd': [2]})}})
 
 
 """ state-related and signal manipulation/generation """
@@ -147,8 +211,17 @@ defkey('stategain2',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
                       's': 'state'},
-        'prior': {'g': ('Normal', {'mu': [1,0], 'sd': [1,1]}),
-                  'd': ('Normal', {'mu': [1,0], 'sd': [1,1]})}
+        'prior': {'g': ('Normal', {'mean': [1,0], 'sd': [1,1]}),
+                  'd': ('Normal', {'mean': [1,0], 'sd': [1,1]})}
+        })
+
+defkey('stategain3',
+       {'fn': 'nems.modules.state.state_dc_gain',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      's': 'state'},
+        'prior': {'g': ('Normal', {'mean': [1,0,0], 'sd': [1,1,1]}),
+                  'd': ('Normal', {'mean': [1,0,0], 'sd': [1,1,1]})}
         })
 
 

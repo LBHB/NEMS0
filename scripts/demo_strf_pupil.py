@@ -4,6 +4,7 @@
 import os
 import logging
 import random
+import copy
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -25,7 +26,7 @@ from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
 
 logging.basicConfig(level=logging.INFO)
 
-relative_signals_dir = '../signals'
+relative_signals_dir = '../recordings'
 relative_modelspecs_dir = '../modelspecs'
 
 # Convert to absolute paths so they can be passed to functions in
@@ -40,28 +41,15 @@ modelspecs_dir = os.path.abspath(relative_modelspecs_dir)
 logging.info('Loading data...')
 
 # Method #1: Load the data from a local directory
-rec = Recording.load(os.path.join(signals_dir, 'TAR010c-18-1.tar.gz'))
+rec = Recording.load(os.path.join(signals_dir, 'TAR010c-18-1.tgz'))
 
 # Method #2: Load the data from baphy using the (incomplete, TODO) HTTP API:
 #URL = "http://potoroo:3004/baphy/271/bbl086b-11-1?rasterfs=200"
 #rec = Recording.load_url(URL)
 
+logging.info('Generating state signal...')
 
-
-# ----------------------------------------------------------------------------
-# DATA WITHHOLDING
-
-# GOAL: Split your data into estimation and validation sets so that you can
-#       know when your model exhibits overfitting.
-
-logging.info('Withholding validation set data...')
-
-# Method #0: Try to guess which stimuli have the most reps, use those for val
-est, val = rec.split_using_epoch_occurrence_counts(epoch_regex='^STIM_')
-
-# Optional: Take nanmean of ALL occurrences of all signals
-est = preproc.average_away_epoch_occurrences(est, epoch_regex='^STIM_')
-val = preproc.average_away_epoch_occurrences(val, epoch_regex='^STIM_')
+rec=preproc.make_state_signal(rec,['pupil'],[''],'state')
 
 
 # ----------------------------------------------------------------------------
@@ -69,12 +57,25 @@ val = preproc.average_away_epoch_occurrences(val, epoch_regex='^STIM_')
 
 # GOAL: Define the model that you wish to test
 
-logging.info('Initializing modelspec(s)...')
+logging.info('Initializing modelspec...')
 
 # Method #1: create from "shorthand" keyword string
 #modelspec = nems.initializers.from_keywords('pup_wcg18x1_fir15x1_lvl1_dexp1')
-modelspec = nems.initializers.from_keywords('pup_wcg18x2_fir15x2_lvl1')
+modelspec = nems.initializers.from_keywords('wcgNx2_fir15x2_lvl1_stategain2')
+#modelspec = nems.initializers.from_keywords('wcgNx2_fir15x2_lvl1')
 #modelspec = nems.initializers.from_keywords('pup_wcg18x2_fir15x2_lvl1_stategain2')
+
+# ----------------------------------------------------------------------------
+# DATA WITHHOLDING
+
+# GOAL: Split your data into estimation and validation sets so that you can
+#       know when your model exhibits overfitting.
+
+logging.info('Generating jackknife sets...')
+
+# create all jackknife sets
+nfolds=3
+ests,vals,m=preproc.split_est_val_for_jackknife(rec, modelspecs=None, njacks=nfolds)
 
 # ----------------------------------------------------------------------------
 # RUN AN ANALYSIS
@@ -84,20 +85,24 @@ modelspec = nems.initializers.from_keywords('pup_wcg18x2_fir15x2_lvl1')
 #       in descending order of how they performed on the fitter's metric.
 
 logging.info('Fitting modelspec(s)...')
-
-# Option 1: Use gradient descent on whole data set(Fast)
-modelspec = nems.initializers.prefit_to_target(
-        est, modelspec, nems.analysis.api.fit_basic, 'levelshift',
+modelspecs_out=[]
+i=0
+for d in ests:
+    m=copy.deepcopy(modelspec)
+    i+=1
+    logging.info("Fitting JK {}/{}".format(i,nfolds))
+    m = nems.initializers.prefit_to_target(
+        d, m, nems.analysis.api.fit_basic, 'levelshift',
         fitter=scipy_minimize,
         fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}}
         )
+    modelspecs_out += \
+        nems.analysis.api.fit_basic(d,m,fitter=scipy_minimize)
 
-modelspecs = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
-
+modelspecs=modelspecs_out
 
 # ----------------------------------------------------------------------------
 # SAVE YOUR RESULTS
-
 
 logging.info('Saving Results...')
 ms.save_modelspecs(modelspecs_dir, modelspecs)
@@ -106,13 +111,14 @@ ms.save_modelspecs(modelspecs_dir, modelspecs)
 # GENERATE SUMMARY STATISTICS
 
 logging.info('Generating summary statistics...')
+modelspecs,est,val=nems.analysis.api.standard_correlation(ests,vals,modelspecs)
 
-new_rec = [ms.evaluate(val, m) for m in modelspecs]
-r_test = [nems.metrics.api.corrcoef(p, 'pred', 'resp') for p in new_rec]
-new_rec = [ms.evaluate(est, m) for m in modelspecs]
-r_fit = [nems.metrics.api.corrcoef(p, 'pred', 'resp') for p in new_rec]
-modelspecs[0][0]['meta']['r_fit']=np.mean(r_fit)
-modelspecs[0][0]['meta']['r_test']=np.mean(r_test)
+#new_rec = [ms.evaluate(val, m) for m in modelspecs]
+#r_test = [nems.metrics.api.corrcoef(p, 'pred', 'resp') for p in new_rec]
+#new_rec = [ms.evaluate(est, m) for m in modelspecs]
+#r_fit = [nems.metrics.api.corrcoef(p, 'pred', 'resp') for p in new_rec]
+#modelspecs[0][0]['meta']['r_fit']=np.mean(r_fit)
+#modelspecs[0][0]['meta']['r_test']=np.mean(r_test)
 
 logging.info("r_fit={0} r_test={1}".format(modelspecs[0][0]['meta']['r_fit'],
       modelspecs[0][0]['meta']['r_test']))

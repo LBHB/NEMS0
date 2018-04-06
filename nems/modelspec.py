@@ -92,12 +92,11 @@ def save_modelspecs(directory, modelspecs, basename=None):
     return filepath
 
 
-def load_modelspec(filepath):
+def load_modelspec(uri):
     '''
-    Returns a single modelspecs loaded from filepath.
+    Returns a single modelspecs loaded from uri
     '''
-    json_data = open(filepath).read()
-    ms = json.loads(json_data)
+    ms = nems.uri.load_resource(uri)
     return ms
 
 
@@ -159,18 +158,21 @@ def _lookup_fn_at(fn_path):
     return fn
 
 
-def evaluate(rec, modelspec, stop=None):
+def evaluate(rec, modelspec, start=None, stop=None):
     '''
     Given a recording object and a modelspec, return a prediction.
     Does not alter its arguments in any way.
-    If stop is none, will use entire list. Otherwise, will only evaluate
-    modules 0 through stop-1.
+    Only evaluates modules at indices start through stop-1.
+    Note that a value of None for start will include the beginning
+    of the list, and a value of None for stop will include the end
+    of the list (whereas a value of -1 for stop will not).
     '''
     # d = copy.deepcopy(rec)  # Paranoid, but 100% safe
     d = copy.copy(rec)  # About 10x faster & fine if Signals are immutable
-    for m in modelspec[:stop]:
+    for m in modelspec[start:stop]:
         fn = _lookup_fn_at(m['fn'])
-        kwargs = {**m['fn_kwargs'], **m['phi']}  # Merges both dicts
+        fn_kwargs = m.get('fn_kwargs', {})
+        kwargs = {**fn_kwargs, **m['phi']}  # Merges both dicts
         new_signals = fn(rec=d, **kwargs)
         if type(new_signals) is not list:
             raise ValueError('Fn did not return list of signals: {}'.format(m))
@@ -198,13 +200,15 @@ def summary_stats(modelspecs):
 
     Returns:
     --------
-    means, stds : dicts
-        Each contains one key for each parameter, of the form:
-            {'<modelspec_index>_<parameter_name>': <mean value>}
-            or {'<modelspec_index>_<parameter_name>': <standard deviation>}
+    stats : nested dictionary
+        {'module.function---parameter':
+            {'mean':M, 'std':S, 'values':[v1,v2 ...]}}
+        Where M, S and v might be scalars or arrays depending on the
+        typical type for the parameter.
     '''
-    # Don't modify the modelspecs themselves
-    modelspecs = [m.copy() for m in modelspecs]
+    # Make sure the modelspecs themselves aren't modified
+    # deepcopy for nested container structure
+    modelspecs = [copy.deepcopy(m) for m in modelspecs]
 
     # Modelspecs must have the same length to compare
     # TODO: Remove this requirement? Would just need some handling of
@@ -225,46 +229,47 @@ def summary_stats(modelspecs):
         if not sorted(fns) == sorted(m_fns):
             raise ValueError("All modelspecs must have the same modules")
 
-    # Assumble a dict of columns for creating a Dataframe, with
-    # the column name format: <modelspec_index>_<parameter>
+    # Create a dictionary with a key for each parameter associated with
+    # to a list of one value per modelspec
     columns = {}
-    for i, m in enumerate(modelspecs[0]):
-        params = m['phi'].keys()
-        for p in params:
-            columns.update({'{0}_{1}'.format(i, p): []})
+    for mspec in modelspecs:
+        for i, m in enumerate(mspec):
+            name = m['fn']
+            if name.startswith('nems.modules.'):
+                name = name[13:]
+            phi = m['phi']
+            params = phi.keys()
+            for p in params:
+                column_entry = '{0}---{1}'.format(name, p)
+                if column_entry in columns.keys():
+                    columns[column_entry].append(phi[p])
+                else:
+                    columns.update({column_entry: [phi[p]]})
 
-    for col in columns.keys():
-        # First chunk, before _, is the 'module' index within modelspec
-        split = col.split('_')
-        m = int(split[0])
-        # Second chunk, after _, is the parameter
-        p = '_'.join(split[1:])
-        for mspec in modelspecs:
-            this_p = mspec[m]['phi'][p]
-            columns[col].append(this_p)
-
-    # Now columns should look something like:
-    # {'0_mu': [1, 1, 3, 4],
-    #  '0_sd': [0.5, 1, 0.5, 1],
-    #  '1_kappa': [1.0, 3.0, 2.0, 4.0]}
-
-    # TODO: Currently gets a single scalar mean/std for parameters like
-    #       weight_channels' coefficients. Might want to end up with
-    #       an array of mean/stds for those instead?
-    means = columns.copy()
-    stds = columns.copy()
+    # Convert entries from lists of values to dictionaries
+    # containing keys for mean, std and the raw values.
+    with_stats = {}
     for col, values in columns.items():
-        means[col] = np.mean(values)
-        stds[col] = np.std(values)
+        mean = try_scalar((np.mean(values, axis=0)))
+        std = try_scalar((np.std(values, axis=0)))
+        values = try_scalar((np.array(values)))
 
-    # TODO: Might be better to have this end up as a single dictionary
-    #       of the form:
-    #       {'<fn entry>_<param name>': {'mean': x, 'std': y}}
-    #       ex:
-    #       {'nems.modules.nonlinearity.dexp_kappa': {'mean': 1.0,
-    #                                                 'std': 0.37}}
+        with_stats[col] = {}
+        with_stats[col]['mean'] = mean
+        with_stats[col]['std'] = std
+        with_stats[col]['values'] = values
 
-    return means, stds
+    return with_stats
+
+
+def try_scalar(x):
+    """Try to convert x to scalar, in case of ValueError just return x."""
+    # TODO: Maybe move this to an appropriate utilities module?
+    try:
+        x = np.asscalar(x)
+    except ValueError:
+        pass
+    return x
 
 # TODO: Check that the word 'phi' is not used in fn_kwargs
 # TODO: Error checking the modelspec before execution;

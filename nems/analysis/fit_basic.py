@@ -17,10 +17,7 @@ def fit_basic(data, modelspec,
               fitter=scipy_minimize,
               segmentor=nems.segmentors.use_all_data,
               mapper=nems.fitters.mappers.simple_vector,
-              metric=lambda data: nems.metrics.api.nmse(
-                                {'pred': data.get_signal('pred').as_continuous(),
-                                 'resp': data.get_signal('resp').as_continuous()}
-                                ),
+              metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp'),
               metaname='fit_basic', fit_kwargs={}):
     '''
     Required Arguments:
@@ -121,6 +118,30 @@ def fit_random_subsets(data, modelspec, nsplits=1, rebuild_every=10000):
     return fit_basic(data, modelspec,
                      segmentor=segmentor,
                      metaname='fit_random_subsets')
+
+def fit_nfold(data_list, modelspecs, generate_psth=False, fitter=scipy_minimize):
+    '''
+    Takes njacks jackknifes, where each jackknife has some small
+    fraction of data NaN'd out, and fits modelspec to them.
+    '''
+    nfolds=len(data_list)
+#    if type(modelspec) is not list:
+#        modelspecs=[modelspec]*nfolds
+#    elif len(modelspec)==1:
+#        modelspec=modelspec*nfolds
+
+    models = []
+    for i in range(nfolds):
+        log.info("Fitting fold {}/{}".format(i+1, nfolds))
+        tms = nems.initializers.prefit_to_target(
+                data_list[i], copy.deepcopy(modelspecs[0]), nems.analysis.api.fit_basic, 'levelshift',
+                fitter=scipy_minimize,
+                fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
+
+        models += fit_basic(data_list[i], tms, fitter=fitter,
+                            metaname='fit_nfold')
+
+    return models
 
 
 def fit_jackknifes(data, modelspec, njacks=10):

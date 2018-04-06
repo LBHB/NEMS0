@@ -30,8 +30,8 @@ def corrcoef(result, pred_name='pred', resp_name='resp'):
     and symbolic (i.e., Theano, TensorFlow) computation. Please do not edit
     unless you know what you're doing. (@bburan TODO: Is this still true?)
     '''
-    pred = result[pred_name]._matrix
-    resp = result[resp_name]._matrix
+    pred = result[pred_name]._data
+    resp = result[resp_name]._data
     ff = np.isfinite(pred) & np.isfinite(resp)
     cc = np.corrcoef(pred[ff],resp[ff])
     return cc[0,1]

@@ -20,7 +20,7 @@ from nems.fitters.api import scipy_minimize
 
 logging.basicConfig(level=logging.INFO)
 
-relative_signals_dir = '../signals'
+relative_signals_dir = '../recordings'
 #relative_signals_dir = '/home/jacob/auto/data/batch271_fs100_ozgf18/'
 relative_modelspecs_dir = '../modelspecs'
 # Convert to absolute paths so they can be passed to functions in
@@ -40,7 +40,8 @@ logging.info('Loading data...')
 
 # Method #2: Load the data from baphy using the nems_baphy HTTP API:
 # rec = Recording.load("http://potoroo/recordings/TAR010c-18-1.tar.gz")
-rec = Recording.load("http://potoroo/baphy/271/bbl086b-11-1")
+#rec = Recording.load("http://hyrax.ohsu.edu:3000/baphy/271/bbl086b-11-1")
+rec = Recording.load(signals_dir + "/TAR010c-18-1.tgz")
 
 # Method #3: Load the data from S3: (TODO)
 # stimfile=("https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/"
@@ -91,8 +92,8 @@ logging.info('Withholding validation set data...')
 est, val = rec.split_using_epoch_occurrence_counts(epoch_regex='^STIM_')
 
 # Optional: Take nanmean of ALL occurrences of all signals
-# est = preproc.average_away_epoch_occurrences(est, epoch_regex='^STIM_')
-# val = preproc.average_away_epoch_occurrences(val, epoch_regex='^STIM_')
+est = preproc.average_away_epoch_occurrences(est, epoch_regex='^STIM_')
+val = preproc.average_away_epoch_occurrences(val, epoch_regex='^STIM_')
 
 # Method #1: Split based on time, where the first 80% is estimation data and
 #            the last, last 20% is validation data.
@@ -114,7 +115,7 @@ est, val = rec.split_using_epoch_occurrence_counts(epoch_regex='^STIM_')
 logging.info('Initializing modelspec(s)...')
 
 # Method #1: create from "shorthand" keyword string
-modelspec = nems.initializers.from_keywords('wc18x1_lvl1_fir15x1_dexp1')
+modelspec = nems.initializers.from_keywords('wc18x1_fir1x15_lvl1_dexp1')
 # modelspec = nems.initializers.from_keywords('wc18x1_lvl1_fir15x1_logsig1')
 # modelspec = nems.initializers.from_keywords('wc18x1_lvl1_fir15x1_qsig1')
 # modelspec = nems.initializers.from_keywords('wc18x1_lvl1_fir15x1_tanh1')
@@ -165,6 +166,7 @@ modelspecs = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
 # fitter = partial(nems.cross_validator.cross_validate_wrapper, gradient_descent, 10)
 # modelspecs = nems.analysis.fit_cv(est, modelspec, folds=10)
 
+est,val = nems.analysis.api.generate_prediction(est, val, modelspecs)
 
 # ----------------------------------------------------------------------------
 # SAVE YOUR RESULTS

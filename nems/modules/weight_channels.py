@@ -1,6 +1,31 @@
 import numpy as np
 
-def weight_channels(rec, i, o, coefficients):
+
+#-------------------------------------------------------------------------------
+# Helper functions
+#-------------------------------------------------------------------------------
+def gaussian_coefficients(mean, sd, n_chan_in, **kwargs):
+    '''
+    Generate Gaussian-constrained coefficients vector for channel weighting
+
+    Parameters
+    ----------
+    TODO
+    '''
+    x = np.arange(n_chan_in)/n_chan_in
+    mean = np.asanyarray(mean)[..., np.newaxis]
+    sd = np.asanyarray(sd)[..., np.newaxis]
+    coefficients = 1/(sd*(2*np.pi)**0.5) * np.exp(-0.5*((x-mean)/sd)**2)
+    csum=np.sum(coefficients, axis=1, keepdims=True)
+    csum[csum==0]=1
+    coefficients /= csum
+    return coefficients
+
+
+#-------------------------------------------------------------------------------
+# Module functions
+#-------------------------------------------------------------------------------
+def basic(rec, i, o, coefficients):
     '''
     Parameters
     ----------
@@ -14,36 +39,22 @@ def weight_channels(rec, i, o, coefficients):
     fn = lambda x: coefficients @ x
     return [rec[i].transform(fn, o)]
 
-def _gaussian_coefs(i, o, mn, sig, num_chan_in):
-    '''
-    helper function for gaussian
-    '''
-    num_chan_out=len(mn)
-    coefficients = np.zeros([num_chan_out, num_chan_in])
-    for k in range(0, num_chan_out):
-        m = mn[k] * num_chan_in
-        s = sig[k] * num_chan_in
 
-        x = np.arange(0, num_chan_in)
-        coefficients[k, :] = np.exp(-np.square((x - m) / s))
-        coefficients[k, :] = coefficients[k, :] / np.sum(coefficients[k, :])
-    
-    return coefficients
-
-def gaussian(rec, i, o, mn, sig, num_chan_in):
+def gaussian(rec, i, o, n_chan_in, mean, sd):
     '''
     Parameters
     ----------
-    mn,sig = (mean,std) of num_chan_out gaussian functions
-    num_chan_in
-    num_chan_out = len(mn)
-    generates num_chan_out X num_chan_in coefficients matrix that's fed into
-    standard weight_channels
+    rec : recording
+        Recording to transform
+    i : string
+        Name of input signal
+    o : string
+        Name of output signal
+    mean : array-like (between 0 and 1)
+        Centers of Gaussian channel weights
+    sd : array-like
+        Standard deviation of Gaussian channel weights
     '''
-    coefficients = _gaussian_coefs(i, o, mn, sig, num_chan_in)
-    
+    coefficients = gaussian_coefficients(mean, sd, n_chan_in)
     fn = lambda x: coefficients @ x
-
     return [rec[i].transform(fn, o)]
-
-

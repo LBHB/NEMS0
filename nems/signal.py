@@ -1,18 +1,202 @@
 import io
 import os
+import logging
 import json
 import re
 import math
+import copy
+import tempfile
+
 import pandas as pd
 import numpy as np
-import tempfile
-import copy
-from nems.epoch import remove_overlap, merge_epoch, verify_epoch_integrity
+import h5py
 
-class Signal:
+from nems.epoch import (remove_overlap, merge_epoch, epoch_contained,
+                        epoch_intersection)
 
-    def __init__(self, fs, matrix, name, recording, chans=None, epochs=None,
-                 meta=None, safety_checks=True):
+log = logging.getLogger(__name__)
+
+""" Proposed modifications for non-raster signals:
+
+    1. create base class with subclasses:
+            SignalRasterized --DONE? Not much needs to change
+            SignalTimeSeries (for spike events) --DONE
+            SignalDictionary (for stimulus events) --DONE
+    2. for latter two, raw data gets stored in a ._data field --DONE
+    3. for saving, save _data to an HDF5 file (using pytables lib?) --DONE
+    4. for SignalTimeSeries use spike_time_to_raster to generate _data first
+       time it's needed. then save --DONE
+    5. for SignalDictionary use dict_to_signal for the same purpose --DONE
+    6. delete_cached_data() method to clear/delete _data
+                    --Maybe done? But hard to test. Python memory is weird.
+
+-----------
+    @SVD I didn't get to the subset stuff yet, but it's stubbed out at
+         the very bottom of the file
+
+         The other two new subclasses and the new base class have been created
+         and are functional with save/load  and caching their _data  etc,
+         but can't do much else yet. However, I think once we decide which
+         methods should be useable by all signals (i.e. move those methods
+         to the base class) the new subclass *should* "just work" for
+         the most part.
+
+         I was not able to start on the concatenate_time
+         method for SignalTimeSeries which is needed for baphy_load_recording.
+
+         Just for your reference: the saved hdf5 files for stim and resp
+         were a total of about 9mb combined for me, including epochs stored
+         in each. Not sure how that compares to the csv setup. Re-creating
+         the cached_data also only took about a second, so not bad if
+         the memory savings end up being susbtantial.
+
+                --jacob 3/25/2018
+
+-----------
+
+    7. next steps: SignalSubset subclass to which is a masked/subset of a
+        SignalRasterized where epochs are discarded but enough information
+        is saved from the masking so that the signal can be cast back into
+        its original shape & size
+        example sig_sub=original_signal.subset(np.array([0,1,2,3..,10,21,...30]))
+          or ..= signal.subset([True,True,...True,False,False...True...])
+          or ..= signal.subset([range variables])
+          sig_sub contains only the indexed samples and the masking information
+            so that it can be inverted back to the original signal
+        original_signal.replace_data(sig_sub)
+            --- note this should only replace the samples from sig_sub and
+            preserve other samples already in original_signal
+    8. Then RecordingSubset is a contained for SignalSubset?
+"""
+
+################################################################################
+# Utility methods
+################################################################################
+def _string_syntax_valid(s):
+    '''
+    Returns True iff the string is valid for use in signal names,
+    recording names, or channel names. Else False.
+    '''
+    disallowed = re.compile(r'[^a-zA-Z0-9_\-]')
+    match = disallowed.match(s)
+    if match:
+        return False
+    else:
+        return True
+
+
+################################################################################
+# Indexing support
+################################################################################
+class BaseSignalIndexer:
+
+    def __init__(self, obj):
+        self.obj = obj
+
+    def __getitem__(self, index):
+        if isinstance(index, tuple) and len(index) > 2:
+            raise IndexError('Cannot add dimensions')
+
+        # Parse the slice into the channel and time portions
+        if isinstance(index, tuple):
+            c_slice, t_slice = index
+        else:
+            c_slice = index
+            t_slice = slice(None)
+
+        # Make sure the channel and time slices are slices.
+        # If they're integers,
+        # that dimension will be dropped. We don't want that as we need to
+        # preserve dimensionality to create a new Signal object,
+        # so the parsers
+        # need to return the appropriate dimensionality-preserving slice.
+        c_slice = self._parse_c_slice(c_slice)
+        t_slice = self._parse_t_slice(t_slice)
+
+        data = self.obj.as_continuous()[c_slice, t_slice]
+        chans = np.array(self.obj.chans)[c_slice].tolist()
+        kwattrs = {'chans': chans}
+        if t_slice.start is not None:
+            kwattrs['t0'] = t_slice.start/self.obj.fs
+        return self.obj._modified_copy(data, **kwattrs)
+
+    def _parse_c_slice(self, c_slice):
+        raise NotImplementedError
+
+    def _parse_t_slice(self, t_slice):
+        raise NotImplementedError
+
+
+class SimpleSignalIndexer(BaseSignalIndexer):
+    '''
+    Index-based signal indexer that supports selecting channels and timepoints
+    by index
+    '''
+    def _parse_c_slice(self, c_slice):
+        if isinstance(c_slice, int):
+            c_slice = slice(c_slice, c_slice+1)
+        return c_slice
+
+    def _parse_t_slice(self, t_slice):
+        if isinstance(t_slice, int):
+            t_slice = slice(t_slice, t_slice+1)
+        elif isinstance(t_slice, list):
+            m = 'List-based selection on time-based indexers not supported'
+            raise IndexError(m)
+        return t_slice
+
+
+class LabelSignalIndexer(BaseSignalIndexer):
+    '''
+    Label-based signal indexer that supports selecting by named channels and
+    time (in seconds).
+    '''
+
+    def _parse_t_slice(self, t_slice):
+        if isinstance(t_slice, slice):
+            if t_slice.step is not None:
+                m = 'Strides on time-based indexers not supported'
+                raise IndexError(m)
+            start = None if t_slice.start is None else \
+                int(t_slice.start*self.obj.fs)
+            stop = None if t_slice.stop is None else \
+                int(t_slice.stop*self.obj.fs)
+            return slice(start, stop)
+        elif isinstance(t_slice, (float, int)):
+            t = int(t_slice*self.obj.fs)
+            return slice(t, t+1)
+        elif isinstance(t_slice, list):
+            m = 'List-based selection on time-based indexers not supported'
+            raise IndexError(m)
+
+    def _parse_c_slice(self, c_slice):
+        if isinstance(c_slice, slice):
+            if c_slice.step is not None:
+                m = 'Strides on label-based indexers not supported'
+                raise IndexError(m)
+            start = None if c_slice.start is None else \
+                self.obj.chans.index(c_slice.start)
+            # Note that we add 1 to the label-based index becasue we're
+            # duplicating Pandas loc behavior (where the end of a label
+            # slice is included).
+            stop = None if c_slice.stop is None else \
+                self.obj.chans.index(c_slice.stop)+1
+            return slice(start, stop)
+        elif isinstance(c_slice, str):
+            return [self.obj.chans.index(c_slice)]
+        elif isinstance(c_slice, list):
+            return [self.obj.chans.index(c) for c in c_slice]
+        else:
+            raise IndexError('Slice not understood')
+
+
+################################################################################
+# Signals
+################################################################################
+class SignalBase:
+
+    def __init__(self, fs, data, name, recording, chans=None, epochs=None,
+                 segments=None, meta=None, safety_checks=True, signal_type=None):
         '''
         Parameters
         ----------
@@ -24,294 +208,280 @@ class Signal:
             denoting the start and end of the time of an epoch (in seconds).
             You may use the same epoch name multiple times; this is common when
             tagging epochs that correspond to occurrences of the same stimulus.
-        ...
         '''
-        self._matrix = matrix
-        self._matrix.flags.writeable = False  # Make it immutable
+        self.fs = fs
+        self._data = data
         self.name = name
         self.recording = recording
         self.chans = chans
-        self.fs = fs
         self.epochs = epochs
         self.meta = meta
+        self.signal_type = str(type(self))
 
-        # Verify that we have a long time series
-        (C, T) = self._matrix.shape
-        if safety_checks and T < C:
-            m = 'Incorrect matrix dimensions?: (C, T) is {}. ' \
-                'We expect a long time series, but T < C'
-            raise RuntimeWarning(m.format((C, T)))
+        if self.epochs is not None:
+            max_epoch_time = self.epochs["end"].max()
+        else:
+            max_epoch_time = 0
+        #max_event_times = [max(et) for et in self._data.values()]
+        max_event_times = [0]
+        max_time = max(max_epoch_time, *max_event_times)
+        self.ntimes = np.int(np.ceil(fs*max_time))
 
-        self.nchans = C
-        self.ntimes = T
+        if segments is None:
+            segments = np.array([[0, self.ntimes]])
+        self.segments = segments
 
-        # Cached properties for speed; their use is however optional
-        # TODO: Can these be made lazy? There is actually a big
-        # performance hit in precalculating these
-        # For now, don't set until a method needs them.
-        #self._set_cached_props()
+        if safety_checks:
+            self._run_safety_checks()
 
-        if safety_checks and not isinstance(self.name, str):
+    def _run_safety_checks(self):
+        """
+        Additional subclass-specific checks can be added by
+        redefiing _run_safety_checks in that class and calling
+        super()._run_safety_checks() within that function.
+        """
+        if not isinstance(self.name, str):
             m = 'Name of signal must be a string: {}'.format(self.name)
             raise ValueError(m)
 
-        if safety_checks and not isinstance(self.recording, str):
+        if not isinstance(self.recording, str):
             m = 'Name of recording must be a string: {}'.format(self.recording)
             raise ValueError(m)
 
-        if safety_checks and self.chans:
+        if self.chans:
             if type(self.chans) is not list:
                 raise ValueError('Chans must be a list.')
             typesok = [(True if type(c) is str else False) for c in self.chans]
             if not all(typesok):
                 raise ValueError('Chans must be a list of strings:' +
                                  str(self.chans) + str(typesok))
-            # Test that channel names use only lowercase letters and numbers 0-9
+            # Test that channel names use only
+            # lowercase letters and numbers 0-9
             for s in self.chans:
-                if s and not self._string_syntax_valid(s):
+                if s and not _string_syntax_valid(s):
                     raise ValueError("Disallowed characters in: {0}\n"
                                      .format(s))
 
         # Test that other names use only lowercase letters and numbers 0-9
-        if safety_checks:
-            for s in [name, recording]:
-                if s and not self._string_syntax_valid(s):
-                    raise ValueError("Disallowed characters in: {0}\n"
-                                     .format(s))
+        for s in [self.name, self.recording]:
+            if s and not _string_syntax_valid(s):
+                raise ValueError("Disallowed characters in: {0}\n"
+                                 .format(s))
 
-        if safety_checks and self.fs < 0:
+        if self.fs < 0:
             m = 'Sampling rate of signal must be a positive number. Got {}.'
             raise ValueError(m.format(self.fs))
 
-        if safety_checks and type(self._matrix) is not np.ndarray:
-            raise ValueError('matrix must be a np.ndarray:' +
-                             type(self._matrix))
-
-        # not implemented yet in epoch.py -- 2/4/2018f
+        # not implemented yet in epoch.py -- 2/4/2018
         # verify_epoch_integrity(self.epochs)
 
-    def _set_cached_props(self):
-        """Sets channel_max, channel_min, channel_mean, channel_var,
-        and channel_std.
-
-        """
-        self.channel_max = np.nanmax(self._matrix, axis=-1, keepdims=True)
-        self.channel_min = np.nanmin(self._matrix, axis=-1, keepdims=True)
-        self.channel_mean = np.nanmean(self._matrix, axis=-1, keepdims=True)
-        self.channel_var = np.nanvar(self._matrix, axis=-1, keepdims=True)
-        self.channel_std = np.nanstd(self._matrix, axis=-1, keepdims=True)
-
-    def as_file_streams(self, fmt='%.18e'):
-        '''
-        Returns 3 filestreams for this signal: the csv, json, and epoch.
-        TODO: Better docs and a refactoring of this and save()
-        '''
-        # TODO: actually compute these instead of cheating with a tempfile
-        files = {}
-        filebase = self.recording + '.' + self.name
-        csvfile = filebase + '.csv'
-        jsonfile = filebase + '.json'
-        epochfile = filebase + '.epoch.csv'
-        # Create three streams
-        files[csvfile] = io.BytesIO()
-        files[jsonfile] = io.StringIO()
-        files[epochfile] = io.StringIO()
-        # Write to those streams
-        # Write the CSV file to a bytesIO buffer
-        mat = self.as_continuous()
-        mat = np.swapaxes(mat, 0, 1)
-        np.savetxt(files[csvfile], mat, delimiter=",", fmt=fmt)
-        files[csvfile].seek(0)  # Seek back to start of file
-        # TODO: make epochs optional?
-        self.epochs.to_csv(files[epochfile], sep=',', index=False)
-        # Write the JSON stream
-        attributes = self._get_attributes()
-        del attributes['epochs']
-        json.dump(attributes, files[jsonfile])
-        return files
-
-    def save(self, dirpath, fmt='%.18e'):
+    ##
+    ## I/O method(s)
+    ##
+    def _save_metadata(self, epoch_fh, md_fh, fmt='%.18e'):
         '''
         Save this signal to a CSV file + JSON sidecar. If desired,
         you may use optional parameter fmt (for example, fmt='%1.3e')
         to alter the precision of the floating point matrices.
         '''
+
+        self.epochs.to_csv(epoch_fh, sep=',', index=False)
+        attributes = self._get_attributes()
+        del attributes['epochs']
+        attributes['segments'] = attributes['segments'].tolist()
+        json.dump(attributes, md_fh)
+
+    def _save_metadata_to_dirpath(self, dirpath, fmt='%.18e'):
+        # create files
+        if not os.path.isdir(dirpath):
+            os.makedirs(dirpath, mode=0o0777)
+
         filebase = self.recording + '.' + self.name
         basepath = os.path.join(dirpath, filebase)
-        csvfilepath = basepath + '.csv'
         jsonfilepath = basepath + '.json'
         epochfilepath = basepath + '.epoch.csv'
+        print(jsonfilepath)
+        with open(jsonfilepath, 'w') as md_fh, open(epochfilepath, 'w') as epoch_fh:
+            self._save_metadata(epoch_fh, md_fh, fmt)
+        return (jsonfilepath, epochfilepath)
 
-        mat = self.as_continuous()
-        mat = np.swapaxes(mat, 0, 1)
-        # TODO: Why does numpy not support fileobjs like streams?
-        np.savetxt(csvfilepath, mat, delimiter=",", fmt=fmt)
-        self.epochs.to_csv(epochfilepath, sep=',', index=False)
-        with open(jsonfilepath, 'w') as fh:
-            attributes = self._get_attributes()
-            del attributes['epochs']
-            json.dump(attributes, fh)
+    def _save_data_to_h5(self, dirpath):
 
-        return (csvfilepath, jsonfilepath, epochfilepath)
+        if not os.path.isdir(dirpath):
+            os.makedirs(dirpath, mode=0o0777)
 
-    @staticmethod
-    def load(basepath):
-        '''
-        Loads the CSV & JSON files at basepath; returns a Signal() object.
-        Example: If you want to load
-           /tmp/sigs/gus027b13_p_PPS_resp-a1.csv
-           /tmp/sigs/gus027b13_p_PPS_resp-a1.json
-        then give this function
-           /tmp/sigs/gus027b13_p_PPS_resp-a1
-        '''
-        csvfilepath = basepath + '.csv'
-        epochfilepath = basepath + '.epoch.csv'
-        jsonfilepath = basepath + '.json'
-        # TODO: reduce code duplication and call load_from_streams
-        mat = pd.read_csv(csvfilepath, header=None).values
-        if os.path.isfile(epochfilepath):
-            epochs = pd.read_csv(epochfilepath)
-        else:
-            epochs = None
-        mat = mat.astype('float')
-        mat = np.swapaxes(mat, 0, 1)
-        with open(jsonfilepath, 'r') as f:
-            js = json.load(f)
-            s = Signal(name=js['name'],
-                       chans=js.get('chans', None),
-                       epochs=epochs,
-                       recording=js['recording'],
-                       fs=js['fs'],
-                       meta=js['meta'],
-                       matrix=mat)
-            return s
+        filebase = self.recording + '.' + self.name
+        basepath = os.path.join(dirpath, filebase)
+        hdf5filepath = basepath + '.h5'
 
-    @staticmethod
-    def load_from_streams(csv_stream, json_stream, epoch_stream=None):
-        ''' Loads from BytesIO objects rather than files. '''
-        # Read the epochs stream if it exists
-        epochs = pd.read_csv(epoch_stream) if epoch_stream else None
-        # Read the json metadata
-        js = json.load(json_stream)
-        # Read the CSV
-        mat = pd.read_csv(csv_stream, header=None).values
-        mat = mat.astype('float')
-        mat = np.swapaxes(mat, 0, 1)
-        # mat = np.genfromtxt(csv_stream, delimiter=',')
-        # Now build the signal
-        s = Signal(name=js['name'],
-                   chans=js.get('chans', None),
-                   epochs=epochs,
-                   recording=js['recording'],
-                   fs=js['fs'],
-                   meta=js['meta'],
-                   matrix=mat)
-        return s
+        with h5py.File(hdf5filepath, 'a') as f:
+            # TODO: any other attrs we should save?
+            for key, array in self._data.items():
+                f.create_dataset(key, data=array, compression='gzip')
 
-    @staticmethod
-    def list_signals(directory):
-        '''
-        Returns a list of all CSV/JSON pairs files found in DIRECTORY,
-        Paths are relative, not absolute.
-        '''
-        files = os.listdir(directory)
-        return Signal._csv_and_json_pairs(files)
+        return hdf5filepath
 
-    @staticmethod
-    def _csv_and_json_pairs(files):
-        '''
-        Given a list of files, return the file basenames (i.e. no extensions)
-        that for which a .CSV and a .JSON file exists.
-        '''
-        just_fileroot = lambda f: os.path.splitext(os.path.basename(f))[0]
-        csvs = [just_fileroot(f) for f in files if f.endswith('.csv')]
-        jsons = [just_fileroot(f) for f in files if f.endswith('.json')]
-        overlap = set.intersection(set(csvs), set(jsons))
-        return list(overlap)
 
-    @staticmethod
-    def _string_syntax_valid(s):
-        '''
-        Returns True iff the string is valid for use in signal names,
-        recording names, or channel names. Else False.
-        '''
-        disallowed = re.compile('[^a-zA-Z0-9_\-]')
-        match = disallowed.findall(s)
-        if match:
-            return False
-        else:
-            return True
 
     def as_continuous(self):
         '''
-        Return a copy of signal data, as a 2D numpy array (channel x time).
+        Return a copy of signal data as a Numpy array of shape (chans, time).
+
+        Parameters
+        ----------
+        chans : {None, iterable of strings}
+            Names of channels to return. If None, return the full signal. If an
+            iterable of strings, return those channels (in the order specified
+            by the iterable).
         '''
-        return self._matrix.copy()
+        return self._data
+
+    def get_epoch_bounds(self, epoch, boundary_mode='exclude',
+                         fix_overlap=None):
+        '''
+        Get boundaries of named epoch.
+
+        Parameters
+        ----------
+        epoch : {string, Nx2 array}
+            If string, name of epoch (as stored in internal dataframe) to
+            extract. If Nx2 array, the first column indicates the start time (in
+            seconds) and the second column indicates the end time (in seconds)
+            to extract.
+        boundary_mode : {'exclude', 'trim'}
+            If 'exclude', discard all epochs where the boundaries are not fully
+            contained within the range of the signal. If 'trim', epochs with
+            boundaries falling outside the signal range will be truncated. For
+            example, if an epoch runs from -1.5 to 10, it will be truncated to 0
+            to 10.
+        fix_overlap : {None, 'merge', 'first'}
+            Indicates how to handle overlapping epochs. If None, return
+            boundaries as-is. If 'merge', merge overlapping epochs into a single
+            epoch. If 'first', keep only the first of an overlapping set of
+            epochs.
+        complete : boolean
+            If True, eliminate any epochs whose boundaries are not fully
+            contained within the signal.
+
+        Returns
+        -------
+        bounds : 2D array (n_occurances x 2)
+            Each row in the array corresponds to an occurance of the epoch. The
+            first column is the start time and the second column is the end
+            time.
+        '''
+        # If string, pull the epochs out of the internal dataframe.
+        if isinstance(epoch, str):
+            if self.epochs is None:
+                m = "Signal does not have any epochs defined"
+                raise ValueError(m)
+            mask = self.epochs['name'] == epoch
+            bounds = self.epochs.loc[mask, ['start', 'end']].values
+
+        if boundary_mode is None:
+            raise NotImplementedError
+        elif boundary_mode == 'exclude':
+            m = epoch_contained(bounds, self.segments)
+            bounds = bounds[m]
+        elif boundary_mode == 'trim':
+            bounds = epoch_intersection(bounds, self.segments)
+
+        if fix_overlap is None:
+            pass
+        elif fix_overlap == 'merge':
+            bounds = merge_epoch(bounds)
+        elif fix_overlap == 'first':
+            bounds = remove_overlap(bounds)
+        else:
+            m = 'Unsupported mode, {}, for fix_overlap'.format(fix_overlap)
+            raise ValueError(m)
+
+        bounds = np.sort(bounds, axis=0)
+        return bounds
+
+    def get_epoch_indices(self, epoch, boundary_mode='exclude', fix_overlap=None):
+        '''
+        Get boundaries of named epoch as index.
+
+        Parameters
+        ----------
+        epoch : {string, Nx2 array}
+            If string, name of epoch (as stored in internal dataframe) to
+            extract. If Nx2 array, the first column indicates the start time
+            (in seconds) and the second column indicates the end time
+            (in seconds) to extract.
+        boundary_mode : {None, 'exclude', 'trim'}
+            If 'exclude', discard all epochs where the boundaries are not fully
+            contained within the range of the signal. If 'trim', epochs with
+            boundaries falling outside the signal range will be truncated. For
+            example, if an epoch runs from -1.5 to 10, it will be truncated to
+            0 to 10 (all signals start at time 0). If None, return all epochs.
+        fix_overlap : {None, 'merge', 'first'}
+            Indicates how to handle overlapping epochs. If None, return
+            boundaries as-is. If 'merge', merge overlapping epochs into a
+            single epoch. If 'first', keep only the first of an overlapping
+            set of epochs.
+
+        Returns
+        -------
+        bounds : 2D array (n_occurances x 2)
+            Each row in the array corresponds to an occurance of the epoch. The
+            first column is the start time and the second column is the end
+            time.
+        '''
+        bounds = self.get_epoch_bounds(epoch, boundary_mode, fix_overlap)
+
+        # Indices of segments and epochs
+        s = 0
+        e = 0
+
+        # Running list of segment offsets
+        o = 0
+        n_segments = len(self.segments)
+        n_epochs = len(bounds)
+        indices = []
+        while True:
+            if s >= n_segments:
+                break
+            if e >= n_epochs:
+                break
+
+            s_lb, s_ub = self.segments[s]
+            while True:
+                # For given segment, loop through epochs that fall within that
+                # segment and calculate correct indices.
+                e_lb, e_ub = bounds[e]
+                if s_lb <= e_lb < s_ub:
+                    # Be sure to round otherwise an index of 1.999...999 will
+                    # get converted to 1 rather than 2.
+                    lb = round((e_lb-s_lb)*self.fs) + o
+                    ub = round((e_ub-s_lb)*self.fs) + o
+                    indices.append((lb, ub))
+                    e += 1
+                else:
+                    # We are now at an epoch that falls in a different segment.
+                    # Update the running offset. Break out of the loop and pull
+                    # out the next segment.
+                    s += 1
+                    o += round((s_ub-s_lb)*self.fs)
+                    break
+                if e >= n_epochs:
+                    break
+
+        return np.asarray(indices, dtype='i')
+
+    def count_epoch(self, epoch):
+        """Returns the number of occurrences of the given epoch."""
+        epoch_indices = self.get_epoch_indices(epoch)
+        count = len(epoch_indices)
+        return count
 
     def _get_attributes(self):
-        md_attributes = ['name', 'chans', 'fs', 'meta', 'recording', 'epochs']
+        md_attributes = ['name', 'chans', 'fs', 'meta', 'recording', 'epochs',
+                         'segments', 'signal_type']
         return {name: getattr(self, name) for name in md_attributes}
 
-    def copy(self):
-        '''
-        Returns a copy of this signal.
-        '''
-        return copy.copy(self)
-
-    def _modified_copy(self, data, **kwargs):
-        '''
-        For internal use when making various immutable copies of this signal.
-        '''
-        attributes = self._get_attributes()
-        attributes.update(kwargs)
-        return Signal(matrix=data, safety_checks=False, **attributes)
-
-    def normalized_by_mean(self):
-        '''
-        Returns a copy of this signal with each channel normalized to have a
-        mean of 0 and standard deviation of 1.
-        '''
-        # TODO: this is a workaround/hack until a less expensive
-        #       method for calculating these is available.
-        if not (hasattr(self, 'channel_mean')
-                and hasattr(self, 'channel_std')):
-            self._set_cached_props()
-        m = self._matrix
-        m_normed = (m - self.channel_mean) / self.channel_std
-        return self._modified_copy(m_normed)
-
-    def normalized_by_bounds(self):
-        '''
-        Returns a copy of this signal with each channel normalized to the range
-        [-1, 1]
-        '''
-        # TODO: this is a workaround/hack until a less expensive
-        #       method for calculating these is available.
-        if not (hasattr(self, 'channel_max')
-                and hasattr(self, 'channel_std')
-                and hasattr(self, 'channel_max')):
-            self._set_cached_props()
-        m = self._matrix
-        ptp = self.channel_max - self.channel_mean
-        m_normed = (m - self.channel_min) / ptp - 1
-        return self._modified_copy(m_normed)
-
-    def split_at_time(self, fraction):
-        '''
-        Splits this signal at 'fraction' of the total length of the time series
-        to create a tuple of two signals: (before, after).
-        Example:
-          l, r = mysig.split_at_time(0.8)
-          assert(l.ntimes == 0.8 * mysig.ntimes)
-          assert(r.ntimes == 0.2 * mysig.ntimes)
-        '''
-        split_idx = max(1, int(self.ntimes * fraction))
-        split_time = split_idx/self.fs
-
-        data = self.as_continuous()
-        ldata = data[..., :split_idx]
-        rdata = data[..., split_idx:]
-
+    def _split_epochs(self, split_time):
         if self.epochs is None:
             lepochs = None
             repochs = None
@@ -334,6 +504,407 @@ class Signal:
                                  "ended up empty after splitting by time."
                                  .format(portion, self.name))
 
+        return lepochs, repochs
+
+    @classmethod
+    def _merge_epochs(cls, signals):
+        # Merge the epoch tables. For all signals after the first signal,
+        # we need to offset the start and end indices to ensure that they
+        # reflect the correct position of the trial in the merged array.
+        offset = 0
+        epochs = []
+        for signal in signals:
+            ti = signal.epochs.copy()
+            ti['end'] += offset
+            ti['start'] += offset
+            offset += signal.ntimes/signal.fs
+            epochs.append(ti)
+        return pd.concat(epochs, ignore_index=True)
+
+    def average_epoch(self, epoch):
+        '''
+        Returns the average of the epoch.
+
+        Parameters
+        ----------
+        epoch : {string, Nx2 array}
+            If string, name of epoch (as stored in internal dataframe) to
+            extract. If Nx2 array, the first column indicates the start time
+            (in seconds) and the second column indicates the end time
+            (in seconds) to extract.
+
+        Returns
+        -------
+        mean_epoch : 2D array
+            Two dimensinonal array of shape C, T where C is the number of
+            channels, and T is the maximum length of the epoch in samples.
+        '''
+        epoch_data = self.extract_epoch(epoch)
+        return np.nanmean(epoch_data, axis=0)
+
+    def extract_epochs(self, epoch_names):
+        '''
+        Returns a dictionary of the data matching each element in epoch_names.
+
+        Parameters
+        ----------
+        epoch_names : list
+            List of epoch names to extract. These will be keys in the result
+            dictionary.
+        chans : {None, iterable of strings}
+            Names of channels to return. If None, return the full set of
+            channels.  If an iterable of strings, return those channels (in the
+            order specified by the iterable).
+
+        Returns
+        -------
+        epoch_datasets : dict
+            Keys are the names of the epochs, values are 3D arrays created by
+            `extract_epoch`.
+        '''
+        # TODO: Update this to work with a mapping of key -> Nx2 epoch
+        # structure as well.
+        return {name: self.extract_epoch(name) for name in epoch_names}
+
+    def epoch_to_signal(self, epoch, boundary_mode='trim', fix_overlap='merge'):
+        '''
+        Convert an epoch to a RasterizedSignal using the same sampling rate and duration
+        as this signal.
+
+        Parameters
+        ----------
+        epoch_name : string
+            Epoch to convert to a signal
+
+        Returns
+        -------
+        signal : instance of Signal
+            A signal whose value is 1 for each occurrence of the epoch, 0
+            otherwise.
+        '''
+        data = np.zeros([1, self.ntimes], dtype=np.bool)
+        indices = self.get_epoch_indices(epoch, boundary_mode, fix_overlap)
+        for lb, ub in indices:
+            data[:, lb:ub] = True
+        epoch_name = epoch if isinstance(epoch, str) else 'epoch'
+        attributes = self._get_attributes()
+        attributes['chans']=[epoch_name]
+        return RasterizedSignal(data=data, safety_checks=False, **attributes)
+        #return self._modified_copy(data, chans=[epoch_name])
+
+    @property
+    def shape(self):
+        return self.nchans, self.ntimes
+
+    def select_times(self, times):
+        raise NotImplementedError
+
+    def split_at_time(self, fraction):
+        raise NotImplementedError
+
+    def extract_channels(cls, signals):
+        raise NotImplementedError
+
+    def extract_epoch(self, epoch):
+        raise NotImplementedError
+
+    @staticmethod
+    def load(basepath):
+        pass
+
+    @classmethod
+    def concatenate_time(cls, signals):
+        raise NotImplementedError
+
+    @classmethod
+    def concatenate_channels(cls, signals):
+        raise NotImplementedError
+
+    def select_times(self, times):
+        '''
+        Parameters
+        ----------
+        times : list of tuples
+            Times is a list of tuples. Each tuple specifies the lower and upper
+            bound (in seconds) of the time subset to extract. This should return
+            a new signal containing only the subset of desired data.
+        '''
+        raise NotImplementedError
+
+    def select_channels(self, channels):
+        '''
+        Parameters
+        ----------
+        channels : list of channels
+            A list of channel names indicating channels to extract. This should
+            return a new signal containing only the subset of desired data.
+        '''
+        raise NotImplementedError
+
+    def as_raster(self):
+        '''
+        Returns a RasterizedSignal or RasterizedSubsetSignal
+        '''
+        raise NotImplementedError
+
+    def as_continuous(self):
+        '''
+        Returns the underlying array
+        '''
+        raise NotImplementedError
+
+
+class RasterizedSignal(SignalBase):
+
+    def __init__(self, fs, data, name, recording, chans=None, epochs=None,
+                 segments=None, meta=None, safety_checks=True, signal_type=None):
+        '''
+        Parameters
+        ----------
+        data : ndarray, 2 dimensional
+        epochs : {None, DataFrame}
+            Epochs are periods of time that are tagged with a name
+            When defined, the DataFrame should have these first three columns:
+                 ('start', 'end', 'name')
+            denoting the start and end of the time of an epoch (in seconds).
+            You may use the same epoch name multiple times; this is common when
+            tagging epochs that correspond to occurrences of the same stimulus.
+        '''
+        super().__init__(fs, data, name, recording, chans, epochs, segments,
+                         meta, safety_checks)
+        self._data.flags.writeable = False
+
+        # Install the indexers
+        self.iloc = SimpleSignalIndexer(self)
+        self.loc = LabelSignalIndexer(self)
+        self.nchans, self.ntimes = self._data.shape
+        self.signal_type=str(type(self))
+
+        # Verify that we have a long time series
+        if safety_checks and self.ntimes < self.nchans:
+            m = 'Incorrect matrix dimensions?: (C, T) is {}. ' \
+                'We expect a long time series, but T < C'
+            raise RuntimeWarning(m.format((C, T)))
+
+        if safety_checks:
+            self._run_safety_checks()
+
+    def _set_cached_props(self):
+        """Sets channel_max, channel_min, channel_mean, channel_var,
+        and channel_std.
+
+        """
+        self.channel_max = np.nanmax(self._data, axis=-1, keepdims=True)
+        self.channel_min = np.nanmin(self._data, axis=-1, keepdims=True)
+        self.channel_mean = np.nanmean(self._data, axis=-1, keepdims=True)
+        self.channel_var = np.nanvar(self._data, axis=-1, keepdims=True)
+        self.channel_std = np.nanstd(self._data, axis=-1, keepdims=True)
+
+    def as_file_streams(self, fmt='%.18e'):
+        '''
+        Returns 3 filestreams for this signal: the csv, json, and epoch.
+        TODO: Better docs and a refactoring of this and save()
+        '''
+        # TODO: actually compute these instead of cheating with a tempfile
+        files = {}
+        filebase = self.recording + '.' + self.name
+        csvfile = filebase + '.csv'
+        jsonfile = filebase + '.json'
+        epochfile = filebase + '.epoch.csv'
+        # Create three streams
+        files[csvfile] = io.BytesIO()
+        files[jsonfile] = io.StringIO()
+        files[epochfile] = io.StringIO()
+        # Write to those streams
+        # Write the CSV file to a bytesIO buffer
+        mat = self.as_continuous()
+        mat = np.swapaxes(mat, 0, 1)
+        np.savetxt(files[csvfile], mat, delimiter=",", fmt=fmt)
+        files[csvfile].seek(0)  # Seek back to start of file
+
+        self._save_metadata(files[epochfile],files[jsonfile], fmt)
+
+        return files
+
+    def save(self, dirpath, fmt='%.18e'):
+        '''
+        Save this signal to a CSV file + JSON sidecar. If desired,
+        you may use optional parameter fmt (for example, fmt='%1.3e')
+        to alter the precision of the floating point matrices.
+        '''
+
+        jsonfilepath,epochfilepath=self._save_metadata_to_dirpath(dirpath)
+
+        filebase = self.recording + '.' + self.name
+        basepath = os.path.join(dirpath, filebase)
+        csvfilepath = basepath + '.csv'
+
+        mat = self.as_continuous()
+        mat = np.swapaxes(mat, 0, 1)
+        # TODO: Why does numpy not support fileobjs like streams?
+        np.savetxt(csvfilepath, mat, delimiter=",", fmt=fmt)
+
+        return (csvfilepath, jsonfilepath, epochfilepath)
+
+    @staticmethod
+    def load(basepath):
+        '''
+        Loads the CSV & JSON files at basepath; returns a Signal() object.
+        Example: If you want to load
+           /tmp/sigs/gus027b13_p_PPS_resp-a1.csv
+           /tmp/sigs/gus027b13_p_PPS_resp-a1.json
+        then give this function
+           /tmp/sigs/gus027b13_p_PPS_resp-a1
+        '''
+        return load_rasterized_signal(basepath)
+
+    @staticmethod
+    def load_from_streams(csv_stream, json_stream, epoch_stream=None):
+        ''' Loads from BytesIO objects rather than files. '''
+        # Read the epochs stream if it exists
+        epochs = pd.read_csv(epoch_stream) if epoch_stream else None
+        # Read the json metadata
+        js = json.load(json_stream)
+        # Read the CSV
+        mat = pd.read_csv(csv_stream, header=None).values
+        mat = mat.astype('float')
+        mat = np.swapaxes(mat, 0, 1)
+        # mat = np.genfromtxt(csv_stream, delimiter=',')
+        # Now build the signal
+        s = RasterizedSignal(name=js['name'],
+                   chans=js.get('chans', None),
+                   epochs=epochs,
+                   recording=js['recording'],
+                   fs=js['fs'],
+                   meta=js['meta'],
+                   data=mat)
+        return s
+
+    @staticmethod
+    def list_signals(directory):
+        '''
+        Returns a list of all CSV/JSON pairs files found in DIRECTORY,
+        Paths are relative, not absolute.
+        '''
+        files = os.listdir(directory)
+        return RasterizedSignal._csv_and_json_pairs(files)
+
+    @staticmethod
+    def _csv_and_json_pairs(files):
+        '''
+        Given a list of files, return the file basenames (i.e. no extensions)
+        that for which a .CSV and a .JSON file exists.
+        '''
+        just_fileroot = lambda f: os.path.splitext(os.path.basename(f))[0]
+        csvs = [just_fileroot(f) for f in files if f.endswith('.csv')]
+        jsons = [just_fileroot(f) for f in files if f.endswith('.json')]
+        overlap = set.intersection(set(csvs), set(jsons))
+        return list(overlap)
+
+    def copy(self):
+        '''
+        Returns a copy of this signal.
+        '''
+        return copy.copy(self)
+
+    def _modified_copy(self, data, **kwargs):
+        '''
+        For internal use when making various immutable copies of this signal.
+        '''
+        attributes = self._get_attributes()
+        attributes.update(kwargs)
+        return RasterizedSignal(data=data, safety_checks=False, **attributes)
+
+    def extract_epoch(self, epoch):
+        '''
+        Extracts all occurances of epoch from the signal.
+
+        Parameters
+        ----------
+        epoch : {string, Nx2 array}
+            If string, name of epoch (as stored in internal dataframe) to
+            extract. If Nx2 array, the first column indicates the start time
+            (in seconds) and the second column indicates the end time
+            (in seconds) to extract.
+
+        Returns
+        -------
+        epoch_data : 3D array
+            Three dimensional array of shape O, C, T where O is the number of
+            occurances of the epoch, C is the number of channels, and T is the
+            maximum length of the epoch in samples.
+
+        Note
+        ----
+        Epochs tagged with the same name may have various lengths. Shorter
+        epochs will be padded with NaN.
+        '''
+        epoch_indices = self.get_epoch_indices(epoch, boundary_mode='exclude',
+                                               fix_overlap='first')
+        if epoch_indices.size == 0:
+            raise IndexError("No matching epochs to extract for: {0}\n"
+                             "In signal: {1}"
+                             .format(epoch, self.name))
+        n_samples = np.max(epoch_indices[:, 1]-epoch_indices[:, 0])
+        n_epochs = len(epoch_indices)
+
+        data = self.as_continuous()
+        n_chans = data.shape[0]
+        epoch_data = np.full((n_epochs, n_chans, n_samples), np.nan)
+
+        for i, (lb, ub) in enumerate(epoch_indices):
+            samples = ub-lb
+            epoch_data[i, ..., :samples] = data[..., lb:ub]
+
+        return epoch_data
+
+    def normalized_by_mean(self):
+        '''
+        Returns a copy of this signal with each channel normalized to have a
+        mean of 0 and standard deviation of 1.
+        '''
+        # TODO: this is a workaround/hack until a less expensive
+        #       method for calculating these is available.
+        if not (hasattr(self, 'channel_mean')
+                and hasattr(self, 'channel_std')):
+            self._set_cached_props()
+        m = self._data
+        m_normed = (m - self.channel_mean) / self.channel_std
+        return self._modified_copy(m_normed)
+
+    def normalized_by_bounds(self):
+        '''
+        Returns a copy of this signal with each channel normalized to the range
+        [-1, 1]
+        '''
+        # TODO: this is a workaround/hack until a less expensive
+        #       method for calculating these is available.
+        if not (hasattr(self, 'channel_max')
+                and hasattr(self, 'channel_std')
+                and hasattr(self, 'channel_max')):
+            self._set_cached_props()
+        m = self._data
+        ptp = self.channel_max - self.channel_mean
+        m_normed = (m - self.channel_min) / ptp - 1
+        return self._modified_copy(m_normed)
+
+    def split_at_time(self, fraction):
+        '''
+        Splits this signal at 'fraction' of the total length of the time series
+        to create a tuple of two signals: (before, after).
+        Example:
+          l, r = mysig.split_at_time(0.8)
+          assert(l.ntimes == 0.8 * mysig.ntimes)
+          assert(r.ntimes == 0.2 * mysig.ntimes)
+        '''
+        split_idx = max(1, int(self.ntimes * fraction))
+        split_time = split_idx/self.fs
+
+        data = self.as_continuous()
+        ldata = data[..., :split_idx]
+        rdata = data[..., split_idx:]
+
+        lepochs, repochs = self._split_epochs(split_time)
         lsignal = self._modified_copy(ldata, epochs=lepochs)
         rsignal = self._modified_copy(rdata, epochs=repochs)
 
@@ -351,7 +922,7 @@ class Signal:
 
     def jackknife_by_epoch(self, njacks, jack_idx, epoch_name,
                            tiled=True,
-                           invert=False):
+                           invert=False, excise=False):
         '''
         Returns a new signal, with epochs matching epoch_name NaN'd out.
         Optional argument 'invert' causes everything BUT the matched epochs
@@ -391,6 +962,8 @@ class Signal:
         epoch_indices = (epochs * self.fs).astype('i').tolist()
         occurrences, _ = epochs.shape
 
+        if excise:
+            raise ValueError('excise not supported for jackknife_by_epoch')
         if len(epochs) == 0:
             m = 'No epochs found matching that epoch_name. Unable to jackknife.'
             raise ValueError(m)
@@ -403,18 +976,18 @@ class Signal:
             raise ValueError("Neither jack_idx nor njacks may be negative")
 
         nrows = math.ceil(occurrences / njacks)
-        idx_matrix = np.arange(nrows * njacks)
+        idx_data = np.arange(nrows * njacks)
 
         if tiled:
-            idx_matrix = idx_matrix.reshape(nrows, njacks)
-            idx_matrix = np.swapaxes(idx_matrix, 0, 1)
+            idx_data = idx_data.reshape(nrows, njacks)
+            idx_data = np.swapaxes(idx_data, 0, 1)
         else:
-            idx_matrix = idx_matrix.reshape(njacks, nrows)
+            idx_data = idx_data.reshape(njacks, nrows)
 
-        data = self.as_continuous()
+        data = self.as_continuous().copy()
         mask = np.zeros_like(data, dtype=np.bool)
 
-        for idx in idx_matrix[jack_idx].tolist():
+        for idx in idx_data[jack_idx].tolist():
             if idx < occurrences:
                 lb, ub = epoch_indices[idx]
                 mask[:, lb:ub] = 1
@@ -458,8 +1031,7 @@ class Signal:
             split_end = self.ntimes
         else:
             split_end = (jack_idx + 1) * splitsize
-
-        m = self.as_continuous()
+        m = self.as_continuous().copy()
         if excise:
             if invert:
                 o = np.empty((self.nchans, split_end - split_start))
@@ -495,8 +1067,8 @@ class Signal:
         '''
         # Make sure all objects passed are instances of the Signal class
         for signal in signals:
-            if not isinstance(signal, Signal):
-                raise ValueError('Not a signal')
+            if not isinstance(signal, cls):
+                raise ValueError('Cannot merge these signals')
 
         # Make sure that important attributes match up
         base = signals[0]
@@ -508,27 +1080,15 @@ class Signal:
 
         # Now, concatenate data along time axis
         data = np.concatenate([s.as_continuous() for s in signals], axis=-1)
+        epochs = cls._merge_epochs(signals)
 
-        # Merge the epoch tables. For all signals after the first signal,
-        # we need to offset the start and end indices to ensure that they
-        # reflect the correct position of the trial in the merged array.
-        offset = 0
-        epochs = []
-        for signal in signals:
-            ti = signal.epochs.copy()
-            ti['end'] += offset
-            ti['start'] += offset
-            offset += signal.ntimes/signal.fs
-            epochs.append(ti)
-        epochs = pd.concat(epochs, ignore_index=True)
-
-        return Signal(
+        return cls(
             name=base.name,
             recording=base.recording,
             chans=base.chans,
             fs=base.fs,
             meta=base.meta,
-            matrix=data,
+            data=data,
             epochs=epochs,
             safety_checks=False
         )
@@ -542,8 +1102,8 @@ class Signal:
         same for all signals).
         '''
         for signal in signals:
-            if not isinstance(signal, Signal):
-                raise ValueError('Not a signal')
+            if not isinstance(signal, cls):
+                raise ValueError('Cannot merge these signals')
 
         base = signals[0]
         for signal in signals[1:]:
@@ -559,19 +1119,16 @@ class Signal:
             if signal.chans:
                 chans.extend(signal.chans)
 
-        #epochs = []
-        #for signal in signals:
-        #    epochs.append(signal.epochs)
         epochs=signals[0].epochs
 
-        return Signal(
+        return RasterizedSignal(
             name=base.name,
             recording=base.recording,
             chans=chans,
             fs=base.fs,
             meta=base.meta,
             epochs=epochs,
-            matrix=data,
+            data=data,
             safety_checks=False
             )
 
@@ -581,203 +1138,31 @@ class Signal:
         channel indices.
         '''
         array = self.as_continuous()
-        if isinstance(chans, int):
-            chans = [chans]
-        c,t = self.shape
-        removals = []
-        for i in range(c):
-            if i not in chans:
-                removals.append(i)
-        new_array = np.delete(array, removals, axis=0)
-        return self._modified_copy(new_array)
+        # s is shorthand for slice. Return a 2D array.
+        s = [self.chans.index(c) for c in chans]
+        return self._modified_copy(array[s], chans=chans)
 
-    def get_epoch_bounds(self, epoch, trim=False, fix_overlap=None):
-        '''
-        Get boundaries of named epoch.
-
-        Parameters
-        ----------
-        epoch : {string, Nx2 array}
-            If string, name of epoch (as stored in internal dataframe) to
-            extract. If Nx2 array, the first column indicates the start time (in
-            seconds) and the second column indicates the end time (in seconds)
-            to extract.
-        trim : boolean
-            If True, ensure that epoch boundaries fall within the range of the
-            signal. Epochs with boundaries falling outside the signal range will
-            be truncated. For example, if an epoch runs from -1.5 to 10, it will
-            be truncated to 0 to 10 (all signals start at time 0).
-        fix_overlap : {None, 'merge', 'first'}
-            Indicates how to handle overlapping epochs. If None, return
-            boundaries as-is. If 'merge', merge overlapping epochs into a single
-            epoch. If 'first', keep only the first of an overlapping set of
-            epochs.
-
-        Returns
-        -------
-        bounds : 2D array (n_occurances x 2)
-            Each row in the array corresponds to an occurance of the epoch. The
-            first column is the start time and the second column is the end
-            time.
-        '''
-        # If string, pull the epochs out of the internal dataframe.
-        if isinstance(epoch, str):
-            if self.epochs is None:
-                m = "Signal does not have any epochs defined"
-                raise ValueError(m)
-            mask = self.epochs['name'] == epoch
-            bounds = self.epochs.loc[mask, ['start', 'end']].values
-
-        if trim:
-            bounds = np.clip(bounds, 0, self.ntimes*self.fs)
-
-        if fix_overlap is None:
-            pass
-        elif fix_overlap == 'merge':
-            bounds = merge_epoch(bounds)
-        elif fix_overlap == 'first':
-            bounds = remove_overlap(bounds)
-        else:
-            m = 'Unsupported mode, {}, for fix_overlap'.format(fix_overlap)
-            raise ValueError(m)
-
-        return bounds
-
-    def get_epoch_indices(self, epoch, trim=False):
-        '''
-        Get boundaries of named epoch as index.
-
-        Parameters
-        ----------
-        epoch : {string, Nx2 array}
-            If string, name of epoch (as stored in internal dataframe) to
-            extract. If Nx2 array, the first column indicates the start time (in
-            seconds) and the second column indicates the end time (in seconds)
-            to extract.
-        trim : boolean
-            If True, ensure that epoch boundaries fall within the range of the
-            signal. Epochs with boundaries falling outside the signal range will
-            be truncated. For example, if an epoch runs from -1.5 to 10, it will
-            be truncated to 0 to 10 (all signals start at time 0).
-        fix_overlap : {None, 'merge', 'first'}
-            Indicates how to handle overlapping epochs. If None, return
-            boundaries as-is. If 'merge', merge overlapping epochs into a single
-            epoch. If 'first', keep only the first of an overlapping set of
-            epochs.
-
-        Returns
-        -------
-        bounds : 2D array (n_occurances x 2)
-            Each row in the array corresponds to an occurance of the epoch. The
-            first column is the start time and the second column is the end
-            time.
-        '''
-        bounds = self.get_epoch_bounds(epoch, trim)
-        return (bounds * self.fs).astype('i')
-
-    def extract_epoch(self, epoch):
-        '''
-        Extracts all occurances of epoch from the signal.
-
-        Parameters
-        ----------
-        epoch : {string, Nx2 array}
-            If string, name of epoch (as stored in internal dataframe) to
-            extract. If Nx2 array, the first column indicates the start time (in
-            seconds) and the second column indicates the end time (in seconds)
-            to extract.
-
-        Returns
-        -------
-        epoch_data : 3D array
-            Three dimensional array of shape O, C, T where O is the number of
-            occurances of the epoch, C is the number of channels, and T is the
-            maximum length of the epoch in samples.
-
-        Note
-        ----
-        Epochs tagged with the same name may have various lengths. Shorter
-        epochs will be padded with NaN.
-        '''
-        epoch_indices = self.get_epoch_indices(epoch, trim=True)
-        if epoch_indices.size == 0:
-            raise IndexError("No matching epochs to extract for: {0}\n"
-                             "In signal: {1}"
-                             .format(epoch, self.name))
-        n_samples = np.max(epoch_indices[:, 1]-epoch_indices[:, 0])
-        n_epochs = len(epoch_indices)
-
-        epoch_data = np.full((n_epochs, self.nchans, n_samples), np.nan)
-        for i, (lb, ub) in enumerate(epoch_indices):
-            samples = ub-lb
-            epoch_data[i, :, :samples] = self._matrix[:, lb:ub]
-
-        return epoch_data
-
-    def count_epoch(self, epoch):
-        """Returns the number of occurrences of the given epoch."""
-        epoch_indices = self.get_epoch_indices(epoch, trim=True)
-        count = len(epoch_indices)
-        return count
-
-    def average_epoch(self, epoch):
-        '''
-        Returns the average of the epoch.
-
-        Parameters
-        ----------
-        epoch : {string, Nx2 array}
-            If string, name of epoch (as stored in internal dataframe) to
-            extract. If Nx2 array, the first column indicates the start time (in
-            seconds) and the second column indicates the end time (in seconds)
-            to extract.
-
-        Returns
-        -------
-        mean_epoch : 2D array
-            Two dimensinonal array of shape C, T where C is the number of
-            channels, and T is the maximum length of the epoch in samples.
-        '''
-        epoch_data = self.extract_epoch(epoch)
-        return np.nanmean(epoch_data, axis=0)
-
-    def extract_epochs(self, epoch_names):
-        '''
-        Returns a dictionary of the data matching each element in epoch_names.
-
-        Parameters
-        ----------
-        epoch_names : list
-            List of epoch names to extract. These will be keys in the result
-            dictionary.
-
-        Returns
-        -------
-        epoch_datasets : dict
-            Keys are the names of the epochs, values are 3D arrays created by
-            `extract_epoch`.
-        '''
-        # TODO: Update this to work with a mapping of key -> Nx2 epoch
-        # structure as well.
-        return {name: self.extract_epoch(name) for name in epoch_names}
-
-    def replace_epoch(self, epoch, epoch_data):
+    def replace_epoch(self, epoch, epoch_data, preserve_nan=True):
         '''
         Returns a new signal, created by replacing every occurrence of
         epoch with epoch_data, assumed to be a 2D matrix of data
         (chans x time).
         '''
         data = self.as_continuous()
+        if preserve_nan:
+            nan_bins = np.isnan(data[0, :])
         indices = self.get_epoch_indices(epoch)
         if indices.size == 0:
             raise RuntimeWarning("No occurrences of epoch were found: \n{}\n"
                                  "Nothing to replace.".format(epoch))
         for lb, ub in indices:
             data[:, lb:ub] = epoch_data
+        if preserve_nan:
+            data[:, nan_bins] = np.nan
 
         return self._modified_copy(data)
 
-    def replace_epochs(self, epoch_dict):
+    def replace_epochs(self, epoch_dict, preserve_nan=True):
         '''
         Returns a new signal, created by replacing every occurrence of epochs
         in this signal with whatever is found in the replacement_dict under
@@ -794,7 +1179,9 @@ class Signal:
         '''
         # TODO: Update this to work with a mapping of key -> Nx2 epoch
         # structure as well.
-        data = self.as_continuous()
+        data = self.as_continuous().copy()
+        if preserve_nan:
+            nan_bins = np.isnan(data[0, :])
         for epoch, epoch_data in epoch_dict.items():
             for lb, ub in self.get_epoch_indices(epoch):
 
@@ -803,41 +1190,18 @@ class Signal:
                 if ub-lb < epoch_data.shape[1]:
                     # epoch data may be too long bc padded with nans,
                     # truncate!
-                    epoch_data=epoch_data[:,0:(ub-lb)]
-                    #ub += epoch_data.shape[1]-(ub-lb)
+                    epoch_data = epoch_data[:, 0:(ub-lb)]
+                    # ub += epoch_data.shape[1]-(ub-lb)
                 elif ub-lb > epoch_data.shape[1]:
                     ub -= (ub-lb)-epoch_data.shape[1]
-                if ub>data.shape[1]:
+                if ub > data.shape[1]:
                     ub -= ub-data.shape[1]
-                    epoch_data=epoch_data[:,0:(ub-lb)]
-                #print("Data len {0} {1}-{2} {3}".format(
-                #        data.shape[1],lb,ub,ub-lb))
-                #print(data[:, lb:ub].shape)
-                #print(epoch_data.shape)
+                    epoch_data = epoch_data[:, 0:(ub-lb)]
                 data[:, lb:ub] = epoch_data
 
+        if preserve_nan:
+            data[:, nan_bins] = np.nan
         return self._modified_copy(data)
-
-    def epoch_to_signal(self, epoch_name):
-        '''
-        Convert an epoch to a signal using the same sampling rate and duration
-        as this signal.
-
-        Parameters
-        ----------
-        epoch_name : string
-            Epoch to convert to a signal
-
-        Returns
-        -------
-        signal : instance of Signal
-            A signal whose value is 1 for each occurrence of the epoch, 0
-            otherwise.
-        '''
-        data = np.zeros([1,self.ntimes], dtype=np.bool)
-        for lb, ub in self.get_epoch_indices(epoch_name, trim=True):
-            data[:, lb:ub] = 1
-        return self._modified_copy(data, chans=[epoch_name])
 
     def select_epoch(self, epoch):
         '''
@@ -846,7 +1210,7 @@ class Signal:
         '''
         new_data = np.full(self.shape, np.nan)
         for (lb, ub) in self.get_epoch_indices(epoch, trim=True):
-            new_data[:, lb:ub] = self._matrix[:, lb:ub]
+            new_data[:, lb:ub] = self._data[:, lb:ub]
         if np.all(np.isnan(new_data)):
             raise RuntimeWarning("No matched occurrences for epoch: \n{}\n"
                                  "Returned signal will be only NaN."
@@ -863,8 +1227,8 @@ class Signal:
         # structure as well.
         new_data = np.full(self.shape, np.nan)
         for epoch_name in list_of_epoch_names:
-            for (lb, ub) in self.get_epoch_indices(epoch_name, trim=True):
-                new_data[:, lb:ub] = self._matrix[:, lb:ub]
+            for (lb, ub) in self.get_epoch_indices(epoch_name):
+                new_data[:, lb:ub] = self._data[:, lb:ub]
         if np.all(np.isnan(new_data)):
             raise RuntimeWarning("No matched occurrences for epochs: \n{}\n"
                                  "Returned signal will be only NaN."
@@ -878,7 +1242,7 @@ class Signal:
 
         Example
         -------
-        If signal._matrix has shape 3x100 and the signal is sampled at 100 Hz,
+        If signal._data has shape 3x100 and the signal is sampled at 100 Hz,
         trial_epochs_from_occurrences(occurrences=5) would generate a DataFrame
         with 5 trials (starting at 0, 0.2, 0.4, 0.6, 0.8 seconds).
 
@@ -895,7 +1259,7 @@ class Signal:
             m = 'Signal not evenly divisible into fixed-length trials'
             raise ValueError(m)
 
-        starts = np.arange(occurrences) * trial_size
+        starts = np.arange(occurrences)*trial_size
         ends = starts + trial_size
         return pd.DataFrame({
             'start': starts,
@@ -933,11 +1297,32 @@ class Signal:
         Optional argument newname allows a new signal name to be returned.
         '''
         # x = self.as_continuous()   # Always Safe but makes a copy
-        x = self._matrix  # Much faster; TODO: Test if throws warnings
+        x = self._data  # Much faster; TODO: Test if throws warnings
         y = fn(x)
         newsig = self._modified_copy(y)
         if newname:
             newsig.name = newname
+        return newsig
+
+    def shuffle_time(self):
+        '''
+        Applies this signal's 2d .as_continuous() matrix representation to
+        function fn, which must be a pure (curried) function of one argument.
+
+        It then packs the return value of fn into a new signal object,
+        identical to this one but with different data.
+
+        Optional argument newname allows a new signal name to be returned.
+        '''
+        # x = self.as_continuous()   # Always Safe but makes a copy
+        x = self._data.copy()  # Much faster; TODO: Test if throws warnings
+        arr = np.arange(x.shape[1])
+        arr0 = arr[np.isfinite(x[0, :])]
+        arr = arr0.copy()
+        np.random.shuffle(arr)
+        x[:, arr0] = x[:, arr]
+        newsig = self._modified_copy(x)
+        newsig.name = newsig.name + '_shuf'
         return newsig
 
     def nan_outliers(self, trim_outside_zscore=2.0):
@@ -964,14 +1349,611 @@ class Signal:
         m[m > min_val] = np.nan
         return self._modified_copy(m)
 
-    @property
-    def shape(self):
-        return self._matrix.shape
+    def nan_mask(self, mask):
+        '''
+        NaN out all time points where matrix mask[0,:]==False
+        '''
+        m = self.as_continuous().copy()
+        m[:, mask[0, :] == False] = np.nan
+        return self._modified_copy(m)
 
+    def select_times(self, times, padding=0):
+        times = np.asarray(times)
+        indices = np.round(times*self.fs).astype('i')
+        data = self.as_continuous()
+
+        subsets = [data[..., lb:ub] for lb, ub in indices]
+        data = np.concatenate(subsets, axis=-1)
+        return self._modified_copy(data, segments=times)
+
+    def as_continuous(self):
+        return self._data
+
+    def rasterize(self, fs=None):
+        """
+        basically a pass-through. we don't need to rasterize, since the
+        signal is already a raster!
+        """
+        return self
+
+class PointProcess(SignalBase):
+    '''
+    Expects data to be a dictionary of the form:
+        {<string>: <ndarray of spike times, one dimensional>}
+    '''
+#    @property
+#    def _data(self):
+#        if self._cached_data is not None:
+#            pass
+#        else:
+#            log.info("matrix doesn't exist yet, "
+#                     "generating from time dict")
+#            self._generate_data()
+#        return self._cached_data
+
+    def rasterize(self, fs=None):
+        """
+        convert list of spike times to a raster of spike rate, with duration
+        matching max end time in the event_times list
+
+        by default, fs=self.fs, which can be preset to match other signals in a
+        recording
+        """
+        if not fs:
+            fs=self.fs
+
+        if self.epochs is not None:
+            max_epoch_time = self.epochs["end"].max()
+        else:
+            max_epoch_time = 0
+
+        if max_epoch_time==0:
+            max_event_times = [max(et) for et in self._data.values()]
+            max_time = max(max_epoch_time, *max_event_times)
+        else:
+            max_time=max_epoch_time
+
+        max_bin = np.int(np.ceil(fs*max_time))
+        unit_count = len(self._data.keys())
+        raster = np.zeros([unit_count, max_bin])
+
+        # _data dictionary has one entry per cell.
+        # The output raster should be cell X time
+        cellids = sorted(self._data)
+        for i, key in enumerate(cellids):
+            for t in self._data[key]:
+                b = int(np.floor(t*fs))
+                if b < max_bin:
+                    raster[i, b] += 1
+
+        return RasterizedSignal(fs=self.fs, data=raster, name=self.name,
+                                recording=self.recording, chans=cellids,
+                                epochs=self.epochs, meta=self.meta)
+
+    def save(self, dirpath, fmt='%.18e'):
+        '''
+        Save this signal to a HDF5 file + JSON sidecar.
+        '''
+
+        jsonfilepath,epochfilepath=self._save_metadata_to_dirpath(dirpath)
+        hdf5filepath = self._save_data_to_h5(dirpath)
+
+        return (hdf5filepath, jsonfilepath, epochfilepath)
+
+    def as_file_streams(self, fmt='%.18e'):
+        '''
+        Returns 3 filestreams for this signal: the csv, json, and epoch.
+        TODO: Better docs and a refactoring of this and save()
+        '''
+        # TODO: actually compute these instead of cheating with a tempfile
+        files = {}
+        filebase = self.recording + '.' + self.name
+        h5file = filebase + '.h5'
+        jsonfile = filebase + '.json'
+        epochfile = filebase + '.epoch.csv'
+
+        tmppath=tempfile.mkdtemp()
+
+        temph5=self._save_data_to_h5(tmppath)
+        th=io.open(temph5,'rb')
+        files[h5file]=io.BytesIO(th.read())
+
+        # Create textfile streams
+        files[jsonfile] = io.StringIO()
+        files[epochfile] = io.StringIO()
+
+        self._save_metadata(files[epochfile],files[jsonfile], fmt)
+
+        return files
+
+#    @staticmethod
+#    def load(path):
+#        with h5py.File(path, 'r') as f:
+#            fs = f.attrs['fs']
+#            recording = f.attrs['recording']
+#            name = f.attrs['name']
+#            chans = json.loads(f.attrs['chans'])
+#            meta = json.loads(f.attrs['meta'])
+#            safety_checks = f.attrs['safety_checks']
+#
+#            epochs = None
+#            data = {}
+#            for key, dataset in f.items():
+#                if 'epochs' in key:
+#                    epochs = pd.read_hdf(path, key=key)
+#                else:
+#                    data[key] = np.array(dataset[:])
+#
+#            return PointProcess(fs=fs, data=data, name=name, recording=recording,
+#                              chans=chans, epochs=epochs, meta=meta,
+#                              safety_checks=safety_checks)
+
+    def split_by_epochs(self, epochs_for_est, epochs_for_val):
+        '''
+        Returns a tuple of estimation and validation data splits: (est, val).
+        Arguments should be lists of epochs that define the estimation and
+        validation sets. Both est and val will have non-matching data NaN'd out.
+        '''
+        est = self.rasterize().select_epochs(epochs_for_est)
+        val = self.rasterize().select_epochs(epochs_for_val)
+        return (est, val)
+
+    def concatenate_time(self, signals):
+        '''
+        Combines the signals along the time axis. All signals must have the
+        same number of channels (and the same sampling rates?).
+        '''
+        # Make sure all objects passed are instances of the Signal class
+        for signal in signals:
+            if not isinstance(signal, PointProcess):
+                raise ValueError('Cannot merge these signals')
+
+        # Make sure that important attributes match up
+        base = signals[0]
+        for signal in signals[1:]:
+            #if not base.fs == signal.fs:
+            #    raise ValueError('Cannot concat signals with unequal fs')
+            if not base.chans == signal.chans:
+                raise ValueError('Cannot concat signals with unequal # of chans')
+
+        # Now, concatenate data along time axis, adding an offset
+        # to each successive signal to account for the duration of
+        # the preceeding signals
+        offset = 0
+        for signal in signals:
+            if offset==0:
+                data=signal._data
+            else:
+                cellids = sorted(signal._data)
+                for i, key in enumerate(cellids):
+                    # append new data to list, after adding offset
+                    data[key]=np.concatenate((data[key],(signal._data[key]+offset)))
+
+            # increment offset by duration (sec) of current signal
+            offset+=signal.ntimes*signal.fs
+
+
+        # basically do the same thing for epochs, using the Base routine
+        epochs = _merge_epochs(signals)
+
+        return PointProcess(
+            name=base.name,
+            recording=base.recording,
+            chans=base.chans,
+            fs=base.fs,
+            meta=base.meta,
+            data=data,
+            epochs=epochs,
+            safety_checks=False
+        )
+
+    def append_time(self, new_signal):
+        '''
+        Combines the signals along the time axis. All signals must have the
+        same number of channels (and the same sampling rates?).
+        '''
+        # Make sure all objects passed are instances of the Signal class
+        if not isinstance(new_signal, PointProcess):
+            raise ValueError('Wrong signal type to append')
+
+        # Make sure that important attributes match up
+        #if not self.fs == new_signal.fs:
+        #    raise ValueError('Cannot append signal with unequal fs')
+        if not self.chans == new_signal.chans:
+            raise ValueError('Cannot append signal with unequal # of chans')
+
+        # Now, concatenate data along time axis, adding an offset
+        # to each successive signal to account for the duration of
+        # the preceeding signals
+        new_data=copy.deepcopy(self._data)
+        cellids = sorted(self._data)
+        offset = self.ntimes*self.fs
+
+        for key in cellids:
+            # append new data to list, after adding offset
+            new_data[key]=np.concatenate((new_data[key],(new_signal._data[key]+offset)))
+
+        # basically do the same thing for epochs, using the Base routine
+        epochs = _merge_epochs([self,new_signal])
+
+        return PointProcess(
+            name=self.name,
+            recording=self.recording,
+            chans=self.chans,
+            fs=self.fs,
+            meta=self.meta,
+            data=new_data,
+            epochs=epochs,
+            safety_checks=False
+        )
+
+
+
+class TiledSignal(SignalBase):
+    '''
+    Expects data to be a dictionary of the form:
+        {<string>: <ndarray of stim data, two dimensional>}
+    '''
+    def rasterize(self, fs=None):
+        '''
+        Create a rasterized version of the signal and return it
+
+        fs is not used but in parameters for compatibility with PointProcess
+        '''
+        maxtime = np.max(self.epochs["end"])
+        maxbin = int(self.fs*maxtime)
+        tags = list(self._data.keys())
+        chancount = self._data[tags[0]].shape[0]
+
+        z = np.zeros([chancount, maxbin])
+        empty_signal=RasterizedSignal(fs=self.fs, data=z, name=self.name,
+                                recording=self.recording, chans=self.chans,
+                                epochs=self.epochs, meta=self.meta)
+        signal=empty_signal.replace_epochs(self._data)
+        return signal
+
+    def save(self, dirpath, fmt='%.18e'):
+        '''
+        Save this signal to a HDF5 file + JSON sidecar.
+        '''
+
+        jsonfilepath,epochfilepath=self._save_metadata_to_dirpath(dirpath)
+        hdf5filepath = self._save_data_to_h5(dirpath)
+
+        return (hdf5filepath, jsonfilepath, epochfilepath)
+
+    def as_file_streams(self, fmt='%.18e'):
+        '''
+        Returns 3 filestreams for this signal: the csv, json, and epoch.
+        TODO: Better docs and a refactoring of this and save()
+        '''
+        # TODO: actually compute these instead of cheating with a tempfile
+        files = {}
+        filebase = self.recording + '.' + self.name
+        h5file = filebase + '.h5'
+        jsonfile = filebase + '.json'
+        epochfile = filebase + '.epoch.csv'
+
+        tmppath=tempfile.mkdtemp()
+
+        temph5=self._save_data_to_h5(tmppath)
+        th=io.open(temph5,'rb')
+        files[h5file]=io.BytesIO(th.read())
+
+        # Create textfile streams
+        files[jsonfile] = io.StringIO()
+        files[epochfile] = io.StringIO()
+
+        self._save_metadata(files[epochfile],files[jsonfile], fmt)
+
+        return files
+
+#    @staticmethod
+#    def load(path):
+#        with h5py.File(path, 'r') as f:
+#            fs = f.attrs['fs']
+#            recording = f.attrs['recording']
+#            name = f.attrs['name']
+#            chans = json.loads(f.attrs['chans'])
+#            meta = json.loads(f.attrs['meta'])
+#
+#            epochs = None
+#            data = {}
+#            for key, dataset in f.items():
+#                if 'epochs' in key:
+#                    epochs = pd.read_hdf(path, key=key)
+#                else:
+#                    data[key] = np.array(dataset[:])
+#
+#            return TiledSignal(fs=fs, data=data, name=name,
+#                                    recording=recording, chans=chans,
+#                                    epochs=epochs, meta=meta)
+
+    def split_by_epochs(self, epochs_for_est, epochs_for_val):
+        '''
+        Returns a tuple of estimation and validation data splits: (est, val).
+        Arguments should be lists of epochs that define the estimation and
+        validation sets. Both est and val will have non-matching data NaN'd out.
+        '''
+        est = self.rasterize().select_epochs(epochs_for_est)
+        val = self.rasterize().select_epochs(epochs_for_val)
+        return (est, val)
+
+    def concatenate_time(self, signals):
+        '''
+        Combines the signals along the time axis. All signals must have the
+        same number of channels (and the same sampling rates?).
+        '''
+        # Make sure all objects passed are instances of the Signal class
+        for signal in signals:
+            if not isinstance(signal, TiledSignal):
+                raise ValueError('Cannot merge these signals')
+
+        # Make sure that important attributes match up
+        base = signals[0]
+        for signal in signals[1:]:
+            #if not base.fs == signal.fs:
+            #    raise ValueError('Cannot concat signals with unequal fs')
+            if not base.chans == signal.chans:
+                raise ValueError('Cannot concat signals with unequal # of chans')
+
+        # Data is concatenated simply by merging the dictionaries. Assuming
+        # no duplicate keys or that if there are duplicates, self supercedes
+        # new_signal.
+        new_data={}
+        for signal in signals:
+            new_data={**new_data,**signal._data}
+
+        # append epochs, adding offset to account for length of self
+        epochs = _merge_epochs(signals)
+
+        return TiledSignal(
+            name=base.name,
+            recording=base.recording,
+            chans=base.chans,
+            fs=base.fs,
+            meta=base.meta,
+            data=new_data,
+            epochs=epochs,
+            safety_checks=False
+        )
+
+    def append_time(self, new_signal):
+        '''
+        Combines the signals along the time axis. All signals must have the
+        same number of channels (and the same sampling rates?).
+        '''
+        # Make sure all objects passed are instances of the Signal class
+        if not isinstance(new_signal, TiledSignal):
+            raise ValueError('Wrong signal type to append')
+
+        # Make sure that important attributes match up
+        if not self.fs == new_signal.fs:
+            raise ValueError('Cannot append signal with unequal fs')
+        if not self.chans == new_signal.chans:
+            raise ValueError('Cannot append signal with unequal # of chans')
+
+        # Data is concatenated simply by merging the dictionaries. Assuming
+        # no duplicate keys or that if there are duplicates, self supercedes
+        # new_signal.
+        new_data={**self._data,**new_signal._data}
+
+        # append epochs, adding offset to account for length of self
+        epochs = _merge_epochs([self,new_signal])
+
+        return TiledSignal(
+            name=self.name,
+            recording=self.recording,
+            chans=self.chans,
+            fs=self.fs,
+            meta=self.meta,
+            data=new_data,
+            epochs=epochs,
+            safety_checks=False
+        )
+
+
+class RasterizedSignalSubset(SignalBase):
+    '''
+    Expects data to be a list of lists.
+    '''
+    pass
 
 # -----------------------------------------------------------------------------
 # Functions that work on multiple signal objects
 
+def list_signals(directory):
+    '''
+    Returns a list of all CSV/JSON pairs files found in DIRECTORY,
+    Paths are relative, not absolute.
+    '''
+    files = os.listdir(directory)
+    return _list_json_files(files)
+
+def _list_json_files(files):
+    '''
+    Given a list of files, return the file basenames (i.e. no extensions)
+    that for which a .CSV and a .JSON file exists.
+    '''
+    just_fileroot = lambda f: os.path.splitext(os.path.basename(f))[0]
+    jsons = [just_fileroot(f) for f in files if f.endswith('.json')]
+    return list(jsons)
+
+def load_signal(basepath):
+    '''
+    Generic signal loader. Load JSON file, figure out signal type and
+    call appropriate loader
+    '''
+    csvfilepath = basepath + '.csv'
+    h5filepath = basepath + '.h5'
+    epochfilepath = basepath + '.epoch.csv'
+    jsonfilepath = basepath + '.json'
+    if os.path.isfile(epochfilepath):
+        epochs = pd.read_csv(epochfilepath)
+    else:
+        epochs = None
+    # TODO: reduce code duplication and call load_from_streams
+    with open(jsonfilepath, 'r') as f:
+        js = json.load(f)
+
+    if 'signal_type' in js.keys():
+        signal_type=js['signal_type']
+    else:
+        signal_type="nems.signal.RasterizedSignal"
+
+    if 'RasterizedSignal' in signal_type:
+        mat = pd.read_csv(csvfilepath, header=None).values
+        mat = mat.astype('float')
+        mat = np.swapaxes(mat, 0, 1)
+
+        s = RasterizedSignal(name=js['name'],
+                    chans=js.get('chans', None),
+                    epochs=epochs,
+                    recording=js['recording'],
+                    fs=js['fs'],
+                    meta=js['meta'],
+                    data=mat)
+
+    elif 'PointProcess' in signal_type:
+        with h5py.File(h5filepath, 'r') as f:
+            data = {}
+            for key, dataset in f.items():
+                data[key] = np.array(dataset[:])
+
+        s = PointProcess(name=js['name'],
+                    chans=js.get('chans', None),
+                    epochs=epochs,
+                    recording=js['recording'],
+                    fs=js['fs'],
+                    meta=js['meta'],
+                    data=data)
+
+    elif 'TiledSignal' in signal_type:
+        with h5py.File(h5filepath, 'r') as f:
+            data = {}
+            for key, dataset in f.items():
+                data[key] = np.array(dataset[:])
+
+        s = TiledSignal(name=js['name'],
+                    chans=js.get('chans', None),
+                    epochs=epochs,
+                    recording=js['recording'],
+                    fs=js['fs'],
+                    meta=js['meta'],
+                    data=data)
+
+    else:
+        raise ValueError('signal_type unknown')
+
+    return s
+
+def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
+    ''' Loads from BytesIO objects rather than files. epoch stream was formerly
+        csv stream, but this could be an hdf5 file (or something else?)
+    '''
+    # Read the epochs stream if it exists
+    epochs = pd.read_csv(epoch_stream) if epoch_stream else None
+    # Read the json metadata
+    js = json.load(json_stream)
+
+    if 'signal_type' in js.keys():
+        signal_type=js['signal_type']
+    else:
+        signal_type="nems.signal.RasterizedSignal"
+
+    if 'RasterizedSignal' in signal_type:
+        mat = pd.read_csv(data_stream, header=None).values
+        mat = mat.astype('float')
+        mat = np.swapaxes(mat, 0, 1)
+
+        s = RasterizedSignal(name=js['name'],
+                    chans=js.get('chans', None),
+                    epochs=epochs,
+                    recording=js['recording'],
+                    fs=js['fs'],
+                    meta=js['meta'],
+                    data=mat)
+
+    elif 'PointProcess' in signal_type:
+        with h5py.File(data_stream, 'r') as f:
+            data = {}
+            for key, dataset in f.items():
+                data[key] = np.array(dataset[:])
+
+        s = PointProcess(name=js['name'],
+                    chans=js.get('chans', None),
+                    epochs=epochs,
+                    recording=js['recording'],
+                    fs=js['fs'],
+                    meta=js['meta'],
+                    data=data)
+
+    elif 'TiledSignal' in signal_type:
+        with h5py.File(data_stream, 'r') as f:
+            data = {}
+            for key, dataset in f.items():
+                data[key] = np.array(dataset[:])
+
+        s = TiledSignal(name=js['name'],
+                    chans=js.get('chans', None),
+                    epochs=epochs,
+                    recording=js['recording'],
+                    fs=js['fs'],
+                    meta=js['meta'],
+                    data=data)
+
+    else:
+        raise ValueError('signal_type unknown')
+
+    return s
+
+    # TODO add logic for different signal subclasses, identified by metadata
+    # in the JSON file
+    # ONLY if data_stream is csv then do this:
+
+    # Read the CSV
+    mat = pd.read_csv(data_stream, header=None).values
+    mat = mat.astype('float')
+    mat = np.swapaxes(mat, 0, 1)
+    # mat = np.genfromtxt(csv_stream, delimiter=',')
+    # Now build the signal
+    s = RasterizedSignal(name=js['name'],
+               chans=js.get('chans', None),
+               epochs=epochs,
+               recording=js['recording'],
+               fs=js['fs'],
+               meta=js['meta'],
+               data=mat)
+    return s
+
+def load_rasterized_signal(basepath):
+    csvfilepath = basepath + '.csv'
+    epochfilepath = basepath + '.epoch.csv'
+    jsonfilepath = basepath + '.json'
+    # TODO: reduce code duplication and call load_from_streams
+    mat = pd.read_csv(csvfilepath, header=None).values
+    if os.path.isfile(epochfilepath):
+        epochs = pd.read_csv(epochfilepath)
+    else:
+        epochs = None
+    mat = mat.astype('float')
+    mat = np.swapaxes(mat, 0, 1)
+    with open(jsonfilepath, 'r') as f:
+        js = json.load(f)
+        s = RasterizedSignal(name=js['name'],
+                    chans=js.get('chans', None),
+                    epochs=epochs,
+                    recording=js['recording'],
+                    fs=js['fs'],
+                    meta=js['meta'],
+                    data=mat)
+        return s
+
+
+
+################################################################################
+# Signals
+################################################################################
 def merge_selections(signals):
     '''
     Returns a new signal object by combining a list of signals of the same
@@ -1012,10 +1994,128 @@ def merge_selections(signals):
     # If there are no overlapping values, then nanmean() will be equal
     # to the value found in each position
     the_mean = np.nanmean(bigary, axis=2)
-    for a in arys:
-        if not np.array_equal(a[np.isfinite(a)],
-                              the_mean[np.isfinite(a)]):
-            raise ValueError("Overlapping, unequal non-NaN values found.")
+    if type(signals[0]._data[0][0]) is np.bool_:
+        return signals[0]._modified_copy(the_mean)
+    else:
+        for a in arys:
+            if not np.array_equal(a[np.isfinite(a)],
+                                  the_mean[np.isfinite(a)]):
 
-    # Use the first signal as a template for setting fs, chans, etc.
-    return signals[0]._modified_copy(the_mean)
+                raise ValueError("Overlapping, unequal non-NaN values"
+                                 "found in signal {}."
+                                 .format(signals[0].name))
+
+        # Use the first signal as a template for setting fs, chans, etc.
+        return signals[0]._modified_copy(the_mean)
+
+
+def jackknife_inverse_merge(sig_list):
+    """
+    given a list of signals, merge into a single signal.
+    superceded by merge_selections?
+    """
+
+    m = sig_list[0].as_continuous()
+    for s in sig_list[1:]:
+        m2 = s.as_continuous()
+        gidx = np.isfinite(m2[0, :])
+        m[:, gidx] = m2[:, gidx]
+    sig_new = sig_list[0]._modified_copy(data=m)
+    return sig_new
+
+
+def join_signal_subsets(subsets):
+    # TODO
+    raise NotImplementedError
+    return Signal(...)
+
+
+def split_signal_to_subsets(signal):
+    # TODO
+    # Maybe just existing jackknifing method with minor changes?
+    raise NotImplementedError
+    return [SignalSubset(...) for data, fakepochs in something]
+
+
+def concatenate_channels(cls, signals):
+    '''
+    Given signals=[sig1, sig2, sig3, ..., sigN], concatenate all channels
+    of [sig2, ...sigN] as new channels on sig1. All signals must be equal-
+    length time series sampled at the same rate (i.e. ntimes and fs are the
+    same for all signals).
+    '''
+    for signal in signals:
+        if not isinstance(signal, cls):
+            raise ValueError('Cannot merge these signals')
+
+    base = signals[0]
+    for signal in signals[1:]:
+        if not base.fs == signal.fs:
+            raise ValueError('Cannot append signal with different fs')
+        if not base.ntimes == signal.ntimes:
+            raise ValueError('Cannot append signal with different channels')
+
+    raise NotImplementedError
+
+    # TODO get this working for other subtypes or throw an error.
+    # this is called by plotting functions, so I think it only needs to
+    # support RasterizedSignal
+    data = np.concatenate([s.as_continuous() for s in signals], axis=0)
+
+    chans = []
+    for signal in signals:
+        if signal.chans:
+            chans.extend(signal.chans)
+
+    epochs=signals[0].epochs
+
+    return RasterizedSignal(
+        name=base.name,
+        recording=base.recording,
+        chans=chans,
+        fs=base.fs,
+        meta=base.meta,
+        epochs=epochs,
+        data=data,
+        safety_checks=False
+        )
+
+def _split_epochs(epochs,split_time):
+    if epochs is None:
+        lepochs = None
+        repochs = None
+    else:
+        mask = epochs['start'] < split_time
+        lepochs = epochs.loc[mask]
+        mask = epochs['end'] > split_time
+        repochs = epochs.loc[mask]
+        repochs[['start', 'end']] -= split_time
+
+    # If epochs were present initially but missing after split,
+    # raise a warning.
+    portion = None
+    if lepochs.size == 0:
+        portion = 'first'
+    elif repochs.size == 0:
+        portion = 'second'
+    if portion:
+        raise RuntimeWarning("Epochs for {0} portion of signal"
+                             "ended up empty after splitting by time."
+                             .format(portion))
+
+    return lepochs, repochs
+
+def _merge_epochs(signals):
+    # Merge the epoch tables. For all signals after the first signal,
+    # we need to offset the start and end indices to ensure that they
+    # reflect the correct position of the trial in the merged array.
+    offset = 0
+    epochs = []
+    for signal in signals:
+        ti = signal.epochs.copy()
+        ti['end'] += offset
+        ti['start'] += offset
+        offset += signal.ntimes/signal.fs
+        epochs.append(ti)
+    return pd.concat(epochs, ignore_index=True)
+

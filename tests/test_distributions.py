@@ -6,7 +6,7 @@ from nems.distributions.api import Normal, HalfNormal
 
 
 def test_distributions():
-    d1 = Normal(mu=[-0.9, 0.2], sd=[1, 0.4])
+    d1 = Normal(mean=[-0.9, 0.2], sd=[1, 0.4])
     d2 = HalfNormal(sd=[[1, 0.4, .5], [0.3, 0.1, .7]])
 
     n = 100

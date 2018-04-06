@@ -7,38 +7,44 @@ log = logging.getLogger(__name__)
 
 
 def plot_heatmap(array, xlabel='Dim One', ylabel='Dim Two',
-                 ax=None, cmap=None, clim=None, skip=0):
+                 ax=None, cmap=None, clim=None, skip=0, title=None):
     '''
     A wrapper for matplotlib's plt.imshow() to ensure consistent formatting.
     '''
+    if ax is not None:
+        plt.sca(ax)
+
     # Make sure array is converted to ndarray if passed as list
     array = np.array(array)
 
-    if not clim:
+    if clim is None:
         mmax = np.nanmax(np.abs(array.reshape(-1)))
         clim = [-mmax, mmax]
 
-    ax.imshow(array, aspect='auto', origin='lower',
-              cmap=plt.get_cmap('jet'),
-              clim=clim,
-              interpolation='none')
+    plt.imshow(array, aspect='auto', origin='lower',
+               cmap=plt.get_cmap('jet'),
+               clim=clim,
+               interpolation='none')
 
     # Force integer tick labels, skipping gaps
     y, x = array.shape
 
-    ax.set_xticks(np.arange(skip, x))
-    ax.set_xticklabels(np.arange(0, x-skip))
-    ax.set_yticks(np.arange(skip, y))
-    ax.set_yticklabels(np.arange(0, y-skip))
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
+    plt.xticks(np.arange(skip, x), np.arange(0, x-skip))
+    #plt.xticklabels(np.arange(0, x-skip))
+    plt.yticks(np.arange(skip, y), np.arange(0, y-skip))
+    #plt.yticklabels(np.arange(0, y-skip))
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
 
     # Set the color bar
     # cbar = ax.colorbar()
     # cbar.set_label('Gain')
+    if title is not None:
+        plt.title(title)
 
 
 def _get_wc_coefficients(modelspec):
+    # TODO: what about modelspecs with multiple weight_channesl?
     for m in modelspec:
         if 'weight_channels' in m['fn']:
             if 'fn_coefficients' in m.keys():
@@ -51,29 +57,32 @@ def _get_wc_coefficients(modelspec):
 
 
 def _get_fir_coefficients(modelspec):
+    # TODO: what about modelspecs with multiple fir filters?
     for m in modelspec:
-        if 'fir_filter' in m['fn']:
+        if 'fir' in m['fn']:
             return m['phi']['coefficients']
     return None
 
 
-def weight_channels_heatmap(modelspec, ax=None, clim=None):
+def weight_channels_heatmap(modelspec, ax=None, clim=None, title=None):
     coefficients = _get_wc_coefficients(modelspec)
     plot_heatmap(coefficients, xlabel='Channel In', ylabel='Channel Out',
-                 ax=ax, clim=clim)
+                 ax=ax, clim=clim, title=title)
 
 
-def fir_heatmap(modelspec, ax=None, clim=None):
+def fir_heatmap(modelspec, ax=None, clim=None, title=None):
     coefficients = _get_fir_coefficients(modelspec)
     plot_heatmap(coefficients, xlabel='Time Bin', ylabel='Channel In',
-                 ax=ax, clim=clim)
+                 ax=ax, clim=clim, title=title)
 
 
-def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True):
+def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
+                 title=None):
     wcc = _get_wc_coefficients(modelspec)
     firc = _get_fir_coefficients(modelspec)
     if wcc is None and firc is None:
         log.warn('Unable to generate STRF.')
+        return
     elif wcc is None and firc is not None:
         strf = np.array(firc)
         show_factorized = False
@@ -116,4 +125,4 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True):
         skip = 0
 
     plot_heatmap(everything, xlabel='Time Bin',
-                 ylabel='Channel In', ax=ax, skip=skip)
+                 ylabel='Channel In', ax=ax, skip=skip, title=title)

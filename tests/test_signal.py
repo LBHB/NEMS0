@@ -6,7 +6,7 @@ import numpy as np
 from numpy import nan
 import pandas as pd
 import nems.signal
-from nems.signal import Signal, merge_selections
+from nems.signal import RasterizedSignal, merge_selections, _string_syntax_valid
 
 
 @pytest.fixture()
@@ -30,7 +30,7 @@ def signal(signal_name='dummy_signal', recording_name='dummy_recording', fs=50,
     epochs['start'] /= fs
     epochs['end'] /= fs
     kwargs = {
-        'matrix': data,
+        'data': data,
         'name': signal_name,
         'recording': recording_name,
         'chans': ['chan' + str(n) for n in range(nchans)],
@@ -43,7 +43,7 @@ def signal(signal_name='dummy_signal', recording_name='dummy_recording', fs=50,
             'windmills': 'tilting'
         },
     }
-    return Signal(**kwargs)
+    return RasterizedSignal(**kwargs)
 
 
 @pytest.fixture()
@@ -63,15 +63,16 @@ def test_signal_save_load(signal, signal_tmpdir):
 #        os.mkdir(signal_tmpdir)
     signal.save(str(signal_tmpdir), fmt='%1.3e')
 
-    signals_found = Signal.list_signals(str(signal_tmpdir))
+    signals_found = RasterizedSignal.list_signals(str(signal_tmpdir))
     assert len(signals_found) == 1
 
     save_directory = os.path.join(str(signal_tmpdir), signals_found[0])
-    signal_loaded = Signal.load(save_directory)
+    signal_loaded = RasterizedSignal.load(save_directory)
 
-    assert np.all(signal._matrix == signal_loaded._matrix)
+    assert np.all(signal.as_continuous() == signal_loaded.as_continuous())
 
     # TODO: add a test for the various signal attributes
+
 
 def test_epoch_save_load(signal, signal_tmpdir):
     '''
@@ -81,9 +82,9 @@ def test_epoch_save_load(signal, signal_tmpdir):
     before = signal.epochs
 
     signal.save(str(signal_tmpdir), fmt='%1.3e')
-    signals_found = Signal.list_signals(str(signal_tmpdir))
+    signals_found = RasterizedSignal.list_signals(str(signal_tmpdir))
     save_directory = os.path.join(str(signal_tmpdir), signals_found[0])
-    signal_loaded = Signal.load(save_directory)
+    signal_loaded = RasterizedSignal.load(save_directory)
 
     after = signal_loaded.epochs
     print("Dataframes equal?\n"
@@ -102,19 +103,15 @@ def test_extract_epoch(signal):
     assert result.shape == (2, 3, 45)
 
 
-def test_trial_epochs_from_occurrences(signal):
-    signal.epochs = signal.trial_epochs_from_occurrences(occurrences=10)
-    result1 = signal.extract_epoch('trial')
-    assert result1.shape == (10, 3, 20)
-
-    with pytest.raises(ValueError):
-        signal.epochs = signal.trial_epochs_from_occurrences(occurrences=11)
-
-
+# TODO: Why is this breaking now? Related to SignalBase
+#       changes?
 def test_as_trials(signal):
     signal.epochs = signal.trial_epochs_from_occurrences(occurrences=10)
     result = signal.extract_epoch('trial')
     assert result.shape == (10, 3, 20)
+
+    with pytest.raises(ValueError):
+        signal.epochs = signal.trial_epochs_from_occurrences(occurrences=11)
 
 
 def test_as_average_trial(signal):
@@ -147,7 +144,7 @@ def test_split_at_time(signal):
 def test_jackknife_by_epoch(signal):
     signal.epochs = signal.trial_epochs_from_occurrences(occurrences=50)
     s1 = signal.jackknife_by_epoch(10, 0, 'trial', tiled=False, invert=True)
-    assert s1._matrix.shape == (3, 200)  # shape shouldn't change
+    assert s1.as_continuous().shape == (3, 200)  # shape shouldn't change
     assert(1770.0 == np.nansum(s1.as_continuous()[:]))
 
 
@@ -167,7 +164,7 @@ def test_jackknife_by_time(signal):
 def test_concatenate_time(signal):
     sig1 = signal
     sig2 = sig1.jackknife_by_time(20, 2)
-    sig3 = Signal.concatenate_time([sig1, sig2])
+    sig3 = RasterizedSignal.concatenate_time([sig1, sig2])
     assert sig1.as_continuous().shape == (3, 200)
     assert sig3.as_continuous().shape == (3, 400)
 
@@ -175,7 +172,7 @@ def test_concatenate_time(signal):
 def test_concatenate_channels(signal):
     sig1 = signal
     sig2 = sig1.jackknife_by_time(20, 2)
-    sig3 = Signal.concatenate_channels([sig1, sig2])
+    sig3 = RasterizedSignal.concatenate_channels([sig1, sig2])
     assert sig1.as_continuous().shape == (3, 200)
     assert sig3.as_continuous().shape == (6, 200)
 
@@ -223,20 +220,20 @@ def test_merge_selections(signal):
 
 
 def test_extract_channels(signal):
-    two_sig = signal.extract_channels([0, 1])
+    two_sig = signal.extract_channels(['chan0', 'chan1'])
     assert two_sig.shape == (2, 200)
-    one_sig = signal.extract_channels(2)
+    one_sig = signal.extract_channels(['chan2'])
     assert one_sig.shape == (1, 200)
-    recombined = Signal.concatenate_channels([two_sig, one_sig])
+    recombined = RasterizedSignal.concatenate_channels([two_sig, one_sig])
     before = signal.as_continuous()
     after = recombined.as_continuous()
     assert np.array_equal(before, after)
 
 
 def test_string_syntax_valid(signal):
-    assert(signal._string_syntax_valid('this_is_fine'))
-    assert(signal._string_syntax_valid('THIS_IS_FINE_TOO'))
-    assert(not signal._string_syntax_valid('But this is not ok'))
+    assert(_string_syntax_valid('this_is_fine'))
+    assert(_string_syntax_valid('THIS_IS_FINE_TOO'))
+    assert(not _string_syntax_valid('But this is not ok'))
 
 
 def test_jackknifes_by_epoch(signal):
@@ -246,3 +243,141 @@ def test_jackknifes_by_epoch(signal):
               np.nansum(val.as_continuous()[:]),)
     # This is not much of a test -- I'm just running the generator fn!
     assert(True)
+
+
+@pytest.mark.skip
+def test_iloc(signal):
+    s = signal.iloc[:1, :10]
+    assert s.as_continuous().shape == (1, 10)
+    assert s.chans == ['chan0']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[:1, :10])
+
+    s = signal.iloc[:, :10]
+    assert s.as_continuous().shape == (3, 10)
+    assert s.chans == ['chan0', 'chan1', 'chan2']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[:, :10])
+
+    s = signal.iloc[1:, :100]
+    assert s.as_continuous().shape == (2, 100)
+    assert s.chans == ['chan1', 'chan2']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[1:, :100])
+
+    s = signal.iloc[1]
+    assert s.as_continuous().shape == (1, 200)
+    assert s.chans == ['chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[1][np.newaxis])
+
+    # Test some special-case indexing
+    s = signal.iloc[:, 1]
+    assert s.as_continuous().shape == (3, 1)
+    assert s.chans == ['chan0', 'chan1', 'chan2']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[:, 1][:, np.newaxis])
+
+    s = signal.iloc[1, :]
+    assert s.as_continuous().shape == (1, 200)
+    assert s.chans == ['chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[1, :][np.newaxis])
+
+    s = signal.iloc[1, 1]
+    assert s.as_continuous().shape == (1, 1)
+    assert s.chans == ['chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[1, 1])
+
+    s = signal.iloc[[0, 2], 1]
+    assert s.as_continuous().shape == (2, 1)
+    assert s.chans == ['chan0', 'chan2']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[[0, 2], 1][:, np.newaxis])
+
+    with pytest.raises(IndexError):
+        assert signal.iloc[None, 1, 1]
+
+    with pytest.raises(IndexError):
+        assert signal.iloc[:, [1, 2]]
+
+
+@pytest.mark.skip
+def test_loc(signal):
+    s = signal.loc['chan1']
+    assert s.as_continuous().shape == (1, 200)
+    assert s.chans == ['chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[1])
+
+    s = signal.loc[['chan1', 'chan2']]
+    assert s.as_continuous().shape == (2, 200)
+    assert s.chans == ['chan1', 'chan2']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[[1, 2]])
+
+    s = signal.loc[:, 1.5:2]
+    assert s.as_continuous().shape == (3, 25)
+    assert s.chans == ['chan0', 'chan1', 'chan2']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[:, 75:100])
+
+    s = signal.loc['chan1', 1.5:2]
+    assert s.as_continuous().shape == (1, 25)
+    assert s.chans == ['chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[1, 75:100])
+
+    s = signal.loc[:'chan1', 1.5:2]
+    assert s.as_continuous().shape == (2, 25)
+    assert s.chans == ['chan0', 'chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[:2, 75:100])
+
+    s = signal.loc[:'chan1', 1.5]
+    assert s.as_continuous().shape == (2, 1)
+    assert s.chans == ['chan0', 'chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[:2, 75][:, np.newaxis])
+
+    s = signal.loc[:'chan1', :1.5]
+    assert s.as_continuous().shape == (2, 75)
+    assert s.chans == ['chan0', 'chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[:2, :75])
+
+    s = signal.loc[:'chan1', 2.5:]
+    assert s.as_continuous().shape == (2, 75)
+    assert s.chans == ['chan0', 'chan1']
+    assert np.allclose(s.as_continuous(),
+                       signal.as_continuous()[:2, 125:])
+
+    with pytest.raises(IndexError):
+        signal.loc[:, :, :]
+
+    with pytest.raises(IndexError):
+        signal.loc[:'chan1', [1.5, 2]]
+
+    s = signal.loc['chan1', 0.732:]
+    s_epochs = s.extract_epoch('pupil_closed')
+    assert s_epochs.shape == (1, 1, 40)
+    signal_epochs = signal.loc['chan1'].extract_epoch('pupil_closed')
+    assert np.allclose(s_epochs, signal_epochs[1, :, :40])
+
+
+def test_rasterized_signal_subset(signal):
+    subset = signal.select_times([(0, 0.2), (0.3, 2)])
+    assert subset.as_continuous().shape == (3, 95)
+    epoch_subset = subset.extract_epoch('pupil_closed')
+    assert epoch_subset.shape == (1, 3, 45)
+    assert np.all(epoch_subset[0] == signal.extract_epoch('pupil_closed')[0])
+    with pytest.raises(IndexError):
+        epoch_subset = subset.extract_epoch('trial')
+    assert subset.average_epoch('pupil_closed').shape == (3, 45)
+
+
+def test_epoch_to_signal(signal):
+    s = signal.epoch_to_signal('pupil_closed')
+    assert s.as_continuous().shape == (1, 200)
+    assert s.as_continuous().sum() == 85

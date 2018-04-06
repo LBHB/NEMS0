@@ -4,6 +4,7 @@
 import os
 import logging
 import random
+import copy
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -25,7 +26,7 @@ from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
 
 logging.basicConfig(level=logging.INFO)
 
-relative_signals_dir = '../signals'
+relative_signals_dir = '../recordings'
 relative_modelspecs_dir = '../modelspecs'
 
 # Convert to absolute paths so they can be passed to functions in
@@ -48,44 +49,7 @@ rec = Recording.load(os.path.join(signals_dir, 'eno052d-a1.tgz'))
 
 logging.info('Generating state signal...')
 
-rec=preproc.make_state_signal(rec,['pupil'],[],'state')
-
-# ----------------------------------------------------------------------------
-# DATA WITHHOLDING
-
-# GOAL: Split your data into estimation and validation sets so that you can
-#       know when your model exhibits overfitting.
-
-
-logging.info('Withholding validation set data...')
-
-# Method #0: Try to guess which stimuli have the most reps, use those for val
-est = rec.jackknife_by_time(10, 1, invert=False, excise=False)
-val = rec.jackknife_by_time(10, 1, invert=True, excise=False)
-
-epoch_regex='^STIM_'
-resp_est=est['resp']
-resp_val=val['resp']
-
-epochs_to_extract = ep.epoch_names_matching(resp_est.epochs, epoch_regex)
-folded_matrices = resp_est.extract_epochs(epochs_to_extract)
-
-# 2. Average over all reps of each stim and save into dict called psth.
-per_stim_psth = dict()
-for k in folded_matrices.keys():
-    per_stim_psth[k] = np.nanmean(folded_matrices[k], axis=0)
-
-# 3. Invert the folding to unwrap the psth into a predicted spike_dict by
-#   replacing all epochs in the signal with their average (psth)
-respavg_est = resp_est.replace_epochs(per_stim_psth)
-respavg_est.name = 'stim'
-est.add_signal(respavg_est)
-
-respavg_val = resp_est.replace_epochs(per_stim_psth)
-respavg_val.name = 'stim'
-val.add_signal(respavg_val)
-
-
+rec=preproc.make_state_signal(rec,['pupil'],[''],'state')
 
 # ----------------------------------------------------------------------------
 # INITIALIZE MODELSPEC
@@ -97,8 +61,28 @@ logging.info('Initializing modelspec(s)...')
 # Method #1: create from "shorthand" keyword string
 #modelspec = nems.initializers.from_keywords('wcg18x1_fir15x1_lvl1_dexp1')
 modelspec = nems.initializers.from_keywords('stategain2')
+#modelspecs=[copy.deepcopy(modelspec) for x in range(nfolds)]
+modelspecs=[modelspec]
 
-#modelspec = nems.initializers.from_keywords('wcg18x2_fir15x2_lvl1_stategain2')
+# ----------------------------------------------------------------------------
+# DATA WITHHOLDING
+
+# GOAL: Split your data into estimation and validation sets so that you can
+#       know when your model exhibits overfitting.
+
+
+logging.info('Withholding validation set data...')
+
+# create all jackknife sets
+nfolds=10
+ests,vals,m=preproc.split_est_val_for_jackknife(rec, modelspecs=None, njacks=nfolds)
+
+# generate PSTH prediction for each set
+ests,vals=preproc.generate_psth_from_est_for_both_est_and_val_nfold(ests, vals)
+
+
+
+
 
 # ----------------------------------------------------------------------------
 # RUN AN ANALYSIS
@@ -109,9 +93,18 @@ modelspec = nems.initializers.from_keywords('stategain2')
 
 logging.info('Fitting modelspec(s)...')
 
-# Option 1: Use gradient descent on whole data set(Fast)
-modelspecs = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
+modelspecs_out = nems.analysis.api.fit_nfold(
+        ests,modelspecs,fitter=scipy_minimize)
+# above is shorthand for :
+#modelspecs_out=[]
+#i=0
+#for m,d in zip(modelspecs,ests):
+#    i+=1
+#    logging.info("Fitting JK {}/{}".format(i,nfolds))
+#    modelspecs_out += \
+#        nems.analysis.api.fit_basic(d,m,fitter=scipy_minimize)
 
+modelspecs=modelspecs_out
 
 # ----------------------------------------------------------------------------
 # SAVE YOUR RESULTS
@@ -125,12 +118,18 @@ ms.save_modelspecs(modelspecs_dir, modelspecs)
 
 logging.info('Generating summary statistics...')
 
-new_rec = [ms.evaluate(val, m) for m in modelspecs]
-r_test = [nems.metrics.api.corrcoef(p, 'pred', 'resp') for p in new_rec]
-new_rec = [ms.evaluate(est, m) for m in modelspecs]
-r_fit = [nems.metrics.api.corrcoef(p, 'pred', 'resp') for p in new_rec]
-modelspecs[0][0]['meta']['r_fit']=np.mean(r_fit)
-modelspecs[0][0]['meta']['r_test']=np.mean(r_test)
+est,val=nems.analysis.api.generate_prediction(ests,vals,modelspecs)
+modelspecs=nems.analysis.api.standard_correlation(ests,vals,modelspecs)
+#new_rec = [ms.evaluate(v,m) for m,v in zip(modelspecs,vals)]
+#r_test = [nems.metrics.api.corrcoef(p, 'pred', 'resp') for p in new_rec]
+#
+#val=new_rec[0].jackknife_inverse_merge(new_rec)
+#
+#new_rec = [ms.evaluate(e, m) for m,e in zip(modelspecs,ests)]
+#r_fit = [nems.metrics.api.corrcoef(p, 'pred', 'resp') for p in new_rec]
+#
+#modelspecs[0][0]['meta']['r_fit']=np.mean(r_fit)
+#modelspecs[0][0]['meta']['r_test']=np.mean(r_test)
 
 logging.info("r_fit={0} r_test={1}".format(modelspecs[0][0]['meta']['r_fit'],
       modelspecs[0][0]['meta']['r_test']))
@@ -146,8 +145,9 @@ logging.info('Generating summary plot...')
 
 # Generate a summary plot
 plt.figure();
-plt.plot(val['pred'].as_continuous().T)
-plt.plot(val['state'].as_continuous().T/100)
+plt.plot(val[0]['resp'].as_continuous().T)
+plt.plot(val[0]['pred'].as_continuous().T)
+plt.plot(val[0]['state'].as_continuous().T/100)
 
 
 # Optional: Save your figure
