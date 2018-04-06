@@ -44,7 +44,7 @@ def _stp(X, u, tau, crosstalk=0):
         td = 1  # initialize, dep state of previous time bin
         a = 1/taui[i]
         ustim = 1.0/taui[i] + ui[i] * tstim[i, :]
-        #ustim = ui[i] * tstim[i, :]
+        # ustim = ui[i] * tstim[i, :]
         if ui[i] > 0:
             # depression
             for tt in range(1, s[1]):
