@@ -1391,6 +1391,22 @@ class PointProcess(SignalBase):
 #            self._generate_data()
 #        return self._cached_data
 
+    def __init__(self, fs, data, name, recording, chans=None, epochs=None,
+                 segments=None, meta=None, safety_checks=True, signal_type=None):
+        '''
+        Parameters
+        ----------
+        data : dictionary of event times in each channel
+        epochs : {None, DataFrame}
+           same as BaseSignal
+
+        TODO : Safety checks
+        '''
+        super().__init__(fs, data, name, recording, chans, epochs, segments,
+                         meta, safety_checks)
+        print('Initializing PointProcess signal')
+        self.nchans = len(list(data.keys()))
+
     def rasterize(self, fs=None):
         """
         convert list of spike times to a raster of spike rate, with duration
@@ -1530,7 +1546,7 @@ class PointProcess(SignalBase):
                     data[key]=np.concatenate((data[key],(signal._data[key]+offset)))
 
             # increment offset by duration (sec) of current signal
-            offset+=signal.ntimes*signal.fs
+            offset += signal.ntimes / signal.fs
 
 
         # basically do the same thing for epochs, using the Base routine
@@ -1567,7 +1583,7 @@ class PointProcess(SignalBase):
         # the preceeding signals
         new_data=copy.deepcopy(self._data)
         cellids = sorted(self._data)
-        offset = self.ntimes*self.fs
+        offset = self.ntimes / self.fs
 
         for key in cellids:
             # append new data to list, after adding offset
