@@ -1,5 +1,5 @@
-# A Template NEMS Script suitable for beginners
-# Please see docs/architecture.svg for a visual diagram of this code
+# A Template NEMS Script that demonstrates use of xforms for generating 
+# models that are easy to reload
 
 import os
 import logging
