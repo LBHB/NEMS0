@@ -1,4 +1,4 @@
-# A Template NEMS Script that demonstrates use of xforms for generating 
+# A Template NEMS Script that demonstrates use of xforms for generating
 # models that are easy to reload
 
 import os
@@ -12,6 +12,8 @@ import nems.plots.api as nplt
 import nems.analysis.api
 import nems.utils
 import nems.uri
+import nems.xforms as xforms
+
 from nems.recording import Recording
 from nems.fitters.api import scipy_minimize
 
@@ -20,13 +22,46 @@ from nems.fitters.api import scipy_minimize
 
 logging.basicConfig(level=logging.INFO)
 
-relative_signals_dir = '../recordings'
-relative_modelspecs_dir = '../modelspecs'
+# figure out data and results paths:
+nems_dir = os.path.abspath(os.path.dirname(recording.__file__) + '/..')
+signals_dir = nems_dir + '/recordings'
+modelspecs_dir = nems_dir + '/modelspecs'
 
-# Convert to absolute paths so they can be passed to functions in
-# other directories
-signals_dir = os.path.abspath(relative_signals_dir)
-modelspecs_dir = os.path.abspath(relative_modelspecs_dir)
+# ----------------------------------------------------------------------------
+# DATA LOADING & PRE-PROCESSING
+recording_uri = signals_dir + "/TAR010c-18-1.tgz"
+recordings = [recording_uri]
+
+xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
+          ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}],
+          ['nems.xforms.average_away_stim_occurrences',{}]]
+
+# MODEL SPEC
+modelspecname='wcg18x2_fir2x15_lvl1_dexp1'
+#modelspecname='wcg18x2_fir2x15_lvl1_dexp1'
+
+meta = {'cellid': 'TAR010c-18-1', 'batch': 271, 'modelname': modelspec_name}
+
+xfspec.append(['nems.xforms.init_from_keywords',
+               {'keywordstring': modelspecname, 'meta': meta}])
+
+
+xfspec.append(['nems.xforms.fit_basic_init', {}])
+xfspec.append(['nems.xforms.fit_basic', {}])
+xfspec.append(['nems.xforms.predict',    {}])
+# xfspec.append(['nems.xforms.add_summary_statistics',    {}])
+xfspec.append(['nems.analysis.api.standard_correlation', {},
+               ['est', 'val', 'modelspecs'], ['modelspecs']])
+
+# GENERATE PLOTS
+xfspec.append(['nems.xforms.plot_summary',    {}])
+
+# actually do the fit
+ctx, log_xf = xforms.evaluate(xfspec)
+
+
+
+
 
 # ----------------------------------------------------------------------------
 # DATA LOADING
