@@ -12,7 +12,7 @@ import nems.plots.api as nplt
 import nems.analysis.api
 import nems.utils
 import nems.uri
-from nems.recording import Recording
+import nems.recording as recording
 from nems.fitters.api import scipy_minimize
 
 # ----------------------------------------------------------------------------
@@ -20,48 +20,34 @@ from nems.fitters.api import scipy_minimize
 
 logging.basicConfig(level=logging.INFO)
 
-relative_signals_dir = '../recordings'
-relative_modelspecs_dir = '../modelspecs'
-
-# Convert to absolute paths so they can be passed to functions in
-# other directories
-signals_dir = os.path.abspath(relative_signals_dir)
-modelspecs_dir = os.path.abspath(relative_modelspecs_dir)
+# figure out data and results paths:
+nems_dir = os.path.abspath(os.path.dirname(recording.__file__) + '/..')
+signals_dir = nems_dir + '/recordings'
+modelspecs_dir = nems_dir + '/modelspecs'
 
 # ----------------------------------------------------------------------------
 # DATA LOADING
-
+#
 # GOAL: Get your data loaded into memory as a Recording object
+
 logging.info('Loading data...')
 
 # Method #1: Load the data from a local directory
-# first run download-demo-data to copy down sample file from server
-# TODO: make a function that checks and downloads here
-rec = Recording.load(signals_dir + "/TAR010c-18-1.tar.gz")
+# download demo data if necessary:
+nems.uri.get_demo_recordings(signals_dir)
 
-# Method #2: Load the data from baphy using the nems_baphy HTTP API:
-#rec = Recording.load("https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/TAR010c-18-1.tar.gz")
-
+# load into a recording object
+rec = recording.load_recording(signals_dir + "/TAR010c-18-1.tgz")
 
 # ----------------------------------------------------------------------------
-# OPTIONAL PREPROCESSING
-logging.info('Preprocessing data...')
-
-# Add a respavg signal to the recording now, so we don't have to do it later
-# on both the est and val sets seperately.
-rec = preproc.add_average_sig(rec, signal_to_average='resp',
-                              new_signalname='resp', # NOTE: ADDING AS RESP NOT RESPAVG FOR TESTING
-                              epoch_regex='^STIM_')
-
-# ----------------------------------------------------------------------------
-# DATA WITHHOLDING
-
+# DATA PREPROCESSING
+#
 # GOAL: Split your data into estimation and validation sets so that you can
 #       know when your model exhibits overfitting.
 
 logging.info('Splitting into estimation and validation data sets...')
 
-# Method #0: Guess which stimuli have the most reps, use those for val
+# Method #1: Find which stimuli have the most reps, use those for val
 est, val = rec.split_using_epoch_occurrence_counts(epoch_regex='^STIM_')
 
 # Optional: Take nanmean of ALL occurrences of all signals
@@ -82,23 +68,26 @@ val = preproc.average_away_epoch_occurrences(val, epoch_regex='^STIM_')
 
 # ----------------------------------------------------------------------------
 # INITIALIZE MODELSPEC
-
+#
 # GOAL: Define the model that you wish to test
 
 logging.info('Initializing modelspec(s)...')
 
 # Method #1: create from "shorthand" keyword string
 # very simple linear model
-# modelspec = nems.initializers.from_keywords('wc18x2_fir2x15_lvl1')
+modelspec_name='wcg18x2_fir2x15_lvl1_dexp1'
 
 # Method #1b: constrain spectral tuning to be gaussian, add static output NL
-modelspec = nems.initializers.from_keywords('wcg18x2_fir2x15_lvl1_dexp1')
+#modelspec_name='wcg18x2_fir2x15_lvl1_dexp1'
+
+modelspec = nems.initializers.from_keywords('wc18x2_fir2x15_lvl1')
 
 # Method #2: Generate modelspec directly
 # TODO: implement this
 
 # record some meta data for display and saving
-modelspec[0]['meta']={'cellid': 'TAR010c-18-1', 'batch': 271}
+modelspec[0]['meta'] = {'cellid': 'TAR010c-18-1', 'batch': 271,
+                        'modelname': modelspec_name}
 
 
 # ----------------------------------------------------------------------------
@@ -111,7 +100,7 @@ modelspec[0]['meta']={'cellid': 'TAR010c-18-1', 'batch': 271}
 logging.info('Fitting modelspec(s)...')
 
 # Option 1: Use gradient descent on whole data set(Fast)
-#modelspecs = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
+# modelspecs = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
 
 # Option 2: quick fit linear part first, then fit full nonlinear model
 modelspec = nems.initializers.prefit_to_target(
@@ -124,12 +113,17 @@ modelspecs = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
 # ----------------------------------------------------------------------------
 # GENERATE SUMMARY STATISTICS
 
+logging.info('Generating summary statistics...')
+
 # generate predictions
 est, val = nems.analysis.api.generate_prediction(est, val, modelspecs)
 
 # evaluate prediction accuracy
 modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs)
 
+logging.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
+        modelspecs[0][0]['meta']['r_fit'],
+        modelspecs[0][0]['meta']['r_test']))
 
 # ----------------------------------------------------------------------------
 # SAVE YOUR RESULTS
@@ -142,7 +136,7 @@ modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs)
 
 # ----------------------------------------------------------------------------
 # GENERATE PLOTS
-
+#
 # GOAL: Plot the predictions made by your results vs the real response.
 #       Compare performance of results with other metrics.
 

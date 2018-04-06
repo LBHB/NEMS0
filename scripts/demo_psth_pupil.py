@@ -109,7 +109,6 @@ modelspecs=modelspecs_out
 # ----------------------------------------------------------------------------
 # SAVE YOUR RESULTS
 
-
 logging.info('Saving Results...')
 ms.save_modelspecs(modelspecs_dir, modelspecs)
 
@@ -118,22 +117,15 @@ ms.save_modelspecs(modelspecs_dir, modelspecs)
 
 logging.info('Generating summary statistics...')
 
-est,val=nems.analysis.api.generate_prediction(ests,vals,modelspecs)
-modelspecs=nems.analysis.api.standard_correlation(ests,vals,modelspecs)
-#new_rec = [ms.evaluate(v,m) for m,v in zip(modelspecs,vals)]
-#r_test = [nems.metrics.api.corrcoef(p, 'pred', 'resp') for p in new_rec]
-#
-#val=new_rec[0].jackknife_inverse_merge(new_rec)
-#
-#new_rec = [ms.evaluate(e, m) for m,e in zip(modelspecs,ests)]
-#r_fit = [nems.metrics.api.corrcoef(p, 'pred', 'resp') for p in new_rec]
-#
-#modelspecs[0][0]['meta']['r_fit']=np.mean(r_fit)
-#modelspecs[0][0]['meta']['r_test']=np.mean(r_test)
+# generate predictions
+est, val = nems.analysis.api.generate_prediction(est, val, modelspecs)
 
-logging.info("r_fit={0} r_test={1}".format(modelspecs[0][0]['meta']['r_fit'],
-      modelspecs[0][0]['meta']['r_test']))
+# evaluate prediction accuracy
+modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs)
 
+logging.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
+        modelspecs[0][0]['meta']['r_fit'],
+        modelspecs[0][0]['meta']['r_test']))
 
 # ----------------------------------------------------------------------------
 # GENERATE PLOTS
@@ -144,17 +136,4 @@ logging.info("r_fit={0} r_test={1}".format(modelspecs[0][0]['meta']['r_fit'],
 logging.info('Generating summary plot...')
 
 # Generate a summary plot
-plt.figure();
-plt.plot(val[0]['resp'].as_continuous().T)
-plt.plot(val[0]['pred'].as_continuous().T)
-plt.plot(val[0]['state'].as_continuous().T/100)
-
-
-# Optional: Save your figure
-#fname = nplt.save_figure(fig, modelspecs=modelspecs, save_dir=modelspecs_dir)
-
-# Optional: Load a saved figure programatically as a bytes object
-#           that can be used by other python functions
-#           (for example, it can be b64 encoded and embedded in a webpage)
-#imgbytes = nplt.load_figure_bytes(filepath=fname)
-
+fig = nplt.quickplot({'val': val, 'modelspecs': modelspecs})
