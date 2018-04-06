@@ -39,7 +39,7 @@ def fit_model(recording_uri, modelstring, destination):
 epilog = '''
 examples of valid arguments:
   recording      http://hyrax/recordings/TAR010c-02-1.tar.gz
-  recording      file:///home/svd/python/nems/recordings/TAR010c-02-1.tar.gz
+  recording      file:///home/svd/python/nems/recordings/TAR010c-18-1.tar.gz
   modelkwstring  wc18x1_lvl1_fir15x1
   modelkwstring  wc18x1_lvl1_fir15x1_dexp1
   destination    http://potoroo/recordings/
