@@ -40,23 +40,30 @@ class NumpyEncoder(jsonlib.JSONEncoder):
     def default(self, obj):
         """
         If input object is an ndarray it will be converted into a dict
-        holding dtype, shape and the data, base64 encoded.
+        holding dtype, shape and the data. data is encoded as a list,
+        which makes it text-readable.
         """
         if issubclass(type(obj), Distribution):
             return obj.tolist()
 
         if isinstance(obj, np.ndarray):
-            # if obj.flags['C_CONTIGUOUS']:
-            #     obj_data = obj.data
-            # else:
-            #     cont_obj = np.ascontiguousarray(obj)
-            #     assert(cont_obj.flags['C_CONTIGUOUS'])
-            #     obj_data = cont_obj.data
-            # print(obj)
-            # data_b64 = base64.b64encode(obj_data)
-            # print(data_b64)
-            data = obj.tolist()
-            return dict(__ndarray__=data,
+            # currently disabling b64 encoding because it doesn't work and
+            # it makes JSON files unreadable. However, it may be worth
+            # implementing in the future for different parts of the
+            # modelspec
+            use_b64_encoding = False
+            if use_b64_encoding:
+                if obj.flags['C_CONTIGUOUS']:
+                    obj_data = obj.data
+                else:
+                    cont_obj = np.ascontiguousarray(obj)
+                    assert(cont_obj.flags['C_CONTIGUOUS'])
+                    obj_data = cont_obj.data
+                data_encoded = base64.b64encode(obj_data)
+            else:
+                data_encoded = obj.tolist()
+
+            return dict(__ndarray__=data_encoded,
                         dtype=str(obj.dtype),
                         shape=obj.shape,
                         encoding='list')
