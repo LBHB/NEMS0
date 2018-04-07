@@ -11,11 +11,8 @@ import nems.modelspec as ms
 log = logging.getLogger(__name__)
 
 '''
-this is copied from fit_basic
 need extra parameters
-    modules_set - list of lists of modelspec indices to fit during successive iterations
     max_step_per_iter - max number of steps fitting each modules_set before moving to the next one
-    tolerance_list - set of different stop tolerances for successively finer iteration loop
 
 # code taken from nems_retired:
 
@@ -102,7 +99,7 @@ class fit_iteratively(nems_fitter):
 
 def fit_iteratively(
         data, modelspec,
-        fitter=scipy_minimize,
+        fitter=coordinate_descent,
         segmentor=nems.segmentors.use_all_data,
         mapper=nems.fitters.mappers.simple_vector,
         metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp'),

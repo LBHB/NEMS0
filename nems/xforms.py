@@ -208,7 +208,7 @@ def generate_psth_from_est_for_both_est_and_val_nfold(est, val, **context):
 
 def init_from_keywords(keywordstring, meta={}, IsReload=False, **context):
     if not IsReload:
-        modelspec = init.from_keywords(keyword_string=keywordstring,meta=meta)
+        modelspec = init.from_keywords(keyword_string=keywordstring, meta=meta)
 
         return {'modelspecs': [modelspec]}
     else:
@@ -337,10 +337,13 @@ def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
 
 def fit_iteratively(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
                     module_sets=None, invert=False, tolerances=None,
-                    **context):
+                    fitter=None, **context):
     # TODO: Likely needs revisiting, just getting something working.
     if tolerances is None:
         tolerances = [ftol]
+    if fitter is None:
+        fitter = scipy_minimize
+
     if not IsReload:
         fit_kwargs = {'options': {'ftol': ftol, 'maxiter':maxiter}}
         if type(est) is list:
@@ -351,7 +354,7 @@ def fit_iteratively(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
                 i += 1
                 log.info("Fitting JK %d/%d", i, njacks)
                 modelspecs_out += nems.analysis.api.fit_iteratively(
-                        d, m, fit_kwargs=fit_kwargs, fitter=scipy_minimize,
+                        d, m, fit_kwargs=fit_kwargs, fitter=fitter,
                         module_sets=module_sets, invert=False,
                         tolerances=[ftol],
                         )
@@ -360,7 +363,7 @@ def fit_iteratively(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
             modelspecs = [
                     nems.analysis.api.fit_iteratively(
                             est, modelspec, fit_kwargs=fit_kwargs,
-                            fitter=scipy_minimize, module_sets=module_sets,
+                            fitter=fitter, module_sets=module_sets,
                             invert=invert, tolerances=tolerances)[0]
                     for modelspec in modelspecs
                     ]
@@ -449,10 +452,9 @@ def add_summary_statistics(est, val, modelspecs, **context):
 def plot_summary(modelspecs, val, figures=None, IsReload=False, **context):
     # CANNOT initialize figures=[] in optional args our you will create a bug
 
-    if not figures:
+    if figures is None:
         figures = []
     if not IsReload:
-        # fig = nplt.plot_summary(val, modelspecs)
         fig = nplt.quickplot({'modelspecs': modelspecs, 'val': val})
         # Needed to make into a Bytes because you can't deepcopy figures!
         figures.append(nplt.fig2BytesIO(fig))

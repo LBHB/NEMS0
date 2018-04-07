@@ -28,8 +28,10 @@ def dummy_fitter(sigma, cost_fn, bounds=None, fixed=None):
     return sigma
 
 
+# HACK: **kwargs doesn't actually get used, it's just there to prevent
+#       error when analyses try to pass in options dict for other fitters.
 def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
-                       step_min=1e-5, tolerance=1e-2, max_iter=100):
+                       step_min=1e-5, tolerance=1e-2, max_iter=100, **kwargs):
 
     stepinfo, update_stepinfo = tc.create_stepinfo()
     stop_fit = lambda : (tc.error_non_decreasing(stepinfo, tolerance)
@@ -67,8 +69,8 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
 
         # If change was negative, try reducing step size.
         if stepinfo['err_delta'] > 0:
-            log.info("Error got worse, reducing step size"
-                     " from: %.06f to: %.06f",
+            log.debug("Error got worse, reducing step size"
+                      " from: %.06f to: %.06f",
                      step_size, step_size*step_change)
             step_size *= step_change
 

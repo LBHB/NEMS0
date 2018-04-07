@@ -2,6 +2,8 @@ import logging
 import time
 import numpy as np
 
+log = logging.getLogger(__name__)
+
 # Reusable, composable functions for determining when you should stop
 # fitting. Use of this code is optional (fitters may always do as they wish)
 # but recommended unless you have an unusual fitting algorithm.
@@ -45,7 +47,7 @@ def create_stepinfo():
         stepinfo['err'] = err
         for k in kwargs.keys():
             stepinfo[k] = kwargs[k]
-        logging.info("Stepinfo: {}".format(stepinfo))
+        log.info("Stepinfo: %s", stepinfo)
 
     return stepinfo, update_stepinfo
 
@@ -58,8 +60,8 @@ def error_non_decreasing(stepinfo, tolerance=1e-5):
     # Using absolute value because fitters might be
     # defining delta as  err_i - err_i+1  or  err_i+1 - err_i
     if np.abs(stepinfo['err_delta']) < tolerance:
-        logging.info("Change in error: {0} was less than tolerance: {1}"
-                     .format(stepinfo['err_delta'], tolerance))
+        log.info("Change in error: %.06f was less than tolerance: %.2E",
+                 stepinfo['err_delta'], tolerance)
         return True
     else:
         return False
@@ -72,7 +74,7 @@ def fit_time_exceeded(stepinfo, max_time=300):
     '''
     # time.time() and stepinfo['start_time'] are in units of seconds
     if (time.time() - stepinfo['start_time']) >= max_time:
-        logging.info("Maximum fit time exceeded: {}".format(max_time))
+        log.info("Maximum fit time exceeded: %.02f", max_time)
         return True
     else:
         return False
@@ -84,7 +86,7 @@ def max_iterations_reached(stepinfo, max_iter=10000):
     max_iter. The default of max_iter is 10,000.
     '''
     if stepinfo['stepnum'] >= max_iter:
-        logging.info("Maximum iterations reached: {}".format(max_iter))
+        log.info("Maximum iterations reached: %d", max_iter)
         return True
     else:
         return False
@@ -96,7 +98,7 @@ def target_err_reached(stepinfo, target=0.0):
     The default target is 0.0
     '''
     if stepinfo['err'] <= target:
-        logging.info("Target error reached: {}".format(target))
+        log.info("Target error reached: %.06f", target)
         return True
     else:
         return False

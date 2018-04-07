@@ -1,7 +1,7 @@
 from nems.xform_helper import fit_model_xforms_baphy
 
 recording_uri = '/auto/users/jacob/nems/recordings/TAR010c-18-1.tar.gz'
-modelname = 'ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fititer'
+modelname = 'ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_fititer01'
 
 # TODO: This kind of does the same thing as keywords, so maybe figure out
 #       a way to use those instead? But module_sets are so variable it
