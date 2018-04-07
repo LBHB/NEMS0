@@ -1,5 +1,5 @@
-# A Template NEMS Script suitable for beginners
-# Please see docs/architecture.svg for a visual diagram of this code
+# A Template NEMS Script that demonstrates use of xforms for generating
+# models that are easy to reload
 
 import os
 import logging
@@ -12,7 +12,9 @@ import nems.plots.api as nplt
 import nems.analysis.api
 import nems.utils
 import nems.uri
-import nems.recording as recording
+import nems.xforms as xforms
+
+from nems.recording import Recording
 from nems.fitters.api import scipy_minimize
 
 # ----------------------------------------------------------------------------
@@ -26,28 +28,75 @@ signals_dir = nems_dir + '/recordings'
 modelspecs_dir = nems_dir + '/modelspecs'
 
 # ----------------------------------------------------------------------------
-# DATA LOADING
-#
-# GOAL: Get your data loaded into memory as a Recording object
+# DATA LOADING & PRE-PROCESSING
+recording_uri = signals_dir + "/TAR010c-18-1.tgz"
+recordings = [recording_uri]
 
+xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
+          ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}],
+          ['nems.xforms.average_away_stim_occurrences',{}]]
+
+# MODEL SPEC
+modelspecname='wcg18x2_fir2x15_lvl1_dexp1'
+#modelspecname='wcg18x2_fir2x15_lvl1_dexp1'
+
+meta = {'cellid': 'TAR010c-18-1', 'batch': 271, 'modelname': modelspec_name}
+
+xfspec.append(['nems.xforms.init_from_keywords',
+               {'keywordstring': modelspecname, 'meta': meta}])
+
+
+xfspec.append(['nems.xforms.fit_basic_init', {}])
+xfspec.append(['nems.xforms.fit_basic', {}])
+xfspec.append(['nems.xforms.predict',    {}])
+# xfspec.append(['nems.xforms.add_summary_statistics',    {}])
+xfspec.append(['nems.analysis.api.standard_correlation', {},
+               ['est', 'val', 'modelspecs'], ['modelspecs']])
+
+# GENERATE PLOTS
+xfspec.append(['nems.xforms.plot_summary',    {}])
+
+# actually do the fit
+ctx, log_xf = xforms.evaluate(xfspec)
+
+
+
+
+
+# ----------------------------------------------------------------------------
+# DATA LOADING
+
+# GOAL: Get your data loaded into memory as a Recording object
 logging.info('Loading data...')
 
 # Method #1: Load the data from a local directory
-# download demo data if necessary:
-nems.uri.get_demo_recordings(signals_dir)
+# first run download-demo-data to copy down sample file from server
+# TODO: make a function that checks and downloads here
+rec = Recording.load(signals_dir + "/TAR010c-18-1.tar.gz")
 
-# load into a recording object
-rec = recording.load_recording(signals_dir + "/TAR010c-18-1.tgz")
+# Method #2: Load the data from baphy using the nems_baphy HTTP API:
+#rec = Recording.load("https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/TAR010c-18-1.tar.gz")
+
 
 # ----------------------------------------------------------------------------
-# DATA PREPROCESSING
-#
+# OPTIONAL PREPROCESSING
+logging.info('Preprocessing data...')
+
+# Add a respavg signal to the recording now, so we don't have to do it later
+# on both the est and val sets seperately.
+rec = preproc.add_average_sig(rec, signal_to_average='resp',
+                              new_signalname='resp', # NOTE: ADDING AS RESP NOT RESPAVG FOR TESTING
+                              epoch_regex='^STIM_')
+
+# ----------------------------------------------------------------------------
+# DATA WITHHOLDING
+
 # GOAL: Split your data into estimation and validation sets so that you can
 #       know when your model exhibits overfitting.
 
 logging.info('Splitting into estimation and validation data sets...')
 
-# Method #1: Find which stimuli have the most reps, use those for val
+# Method #0: Guess which stimuli have the most reps, use those for val
 est, val = rec.split_using_epoch_occurrence_counts(epoch_regex='^STIM_')
 
 # Optional: Take nanmean of ALL occurrences of all signals
@@ -68,26 +117,23 @@ val = preproc.average_away_epoch_occurrences(val, epoch_regex='^STIM_')
 
 # ----------------------------------------------------------------------------
 # INITIALIZE MODELSPEC
-#
+
 # GOAL: Define the model that you wish to test
 
 logging.info('Initializing modelspec(s)...')
 
 # Method #1: create from "shorthand" keyword string
 # very simple linear model
-modelspec_name='wcg18x2_fir2x15_lvl1_dexp1'
+# modelspec = nems.initializers.from_keywords('wc18x2_fir2x15_lvl1')
 
 # Method #1b: constrain spectral tuning to be gaussian, add static output NL
-#modelspec_name='wcg18x2_fir2x15_lvl1_dexp1'
-
-modelspec = nems.initializers.from_keywords('wc18x2_fir2x15_lvl1')
+modelspec = nems.initializers.from_keywords('wcg18x2_fir2x15_lvl1_dexp1')
 
 # Method #2: Generate modelspec directly
 # TODO: implement this
 
 # record some meta data for display and saving
-modelspec[0]['meta'] = {'cellid': 'TAR010c-18-1', 'batch': 271,
-                        'modelname': modelspec_name}
+modelspec[0]['meta']={'cellid': 'TAR010c-18-1', 'batch': 271}
 
 
 # ----------------------------------------------------------------------------
@@ -100,7 +146,7 @@ modelspec[0]['meta'] = {'cellid': 'TAR010c-18-1', 'batch': 271,
 logging.info('Fitting modelspec(s)...')
 
 # Option 1: Use gradient descent on whole data set(Fast)
-# modelspecs = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
+#modelspecs = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
 
 # Option 2: quick fit linear part first, then fit full nonlinear model
 modelspec = nems.initializers.prefit_to_target(
@@ -113,17 +159,12 @@ modelspecs = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
 # ----------------------------------------------------------------------------
 # GENERATE SUMMARY STATISTICS
 
-logging.info('Generating summary statistics...')
-
 # generate predictions
 est, val = nems.analysis.api.generate_prediction(est, val, modelspecs)
 
 # evaluate prediction accuracy
 modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs)
 
-logging.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
-        modelspecs[0][0]['meta']['r_fit'],
-        modelspecs[0][0]['meta']['r_test']))
 
 # ----------------------------------------------------------------------------
 # SAVE YOUR RESULTS
@@ -136,7 +177,7 @@ logging.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
 
 # ----------------------------------------------------------------------------
 # GENERATE PLOTS
-#
+
 # GOAL: Plot the predictions made by your results vs the real response.
 #       Compare performance of results with other metrics.
 

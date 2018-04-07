@@ -1400,11 +1400,14 @@ class PointProcess(SignalBase):
         epochs : {None, DataFrame}
            same as BaseSignal
 
-        TODO : Safety checks
+        TODO : Safety checks:
+            data.keys should match self.chans
+            others?
         '''
         super().__init__(fs, data, name, recording, chans, epochs, segments,
                          meta, safety_checks)
-        print('Initializing PointProcess signal')
+
+        # number of channels specified by number of entries in data dictionary
         self.nchans = len(list(data.keys()))
 
     def rasterize(self, fs=None):
@@ -1508,11 +1511,22 @@ class PointProcess(SignalBase):
         '''
         Returns a tuple of estimation and validation data splits: (est, val).
         Arguments should be lists of epochs that define the estimation and
-        validation sets. Both est and val will have non-matching data NaN'd out.
+        validation sets. est and val will have non-matching data NaN'd out.
         '''
         est = self.rasterize().select_epochs(epochs_for_est)
         val = self.rasterize().select_epochs(epochs_for_val)
         return (est, val)
+
+    def jackknife_by_epoch(self, njacks, jack_idx, epoch_name,
+                           tiled=True,
+                           invert=False, excise=False):
+        """
+        convert to rasterized signal and create jackknife sets as
+        described there.
+        """
+        sig = self.rasterize()
+        return sig.jackknife_by_epoch(njacks, jack_idx, epoch_name,
+                                      tiled, invert, excise)
 
     def concatenate_time(self, signals):
         '''
@@ -1694,6 +1708,16 @@ class TiledSignal(SignalBase):
         est = self.rasterize().select_epochs(epochs_for_est)
         val = self.rasterize().select_epochs(epochs_for_val)
         return (est, val)
+
+    def jackknife_by_epoch(self, njacks, jack_idx, epoch_name,
+                           tiled=True, invert=False, excise=False):
+        """
+        convert to rasterized signal and create jackknife sets as
+        described there.
+        """
+        sig = self.rasterize()
+        return sig.jackknife_by_epoch(njacks, jack_idx, epoch_name,
+                                      tiled, invert, excise)
 
     def concatenate_time(self, signals):
         '''

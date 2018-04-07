@@ -455,12 +455,11 @@ def save_analysis(destination,
     '''Save an analysis file collection to a particular destination.'''
     if add_tree_path:
         treepath = tree_path(recording, modelspecs, xfspec)
-        destination = destination[:-1] if destination[-1] == '/' else destination
-        base_uri = destination + treepath
+        base_uri = os.path.join(destination, treepath)
     else:
-        destination = destination if destination[-1] == '/' else destination + '/'
         base_uri = destination
 
+    base_uri = base_uri if base_uri[-1] == '/' else base_uri + '/'
     xfspec_uri = base_uri + 'xfspec.json'  # For attaching to modelspecs
 
     for number, modelspec in enumerate(modelspecs):
