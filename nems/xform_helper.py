@@ -163,6 +163,12 @@ def generate_fitter_xfspec(fitter):
         log.info("Performing full fit...")
         xfspec.append(['nems.xforms.fit_basic', {}])
         xfspec.append(['nems.xforms.predict',    {}])
+
+    elif fitter == "fititer01":
+        # TODO - Anything else to add here?
+        xfspec.append(['nems.xforms.fit_iteratively', {}])
+        xfspec.append(['nems.xforms.predict', {}])
+
     else:
         raise ValueError('unknown fitter string ' + fitter)
 

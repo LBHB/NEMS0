@@ -290,6 +290,25 @@ def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
                           for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
 
+def fit_iteratively(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
+                    module_sets=None, **context):
+    # TODO: Likely needs revisiting, just getting something working.
+
+    if not IsReload:
+        fit_kwargs = {'options': {'ftol': ftol, 'maxiter':maxiter}}
+        if type(est) is list:
+            modelspecs_out = []
+            njacks = len(modelspecs)
+            i = 0
+            for m, d in zip(modelspecs, est):
+                i += 1
+                log.info("Fitting JK %d/%d", i, njacks)
+                modelspecs_out += nems.analysis.api.fit_iteratively(
+                        d, m, fit_kwargs=fit_kwargs, fitter=scipy_minimize,
+                        module_sets=module_sets, invert=False,
+                        tolerances=[ftol],
+                        )
+    return {'modelspecs': modelspecs}
 
 def fit_n_times_from_random_starts(modelspecs, est, ntimes,
                                    IsReload=False, **context):
