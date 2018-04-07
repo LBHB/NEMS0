@@ -67,18 +67,19 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
 
         # If change was negative, try reducing step size.
         if stepinfo['err_delta'] > 0:
-            log.info("Error got worse, reducing step size from: {0} to: {1}"
-                     .format(step_size, step_size*step_change))
+            log.info("Error got worse, reducing step size"
+                     " from: %.06f to: %.06f",
+                     step_size, step_size*step_change)
             step_size *= step_change
 
         if stepinfo['stepnum'] % 20 == 0:
-            log.debug("sigma is now: {}".format(sigma))
+            log.debug("sigma is now: %s", sigma)
 
-    log.info("Final error: {}".format(stepinfo['err']))
+    log.info("Final error: %.06f\n", stepinfo['err'])
     return sigma
 
 
-def scipy_minimize(sigma, cost_fn, method='L-BFGS-B',
+def scipy_minimize(sigma, cost_fn, tolerance=None, method='L-BFGS-B',
                    options={'maxiter': 1000, 'ftol': 1e-7}):
     """
     Wrapper for scipy.optimize.minimize to normalize format with
@@ -92,9 +93,15 @@ def scipy_minimize(sigma, cost_fn, method='L-BFGS-B',
     TODO: Pull in code from scipy.py in docs/planning to
           expose more output during iteration.
     """
+    if tolerance is not None and 'ftol' in options:
+        log.warn("Both <tolerance> and <options: ftol> provided for\n"
+                 "scipy_minimize, using <tolerance> by default: %.2E",
+                 tolerance)
+        options['ftol'] = tolerance
+
     result = scp.optimize.minimize(cost_fn, sigma, method=method,
                                    options=options)
     sigma = result.x
     final_err = cost_fn(sigma)
-    log.info("Final error: {}".format(final_err))
+    log.info("Final error: %.06f\n", final_err)
     return sigma

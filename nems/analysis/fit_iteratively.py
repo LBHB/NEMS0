@@ -166,11 +166,9 @@ def fit_iteratively(
     sigma = packer(modelspec)
 
     for tol in tolerances:
-        # TODO: How to handle this? Not all fitters use the same
-        #       tolerance argument, might need to standardize?
-
+        log.info("Fitting all subsets with tolerance: %.2E", tol)
         for subset in module_sets:
-            log.info("\nFitting subset: %s\n", subset)
+            log.info("Fitting subset: %s\n", subset)
             if invert:
                 # invert the indices
                 subset_inverted = [
@@ -231,7 +229,8 @@ def fit_iteratively(
                               metric=metric, held_out=held_out)
 
             # do fit
-            improved_sigma = fitter(sigma, cost_fn, **fit_kwargs)
+            improved_sigma = fitter(sigma, cost_fn, tolerance=tol,
+                                    **fit_kwargs)
             improved_modelspec = unpacker(improved_sigma)
 
             recombined_modelspec = [

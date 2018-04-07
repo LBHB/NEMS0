@@ -123,7 +123,7 @@ def generate_loader_xfspec(loader, recording_uri):
     return xfspec
 
 
-def generate_fitter_xfspec(fitter):
+def generate_fitter_xfspec(fitter, fitter_kwargs=None):
 
     xfspec=[]
 
@@ -164,9 +164,17 @@ def generate_fitter_xfspec(fitter):
         xfspec.append(['nems.xforms.fit_basic', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
-    elif fitter == "fititer01":
-        # TODO - Don't forget to remove temporary module_sets argument!
-        xfspec.append(['nems.xforms.fit_iteratively', {'module_sets': [[0,1], [0,1,2,3]]}])
+    elif fitter == "fititer":
+        kw_list = ['module_sets', 'tolerances', 'invert']
+        defaults = [None, None, False]
+        module_sets, tolerances, invert = _get_my_kwargs(
+                fitter_kwargs, kw_list, defaults
+                )
+        xfspec.append([
+                'nems.xforms.fit_iteratively',
+                {'module_sets':module_sets, 'tolerances': tolerances,
+                 'invert': invert}
+                ])
         xfspec.append(['nems.xforms.predict', {}])
 
     else:
@@ -175,11 +183,25 @@ def generate_fitter_xfspec(fitter):
     return xfspec
 
 
+def _get_my_kwargs(kwargs, kw_list, defaults):
+    '''Fetch value of kwarg if given, otherwise corresponding default'''
+    my_kwargs = []
+    for i, kw in enumerate(kw_list):
+        if kwargs is None:
+            a = defaults[i]
+        else:
+            a = kwargs.pop(kw, defaults[i])
+        my_kwargs.append(a)
+    return my_kwargs
+
 
 # TODO: take baphy out of names and docs if we're keeping these here.
 #       (fit and load)
+# TODO: Need loader_kwargs for anything, similar to fitter_kwargs?
+#       leaving out for now but could be useful.
 def fit_model_xforms_baphy(recording_uri, modelname,
-                           autoPlot=True, saveInDB=False):
+                           autoPlot=True, saveInDB=False,
+                           fitter_kwargs=None):
     """
     Fits a single NEMS model using data from baphy/celldb
     eg, 'ozgf100ch18_wc18x1_lvl1_fir15x1_dexp1_fit01'
@@ -232,7 +254,7 @@ def fit_model_xforms_baphy(recording_uri, modelname,
     #                {'keyword_string': modelspecname, 'meta': meta},
     #                [],['modelspecs']])
 
-    xfspec += generate_fitter_xfspec(fitter)
+    xfspec += generate_fitter_xfspec(fitter, fitter_kwargs)
 
     # xfspec.append(['nems.xforms.add_summary_statistics',    {}])
     xfspec.append(['nems.analysis.api.standard_correlation', {},

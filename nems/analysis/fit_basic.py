@@ -45,7 +45,7 @@ def fit_basic(data, modelspec,
     # Ensure that phi exists for all modules; choose prior mean if not found
     for i, m in enumerate(modelspec):
         if not m.get('phi'):
-            log.debug('Phi not found for module, using mean of prior: {}'.format(m))
+            log.debug('Phi not found for module, using mean of prior: %s', m)
             m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
             modelspec[i] = m
 
@@ -69,12 +69,12 @@ def fit_basic(data, modelspec,
         data_subset = segmentor(data)
         updated_data_subset = evaluator(data_subset, updated_spec)
         error = metric(updated_data_subset)
-        log.debug("inside cost function, current error: {}".format(error))
-        log.debug("\ncurrent sigma: {}".format(sigma))
+        log.debug("inside cost function, current error: %.06f", error)
+        log.debug("\ncurrent sigma: %s", sigma)
 
         cost_function.counter += 1
         if cost_function.counter % 1000 == 0:
-            log.info('Eval #{0}. E={1}'.format(cost_function.counter, error))
+            log.info('Eval #%d. E=%.06f', cost_function.counter, error)
 
         return error
 
