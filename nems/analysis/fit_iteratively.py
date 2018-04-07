@@ -1,10 +1,13 @@
 from functools import partial
+import time
+import logging
 
-from nems.fitters.api import dummy_fitter, coordinate_descent
+from nems.fitters.api import coordinate_descent, scipy_minimize
 import nems.fitters.mappers
 import nems.modules.evaluators
 import nems.metrics.api
 
+log = logging.getLogger(__name__)
 
 '''
 this is copied from fit_basic
@@ -96,13 +99,15 @@ class fit_iteratively(nems_fitter):
 
 '''
 
-def fit_iteratively(data, modelspec,
-                    module_sets=None,
-              fitter=scipy_minimize,
-              segmentor=nems.segmentors.use_all_data,
-              mapper=nems.fitters.mappers.simple_vector,
-              metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp'),
-              metaname='fit_basic', fit_kwargs={}):
+def fit_iteratively(
+        data, modelspec,
+        fitter=scipy_minimize,
+        segmentor=nems.segmentors.use_all_data,
+        mapper=nems.fitters.mappers.simple_vector,
+        metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp'),
+        metaname='fit_basic', fit_kwargs={},
+        module_sets=None, inverse=False, tolerances,
+        ):
     '''
     Required Arguments:
      data          A recording object
@@ -119,6 +124,14 @@ def fit_iteratively(data, modelspec,
      metric        A function of a Recording that returns an error value
                    that is to be minimized.
 
+     module_sets   A nested list specifying which model indices should be fit.
+                   Overall iteration will occurr len(module_sets) many times.
+                   ex: [[0], [1, 3], [0, 1, 2, 3]]
+
+     invert        Boolean. Causes module_sets to specify the model indices
+                   that should *not* be fit.
+
+
     Returns
     A list containing a single modelspec, which has the best parameters found
     by this fitter.
@@ -133,7 +146,8 @@ def fit_iteratively(data, modelspec,
     # Ensure that phi exists for all modules; choose prior mean if not found
     for i, m in enumerate(modelspec):
         if not m.get('phi'):
-            log.debug('Phi not found for module, using mean of prior: {}'.format(m))
+            log.debug('Phi not found for module, using mean of prior: {}'
+                      .format(m))
             m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
             modelspec[i] = m
 
@@ -146,50 +160,86 @@ def fit_iteratively(data, modelspec,
     # A function to evaluate the modelspec on the data
     evaluator = nems.modelspec.evaluate
 
-    # TODO - unpacks sigma and updates modelspec, then evaluates modelspec
-    #        on the estimation/fit data and
-    #        uses metric to return some form of error
-    def cost_function(sigma, unpacker, modelspec, data,
-                      evaluator, metric):
-        updated_spec = unpacker(sigma)
-        # The segmentor takes a subset of the data for fitting each step
-        # Intended use is for CV or random selection of chunks of the data
-        data_subset = segmentor(data)
-        updated_data_subset = evaluator(data_subset, updated_spec)
-        error = metric(updated_data_subset)
-        log.debug("inside cost function, current error: {}".format(error))
-        log.debug("\ncurrent sigma: {}".format(sigma))
-
-        cost_function.counter += 1
-        if cost_function.counter % 1000 == 0:
-            log.info('Eval #{0}. E={1}'.format(cost_function.counter, error))
-
-        return error
-
-    cost_function.counter = 0
-
-    # Freeze everything but sigma, since that's all the fitter should be
-    # updating.
-    cost_fn = partial(cost_function,
-                      unpacker=unpacker, modelspec=modelspec,
-                      data=data, evaluator=evaluator,
-                      metric=metric)
-
     # get initial sigma value representing some point in the fit space
     sigma = packer(modelspec)
 
-    # Results should be a list of modelspecs
-    # (might only be one in list, but still should be packaged as a list)
-    improved_sigma = fitter(sigma, cost_fn, **fit_kwargs)
-    improved_modelspec = unpacker(improved_sigma)
+    for tol in tolerances:
+        # TODO: How to handle this? Not all fitters use the same
+        #       tolerance argument, might need to standardize?
+
+        for subset in module_sets:
+            if inverse:
+                # invert the indices
+                subset_inverted = [
+                        None if i in subset else i
+                        for i, in enumerate(modelspec)
+                        ]
+                subset = [i for i in subset_inverted if i is not None]
+
+            # remove hold_outs from modelspec
+            held_out = []
+            subtracted_modelspec = []
+            for i, m in enumerate(modelspec):
+                if i in subset:
+                    held_out.append(None)
+                    subtracted_modelspec.append(m)
+                else:
+                    held_out.append(m)
+
+            def cost_function(sigma, unpacker, modelspec, data,
+                              evaluator, metric, hold_out):
+                updated_spec = unpacker(sigma)
+                # The segmentor takes a subset of the data for fitting each step
+                # Intended use is for CV or random selection of chunks of the data
+                data_subset = segmentor(data)
+
+                # Put hold_out back in before evaluating
+                recombined_spec = []
+                j = 0
+                for i, m in enumerate(held_out):
+                    if m is None:
+                        recombined_spec.append(updated_spec[j])
+                        j += 1
+                    else:
+                        recombined_spec.append(m)
+
+                updated_data_subset = evaluator(data_subset, recombined_spec)
+                error = metric(updated_data_subset)
+                log.debug("inside cost function, current error: %.06f" % error)
+                log.debug("\ncurrent sigma: %s" % sigma)
+
+                cost_function.counter += 1
+                if cost_function.counter % 1000 == 0:
+                    log.info('Eval #%d. E=%.06f' % cost_function.counter, error)
+
+                return error
+
+            cost_function.counter = 0
+
+            # Freeze everything but sigma, since that's all the fitter should be
+            # updating.
+            cost_fn = partial(cost_function,
+                              unpacker=unpacker, modelspec=subtracted_modelspec,
+                              data=data, evaluator=evaluator,
+                              metric=metric, hold_out)
+
+            # do fit
+            improved_sigma = fitter(sigma, cost_fn, **fit_kwargs)
+            improved_modelspec = unpacker(improved_sigma)
+
+            recombined_modelspec = [
+                    phi if phi is not None else hold_out[i]
+                    for i, phi in enumerate(improved_modelspec)
+                    ]
 
     elapsed_time = (time.time() - start_time)
 
     # TODO: Should this maybe be moved to a higher level
     # so it applies to ALL the fittters?
-    ms.set_modelspec_metadata(improved_modelspec, 'fitter', metaname)
-    ms.set_modelspec_metadata(improved_modelspec, 'fit_time', elapsed_time)
-    results = [copy.deepcopy(improved_modelspec)]
+    ms.set_modelspec_metadata(recombined_modelspec, 'fitter', metaname)
+    ms.set_modelspec_metadata(recombined_modelspec, 'fit_time', elapsed_time)
+    results = [copy.deepcopy(recombined_modelspec)]
+
     return results
 
 
