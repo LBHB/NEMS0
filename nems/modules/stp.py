@@ -19,21 +19,21 @@ def _stp(X, u, tau, crosstalk=0):
     STP core function
     """
     s = X.shape
-    tstim=X.copy()
-    tstim[np.isnan(tstim)]=0
-    tstim[tstim<0]=0
+    tstim = X.copy()
+    tstim[np.isnan(tstim)] = 0
+    tstim[tstim < 0] = 0
 
     # ui=self.u
     # force only depression, no facilitation
     # TODO: move bounds to fitter?
     # limits, assumes input (X) range is approximately -1 to +1
     ui = np.absolute(u) / 100
-    ui[ui>0.5] = 0.5
+    ui[ui > 0.5] = 0.5
 
     # convert tau units from sec to bins
-    #taui = np.absolute(self.tau[:, j]) * self.d_in[0]['fs']
+    # taui = np.absolute(self.tau[:, j]) * self.d_in[0]['fs']
     taui = np.absolute(tau)
-    taui[taui<1] = 1
+    taui[taui < 1] = 1
 
     # TODO : enable crosstalk
     # TODO : allow >1 STP channel per input?
@@ -48,21 +48,21 @@ def _stp(X, u, tau, crosstalk=0):
         if ui[i] > 0:
             # depression
             for tt in range(1, s[1]):
-                #td = di[i, tt - 1]  # previous time bin depression
-                #delta = (1 - td) / taui[i] - ui[i] * td * tstim[i, tt - 1]
-                #delta = (1 - td) / taui[i] - td * ustim[tt - 1]
+                # td = di[i, tt - 1]  # previous time bin depression
+                # delta = (1 - td) / taui[i] - ui[i] * td * tstim[i, tt - 1]
+                # delta = (1 - td) / taui[i] - td * ustim[tt - 1]
                 delta = a - td * ustim[tt - 1]
                 td = td + delta
-                td = np.max([td,0])
+                td = np.max([td, 0])
                 stim_out[i, tt] *= td
         else:
             # facilitation
             for tt in range(1, s[1]):
                 delta = a - td * ustim[tt - 1]
                 td = td + delta
-                td = np.min([td,1])
+                td = np.min([td, 1])
                 stim_out[i, tt] *= td
-    #print("(u,tau)=({0},{1})".format(ui,taui))
+    # print("(u,tau)=({0},{1})".format(ui,taui))
 
     return stim_out
 
