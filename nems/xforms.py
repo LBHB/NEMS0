@@ -335,9 +335,9 @@ def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
                           for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
 
-def fit_iteratively(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
+def fit_iteratively(modelspecs, est, max_iter=100, ftol=1e-7, IsReload=False,
                     module_sets=None, invert=False, tolerances=None,
-                    fitter=None, **context):
+                    fitter=None, fit_kwargs={}, **context):
     # TODO: Likely needs revisiting, just getting something working.
     if tolerances is None:
         tolerances = [ftol]
@@ -345,7 +345,6 @@ def fit_iteratively(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
         fitter = scipy_minimize
 
     if not IsReload:
-        fit_kwargs = {'options': {'ftol': ftol, 'maxiter':maxiter}}
         if type(est) is list:
             modelspecs_out = []
             njacks = len(modelspecs)
@@ -356,7 +355,7 @@ def fit_iteratively(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
                 modelspecs_out += nems.analysis.api.fit_iteratively(
                         d, m, fit_kwargs=fit_kwargs, fitter=fitter,
                         module_sets=module_sets, invert=False,
-                        tolerances=[ftol],
+                        tolerances=[ftol], max_iter=max_iter,
                         )
             modelspecs = modelspecs_out
         else:
@@ -364,7 +363,8 @@ def fit_iteratively(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
                     nems.analysis.api.fit_iteratively(
                             est, modelspec, fit_kwargs=fit_kwargs,
                             fitter=fitter, module_sets=module_sets,
-                            invert=invert, tolerances=tolerances)[0]
+                            invert=invert, tolerances=tolerances,
+                            max_iter=max_iter)[0]
                     for modelspec in modelspecs
                     ]
     return {'modelspecs': modelspecs}

@@ -3,99 +3,13 @@ import time
 import logging
 import copy
 
-from nems.fitters.api import coordinate_descent, scipy_minimize
+from nems.fitters.api import coordinate_descent
 import nems.fitters.mappers
 import nems.metrics.api
 import nems.modelspec as ms
 
 log = logging.getLogger(__name__)
 
-'''
-need extra parameters
-    max_step_per_iter - max number of steps fitting each modules_set before moving to the next one
-
-# code taken from nems_retired:
-
-class fit_iteratively(nems_fitter):
-    """
-    iterate through modules, running fitting each one with sub_fitter()
-
-    TODO: update class name to FitIteratively per pep8 guidelines.
-
-    """
-
-    name = 'fit_iteratively'
-    sub_fitter = None
-    max_iter = 100
-    module_sets=[]
-    tolerance=0.0000001  # deprecated
-    start_tolerance=0.000001  # start tolerance
-    min_tolerance=0.00000001  # end tolerance
-
-    def my_init(self, sub_fitter=basic_min, max_iter=100,
-                min_kwargs={'routine': 'L-BFGS-B', 'maxit': 10000},
-                start_tolerance=0.00001, min_tolerance=0.00000001):
-        self.sub_fitter = sub_fitter(self.stack, **min_kwargs)
-        self.max_iter = max_iter
-        self.module_sets = [[i] for i in self.fit_modules]
-
-    def do_fit(self):
-        self.sub_fitter.tolerance = self.start_tolerance
-        itr = 0
-        err = self.stack.error()
-        this_itr = 0
-        d_err=1
-        while itr < self.max_iter and d_err>self.min_tolerance:
-            this_itr += 1
-
-            for i in self.module_sets:
-                log.info("Begin sub_fitter on mod: {0}; iter {1}; tol={2}"
-                         .format(self.stack.modules[i[0]].name, itr,
-                                 self.sub_fitter.tolerance))
-                self.sub_fitter.fit_modules = i
-                new_err = self.sub_fitter.do_fit()
-
-            d_err=err-new_err
-
-            if d_err < self.sub_fitter.tolerance and d_err>self.min_tolerance:
-                log.info("\nIter {0}: error improvement < tol {1}, "
-                         "starting new outer iteration"
-                         .format(itr,self.sub_fitter.tolerance))
-                itr += 1
-                self.sub_fitter.tolerance = self.sub_fitter.tolerance / 2
-                this_itr = 0
-            elif this_itr > 20 and d_err>self.min_tolerance:
-                log.info("\nToo many loops at this tolerance, stuck?")
-                itr += 1
-                self.sub_fitter.tolerance = self.sub_fitter.tolerance / 2
-                this_itr = 0
-
-            err = new_err
-
-        # report that fit is complete and why stopped
-        if itr > self.max_iter:
-            log.info("\nIter {0}: max number of iterations completed"
-                         .format(itr))
-        if d_err<=self.min_tolerance:
-            log.info("\nIter {0}: error improvement < min_tolerance"
-                         .format(itr,self.min_tolerance))
-
-        # Fit all params together aferward. If iterative fit did its job,
-        # this should be a very short operation.
-        # May only be useful for testing.
-        log.info("Subfitting complete, beginning a final whole-model fit (DELETE ME?)")
-        self.sub_fitter.fit_modules = self.fit_modules
-        err = self.sub_fitter.do_fit()
-
-        # These should match
-        log.debug("self.stack.error() is: {0}\n"
-                  "local err variable is: {1}\n"
-                  .format(self.stack.error(), err))
-
-        #return(self.stack.error())
-        return err
-
-'''
 
 def fit_iteratively(
         data, modelspec,
@@ -104,7 +18,7 @@ def fit_iteratively(
         mapper=nems.fitters.mappers.simple_vector,
         metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp'),
         metaname='fit_basic', fit_kwargs={},
-        module_sets=None, invert=False, tolerances=None,
+        module_sets=None, invert=False, tolerances=None, max_iter=100
         ):
     '''
     Required Arguments:
@@ -145,7 +59,7 @@ def fit_iteratively(
     # Ensure that phi exists for all modules; choose prior mean if not found
     for i, m in enumerate(modelspec):
         if not m.get('phi'):
-            log.info('Phi not found for module, using mean of prior: {}'
+            log.debug('Phi not found for module, using mean of prior: {}'
                       .format(m))
             m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
             modelspec[i] = m
@@ -227,7 +141,7 @@ def fit_iteratively(
 
             # do fit
             improved_sigma = fitter(sigma, cost_fn, tolerance=tol,
-                                    **fit_kwargs)
+                                    max_iter=max_iter, **fit_kwargs)
             improved_modelspec = unpacker(improved_sigma)
 
             recombined_modelspec = [

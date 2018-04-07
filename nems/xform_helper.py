@@ -145,29 +145,29 @@ def generate_fitter_xfspec(fitter, fitter_kwargs=None):
 
     elif fitter == "fititer01":
         '''fit_iteratively with scipy_minimize'''
-        kw_list = ['module_sets', 'tolerances', 'invert']
-        defaults = [None, None, False]
-        module_sets, tolerances, invert = _get_my_kwargs(
-                fitter_kwargs, kw_list, defaults
-                )
+        kw_list = ['module_sets', 'tolerances', 'invert', 'max_iter']
+        defaults = [None, None, False, 100]
+        module_sets, tolerances, invert, max_iter = \
+            _get_my_kwargs(fitter_kwargs, kw_list, defaults)
         xfspec.append([
                 'nems.xforms.fit_iteratively',
                 {'module_sets':module_sets, 'tolerances': tolerances,
-                 'invert': invert, 'fitter': scipy_minimize}
+                 'invert': invert, 'max_iter': max_iter,
+                 'fitter': scipy_minimize}
                 ])
         xfspec.append(['nems.xforms.predict', {}])
 
     elif fitter == "fititer02":
         '''fit_iteratively with coordinate_descent'''
-        kw_list = ['module_sets', 'tolerances', 'invert']
-        defaults = [None, None, False]
-        module_sets, tolerances, invert = _get_my_kwargs(
-                fitter_kwargs, kw_list, defaults
-                )
+        kw_list = ['module_sets', 'tolerances', 'invert', 'max_iter']
+        defaults = [None, None, False, 100]
+        module_sets, tolerances, invert, max_iter = \
+            _get_my_kwargs(fitter_kwargs, kw_list, defaults)
         xfspec.append([
                 'nems.xforms.fit_iteratively',
                 {'module_sets':module_sets, 'tolerances': tolerances,
-                 'invert': invert, 'fitter': coordinate_descent}
+                 'invert': invert, 'max_iter': max_iter,
+                 'fitter': coordinate_descent}
                 ])
         xfspec.append(['nems.xforms.predict', {}])
 
@@ -200,9 +200,9 @@ def fit_model_xforms(recording_uri, modelname, fitter_kwargs=None,
     eg, 'ozgf100ch18_wc18x1_lvl1_fir15x1_dexp1_fit01'
     generates modelspec with 'wc18x1_lvl1_fir1x15_dexp1'
 
-    based on this function in nems/scripts/fit_model.py
-       def fit_model(recording_uri, modelstring, destination):
+    based on fit_model function in nems/scripts/fit_model.py
 
+    example xfspec:
      xfspec = [
         ['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
         ['nems.xforms.add_average_sig', {'signal_to_average': 'resp',
@@ -216,7 +216,7 @@ def fit_model_xforms(recording_uri, modelname, fitter_kwargs=None,
         ['nems.xforms.plot_summary',    {}],
         # ['nems.xforms.save_recordings', {'recordings': ['est', 'val']}],
         ['nems.xforms.fill_in_default_metadata',    {}],
-    ]
+     ]
     """
 
     log.info('Initializing modelspec(s) for recording/model {0}/{1}...'
