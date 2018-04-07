@@ -238,18 +238,25 @@ def set_random_phi(modelspecs, IsReload=False, **context):
 def fit_basic_init(modelspecs, est, IsReload=False, **context):
     ''' A basic fit that optimizes every input modelspec. '''
     if not IsReload:
-        # if STP is a module, then first pre-fit without STP
+        # if STP is a module, then first pre-fit with frozen STP
+        # HACK ALERT! THIS IS MESSY
+        stp_sm=None
         for m in modelspecs[0]:
             if 'stp' in m['fn']:
-                modelspecs = [nems.initializers.prefit_to_target(
-                        est, modelspec, nems.analysis.api.fit_basic,
-                        target_module='levelshift',
-                        extra_exclude=['stp'],
-                        fitter=scipy_minimize,
-                        fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
-                        for modelspec in modelspecs]
+                log.info("Freezing STP module for pre-fit")
+                stp_sm=copy.deepcopy(m)
+                m['fn_kwargs']['u'] = m['prior']['u'][1]['mean']
+                m['fn_kwargs']['tau'] = m['prior']['u'][1]['mean']
+                del m['prior']
+#                modelspecs = [nems.initializers.prefit_to_target(
+#                        est, modelspec, nems.analysis.api.fit_basic,
+#                        target_module='levelshift',
+#                        extra_exclude=['stp'],
+#                        fitter=scipy_minimize,
+#                        fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
+#                        for modelspec in modelspecs]
                 break
-
+ 
         # then pre-fit with STP
         modelspecs = [nems.initializers.prefit_to_target(
                 est, modelspec, nems.analysis.api.fit_basic,
@@ -257,9 +264,19 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                 fitter=scipy_minimize,
                 fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
                 for modelspec in modelspecs]
+        
+        # restore STP module to normal state
+        if stp_sm is not None:
+            for i,m in enumerate(modelspecs[0]):
+                if 'stp' in m['fn']:
+                    log.info("Restoring STP module for full fit")
+                    modelspecs[0][i]=stp_sm
+        
 #        modelspecs = [nems.initializers.init_dexp(
 #                est, modelspec)
 #                for modelspec in modelspecs]
+        
+        
     return {'modelspecs': modelspecs}
 
 def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
