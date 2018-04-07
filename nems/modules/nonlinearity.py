@@ -69,11 +69,16 @@ def _dlog(x, offset):
     d = 10.0**adjoffset
     zeroer = 0
     zbt = 0
-    y=x.copy()
-    y[y<zbt] = zbt
-    y = y-zbt
+    y = x.copy()
     
-    return np.log((y + d)/d) + zeroer
+    # avoid nan-related warning
+    out = ~np.isnan(y)
+    out[out] = y[out] < zbt
+    
+    y[out] = zbt
+    y = y - zbt
+    
+    return np.log((y + d) / d) + zeroer
 
 
 def dlog(rec, i, o, offset):
