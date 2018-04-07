@@ -47,7 +47,7 @@ def create_stepinfo():
         stepinfo['err'] = err
         for k in kwargs.keys():
             stepinfo[k] = kwargs[k]
-        log.info("Stepinfo: %s", stepinfo)
+        log.debug("Stepinfo: %s", stepinfo)
 
     return stepinfo, update_stepinfo
 

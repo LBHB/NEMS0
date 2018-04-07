@@ -79,7 +79,9 @@ def fit_iteratively(
     for tol in tolerances:
         log.info("Fitting all subsets with tolerance: %.2E", tol)
         for subset in module_sets:
-            log.info("Fitting subset: %s\n", subset)
+            log.info("Fitting subset: %s", subset)
+            mods = [m['fn'] for i, m in enumerate(modelspec) if i in subset]
+            log.info("%s\n", mods)
             if invert:
                 # invert the indices
                 subset_inverted = [
