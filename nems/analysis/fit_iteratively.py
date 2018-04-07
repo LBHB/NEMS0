@@ -1,11 +1,12 @@
 from functools import partial
 import time
 import logging
+import copy
 
 from nems.fitters.api import coordinate_descent, scipy_minimize
 import nems.fitters.mappers
-import nems.modules.evaluators
 import nems.metrics.api
+import nems.modelspec as ms
 
 log = logging.getLogger(__name__)
 
@@ -106,7 +107,7 @@ def fit_iteratively(
         mapper=nems.fitters.mappers.simple_vector,
         metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp'),
         metaname='fit_basic', fit_kwargs={},
-        module_sets=None, inverse=False, tolerances,
+        module_sets=None, invert=False, tolerances=None,
         ):
     '''
     Required Arguments:
@@ -137,16 +138,17 @@ def fit_iteratively(
     by this fitter.
     '''
     if module_sets is None:
-        module_sets=[[i] for i in range(len(modelspec))]
+        module_sets = [[i] for i in range(len(modelspec))]
 
-
+    if tolerances is None:
+        tolerances = [1e-6]
 
     start_time = time.time()
 
     # Ensure that phi exists for all modules; choose prior mean if not found
     for i, m in enumerate(modelspec):
         if not m.get('phi'):
-            log.debug('Phi not found for module, using mean of prior: {}'
+            log.info('Phi not found for module, using mean of prior: {}'
                       .format(m))
             m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
             modelspec[i] = m
@@ -158,7 +160,7 @@ def fit_iteratively(
     packer, unpacker = mapper(modelspec)
 
     # A function to evaluate the modelspec on the data
-    evaluator = nems.modelspec.evaluate
+    evaluator = ms.evaluate
 
     # get initial sigma value representing some point in the fit space
     sigma = packer(modelspec)
@@ -168,13 +170,15 @@ def fit_iteratively(
         #       tolerance argument, might need to standardize?
 
         for subset in module_sets:
-            if inverse:
+            log.info("\nFitting subset: %s\n", subset)
+            if invert:
                 # invert the indices
                 subset_inverted = [
                         None if i in subset else i
                         for i, in enumerate(modelspec)
                         ]
                 subset = [i for i in subset_inverted if i is not None]
+                log.debug("Inverted subset: %s\n", subset)
 
             # remove hold_outs from modelspec
             held_out = []
@@ -185,9 +189,11 @@ def fit_iteratively(
                     subtracted_modelspec.append(m)
                 else:
                     held_out.append(m)
+            log.debug("\n\nheld_out subset was: %s\n\nsubtracted_modelspec: %s",
+                      held_out, subtracted_modelspec)
 
             def cost_function(sigma, unpacker, modelspec, data,
-                              evaluator, metric, hold_out):
+                              evaluator, metric, held_out):
                 updated_spec = unpacker(sigma)
                 # The segmentor takes a subset of the data for fitting each step
                 # Intended use is for CV or random selection of chunks of the data
@@ -205,12 +211,13 @@ def fit_iteratively(
 
                 updated_data_subset = evaluator(data_subset, recombined_spec)
                 error = metric(updated_data_subset)
-                log.debug("inside cost function, current error: %.06f" % error)
-                log.debug("\ncurrent sigma: %s" % sigma)
+                log.debug("inside cost function, current error: %.06f", error)
+                log.debug("\ncurrent sigma: %s", sigma)
 
                 cost_function.counter += 1
                 if cost_function.counter % 1000 == 0:
-                    log.info('Eval #%d. E=%.06f' % cost_function.counter, error)
+                    log.info('Eval #%d. E=%.06f', cost_function.counter, error)
+                    log.debug("\n\nrecombined_spec was: %s", recombined_spec)
 
                 return error
 
@@ -221,16 +228,18 @@ def fit_iteratively(
             cost_fn = partial(cost_function,
                               unpacker=unpacker, modelspec=subtracted_modelspec,
                               data=data, evaluator=evaluator,
-                              metric=metric, hold_out)
+                              metric=metric, held_out=held_out)
 
             # do fit
             improved_sigma = fitter(sigma, cost_fn, **fit_kwargs)
             improved_modelspec = unpacker(improved_sigma)
 
             recombined_modelspec = [
-                    phi if phi is not None else hold_out[i]
+                    phi if phi is not None else held_out[i]
                     for i, phi in enumerate(improved_modelspec)
                     ]
+            log.debug("\n\nsubset: %s\nrecombined_modelspec: %s",
+                      subset, recombined_modelspec)
 
     elapsed_time = (time.time() - start_time)
 
@@ -239,70 +248,5 @@ def fit_iteratively(
     ms.set_modelspec_metadata(recombined_modelspec, 'fitter', metaname)
     ms.set_modelspec_metadata(recombined_modelspec, 'fit_time', elapsed_time)
     results = [copy.deepcopy(recombined_modelspec)]
-
-    return results
-
-
-def fit_iteratively_old(data, modelspec):
-    '''
-    TODO
-    '''
-    # Data set (should be a recording object)
-    # Modelspec: dict with the initial module specifications
-    # Per architecture doc, analysis function should only take these two args
-
-    # TODO: should this be exposed as an argument?
-    # Specify how the data will be split up
-    segmentor = lambda data: data.split_at_time(0.8)
-
-    # TODO: should mapping be exposed as an argument?
-    # get funcs for translating modelspec to and from fitter's fitspace
-    # packer should generally take only modelspec as arg,
-    # unpacker should take type returned by packer + modelspec
-    packer, unpacker = nems.fitters.mappers.simple_vector()
-
-    # split up the data using the specified segmentor
-    est_data, val_data = segmentor(data)
-
-    # bit hacky at the moment, but trying not to interfere with or rewrite mse
-    # for now (which expects a dict of arrays) -jacob
-    metric = lambda data: nems.metrics.api.mse(
-                                {'pred': data.get_signal('pred').as_continuous(),
-                                 'resp': data.get_signal('resp').as_continuous()}
-                                )
-
-    # TODO - evaluates the data using the modelspec, then updates data['pred']
-    evaluator = nems.modules.evaluators.matrix_eval
-
-    # TODO - unpacks sigma and updates modelspec, then evaluates modelspec
-    #        on the estimation/fit data and
-    #        uses metric to return some form of error
-    def cost_function(unpacker, modelspec, est_data, evaluator, metric,
-                      sigma=None):
-        updated_spec = unpacker(sigma, modelspec)
-        updated_est_data = evaluator(est_data, updated_spec)
-        error = metric(updated_est_data)
-        return error
-    # Freeze everything but sigma, since that's all the fitter should be
-    # updating.
-    cost_fn = partial(
-            cost_function, unpacker=unpacker, modelspec=modelspec,
-            est_data=est_data, evaluator=evaluator, metric=metric,
-            )
-
-    # get initial sigma value representing some point in the fit space
-    sigma = packer(modelspec)
-
-    # TODO: should fitter be exposed as an argument?
-    #       would make sense if exposing space mapper, since fitter and mapper
-    #       type are related.
-    fitter = dummy_fitter
-
-    # Results should be a list of modelspecs
-    # (might only be one in list, but still should be packaged as a list)
-    improved_sigma = fitter(sigma, cost_fn)
-
-    improved_modelspec = unpacker(improved_sigma, modelspec)
-    results = [improved_modelspec]
 
     return results

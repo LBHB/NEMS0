@@ -20,7 +20,7 @@ import nems.utils
 import nems_db.baphy as nb
 import nems_db.db as nd
 from nems.recording import Recording
-from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
+from nems.fitters.api import (dummy_fitter, coordinate_descent, scipy_minimize)
 import nems.xforms as xforms
 
 import logging
@@ -165,8 +165,8 @@ def generate_fitter_xfspec(fitter):
         xfspec.append(['nems.xforms.predict',    {}])
 
     elif fitter == "fititer01":
-        # TODO - Anything else to add here?
-        xfspec.append(['nems.xforms.fit_iteratively', {}])
+        # TODO - Don't forget to remove temporary module_sets argument!
+        xfspec.append(['nems.xforms.fit_iteratively', {'module_sets': [[0,1], [0,1,2,3]]}])
         xfspec.append(['nems.xforms.predict', {}])
 
     else:
@@ -175,12 +175,15 @@ def generate_fitter_xfspec(fitter):
     return xfspec
 
 
+
+# TODO: take baphy out of names and docs if we're keeping these here.
+#       (fit and load)
 def fit_model_xforms_baphy(recording_uri, modelname,
                            autoPlot=True, saveInDB=False):
     """
     Fits a single NEMS model using data from baphy/celldb
     eg, 'ozgf100ch18_wc18x1_lvl1_fir15x1_dexp1_fit01'
-    generates modelspec with 'wc18x1_lvl1_fir15x1_dexp1'
+    generates modelspec with 'wc18x1_lvl1_fir1x15_dexp1'
 
     based on this function in nems/scripts/fit_model.py
        def fit_model(recording_uri, modelstring, destination):
@@ -201,7 +204,8 @@ def fit_model_xforms_baphy(recording_uri, modelname,
     ]
     """
 
-    log.info('Initializing modelspec(s) for recording/model {0}/{1}...'.format(recording_uri, modelname))
+    log.info('Initializing modelspec(s) for recording/model {0}/{1}...'
+             .format(recording_uri, modelname))
 
     # parse modelname
     kws = modelname.split("_")
@@ -245,6 +249,7 @@ def fit_model_xforms_baphy(recording_uri, modelname,
     # save some extra metadata
     modelspecs = ctx['modelspecs']
 
+# TODO: Need saving turned back on after we're sure everything's fixed
 #   maybe useful?
 #    destination = '/auto/data/nems_db/results/{0}/{1}/{2}/'.format(
 #            batch, cellid, ms.get_modelspec_longname(modelspecs[0]))
@@ -260,10 +265,10 @@ def fit_model_xforms_baphy(recording_uri, modelname,
 #                         figures=ctx['figures'],
 #                         log=log_xf)
 #
-#    # save in database as well
-#    if saveInDB:
-#        # TODO : db results finalized?
-#        nd.update_results_table(modelspecs[0])
+    # save in database as well
+    if saveInDB:
+        # TODO : db results finalized?
+        nd.update_results_table(modelspecs[0])
 
     return ctx
 

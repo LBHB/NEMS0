@@ -250,7 +250,7 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                         fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
                         for modelspec in modelspecs]
                 break
- 
+
         # then pre-fit with STP
         modelspecs = [nems.initializers.prefit_to_target(
                 est, modelspec, nems.analysis.api.fit_basic,
@@ -258,12 +258,12 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                 fitter=scipy_minimize,
                 fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
                 for modelspec in modelspecs]
-                
+
         # possibility: pre-fit static NL .  But this doesn't seem to help...
         #modelspecs = [nems.initializers.init_dexp(
         #        est, modelspec)
-        #        for modelspec in modelspecs]        
-        
+        #        for modelspec in modelspecs]
+
     return {'modelspecs': modelspecs}
 
 def fit_basic_init_stp_freeze(modelspecs, est, IsReload=False, **context):
@@ -280,7 +280,7 @@ def fit_basic_init_stp_freeze(modelspecs, est, IsReload=False, **context):
                 m['fn_kwargs']['tau'] = m['prior']['u'][1]['mean']
                 del m['prior']
                 break
- 
+
         # then pre-fit with STP
         modelspecs = [nems.initializers.prefit_to_target(
                 est, modelspec, nems.analysis.api.fit_basic,
@@ -288,7 +288,7 @@ def fit_basic_init_stp_freeze(modelspecs, est, IsReload=False, **context):
                 fitter=scipy_minimize,
                 fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
                 for modelspec in modelspecs]
-        
+
         # restore STP module to normal state
         if stp_sm is not None:
             for i,m in enumerate(modelspecs[0]):
@@ -298,13 +298,13 @@ def fit_basic_init_stp_freeze(modelspecs, est, IsReload=False, **context):
                     stp_sm['phi']['u'] = stp_sm['prior']['u'][1]['mean']
                     stp_sm['phi']['tau'] = stp_sm['prior']['u'][1]['mean']
                     modelspecs[0][i]=stp_sm
-        
+
         # possibility: pre-fit static NL .  But this doesn't seem to help...
         #modelspecs = [nems.initializers.init_dexp(
         #        est, modelspec)
         #        for modelspec in modelspecs]
-        
-        
+
+
     return {'modelspecs': modelspecs}
 
 def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
@@ -336,9 +336,11 @@ def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
     return {'modelspecs': modelspecs}
 
 def fit_iteratively(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
-                    module_sets=None, **context):
+                    module_sets=None, invert=False, tolerances=None,
+                    **context):
     # TODO: Likely needs revisiting, just getting something working.
-
+    if tolerances is None:
+        tolerances = [ftol]
     if not IsReload:
         fit_kwargs = {'options': {'ftol': ftol, 'maxiter':maxiter}}
         if type(est) is list:
@@ -353,6 +355,15 @@ def fit_iteratively(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
                         module_sets=module_sets, invert=False,
                         tolerances=[ftol],
                         )
+            modelspecs = modelspecs_out
+        else:
+            modelspecs = [
+                    nems.analysis.api.fit_iteratively(
+                            est, modelspec, fit_kwargs=fit_kwargs,
+                            fitter=scipy_minimize, module_sets=module_sets,
+                            invert=invert, tolerances=tolerances)[0]
+                    for modelspec in modelspecs
+                    ]
     return {'modelspecs': modelspecs}
 
 def fit_n_times_from_random_starts(modelspecs, est, ntimes,
