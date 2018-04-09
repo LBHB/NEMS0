@@ -181,7 +181,7 @@ def evaluate(rec, modelspec, start=None, stop=None):
     return d
 
 
-def summary_stats(modelspecs):
+def summary_stats(modelspecs, mod_key='fn'):
     '''
     Generates summary statistics for a list of modelspecs.
     Each modelspec must be of the same length and contain the same
@@ -211,9 +211,6 @@ def summary_stats(modelspecs):
     modelspecs = [copy.deepcopy(m) for m in modelspecs]
 
     # Modelspecs must have the same length to compare
-    # TODO: Remove this requirement? Would just need some handling of
-    #       missing indices in the rest of the function's logic.
-    #       Keeping the requirement lets us make some simplifying assumptions.
     length = None
     for m in modelspecs:
         if length:
@@ -222,7 +219,6 @@ def summary_stats(modelspecs):
         length = len(m)
 
     # Modelspecs must have the same modules to compare
-    # TODO: Remove this requirement? Same issue as with length matching.
     fns = [m['fn'] for m in modelspecs[0]]
     for mspec in modelspecs[1:]:
         m_fns = [m['fn'] for m in mspec]
@@ -234,13 +230,14 @@ def summary_stats(modelspecs):
     columns = {}
     for mspec in modelspecs:
         for i, m in enumerate(mspec):
-            name = m['fn']
+            name = '%d--%s' % (i, m[mod_key]) if mod_key else str(i)
+            # Abbreviate by default if using 'fn'
             if name.startswith('nems.modules.'):
                 name = name[13:]
             phi = m['phi']
             params = phi.keys()
             for p in params:
-                column_entry = '{0}---{1}'.format(name, p)
+                column_entry = '%s--%s' % (name, p)
                 if column_entry in columns.keys():
                     columns[column_entry].append(phi[p])
                 else:

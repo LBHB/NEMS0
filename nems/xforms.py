@@ -2,6 +2,8 @@ import io
 import os
 import copy
 import socket
+import logging
+
 import nems.analysis.api
 import nems.initializers as init
 import nems.metrics as metrics
@@ -15,9 +17,7 @@ from nems.utils import iso8601_datestring
 from nems.fitters.api import scipy_minimize
 from nems.recording import load_recording
 
-import logging
 log = logging.getLogger(__name__)
-
 xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
 
 
@@ -555,7 +555,7 @@ def load_analysis(filepath, eval_model=True):
     """
     load xforms and modelspec(s) from a specified directory
     """
-    logging.info('Loading modelspecs from {0}...'.format(filepath))
+    log.info('Loading modelspecs from %s...', filepath)
 
     xfspec = load_xform(filepath + 'xfspec.json')
 
