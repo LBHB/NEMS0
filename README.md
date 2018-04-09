@@ -15,6 +15,8 @@ source ~/.bashrc
 
 We have found that Python 3 distributions compiled with the Intel MKL libraries are about twice as the default Python implementations that come installed on many linux machines. Please see our basic [conda installation instructions](docs/conda.md) if you would like to set up a python environment like the way that we do.
 
+NOTE: Regardless of which Python distribution you choose to use, NEMS is designed to use Python 3. Backwards compatibility with Python 2 is untested and unsupported.
+
 Finally, if for some reason they are not installed already, you will also need to use pip to install several libraries that NEMS uses:
 
 ```
@@ -34,7 +36,7 @@ You may test if everything is working by telling NEMS to download some sample au
 
 ```
 cd nems/scripts
-INPUT_URI=https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/TAR010c-18-1.tar.gz
+INPUT_URI=https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/TAR010c-18-1.tgz
 MODELKEYWORDS="wc18x1_lvl1_fir15x1_dexp1"
 DESTINATION=~/nems_results/
 python fit_model.py $INPUT_URI $MODELKEYWORDS $DESTINATION
@@ -43,8 +45,8 @@ python fit_model.py $INPUT_URI $MODELKEYWORDS $DESTINATION
 Now you should go in `~/nems_results` and find the subdirectory where the plot PNG files, modelspecs, and other files were saved. As I hope you can see, the `$INPUT_URI` and `$DESTINATION` variables may either be local paths, or HTTP URLs. For example, you might want to download that file for later, offline use in model fitting:
 
 ```
-wget https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/TAR010c-18-1.tar.gz -P /tmp
-INPUT_URI=/tmp/TAR010c-18-1.tar.gz
+wget https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/TAR010c-18-1.tgz -P /tmp
+INPUT_URI=/tmp/TAR010c-18-1.tgz
 MODELKEYWORDS="wc18x1_lvl1_fir15x1_dexp1"
 DESTINATION=~/nems_results/
 python fit_model.py $INPUT_URI $MODELKEYWORDS $DESTINATION

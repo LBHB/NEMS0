@@ -144,7 +144,7 @@ defkey('stp1',
                       'o': 'pred',
                       'crosstalk': 0},
         'prior': {'u': ('Normal', {'mean': [1], 'sd': [1]}),
-                  'tau': ('Normal', {'mean': [5], 'sd': [1]})}})
+                  'tau': ('Normal', {'mean': [4], 'sd': [1]})}})
 
 defkey('stp2',
        {'fn': 'nems.modules.stp.short_term_plasticity',
@@ -152,7 +152,7 @@ defkey('stp2',
                       'o': 'pred',
                       'crosstalk': 0},
         'prior': {'u': ('Normal', {'mean': [1, 1], 'sd': [1, 1]}),
-                  'tau': ('Normal', {'mean': [5, 5], 'sd': [5, 5]})}})
+                  'tau': ('Normal', {'mean': [4, 4], 'sd': [5, 5]})}})
 
 defkey('dexp1',
        {'fn': 'nems.modules.nonlinearity.double_exponential',

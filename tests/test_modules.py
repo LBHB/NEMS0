@@ -34,6 +34,7 @@ def test_stp():
     fs = 100
     data = np.concatenate([np.zeros([1, 10]), np.ones([1, 20]),
                           np.zeros([1, 20]), np.ones([1, 5]), np.zeros([1, 5]),
+                          np.ones([1, 5]), np.zeros([1, 5]),
                           np.ones([1, 5]), np.zeros([1, 10])], axis=1)
 
     kwargs = {
@@ -53,7 +54,7 @@ def test_stp():
     rec = recording.Recording({'pred': pred})
 
     u = np.array([5.0])
-    tau = np.array([5.0])
+    tau = np.array([8.0])
 
     r = stp.short_term_plasticity(rec, 'pred', 'pred_out', u=u, tau=tau)
     pred_out = r[0]

@@ -2,6 +2,8 @@ import io
 import os
 import copy
 import socket
+import logging
+
 import nems.analysis.api
 import nems.initializers as init
 import nems.metrics as metrics
@@ -15,9 +17,7 @@ from nems.utils import iso8601_datestring
 from nems.fitters.api import scipy_minimize
 from nems.recording import load_recording
 
-import logging
 log = logging.getLogger(__name__)
-
 xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
 
 
@@ -208,7 +208,7 @@ def generate_psth_from_est_for_both_est_and_val_nfold(est, val, **context):
 
 def init_from_keywords(keywordstring, meta={}, IsReload=False, **context):
     if not IsReload:
-        modelspec = init.from_keywords(keyword_string=keywordstring,meta=meta)
+        modelspec = init.from_keywords(keyword_string=keywordstring, meta=meta)
 
         return {'modelspecs': [modelspec]}
     else:
@@ -238,7 +238,8 @@ def set_random_phi(modelspecs, IsReload=False, **context):
 def fit_basic_init(modelspecs, est, IsReload=False, **context):
     ''' A basic fit that optimizes every input modelspec. '''
     if not IsReload:
-        # if STP is a module, then first pre-fit without STP
+        # HACK ALERT! THIS IS MESSY
+        # fit without STP module first (if there is one)
         for m in modelspecs[0]:
             if 'stp' in m['fn']:
                 modelspecs = [nems.initializers.prefit_to_target(
@@ -257,9 +258,53 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                 fitter=scipy_minimize,
                 fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
                 for modelspec in modelspecs]
-#        modelspecs = [nems.initializers.init_dexp(
-#                est, modelspec)
-#                for modelspec in modelspecs]
+
+        # possibility: pre-fit static NL .  But this doesn't seem to help...
+        #modelspecs = [nems.initializers.init_dexp(
+        #        est, modelspec)
+        #        for modelspec in modelspecs]
+
+    return {'modelspecs': modelspecs}
+
+def fit_basic_init_stp_freeze(modelspecs, est, IsReload=False, **context):
+    ''' A basic fit that optimizes every input modelspec. '''
+    if not IsReload:
+        # if STP is a module, then first pre-fit with frozen STP
+        # HACK ALERT! THIS IS MESSY. AND IT DOESN'T HELP??
+        stp_sm=None
+        for m in modelspecs[0]:
+            if 'stp' in m['fn']:
+                log.info("Freezing STP module for pre-fit")
+                stp_sm=copy.deepcopy(m)
+                m['fn_kwargs']['u'] = m['prior']['u'][1]['mean']
+                m['fn_kwargs']['tau'] = m['prior']['u'][1]['mean']
+                del m['prior']
+                break
+
+        # then pre-fit with STP
+        modelspecs = [nems.initializers.prefit_to_target(
+                est, modelspec, nems.analysis.api.fit_basic,
+                target_module='levelshift',
+                fitter=scipy_minimize,
+                fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
+                for modelspec in modelspecs]
+
+        # restore STP module to normal state
+        if stp_sm is not None:
+            for i,m in enumerate(modelspecs[0]):
+                if 'stp' in m['fn']:
+                    log.info("Restoring STP module for full fit")
+                    stp_sm['phi'] = {}
+                    stp_sm['phi']['u'] = stp_sm['prior']['u'][1]['mean']
+                    stp_sm['phi']['tau'] = stp_sm['prior']['u'][1]['mean']
+                    modelspecs[0][i]=stp_sm
+
+        # possibility: pre-fit static NL .  But this doesn't seem to help...
+        #modelspecs = [nems.initializers.init_dexp(
+        #        est, modelspec)
+        #        for modelspec in modelspecs]
+
+
     return {'modelspecs': modelspecs}
 
 def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
@@ -290,6 +335,39 @@ def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
                           for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
 
+def fit_iteratively(modelspecs, est, max_iter=100, ftol=1e-7, IsReload=False,
+                    module_sets=None, invert=False, tolerances=None,
+                    fitter=None, fit_kwargs={}, **context):
+    # TODO: Likely needs revisiting, just getting something working.
+    if tolerances is None:
+        tolerances = [ftol]
+    if fitter is None:
+        fitter = scipy_minimize
+
+    if not IsReload:
+        if type(est) is list:
+            modelspecs_out = []
+            njacks = len(modelspecs)
+            i = 0
+            for m, d in zip(modelspecs, est):
+                i += 1
+                log.info("Fitting JK %d/%d", i, njacks)
+                modelspecs_out += nems.analysis.api.fit_iteratively(
+                        d, m, fit_kwargs=fit_kwargs, fitter=fitter,
+                        module_sets=module_sets, invert=False,
+                        tolerances=[ftol], max_iter=max_iter,
+                        )
+            modelspecs = modelspecs_out
+        else:
+            modelspecs = [
+                    nems.analysis.api.fit_iteratively(
+                            est, modelspec, fit_kwargs=fit_kwargs,
+                            fitter=fitter, module_sets=module_sets,
+                            invert=invert, tolerances=tolerances,
+                            max_iter=max_iter)[0]
+                    for modelspec in modelspecs
+                    ]
+    return {'modelspecs': modelspecs}
 
 def fit_n_times_from_random_starts(modelspecs, est, ntimes,
                                    IsReload=False, **context):
@@ -374,10 +452,9 @@ def add_summary_statistics(est, val, modelspecs, **context):
 def plot_summary(modelspecs, val, figures=None, IsReload=False, **context):
     # CANNOT initialize figures=[] in optional args our you will create a bug
 
-    if not figures:
+    if figures is None:
         figures = []
     if not IsReload:
-        # fig = nplt.plot_summary(val, modelspecs)
         fig = nplt.quickplot({'modelspecs': modelspecs, 'val': val})
         # Needed to make into a Bytes because you can't deepcopy figures!
         figures.append(nplt.fig2BytesIO(fig))
@@ -455,12 +532,11 @@ def save_analysis(destination,
     '''Save an analysis file collection to a particular destination.'''
     if add_tree_path:
         treepath = tree_path(recording, modelspecs, xfspec)
-        destination = destination[:-1] if destination[-1] == '/' else destination
-        base_uri = destination + treepath
+        base_uri = os.path.join(destination, treepath)
     else:
-        destination = destination if destination[-1] == '/' else destination + '/'
         base_uri = destination
 
+    base_uri = base_uri if base_uri[-1] == '/' else base_uri + '/'
     xfspec_uri = base_uri + 'xfspec.json'  # For attaching to modelspecs
 
     for number, modelspec in enumerate(modelspecs):
@@ -479,7 +555,7 @@ def load_analysis(filepath, eval_model=True):
     """
     load xforms and modelspec(s) from a specified directory
     """
-    logging.info('Loading modelspecs from {0}...'.format(filepath))
+    log.info('Loading modelspecs from %s...', filepath)
 
     xfspec = load_xform(filepath + 'xfspec.json')
 
