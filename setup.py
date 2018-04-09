@@ -24,7 +24,13 @@ setup(
     long_description=long_description,
     url='http://neuralprediction.org',
     install_requires=GENERAL_REQUIRES,
-    classifiers=[],
+    classifiers=[
+        'Development Status :: 2 - Pre-Alpha',
+        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+        'Natural Language :: English',
+        'Programming Language :: Python :: 3 :: Only',
+        'Topic :: Scientific/Engineering :: Bio-Informatics'
+    ],
     entry_points={
         'console_scripts': [
             'fit-model=scripts.fit_model:main',
