@@ -41,6 +41,7 @@ def signal1(signal_name='dummy_signal_1', recording_name='dummy_recording', fs=5
     }
     return RasterizedSignal(**kwargs)
 
+
 @pytest.fixture()
 def signal2(signal_name='dummy_signal_2', recording_name='dummy_recording', fs=50,
            nchans=3, ntimes=250):
@@ -76,6 +77,7 @@ def signal2(signal_name='dummy_signal_2', recording_name='dummy_recording', fs=5
         },
     }
     return RasterizedSignal(**kwargs)
+
 
 @pytest.fixture()
 def recording(signal1, signal2):
