@@ -29,8 +29,14 @@ modelspecs_dir = nems_dir + '/modelspecs'
 
 # ----------------------------------------------------------------------------
 # DATA LOADING & PRE-PROCESSING
-recording_uri = signals_dir + "/por074b-c2.tgz"
+#recording_uri = signals_dir + "/por074b-c2.tgz"
+#recordings = [recording_uri]
+#cellid='por074b-c2'
+#batch=259
+recording_uri = signals_dir + "/TAR010c-18-1.tgz"
 recordings = [recording_uri]
+cellid='TAR010c-18-1'
+batch=271
 
 xfspec = []
 xfspec.append(['nems.xforms.load_recordings',
@@ -41,9 +47,10 @@ xfspec.append(['nems.xforms.average_away_stim_occurrences', {}])
 
 # MODEL SPEC
 # modelspecname = 'dlog_wcg18x1_stp1_fir1x15_lvl1_dexp1'
-modelspecname = 'dlogn2_stp2_fir2x15_lvl1_dexp1'
+#modelspecname = 'dlog_fir2x15_lvl1_dexp1'
+modelspecname = 'dlog_wcg18x1_fir1x15_lvl1_dexp1'
 
-meta = {'cellid': 'por074b-c2', 'batch': 259, 'modelname': modelspecname}
+meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname}
 
 xfspec.append(['nems.xforms.init_from_keywords',
                {'keywordstring': modelspecname, 'meta': meta}])
