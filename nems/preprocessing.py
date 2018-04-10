@@ -280,7 +280,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_sign
 
     return newrec
 
-def split_est_val_for_jackknife(est, modelspecs=None, njacks=10, IsReload=False, **context):
+def split_est_val_for_jackknife(est, epoch_name='TRIAL', modelspecs=None, njacks=10, IsReload=False, **context):
 
     est_out=[]
     val_out=[]
@@ -289,9 +289,9 @@ def split_est_val_for_jackknife(est, modelspecs=None, njacks=10, IsReload=False,
         #est_out += [est.jackknife_by_time(njacks, i)]
         #val_out += [est.jackknife_by_time(njacks, i, invert=True)]
         est_out += [est.jackknife_by_epoch(njacks, i,
-                        epoch_name='TRIAL',tiled=True)]
+                        epoch_name,tiled=True)]
         val_out += [est.jackknife_by_epoch(njacks, i,
-                        epoch_name='TRIAL',tiled=True,invert=True)]
+                        epoch_name,tiled=True,invert=True)]
     modelspecs_out=[]
     if (not IsReload) and (modelspecs is not None):
         if len(modelspecs)==1:
@@ -302,4 +302,3 @@ def split_est_val_for_jackknife(est, modelspecs=None, njacks=10, IsReload=False,
         else:
             raise ValueError('modelspecs must be len 1 or njacks')
     return est_out, val_out, modelspecs_out
-
