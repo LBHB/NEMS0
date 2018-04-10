@@ -4,7 +4,7 @@ from setuptools import find_packages, setup
 
 NAME = 'NEMS'
 
-VERSION = 'pre-alpha'
+VERSION = '0.0.1a'
 
 with codecs.open('README.md', encoding='utf-8') as f:
     long_description = f.read()
