@@ -13,7 +13,7 @@ echo "export PYTHONPATH=\"\$PYTHONPATH:`pwd`/nems\"" >> ~/.bashrc
 source ~/.bashrc
 ```
 
-We have found that Python 3 distributions compiled with the Intel MKL libraries are about twice as the default Python implementations that come installed on many linux machines. Please see our basic [conda installation instructions](docs/conda.md) if you would like to set up a python environment like the way that we do.
+We have found that Python 3 distributions compiled with the Intel MKL libraries are about twice as fast as the default Python implementations that come installed on many linux machines. Please see our basic [conda installation instructions](docs/conda.md) if you would like to set up a python environment like the way that we do.
 
 NOTE: Regardless of which Python distribution you choose to use, NEMS is designed to use Python 3. Backwards compatibility with Python 2 is untested and unsupported.
 
@@ -27,7 +27,7 @@ Alternatively, you may use pip to automatically install all libraries specified 
 
 ```
 # Where 'NEMS' refers to the name of the directory containing the installation
-pip install -e NEMS 
+pip install -e NEMS
 ```
 
 ## Your First Model Fit
@@ -37,7 +37,7 @@ You may test if everything is working by telling NEMS to download some sample au
 ```
 cd nems/scripts
 INPUT_URI=https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/TAR010c-18-1.tgz
-MODELKEYWORDS="wc18x1_lvl1_fir15x1_dexp1"
+MODELKEYWORDS="wc18x1_lvl1_fir1x15_dexp1"
 DESTINATION=~/nems_results/
 python fit_model.py $INPUT_URI $MODELKEYWORDS $DESTINATION
 ```
@@ -47,7 +47,7 @@ Now you should go in `~/nems_results` and find the subdirectory where the plot P
 ```
 wget https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/TAR010c-18-1.tgz -P /tmp
 INPUT_URI=/tmp/TAR010c-18-1.tgz
-MODELKEYWORDS="wc18x1_lvl1_fir15x1_dexp1"
+MODELKEYWORDS="wc18x1_lvl1_fir1x15_dexp1"
 DESTINATION=~/nems_results/
 python fit_model.py $INPUT_URI $MODELKEYWORDS $DESTINATION
 ```
@@ -55,9 +55,9 @@ python fit_model.py $INPUT_URI $MODELKEYWORDS $DESTINATION
 In our laboratory, we have a [NEMS_DB](http://github.com/lbhb/nems_db) server that we save our fit models to, so the INPUT_URI is usually an URL like `http://ourserver.edu/recordings/...` and the destinations are an URL like `http://ourserver.edu/results`. If you will be saving, searching, and sharing lots of model fits with other people in your lab, you may want to consider installing NEMS_DB as well.
 
 
-## Table of Contents ## 
+## Table of Contents ##
 
-This documentation is a work in progress as of March 9, 2018. 
+This documentation is a work in progress as of March 9, 2018.
 
 1. [Quick Start](docs/quickstart.md)
 2. Organizing your Data

@@ -635,7 +635,16 @@ class Recording:
         # TODO: copy the epochs as well
     def select_epoch():
         raise NotImplementedError    # TODO
-
+        
+    def select_times(self, times, padding=0):
+        
+        if padding != 0:
+            raise NotImplementedError    # TODO
+        
+        k = list(self.signals.keys())
+        newsigs = {n: s.select_times(times) for n, s in self.signals.items()}
+        
+        return Recording(newsigs)
 
 ## I/O functions
 def load_recording_from_targz(targz):
