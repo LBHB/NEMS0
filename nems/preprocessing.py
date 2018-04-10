@@ -150,7 +150,7 @@ def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
 
     return newrec
 
-def generate_psth_from_est_for_both_est_and_val(est,val):
+def generate_psth_from_est_for_both_est_and_val(est, val, epoch_regex = '^STIM_'):
     '''
     Estimates a PSTH from the EST set, and returns two signals based on the
     est and val, in which each repetition of a stim uses the EST PSTH?
@@ -161,16 +161,6 @@ def generate_psth_from_est_for_both_est_and_val(est,val):
     epoch_regex='^STIM_'
     resp_est=est['resp'].copy()
     resp_val=val['resp']
-
-    # find all valid references in est data-- passive or correct trials
-    ref_phase=resp_est.epoch_to_signal('REFERENCE')
-    active_phase=resp_est.epoch_to_signal('ACTIVE_EXPERIMENT')
-    correct_phase=resp_est.epoch_to_signal('HIT_TRIAL')
-    valid_phase=np.logical_and(ref_phase.as_continuous(),
-                               np.logical_or(np.logical_not(active_phase.as_continuous()),
-                                             correct_phase.as_continuous()))
-    ref_phase=ref_phase._modified_copy(valid_phase)
-    resp_est=resp_est.nan_mask(ref_phase.as_continuous())
 
     # compute PSTH response and spont rate during those valid trials
     prestimsilence = resp_est.extract_epoch('PreStimSilence')
@@ -190,38 +180,28 @@ def generate_psth_from_est_for_both_est_and_val(est,val):
     # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
     #   replacing all epochs in the signal with their average (psth)
     respavg_est = resp_est.replace_epochs(per_stim_psth)
-    respavg_est.name = 'stim'  # TODO: SVD suggests rename 2018-03-08
+    respavg_est.name = 'respavg_est'  
 
-    # mark invalid phases as nan
-    respavg_est=respavg_est.nan_mask(ref_phase.as_continuous())
 
-    # add signal to the recording
+    # add signal to the est recording
     est.add_signal(respavg_est)
 
     respavg_val = resp_val.replace_epochs(per_stim_psth)
-    respavg_val.name = 'stim' # TODO: SVD suggests rename 2018-03-08
-    ref_phase=val['resp'].epoch_to_signal('REFERENCE')
-    active_phase=val['resp'].epoch_to_signal('ACTIVE_EXPERIMENT')
-    correct_phase=val['resp'].epoch_to_signal('HIT_TRIAL')
-    valid_phase=np.logical_and(ref_phase.as_continuous(),
-                               np.logical_or(np.logical_not(active_phase.as_continuous()),
-                                             correct_phase.as_continuous()))
-    ref_phase=ref_phase._modified_copy(valid_phase)
+    respavg_val.name = 'respavg_est' 
 
-    respavg_val=respavg_val.nan_mask(ref_phase.as_continuous())
-
-    # add signal to the recording
+    # add signal to the val recording
     val.add_signal(respavg_val)
 
     return est, val
 
-def generate_psth_from_est_for_both_est_and_val_nfold(ests,vals):
+
+def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals, epoch_regex = '^STIM_'):
     '''
     call generate_psth_from_est_for_both_est_and_val for each e,v
     pair in ests,vals
     '''
     for e,v in zip(ests,vals):
-        e,v=generate_psth_from_est_for_both_est_and_val(e,v)
+        e,v=generate_psth_from_est_for_both_est_and_val(e,v, epoch_regex)
 
     return ests,vals
 
