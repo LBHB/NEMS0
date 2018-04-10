@@ -637,11 +637,14 @@ class Recording:
         raise NotImplementedError    # TODO
         
     def select_times(self, times, padding=0):
+        
+        if padding != 0:
+            raise NotImplementedError    # TODO
+        
         k = list(self.signals.keys())
-        for sig in k:
-            newsig = self.signals[sig].select_times(times)
-            newsig.name = str(self.signals[sig].name)+'_select_times'
-            self[newsig.name] = newsig
+        newsigs = {n: s.select_times(times) for n, s in self.signals.items()}
+        
+        return Recording(newsigs)
 
 ## I/O functions
 def load_recording_from_targz(targz):
