@@ -642,7 +642,7 @@ class Recording:
             raise NotImplementedError    # TODO
         
         k = list(self.signals.keys())
-        newsigs = {n: s.select_times(times) for n, s in self.signals.iteritems()}
+        newsigs = {n: s.select_times(times) for n, s in self.signals.items()}
         
         return Recording(newsigs)
 
