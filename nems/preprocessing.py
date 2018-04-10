@@ -185,7 +185,7 @@ def generate_psth_from_est_for_both_est_and_val(est,val):
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()
     for k in folded_matrices.keys():
-        per_stim_psth[k] = np.nanmean(folded_matrices[k], axis=0)-spont_rate
+        per_stim_psth[k] = np.nanmean(folded_matrices[k], axis=0)-spont_rate[:,np.newaxis]
 
     # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
     #   replacing all epochs in the signal with their average (psth)
