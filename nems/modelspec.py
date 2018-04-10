@@ -165,7 +165,6 @@ def fit_mode_on(modelspec):
     for m in modelspec:
         if 'norm' in m.keys():
             m['norm']['recalc'] = 1
-            print(m)
 
 
 def fit_mode_off(modelspec):
@@ -175,7 +174,6 @@ def fit_mode_off(modelspec):
     for m in modelspec:
         if 'norm' in m.keys():
             m['norm']['recalc'] = 0
-            print(m)
 
 
 def evaluate(rec, modelspec, start=None, stop=None):
@@ -203,9 +201,12 @@ def evaluate(rec, modelspec, start=None, stop=None):
             k = s.name
             if m['norm']['recalc']:
                 if m['norm']['type'] == 'minmax':
-                    m['norm']['d'] = np.nanmin(s.as_continuous(), axis=1)
-                    m['norm']['g'] = np.nanmax(s.as_continuous(), axis=1) - \
+                    m['norm']['d'] = np.nanmin(s.as_continuous(), axis=1,
+                                               keepdims=True)
+                    m['norm']['g'] = np.nanmax(s.as_continuous(), axis=1,
+                                               keepdims=True) - \
                         m['norm']['d']
+                    m['norm']['g'][m['norm']['g'] <= 0] = 1
                 elif m['norm']['type'] == 'none':
                     m['norm']['d'] = np.array([0])
                     m['norm']['g'] = np.array([1])
