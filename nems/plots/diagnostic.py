@@ -100,7 +100,7 @@ def diagnostic(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     # and spectrogram at beginning.
     # If other independent plots are added, will need to
     # adjust this calculation.
-    n = len(plot_fns)  # + 3 
+    n = len(plot_fns) + 1  # + 3
     if figsize is None:
         fig = plt.figure(figsize=(10*width_mult, n*height_mult))
     else:
@@ -164,11 +164,11 @@ def diagnostic(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     ### Special plots that go *AFTER* iterated modules
 
     # Pred v Resp Timeseries
-#    sigs = [rec['resp'], rec['pred']]
-#    title = 'Final Prediction vs Response, {} #{}'.format(epoch, occurrence)
-#    timeseries = partial(timeseries_from_epoch, sigs, epoch, title=title,
-#                         occurrences=occurrence)
-#    _plot_axes(1, timeseries, -2)
+    sigs = [rec['resp'], rec['pred']]
+    title = 'Final Prediction vs Response, {} #{}'.format(epoch, occurrence)
+    timeseries = partial(timeseries_from_epoch, sigs, epoch, title=title,
+                         occurrences=occurrence)
+    _plot_axes(1, timeseries, -1)
 #
 #    # Pred v Resp Scatter Smoothed
 #    r_test = modelspec[0]['meta']['r_test']

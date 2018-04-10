@@ -1,6 +1,8 @@
 import time
 import numpy as np
 
+DEBUGMODE = False
+VALDATA = None
 
 def iso8601_datestring():
     '''

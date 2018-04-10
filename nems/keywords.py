@@ -42,6 +42,76 @@ def defkey_wc(n_inputs, n_outputs):
     return defkey(name, template)
 
 
+def defkey_wcc(n_inputs, n_outputs):
+    '''
+    Generate and register default modulespec for basic channel weighting.
+    wcc is designed for n_outputs>=n_inputs
+
+    Parameters
+    ----------
+    n_inputs : int
+        Number of input channels.
+    n_outputs : int
+        Number of output channels.
+    '''
+    name = 'wcc{}x{}'.format(n_inputs, n_outputs)
+    if n_outputs == 1:
+        p_coefficients = {
+            'mean': np.ones((n_outputs, n_inputs))/n_outputs,
+            'sd': np.ones((n_outputs, n_inputs)),
+        }
+    else:
+        p_coefficients = {
+            'mean': np.eye(n_outputs, n_inputs),
+            'sd': np.ones((n_outputs, n_inputs)),
+        }
+
+    template = {
+        'fn': 'nems.modules.weight_channels.basic',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred'},
+        'prior': {
+            'coefficients': ('Normal', p_coefficients),
+        }
+    }
+    return defkey(name, template)
+
+
+def defkey_wccn(n_inputs, n_outputs):
+    '''
+    Generate and register default modulespec for basic channel weighting.
+    wcc is designed for n_outputs>=n_inputs
+
+    Parameters
+    ----------
+    n_inputs : int
+        Number of input channels.
+    n_outputs : int
+        Number of output channels.
+    '''
+    name = 'wccn{}x{}'.format(n_inputs, n_outputs)
+    if n_outputs == 1:
+        p_coefficients = {
+            'mean': np.ones((n_outputs, n_inputs))/n_outputs,
+            'sd': np.ones((n_outputs, n_inputs)),
+        }
+    else:
+        p_coefficients = {
+            'mean': np.eye(n_outputs, n_inputs),
+            'sd': np.ones((n_outputs, n_inputs)),
+        }
+
+    template = {
+        'fn': 'nems.modules.weight_channels.basic',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred'},
+        'norm': {'type': 'minmax', 'recalc': 0, 'd': np.zeros([n_outputs, 1]),
+                 'g': np.ones([n_outputs, 1])},
+        'prior': {
+            'coefficients': ('Normal', p_coefficients),
+        }
+    }
+    return defkey(name, template)
+
+
 def defkey_wcg(n_inputs, n_outputs):
     '''
     Generate and register default modulespec for gaussian channel weighting
@@ -167,6 +237,10 @@ for n_inputs in (15, 18, 40):
         defkey_wcg(n_inputs, n_outputs)
         defkey_wcgn(n_inputs, n_outputs)
 
+for n_inputs in (1, 2, 3):
+    for n_outputs in (1, 2, 3, 4):
+        defkey_wcc(n_inputs, n_outputs)
+        defkey_wccn(n_inputs, n_outputs)
 
 for n_outputs in (1, 2, 3, 4):
     for n_coefs in (10, 15, 18):
