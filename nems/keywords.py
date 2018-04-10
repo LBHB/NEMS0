@@ -61,8 +61,8 @@ def defkey_wcg(n_inputs, n_outputs):
     name = 'wcg{}x{}'.format(n_inputs, n_outputs)
 
     # Generate evenly-spaced filter centers for the starting points
-    mean = np.arange(n_outputs + 2)/(n_outputs + 2)
-    mean = mean[1:-1]
+    mean = np.arange(n_outputs + 1)/(n_outputs + 1)
+    mean = mean[1:]
     sd = np.full_like(mean, 1/n_outputs)
 
     mean_prior_coefficients = {
@@ -75,6 +75,49 @@ def defkey_wcg(n_inputs, n_outputs):
         'fn': 'nems.modules.weight_channels.gaussian',
         'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_chan_in': n_inputs},
         'fn_coefficients': 'nems.modules.weight_channels.gaussian_coefficients',
+        'prior': {
+            'mean': ('Normal', mean_prior_coefficients),
+            'sd': ('HalfNormal', sd_prior_coefficients),
+        },
+    }
+    return defkey(name, template)
+
+
+def defkey_wcgn(n_inputs, n_outputs):
+    '''
+    Generate and register default modulespec for gaussian channel weighting
+
+    Parameters
+    ----------
+    n_inputs : int
+        Number of input channels.
+    n_outputs : int
+        Number of output channels.
+
+    Note
+    ----
+    Gaussian channel weighting does not need to know the number of input
+    channels to work properly.
+    '''
+    name = 'wcgn{}x{}'.format(n_inputs, n_outputs)
+
+    # Generate evenly-spaced filter centers for the starting points
+    mean = np.arange(n_outputs + 1)/(n_outputs + 1)
+    mean = mean[1:]
+    sd = np.full_like(mean, 1/n_outputs)
+
+    mean_prior_coefficients = {
+        'mean': mean,
+        'sd': np.ones_like(mean),
+    }
+    sd_prior_coefficients = {'sd': sd}
+
+    template = {
+        'fn': 'nems.modules.weight_channels.gaussian',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_chan_in': n_inputs},
+        'fn_coefficients': 'nems.modules.weight_channels.gaussian_coefficients',
+        'norm': {'type': 'minmax', 'recalc': 0, 'd': np.zeros(n_outputs),
+                 'g': np.ones(n_outputs)},
         'prior': {
             'mean': ('Normal', mean_prior_coefficients),
             'sd': ('HalfNormal', sd_prior_coefficients),
@@ -122,15 +165,16 @@ for n_inputs in (15, 18, 40):
     for n_outputs in (1, 2, 3, 4):
         defkey_wc(n_inputs, n_outputs)
         defkey_wcg(n_inputs, n_outputs)
+        defkey_wcgn(n_inputs, n_outputs)
 
 
 for n_outputs in (1, 2, 3, 4):
     for n_coefs in (10, 15, 18):
         defkey_fir(n_coefs, n_outputs)
 
-#defkey_fir(10, 2)
-#defkey_fir(15, 2)
-#defkey_fir(18, 2)
+# defkey_fir(10, 2)
+# defkey_fir(15, 2)
+# defkey_fir(18, 2)
 
 defkey('lvl1',
        {'fn': 'nems.modules.levelshift.levelshift',
@@ -146,11 +190,29 @@ defkey('stp1',
         'prior': {'u': ('Normal', {'mean': [1], 'sd': [1]}),
                   'tau': ('Normal', {'mean': [4], 'sd': [1]})}})
 
+defkey('stpn1',
+       {'fn': 'nems.modules.stp.short_term_plasticity',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'crosstalk': 0},
+        'norm': {'type': 'minmax', 'recalc': 0, 'd': [0], 'g': [1]},
+        'prior': {'u': ('Normal', {'mean': [1], 'sd': [1]}),
+                  'tau': ('Normal', {'mean': [4], 'sd': [1]})}})
+
 defkey('stp2',
        {'fn': 'nems.modules.stp.short_term_plasticity',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
                       'crosstalk': 0},
+        'prior': {'u': ('Normal', {'mean': [1, 1], 'sd': [1, 1]}),
+                  'tau': ('Normal', {'mean': [4, 4], 'sd': [5, 5]})}})
+
+defkey('stpn2',
+       {'fn': 'nems.modules.stp.short_term_plasticity',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'crosstalk': 0},
+        'norm': {'type': 'minmax', 'recalc': 0, 'd': [0, 0], 'g': [1, 1]},
         'prior': {'u': ('Normal', {'mean': [1, 1], 'sd': [1, 1]}),
                   'tau': ('Normal', {'mean': [4, 4], 'sd': [5, 5]})}})
 

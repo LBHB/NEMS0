@@ -158,6 +158,26 @@ def _lookup_fn_at(fn_path):
     return fn
 
 
+def fit_mode_on(modelspec):
+    '''
+    turn no norm.recalc for each module when present
+    '''
+    for m in modelspec:
+        if 'norm' in m.keys():
+            m['norm']['recalc'] = 1
+            print(m)
+
+
+def fit_mode_off(modelspec):
+    '''
+    turn off norm.recalc for each module when present
+    '''
+    for m in modelspec:
+        if 'norm' in m.keys():
+            m['norm']['recalc'] = 0
+            print(m)
+
+
 def evaluate(rec, modelspec, start=None, stop=None):
     '''
     Given a recording object and a modelspec, return a prediction.
@@ -176,6 +196,26 @@ def evaluate(rec, modelspec, start=None, stop=None):
         new_signals = fn(rec=d, **kwargs)
         if type(new_signals) is not list:
             raise ValueError('Fn did not return list of signals: {}'.format(m))
+
+        # testing normalization
+        if 'norm' in m.keys():
+            s = new_signals[0]
+            k = s.name
+            if m['norm']['recalc']:
+                if m['norm']['type'] == 'minmax':
+                    m['norm']['d'] = np.nanmin(s.as_continuous(), axis=1)
+                    m['norm']['g'] = np.nanmax(s.as_continuous(), axis=1) - \
+                        m['norm']['d']
+                elif m['norm']['type'] == 'none':
+                    m['norm']['d'] = np.array([0])
+                    m['norm']['g'] = np.array([1])
+                else:
+                    raise ValueError('norm format not supported')
+
+            fn = lambda x: (x - m['norm']['d']) / m['norm']['g']
+            new_signals = [s.transform(fn, k)]
+
+
         for s in new_signals:
             d.add_signal(s)
     return d

@@ -84,7 +84,7 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     extracted = rec['resp'].extract_epoch(epoch)
     finite_trial = [np.sum(np.isfinite(x)) > 0 for x in extracted]
     occurrences, = np.where(finite_trial)
-    if occurrence is None or occurrence>len(occurrence):
+    if occurrence is None or occurrence>len(occurrences):
         if len(occurrences)==0:
             occurrence=None
         else:
