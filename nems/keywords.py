@@ -116,8 +116,8 @@ def defkey_wcgn(n_inputs, n_outputs):
         'fn': 'nems.modules.weight_channels.gaussian',
         'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_chan_in': n_inputs},
         'fn_coefficients': 'nems.modules.weight_channels.gaussian_coefficients',
-        'norm': {'type': 'minmax', 'recalc': 0, 'd': np.zeros(n_outputs),
-                 'g': np.ones(n_outputs)},
+        'norm': {'type': 'minmax', 'recalc': 0, 'd': np.zeros([n_outputs,1]),
+                 'g': np.ones([n_outputs,1])},
         'prior': {
             'mean': ('Normal', mean_prior_coefficients),
             'sd': ('HalfNormal', sd_prior_coefficients),
@@ -212,7 +212,8 @@ defkey('stpn2',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
                       'crosstalk': 0},
-        'norm': {'type': 'minmax', 'recalc': 0, 'd': [0, 0], 'g': [1, 1]},
+        'norm': {'type': 'minmax', 'recalc': 0, 'd': np.array([[0, 0]]),
+                 'g': np.array([[1, 1]])},
         'prior': {'u': ('Normal', {'mean': [1, 1], 'sd': [1, 1]}),
                   'tau': ('Normal', {'mean': [4, 4], 'sd': [5, 5]})}})
 
