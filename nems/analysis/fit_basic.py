@@ -77,7 +77,7 @@ def fit_basic(data, modelspec,
         cost_function.counter += 1
         if cost_function.counter % 1000 == 0:
             log.info('Eval #%d. E=%.06f', cost_function.counter, error)
-            nplt.diagnostic({'modelspecs': [modelspec], 'val': [data]})
+            # nplt.diagnostic({'modelspecs': [modelspec], 'val': [data]})
         return error
 
     cost_function.counter = 0

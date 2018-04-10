@@ -263,6 +263,8 @@ defkey('dlogn2',
        {'fn': 'nems.modules.nonlinearity.dlog',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
+        'norm': {'type': 'minmax', 'recalc': 0, 'd': np.array([[0, 0]]),
+                 'g': np.array([[1, 1]])},
         'prior': {'offset': ('Normal', {'mean': [-2], 'sd': [2]})}})
 
 
