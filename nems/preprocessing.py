@@ -174,7 +174,10 @@ def generate_psth_from_est_for_both_est_and_val(est,val):
 
     # compute PSTH response and spont rate during those valid trials
     prestimsilence = resp_est.extract_epoch('PreStimSilence')
-    spont_rate=np.nanmean(prestimsilence)
+    if len(prestimsilence.shape)==3:
+        spont_rate = np.nanmean(prestimsilence,axis=(0,2))
+    else:
+        spont_rate=np.nanmean(prestimsilence)
 
     epochs_to_extract = ep.epoch_names_matching(resp_est.epochs, epoch_regex)
     folded_matrices = resp_est.extract_epochs(epochs_to_extract)
