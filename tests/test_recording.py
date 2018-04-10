@@ -1,8 +1,104 @@
 import numpy as np
+import pandas as pd
 import pytest
+import unittest
 from nems.recording import Recording
+from nems.signal import RasterizedSignal
+
+@pytest.fixture()
+def signal1(signal_name='dummy_signal_1', recording_name='dummy_recording', fs=50,
+           nchans=3, ntimes=250):
+    '''
+    Generates a dummy signal with a predictable structure (every element
+    increases by 1) that is useful for testing.
+    '''
+    # Generate a numpy array that's incrementially increasing across channels,
+    # then across timepoints, by 1.
+    c = np.arange(nchans, dtype=np.float)
+    t = np.arange(ntimes, dtype=np.float)
+    data = c[..., np.newaxis] + t*nchans
+
+    epochs = pd.DataFrame({
+        'start': [3, 15, 150, 200],
+        'end': [200, 60, 190, 250],
+        'name': ['trial', 'pupil_closed', 'pupil_closed', 'trial2']
+        })
+    epochs['start'] /= fs
+    epochs['end'] /= fs
+    kwargs = {
+        'data': data,
+        'name': signal_name,
+        'recording': recording_name,
+        'chans': ['chan' + str(n) for n in range(nchans)],
+        'epochs': epochs,
+        'fs': fs,
+        'meta': {
+            'for_testing': True,
+            'date': "2018-01-10",
+            'animal': "Donkey Hotey",
+            'windmills': 'tilting'
+        },
+    }
+    return RasterizedSignal(**kwargs)
+
+@pytest.fixture()
+def signal2(signal_name='dummy_signal_2', recording_name='dummy_recording', fs=50,
+           nchans=3, ntimes=250):
+    '''
+    Generates a dummy signal with a predictable structure (every element
+    increases by 1) that is useful for testing.
+    '''
+    # Generate a numpy array that's incrementially increasing across channels,
+    # then across timepoints, by 1.
+    c = np.arange(nchans, dtype=np.float)
+    t = np.arange(ntimes, dtype=np.float)
+    data = c[..., np.newaxis] + t*nchans
+
+    epochs = pd.DataFrame({
+        'start': [3, 15, 150, 200],
+        'end': [200, 60, 190, 250],
+        'name': ['trial', 'pupil_closed', 'pupil_closed', 'trial2']
+        })
+    epochs['start'] /= fs
+    epochs['end'] /= fs
+    kwargs = {
+        'data': data,
+        'name': signal_name,
+        'recording': recording_name,
+        'chans': ['chan' + str(n) for n in range(nchans)],
+        'epochs': epochs,
+        'fs': fs,
+        'meta': {
+            'for_testing': True,
+            'date': "2018-01-10",
+            'animal': "Donkey Hotey",
+            'windmills': 'tilting'
+        },
+    }
+    return RasterizedSignal(**kwargs)
+
+@pytest.fixture()
+def recording(signal1, signal2):
+    signals = {signal1.name: signal1,
+               signal2.name: signal2}
+    return Recording(signals)
 
 
+def test_select_times(recording):
+    '''
+    Test that we can pull out select times in a given recording
+    '''
+    bounds = recording['dummy_signal_1'].get_epoch_bounds('trial2')
+    newrec = recording.select_times(bounds)
+    
+    # assert that pulls the correct length of data
+    assert newrec['dummy_signal_1'].as_continuous().shape == (3, 50) 
+    
+    # assert that epochs outside of this time window no longer exist
+    with pytest.raises(IndexError):
+        newrec['dummy_signal_1'].extract_epoch('pupil_closed')
+
+    
 def test_recording_loading():
     '''
     Test the loading and saving of files to various HTTP/S3/File routes.

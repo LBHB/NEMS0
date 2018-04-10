@@ -1358,6 +1358,10 @@ class RasterizedSignal(SignalBase):
         return self._modified_copy(m)
 
     def select_times(self, times, padding=0):
+        
+        if padding != 0:
+            raise NotImplementedError    # TODO
+        
         times = np.asarray(times)
         indices = np.round(times*self.fs).astype('i')
         data = self.as_continuous()
