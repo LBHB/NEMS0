@@ -46,5 +46,5 @@ def nmse(result, pred_name='pred', resp_name='resp'):
     resp = result[resp_name].as_continuous()
     respstd = np.nanstd(resp)
     squared_errors = (pred-resp)**2
-    mse = np.nanmean(squared_errors)
+    mse = np.sqrt(np.nanmean(squared_errors))
     return mse / respstd
