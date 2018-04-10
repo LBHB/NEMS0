@@ -258,6 +258,12 @@ defkey('dlog',
                       'o': 'pred'},
         'prior': {'offset': ('Normal', {'mean': [-2], 'sd': [2]})}})
 
+defkey('dlogn2',
+       {'fn': 'nems.modules.nonlinearity.dlog',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred'},
+        'prior': {'offset': ('Normal', {'mean': [-2], 'sd': [2]})}})
+
 
 """ state-related and signal manipulation/generation """
 
