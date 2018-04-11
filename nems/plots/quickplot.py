@@ -446,10 +446,10 @@ def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
 
 
 def get_state_vars_psths(rec, epoch, psth_name='resp', occurrence=0):
-    var_list = rec['state'].chans
+    state_var_list = rec['state'].chans
     psth_list = [
             partial(state_var_psth_from_epoch, rec, epoch, psth_name=psth_name,
-                    var_name=var, occurrence=occurrence)
-            for var in var_list
+                    state_sig=var)
+            for var in state_var_list
             ]
     return psth_list

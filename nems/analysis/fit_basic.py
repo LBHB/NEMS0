@@ -9,7 +9,6 @@ import nems.modelspec as ms
 import nems.metrics.api
 import nems.segmentors
 import nems.utils
-import nems.plots.api as nplt
 
 log = logging.getLogger(__name__)
 
@@ -77,9 +76,6 @@ def fit_basic(data, modelspec,
         cost_function.counter += 1
         if cost_function.counter % 1000 == 0:
             log.info('Eval #%d. E=%.06f', cost_function.counter, error)
-            if nems.utils.DEBUGMODE and nems.utils.VALDATA:
-                nplt.diagnostic({'modelspecs': [modelspec],
-                                 'val': [nems.utils.VALDATA]})
         return error
 
     cost_function.counter = 0
