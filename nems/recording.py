@@ -146,12 +146,14 @@ class Recording:
                 basename = os.path.basename(member.name)
                 # Now put it in a subdict so we can find it again
                 signame = str(basename.split('.')[0:2])
+                member_is_not_h5_datastream = True
                 if basename.endswith('epoch.csv'):
                     keyname = 'epoch_stream'
                 elif basename.endswith('.csv'):
                     keyname = 'data_stream'
                 elif basename.endswith('.h5'):
                     keyname = 'data_stream'
+                    member_is_not_h5_datastream = False
                 elif basename.endswith('.json'):
                     keyname = 'json_stream'
                 else:
@@ -161,7 +163,11 @@ class Recording:
                 if signame not in streams:
                     streams[signame] = {}
                 # Read out a stringIO object for each file now while it's open
-                f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
+                if member_is_not_h5_datastream:
+                    f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
+                else:
+                    t.extract(member, '/tmp')
+                    f = '/tmp/' + member.name
                 streams[signame][keyname] = f
 
         # Now that the streams are organized, convert them into signals
@@ -183,7 +189,7 @@ class Recording:
                  r.headers['content-type'] == 'application/x-compressed' or
                  r.headers['content-type'] == 'application/x-tar' or
                  r.headers['content-type'] == 'application/x-tgz')):
-            log.info('got response: {}, {}'.format(r.headers, r.status_code))
+            log.info('got response: %s, %d', r.headers, r.status_code)
             m = 'Error loading URL: {}'.format(url)
             log.error(m)
             raise Exception(m)
@@ -635,15 +641,15 @@ class Recording:
         # TODO: copy the epochs as well
     def select_epoch():
         raise NotImplementedError    # TODO
-        
+
     def select_times(self, times, padding=0):
-        
+
         if padding != 0:
             raise NotImplementedError    # TODO
-        
+
         k = list(self.signals.keys())
         newsigs = {n: s.select_times(times) for n, s in self.signals.items()}
-        
+
         return Recording(newsigs)
 
 ## I/O functions
@@ -779,9 +785,11 @@ def load_recording_from_url(url):
              r.headers['content-type'] == 'text/plain' or
              r.headers['content-type'] == 'application/x-gzip' or
              r.headers['content-type'] == 'application/x-compressed' or
+             r.headers['content-type'] == 'application/x-compressed-tar' or
              r.headers['content-type'] == 'application/x-tar' or
              r.headers['content-type'] == 'application/x-tgz')):
         log.info('got response: {}, {}'.format(r.headers, r.status_code))
+        log.info('status_code: %d, content-type: %s', r.status_code, r.headers['content-type'])
         m = 'Error loading URL: {}'.format(url)
         log.error(m)
         raise Exception(m)
@@ -908,4 +916,3 @@ def jackknife_inverse_merge(rec_list):
         #new_sigs[sn]=sig_list[0].jackknife_inverse_merge(sig_list)
         new_sigs[sn]=merge_selections(sig_list)
     return Recording(signals=new_sigs)
-
