@@ -64,16 +64,14 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
             sigma[i_param] += step_size
         err = step_errors[i_param, j_sign]
 
-        err = cost_fn(sigma)
-        update_stepinfo(err=err)
-
         # If change was negative, try reducing step size.
-        if stepinfo['err_delta'] > 0:
-            log.debug("Error got worse, reducing step size"
-                      " from: %.06f to: %.06f",
-                     step_size, step_size*step_change)
+        if err > stepinfo['err']:
+            log.debug("Error got worse, reducing step size from: %.06f to: "
+                      "%.06f", step_size, step_size * step_change)
             step_size *= step_change
+            continue
 
+        update_stepinfo(err=err)
         if stepinfo['stepnum'] % 20 == 0:
             log.debug("sigma is now: %s", sigma)
 
