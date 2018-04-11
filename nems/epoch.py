@@ -15,7 +15,7 @@ def remove_overlap(a):
         lb, ub = a[i]
         i += 1
         trimmed.append((lb, ub))
-        while (i < n) and (ub >= a[i, 0]):
+        while (i < n) and (ub > a[i, 0]):
             i += 1
     return np.array(trimmed)
 
