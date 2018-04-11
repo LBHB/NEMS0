@@ -150,6 +150,33 @@ def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
 
     return newrec
 
+
+def remove_invalid_segments(rec):
+    """
+    Currently a specialized signal for removing incorrect trials from data
+    collected using baphy during behavior.
+
+    TODO: Migrate to nems_db or make a more generic version
+    """
+
+    # First, select the appropriate subset of data
+    sig = rec['resp']
+
+    # get list of start and stop times (epoch bounds)
+    epoch_indices = np.vstack((
+            ep.epoch_intersection(sig.get_epoch_bounds('HIT_TRIAL'),
+                                  sig.get_epoch_bounds('REFERENCE')),
+            ep.epoch_intersection(sig.get_epoch_bounds('REFERENCE'),
+                                  sig.get_epoch_bounds('PASSIVE_EXPERIMENT'))))
+
+    # Only takes the first of any conflicts (don't think I actually need this)
+    epoch_indices = ep.remove_overlap(epoch_indices)
+
+    # add adjusted signals to the recording
+    newrec = rec.select_times(epoch_indices)
+
+    return newrec
+
 def generate_psth_from_est_for_both_est_and_val(est, val, epoch_regex = '^STIM_'):
     '''
     Estimates a PSTH from the EST set, and returns two signals based on the
@@ -180,14 +207,14 @@ def generate_psth_from_est_for_both_est_and_val(est, val, epoch_regex = '^STIM_'
     # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
     #   replacing all epochs in the signal with their average (psth)
     respavg_est = resp_est.replace_epochs(per_stim_psth)
-    respavg_est.name = 'psth'  
+    respavg_est.name = 'psth'
 
 
     # add signal to the est recording
     est.add_signal(respavg_est)
 
     respavg_val = resp_val.replace_epochs(per_stim_psth)
-    respavg_val.name = 'psth' 
+    respavg_val.name = 'psth'
 
     # add signal to the val recording
     val.add_signal(respavg_val)
