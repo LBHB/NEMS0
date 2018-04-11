@@ -9,6 +9,7 @@ from nems import keywords
 from nems.fitters.api import scipy_minimize
 import nems.modelspec as ms
 
+
 def from_keywords(keyword_string, registry=keywords.defaults, meta={}):
     '''
     Returns a modelspec created by splitting keyword_string on underscores
@@ -28,17 +29,18 @@ def from_keywords(keyword_string, registry=keywords.defaults, meta={}):
         modelspec.append(d)
 
     # first module that takes input='pred' should take 'stim' instead.
-    # can't hard code in keywords, since we don't know which keyword will be first.
-    # and can't assume that it will be module[0] because those might be
+    # can't hard code in keywords, since we don't know which keyword will be
+    # first. and can't assume that it will be module[0] because those might be
     # state manipulations
-    first_input_to_stim=False
-    i=0
-    while not first_input_to_stim and i<len(modelspec):
-#        if 'i' in modelspec[i]['fn_kwargs'].keys() and modelspec[i]['fn_kwargs']['i']=='resp':
-#            # psth-based prediction, never use stim, just feed resp to pred
-#            first_input_to_stim=True
-        if 'i' in modelspec[i]['fn_kwargs'].keys() and modelspec[i]['fn_kwargs']['i']=='pred':
-            modelspec[i]['fn_kwargs']['i'] = 'stim'
+    first_input_to_stim = False
+    i = 0
+    while not first_input_to_stim and i < len(modelspec):
+        if 'i' in modelspec[i]['fn_kwargs'].keys() and \
+           modelspec[i]['fn_kwargs']['i'] == 'pred':
+            if 'state' in modelspec[i]['fn']:
+                modelspec[i]['fn_kwargs']['i'] = 'psth'
+            else:
+                modelspec[i]['fn_kwargs']['i'] = 'stim'
             first_input_to_stim = True
         i += 1
 
@@ -76,11 +78,12 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
             break
 
     if not target_i:
-        log.info("target_module: {} not found in modelspec.".format(target_module))
+        log.info("target_module: {} not found in modelspec."
+                 .format(target_module))
         return modelspec
     else:
         log.info("target_module: {0} found at modelspec[{1}]."
-                             .format(target_module, target_i-1))
+                 .format(target_module, target_i-1))
 
     # identify any excluded modules and take them out of temp modelspec
     # that will be fit here
@@ -111,13 +114,14 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
 
     return modelspec
 
+
 def init_dexp(rec, modelspec):
     """
     choose initial values for dexp applied after preceeding fir is
     initialized
     """
     target_i = None
-    target_module='double_exponential'
+    target_module = 'double_exponential'
     for i, m in enumerate(modelspec):
         if target_module in m['fn']:
             target_i = i
@@ -125,11 +129,11 @@ def init_dexp(rec, modelspec):
 
     if not target_i:
         log.info("target_module: {} not found in modelspec."
-                             .format(target_module))
+                 .format(target_module))
         return modelspec
     else:
         log.info("target_module: {0} found at modelspec[{1}]."
-                             .format(target_module,target_i-1))
+                 .format(target_module,target_i-1))
 
     if target_i == len(modelspec):
         fit_portion = modelspec

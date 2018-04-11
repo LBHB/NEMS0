@@ -92,6 +92,9 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     else:
         occurrence=occurrences[occurrence]
 
+    # determine if 'stim' signal exists
+    show_spectrogram = ('stim' in rec.signals.keys())
+
     plot_fns = _get_plot_fns(ctx, default=default, occurrence=occurrence,
                              epoch=epoch, m_idx=m_idx)
 
@@ -100,7 +103,11 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     # and spectrogram at beginning.
     # If other independent plots are added, will need to
     # adjust this calculation.
-    n = len(plot_fns)+3
+    if show_spectrogram:
+        n = len(plot_fns)+3
+    else:
+        n = len(plot_fns)+2
+
     if figsize is None:
         fig = plt.figure(figsize=(10*width_mult, n*height_mult))
     else:
@@ -146,20 +153,19 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
 
     # Stimulus Spectrogram
     # TODO: This is a bit screwy for state_gain model, do we want
-
-    fn_spectro = partial(
-            spectrogram_from_epoch, rec['stim'], epoch,
-            occurrence=occurrence, title='Stimulus Spectrogram'
-            )
-    _plot_axes([1], [fn_spectro], 0)
+    if show_spectrogram:
+        fn_spectro = partial(
+                spectrogram_from_epoch, rec['stim'], epoch,
+                occurrence=occurrence, title='Stimulus Spectrogram'
+                )
+        _plot_axes([1], [fn_spectro], 0)
 
 
     ### Iterated module plots (defined in _get_plot_fns)
     for i, (fns, col_spans) in enumerate(plot_fns):
         # +1 because we did spectrogram above. Adjust as necessary.
-        j = i+1
+        j = i + (1 if show_spectrogram else 0)
         _plot_axes(col_spans, fns, j)
-
 
     ### Special plots that go *AFTER* iterated modules
 

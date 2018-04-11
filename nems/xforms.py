@@ -195,9 +195,13 @@ def use_all_data_for_est_and_val(rec, **context):
     val = rec
     return {'est': est, 'val': val}
 
-def split_for_jackknife(rec, modelspecs=None, njacks=10, IsReload=False, **context):
+def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
+                        njacks=10, IsReload=False, **context):
 
-    est_out,val_out,modelspecs_out=preproc.split_est_val_for_jackknife(rec, modelspecs=modelspecs, njacks=njacks, IsReload=IsReload)
+    est_out,val_out,modelspecs_out = \
+        preproc.split_est_val_for_jackknife(rec, modelspecs=modelspecs,
+                                            epoch_name=epoch_name,
+                                            njacks=njacks, IsReload=IsReload)
     if IsReload:
         return {'est': est_out, 'val': val_out}
     else:
