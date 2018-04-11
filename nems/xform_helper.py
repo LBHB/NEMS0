@@ -82,8 +82,12 @@ def generate_loader_xfspec(loader, recording_uri):
         else:
             permute_signals=['']
 
-        xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
-                  ['nems.preprocessing.make_state_signal', {'state_signals': state_signals, 'permute_signals': permute_signals, 'new_signalname': 'state'},['rec'],['rec']]]
+        xfspec = [['nems.xforms.load_recordings',
+                   {'recording_uri_list': recordings}],
+                  ['nems.xforms.make_state_signal',
+                   {'state_signals': state_signals,
+                    'permute_signals': permute_signals,
+                    'new_signalname': 'state'}]]
 
     elif loader == "env100":
         options["stimfmt"] = "envelope"
