@@ -38,30 +38,24 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
                          or tc.max_iterations_reached(stepinfo, max_iter)
                          or tc.less_than_equal(step_size, step_min))
 
+    this_sigma = sigma.copy()
+    n_parameters = len(sigma)
+    step_errors = np.empty([n_parameters, 2])
     while not stop_fit():
-        n_parameters = len(sigma)
-        step_errors = np.empty([n_parameters, 2])
         for i in range(0, n_parameters):
             # Try shifting each parameter both negatively and positively
             # proportional to step_size, and save both the new
             # sigma vectors and resulting cost_fn outputs
-            this_sigma_pos = sigma.copy()
-            this_sigma_neg = sigma.copy()
-            this_sigma_pos[i] += step_size
-            this_sigma_neg[i] -= step_size
-            step_errors[i, 0] = cost_fn(this_sigma_pos)
-            step_errors[i, 1] = cost_fn(this_sigma_neg)
+            this_sigma[i] = sigma[i] + step_size
+            step_errors[i, 0] = cost_fn(this_sigma)
+            this_sigma[i] = sigma[i] - step_size
+            step_errors[i, 1] = cost_fn(this_sigma)
+            this_sigma[i] = sigma[i]
         # Get index tuple for the lowest error that resulted,
         # and keep the corresponding sigma vector for the next iteration
         i_param, j_sign = np.unravel_index(
                                 step_errors.argmin(), step_errors.shape
                                 )
-        # If j is 1, shift was negative,
-        # otherwise it was 0 for positive.
-        if j_sign == 1:
-            sigma[i_param] -= step_size
-        else:
-            sigma[i_param] += step_size
         err = step_errors[i_param, j_sign]
 
         # If change was negative, try reducing step size.
@@ -71,7 +65,14 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
             step_size *= step_change
             continue
 
+        # If j is 1, shift was negative, otherwise it was 0 for positive.
+        if j_sign == 1:
+            sigma[i_param] = this_sigma[i_param] = sigma[i_param] - step_size 
+        else:
+            sigma[i_param] = this_sigma[i_param] = sigma[i_param] + step_size 
+
         update_stepinfo(err=err)
+
         if stepinfo['stepnum'] % 20 == 0:
             log.debug("sigma is now: %s", sigma)
 
