@@ -122,6 +122,12 @@ def generate_fitter_xfspec(fitter, fitter_kwargs=None):
                        {'maxiter': 1000, 'ftol': 1e-5}])
         xfspec.append(['nems.xforms.predict',    {}])
 
+    elif fitter == "fit01b":
+        # prefit strf
+        xfspec.append(['nems.xforms.fit_basic_init', {}])
+        xfspec.append(['nems.xforms.fit_basic_shrink', {}])
+        xfspec.append(['nems.xforms.predict', {}])
+
     elif fitter == "fitjk01":
 
         log.info("n-fold fitting...")
