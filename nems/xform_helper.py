@@ -129,14 +129,16 @@ def generate_fitter_xfspec(fitter, fitter_kwargs=None):
     elif fitter == "fitjk01":
 
         log.info("n-fold fitting...")
-        xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 5}])
+        xfspec.append(['nems.xforms.split_for_jackknife',
+                       {'njacks': 5, 'epoch_name': 'REFERENCE'}])
         xfspec.append(['nems.xforms.fit_nfold', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
     elif fitter == "fitpjk01":
 
         log.info("n-fold fitting...")
-        xfspec.append(['nems.xforms.split_for_jackknife', {'njacks': 10}])
+        xfspec.append(['nems.xforms.split_for_jackknife',
+                       {'njacks': 10, 'epoch_name': 'REFERENCE'}])
         xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
         xfspec.append(['nems.xforms.fit_nfold', {}])
         xfspec.append(['nems.xforms.predict',    {}])

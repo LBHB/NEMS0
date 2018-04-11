@@ -177,7 +177,9 @@ def remove_invalid_segments(rec):
 
     return newrec
 
-def generate_psth_from_est_for_both_est_and_val(est, val, epoch_regex = '^STIM_'):
+
+def generate_psth_from_est_for_both_est_and_val(est, val,
+                                                epoch_regex = '^STIM_'):
     '''
     Estimates a PSTH from the EST set, and returns two signals based on the
     est and val, in which each repetition of a stim uses the EST PSTH?
@@ -185,16 +187,16 @@ def generate_psth_from_est_for_both_est_and_val(est, val, epoch_regex = '^STIM_'
     subtract spont rate based on pre-stim silence for ALL estimation data.
     '''
 
-    epoch_regex='^STIM_'
-    resp_est=est['resp'].copy()
-    resp_val=val['resp']
+    epoch_regex = '^STIM_'
+    resp_est = est['resp'].copy()
+    resp_val = val['resp']
 
     # compute PSTH response and spont rate during those valid trials
     prestimsilence = resp_est.extract_epoch('PreStimSilence')
-    if len(prestimsilence.shape)==3:
-        spont_rate = np.nanmean(prestimsilence,axis=(0,2))
+    if len(prestimsilence.shape) == 3:
+        spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
     else:
-        spont_rate=np.nanmean(prestimsilence)
+        spont_rate = np.nanmean(prestimsilence)
 
     epochs_to_extract = ep.epoch_names_matching(resp_est.epochs, epoch_regex)
     folded_matrices = resp_est.extract_epochs(epochs_to_extract)
@@ -202,13 +204,12 @@ def generate_psth_from_est_for_both_est_and_val(est, val, epoch_regex = '^STIM_'
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()
     for k in folded_matrices.keys():
-        per_stim_psth[k] = np.nanmean(folded_matrices[k], axis=0)-spont_rate[:,np.newaxis]
+        per_stim_psth[k] = np.nanmean(folded_matrices[k], axis=0) - spont_rate[:, np.newaxis]
 
     # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
     #   replacing all epochs in the signal with their average (psth)
     respavg_est = resp_est.replace_epochs(per_stim_psth)
     respavg_est.name = 'psth'
-
 
     # add signal to the est recording
     est.add_signal(respavg_est)
@@ -227,10 +228,10 @@ def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals, epoch_regex = 
     call generate_psth_from_est_for_both_est_and_val for each e,v
     pair in ests,vals
     '''
-    for e,v in zip(ests,vals):
-        e,v=generate_psth_from_est_for_both_est_and_val(e,v, epoch_regex)
+    for e ,v in zip(ests, vals):
+        e, v = generate_psth_from_est_for_both_est_and_val(e, v, epoch_regex)
 
-    return ests,vals
+    return ests, vals
 
 def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_signalname='state'):
     """
@@ -291,7 +292,7 @@ def split_est_val_for_jackknife(est, epoch_name='TRIAL', modelspecs=None, njacks
 
     est_out=[]
     val_out=[]
-    logging.info("Generating  {} jackknifes".format(njacks))
+    # logging.info("Generating {} jackknifes".format(njacks))
     for i in range(njacks):
         #est_out += [est.jackknife_by_time(njacks, i)]
         #val_out += [est.jackknife_by_time(njacks, i, invert=True)]
