@@ -815,7 +815,8 @@ class RasterizedSignal(SignalBase):
         attributes.update(kwargs)
         return RasterizedSignal(data=data, safety_checks=False, **attributes)
 
-    def extract_epoch(self, epoch):
+    def extract_epoch(self, epoch, boundary_mode='exclude',
+                                               fix_overlap='first'):
         '''
         Extracts all occurances of epoch from the signal.
 
@@ -838,9 +839,11 @@ class RasterizedSignal(SignalBase):
         ----
         Epochs tagged with the same name may have various lengths. Shorter
         epochs will be padded with NaN.
-        '''
-        epoch_indices = self.get_epoch_indices(epoch, boundary_mode='exclude',
-                                               fix_overlap='first')
+        '''  
+        epoch_indices = self.get_epoch_indices(epoch, 
+                                               boundary_mode=boundary_mode,
+                                               fix_overlap=fix_overlap)
+        
         if epoch_indices.size == 0:
             raise IndexError("No matching epochs to extract for: {0}\n"
                              "In signal: {1}"
