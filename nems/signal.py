@@ -492,17 +492,17 @@ class SignalBase:
             repochs = self.epochs.loc[mask]
             repochs[['start', 'end']] -= split_time
 
-        # If epochs were present initially but missing after split,
-        # raise a warning.
-        portion = None
-        if lepochs.size == 0:
-            portion = 'first'
-        elif repochs.size == 0:
-            portion = 'second'
-        if portion:
-            raise RuntimeWarning("Epochs for {0} portion of signal: {1}"
-                                 "ended up empty after splitting by time."
-                                 .format(portion, self.name))
+            # If epochs were present initially but missing after split,
+            # raise a warning.
+            portion = None
+            if lepochs.size == 0:
+                portion = 'first'
+            elif repochs.size == 0:
+                portion = 'second'
+            if portion:
+                raise RuntimeWarning("Epochs for {0} portion of signal: {1}"
+                                     "ended up empty after splitting by time."
+                                     .format(portion, self.name))
 
         return lepochs, repochs
 

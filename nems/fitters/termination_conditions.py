@@ -35,18 +35,15 @@ def create_stepinfo():
     stepinfo = {
             'stepnum': 0,
             'err': np.inf,
-            'err_delta': np.inf,
+            'err_delta': -np.inf,
             'start_time': time.time()
             }
 
-    def update_stepinfo(err=None, **kwargs):
-        if not err:
-            raise ValueError('update_stepinfo requires an err argrument.')
+    def update_stepinfo(err, **kwargs):
         stepinfo['stepnum'] += 1
         stepinfo['err_delta'] = err - stepinfo['err']
         stepinfo['err'] = err
-        for k in kwargs.keys():
-            stepinfo[k] = kwargs[k]
+        stepinfo.update(kwargs)
         log.debug("Stepinfo: %s", stepinfo)
 
     return stepinfo, update_stepinfo
@@ -57,9 +54,7 @@ def error_non_decreasing(stepinfo, tolerance=1e-5):
     Returns true when stepinfo's 'err_delta' is less than tolerance.
     The default tolerance is 1.0e-5.
     '''
-    # Using absolute value because fitters might be
-    # defining delta as  err_i - err_i+1  or  err_i+1 - err_i
-    if np.abs(stepinfo['err_delta']) < tolerance:
+    if stepinfo['err_delta'] > -tolerance:
         log.info("Change in error: %.06f was less than tolerance: %.2E",
                  stepinfo['err_delta'], tolerance)
         return True
