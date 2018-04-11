@@ -158,10 +158,15 @@ def add_average_sig(rec, signal_to_average, new_signalname, epoch_regex,
                                   epoch_regex=epoch_regex)
     return {'rec': rec}
 
-def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_signalname='state', **context):
-    rec=preproc.make_state_signal(rec, state_signals=state_signals,
-                                  permute_signals=permute_signals,
-                                  new_signalname=new_signalname)
+
+def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
+                      new_signalname='state', **context):
+
+    rec = preproc.make_state_signal(rec, state_signals=state_signals,
+                                    permute_signals=permute_signals,
+                                    new_signalname=new_signalname)
+    rec = preproc.remove_invalid_segments(rec)
+
     return {'rec': rec}
 
 
