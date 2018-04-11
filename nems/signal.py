@@ -1007,8 +1007,7 @@ class RasterizedSignal(SignalBase):
         or when there are fewer occurrences than njacks.
         '''
 
-        epochs = self.get_epoch_bounds(epoch_name)
-        epoch_indices = (epochs * self.fs).astype('i').tolist()
+        epochs = self.get_epoch_indices(epoch_name)
         occurrences, _ = epochs.shape
 
         if excise:
@@ -1038,7 +1037,7 @@ class RasterizedSignal(SignalBase):
 
         for idx in idx_data[jack_idx].tolist():
             if idx < occurrences:
-                lb, ub = epoch_indices[idx]
+                lb, ub = epochs[idx]
                 mask[:, lb:ub] = 1
 
         if invert:
