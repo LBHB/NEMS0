@@ -180,14 +180,14 @@ def generate_psth_from_est_for_both_est_and_val(est, val, epoch_regex = '^STIM_'
     # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
     #   replacing all epochs in the signal with their average (psth)
     respavg_est = resp_est.replace_epochs(per_stim_psth)
-    respavg_est.name = 'respavg_est'  
+    respavg_est.name = 'psth'  
 
 
     # add signal to the est recording
     est.add_signal(respavg_est)
 
     respavg_val = resp_val.replace_epochs(per_stim_psth)
-    respavg_val.name = 'respavg_est' 
+    respavg_val.name = 'psth' 
 
     # add signal to the val recording
     val.add_signal(respavg_val)
