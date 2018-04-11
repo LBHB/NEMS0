@@ -141,12 +141,17 @@ def test_split_at_time(signal):
     assert r.as_continuous().shape == (3, 38)
 
 
-def test_jackknife_by_epoch(signal):
+def test_jackknife_by_epoch(signal):   
     signal.epochs = signal.trial_epochs_from_occurrences(occurrences=50)
     s1 = signal.jackknife_by_epoch(10, 0, 'trial', tiled=False, invert=True)
+    
+    epoch_indices = signal.get_epoch_bounds('trial')
+    subset_sig = signal.select_times(epoch_indices[:10]) 
+    jack1 = subset_sig.jackknife_by_epoch(10, 0, 'trial', tiled=False, invert=False)
     assert s1.as_continuous().shape == (3, 200)  # shape shouldn't change
     assert(1770.0 == np.nansum(s1.as_continuous()[:]))
-
+    # Should nan 10% of subsetted data - not 10% of non-subset data
+    assert(sum(~np.isnan(jack1.as_continuous().flatten()))/jack1.as_continuous().size ==0.9)
 
 def test_jackknife_by_time(signal):
     jsig = signal.jackknife_by_time(20, 2)
