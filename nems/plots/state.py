@@ -58,11 +58,14 @@ def state_var_psth(rec, psth_name='resp', var_name='pupil', ax=None):
     timeseries_from_vectors([low, high], fs=fs, title=var_name, ax=ax)
 
 
-def state_var_psth_from_epoch(rec, epoch, psth_name='resp', var_name='pupil',
-                               occurrence=0, ax=None):
+def state_var_psth_from_epoch(rec, epoch, psth_name='resp', state_sig='pupil',
+                              ax=None):
+    """
+    Plot PSTH averaged across all occurences of epoch, grouped by
+    above- and below-average values of a state signal (state_sig)
+    """
+
     # TODO: Does using epochs make sense for these?
-    # SVD changed default so that psth_name is 'resp'. want to plot actual
-    # response averaged across different subsets of trials.
     if ax is not None:
         plt.sca(ax)
 
@@ -70,30 +73,27 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', var_name='pupil',
 
     full_psth = rec[psth_name]
     folded_psth = full_psth.extract_epoch(epoch)
-    # ignore occurence. We want to average across all occurrences
-    #psth = folded_psth[occurrence]
 
-    full_var = rec['state'].loc[var_name]
+    full_var = rec['state'].loc[state_sig]
     folded_var = np.squeeze(full_var.extract_epoch(epoch))
-    #var = folded_var[occurrence]
 
     # compute the mean state for each occurrence
-    m = np.nanmean(folded_var,axis=1)
+    m = np.nanmean(folded_var, axis=1)
 
     # compute the mean state across all occurrences
-    mean=np.nanmean(m)
+    mean = np.nanmean(m)
 
     # low = response on epochs when state less than mean
-    if np.sum(m<mean):
-        low = np.nanmean(folded_psth[m < mean,:,:],axis=0).T
+    if np.sum(m < mean):
+        low = np.nanmean(folded_psth[m < mean, :, :], axis=0).T
     else:
-        low = np.ones(folded_psth[0,:,:].shape).T * np.nan
+        low = np.ones(folded_psth[0, :, :].shape).T * np.nan
 
     # high = response on epochs when state less than mean
-    high = np.nanmean(folded_psth[m >= mean,:,:],axis=0).T
+    high = np.nanmean(folded_psth[m >= mean, :, :], axis=0).T
 
-    legend=('< Mean', '>= Mean')
-    title='{}, {} #{}'.format(var_name, epoch, occurrence)
+    legend = ('< Mean', '>= Mean')
+    title = '{} conditioned {}'.format(state_sig, epoch)
 
     timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
                             legend=legend)

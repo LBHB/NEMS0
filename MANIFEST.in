@@ -1,0 +1,5 @@
+# Include the readme since it's read by setup.py
+include README.md
+
+# Include the license file
+include LICENSE.txt

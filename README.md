@@ -37,7 +37,7 @@ You may test if everything is working by telling NEMS to download some sample au
 ```
 cd nems/scripts
 INPUT_URI=https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/TAR010c-18-1.tgz
-MODELKEYWORDS="wc18x1_lvl1_fir15x1_dexp1"
+MODELKEYWORDS="wc18x1_lvl1_fir1x15_dexp1"
 DESTINATION=~/nems_results/
 python fit_model.py $INPUT_URI $MODELKEYWORDS $DESTINATION
 ```
@@ -47,7 +47,7 @@ Now you should go in `~/nems_results` and find the subdirectory where the plot P
 ```
 wget https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/TAR010c-18-1.tgz -P /tmp
 INPUT_URI=/tmp/TAR010c-18-1.tgz
-MODELKEYWORDS="wc18x1_lvl1_fir15x1_dexp1"
+MODELKEYWORDS="wc18x1_lvl1_fir1x15_dexp1"
 DESTINATION=~/nems_results/
 python fit_model.py $INPUT_URI $MODELKEYWORDS $DESTINATION
 ```

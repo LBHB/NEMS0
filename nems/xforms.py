@@ -6,7 +6,7 @@ import logging
 
 import nems.analysis.api
 import nems.initializers as init
-import nems.metrics as metrics
+import nems.metrics.api as metrics
 import nems.modelspec as ms
 from nems.modelspec import set_modelspec_metadata, get_modelspec_metadata, get_modelspec_shortname
 import nems.plots.api as nplt
@@ -340,6 +340,40 @@ def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
 
             modelspecs = [nems.analysis.api.fit_basic(est, modelspec,
                                                       fit_kwargs=fit_kwargs,
+                                                      fitter=scipy_minimize)[0]
+                          for modelspec in modelspecs]
+    return {'modelspecs': modelspecs}
+
+def fit_basic_shrink(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
+              **context):
+    ''' A basic fit that optimizes every input modelspec. '''
+
+
+    if not IsReload:
+        fit_kwargs = {'options': {'ftol': ftol, 'maxiter': maxiter}}
+        if type(est) is list:
+            # jackknife!
+            modelspecs_out = []
+            njacks = len(modelspecs)
+            i = 0
+            for m, d in zip(modelspecs, est):
+                i += 1
+                log.info("Fitting JK {}/{}".format(i, njacks))
+                metric=lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
+                modelspecs_out += nems.analysis.api.fit_basic(d, m,
+                                                              fit_kwargs=fit_kwargs,
+                                                              metric=metric,
+                                                              fitter=scipy_minimize)
+            modelspecs = modelspecs_out
+        else:
+            # standard single shot
+            # print('Fitting fit_basic')
+            # print(fit_kwargs)
+
+            metric=lambda est: metrics.nmse_shrink(est, 'pred', 'resp')
+            modelspecs = [nems.analysis.api.fit_basic(est, modelspec,
+                                                      fit_kwargs=fit_kwargs,
+                                                      metric=metric,
                                                       fitter=scipy_minimize)[0]
                           for modelspec in modelspecs]
     return {'modelspecs': modelspecs}

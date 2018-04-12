@@ -107,8 +107,8 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
                                    fit_kwargs=fit_kwargs)[0]
 
     # reassemble the full modelspec with updated phi values from tmodelspec
-    if fitidx[0] > 1 and modelspec[0]['fn_kwargs']['i'] == 'stim':
-        tmodelspec[0]['fn_kwargs']['i'] == 'pred'
+    if fitidx[0] > 0 and modelspec[0]['fn_kwargs']['i'] == 'stim':
+        tmodelspec[0]['fn_kwargs']['i'] = 'pred'
     for i, j in enumerate(fitidx):
         modelspec[j] = tmodelspec[i]
 

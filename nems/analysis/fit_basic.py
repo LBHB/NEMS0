@@ -48,6 +48,7 @@ def fit_basic(data, modelspec,
             log.debug('Phi not found for module, using mean of prior: %s', m)
             m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
             modelspec[i] = m
+    ms.fit_mode_on(modelspec)
 
     # Create the mapper object that translates to and from modelspecs.
     # It has two methods that, when defined as mathematical functions, are:
@@ -75,7 +76,6 @@ def fit_basic(data, modelspec,
         cost_function.counter += 1
         if cost_function.counter % 1000 == 0:
             log.info('Eval #%d. E=%.06f', cost_function.counter, error)
-
         return error
 
     cost_function.counter = 0
@@ -99,6 +99,7 @@ def fit_basic(data, modelspec,
 
     # TODO: Should this maybe be moved to a higher level
     # so it applies to ALL the fittters?
+    ms.fit_mode_off(improved_modelspec)
     ms.set_modelspec_metadata(improved_modelspec, 'fitter', metaname)
     ms.set_modelspec_metadata(improved_modelspec, 'fit_time', elapsed_time)
     results = [copy.deepcopy(improved_modelspec)]
