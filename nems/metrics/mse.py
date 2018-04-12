@@ -78,11 +78,13 @@ def nmse_shrink(result, pred_name='pred', resp_name='resp', shrink=0.5):
     E = np.zeros([10, 1])
     for ii in range(0, 10):
         if bounds[ii] == bounds[ii + 1]:
-            log.info('no data in range?')
+            log.info('No data in range?')
+            
         P = np.mean(np.square(X2[bounds[ii]:bounds[ii + 1]]))
+        
         if P > 0:
-            E[ii] = np.mean(np.square(X1[bounds[ii]:bounds[ii + 1]] -
-                            X2[bounds[ii]:bounds[ii + 1]])) / P
+            E[ii] = np.sqrt(np.mean(np.square(X1[bounds[ii]:bounds[ii + 1]] -
+                                X2[bounds[ii]:bounds[ii + 1]])) / P)
         else:
             E[ii] = 1
 

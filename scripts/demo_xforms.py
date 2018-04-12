@@ -49,7 +49,9 @@ xfspec.append(['nems.xforms.init_from_keywords',
                {'keywordstring': modelspecname, 'meta': meta}])
 
 xfspec.append(['nems.xforms.fit_basic_init', {}])
-xfspec.append(['nems.xforms.fit_basic', {}])
+# xfspec.append(['nems.xforms.fit_basic', {}])
+# xfspec.append(['nems.xforms.fit_basic_shrink', {}])
+xfspec.append(['nems.xforms.fit_basic_cd', {}])
 # xfspec.append(['nems.xforms.fit_iteratively', {}])
 xfspec.append(['nems.xforms.predict',    {}])
 # xfspec.append(['nems.xforms.add_summary_statistics',    {}])
@@ -61,7 +63,6 @@ xfspec.append(['nems.xforms.plot_summary',    {}])
 
 # actually do the fit
 ctx, log_xf = xforms.evaluate(xfspec)
-
 
 
 # ----------------------------------------------------------------------------
