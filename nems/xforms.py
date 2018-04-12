@@ -14,7 +14,7 @@ import nems.preprocessing as preproc
 import nems.priors as priors
 from nems.uri import save_resource, load_resource
 from nems.utils import iso8601_datestring
-from nems.fitters.api import scipy_minimize
+from nems.fitters.api import scipy_minimize, coordinate_descent
 from nems.recording import load_recording
 
 log = logging.getLogger(__name__)
@@ -343,6 +343,8 @@ def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
                                                       fitter=scipy_minimize)[0]
                           for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
+
+
 def fit_basic_shrink(modelspecs, est, maxiter=1000, ftol=1e-8, IsReload=False,
                      **context):
     ''' A basic fit that optimizes every input modelspec. Use nmse_shrink!'''
@@ -375,6 +377,44 @@ def fit_basic_shrink(modelspecs, est, maxiter=1000, ftol=1e-8, IsReload=False,
                                                       fitter=scipy_minimize)[0]
                           for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
+
+
+def fit_basic_cd(modelspecs, est, maxiter=1000, ftol=1e-8, IsReload=False,
+                 **context):
+    ''' 
+    A basic fit that optimizes every input modelspec. Use coordinate 
+    descent for fitting and nmse_shrink for cost function
+    '''
+
+    if not IsReload:
+        fit_kwargs = {'options': {'ftol': ftol, 'maxiter': maxiter}}
+        if type(est) is list:
+            # jackknife!
+            modelspecs_out = []
+            njacks = len(modelspecs)
+            i = 0
+            for m, d in zip(modelspecs, est):
+                i += 1
+                log.info("Fitting JK {}/{}".format(i, njacks))
+                metric=lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
+                modelspecs_out += nems.analysis.api.fit_basic(d, m,
+                                                              fit_kwargs=fit_kwargs,
+                                                              metric=metric,
+                                                              fitter=coordinate_descent)
+            modelspecs = modelspecs_out
+        else:
+            # standard single shot
+            # print('Fitting fit_basic')
+            # print(fit_kwargs)
+
+            metric=lambda est: metrics.nmse_shrink(est, 'pred', 'resp')
+            modelspecs = [nems.analysis.api.fit_basic(est, modelspec,
+                                                      fit_kwargs=fit_kwargs,
+                                                      metric=metric,
+                                                      fitter=coordinate_descent)[0]
+                          for modelspec in modelspecs]
+    return {'modelspecs': modelspecs}
+
 
 def fit_iteratively(modelspecs, est, max_iter=100, ftol=1e-7, IsReload=False,
                     module_sets=None, invert=False, tolerances=None,

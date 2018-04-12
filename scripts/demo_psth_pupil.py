@@ -46,16 +46,18 @@ rec = recording.load_recording(os.path.join(signals_dir, 'eno052d-a1.tgz'))
 #URL = "http://potoroo:3004/baphy/271/bbl086b-11-1?rasterfs=200"
 #rec = Recording.load_url(URL)
 
+# create a new signal that will be used to modulate the output of the linear
+# predicted response
 logging.info('Generating state signal...')
 
-rec=preproc.make_state_signal(rec,['pupil'],[''],'state')
+rec = preproc.make_state_signal(rec, ['pupil'], [''], 'state')
 
 # ----------------------------------------------------------------------------
 # INITIALIZE MODELSPEC
 
 # GOAL: Define the model that you wish to test
 
-logging.info('Initializing modelspec(s)...')
+logging.info('Initializing modelspec...')
 
 # Method #1: create from "shorthand" keyword string
 #modelspec = nems.initializers.from_keywords('wcg18x1_fir15x1_lvl1_dexp1')
@@ -72,15 +74,15 @@ modelspecs=[modelspec]
 
 logging.info('Withholding validation set data...')
 
-# create all jackknife sets
+# create all jackknife sets. the single recording, rec, is now turned into
+# lists of recordings for estimation (est) and validation (val). Size of 
+# signals in each set are the same, but the excluded segments are set to nan.
 nfolds=10
-ests,vals,m=preproc.split_est_val_for_jackknife(rec, modelspecs=None, njacks=nfolds)
+ests, vals, m = preproc.split_est_val_for_jackknife(rec, modelspecs=None,
+                                                    njacks=nfolds)
 
 # generate PSTH prediction for each set
 ests, vals = preproc.generate_psth_from_est_for_both_est_and_val_nfold(ests, vals)
-
-
-
 
 
 # ----------------------------------------------------------------------------
@@ -92,18 +94,18 @@ ests, vals = preproc.generate_psth_from_est_for_both_est_and_val_nfold(ests, val
 
 logging.info('Fitting modelspec(s)...')
 
-modelspecs_out = nems.analysis.api.fit_nfold(
-        ests,modelspecs,fitter=scipy_minimize)
-# above is shorthand for :
-#modelspecs_out=[]
-#i=0
-#for m,d in zip(modelspecs,ests):
-#    i+=1
-#    logging.info("Fitting JK {}/{}".format(i,nfolds))
-#    modelspecs_out += \
-#        nems.analysis.api.fit_basic(d,m,fitter=scipy_minimize)
+modelspecs = nems.analysis.api.fit_nfold(ests, modelspecs, 
+                                         fitter=scipy_minimize)
 
-modelspecs=modelspecs_out
+# above is shorthand for:
+# modelspecs_out=[]
+# i=0
+# for m,d in zip(modelspecs,ests):
+#     i+=1
+#     logging.info("Fitting JK {}/{}".format(i,nfolds))
+#     modelspecs_out += \
+#         nems.analysis.api.fit_basic(d, m, fitter=scipy_minimize)
+# modelspecs = modelspecs_out
 
 # ----------------------------------------------------------------------------
 # SAVE YOUR RESULTS
