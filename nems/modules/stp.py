@@ -9,12 +9,12 @@ def short_term_plasticity(rec, i, o, u, tau, crosstalk=0):
         tau (recovery time constant)
     '''
 
-    fn = lambda x : _stp(x, u, tau, crosstalk)
+    fn = lambda x : _stp(x, u, tau, crosstalk, rec[i].fs)
 
     return [rec[i].transform(fn, o)]
 
 
-def _stp(X, u, tau, crosstalk=0):
+def _stp(X, u, tau, crosstalk=0, fs=1):
     """
     STP core function
     """
@@ -29,12 +29,11 @@ def _stp(X, u, tau, crosstalk=0):
 
     # TODO: move bounds to fitter
     # limits, assumes input (X) range is approximately -1 to +1
-    ui = np.absolute(u) / 100
+    ui = np.absolute(u)
     ui[ui > 0.3] = 0.3
 
     # convert tau units from sec to bins
-    # taui = np.absolute(self.tau[:, j]) * self.d_in[0]['fs']
-    taui = np.absolute(tau)
+    taui = np.absolute(tau) * fs
     taui[taui < 1] = 1
 
     # TODO : enable crosstalk

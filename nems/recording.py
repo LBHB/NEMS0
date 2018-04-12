@@ -557,8 +557,8 @@ class Recording:
             if (not only_signals or sn in set(only_signals)):
                 s = self.signals[sn]
                 new_sigs[sn] = s.jackknife_by_epoch(njacks, jack_idx,
-                                epoch_name=epoch_name,invert=invert,
-                                tiled=True)
+                                                    epoch_name=epoch_name,
+                                                    invert=invert, tiled=tiled)
         return Recording(signals=new_sigs)
 
         # if signal_names is not None:

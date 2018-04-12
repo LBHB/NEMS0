@@ -34,8 +34,8 @@ def mse(result, pred_name='pred', resp_name='resp'):
     and symbolic (i.e., Theano, TensorFlow) computation. Please do not edit
     unless you know what you're doing. (@bburan TODO: Is this still true?)
     '''
-    pred = result[pred_name]
-    resp = result[resp_name]
+    pred = result[pred_name].as_continuous()
+    resp = result[resp_name].as_continuous()
     squared_errors = (pred-resp)**2
     return np.nanmean(squared_errors)
 
