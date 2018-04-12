@@ -300,21 +300,21 @@ def fit_basic_init_stp_freeze(modelspecs, est, IsReload=False, **context):
 
         # restore STP module to normal state
         if stp_sm is not None:
-            for i,m in enumerate(modelspecs[0]):
+            for i, m in enumerate(modelspecs[0]):
                 if 'stp' in m['fn']:
                     log.info("Restoring STP module for full fit")
                     stp_sm['phi'] = {}
                     stp_sm['phi']['u'] = stp_sm['prior']['u'][1]['mean']
                     stp_sm['phi']['tau'] = stp_sm['prior']['u'][1]['mean']
-                    modelspecs[0][i]=stp_sm
+                    modelspecs[0][i] = stp_sm
 
         # possibility: pre-fit static NL .  But this doesn't seem to help...
-        #modelspecs = [nems.initializers.init_dexp(
+        # modelspecs = [nems.initializers.init_dexp(
         #        est, modelspec)
         #        for modelspec in modelspecs]
 
-
     return {'modelspecs': modelspecs}
+
 
 def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
               **context):
@@ -343,6 +343,8 @@ def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
                                                       fitter=scipy_minimize)[0]
                           for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
+
+
 def fit_basic_shrink(modelspecs, est, maxiter=1000, ftol=1e-8, IsReload=False,
                      **context):
     ''' A basic fit that optimizes every input modelspec. Use nmse_shrink!'''
