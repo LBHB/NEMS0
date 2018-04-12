@@ -143,16 +143,16 @@ defkey('stp1',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
                       'crosstalk': 0},
-        'prior': {'u': ('Normal', {'mean': [1], 'sd': [1]}),
-                  'tau': ('Normal', {'mean': [4], 'sd': [1]})}})
+        'prior': {'u': ('Normal', {'mean': [0.01], 'sd': [0.01]}),
+                  'tau': ('Normal', {'mean': [0.04], 'sd': [0.01]})}})
 
 defkey('stp2',
        {'fn': 'nems.modules.stp.short_term_plasticity',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
                       'crosstalk': 0},
-        'prior': {'u': ('Normal', {'mean': [1, 1], 'sd': [1, 1]}),
-                  'tau': ('Normal', {'mean': [4, 4], 'sd': [5, 5]})}})
+        'prior': {'u': ('Normal', {'mean': [0.01, 0.01], 'sd': [0.01, 0.01]}),
+                  'tau': ('Normal', {'mean': [0.04, 0.04], 'sd': [0.05, 0.05]})}})
 
 defkey('dexp1',
        {'fn': 'nems.modules.nonlinearity.double_exponential',
