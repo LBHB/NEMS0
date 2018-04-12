@@ -222,8 +222,12 @@ class SignalBase:
             max_epoch_time = self.epochs["end"].max()
         else:
             max_epoch_time = 0
-        #max_event_times = [max(et) for et in self._data.values()]
-        max_event_times = [0]
+
+        if isinstance(data, dict):
+            # max_event_times = [max(et) for et in self._data.values()]
+            max_event_times = [0]
+        else:
+            max_event_times = [data.shape[1] / fs]
         max_time = max(max_epoch_time, *max_event_times)
         self.ntimes = np.int(np.ceil(fs*max_time))
 
