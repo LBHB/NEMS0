@@ -18,7 +18,8 @@ import nems.modelspec as ms
 import nems.plots.api as nplt
 import nems.analysis.api
 import nems.utils
-from nems.recording import Recording
+import nems.uri
+from nems import recording
 from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
 
 # ----------------------------------------------------------------------------
@@ -26,13 +27,9 @@ from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
 
 logging.basicConfig(level=logging.INFO)
 
-relative_signals_dir = '../recordings'
-relative_modelspecs_dir = '../modelspecs'
-
-# Convert to absolute paths so they can be passed to functions in
-# other directories
-signals_dir = os.path.abspath(relative_signals_dir)
-modelspecs_dir = os.path.abspath(relative_modelspecs_dir)
+nems_dir = os.path.abspath(os.path.dirname(recording.__file__) + '/..')
+signals_dir = nems_dir + '/recordings'
+modelspecs_dir = nems_dir + '/modelspecs'
 
 # ----------------------------------------------------------------------------
 # DATA LOADING
@@ -41,7 +38,9 @@ modelspecs_dir = os.path.abspath(relative_modelspecs_dir)
 logging.info('Loading data...')
 
 # Method #1: Load the data from a local directory
-rec = Recording.load(os.path.join(signals_dir, 'eno052d-a1.tgz'))
+# download demo data if necessary:
+nems.uri.get_demo_recordings(signals_dir)
+rec = recording.load_recording(os.path.join(signals_dir, 'eno052d-a1.tgz'))
 
 # Method #2: Load the data from baphy using the (incomplete, TODO) HTTP API:
 #URL = "http://potoroo:3004/baphy/271/bbl086b-11-1?rasterfs=200"
@@ -78,7 +77,7 @@ nfolds=10
 ests,vals,m=preproc.split_est_val_for_jackknife(rec, modelspecs=None, njacks=nfolds)
 
 # generate PSTH prediction for each set
-ests,vals=preproc.generate_psth_from_est_for_both_est_and_val_nfold(ests, vals)
+ests, vals = preproc.generate_psth_from_est_for_both_est_and_val_nfold(ests, vals)
 
 
 
@@ -118,10 +117,10 @@ ms.save_modelspecs(modelspecs_dir, modelspecs)
 logging.info('Generating summary statistics...')
 
 # generate predictions
-est, val = nems.analysis.api.generate_prediction(est, val, modelspecs)
+ests, vals = nems.analysis.api.generate_prediction(ests, vals, modelspecs)
 
 # evaluate prediction accuracy
-modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs)
+modelspecs = nems.analysis.api.standard_correlation(ests, vals, modelspecs)
 
 logging.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
         modelspecs[0][0]['meta']['r_fit'],
@@ -136,4 +135,4 @@ logging.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
 logging.info('Generating summary plot...')
 
 # Generate a summary plot
-fig = nplt.quickplot({'val': val, 'modelspecs': modelspecs})
+fig = nplt.quickplot({'val': vals, 'modelspecs': modelspecs})
