@@ -712,6 +712,29 @@ class RasterizedSignal(SignalBase):
         if safety_checks:
             self._run_safety_checks()
 
+    @classmethod
+    def from_3darray(cls, fs, array, name, recording, epoch_name='TRIAL',
+                     chans=None, meta=None, safety_cheks=True):
+        """Initialize RasterizedSignal from 3d array
+
+        Parameters
+        ----------
+        fs :
+        array : ndarray  (n_epochs, n_channels, n_times)
+            Data array.
+        """
+        assert array.ndim == 3
+        n_trials, n_channels, n_times = array.shape
+        data = np.swapaxes(array, 0, 1)
+        data = data.reshape((n_channels, n_trials * n_times))
+
+        out = cls(fs, data, name, recording, chans, meta=meta,
+                  safety_checks=safety_cheks)
+        times = np.array([[t / fs, (t + n_times) / fs] for t in
+                          range(0, n_trials * n_times, n_times)])
+        out.add_epoch(epoch_name, times)
+        return out
+
     def _set_cached_props(self):
         """Sets channel_max, channel_min, channel_mean, channel_var,
         and channel_std.
