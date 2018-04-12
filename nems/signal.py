@@ -222,8 +222,12 @@ class SignalBase:
             max_epoch_time = self.epochs["end"].max()
         else:
             max_epoch_time = 0
-        #max_event_times = [max(et) for et in self._data.values()]
-        max_event_times = [0]
+
+        if isinstance(data, dict):
+            # max_event_times = [max(et) for et in self._data.values()]
+            max_event_times = [0]
+        else:
+            max_event_times = [data.shape[1] / fs]
         max_time = max(max_epoch_time, *max_event_times)
         self.ntimes = np.int(np.ceil(fs*max_time))
 
@@ -481,6 +485,25 @@ class SignalBase:
                          'segments', 'signal_type']
         return {name: getattr(self, name) for name in md_attributes}
 
+    def add_epoch(self, epoch_name, epoch):
+        '''
+        Add epoch to the internal epochs dataframe
+
+        Parameters
+        ----------
+        epoch_name : string
+            Name of epoch
+        epoch : 2D array of (M x 2)
+            The first column is the start time and second column is the end
+            time. M is the number of occurrences of the epoch.
+        '''
+        df = pd.DataFrame(epoch, columns=['start', 'end'])
+        df['name'] = epoch_name
+        if self.epochs is not None:
+            self.epochs = self.epochs.append(df, ignore_index=True)
+        else:
+            self.epochs = df
+
     def _split_epochs(self, split_time):
         if self.epochs is None:
             lepochs = None
@@ -688,6 +711,29 @@ class RasterizedSignal(SignalBase):
 
         if safety_checks:
             self._run_safety_checks()
+
+    @classmethod
+    def from_3darray(cls, fs, array, name, recording, epoch_name='TRIAL',
+                     chans=None, meta=None, safety_cheks=True):
+        """Initialize RasterizedSignal from 3d array
+
+        Parameters
+        ----------
+        fs :
+        array : ndarray  (n_epochs, n_channels, n_times)
+            Data array.
+        """
+        assert array.ndim == 3
+        n_trials, n_channels, n_times = array.shape
+        data = np.swapaxes(array, 0, 1)
+        data = data.reshape((n_channels, n_trials * n_times))
+
+        out = cls(fs, data, name, recording, chans, meta=meta,
+                  safety_checks=safety_cheks)
+        times = np.array([[t / fs, (t + n_times) / fs] for t in
+                          range(0, n_trials * n_times, n_times)])
+        out.add_epoch(epoch_name, times)
+        return out
 
     def _set_cached_props(self):
         """Sets channel_max, channel_min, channel_mean, channel_var,
@@ -1269,25 +1315,6 @@ class RasterizedSignal(SignalBase):
             'end': ends,
             'name': 'trial'
         })
-
-    def add_epoch(self, epoch_name, epoch):
-        '''
-        Add epoch to the internal epochs dataframe
-
-        Parameters
-        ----------
-        epoch_name : string
-            Name of epoch
-        epoch : 2D array of (M x 2)
-            The first column is the start time and second column is the end
-            time. M is the number of occurrences of the epoch.
-        '''
-        df = pd.DataFrame(epoch, columns=['start', 'end'])
-        df['name'] = epoch_name
-        if self.epochs is not None:
-            self.epochs = self.epochs.append(df, ignore_index=True)
-        else:
-            self.epochs = df
 
     def transform(self, fn, newname=None):
         '''
