@@ -485,6 +485,25 @@ class SignalBase:
                          'segments', 'signal_type']
         return {name: getattr(self, name) for name in md_attributes}
 
+    def add_epoch(self, epoch_name, epoch):
+        '''
+        Add epoch to the internal epochs dataframe
+
+        Parameters
+        ----------
+        epoch_name : string
+            Name of epoch
+        epoch : 2D array of (M x 2)
+            The first column is the start time and second column is the end
+            time. M is the number of occurrences of the epoch.
+        '''
+        df = pd.DataFrame(epoch, columns=['start', 'end'])
+        df['name'] = epoch_name
+        if self.epochs is not None:
+            self.epochs = self.epochs.append(df, ignore_index=True)
+        else:
+            self.epochs = df
+
     def _split_epochs(self, split_time):
         if self.epochs is None:
             lepochs = None
@@ -1273,25 +1292,6 @@ class RasterizedSignal(SignalBase):
             'end': ends,
             'name': 'trial'
         })
-
-    def add_epoch(self, epoch_name, epoch):
-        '''
-        Add epoch to the internal epochs dataframe
-
-        Parameters
-        ----------
-        epoch_name : string
-            Name of epoch
-        epoch : 2D array of (M x 2)
-            The first column is the start time and second column is the end
-            time. M is the number of occurrences of the epoch.
-        '''
-        df = pd.DataFrame(epoch, columns=['start', 'end'])
-        df['name'] = epoch_name
-        if self.epochs is not None:
-            self.epochs = self.epochs.append(df, ignore_index=True)
-        else:
-            self.epochs = df
 
     def transform(self, fn, newname=None):
         '''
