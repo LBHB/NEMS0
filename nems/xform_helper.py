@@ -10,42 +10,20 @@ def generate_loader_xfspec(loader, recording_uri):
 
     recordings = [recording_uri]
 
-    options = {}
     if loader == "ozgf100ch18":
-        options["stimfmt"] = "ozgf"
-        options["chancount"] = 18
-        options["rasterfs"] = 100
-        options['includeprestim'] = 1
-        options["average_stim"]=True
-        options["state_vars"]=[]
         xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
                   ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}],
                   ['nems.xforms.average_away_stim_occurrences',{}]]
 
     elif loader == "ozgf100ch18pup":
-        options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf',
-          'chancount': 18, 'pupil': True, 'stim': True,
-          'pupil_deblink': True, 'pupil_median': 1}
-        options["average_stim"]=False
-        options["state_vars"]=['pupil']
         xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
                   ['nems.xforms.make_state_signal', {'state_signals': ['pupil'], 'permute_signals': [], 'new_signalname': 'state'}]]
 
     elif loader == "nostim10pup":
-        options={'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
-          'chancount': 0, 'pupil': True, 'stim': False,
-          'pupil_deblink': True, 'pupil_median': 1}
-        options["average_stim"]=False
-        options["state_vars"]=['pupil']
         xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
                   ['nems.preprocessing.make_state_signal', {'state_signals': ['pupil'], 'permute_signals': [], 'new_signalname': 'state'},['rec'],['rec']]]
 
     elif loader in ["nostim10pup0beh0","nostim10pup0beh","nostim10pupbeh0","nostim10pupbeh"]:
-        options={'rasterfs': 10, 'includeprestim': True, 'stimfmt': 'parm',
-          'chancount': 0, 'pupil': True, 'stim': False,
-          'pupil_deblink': True, 'pupil_median': 1}
-        options["average_stim"]=False
-        options["state_vars"]=['pupil']
 
         state_signals=['pupil','behavior_state']
         if loader=="nostim10pup0beh0":
@@ -66,11 +44,6 @@ def generate_loader_xfspec(loader, recording_uri):
 
     elif loader in ["nostim20pup0beh0", "nostim20pup0beh",
                     "nostim20pupbeh0", "nostim20pupbeh"]:
-        options = {'rasterfs': 20, 'includeprestim': True, 'stimfmt': 'parm',
-                   'chancount': 0, 'pupil': True, 'stim': False,
-                   'pupil_deblink': True, 'pupil_median': 1}
-        options["average_stim"] = False
-        options["state_vars"] = ['pupil']
 
         state_signals=['pupil','active']
         if loader=="nostim20pup0beh0":
@@ -90,12 +63,6 @@ def generate_loader_xfspec(loader, recording_uri):
                     'new_signalname': 'state'}]]
 
     elif loader == "env100":
-        options["stimfmt"] = "envelope"
-        options["chancount"] = 0
-        options["rasterfs"] = 100
-        options['includeprestim'] = 1
-        options["average_stim"]=True
-        options["state_vars"]=[]
         xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
                   ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}],
                   ['nems.xforms.average_away_stim_occurrences',{}]]
@@ -140,13 +107,40 @@ def generate_fitter_xfspec(fitter, fitter_kwargs=None):
         xfspec.append(['nems.xforms.fit_nfold', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
-    elif fitter == "fitpjk01":
+    elif (fitter == "fitpjk01") or (fitter == "basic-nf"):
 
         log.info("n-fold fitting...")
         xfspec.append(['nems.xforms.split_for_jackknife',
                        {'njacks': 10, 'epoch_name': 'REFERENCE'}])
         xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
         xfspec.append(['nems.xforms.fit_nfold', {}])
+        xfspec.append(['nems.xforms.predict',    {}])
+
+    elif fitter == "basic-nf-shr":
+
+        log.info("n-fold fitting...")
+        xfspec.append(['nems.xforms.split_for_jackknife',
+                       {'njacks': 10, 'epoch_name': 'REFERENCE'}])
+        xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
+        xfspec.append(['nems.xforms.fit_nfold_shrinkage', {}])
+        xfspec.append(['nems.xforms.predict',    {}])
+
+    elif fitter == "cd-nf-shr":
+
+        log.info("n-fold fitting...")
+        xfspec.append(['nems.xforms.split_for_jackknife',
+                       {'njacks': 10, 'epoch_name': 'REFERENCE'}])
+        xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
+        xfspec.append(['nems.xforms.fit_cd_nfold_shrinkage', {}])
+        xfspec.append(['nems.xforms.predict',    {}])
+
+    elif fitter == "iter-cd-nf-shr":
+
+        log.info("Iterative cd, n-fold, shrinkage fitting...")
+        xfspec.append(['nems.xforms.split_for_jackknife',
+                       {'njacks': 10, 'epoch_name': 'REFERENCE'}])
+        xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
+        xfspec.append(['nems.xforms.fit_iter_cd_nfold_shrink', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
     elif fitter == "fit02":

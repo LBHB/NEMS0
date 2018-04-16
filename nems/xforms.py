@@ -166,6 +166,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
                                     permute_signals=permute_signals,
                                     new_signalname=new_signalname)
     rec = preproc.remove_invalid_segments(rec)
+    # rec = preproc.nan_invalid_segments(rec)
 
     return {'rec': rec}
 
@@ -317,8 +318,8 @@ def fit_basic_init_stp_freeze(modelspecs, est, IsReload=False, **context):
     return {'modelspecs': modelspecs}
 
 
-def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
-              **context):
+def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7,
+              IsReload=False, **context):
     ''' A basic fit that optimizes every input modelspec. '''
     if not IsReload:
         fit_kwargs = {'options': {'ftol': ftol, 'maxiter': maxiter}}
@@ -330,9 +331,9 @@ def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
             for m, d in zip(modelspecs, est):
                 i += 1
                 log.info("Fitting JK {}/{}".format(i, njacks))
-                modelspecs_out += nems.analysis.api.fit_basic(d, m,
-                                                              fit_kwargs=fit_kwargs,
-                                                              fitter=scipy_minimize)
+                modelspecs_out += nems.analysis.api.fit_basic(
+                        d, m, fit_kwargs=fit_kwargs,
+                        fitter=scipy_minimize)
             modelspecs = modelspecs_out
         else:
             # standard single shot
@@ -361,10 +362,10 @@ def fit_basic_shrink(modelspecs, est, maxiter=1000, ftol=1e-8, IsReload=False,
                 i += 1
                 log.info("Fitting JK {}/{}".format(i, njacks))
                 metric=lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
-                modelspecs_out += nems.analysis.api.fit_basic(d, m,
-                                                              fit_kwargs=fit_kwargs,
-                                                              metric=metric,
-                                                              fitter=scipy_minimize)
+                modelspecs_out += nems.analysis.api.fit_basic(
+                        d, m, fit_kwargs=fit_kwargs,
+                        metric=metric,
+                        fitter=scipy_minimize)
             modelspecs = modelspecs_out
         else:
             # standard single shot
@@ -499,11 +500,34 @@ def fit_jackknifes(modelspecs, est, njacks,
                                                       njacks=njacks)
     return {'modelspecs': modelspecs}
 
+
 def fit_nfold(modelspecs, est, IsReload=False, **context):
     ''' fitting n fold, one from each entry in est '''
     if not IsReload:
-         modelspecs = nems.analysis.api.fit_nfold(
-                   est,modelspecs,fitter=scipy_minimize)
+        modelspecs = nems.analysis.api.fit_nfold(
+                est, modelspecs, fitter=scipy_minimize)
+    return {'modelspecs': modelspecs}
+
+
+def fit_nfold_shrinkage(modelspecs, est, IsReload=False, **context):
+    ''' fitting n fold, one from each entry in est, use mse_shrink for
+    cost function'''
+    if not IsReload:
+        metric = lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
+        modelspecs = nems.analysis.api.fit_nfold(
+                est, modelspecs, metric=metric,
+                fitter=scipy_minimize)
+    return {'modelspecs': modelspecs}
+
+
+def fit_cd_nfold_shrinkage(modelspecs, est, IsReload=False, **context):
+    ''' fitting n fold, one from each entry in est, use mse_shrink for
+    cost function'''
+    if not IsReload:
+        metric = lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
+        modelspecs = nems.analysis.api.fit_nfold(
+                est, modelspecs, metric=metric,
+                fitter=coordinate_descent)
     return {'modelspecs': modelspecs}
 
 

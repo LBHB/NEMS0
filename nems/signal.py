@@ -197,7 +197,8 @@ class SignalBase:
 
     def __init__(self, fs, data, name, recording, chans=None, epochs=None,
                  segments=None, meta=None, safety_checks=True,
-                 normalization='none', **other_attributes):
+                 normalization='none', norm_baseline=np.array([[0]]),
+                 norm_gain=np.array([[1]]), **other_attributes):
         '''
         Parameters
         ----------
@@ -217,10 +218,12 @@ class SignalBase:
             supported if signal is to be saved
         safety_checks : {bool, True}
             TODO: clarify what this does
+
         normalization : { string, 'none' }
-            'minmax': normalize each channel of the data matrix to range (0,1)
-            'meanstd': normalize each channel to have mean 0, std 1
-            'none': no normalization
+        norm_baseline : { string, 'none' }
+        norm_gain : { string, 'none' }
+        signal_type: { string, 'none' }
+            passthrough metadata that should be preserved if the signal is copied.
 
         '''
         self.fs = fs
@@ -232,8 +235,8 @@ class SignalBase:
         self.signal_type = str(type(self))
         self._data = data
         self.normalization = normalization
-        self.norm_baseline = np.array([[0]])
-        self.norm_gain = np.array([[1]])
+        self.norm_baseline = norm_baseline
+        self.norm_gain = norm_gain
 
         if self.epochs is not None:
             max_epoch_time = self.epochs["end"].max()
@@ -724,9 +727,6 @@ class RasterizedSignal(SignalBase):
         self.nchans, self.ntimes = self._data.shape
         self.signal_type = str(type(self))
 
-        self._data, self.norm_baseline, self.norm_gain = \
-            _normalize_data(data, normalization)
-
         # Verify that we have a long time series
         if safety_checks and self.ntimes < self.nchans:
             m = 'Incorrect matrix dimensions?: (C, T) is {}. ' \
@@ -1207,7 +1207,7 @@ class RasterizedSignal(SignalBase):
                 chans.extend(signal.chans)
 
         epochs=signals[0].epochs
-        
+
         attr=base._get_attributes()
         del attr['epochs']
         del attr['fs']
@@ -1215,7 +1215,7 @@ class RasterizedSignal(SignalBase):
         del attr['recording']
         del attr['chans']
         del attr['signal_type']
-        
+
         return RasterizedSignal(base.fs, data, base.name, base.recording,
                                 epochs=epochs, chans=chans,
                                 safety_checks=False, **attr)
@@ -1438,6 +1438,19 @@ class RasterizedSignal(SignalBase):
         subsets = [data[..., lb:ub] for lb, ub in indices]
         data = np.concatenate(subsets, axis=-1)
         return self._modified_copy(data, segments=times)
+
+    def nan_times(self, times, padding=0):
+
+        if padding != 0:
+            raise NotImplementedError    # TODO
+
+        times = np.asarray(times)
+        indices = np.round(times*self.fs).astype('i')
+        data = self.as_continuous().copy()
+        for lb, ub in indices:
+            data[..., lb:ub] = np.nan
+
+        return self._modified_copy(data)
 
     def as_continuous(self):
         return self._data

@@ -6,7 +6,7 @@ from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
 import nems.priors
 import nems.fitters.mappers
 import nems.modelspec as ms
-import nems.metrics.api
+import nems.metrics.api as metrics
 import nems.segmentors
 import nems.utils
 
@@ -17,7 +17,7 @@ def fit_basic(data, modelspec,
               fitter=scipy_minimize,
               segmentor=nems.segmentors.use_all_data,
               mapper=nems.fitters.mappers.simple_vector,
-              metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp'),
+              metric=lambda data: metrics.nmse(data, 'pred', 'resp'),
               metaname='fit_basic', fit_kwargs={}):
     '''
     Required Arguments:
@@ -123,6 +123,7 @@ def fit_random_subsets(data, modelspec, nsplits=1, rebuild_every=10000):
 
 def fit_nfold(data_list, modelspecs, generate_psth=False,
               fitter=scipy_minimize,
+              metric=None,
               fit_kwargs={'options': {'ftol': 1e-7, 'maxiter': 1000}}):
     '''
     Takes njacks jackknifes, where each jackknife has some small
@@ -135,6 +136,9 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
 #        modelspec=modelspec*nfolds
 
     models = []
+    if not metric:
+        metric = lambda d: metrics.nmse(d, 'pred', 'resp')
+
     for i in range(nfolds):
         log.info("Fitting fold {}/{}".format(i+1, nfolds))
         tms = nems.initializers.prefit_to_target(
@@ -143,8 +147,11 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
                 fitter=scipy_minimize,
                 fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
 
-        models += fit_basic(data_list[i], tms, fitter=fitter,
-                            metaname='fit_nfold', fit_kwargs=fit_kwargs)
+        models += fit_basic(data_list[i], tms,
+                            fitter=fitter,
+                            metric=metric,
+                            metaname='fit_nfold',
+                            fit_kwargs=fit_kwargs)
 
     return models
 
@@ -153,6 +160,8 @@ def fit_jackknifes(data, modelspec, njacks=10):
     '''
     Takes njacks jackknifes, where each jackknife has some small
     fraction of data NaN'd out, and fits modelspec to them.
+
+    TODO : check if deprecated, replaced by fit_nfold?
     '''
     models = []
     for i in range(njacks):
@@ -168,6 +177,8 @@ def fit_subsets(data, modelspec, nsplits=10):
     '''
     Divides the data evenly into nsplits pieces, and fits a model
     to each of the pieces.
+
+    TODO : Test, add more parameters
     '''
     models = []
     for i in range(nsplits):
@@ -187,6 +198,8 @@ def fit_subsets(data, modelspec, nsplits=10):
 def fit_from_priors(data, modelspec, ntimes=10):
     '''
     Fit ntimes times, starting from random points sampled from the prior.
+
+    TODO : Test, add more parameters
     '''
     models = []
     for i in range(ntimes):

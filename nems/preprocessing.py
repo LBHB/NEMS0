@@ -187,10 +187,44 @@ def remove_invalid_segments(rec):
     return newrec
 
 
+def nan_invalid_segments(rec):
+    """
+    Currently a specialized signal for removing incorrect trials from data
+    collected using baphy during behavior.
+
+    TODO: Migrate to nems_db or make a more generic version
+    """
+
+    # First, select the appropriate subset of data
+    rec['resp'] = rec['resp'].rasterize()
+    sig = rec['resp']
+
+    # get list of start and stop times (epoch bounds)
+    epoch_indices = np.vstack((
+            ep.epoch_intersection(sig.get_epoch_bounds('HIT_TRIAL'),
+                                  sig.get_epoch_bounds('REFERENCE')),
+            ep.epoch_intersection(sig.get_epoch_bounds('REFERENCE'),
+                                  sig.get_epoch_bounds('PASSIVE_EXPERIMENT'))))
+
+    # Only takes the first of any conflicts (don't think I actually need this)
+    epoch_indices = ep.remove_overlap(epoch_indices)
+
+    epoch_indices2=epoch_indices[0:1,:]
+    for i in range(1,epoch_indices.shape[0]):
+        if epoch_indices[i,0]==epoch_indices2[-1,1]:
+            epoch_indices2[-1,1]=epoch_indices[i,0]
+        else:
+            epoch_indices2=np.concatenate((epoch_indices2,epoch_indices[i:(i+1),:]),
+                                          axis=0)
+
+    # add adjusted signals to the recording
+    newrec = rec.nan_times(epoch_indices2)
+
+    return newrec
 
 
 def generate_psth_from_est_for_both_est_and_val(est, val,
-                                                epoch_regex = '^STIM_'):
+                                                epoch_regex='^STIM_'):
     '''
     Estimates a PSTH from the EST set, and returns two signals based on the
     est and val, in which each repetition of a stim uses the EST PSTH?
@@ -198,8 +232,7 @@ def generate_psth_from_est_for_both_est_and_val(est, val,
     subtract spont rate based on pre-stim silence for ALL estimation data.
     '''
 
-    epoch_regex = '^STIM_'
-    resp_est = est['resp'].copy()
+    resp_est = est['resp']
     resp_val = val['resp']
 
     # compute PSTH response and spont rate during those valid trials
@@ -215,7 +248,8 @@ def generate_psth_from_est_for_both_est_and_val(est, val,
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()
     for k in folded_matrices.keys():
-        per_stim_psth[k] = np.nanmean(folded_matrices[k], axis=0) - spont_rate[:, np.newaxis]
+        per_stim_psth[k] = np.nanmean(folded_matrices[k], axis=0) - \
+            spont_rate[:, np.newaxis]
 
     # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
     #   replacing all epochs in the signal with their average (psth)
@@ -244,6 +278,7 @@ def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals, epoch_regex = 
 
     return ests, vals
 
+
 def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
                       new_signalname='state'):
     """
@@ -259,10 +294,11 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     newrec = rec.copy()
     resp = newrec['resp']
 
-#    if 'pupil' in state_signals:
-#        # normalize by 100
-#        newrec["pupil"] = newrec["pupil"]._modified_copy(
-#                newrec["pupil"].as_continuous() / 100)
+    # DEPRECATED, NOW THAT NORMALIZATION IS IMPLEMENTED
+    # if 'pupil' in state_signals:
+    #    # normalize by 100
+    #    newrec["pupil"] = newrec["pupil"]._modified_copy(
+    #            newrec["pupil"].as_continuous() / 100)
 
     # generate stask tate signals
     fpre = (resp.epochs['name'] == "PRE_PASSIVE")
