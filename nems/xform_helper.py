@@ -155,32 +155,39 @@ def generate_fitter_xfspec(fitter, fitter_kwargs=None):
         xfspec.append(['nems.xforms.fit_basic', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
-    elif fitter == "fititer01":
-        '''fit_iteratively with scipy_minimize'''
-        kw_list = ['module_sets', 'tolerances', 'invert', 'max_iter']
-        defaults = [None, None, False, 100]
-        module_sets, tolerances, invert, max_iter = \
+    elif fitter == "fitsubs":
+        '''fit_subsets with scipy_minimize'''
+        kw_list = ['module_sets', 'tolerance', 'fitter']
+        defaults = [None, 1e-4, coordinate_descent]
+        module_sets, tolerance, my_fitter = \
             _get_my_kwargs(fitter_kwargs, kw_list, defaults)
         xfspec.append([
-                'nems.xforms.fit_iteratively',
-                {'module_sets':module_sets, 'tolerances': tolerances,
-                 'invert': invert, 'max_iter': max_iter,
-                 'fitter': scipy_minimize}
+                'nems.xforms.fit_module_sets',
+                {'module_sets': module_sets, 'fitter': scipy_minimize,
+                 'tolerance': tolerance}
                 ])
         xfspec.append(['nems.xforms.predict', {}])
 
-    elif fitter == "fititer02":
-        '''fit_iteratively with coordinate_descent'''
-        kw_list = ['module_sets', 'tolerances', 'invert', 'max_iter']
-        defaults = [None, None, False, 100]
-        module_sets, tolerances, invert, max_iter = \
+    elif fitter.startswith("fitsubs"):
+        xfspec.append(_parse_fitsubs(fitter))
+        xfspec.append(['nems.xforms.predict', {}])
+
+    elif fitter == "fititer":
+        kw_list = ['module_sets', 'tolerances', 'tol_iter', 'fit_iter',
+                   'fitter']
+        defaults = [None, None, 100, 20, coordinate_descent]
+        module_sets, tolerances, tol_iter, fit_iter, my_fitter = \
             _get_my_kwargs(fitter_kwargs, kw_list, defaults)
         xfspec.append([
                 'nems.xforms.fit_iteratively',
-                {'module_sets':module_sets, 'tolerances': tolerances,
-                 'invert': invert, 'max_iter': max_iter,
-                 'fitter': coordinate_descent}
+                {'module_sets': module_sets, 'fitter': my_fitter,
+                 'tolerances': tolerances, 'tol_iter': tol_iter,
+                 'fit_iter': fit_iter}
                 ])
+        xfspec.append(['nems.xforms.predict', {}])
+
+    elif fitter.startswith("fititer"):
+        xfspec.append(_parse_fititer(fitter))
         xfspec.append(['nems.xforms.predict', {}])
 
     else:
@@ -192,14 +199,114 @@ def generate_fitter_xfspec(fitter, fitter_kwargs=None):
 def _get_my_kwargs(kwargs, kw_list, defaults):
     '''Fetch value of kwarg if given, otherwise corresponding default'''
     my_kwargs = []
-    for i, kw in enumerate(kw_list):
+    for kw, default in zip(kw_list, defaults):
         if kwargs is None:
-            a = defaults[i]
+            a = default
         else:
-            a = kwargs.pop(kw, defaults[i])
+            a = kwargs.pop(kw, default)
         my_kwargs.append(a)
     return my_kwargs
 
+
+def _parse_fititer(fit_keyword):
+    # ex: fititer01-T4-T6-S0x1-S0x1x2x3-ti50-fi20
+    # fitter: scipy_minimize; tolerances: [1e-4, 1e-6]; s
+    # subsets: [[0,1], [0,1,2,3]]; tol_iter: 50; fit_iter: 20;
+    # Note that order does not matter except for starting with
+    # 'fititer<some number>' to specify the analysis and fit algorithm
+    chunks = fit_keyword.split('-')
+
+    fit = chunks[0]
+    if fit.endswith('01'):
+        fitter = scipy_minimize
+    elif fit.endswith('02'):
+        fitter = coordinate_descent
+    else:
+        fitter = coordinate_descent
+        log.warn("Unrecognized or unspecified fit algorithm for fititer: %s\n"
+                 "Using default instead: %s", fit[7:], fitter)
+
+    tolerances = []
+    module_sets = []
+    fit_iter = None
+    tol_iter = None
+
+    for c in chunks[1:]:
+        if c.startswith('ti'):
+            tol_iter = int(c[2:])
+        elif c.startswith('fi'):
+            fit_iter = int(c[2:])
+        elif c.startswith('T'):
+            power = int(c[1:])*-1
+            tol = 10**(power)
+            tolerances.append(tol)
+        elif c.startswith('S'):
+            indices = [int(i) for i in c[1:].split('x')]
+            module_sets.append(indices)
+        else:
+            log.warning(
+                    "Unrecognized segment in fititer keyword: %s\n"
+                    "Correct syntax is:\n"
+                    "fititer<fitter>-S<i>x<j>...-T<tolpower>...ti<tol_iter>"
+                    "-fi<fit_iter>", c
+                    )
+
+
+    if not tolerances:
+        tolerances = None
+    if not module_sets:
+        module_sets = None
+
+    return ['nems.xforms.fit_iteratively',
+            {'module_sets': module_sets, 'fitter': fitter,
+             'tolerances': tolerances, 'tol_iter': tol_iter,
+             'fit_iter': fit_iter}]
+
+
+def _parse_fitsubs(fit_keyword):
+    # ex: fitsubs02-S0x1-S0x1x2x3-it1000-T6
+    # fitter: scipy_minimize; subsets: [[0,1], [0,1,2,3]];
+    # max_iter: 1000;
+    # Note that order does not matter except for starting with
+    # 'fitsubs<some number>' to specify the analysis and fit algorithm
+    chunks = fit_keyword.split('-')
+
+    fit = chunks[0]
+    if fit.endswith('01'):
+        fitter = scipy_minimize
+    elif fit.endswith('02'):
+        fitter = coordinate_descent
+    else:
+        fitter = coordinate_descent
+        log.warn("Unrecognized or unspecified fit algorithm for fitsubs: %s\n"
+                 "Using default instead: %s", fit[7:], fitter)
+
+    module_sets = []
+    max_iter = None
+    tolerance = None
+
+    for c in chunks[1:]:
+        if c.startswith('it'):
+            max_iter = int(c[2:])
+        elif c.startswith('S'):
+            indices = [int(i) for i in c[1:].split('x')]
+            module_sets.append(indices)
+        elif c.startswith('T'):
+            power = int(c[1:])*-1
+            tolerance = 10**(power)
+        else:
+            log.warning(
+                    "Unrecognized segment in fitsubs keyword: %s\n"
+                    "Correct syntax is:\n"
+                    "fitsubs<fitter>-S<i>x<j>...-T<tolpower>-it<max_iter>", c
+                    )
+
+    if not module_sets:
+        module_sets = None
+
+    return ['nems.xforms.fit_iteratively',
+            {'module_sets': module_sets, 'fitter': fitter,
+             'tolerance': tolerance, 'max_iter': max_iter}]
 
 # TODO: take baphy out of names and docs if we're keeping these here.
 #       (fit and load)

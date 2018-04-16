@@ -28,8 +28,6 @@ def dummy_fitter(sigma, cost_fn, bounds=None, fixed=None):
     return sigma
 
 
-# HACK: **kwargs doesn't actually get used, it's just there to prevent
-#       error when analyses try to pass in options dict for other fitters.
 def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
                        step_min=1e-5, tolerance=1e-2, max_iter=100, **kwargs):
 
@@ -67,9 +65,9 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
 
         # If j is 1, shift was negative, otherwise it was 0 for positive.
         if j_sign == 1:
-            sigma[i_param] = this_sigma[i_param] = sigma[i_param] - step_size 
+            sigma[i_param] = this_sigma[i_param] = sigma[i_param] - step_size
         else:
-            sigma[i_param] = this_sigma[i_param] = sigma[i_param] + step_size 
+            sigma[i_param] = this_sigma[i_param] = sigma[i_param] + step_size
 
         update_stepinfo(err=err)
 
