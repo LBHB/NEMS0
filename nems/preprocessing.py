@@ -160,6 +160,7 @@ def remove_invalid_segments(rec):
     """
 
     # First, select the appropriate subset of data
+    rec['resp'] = rec['resp'].rasterize()
     sig = rec['resp']
 
     # get list of start and stop times (epoch bounds)
@@ -238,7 +239,8 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_sign
     generate state signal for stategainX models
     TODO: SVD document this and/or move it out of generic nems code
     """
-    x = np.ones([1,rec[state_signals[0]]._data.shape[1]])  # Much faster; TODO: Test if throws warnings
+    # Much faster; TODO: Test if throws warnings
+    x = np.ones([1,rec[state_signals[0]]._data.shape[1]])
     ones_sig = rec[state_signals[0]]._modified_copy(x)
     ones_sig.name="baseline"
     ones_sig.chans=["baseline"]

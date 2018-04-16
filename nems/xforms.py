@@ -275,6 +275,7 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
 
     return {'modelspecs': modelspecs}
 
+
 def fit_basic_init_stp_freeze(modelspecs, est, IsReload=False, **context):
     ''' A basic fit that optimizes every input modelspec. '''
     if not IsReload:
@@ -381,8 +382,8 @@ def fit_basic_shrink(modelspecs, est, maxiter=1000, ftol=1e-8, IsReload=False,
 
 def fit_basic_cd(modelspecs, est, maxiter=1000, ftol=1e-8, IsReload=False,
                  **context):
-    ''' 
-    A basic fit that optimizes every input modelspec. Use coordinate 
+    '''
+    A basic fit that optimizes every input modelspec. Use coordinate
     descent for fitting and nmse_shrink for cost function
     '''
 
