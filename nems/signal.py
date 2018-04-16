@@ -1207,17 +1207,18 @@ class RasterizedSignal(SignalBase):
                 chans.extend(signal.chans)
 
         epochs=signals[0].epochs
-
-        return RasterizedSignal(
-            name=base.name,
-            recording=base.recording,
-            chans=chans,
-            fs=base.fs,
-            meta=base.meta,
-            epochs=epochs,
-            data=data,
-            safety_checks=False
-            )
+        
+        attr=base._get_attributes()
+        del attr['epochs']
+        del attr['fs']
+        del attr['name']
+        del attr['recording']
+        del attr['chans']
+        del attr['signal_type']
+        
+        return RasterizedSignal(base.fs, data, base.name, base.recording,
+                                epochs=epochs, chans=chans,
+                                safety_checks=False, **attr)
 
     def extract_channels(self, chans):
         '''

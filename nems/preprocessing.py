@@ -172,11 +172,21 @@ def remove_invalid_segments(rec):
 
     # Only takes the first of any conflicts (don't think I actually need this)
     epoch_indices = ep.remove_overlap(epoch_indices)
-
+    
+    epoch_indices2=epoch_indices[0:1,:]
+    for i in range(1,epoch_indices.shape[0]):
+        if epoch_indices[i,0]==epoch_indices2[-1,1]:
+            epoch_indices2[-1,1]=epoch_indices[i,0]
+        else:
+            epoch_indices2=np.concatenate((epoch_indices2,epoch_indices[i:(i+1),:]),
+                                          axis=0)
+            
     # add adjusted signals to the recording
-    newrec = rec.select_times(epoch_indices)
+    newrec = rec.select_times(epoch_indices2)
 
     return newrec
+
+
 
 
 def generate_psth_from_est_for_both_est_and_val(est, val,
