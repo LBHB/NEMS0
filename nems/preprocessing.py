@@ -234,81 +234,98 @@ def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals, epoch_regex = 
 
     return ests, vals
 
-def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], new_signalname='state'):
+def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
+                      new_signalname='state'):
     """
     generate state signal for stategainX models
     TODO: SVD document this and/or move it out of generic nems code
     """
     # Much faster; TODO: Test if throws warnings
-    x = np.ones([1,rec[state_signals[0]]._data.shape[1]])
+    x = np.ones([1, rec[state_signals[0]]._data.shape[1]])
     ones_sig = rec[state_signals[0]]._modified_copy(x)
-    ones_sig.name="baseline"
-    ones_sig.chans=["baseline"]
+    ones_sig.name = "baseline"
+    ones_sig.chans = ["baseline"]
 
     newrec = rec.copy()
-    resp=newrec['resp']
+    resp = newrec['resp']
 
-    if 'pupil' in state_signals:
-        # normalize by 100
-        newrec["pupil"]=newrec["pupil"]._modified_copy(newrec["pupil"].as_continuous()/100)
+#    if 'pupil' in state_signals:
+#        # normalize by 100
+#        newrec["pupil"] = newrec["pupil"]._modified_copy(
+#                newrec["pupil"].as_continuous() / 100)
 
     # generate stask tate signals
-    fpre=(resp.epochs['name']=="PRE_PASSIVE")
-    fpost=(resp.epochs['name']=="POST_PASSIVE")
-    INCLUDE_PRE_POST=(np.sum(fpre)>0) & (np.sum(fpost)>0)
+    fpre = (resp.epochs['name'] == "PRE_PASSIVE")
+    fpost = (resp.epochs['name'] == "POST_PASSIVE")
+    INCLUDE_PRE_POST = (np.sum(fpre) > 0) & (np.sum(fpost) > 0)
     if INCLUDE_PRE_POST:
         # only include pre-passive if post-passive also exists
         # otherwise the regression gets screwed up
-        newrec['pre_passive']=resp.epoch_to_signal('PRE_PASSIVE')
+        newrec['pre_passive'] = resp.epoch_to_signal('PRE_PASSIVE')
     else:
         # place-holder, all zeros
-        newrec['pre_passive']=resp.epoch_to_signal('XXX')
-        newrec['pre_passive'].chans=['PRE_PASSIVE']
+        newrec['pre_passive'] = resp.epoch_to_signal('XXX')
+        newrec['pre_passive'].chans = ['PRE_PASSIVE']
 
-    newrec['hit_trials']=resp.epoch_to_signal('HIT_TRIAL')
-    newrec['miss_trials']=resp.epoch_to_signal('MISS_TRIAL')
-    newrec['fa_trials']=resp.epoch_to_signal('FA_TRIAL')
-    newrec['puretone_trials']=resp.epoch_to_signal('PURETONE_BEHAVIOR')
-    newrec['easy_trials']=resp.epoch_to_signal('EASY_BEHAVIOR')
-    newrec['hard_trials']=resp.epoch_to_signal('HARD_BEHAVIOR')
-    newrec['active']=resp.epoch_to_signal('ACTIVE_EXPERIMENT')
-    newrec['active'].chans=['active']
-    state_sig_list=[ones_sig]
-    #print(state_sig_list[-1].shape)
+    newrec['hit_trials'] = resp.epoch_to_signal('HIT_TRIAL')
+    newrec['miss_trials'] = resp.epoch_to_signal('MISS_TRIAL')
+    newrec['fa_trials'] = resp.epoch_to_signal('FA_TRIAL')
+    newrec['puretone_trials'] = resp.epoch_to_signal('PURETONE_BEHAVIOR')
+    newrec['easy_trials'] = resp.epoch_to_signal('EASY_BEHAVIOR')
+    newrec['hard_trials'] = resp.epoch_to_signal('HARD_BEHAVIOR')
+    newrec['active'] = resp.epoch_to_signal('ACTIVE_EXPERIMENT')
+    newrec['active'].chans = ['active']
+    state_sig_list = [ones_sig]
+    # rint(state_sig_list[-1].shape)
+
     for x in state_signals:
         if x in permute_signals:
             # TODO support for signals_permute
-            #raise ValueError("permute_signals not yet supported")
-            state_sig_list+=[newrec[x].shuffle_time()]
-            #print(state_sig_list[-1].shape)
+            # raise ValueError("permute_signals not yet supported")
+            state_sig_list += [newrec[x].shuffle_time()]
+            # print(state_sig_list[-1].shape)
         else:
-            state_sig_list+=[newrec[x]]
+            state_sig_list += [newrec[x]]
 
-    state=signal.RasterizedSignal.concatenate_channels(state_sig_list)
-    state.name=new_signalname
+    state = signal.RasterizedSignal.concatenate_channels(state_sig_list)
+    state.name = new_signalname
+
+    # scale all signals to range from 0 - 1
+    state = state.normalize(normalization='minmax')
+
     newrec.add_signal(state)
 
     return newrec
 
-def split_est_val_for_jackknife(est, epoch_name='TRIAL', modelspecs=None, njacks=10, IsReload=False, **context):
 
-    est_out=[]
-    val_out=[]
+def split_est_val_for_jackknife(est, epoch_name='TRIAL', modelspecs=None,
+                                njacks=10, IsReload=False, **context):
+    """
+    take a single recording (est) and define njacks est/val sets using a
+    jackknife logic. returns lists est_out and val_out of corresponding
+    jackknife subsamples. removed timepoints are replaced with nan
+    """
+    est_out = []
+    val_out = []
     # logging.info("Generating {} jackknifes".format(njacks))
+
     for i in range(njacks):
-        #est_out += [est.jackknife_by_time(njacks, i)]
-        #val_out += [est.jackknife_by_time(njacks, i, invert=True)]
-        est_out += [est.jackknife_by_epoch(njacks, i,
-                        epoch_name,tiled=True)]
-        val_out += [est.jackknife_by_epoch(njacks, i,
-                        epoch_name,tiled=True,invert=True)]
-    modelspecs_out=[]
+        # est_out += [est.jackknife_by_time(njacks, i)]
+        # val_out += [est.jackknife_by_time(njacks, i, invert=True)]
+        est_out += [est.jackknife_by_epoch(njacks, i, epoch_name,
+                                           tiled=True)]
+        val_out += [est.jackknife_by_epoch(njacks, i, epoch_name,
+                                           tiled=True, invert=True)]
+
+    modelspecs_out = []
     if (not IsReload) and (modelspecs is not None):
-        if len(modelspecs)==1:
-            modelspecs_out=[copy.deepcopy(modelspecs[0]) for i in range(njacks)]
-        elif len(modelspecs)==njacks:
+        if len(modelspecs) == 1:
+            modelspecs_out = [copy.deepcopy(modelspecs[0])
+                              for i in range(njacks)]
+        elif len(modelspecs) == njacks:
             # assume modelspecs already generated for njacks
-            modelspecs_out=modelspecs
+            modelspecs_out = modelspecs
         else:
             raise ValueError('modelspecs must be len 1 or njacks')
+
     return est_out, val_out, modelspecs_out

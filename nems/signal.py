@@ -940,6 +940,7 @@ class RasterizedSignal(SignalBase):
 
         m_normed, b, g = _normalize_data(m, normalization)
         sig = self._modified_copy(m_normed)
+        sig.normalization = normalization
         sig.norm_baseline = b
         sig.norm_gain = g
 
