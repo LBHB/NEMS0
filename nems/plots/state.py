@@ -5,6 +5,7 @@ import scipy
 from .timeseries import timeseries_from_signals, timeseries_from_vectors
 
 def state_vars_timeseries(rec, modelspec, ax=None):
+    
     if ax is not None:
         plt.sca(ax)
 
@@ -17,9 +18,9 @@ def state_vars_timeseries(rec, modelspec, ax=None):
 
     r1 = scipy.signal.decimate(r1[nnidx], q=5, axis=0)
     p1 = scipy.signal.decimate(p1[nnidx], q=5, axis=0)
-
-    plt.plot(r1)
-    plt.plot(p1)
+    t = np.arange(len(r1))/pred.fs*5
+    plt.plot(t, r1)
+    plt.plot(t, p1)
     mmax = np.nanmax(p1)
 
     if 'state' in rec.signals.keys():
@@ -27,21 +28,26 @@ def state_vars_timeseries(rec, modelspec, ax=None):
             if 'state_dc_gain' in m['fn']:
                 g = np.array(m['phi']['g'])
                 d = np.array(m['phi']['d'])
-            s = ",".join(rec["state"].chans)
-            g_string = np.array2string(g, precision=3)
-            d_string = np.array2string(d, precision=3)
-            s += " g={} d={} ".format(g_string, d_string)
-
+                if len(g)<10:
+                    s = ",".join(rec["state"].chans)
+                    g_string = np.array2string(g, precision=3)
+                    d_string = np.array2string(d, precision=3)
+                    s += " g={} d={} ".format(g_string, d_string)
+                else:
+                    s=None
+                    
         num_vars = rec['state'].shape[0]
         for i in range(1, num_vars):
             d = rec['state'].as_continuous()[[i], :].T
             d = scipy.signal.decimate(d[nnidx], q=5, axis=0)
             d = d/np.nanmax(d)*mmax - mmax*1.1
-            plt.plot(d)
+            plt.plot(t, d)
         ax = plt.gca()
         #plt.text(0.5, 0.9, s, transform=ax.transAxes,
         #         horizontalalignment='center')
-        plt.title(s)
+        if s:
+            plt.title(s)
+    plt.xlabel('time (s)')
     plt.axis('tight')
 
 
@@ -97,3 +103,19 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', state_sig='pupil',
 
     timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
                             legend=legend)
+
+def state_gain_plot(modelspec, ax=None, clim=None, title=None):
+    for m in modelspec:
+        if 'state_dc_gain' in m['fn']:
+            g = m['phi']['g']
+            d = m['phi']['d']
+            
+    if ax is not None:
+        plt.sca(ax)
+        
+    plt.plot(d)
+    plt.plot(g)
+    plt.xlabel('state channel')
+    plt.legend(('baseline','gain'))
+    if title:
+        plt.title(title)

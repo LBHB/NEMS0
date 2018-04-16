@@ -365,7 +365,7 @@ defkey('stategain2',
                       'o': 'pred',
                       's': 'state'},
         'prior': {'g': ('Normal', {'mean': [1,0], 'sd': [1,1]}),
-                  'd': ('Normal', {'mean': [1,0], 'sd': [1,1]})}
+                  'd': ('Normal', {'mean': [0,0], 'sd': [1,1]})}
         })
 
 defkey('stategain3',
@@ -374,7 +374,17 @@ defkey('stategain3',
                       'o': 'pred',
                       's': 'state'},
         'prior': {'g': ('Normal', {'mean': [1,0,0], 'sd': [1,1,1]}),
-                  'd': ('Normal', {'mean': [1,0,0], 'sd': [1,1,1]})}
+                  'd': ('Normal', {'mean': [0,0,0], 'sd': [1,1,1]})}
+        })
+
+
+defkey('stategain28',
+       {'fn': 'nems.modules.state.state_dc_gain',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      's': 'state'},
+        'prior': {'g': ('Normal', {'mean': np.concatenate((np.ones(1),np.zeros(27))), 'sd': np.ones(28)}),
+                  'd': ('Normal', {'mean': np.zeros(28), 'sd': np.ones(28)})}
         })
 
 
