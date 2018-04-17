@@ -2041,6 +2041,11 @@ def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
             for key, dataset in f.items():
                 data[key] = np.array(dataset[:])
 
+        if not data:
+            raise RuntimeWarning("Tried to load data stream {0} but data object"
+                             "ended up empty. Potential bug upstream?"
+                             .format(data_stream))
+
         s = PointProcess(name=js['name'],
                     chans=js.get('chans', None),
                     epochs=epochs,
