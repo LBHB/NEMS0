@@ -39,6 +39,7 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
     this_sigma = sigma.copy()
     n_parameters = len(sigma)
     step_errors = np.empty([n_parameters, 2])
+    log.debug("CD intializing: step_size=%.2f, ftol=%e", step_size, ftol)
     while not stop_fit():
         for i in range(0, n_parameters):
             # Try shifting each parameter both negatively and positively

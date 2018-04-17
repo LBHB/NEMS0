@@ -55,7 +55,7 @@ def nmse(result, pred_name='pred', resp_name='resp'):
     return mse / respstd
 
 
-def nmse_shrink(result, pred_name='pred', resp_name='resp', shrink=0.5):
+def nmse_shrink(result, pred_name='pred', resp_name='resp', shrink=0.25):
     '''
     Same as MSE, but normalized by the std of the resp.
     Because it is more computationally expensive than MSE but is otherwise
@@ -79,9 +79,9 @@ def nmse_shrink(result, pred_name='pred', resp_name='resp', shrink=0.5):
     for ii in range(0, 10):
         if bounds[ii] == bounds[ii + 1]:
             log.info('No data in range?')
-            
+
         P = np.mean(np.square(X2[bounds[ii]:bounds[ii + 1]]))
-        
+
         if P > 0:
             E[ii] = np.sqrt(np.mean(np.square(X1[bounds[ii]:bounds[ii + 1]] -
                                 X2[bounds[ii]:bounds[ii + 1]])) / P)

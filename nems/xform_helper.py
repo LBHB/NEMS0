@@ -72,19 +72,17 @@ def generate_loader_xfspec(loader, recording_uri):
 
 def generate_fitter_xfspec(fitter, fitter_kwargs=None):
 
-    xfspec=[]
+    xfspec = []
 
     # parse the fit spec: Use gradient descent on whole data set(Fast)
     if fitter in ["fit01", "basic"]:
         # prefit strf
-        log.info("Prefitting STRF without other modules...")
         xfspec.append(['nems.xforms.fit_basic_init', {}])
         xfspec.append(['nems.xforms.fit_basic', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
     elif fitter in ["fit01a", "basicqk"]:
         # prefit strf
-        log.info("Prefitting STRF without other modules...")
         xfspec.append(['nems.xforms.fit_basic_init', {}])
         xfspec.append(['nems.xforms.fit_basic',
                        {'maxiter': 1000, 'ftol': 1e-5}])
@@ -93,7 +91,8 @@ def generate_fitter_xfspec(fitter, fitter_kwargs=None):
     elif fitter in ["fit01b", "basic-shr"]:
         # prefit strf
         xfspec.append(['nems.xforms.fit_basic_init', {}])
-        xfspec.append(['nems.xforms.fit_basic', {'shrinkage': 1, 'ftol': 1e-8}])
+        xfspec.append(['nems.xforms.fit_basic',
+                       {'shrinkage': 1, 'ftol': 1e-7}])
         xfspec.append(['nems.xforms.predict', {}])
 
     elif fitter in ["fit01b", "basic-cd"]:
