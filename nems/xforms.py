@@ -138,18 +138,19 @@ def evaluate(xformspec, context={}, stop=None):
 # See xforms_test.py for how to use it.
 
 # loader
-def load_recordings(recording_uri_list, **context):
+def load_recordings(recording_uri_list, normalize=False, **context):
     '''
     Load one or more recordings into memory given a list of URIs.
     '''
     rec = load_recording(recording_uri_list[0])
     other_recordings = [load_recording(uri) for uri in recording_uri_list[1:]]
-    if other_recordings:
+    if normalize and other_recordings:
         rec.concatenate_recordings(other_recordings)
-        
-    if 'stim' in rec.signals.keys():
+
+    if normalize and 'stim' in rec.signals.keys():
         log.info('Normalizing stim')
-        rec['stim']=rec['stim'].rasterize().normalize('minmax')
+        rec['stim'] = rec['stim'].rasterize().normalize('minmax')
+
     return {'rec': rec}
 
 

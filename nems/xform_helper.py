@@ -10,8 +10,10 @@ def generate_loader_xfspec(loader, recording_uri):
 
     recordings = [recording_uri]
 
-    if loader == "ozgf100ch18":
-        xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
+    if loader in ["ozgf100ch18", "ozgf100ch18n"]:
+        normalize = (loader == "ozgf100ch18n")
+        xfspec = [['nems.xforms.load_recordings',
+                   {'recording_uri_list': recordings, 'normalize': normalize}],
                   ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}],
                   ['nems.xforms.average_away_stim_occurrences',{}]]
 
