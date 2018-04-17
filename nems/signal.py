@@ -196,7 +196,9 @@ class LabelSignalIndexer(BaseSignalIndexer):
 class SignalBase:
 
     def __init__(self, fs, data, name, recording, chans=None, epochs=None,
-                 segments=None, meta=None, safety_checks=True, signal_type=None):
+                 segments=None, meta=None, safety_checks=True,
+                 normalization='none', norm_baseline=np.array([[0]]),
+                 norm_gain=np.array([[1]]), **other_attributes):
         '''
         Parameters
         ----------
@@ -208,15 +210,33 @@ class SignalBase:
             denoting the start and end of the time of an epoch (in seconds).
             You may use the same epoch name multiple times; this is common when
             tagging epochs that correspond to occurrences of the same stimulus.
+        segments : {None, 2 x M ndarray}
+            start and stop time windows to cut out of data matrix
+            designed for subsampling existing signals
+        meta : {dict, None}
+            arbitrary metadata, only JSON-compatible types plus nparrays are
+            supported if signal is to be saved
+        safety_checks : {bool, True}
+            TODO: clarify what this does
+
+        normalization : { string, 'none' }
+        norm_baseline : { string, 'none' }
+        norm_gain : { string, 'none' }
+        signal_type: { string, 'none' }
+            passthrough metadata that should be preserved if the signal is copied.
+
         '''
         self.fs = fs
-        self._data = data
         self.name = name
         self.recording = recording
         self.chans = chans
         self.epochs = epochs
         self.meta = meta
         self.signal_type = str(type(self))
+        self._data = data
+        self.normalization = normalization
+        self.norm_baseline = norm_baseline
+        self.norm_gain = norm_gain
 
         if self.epochs is not None:
             max_epoch_time = self.epochs["end"].max()
@@ -293,6 +313,8 @@ class SignalBase:
         attributes = self._get_attributes()
         del attributes['epochs']
         attributes['segments'] = attributes['segments'].tolist()
+        attributes['norm_baseline'] = attributes['norm_baseline'].tolist()
+        attributes['norm_gain'] = attributes['norm_gain'].tolist()
         json.dump(attributes, md_fh)
 
     def _save_metadata_to_dirpath(self, dirpath, fmt='%.18e'):
@@ -482,7 +504,8 @@ class SignalBase:
 
     def _get_attributes(self):
         md_attributes = ['name', 'chans', 'fs', 'meta', 'recording', 'epochs',
-                         'segments', 'signal_type']
+                         'segments', 'signal_type', 'normalization',
+                         'norm_baseline', 'norm_gain']
         return {name: getattr(self, name) for name in md_attributes}
 
     def add_epoch(self, epoch_name, epoch):
@@ -680,7 +703,8 @@ class SignalBase:
 class RasterizedSignal(SignalBase):
 
     def __init__(self, fs, data, name, recording, chans=None, epochs=None,
-                 segments=None, meta=None, safety_checks=True, signal_type=None):
+                 segments=None, meta=None, safety_checks=True,
+                 normalization='none', **other_attributes):
         '''
         Parameters
         ----------
@@ -694,14 +718,14 @@ class RasterizedSignal(SignalBase):
             tagging epochs that correspond to occurrences of the same stimulus.
         '''
         super().__init__(fs, data, name, recording, chans, epochs, segments,
-                         meta, safety_checks)
+                         meta, safety_checks, normalization)
         self._data.flags.writeable = False
 
         # Install the indexers
         self.iloc = SimpleSignalIndexer(self)
         self.loc = LabelSignalIndexer(self)
         self.nchans, self.ntimes = self._data.shape
-        self.signal_type=str(type(self))
+        self.signal_type = str(type(self))
 
         # Verify that we have a long time series
         if safety_checks and self.ntimes < self.nchans:
@@ -885,11 +909,11 @@ class RasterizedSignal(SignalBase):
         ----
         Epochs tagged with the same name may have various lengths. Shorter
         epochs will be padded with NaN.
-        '''  
-        epoch_indices = self.get_epoch_indices(epoch, 
+        '''
+        epoch_indices = self.get_epoch_indices(epoch,
                                                boundary_mode=boundary_mode,
                                                fix_overlap=fix_overlap)
-        
+
         if epoch_indices.size == 0:
             raise IndexError("No matching epochs to extract for: {0}\n"
                              "In signal: {1}"
@@ -906,6 +930,21 @@ class RasterizedSignal(SignalBase):
             epoch_data[i, ..., :samples] = data[..., lb:ub]
 
         return epoch_data
+
+    def normalize(self, normalization='minmax'):
+        '''
+        Returns a copy of this signal with each channel normalized to have a
+        mean of 0 and standard deviation of 1.
+        '''
+        m = self._data * self.norm_gain + self.norm_baseline
+
+        m_normed, b, g = _normalize_data(m, normalization)
+        sig = self._modified_copy(m_normed)
+        sig.normalization = normalization
+        sig.norm_baseline = b
+        sig.norm_gain = g
+
+        return sig
 
     def normalized_by_mean(self):
         '''
@@ -1169,16 +1208,17 @@ class RasterizedSignal(SignalBase):
 
         epochs=signals[0].epochs
 
-        return RasterizedSignal(
-            name=base.name,
-            recording=base.recording,
-            chans=chans,
-            fs=base.fs,
-            meta=base.meta,
-            epochs=epochs,
-            data=data,
-            safety_checks=False
-            )
+        attr=base._get_attributes()
+        del attr['epochs']
+        del attr['fs']
+        del attr['name']
+        del attr['recording']
+        del attr['chans']
+        del attr['signal_type']
+
+        return RasterizedSignal(base.fs, data, base.name, base.recording,
+                                epochs=epochs, chans=chans,
+                                safety_checks=False, **attr)
 
     def extract_channels(self, chans):
         '''
@@ -1399,6 +1439,19 @@ class RasterizedSignal(SignalBase):
         data = np.concatenate(subsets, axis=-1)
         return self._modified_copy(data, segments=times)
 
+    def nan_times(self, times, padding=0):
+
+        if padding != 0:
+            raise NotImplementedError    # TODO
+
+        times = np.asarray(times)
+        indices = np.round(times*self.fs).astype('i')
+        data = self.as_continuous().copy()
+        for lb, ub in indices:
+            data[..., lb:ub] = np.nan
+
+        return self._modified_copy(data)
+
     def as_continuous(self):
         return self._data
 
@@ -1425,7 +1478,8 @@ class PointProcess(SignalBase):
 #        return self._cached_data
 
     def __init__(self, fs, data, name, recording, chans=None, epochs=None,
-                 segments=None, meta=None, safety_checks=True, signal_type=None):
+                 segments=None, meta=None, safety_checks=True,
+                 normalization='none', **other_attributes):
         '''
         Parameters
         ----------
@@ -1438,10 +1492,14 @@ class PointProcess(SignalBase):
             others?
         '''
         super().__init__(fs, data, name, recording, chans, epochs, segments,
-                         meta, safety_checks)
+                         meta, safety_checks, normalization)
 
         # number of channels specified by number of entries in data dictionary
         self.nchans = len(list(data.keys()))
+
+        if safety_checks:
+            if 'none' != normalization:
+                raise ValueError ('normalization not supported for PointProcess signals')
 
     def rasterize(self, fs=None):
         """
@@ -1651,12 +1709,42 @@ class PointProcess(SignalBase):
         )
 
 
-
 class TiledSignal(SignalBase):
     '''
     Expects data to be a dictionary of the form:
         {<string>: <ndarray of stim data, two dimensional>}
     '''
+    def __init__(self, fs, data, name, recording, chans=None, epochs=None,
+                 segments=None, meta=None, safety_checks=True,
+                 normalization='none', **other_attributes):
+        '''
+        Parameters
+        ----------
+        data : dictionary of event times in each channel
+        epochs : {None, DataFrame}
+           same as BaseSignal
+
+        TODO : Safety checks:
+            data.keys should match self.chans
+            others?
+        '''
+        super().__init__(fs, data, name, recording, chans, epochs, segments,
+                         meta, safety_checks, normalization)
+
+        # number of channels dim 0 of each entry in dictionary. need to match!
+        chancount = None
+        for k, v in data.items():
+            this_chancount = v.shape[0]
+            if chancount and this_chancount != chancount:
+                raise ValueError('channel count does not match across tiled signal dictionary')
+            chancount = this_chancount
+
+        self.nchans = chancount
+
+        if safety_checks:
+            if 'none' != normalization:
+                raise ValueError ('normalization not supported for TiledSignal')
+
     def rasterize(self, fs=None):
         '''
         Create a rasterized version of the signal and return it
@@ -2192,3 +2280,27 @@ def _merge_epochs(signals):
         epochs.append(ti)
     return pd.concat(epochs, ignore_index=True)
 
+
+def _normalize_data(data, normalization='minmax'):
+
+    if normalization == 'none':
+        d = np.zeros([data.shape[0], 1])
+        g = np.ones([data.shape[0], 1])
+        return data, d, g
+
+    elif normalization == 'minmax':
+        d = np.nanmin(data, axis=1, keepdims=True)
+        g = np.nanmax(data, axis=1, keepdims=True) - d
+
+    elif normalization == 'meanstd':
+        d = np.nanmean(data, axis=1, keepdims=True)
+        g = np.nanstd(data, axis=1, keepdims=True)
+
+    else:
+        raise ValueError('normalization format unknown')
+
+    # avoid divide-by-zero
+    g[g == 0] = 1
+    data_out = (data - d) / g
+
+    return data_out, d, g

@@ -18,7 +18,7 @@ from nems.plots.timeseries import timeseries_from_signals, timeseries_from_epoch
 from nems.plots.heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap
 from nems.plots.histogram import pred_error_hist
 from nems.plots.state import (state_vars_timeseries, state_var_psth_from_epoch,
-                    state_var_psth)
+                    state_var_psth, state_gain_plot)
 
 log = logging.getLogger(__name__)
 
@@ -80,7 +80,6 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
             epoch = 'REFERENCE'
         else:
             epoch = 'TRIAL'
-
     extracted = rec['resp'].extract_epoch(epoch)
     finite_trial = [np.sum(np.isfinite(x)) > 0 for x in extracted]
     occurrences, = np.where(finite_trial)
@@ -207,8 +206,8 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
         batch = modelspec[0]['meta']['batch']
     except KeyError:
         batch = 0
-    fig.suptitle('Cell: {}, from Batch: {},\nUsing model: {},\n {} #{}'
-                 .format(cellid, batch, modelname, epoch, occurrence))
+    fig.suptitle('Cell: {}, Batch: {}, {} #{}\n{}'
+                 .format(cellid, batch, epoch, occurrence, modelname))
 
     # Space subplots appropriately
     # TODO: More dynamic way to determine the y-max for suptitle?
@@ -352,10 +351,17 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
         elif 'state' in fname:
             if 'state.state_dc_gain' in fname:
                 fn1 = partial(state_vars_timeseries, rec, modelspec)
-                fns = get_state_vars_psths(rec, epoch, psth_name='resp',
-                                           occurrence=occurrence)
                 plot1 = (fn1, 1)
-                plot2 = (fns, [1]*len(fns))
+
+                if len(m['phi']['g'])>5:
+                    fn2 = partial(state_gain_plot, modelspec)
+                    #fn2 = partial(state_vars_timeseries, rec, modelspec)
+                    plot2 = (fn2, 1)
+                                        
+                else:
+                    fns = get_state_vars_psths(rec, epoch, psth_name='resp',
+                                               occurrence=occurrence)
+                    plot2 = (fns, [1]*len(fns))
                 plot_fns.extend([plot1, plot2])
             else:
                 pass

@@ -270,8 +270,8 @@ defkey('stpn1',
                       'o': 'pred',
                       'crosstalk': 0},
         'norm': {'type': 'minmax', 'recalc': 0, 'd': [0], 'g': [1]},
-        'prior': {'u': ('Normal', {'mean': [1], 'sd': [1]}),
-                  'tau': ('Normal', {'mean': [4], 'sd': [1]})}})
+        'prior': {'u': ('Normal', {'mean': [0.01], 'sd': [0.01]}),
+                  'tau': ('Normal', {'mean': [0.04], 'sd': [0.01]})}})
 
 defkey('stp2',
        {'fn': 'nems.modules.stp.short_term_plasticity',
@@ -288,8 +288,8 @@ defkey('stpn2',
                       'crosstalk': 0},
         'norm': {'type': 'minmax', 'recalc': 0, 'd': np.array([[0, 0]]),
                  'g': np.array([[1, 1]])},
-        'prior': {'u': ('Normal', {'mean': [1, 1], 'sd': [1, 1]}),
-                  'tau': ('Normal', {'mean': [4, 4], 'sd': [5, 5]})}})
+        'prior': {'u': ('Normal', {'mean': [0.01, 0.01], 'sd': [0.01, 0.01]}),
+                  'tau': ('Normal', {'mean': [0.04, 0.04], 'sd': [0.05, 0.05]})}})
 
 defkey('dexp1',
        {'fn': 'nems.modules.nonlinearity.double_exponential',
@@ -365,7 +365,7 @@ defkey('stategain2',
                       'o': 'pred',
                       's': 'state'},
         'prior': {'g': ('Normal', {'mean': [1,0], 'sd': [1,1]}),
-                  'd': ('Normal', {'mean': [1,0], 'sd': [1,1]})}
+                  'd': ('Normal', {'mean': [0,0], 'sd': [1,1]})}
         })
 
 defkey('stategain3',
@@ -374,7 +374,17 @@ defkey('stategain3',
                       'o': 'pred',
                       's': 'state'},
         'prior': {'g': ('Normal', {'mean': [1,0,0], 'sd': [1,1,1]}),
-                  'd': ('Normal', {'mean': [1,0,0], 'sd': [1,1,1]})}
+                  'd': ('Normal', {'mean': [0,0,0], 'sd': [1,1,1]})}
+        })
+
+
+defkey('stategain28',
+       {'fn': 'nems.modules.state.state_dc_gain',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      's': 'state'},
+        'prior': {'g': ('Normal', {'mean': np.concatenate((np.ones(1),np.zeros(27))), 'sd': np.ones(28)}),
+                  'd': ('Normal', {'mean': np.zeros(28), 'sd': np.ones(28)})}
         })
 
 
