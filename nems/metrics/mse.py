@@ -47,10 +47,19 @@ def nmse(result, pred_name='pred', resp_name='resp'):
     equivalent, we suggest using the MSE for fitting and use this as a
     post-fit performance metric only.
     '''
-    pred = result[pred_name].as_continuous()
-    resp = result[resp_name].as_continuous()
-    respstd = np.nanstd(resp)
-    squared_errors = (pred-resp)**2
+    X1 = result[pred_name].as_continuous()
+    X2 = result[resp_name].as_continuous()
+
+    keepidx = np.isfinite(X1) * np.isfinite(X2)
+    if np.all(np.logical_not(keepidx)):
+        log.debug("All values were NaN or inf in pred and resp")
+        return 1
+
+    X1 = X1[keepidx]
+    X2 = X2[keepidx]
+
+    respstd = np.nanstd(X2)
+    squared_errors = (X1-X2)**2
     mse = np.sqrt(np.nanmean(squared_errors))
     return mse / respstd
 
@@ -74,20 +83,22 @@ def nmse_shrink(result, pred_name='pred', resp_name='resp', shrink=0.25):
     X1 = X1[keepidx]
     X2 = X2[keepidx]
 
-    bounds = np.round(np.linspace(0, len(X1) + 1, 11)).astype(int)
+    # bounds = np.round(np.linspace(0, len(X1) + 1, 11)).astype(int)
+
     E = np.zeros([10, 1])
+    P = np.std(X2)
     for ii in range(0, 10):
-        if bounds[ii] == bounds[ii + 1]:
+        jj = np.arange(ii, len(X1), 10)
+        #print(jj)
+        if len(jj) == 0:
             log.info('No data in range?')
 
-        P = np.mean(np.square(X2[bounds[ii]:bounds[ii + 1]]))
-
+        P = np.std(X2[jj])
         if P > 0:
-            E[ii] = np.sqrt(np.mean(np.square(X1[bounds[ii]:bounds[ii + 1]] -
-                                X2[bounds[ii]:bounds[ii + 1]])) / P)
+            E[ii] = np.sqrt(np.mean(np.square(X1[jj] - X2[jj]))) / P
         else:
             E[ii] = 1
-
+    #print(E)
     mE = E.mean()
     sE = E.std()
 
