@@ -50,8 +50,8 @@ xfspec.append(['nems.xforms.init_from_keywords',
 
 xfspec.append(['nems.xforms.fit_basic_init', {}])
 # xfspec.append(['nems.xforms.fit_basic', {}])
-# xfspec.append(['nems.xforms.fit_basic_shrink', {}])
-xfspec.append(['nems.xforms.fit_basic_cd', {}])
+xfspec.append(['nems.xforms.fit_basic_shrink', {}])
+#xfspec.append(['nems.xforms.fit_basic_cd', {}])
 # xfspec.append(['nems.xforms.fit_iteratively', {}])
 xfspec.append(['nems.xforms.predict',    {}])
 # xfspec.append(['nems.xforms.add_summary_statistics',    {}])

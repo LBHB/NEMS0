@@ -146,6 +146,10 @@ def load_recordings(recording_uri_list, **context):
     other_recordings = [load_recording(uri) for uri in recording_uri_list[1:]]
     if other_recordings:
         rec.concatenate_recordings(other_recordings)
+        
+    if 'stim' in rec.signals.keys():
+        log.info('Normalizing stim')
+        rec['stim']=rec['stim'].rasterize().normalize('minmax')
     return {'rec': rec}
 
 
