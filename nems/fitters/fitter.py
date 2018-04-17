@@ -29,10 +29,10 @@ def dummy_fitter(sigma, cost_fn, bounds=None, fixed=None):
 
 
 def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
-                       step_min=1e-5, tolerance=1e-2, max_iter=100, **kwargs):
+                       step_min=1e-5, ftol=1e-5, max_iter=100, **kwargs):
 
     stepinfo, update_stepinfo = tc.create_stepinfo()
-    stop_fit = lambda : (tc.error_non_decreasing(stepinfo, tolerance)
+    stop_fit = lambda : (tc.error_non_decreasing(stepinfo, ftol)
                          or tc.max_iterations_reached(stepinfo, max_iter)
                          or tc.less_than_equal(step_size, step_min))
 
