@@ -2,11 +2,11 @@ import copy
 import logging
 import time
 from functools import partial
-from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
+from nems.fitters.api import coordinate_descent, scipy_minimize
 import nems.priors
 import nems.fitters.mappers
 import nems.modelspec as ms
-import nems.metrics.api
+import nems.metrics.api as metrics
 import nems.segmentors
 import nems.utils
 
@@ -14,11 +14,11 @@ log = logging.getLogger(__name__)
 
 
 def fit_basic(data, modelspec,
-              fitter=scipy_minimize,
+              fitter=scipy_minimize, cost_function=None,
               segmentor=nems.segmentors.use_all_data,
               mapper=nems.fitters.mappers.simple_vector,
-              metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp'),
-              metaname='fit_basic', fit_kwargs={}):
+              metric=lambda data: metrics.nmse(data, 'pred', 'resp'),
+              metaname='fit_basic', fit_kwargs={}, require_phi=True):
     '''
     Required Arguments:
      data          A recording object
@@ -39,15 +39,20 @@ def fit_basic(data, modelspec,
     A list containing a single modelspec, which has the best parameters found
     by this fitter.
     '''
-
     start_time = time.time()
 
-    # Ensure that phi exists for all modules; choose prior mean if not found
-    for i, m in enumerate(modelspec):
-        if not m.get('phi'):
-            log.debug('Phi not found for module, using mean of prior: %s', m)
-            m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
-            modelspec[i] = m
+    if cost_function is None:
+        # Use the cost function defined in this module by default
+        cost_function = basic_cost
+
+    if require_phi:
+        # Ensure that phi exists for all modules; choose prior mean if not found
+        for i, m in enumerate(modelspec):
+            if not m.get('phi'):
+                log.debug('Phi not found for module, using mean of prior: %s', m)
+                m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
+                modelspec[i] = m
+
     ms.fit_mode_on(modelspec)
 
     # Create the mapper object that translates to and from modelspecs.
@@ -59,32 +64,14 @@ def fit_basic(data, modelspec,
     # A function to evaluate the modelspec on the data
     evaluator = nems.modelspec.evaluate
 
-    # TODO - unpacks sigma and updates modelspec, then evaluates modelspec
-    #        on the estimation/fit data and
-    #        uses metric to return some form of error
-    def cost_function(sigma, unpacker, modelspec, data,
-                      evaluator, metric):
-        updated_spec = unpacker(sigma)
-        # The segmentor takes a subset of the data for fitting each step
-        # Intended use is for CV or random selection of chunks of the data
-        data_subset = segmentor(data)
-        updated_data_subset = evaluator(data_subset, updated_spec)
-        error = metric(updated_data_subset)
-        log.debug("inside cost function, current error: %.06f", error)
-        log.debug("\ncurrent sigma: %s", sigma)
-
-        cost_function.counter += 1
-        if cost_function.counter % 1000 == 0:
-            log.info('Eval #%d. E=%.06f', cost_function.counter, error)
-        return error
-
-    cost_function.counter = 0
+    my_cost_function = cost_function
+    my_cost_function.counter = 0
 
     # Freeze everything but sigma, since that's all the fitter should be
     # updating.
-    cost_fn = partial(cost_function,
+    cost_fn = partial(my_cost_function,
                       unpacker=unpacker, modelspec=modelspec,
-                      data=data, evaluator=evaluator,
+                      data=data, segmentor=segmentor, evaluator=evaluator,
                       metric=metric)
 
     # get initial sigma value representing some point in the fit space
@@ -106,6 +93,30 @@ def fit_basic(data, modelspec,
     return results
 
 
+def basic_cost(sigma, unpacker, modelspec, data, segmentor,
+               evaluator, metric):
+    '''Stanard cost function for use by fit_basic and other analyses.'''
+    updated_spec = unpacker(sigma)
+    # The segmentor takes a subset of the data for fitting each step
+    # Intended use is for CV or random selection of chunks of the data
+    # For fit_basic the 'segmentor' just passes it all through.
+    data_subset = segmentor(data)
+    updated_data_subset = evaluator(data_subset, updated_spec)
+    error = metric(updated_data_subset)
+    log.debug("inside cost function, current error: %.06f", error)
+    log.debug("\ncurrent sigma: %s", sigma)
+
+    if hasattr(basic_cost, 'counter'):
+        basic_cost.counter += 1
+        if basic_cost.counter % 1000 == 0:
+            log.info('Eval #%d. E=%.06f', basic_cost.counter, error)
+
+    if hasattr(basic_cost, 'error'):
+        basic_cost.error = error
+
+    return error
+
+
 def fit_random_subsets(data, modelspec, nsplits=1, rebuild_every=10000):
     '''
     Randomly picks a small fraction of the data to fit on.
@@ -123,6 +134,7 @@ def fit_random_subsets(data, modelspec, nsplits=1, rebuild_every=10000):
 
 def fit_nfold(data_list, modelspecs, generate_psth=False,
               fitter=scipy_minimize,
+              metric=None,
               fit_kwargs={'options': {'ftol': 1e-7, 'maxiter': 1000}}):
     '''
     Takes njacks jackknifes, where each jackknife has some small
@@ -135,6 +147,9 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
 #        modelspec=modelspec*nfolds
 
     models = []
+    if not metric:
+        metric = lambda d: metrics.nmse(d, 'pred', 'resp')
+
     for i in range(nfolds):
         log.info("Fitting fold {}/{}".format(i+1, nfolds))
         tms = nems.initializers.prefit_to_target(
@@ -143,8 +158,11 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
                 fitter=scipy_minimize,
                 fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
 
-        models += fit_basic(data_list[i], tms, fitter=fitter,
-                            metaname='fit_nfold', fit_kwargs=fit_kwargs)
+        models += fit_basic(data_list[i], tms,
+                            fitter=fitter,
+                            metric=metric,
+                            metaname='fit_nfold',
+                            fit_kwargs=fit_kwargs)
 
     return models
 
@@ -153,6 +171,8 @@ def fit_jackknifes(data, modelspec, njacks=10):
     '''
     Takes njacks jackknifes, where each jackknife has some small
     fraction of data NaN'd out, and fits modelspec to them.
+
+    TODO : check if deprecated, replaced by fit_nfold?
     '''
     models = []
     for i in range(njacks):
@@ -168,6 +188,8 @@ def fit_subsets(data, modelspec, nsplits=10):
     '''
     Divides the data evenly into nsplits pieces, and fits a model
     to each of the pieces.
+
+    TODO : Test, add more parameters
     '''
     models = []
     for i in range(nsplits):
@@ -187,6 +209,8 @@ def fit_subsets(data, modelspec, nsplits=10):
 def fit_from_priors(data, modelspec, ntimes=10):
     '''
     Fit ntimes times, starting from random points sampled from the prior.
+
+    TODO : Test, add more parameters
     '''
     models = []
     for i in range(ntimes):
