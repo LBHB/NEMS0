@@ -358,7 +358,8 @@ def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7,
 
 def fit_basic_shrink(modelspecs, est, maxiter=1000, ftol=1e-8, IsReload=False,
                      shrinkage=0, **context):
-    ''' A basic fit that optimizes every input modelspec. Use nmse_shrink!'''
+    ''' A basic fit that optimizes every input modelspec. Use nmse_shrink!
+    DEPRECATED???'''
 
     if not IsReload:
         fit_kwargs = {'options': {'ftol': ftol, 'maxiter': maxiter}}

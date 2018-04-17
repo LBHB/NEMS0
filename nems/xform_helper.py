@@ -92,7 +92,7 @@ def generate_fitter_xfspec(fitter, fitter_kwargs=None):
         # prefit strf
         xfspec.append(['nems.xforms.fit_basic_init', {}])
         xfspec.append(['nems.xforms.fit_basic',
-                       {'shrinkage': 1, 'ftol': 1e-7}])
+                       {'shrinkage': 1, 'ftol': 1e-8}])
         xfspec.append(['nems.xforms.predict', {}])
 
     elif fitter in ["fit01b", "basic-cd"]:
@@ -104,7 +104,8 @@ def generate_fitter_xfspec(fitter, fitter_kwargs=None):
     elif fitter in ["fit01b", "basic-cd-shr"]:
         # prefit strf
         xfspec.append(['nems.xforms.fit_basic_init', {}])
-        xfspec.append(['nems.xforms.fit_basic_cd', {'shrinkage': 1}])
+        xfspec.append(['nems.xforms.fit_basic_cd',
+                       {'shrinkage': 1, 'ftol': 1e-8}])
         xfspec.append(['nems.xforms.predict', {}])
 
     elif fitter == "fitjk01":
