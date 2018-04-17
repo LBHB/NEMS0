@@ -378,14 +378,39 @@ def fit_basic_shrink(modelspecs, est, maxiter=1000, ftol=1e-7, IsReload=False,
                           for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
 
-def fit_iteratively(modelspecs, est, max_iter=100, ftol=1e-7, IsReload=False,
-                    module_sets=None, invert=False, tolerances=None,
-                    fitter=None, fit_kwargs={}, **context):
-    # TODO: Likely needs revisiting, just getting something working.
-    if tolerances is None:
-        tolerances = [ftol]
-    if fitter is None:
-        fitter = scipy_minimize
+def fit_module_sets(modelspecs, est, max_iter=1000, IsReload=False,
+                    module_sets=None, invert=False, tolerance=1e-4,
+                    fitter=scipy_minimize, fit_kwargs={}, **context):
+
+    if not IsReload:
+        if type(est) is list:
+            modelspecs_out = []
+            njacks = len(modelspecs)
+            i = 0
+            for m, d in zip(modelspecs, est):
+                i += 1
+                log.info("Fitting JK %d/%d", i, njacks)
+                modelspecs_out += nems.analysis.api.fit_module_sets(
+                        d, m, fit_kwargs=fit_kwargs, fitter=fitter,
+                        module_sets=module_sets, invert=False,
+                        tolerance=tolerance, max_iter=max_iter,
+                        )
+            modelspecs = modelspecs_out
+        else:
+            modelspecs = [
+                    nems.analysis.api.fit_module_sets(
+                            est, modelspec, fit_kwargs=fit_kwargs,
+                            fitter=fitter, module_sets=module_sets,
+                            invert=invert, tolerance=tolerance,
+                            max_iter=max_iter)[0]
+                    for modelspec in modelspecs
+                    ]
+    return {'modelspecs': modelspecs}
+
+
+def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
+                    module_sets=None, invert=False, tolerances=[1e-4],
+                    fitter=scipy_minimize, fit_kwargs={}, **context):
 
     if not IsReload:
         if type(est) is list:
@@ -398,7 +423,8 @@ def fit_iteratively(modelspecs, est, max_iter=100, ftol=1e-7, IsReload=False,
                 modelspecs_out += nems.analysis.api.fit_iteratively(
                         d, m, fit_kwargs=fit_kwargs, fitter=fitter,
                         module_sets=module_sets, invert=False,
-                        tolerances=[ftol], max_iter=max_iter,
+                        tolerances=tolerances, tol_iter=tol_iter,
+                        fit_iter=fit_iter
                         )
             modelspecs = modelspecs_out
         else:
@@ -407,10 +433,11 @@ def fit_iteratively(modelspecs, est, max_iter=100, ftol=1e-7, IsReload=False,
                             est, modelspec, fit_kwargs=fit_kwargs,
                             fitter=fitter, module_sets=module_sets,
                             invert=invert, tolerances=tolerances,
-                            max_iter=max_iter)[0]
+                            tol_iter=tol_iter, fit_iter=fit_iter)[0]
                     for modelspec in modelspecs
                     ]
     return {'modelspecs': modelspecs}
+
 
 def fit_n_times_from_random_starts(modelspecs, est, ntimes,
                                    IsReload=False, **context):
