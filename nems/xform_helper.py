@@ -64,8 +64,10 @@ def generate_loader_xfspec(loader, recording_uri):
                     'permute_signals': permute_signals,
                     'new_signalname': 'state'}]]
 
-    elif loader == "env100":
-        xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
+    elif loader in ["env100","env100n"]:
+        normalize = (loader == "env100n")
+        xfspec = [['nems.xforms.load_recordings',
+                   {'recording_uri_list': recordings, 'normalize': normalize}],
                   ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}],
                   ['nems.xforms.average_away_stim_occurrences',{}]]
 
