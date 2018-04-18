@@ -11,3 +11,4 @@ from .file import save_figure, load_figure_img, load_figure_bytes, fig2BytesIO
 from .histogram import pred_error_hist
 from .state import state_vars_timeseries
 from .quickplot import quickplot
+from .diagnostic import diagnostic
