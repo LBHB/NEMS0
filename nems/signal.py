@@ -6,6 +6,7 @@ import re
 import math
 import copy
 import tempfile
+import warnings
 
 import pandas as pd
 import numpy as np
@@ -546,7 +547,7 @@ class SignalBase:
             elif repochs.size == 0:
                 portion = 'second'
             if portion:
-                raise RuntimeWarning("Epochs for {0} portion of signal: {1}"
+                warnings.warn("Epochs for {0} portion of signal: {1}"
                                      "ended up empty after splitting by time."
                                      .format(portion, self.name))
 
@@ -731,7 +732,7 @@ class RasterizedSignal(SignalBase):
         if safety_checks and self.ntimes < self.nchans:
             m = 'Incorrect matrix dimensions?: (C, T) is {}. ' \
                 'We expect a long time series, but T < C'
-            raise RuntimeWarning(m.format((C, T)))
+            warnings.warn(m.format((C, T)))
 
         if safety_checks:
             self._run_safety_checks()
@@ -1241,7 +1242,7 @@ class RasterizedSignal(SignalBase):
             nan_bins = np.isnan(data[0, :])
         indices = self.get_epoch_indices(epoch)
         if indices.size == 0:
-            raise RuntimeWarning("No occurrences of epoch were found: \n{}\n"
+            warnings.warn("No occurrences of epoch were found: \n{}\n"
                                  "Nothing to replace.".format(epoch))
         for lb, ub in indices:
             data[:, lb:ub] = epoch_data
@@ -1300,7 +1301,7 @@ class RasterizedSignal(SignalBase):
         for (lb, ub) in self.get_epoch_indices(epoch, trim=True):
             new_data[:, lb:ub] = self._data[:, lb:ub]
         if np.all(np.isnan(new_data)):
-            raise RuntimeWarning("No matched occurrences for epoch: \n{}\n"
+            warnings.warn("No matched occurrences for epoch: \n{}\n"
                                  "Returned signal will be only NaN."
                                  .format(epoch))
         return self._modified_copy(new_data)
@@ -1318,7 +1319,7 @@ class RasterizedSignal(SignalBase):
             for (lb, ub) in self.get_epoch_indices(epoch_name):
                 new_data[:, lb:ub] = self._data[:, lb:ub]
         if np.all(np.isnan(new_data)):
-            raise RuntimeWarning("No matched occurrences for epochs: \n{}\n"
+            warnings.warn("No matched occurrences for epochs: \n{}\n"
                                  "Returned signal will be only NaN."
                                  .format(list_of_epoch_names))
         return self._modified_copy(new_data)
@@ -2041,6 +2042,11 @@ def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
             for key, dataset in f.items():
                 data[key] = np.array(dataset[:])
 
+        if not data:
+            warnings.warn("Tried to load data stream {0} but data object"
+                             "ended up empty. Potential bug upstream?"
+                             .format(data_stream))
+
         s = PointProcess(name=js['name'],
                     chans=js.get('chans', None),
                     epochs=epochs,
@@ -2260,7 +2266,7 @@ def _split_epochs(epochs,split_time):
     elif repochs.size == 0:
         portion = 'second'
     if portion:
-        raise RuntimeWarning("Epochs for {0} portion of signal"
+        warnings.warn("Epochs for {0} portion of signal"
                              "ended up empty after splitting by time."
                              .format(portion))
 
