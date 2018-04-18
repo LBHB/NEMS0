@@ -213,8 +213,9 @@ def defkey_fir(n_coefs, n_outputs):
         'sd': np.ones((n_outputs, n_coefs)),
     }
 
-    if n_coefs > 1:
+    if n_coefs > 2:
         p_coefficients['mean'][:, 1] = 1
+        p_coefficients['mean'][:, 2] = -0.5
     else:
         p_coefficients['mean'][:, 0] = 1
 

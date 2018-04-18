@@ -262,7 +262,7 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                         target_module='levelshift',
                         extra_exclude=['stp'],
                         fitter=scipy_minimize,
-                        fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
+                        fit_kwargs={'options': {'ftol': 1e-3, 'maxiter': 500}})
                         for modelspec in modelspecs]
                 break
 
@@ -275,9 +275,18 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                 for modelspec in modelspecs]
 
         # possibility: pre-fit static NL .  But this doesn't seem to help...
-        #modelspecs = [nems.initializers.init_dexp(
-        #        est, modelspec)
-        #        for modelspec in modelspecs]
+        for m in modelspecs[0]:
+            if 'double_exponential' in m['fn']:
+                modelspecs = [nems.initializers.init_dexp(
+                        est, modelspec)
+                        for modelspec in modelspecs]
+                modelspecs = [nems.initializers.prefit_mod_subset(
+                        est, modelspec, nems.analysis.api.fit_basic,
+                        fit_set=['double_exponential'],
+                        fitter=scipy_minimize,
+                        fit_kwargs={'options': {'ftol': 1e-3, 'maxiter': 500}})
+                        for modelspec in modelspecs]
+                break
 
     return {'modelspecs': modelspecs}
 
