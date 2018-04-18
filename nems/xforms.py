@@ -284,7 +284,7 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                         est, modelspec, nems.analysis.api.fit_basic,
                         fit_set=['double_exponential'],
                         fitter=scipy_minimize,
-                        fit_kwargs={'options': {'ftol': 1e-3, 'maxiter': 500}})
+                        fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
                         for modelspec in modelspecs]
                 break
 

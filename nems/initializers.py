@@ -146,7 +146,7 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
         if not m.get('phi'):
             m = nems.priors.set_mean_phi([m])[0]  # Inits phi
 
-        log.info('Freezing phi for module %d (%s)', i, m['fn'])
+        log.debug('Freezing phi for module %d (%s)', i, m['fn'])
 
         m['fn_kwargs'].update(m['phi'])
         del m['phi']
@@ -179,7 +179,7 @@ def init_dexp(rec, modelspec):
         return modelspec
 
     log.info("target_module: %s found at modelspec[%d]",
-             target_module, target_i-1)
+             target_module, target_i)
 
     if target_i == len(modelspec):
         fit_portion = modelspec
@@ -198,17 +198,34 @@ def init_dexp(rec, modelspec):
     # phi=[max_out min_out slope mean_in]
     meanr = np.nanmean(resp)
     stdr = np.nanstd(resp)
-    base = meanr - stdr * 4
+    # base = np.max(np.array([meanr - stdr * 4, 0]))
+    # amp = np.max(resp) - np.min(resp)
+    base = np.min(resp)
+    amp = stdr * 3
+    # base = meanr - stdr * 3
+
+    shift = np.mean(pred)
+    #shift = (np.max(pred) + np.min(pred)) / 2
+    predrange = 2 / (np.max(pred) - np.min(pred))
 
     modelspec[target_i]['phi'] = {}
-    modelspec[target_i]['phi']['amplitude'] = stdr * 8
+    modelspec[target_i]['phi']['amplitude'] = amp
     modelspec[target_i]['phi']['base'] = base
-    modelspec[target_i]['phi']['kappa'] = np.log(np.std(pred) / 5)
-    modelspec[target_i]['phi']['shift'] = (np.max(pred) + np.min(pred)) / 2
+    modelspec[target_i]['phi']['kappa'] = np.log(predrange)
+    modelspec[target_i]['phi']['shift'] = shift
+    #modelspec[target_i]['phi']['shift'] = (np.mean(pred))
     log.info("Init dexp (amp,base,kappa,shift)=(%.3f,%.3f,%.3f,%.3f)",
              modelspec[target_i]['phi']['amplitude'],
              modelspec[target_i]['phi']['base'],
              modelspec[target_i]['phi']['kappa'],
              modelspec[target_i]['phi']['shift'])
+
+    rec = ms.evaluate(rec, modelspec)
+    x = rec['resp'].as_continuous()
+    y = rec['pred'].as_continuous()
+    keepidx = np.isfinite(x) * np.isfinite(y)
+    x = x[keepidx]
+    y = y[keepidx]
+
 
     return modelspec
