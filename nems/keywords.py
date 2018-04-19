@@ -214,8 +214,9 @@ def defkey_fir(n_coefs, n_outputs):
     }
 
     if n_coefs > 2:
-        p_coefficients['mean'][:, 1] = 1
-        p_coefficients['mean'][:, 2] = -0.5
+        # p_coefficients['mean'][:, 1] = 1
+        # p_coefficients['mean'][:, 2] = -0.5
+        pass
     else:
         p_coefficients['mean'][:, 0] = 1
 

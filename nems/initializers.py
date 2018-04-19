@@ -9,6 +9,7 @@ from nems import keywords
 from nems.fitters.api import scipy_minimize
 import nems.priors
 import nems.modelspec as ms
+import nems.metrics.api as metrics
 
 
 def from_keywords(keyword_string, registry=keywords.defaults, meta={}):
@@ -149,7 +150,8 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
         log.debug('Freezing phi for module %d (%s)', i, m['fn'])
 
         m['fn_kwargs'].update(m['phi'])
-        del m['phi']
+        m['phi'] = {}
+        # tmodelspec[i] = m
 
     # fit the subset of modules
     tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
@@ -213,19 +215,18 @@ def init_dexp(rec, modelspec):
     modelspec[target_i]['phi']['base'] = base
     modelspec[target_i]['phi']['kappa'] = np.log(predrange)
     modelspec[target_i]['phi']['shift'] = shift
-    #modelspec[target_i]['phi']['shift'] = (np.mean(pred))
     log.info("Init dexp (amp,base,kappa,shift)=(%.3f,%.3f,%.3f,%.3f)",
              modelspec[target_i]['phi']['amplitude'],
              modelspec[target_i]['phi']['base'],
              modelspec[target_i]['phi']['kappa'],
              modelspec[target_i]['phi']['shift'])
 
-    rec = ms.evaluate(rec, modelspec)
-    x = rec['resp'].as_continuous()
-    y = rec['pred'].as_continuous()
-    keepidx = np.isfinite(x) * np.isfinite(y)
-    x = x[keepidx]
-    y = y[keepidx]
-
+#    rec = ms.evaluate(rec, modelspec)
+#    x = rec['resp'].as_continuous()
+#    y = rec['pred'].as_continuous()
+#    keepidx = np.isfinite(x) * np.isfinite(y)
+#    x = x[keepidx]
+#    y = y[keepidx]
+#
 
     return modelspec

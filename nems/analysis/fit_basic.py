@@ -48,7 +48,7 @@ def fit_basic(data, modelspec,
     if require_phi:
         # Ensure that phi exists for all modules; choose prior mean if not found
         for i, m in enumerate(modelspec):
-            if not m.get('phi'):
+            if 'phi' not in m.keys():
                 log.debug('Phi not found for module, using mean of prior: %s', m)
                 m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
                 modelspec[i] = m
