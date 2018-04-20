@@ -33,5 +33,8 @@ def corrcoef(result, pred_name='pred', resp_name='resp'):
     pred = result[pred_name]._data
     resp = result[resp_name]._data
     ff = np.isfinite(pred) & np.isfinite(resp)
-    cc = np.corrcoef(pred[ff],resp[ff])
-    return cc[0,1]
+    if np.sum(ff):
+        return 0
+    else:
+        cc = np.corrcoef(pred[ff], resp[ff])
+        return cc[0, 1]

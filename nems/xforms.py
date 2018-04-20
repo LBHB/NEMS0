@@ -277,9 +277,8 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
         # possibility: pre-fit static NL .  But this doesn't seem to help...
         for m in modelspecs[0]:
             if 'double_exponential' in m['fn']:
-                modelspecs = [nems.initializers.init_dexp(
-                        est, modelspec)
-                        for modelspec in modelspecs]
+                modelspecs = [nems.initializers.init_dexp(est, modelspec)
+                              for modelspec in modelspecs]
                 modelspecs = [nems.initializers.prefit_mod_subset(
                         est, modelspec, nems.analysis.api.fit_basic,
                         fit_set=['double_exponential'],
