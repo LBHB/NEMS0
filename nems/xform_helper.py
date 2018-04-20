@@ -373,7 +373,7 @@ def fit_model_xforms(recording_uri, modelname, fitter_kwargs=None,
 
     # 4) add some performance statistics
     xfspec.append(['nems.analysis.api.standard_correlation', {},
-                   ['est', 'val', 'modelspecs'], ['modelspecs']])
+                   ['est', 'val', 'modelspecs', 'rec'], ['modelspecs']])
 
     # 5) generate plots
     if autoPlot:

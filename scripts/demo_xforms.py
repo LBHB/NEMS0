@@ -41,7 +41,7 @@ xfspec.append(['nems.xforms.average_away_stim_occurrences', {}])
 
 # MODEL SPEC
 # modelspecname = 'dlog_wcg18x1_stp1_fir1x15_lvl1_dexp1'
-modelspecname = 'dlog_wcg18x1_fir1x15_lvl1_dexp1'
+modelspecname = 'wcg18x1_fir1x15_lvl1'
 
 meta = {'cellid': 'TAR010c-18-1', 'batch': 271, 'modelname': modelspecname}
 
@@ -49,14 +49,14 @@ xfspec.append(['nems.xforms.init_from_keywords',
                {'keywordstring': modelspecname, 'meta': meta}])
 
 xfspec.append(['nems.xforms.fit_basic_init', {}])
-# xfspec.append(['nems.xforms.fit_basic', {}])
-xfspec.append(['nems.xforms.fit_basic_shrink', {}])
+xfspec.append(['nems.xforms.fit_basic', {}])
+# xfspec.append(['nems.xforms.fit_basic_shrink', {}])
 #xfspec.append(['nems.xforms.fit_basic_cd', {}])
 # xfspec.append(['nems.xforms.fit_iteratively', {}])
 xfspec.append(['nems.xforms.predict',    {}])
 # xfspec.append(['nems.xforms.add_summary_statistics',    {}])
 xfspec.append(['nems.analysis.api.standard_correlation', {},
-               ['est', 'val', 'modelspecs'], ['modelspecs']])
+               ['est', 'val', 'modelspecs', 'rec'], ['modelspecs']])
 
 # GENERATE PLOTS
 xfspec.append(['nems.xforms.plot_summary',    {}])

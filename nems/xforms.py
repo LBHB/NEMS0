@@ -592,11 +592,11 @@ def predict(modelspecs, est, val, **context):
     return {'val': val, 'est': est}
 
 
-def add_summary_statistics(est, val, modelspecs, **context):
-    # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
+def add_summary_statistics(est, val, modelspecs, rec=None, **context):
+    # modelspecs = metrics.add_summary_statistics(est, val, modelspecs, rec)
     # TODO: Add statistics to metadata of every modelspec
 
-    modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs)
+    modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs, rec)
 
     return {'modelspecs': modelspecs}
 

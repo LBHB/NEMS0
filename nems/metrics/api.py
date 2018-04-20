@@ -1,3 +1,3 @@
 from .mse import mse, nmse, nmse_shrink
-from .corrcoef import corrcoef
+from .corrcoef import corrcoef, r_floor, r_ceiling
 from .loglike import likelihood_poisson
