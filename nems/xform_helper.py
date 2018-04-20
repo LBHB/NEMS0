@@ -36,14 +36,14 @@ def generate_loader_xfspec(loader, recording_uri):
                     "nostim20pup0beh0", "nostim20pup0beh",
                     "nostim20pupbeh0", "nostim20pupbeh"]:
 
-        state_signals = ['pupil','behavior_state']
+        state_signals = ['pupil', 'active']
 
         if loader.endswith("pup0beh0"):
-            permute_signals = ['pupil','behavior_state']
+            permute_signals = ['pupil', 'active']
         elif loader.endswith("pup0beh"):
             permute_signals = ['pupil']
         elif loader.endswith("pupbeh0"):
-            permute_signals = ['behavior_state']
+            permute_signals = ['active']
         elif loader.endswith("pupbeh"):
             permute_signals = []
         else:
