@@ -17,7 +17,7 @@ def _tanh(x, base, amplitude, shift, kappa):
     return base + (0.5 * amplitude) * (1 + np.tanh(kappa * (x - shift)))
 
 def tanh(rec, i, o, base, amplitude, shift, kappa):
-    fn = lambda x : _tanh(x, base, amplitude, shift, kappa)    
+    fn = lambda x : _tanh(x, base, amplitude, shift, kappa)
     return [rec[i].transform(fn, o)]
 
 
@@ -48,7 +48,7 @@ def double_exponential(rec, i, o, base, amplitude, shift, kappa):
        shift      Centerpoint of the sigmoid along x axis
        kappa      Sigmoid curvature. Larger numbers mean steeper slopes.
     We take exp(kappa) to ensure it is always positive.
-    '''    
+    '''
     fn = lambda x : _double_exponential(x, base, amplitude, shift, kappa)
     # fn = lambda x : _quick_sigmoid(x, base, amplitude, shift, kappa)
     # fn = lambda x : _tanh(x, base, amplitude, shift, kappa)
@@ -57,33 +57,34 @@ def double_exponential(rec, i, o, base, amplitude, shift, kappa):
 
 
 def _dlog(x, offset):
-    
+
     # soften effects of more extreme offsets
-    if offset>4:
-        adjoffset=4+(offset-4)/50
-    elif offset<-4:
-        adjoffset=-4+(offset+4)/50
+    inflect=2
+    if offset>inflect:
+        adjoffset=inflect+(offset-inflect)/50
+    elif offset<-inflect:
+        adjoffset=-inflect+(offset+inflect)/50
     else:
         adjoffset=offset
-    
+
     d = 10.0**adjoffset
     zeroer = 0
     zbt = 0
     y = x.copy()
-    
+
     # avoid nan-related warning
     out = ~np.isnan(y)
     out[out] = y[out] < zbt
-    
+
     y[out] = zbt
     y = y - zbt
-    
+
     return np.log((y + d) / d) + zeroer
 
 
 def dlog(rec, i, o, offset):
-    
+
     fn = lambda x : _dlog(x, offset)
-    
+
     return [rec[i].transform(fn, o)]
 

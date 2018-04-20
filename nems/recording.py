@@ -420,7 +420,7 @@ class Recording:
                 isinstance(signal, TiledSignal) or
                 isinstance(signal, RasterizedSignalSubset)):
             raise TypeError("Recording signals must be instances of"
-                            "of a Signal class.")
+                            " a Signal class.")
         self.signals[signal.name] = signal
 
     def _split_helper(self, fn):
@@ -519,8 +519,8 @@ class Recording:
             if (not only_signals or sn in set(only_signals)):
                 s = self.signals[sn]
                 new_sigs[sn] = s.jackknife_by_epoch(njacks, jack_idx,
-                                epoch_name=epoch_name,invert=invert,
-                                tiled=True)
+                                                    epoch_name=epoch_name,
+                                                    invert=invert, tiled=tiled)
         return Recording(signals=new_sigs)
 
         # if signal_names is not None:
@@ -605,6 +605,17 @@ class Recording:
 
         k = list(self.signals.keys())
         newsigs = {n: s.select_times(times) for n, s in self.signals.items()}
+
+        return Recording(newsigs)
+
+
+    def nan_times(self, times, padding=0):
+
+        if padding != 0:
+            raise NotImplementedError    # TODO
+
+        k = list(self.signals.keys())
+        newsigs = {n: s.nan_times(times) for n, s in self.signals.items()}
 
         return Recording(newsigs)
 

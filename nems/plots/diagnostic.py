@@ -18,7 +18,7 @@ from nems.plots.timeseries import timeseries_from_signals, timeseries_from_epoch
 from nems.plots.heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap
 from nems.plots.histogram import pred_error_hist
 from nems.plots.state import (state_vars_timeseries, state_var_psth_from_epoch,
-                    state_var_psth, state_gain_plot)
+                    state_var_psth)
 
 log = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ log = logging.getLogger(__name__)
 #      -jacob 3/31/2018
 
 
-def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
+def diagnostic(ctx, default='val', epoch=None, occurrence=None, figsize=None,
               height_mult=3.0, width_mult=1.0, m_idx=0, r_idx=0):
     """Expects an *evaluated* context dictionary ('ctx') returned by xforms."""
     # TODO: Or do we want 'est' by default?
@@ -80,6 +80,7 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
             epoch = 'REFERENCE'
         else:
             epoch = 'TRIAL'
+
     extracted = rec['resp'].extract_epoch(epoch)
     finite_trial = [np.sum(np.isfinite(x)) > 0 for x in extracted]
     occurrences, = np.where(finite_trial)
@@ -91,9 +92,6 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     else:
         occurrence=occurrences[occurrence]
 
-    # determine if 'stim' signal exists
-    show_spectrogram = ('stim' in rec.signals.keys())
-
     plot_fns = _get_plot_fns(ctx, default=default, occurrence=occurrence,
                              epoch=epoch, m_idx=m_idx)
 
@@ -102,11 +100,7 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     # and spectrogram at beginning.
     # If other independent plots are added, will need to
     # adjust this calculation.
-    if show_spectrogram:
-        n = len(plot_fns)+3
-    else:
-        n = len(plot_fns)+2
-
+    n = len(plot_fns) + 1  # + 3
     if figsize is None:
         fig = plt.figure(figsize=(10*width_mult, n*height_mult))
     else:
@@ -152,19 +146,20 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
 
     # Stimulus Spectrogram
     # TODO: This is a bit screwy for state_gain model, do we want
-    if show_spectrogram:
-        fn_spectro = partial(
-                spectrogram_from_epoch, rec['stim'], epoch,
-                occurrence=occurrence, title='Stimulus Spectrogram'
-                )
-        _plot_axes([1], [fn_spectro], 0)
 
+#    fn_spectro = partial(
+#            spectrogram_from_epoch, rec['stim'], epoch,
+#            occurrence=occurrence, title='Stimulus Spectrogram'
+#            )
+#    _plot_axes([1], [fn_spectro], 0)
+#
 
     ### Iterated module plots (defined in _get_plot_fns)
     for i, (fns, col_spans) in enumerate(plot_fns):
         # +1 because we did spectrogram above. Adjust as necessary.
-        j = i + (1 if show_spectrogram else 0)
+        j = i
         _plot_axes(col_spans, fns, j)
+
 
     ### Special plots that go *AFTER* iterated modules
 
@@ -173,23 +168,23 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     title = 'Final Prediction vs Response, {} #{}'.format(epoch, occurrence)
     timeseries = partial(timeseries_from_epoch, sigs, epoch, title=title,
                          occurrences=occurrence)
-    _plot_axes(1, timeseries, -2)
-
-    # Pred v Resp Scatter Smoothed
-    r_test = modelspec[0]['meta']['r_test']
-    r_fit = modelspec[0]['meta']['r_fit']
-    pred = rec['pred']
-    resp = rec['resp']
-    text = 'r_test: {0:.3f}\nr_fit: {1:.3f}'.format(r_test, r_fit)
-    smoothed = partial(
-            plot_scatter, pred, resp, text=text, smoothing_bins=100,
-            title='Smoothed, bins={}'.format(100), force_square=False
-            )
-    not_smoothed = partial(
-            plot_scatter, pred, resp, text=text, smoothing_bins=False,
-            title='Unsmoothed', force_square=False,
-            )
-    _plot_axes([1, 1], [smoothed, not_smoothed], -1)
+    _plot_axes(1, timeseries, -1)
+#
+#    # Pred v Resp Scatter Smoothed
+#    r_test = modelspec[0]['meta']['r_test']
+#    r_fit = modelspec[0]['meta']['r_fit']
+#    pred = rec['pred']
+#    resp = rec['resp']
+#    text = 'r_test: {0:.3f}\nr_fit: {1:.3f}'.format(r_test, r_fit)
+#    smoothed = partial(
+#            plot_scatter, pred, resp, text=text, smoothing_bins=100,
+#            title='Smoothed, bins={}'.format(100), force_square=False
+#            )
+#    not_smoothed = partial(
+#            plot_scatter, pred, resp, text=text, smoothing_bins=False,
+#            title='Unsmoothed', force_square=False,
+#            )
+#    _plot_axes([1, 1], [smoothed, not_smoothed], -1)
 
     # TODO: Pred Error histogram too? Or was that not useful?
 
@@ -206,8 +201,8 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
         batch = modelspec[0]['meta']['batch']
     except KeyError:
         batch = 0
-    fig.suptitle('Cell: {}, Batch: {}, {} #{}\n{}'
-                 .format(cellid, batch, epoch, occurrence, modelname))
+    fig.suptitle('Cell: {}, from Batch: {},\nUsing model: {},\n {} #{}'
+                 .format(cellid, batch, modelname, epoch, occurrence))
 
     # Space subplots appropriately
     # TODO: More dynamic way to determine the y-max for suptitle?
@@ -215,6 +210,8 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     y_max=0.955
     gs_outer.tight_layout(fig, rect=[0, 0, 1, y_max],
                           pad=1.5, w_pad=1.0, h_pad=2.5)
+    plt.draw()
+    plt.pause(0.001)
     return fig
 
 
@@ -227,144 +224,22 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
 
     # TODO: This feels a bit hacky, likely needs review.
     modules = [m['fn'] for m in modelspec]
-    check_wc = [('weight_channels' in mod) for mod in modules]
-    check_fir = [('fir' in mod) for mod in modules]
-    if (sum(check_wc) > 0) and (sum(check_fir) > 0):
-        # if both weight channels and fir are present, do STRF heatmap
-        # instead of either of the individual heatmaps for those modules
-        do_strf = True
-    else:
-        do_strf = False
-    # Only do STRF once
-    strf_done = False
 
     for idx, m in enumerate(modelspec):
         fname = m['fn']
 
-        # STRF is a special case that relies on multiple modules, so
-        # the dependent modules are wrapped here
-        # in a separate logic heirarchy.
-        if not do_strf:
-            if 'weight_channels' in fname:
-
-                if 'weight_channels.basic' in fname:
-                    fn = partial(weight_channels_heatmap, modelspec)
-                    plot = (fn, 1)
-                    plot_fns.append(plot)
-
-                elif 'weight_channels.gaussian' in fname:
-                    fn = partial(weight_channels_heatmap, modelspec)
-                    plot = (fn, 1)
-                    plot_fns.append(plot)
-
-                else:
-                    # Don't plot anything
-                    pass
-
-            elif 'fir' in fname:
-
-                if 'fir.basic' in fname:
-                    fn = partial(fir_heatmap, modelspec)
-                    plot = (fn, 1)
-                    plot_fns.append(plot)
-                else:
-                    pass
-        # do strf
-        else:
-            if not strf_done:
-                fn = partial(strf_heatmap, modelspec, title='STRF')
-                plot = (fn, 1)
-                plot_fns.append(plot)
-                strf_done = True
-                continue
-            else:
-                pass
-
-        if 'levelshift' in fname:
-            if 'levelshift.levelshift' in fname:
-                # TODO - Should levelshift plot anything?
-                pass
-            else:
-                pass
-
-        elif 'stp' in fname:
-            # channels = np.arange(m['phi']['u'].size)
+        fmatch=['weight_channels','fir','stp','nonlinearity','state']
+        i = 0
+        for fn in fmatch:
+            if fn in fname:
+                i += 1
+        if i:
             channels = 0
             fn = before_and_after_psth(rec, modelspec, idx, sig_name='pred',
                                        epoch=epoch, occurrences=occurrence,
-                                       channels=channels, mod_name='STP')
+                                       channels=channels, mod_name=fname)
             plot = (fn, 1)
             plot_fns.append(plot)
-
-        elif 'nonlinearity' in fname:
-
-            if 'nonlinearity.double_exponential' in fname:
-                fn1, fn2 = before_and_after_scatter(
-                        rec, modelspec, idx, smoothing_bins=200,
-                        mod_name='dexp'
-                        )
-                plots = ([fn1, fn2], [1, 1])
-                plot_fns.append(plots)
-
-            elif 'nonlinearity.quick_sigmoid' in fname:
-                fn1, fn2 = before_and_after_scatter(
-                        rec, modelspec, idx, smoothing_bins=200,
-                        mod_name='quick_sig'
-                        )
-                plots = ([fn1, fn2], [1, 1])
-                plot_fns.append(plots)
-
-            elif 'nonlinearity.logistic_sigmoid' in fname:
-                fn1, fn2 = before_and_after_scatter(
-                        rec, modelspec, idx, smoothing_bins=200,
-                        mod_name='log_sig'
-                        )
-                plots = ([fn1, fn2], [1, 1])
-                plot_fns.append(plots)
-
-            elif 'nonlinearity.tanh' in fname:
-                fn1, fn2 = before_and_after_scatter(
-                        rec, modelspec, idx, smoothing_bins=200,
-                        mod_name='tanh'
-                        )
-                plots = ([fn1, fn2], [1, 1])
-                plot_fns.append(plots)
-
-            elif 'nonlinearity.dlog' in fname:
-                # SVD removed plotting here. breaks if applied to multi-
-                # channel input, as when used for compression of spectrogram
-                pass
-
-            else:
-                # Unrecognized nonlinearity
-                pass
-
-        elif 'signal_mod' in fname:
-            if 'signal_mod.make_state_signal' in fname:
-                # TODO
-                pass
-            elif 'signal_mod.average_sig' in fname:
-                pass
-            else:
-                pass
-
-        elif 'state' in fname:
-            if 'state.state_dc_gain' in fname:
-                fn1 = partial(state_vars_timeseries, rec, modelspec)
-                plot1 = (fn1, 1)
-
-                if len(m['phi']['g'])>5:
-                    fn2 = partial(state_gain_plot, modelspec)
-                    #fn2 = partial(state_vars_timeseries, rec, modelspec)
-                    plot2 = (fn2, 1)
-                                        
-                else:
-                    fns = get_state_vars_psths(rec, epoch, psth_name='resp',
-                                               occurrence=occurrence)
-                    plot2 = (fns, [1]*len(fns))
-                plot_fns.extend([plot1, plot2])
-            else:
-                pass
 
     return plot_fns
 
@@ -458,10 +333,10 @@ def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
 
 
 def get_state_vars_psths(rec, epoch, psth_name='resp', occurrence=0):
-    state_var_list = rec['state'].chans
+    var_list = rec['state'].chans
     psth_list = [
             partial(state_var_psth_from_epoch, rec, epoch, psth_name=psth_name,
-                    state_sig=var)
-            for var in state_var_list
+                    var_name=var, occurrence=occurrence)
+            for var in var_list
             ]
     return psth_list

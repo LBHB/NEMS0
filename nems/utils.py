@@ -1,7 +1,6 @@
 import time
 import numpy as np
 
-
 def iso8601_datestring():
     '''
     Returns a string containing the present date as a string.
