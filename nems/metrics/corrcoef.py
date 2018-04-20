@@ -33,7 +33,7 @@ def corrcoef(result, pred_name='pred', resp_name='resp'):
     pred = result[pred_name]._data
     resp = result[resp_name]._data
     ff = np.isfinite(pred) & np.isfinite(resp)
-    if np.sum(ff):
+    if np.sum(ff) == 0:
         return 0
     else:
         cc = np.corrcoef(pred[ff], resp[ff])
