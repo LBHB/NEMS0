@@ -29,7 +29,7 @@ def dummy_fitter(sigma, cost_fn, bounds=None, fixed=None):
 
 
 def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
-                       step_min=1e-5, tolerance=1e-2, max_iter=100, **kwargs):
+                       step_min=1e-5, tolerance=1e-5, max_iter=100, **kwargs):
 
     stepinfo, update_stepinfo = tc.create_stepinfo()
     stop_fit = lambda : (tc.error_non_decreasing(stepinfo, tolerance)
@@ -39,6 +39,8 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
     this_sigma = sigma.copy()
     n_parameters = len(sigma)
     step_errors = np.empty([n_parameters, 2])
+    log.debug("CD intializing: step_size=%.2f, tolerance=%e",
+              step_size, tolerance)
     while not stop_fit():
         for i in range(0, n_parameters):
             # Try shifting each parameter both negatively and positively

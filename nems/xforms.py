@@ -138,14 +138,19 @@ def evaluate(xformspec, context={}, stop=None):
 # See xforms_test.py for how to use it.
 
 # loader
-def load_recordings(recording_uri_list, **context):
+def load_recordings(recording_uri_list, normalize=False, **context):
     '''
     Load one or more recordings into memory given a list of URIs.
     '''
     rec = load_recording(recording_uri_list[0])
     other_recordings = [load_recording(uri) for uri in recording_uri_list[1:]]
-    if other_recordings:
+    if normalize and other_recordings:
         rec.concatenate_recordings(other_recordings)
+
+    if normalize and 'stim' in rec.signals.keys():
+        log.info('Normalizing stim')
+        rec['stim'] = rec['stim'].rasterize().normalize('minmax')
+
     return {'rec': rec}
 
 
@@ -257,7 +262,7 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                         target_module='levelshift',
                         extra_exclude=['stp'],
                         fitter=scipy_minimize,
-                        fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
+                        fit_kwargs={'tolerance': 1e-3, 'max_iter': 500})
                         for modelspec in modelspecs]
                 break
 
@@ -266,13 +271,21 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                 est, modelspec, nems.analysis.api.fit_basic,
                 target_module='levelshift',
                 fitter=scipy_minimize,
-                fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
+                fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
                 for modelspec in modelspecs]
 
         # possibility: pre-fit static NL .  But this doesn't seem to help...
-        #modelspecs = [nems.initializers.init_dexp(
-        #        est, modelspec)
-        #        for modelspec in modelspecs]
+        for m in modelspecs[0]:
+            if 'double_exponential' in m['fn']:
+                modelspecs = [nems.initializers.init_dexp(est, modelspec)
+                              for modelspec in modelspecs]
+                modelspecs = [nems.initializers.prefit_mod_subset(
+                        est, modelspec, nems.analysis.api.fit_basic,
+                        fit_set=['double_exponential'],
+                        fitter=scipy_minimize,
+                        fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
+                        for modelspec in modelspecs]
+                break
 
     return {'modelspecs': modelspecs}
 
@@ -297,7 +310,7 @@ def fit_basic_init_stp_freeze(modelspecs, est, IsReload=False, **context):
                 est, modelspec, nems.analysis.api.fit_basic,
                 target_module='levelshift',
                 fitter=scipy_minimize,
-                fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
+                fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
                 for modelspec in modelspecs]
 
         # restore STP module to normal state
@@ -318,11 +331,16 @@ def fit_basic_init_stp_freeze(modelspecs, est, IsReload=False, **context):
     return {'modelspecs': modelspecs}
 
 
-def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7,
-              IsReload=False, **context):
+def fit_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
+              shrinkage=0, IsReload=False, **context):
     ''' A basic fit that optimizes every input modelspec. '''
     if not IsReload:
-        fit_kwargs = {'options': {'ftol': ftol, 'maxiter': maxiter}}
+        if shrinkage:
+            metric = lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
+        else:
+            metric = lambda d: metrics.nmse(d, 'pred', 'resp')
+
+        fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
         if type(est) is list:
             # jackknife!
             modelspecs_out = []
@@ -333,26 +351,26 @@ def fit_basic(modelspecs, est, maxiter=1000, ftol=1e-7,
                 log.info("Fitting JK {}/{}".format(i, njacks))
                 modelspecs_out += nems.analysis.api.fit_basic(
                         d, m, fit_kwargs=fit_kwargs,
+                        metric=metric,
                         fitter=scipy_minimize)
             modelspecs = modelspecs_out
         else:
             # standard single shot
-            # print('Fitting fit_basic')
-            # print(fit_kwargs)
-
-            modelspecs = [nems.analysis.api.fit_basic(est, modelspec,
-                                                      fit_kwargs=fit_kwargs,
-                                                      fitter=scipy_minimize)[0]
-                          for modelspec in modelspecs]
+            modelspecs = [nems.analysis.api.fit_basic(
+                    est, modelspec, fit_kwargs=fit_kwargs,
+                    metric=metric,
+                    fitter=scipy_minimize)[0]
+                for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
 
 
-def fit_basic_shrink(modelspecs, est, maxiter=1000, ftol=1e-8, IsReload=False,
-                     **context):
-    ''' A basic fit that optimizes every input modelspec. Use nmse_shrink!'''
+def fit_basic_shrink(modelspecs, est, max_iter=1000, tolerance=1e-8,
+                     IsReload=False, shrinkage=0, **context):
+    ''' A basic fit that optimizes every input modelspec. Use nmse_shrink!
+    DEPRECATED???'''
 
     if not IsReload:
-        fit_kwargs = {'options': {'ftol': ftol, 'maxiter': maxiter}}
+        fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
         if type(est) is list:
             # jackknife!
             modelspecs_out = []
@@ -381,15 +399,20 @@ def fit_basic_shrink(modelspecs, est, maxiter=1000, ftol=1e-8, IsReload=False,
     return {'modelspecs': modelspecs}
 
 
-def fit_basic_cd(modelspecs, est, maxiter=1000, ftol=1e-8, IsReload=False,
-                 **context):
+def fit_basic_cd(modelspecs, est, max_iter=1000, tolerance=1e-8,
+                 IsReload=False, shrinkage=0, **context):
     '''
     A basic fit that optimizes every input modelspec. Use coordinate
     descent for fitting and nmse_shrink for cost function
     '''
 
     if not IsReload:
-        fit_kwargs = {'options': {'ftol': ftol, 'maxiter': maxiter}}
+        if shrinkage:
+            metric = lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
+        else:
+            metric = lambda d: metrics.nmse(d, 'pred', 'resp')
+
+        fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
         if type(est) is list:
             # jackknife!
             modelspecs_out = []
@@ -398,23 +421,19 @@ def fit_basic_cd(modelspecs, est, maxiter=1000, ftol=1e-8, IsReload=False,
             for m, d in zip(modelspecs, est):
                 i += 1
                 log.info("Fitting JK {}/{}".format(i, njacks))
-                metric=lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
-                modelspecs_out += nems.analysis.api.fit_basic(d, m,
-                                                              fit_kwargs=fit_kwargs,
-                                                              metric=metric,
-                                                              fitter=coordinate_descent)
+                modelspecs_out += nems.analysis.api.fit_basic(
+                        d, m, fit_kwargs=fit_kwargs,
+                        metric=metric,
+                        fitter=coordinate_descent)
             modelspecs = modelspecs_out
         else:
             # standard single shot
-            # print('Fitting fit_basic')
-            # print(fit_kwargs)
+            modelspecs = [nems.analysis.api.fit_basic(
+                    est, modelspec, fit_kwargs=fit_kwargs,
+                    metric=metric,
+                    fitter=coordinate_descent)[0]
+                for modelspec in modelspecs]
 
-            metric=lambda est: metrics.nmse_shrink(est, 'pred', 'resp')
-            modelspecs = [nems.analysis.api.fit_basic(est, modelspec,
-                                                      fit_kwargs=fit_kwargs,
-                                                      metric=metric,
-                                                      fitter=coordinate_descent)[0]
-                          for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
 
 
@@ -573,11 +592,11 @@ def predict(modelspecs, est, val, **context):
     return {'val': val, 'est': est}
 
 
-def add_summary_statistics(est, val, modelspecs, **context):
-    # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
+def add_summary_statistics(est, val, modelspecs, rec=None, **context):
+    # modelspecs = metrics.add_summary_statistics(est, val, modelspecs, rec)
     # TODO: Add statistics to metadata of every modelspec
 
-    modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs)
+    modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs, rec)
 
     return {'modelspecs': modelspecs}
 

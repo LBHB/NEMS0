@@ -119,7 +119,7 @@ logging.info('Generating summary statistics...')
 est, val = nems.analysis.api.generate_prediction(est, val, modelspecs)
 
 # evaluate prediction accuracy
-modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs)
+modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs, rec)
 
 logging.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
         modelspecs[0][0]['meta']['r_fit'],

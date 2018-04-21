@@ -10,50 +10,44 @@ def generate_loader_xfspec(loader, recording_uri):
 
     recordings = [recording_uri]
 
-    if loader == "ozgf100ch18":
-        xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
-                  ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}],
+    if loader in ["ozgf100ch18", "ozgf100ch18n"]:
+        normalize = int(loader == "ozgf100ch18n")
+        xfspec = [['nems.xforms.load_recordings',
+                   {'recording_uri_list': recordings, 'normalize': normalize}],
+                  ['nems.xforms.split_by_occurrence_counts',
+                   {'epoch_regex': '^STIM_'}],
                   ['nems.xforms.average_away_stim_occurrences',{}]]
 
-    elif loader == "ozgf100ch18pup":
-        xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
-                  ['nems.xforms.make_state_signal', {'state_signals': ['pupil'], 'permute_signals': [], 'new_signalname': 'state'}]]
+    elif loader in ["ozgf100ch18pup", "ozgf100ch18npup"]:
+        normalize = int(loader == "ozgf100ch18npup")
+        xfspec = [['nems.xforms.load_recordings',
+                   {'recording_uri_list': recordings, 'normalize': normalize}],
+                  ['nems.xforms.make_state_signal',
+                   {'state_signals': ['pupil'], 'permute_signals': [],
+                    'new_signalname': 'state'}]]
 
     elif loader == "nostim10pup":
+        # DEPRECATED?
         xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
                   ['nems.preprocessing.make_state_signal', {'state_signals': ['pupil'], 'permute_signals': [], 'new_signalname': 'state'},['rec'],['rec']]]
 
-    elif loader in ["nostim10pup0beh0","nostim10pup0beh","nostim10pupbeh0","nostim10pupbeh"]:
-
-        state_signals=['pupil','behavior_state']
-        if loader=="nostim10pup0beh0":
-            permute_signals=['pupil','behavior_state']
-        elif loader=="nostim10pup0beh":
-            permute_signals=['pupil']
-        elif loader=="nostim10pupbeh0":
-            permute_signals=['behavior_state']
-        else:
-            permute_signals=['']
-
-        xfspec = [['nems.xforms.load_recordings',
-                   {'recording_uri_list': recordings}],
-                  ['nems.xforms.make_state_signal',
-                   {'state_signals': state_signals,
-                    'permute_signals': permute_signals,
-                    'new_signalname': 'state'}]]
-
-    elif loader in ["nostim20pup0beh0", "nostim20pup0beh",
+    elif loader in ["nostim10pup0beh0","nostim10pup0beh",
+                    "nostim10pupbeh0","nostim10pupbeh",
+                    "nostim20pup0beh0", "nostim20pup0beh",
                     "nostim20pupbeh0", "nostim20pupbeh"]:
 
-        state_signals=['pupil','active']
-        if loader=="nostim20pup0beh0":
-            permute_signals=['pupil','active']
-        elif loader=="nostim20pup0beh":
-            permute_signals=['pupil']
-        elif loader=="nostim20pupbeh0":
-            permute_signals=['active']
+        state_signals = ['pupil', 'active']
+
+        if loader.endswith("pup0beh0"):
+            permute_signals = ['pupil', 'active']
+        elif loader.endswith("pup0beh"):
+            permute_signals = ['pupil']
+        elif loader.endswith("pupbeh0"):
+            permute_signals = ['active']
+        elif loader.endswith("pupbeh"):
+            permute_signals = []
         else:
-            permute_signals=['']
+            raise ValueError("invalid loader string")
 
         xfspec = [['nems.xforms.load_recordings',
                    {'recording_uri_list': recordings}],
@@ -62,10 +56,13 @@ def generate_loader_xfspec(loader, recording_uri):
                     'permute_signals': permute_signals,
                     'new_signalname': 'state'}]]
 
-    elif loader == "env100":
-        xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
-                  ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}],
-                  ['nems.xforms.average_away_stim_occurrences',{}]]
+    elif loader in ["env100","env100n"]:
+        normalize = int(loader == "env100n")
+        xfspec = [['nems.xforms.load_recordings',
+                   {'recording_uri_list': recordings, 'normalize': normalize}],
+                  ['nems.xforms.split_by_occurrence_counts',
+                   {'epoch_regex': '^STIM_'}],
+                  ['nems.xforms.average_away_stim_occurrences', {}]]
 
     else:
         raise ValueError('unknown loader string')
@@ -75,28 +72,40 @@ def generate_loader_xfspec(loader, recording_uri):
 
 def generate_fitter_xfspec(fitter, fitter_kwargs=None):
 
-    xfspec=[]
+    xfspec = []
 
     # parse the fit spec: Use gradient descent on whole data set(Fast)
-    if fitter == "fit01":
+    if fitter in ["fit01", "basic"]:
         # prefit strf
-        log.info("Prefitting STRF without other modules...")
         xfspec.append(['nems.xforms.fit_basic_init', {}])
         xfspec.append(['nems.xforms.fit_basic', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
-    elif fitter == "fit01a":
+    elif fitter in ["fit01a", "basicqk"]:
         # prefit strf
-        log.info("Prefitting STRF without other modules...")
         xfspec.append(['nems.xforms.fit_basic_init', {}])
         xfspec.append(['nems.xforms.fit_basic',
-                       {'maxiter': 1000, 'ftol': 1e-5}])
+                       {'max_iter': 1000, 'tolerance': 1e-5}])
         xfspec.append(['nems.xforms.predict',    {}])
 
-    elif fitter == "fit01b":
+    elif fitter in ["fit01b", "basic-shr"]:
         # prefit strf
         xfspec.append(['nems.xforms.fit_basic_init', {}])
-        xfspec.append(['nems.xforms.fit_basic_shrink', {}])
+        xfspec.append(['nems.xforms.fit_basic',
+                       {'shrinkage': 1, 'tolerance': 1e-8}])
+        xfspec.append(['nems.xforms.predict', {}])
+
+    elif fitter in ["fit01b", "basic-cd"]:
+        # prefit strf
+        xfspec.append(['nems.xforms.fit_basic_init', {}])
+        xfspec.append(['nems.xforms.fit_basic_cd', {'shrinkage': 0}])
+        xfspec.append(['nems.xforms.predict', {}])
+
+    elif fitter in ["fit01b", "basic-cd-shr"]:
+        # prefit strf
+        xfspec.append(['nems.xforms.fit_basic_init', {}])
+        xfspec.append(['nems.xforms.fit_basic_cd',
+                       {'shrinkage': 1, 'tolerance': 1e-8}])
         xfspec.append(['nems.xforms.predict', {}])
 
     elif fitter == "fitjk01":
@@ -364,7 +373,7 @@ def fit_model_xforms(recording_uri, modelname, fitter_kwargs=None,
 
     # 4) add some performance statistics
     xfspec.append(['nems.analysis.api.standard_correlation', {},
-                   ['est', 'val', 'modelspecs'], ['modelspecs']])
+                   ['est', 'val', 'modelspecs', 'rec'], ['modelspecs']])
 
     # 5) generate plots
     if autoPlot:

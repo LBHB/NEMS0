@@ -62,7 +62,7 @@ xfspec.append(['nems.xforms.fit_basic', {'maxiter': 1000, 'ftol': 1e-5}])
 
 xfspec.append(['nems.xforms.predict',    {}])
 xfspec.append(['nems.analysis.api.standard_correlation', {},
-               ['est', 'val', 'modelspecs'], ['modelspecs']])
+               ['est', 'val', 'modelspecs', 'rec'], ['modelspecs']])
 # xfspec.append(['nems.xforms.add_summary_statistics',    {}])
 
 # GENERATE PLOTS
