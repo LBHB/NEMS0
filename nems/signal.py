@@ -17,58 +17,6 @@ from nems.epoch import (remove_overlap, merge_epoch, epoch_contained,
 
 log = logging.getLogger(__name__)
 
-""" Proposed modifications for non-raster signals:
-
-    1. create base class with subclasses:
-            SignalRasterized --DONE? Not much needs to change
-            SignalTimeSeries (for spike events) --DONE
-            SignalDictionary (for stimulus events) --DONE
-    2. for latter two, raw data gets stored in a ._data field --DONE
-    3. for saving, save _data to an HDF5 file (using pytables lib?) --DONE
-    4. for SignalTimeSeries use spike_time_to_raster to generate _data first
-       time it's needed. then save --DONE
-    5. for SignalDictionary use dict_to_signal for the same purpose --DONE
-    6. delete_cached_data() method to clear/delete _data
-                    --Maybe done? But hard to test. Python memory is weird.
-
------------
-    @SVD I didn't get to the subset stuff yet, but it's stubbed out at
-         the very bottom of the file
-
-         The other two new subclasses and the new base class have been created
-         and are functional with save/load  and caching their _data  etc,
-         but can't do much else yet. However, I think once we decide which
-         methods should be useable by all signals (i.e. move those methods
-         to the base class) the new subclass *should* "just work" for
-         the most part.
-
-         I was not able to start on the concatenate_time
-         method for SignalTimeSeries which is needed for baphy_load_recording.
-
-         Just for your reference: the saved hdf5 files for stim and resp
-         were a total of about 9mb combined for me, including epochs stored
-         in each. Not sure how that compares to the csv setup. Re-creating
-         the cached_data also only took about a second, so not bad if
-         the memory savings end up being susbtantial.
-
-                --jacob 3/25/2018
-
------------
-
-    7. next steps: SignalSubset subclass to which is a masked/subset of a
-        SignalRasterized where epochs are discarded but enough information
-        is saved from the masking so that the signal can be cast back into
-        its original shape & size
-        example sig_sub=original_signal.subset(np.array([0,1,2,3..,10,21,...30]))
-          or ..= signal.subset([True,True,...True,False,False...True...])
-          or ..= signal.subset([range variables])
-          sig_sub contains only the indexed samples and the masking information
-            so that it can be inverted back to the original signal
-        original_signal.replace_data(sig_sub)
-            --- note this should only replace the samples from sig_sub and
-            preserve other samples already in original_signal
-    8. Then RecordingSubset is a contained for SignalSubset?
-"""
 
 ################################################################################
 # Utility methods
@@ -849,6 +797,7 @@ class RasterizedSignal(SignalBase):
                    fs=js['fs'],
                    meta=js['meta'],
                    data=mat)
+        s.segments = js.get('segments', s.segments)
         return s
 
     @staticmethod
@@ -1975,6 +1924,9 @@ def load_signal(basepath):
                     fs=js['fs'],
                     meta=js['meta'],
                     data=mat)
+        # NOTE: Moved this outside of call to initializer because
+        #       some saved signals don't have segments in their json sidecar.
+        s.segments = js.get('segments', s.segments)
 
     elif 'PointProcess' in signal_type:
         with h5py.File(h5filepath, 'r') as f:
@@ -2033,9 +1985,9 @@ def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
                     epochs=epochs,
                     recording=js['recording'],
                     fs=js['fs'],
-                    segments=js['segments'],
                     meta=js['meta'],
                     data=mat)
+        s.segments = js.get('segments', s.segments)
 
     elif 'PointProcess' in signal_type:
         with h5py.File(data_stream, 'r') as f:
@@ -2075,24 +2027,6 @@ def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
 
     return s
 
-    # TODO add logic for different signal subclasses, identified by metadata
-    # in the JSON file
-    # ONLY if data_stream is csv then do this:
-
-    # Read the CSV
-    mat = pd.read_csv(data_stream, header=None).values
-    mat = mat.astype('float')
-    mat = np.swapaxes(mat, 0, 1)
-    # mat = np.genfromtxt(csv_stream, delimiter=',')
-    # Now build the signal
-    s = RasterizedSignal(name=js['name'],
-               chans=js.get('chans', None),
-               epochs=epochs,
-               recording=js['recording'],
-               fs=js['fs'],
-               meta=js['meta'],
-               data=mat)
-    return s
 
 def load_rasterized_signal(basepath):
     csvfilepath = basepath + '.csv'
@@ -2115,6 +2049,7 @@ def load_rasterized_signal(basepath):
                     fs=js['fs'],
                     meta=js['meta'],
                     data=mat)
+        s.segments = js.get('segments', s.segments)
         return s
 
 
