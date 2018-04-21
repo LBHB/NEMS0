@@ -2033,6 +2033,7 @@ def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
                     epochs=epochs,
                     recording=js['recording'],
                     fs=js['fs'],
+                    segments=js['segments']
                     meta=js['meta'],
                     data=mat)
 
