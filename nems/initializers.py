@@ -1,5 +1,4 @@
 import logging
-log = logging.getLogger(__name__)
 
 import copy
 import numpy as np
@@ -10,6 +9,8 @@ from nems.fitters.api import scipy_minimize
 import nems.priors
 import nems.modelspec as ms
 import nems.metrics.api as metrics
+
+log = logging.getLogger(__name__)
 
 
 def from_keywords(keyword_string, registry=keywords.defaults, meta={}):

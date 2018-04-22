@@ -81,7 +81,7 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
 
 
 def scipy_minimize(sigma, cost_fn, tolerance=None, max_iter=None,
-                   method='L-BFGS-B', options={'maxiter': 1000, 'ftol': 1e-7}):
+                   method='L-BFGS-B', options={}):
     """
     Wrapper for scipy.optimize.minimize to normalize format with
     NEMS fitters.
