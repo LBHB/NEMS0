@@ -31,25 +31,37 @@ def generate_loader_xfspec(loader, recording_uri):
         xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
                   ['nems.preprocessing.make_state_signal', {'state_signals': ['pupil'], 'permute_signals': [], 'new_signalname': 'state'},['rec'],['rec']]]
 
-    elif loader in ["nostim10pup0beh0","nostim10pup0beh",
-                    "nostim10pupbeh0","nostim10pupbeh",
-                    "nostim20pup0beh0", "nostim20pup0beh",
-                    "nostim20pupbeh0", "nostim20pupbeh",
-                    "psth20pup0beh0", "psth20pup0beh",
-                    "psth20pupbeh0", "psth20pupbeh"]:
+    elif loader.startswith("psth") or loader.startswith("nostim"):
 
         state_signals = ['pupil', 'active']
 
         if loader.endswith("pup0beh0"):
+            state_signals = ['pupil', 'active']
             permute_signals = ['pupil', 'active']
         elif loader.endswith("pup0beh"):
+            state_signals = ['pupil', 'active']
             permute_signals = ['pupil']
         elif loader.endswith("pupbeh0"):
+            state_signals = ['pupil', 'active']
             permute_signals = ['active']
         elif loader.endswith("pupbeh"):
+            state_signals = ['pupil', 'active']
+            permute_signals = []
+        elif loader.endswith("pre0beh0"):
+            state_signals = ['pre_passive', 'active']
+            permute_signals = ['pre_passive', 'active']
+        elif loader.endswith("pre0beh"):
+            state_signals = ['pre_passive', 'active']
+            permute_signals = ['pre_passive']
+        elif loader.endswith("prebeh0"):
+            state_signals = ['pre_passive', 'active']
+            permute_signals = ['active']
+        elif loader.endswith("prebeh"):
+            state_signals = ['pre_passive', 'active']
             permute_signals = []
         else:
             raise ValueError("invalid loader string")
+
         if loader.startswith("psth"):
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],

@@ -321,14 +321,15 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     generate state signal for stategainX models
     TODO: SVD document this and/or move it out of generic nems code
     """
-    # Much faster; TODO: Test if throws warnings
-    x = np.ones([1, rec[state_signals[0]]._data.shape[1]])
-    ones_sig = rec[state_signals[0]]._modified_copy(x)
-    ones_sig.name = "baseline"
-    ones_sig.chans = ["baseline"]
 
     newrec = rec.copy()
-    resp = newrec['resp']
+    resp = newrec['resp'].rasterize()
+
+    # Much faster; TODO: Test if throws warnings
+    x = np.ones([1, resp.shape[1]])
+    ones_sig = resp._modified_copy(x)
+    ones_sig.name = "baseline"
+    ones_sig.chans = ["baseline"]
 
     # DEPRECATED, NOW THAT NORMALIZATION IS IMPLEMENTED
     if 'pupil' in state_signals:
