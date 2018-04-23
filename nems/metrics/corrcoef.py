@@ -43,7 +43,7 @@ def corrcoef(result, pred_name='pred', resp_name='resp'):
         raise ValueError("multi-channel signals not supported yet.")
 
     ff = np.isfinite(pred) & np.isfinite(resp)
-    if np.sum(ff) == 0:
+    if (np.sum(ff) == 0) or (np.sum(pred[ff]) == 0) or (np.sum(resp[ff]) == 0):
         return 0
     else:
         cc = np.corrcoef(pred[ff], resp[ff])
@@ -139,8 +139,10 @@ def _r_single(X, N=100):
             ff = np.isfinite(X1) & np.isfinite(X2)
             X1 = X1[ff]
             X2 = X2[ff]
-
-            rac[nn] = np.corrcoef(X1, X2)[0, 1]
+            if (np.sum(X1) > 0) and (np.sum(X2) > 0):
+                rac[nn] = np.corrcoef(X1, X2)[0, 1]
+            else:
+                rac[nn] = 0
 
     # hard limit on single-trial correlation to prevent explosion
     # TODO: better logic for this
@@ -175,10 +177,10 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
             X = resp.extract_epoch(k)
             rac = _r_single(X, N)
 
-            if rac > 0:
-                # print("{0} shape: {1},{2}".format(k,X.shape[0],X.shape[2]))
-                # print(rac)
+            # print("{0} shape: {1},{2}".format(k,X.shape[0],X.shape[2]))
+            # print(rac)
 
+            if rac > 0:
                 p = folded_pred[k]
 
                 repcount = X.shape[0]
@@ -192,7 +194,10 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
                     X1 = X1[ff]
                     X2 = X2[ff]
 
-                    rs[nn] = np.corrcoef(X1, X2)[0, 1]
+                    if (np.sum(X1) > 0) and (np.sum(X2) > 0):
+                        rs[nn] = np.corrcoef(X1, X2)[0, 1]
+                    else:
+                        rs[nn] = 0
 
                 rs = np.mean(rs)
 
