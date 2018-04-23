@@ -89,6 +89,9 @@ def fit_basic(data, modelspec,
     ms.fit_mode_off(improved_modelspec)
     ms.set_modelspec_metadata(improved_modelspec, 'fitter', metaname)
     ms.set_modelspec_metadata(improved_modelspec, 'fit_time', elapsed_time)
+    ms.set_modelspec_metadata(improved_modelspec, 'n_parms',
+                              len(improved_sigma))
+
     results = [copy.deepcopy(improved_modelspec)]
     return results
 
