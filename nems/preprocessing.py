@@ -223,6 +223,42 @@ def nan_invalid_segments(rec):
     return newrec
 
 
+def generate_psth_from_resp(rec, epoch_regex='^STIM_'):
+    '''
+    Estimates a PSTH from all responses to each regex match in a recording
+
+    subtract spont rate based on pre-stim silence for ALL estimation data.
+    '''
+
+    resp = rec['resp'].rasterize()
+
+    # compute PSTH response and spont rate during those valid trials
+    prestimsilence = resp.extract_epoch('PreStimSilence')
+    if len(prestimsilence.shape) == 3:
+        spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
+    else:
+        spont_rate = np.nanmean(prestimsilence)
+
+    epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
+    folded_matrices = resp.extract_epochs(epochs_to_extract)
+
+    # 2. Average over all reps of each stim and save into dict called psth.
+    per_stim_psth = dict()
+    for k in folded_matrices.keys():
+        per_stim_psth[k] = np.nanmean(folded_matrices[k], axis=0) - \
+            spont_rate[:, np.newaxis]
+
+    # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
+    #   replacing all epochs in the signal with their average (psth)
+    respavg = resp.replace_epochs(per_stim_psth)
+    respavg.name = 'psth'
+
+    # add signal to the est recording
+    rec.add_signal(respavg)
+
+    return rec
+
+
 def generate_psth_from_est_for_both_est_and_val(est, val,
                                                 epoch_regex='^STIM_'):
     '''

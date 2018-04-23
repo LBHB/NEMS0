@@ -5,6 +5,7 @@ import nems.modelspec as ms
 import nems.metrics.api as nmet
 import nems.recording as recording
 
+
 def generate_prediction(est,val,modelspecs):
 
     if type(val) is list:
@@ -17,7 +18,7 @@ def generate_prediction(est,val,modelspecs):
         new_est = [ms.evaluate(est, m) for m in modelspecs]
         new_val = [ms.evaluate(val, m) for m in modelspecs]
 
-    return new_est,new_val
+    return new_est, new_val
 
 
 def standard_correlation(est, val, modelspecs, rec=None):

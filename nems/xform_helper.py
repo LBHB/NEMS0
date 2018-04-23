@@ -34,7 +34,9 @@ def generate_loader_xfspec(loader, recording_uri):
     elif loader in ["nostim10pup0beh0","nostim10pup0beh",
                     "nostim10pupbeh0","nostim10pupbeh",
                     "nostim20pup0beh0", "nostim20pup0beh",
-                    "nostim20pupbeh0", "nostim20pupbeh"]:
+                    "nostim20pupbeh0", "nostim20pupbeh",
+                    "psth20pup0beh0", "psth20pup0beh",
+                    "psth20pupbeh0", "psth20pupbeh"]:
 
         state_signals = ['pupil', 'active']
 
@@ -48,13 +50,21 @@ def generate_loader_xfspec(loader, recording_uri):
             permute_signals = []
         else:
             raise ValueError("invalid loader string")
-
-        xfspec = [['nems.xforms.load_recordings',
-                   {'recording_uri_list': recordings}],
-                  ['nems.xforms.make_state_signal',
-                   {'state_signals': state_signals,
-                    'permute_signals': permute_signals,
-                    'new_signalname': 'state'}]]
+        if loader.startswith("psth"):
+            xfspec = [['nems.xforms.load_recordings',
+                       {'recording_uri_list': recordings}],
+                      ['nems.xforms.generate_psth_from_resp', {}],
+                      ['nems.xforms.make_state_signal',
+                       {'state_signals': state_signals,
+                        'permute_signals': permute_signals,
+                        'new_signalname': 'state'}]]
+        else:
+            xfspec = [['nems.xforms.load_recordings',
+                       {'recording_uri_list': recordings}],
+                      ['nems.xforms.make_state_signal',
+                       {'state_signals': state_signals,
+                        'permute_signals': permute_signals,
+                        'new_signalname': 'state'}]]
 
     elif loader in ["env100","env100n"]:
         normalize = int(loader == "env100n")
@@ -121,7 +131,7 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
         log.info("n-fold fitting...")
         xfspec.append(['nems.xforms.split_for_jackknife',
                        {'njacks': 10, 'epoch_name': 'REFERENCE'}])
-        xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
+#        xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
         xfspec.append(['nems.xforms.fit_nfold', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
