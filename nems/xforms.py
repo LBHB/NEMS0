@@ -144,7 +144,7 @@ def load_recordings(recording_uri_list, normalize=False, **context):
     '''
     rec = load_recording(recording_uri_list[0])
     other_recordings = [load_recording(uri) for uri in recording_uri_list[1:]]
-    if normalize and other_recordings:
+    if other_recordings:
         rec.concatenate_recordings(other_recordings)
 
     if normalize and 'stim' in rec.signals.keys():

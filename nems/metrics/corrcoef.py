@@ -116,7 +116,7 @@ def _r_single(X, N=100):
     if N == 1:
         # only two repeats, break up data in time to get a better
         # estimate of single-trial correlations
-        raise ValueError("2 repeats condition not supported yet.")
+        # raise ValueError("2 repeats condition not supported yet.")
         # N=10;
         # bstep=size(pred,1)./N;
         # rac=zeros(N,1);
@@ -126,7 +126,8 @@ def _r_single(X, N=100):
         #         rac(nn)=xcov(resp(tt,1),resp(tt,2),0,'coeff');
         #     end
         # end
-
+        print('r_ceiling invalid')
+        return 0.05
     else:
 
         rac = np.zeros(N)

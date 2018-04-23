@@ -295,10 +295,10 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     resp = newrec['resp']
 
     # DEPRECATED, NOW THAT NORMALIZATION IS IMPLEMENTED
-    # if 'pupil' in state_signals:
-    #    # normalize by 100
-    #    newrec["pupil"] = newrec["pupil"]._modified_copy(
-    #            newrec["pupil"].as_continuous() / 100)
+    if 'pupil' in state_signals:
+        # normalize by 100
+        newrec["pupil"] = newrec["pupil"]._modified_copy(
+                   newrec["pupil"].as_continuous() / 100)
 
     # generate stask tate signals
     fpre = (resp.epochs['name'] == "PRE_PASSIVE")
@@ -337,7 +337,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     state.name = new_signalname
 
     # scale all signals to range from 0 - 1
-    state = state.normalize(normalization='minmax')
+    # state = state.normalize(normalization='minmax')
 
     newrec.add_signal(state)
 
