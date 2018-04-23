@@ -50,7 +50,7 @@ def get_modelspec_longname(modelspec):
     meta = get_modelspec_metadata(modelspec)
     recording_name = meta.get('recording', 'unknown_recording')
     keyword_string = get_modelspec_shortname(modelspec)
-    fitter_name = meta.get('fitter', 'unknown_fitter')
+    fitter_name = meta.get('fitkey', meta.get('fitter', 'unknown_fitter'))
     date = nems.utils.iso8601_datestring()
     guess = '.'.join([recording_name, keyword_string, fitter_name, date])
     return guess

@@ -70,45 +70,45 @@ def generate_loader_xfspec(loader, recording_uri):
     return xfspec
 
 
-def generate_fitter_xfspec(fitter, fitter_kwargs=None):
+def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
 
     xfspec = []
 
     # parse the fit spec: Use gradient descent on whole data set(Fast)
-    if fitter in ["fit01", "basic"]:
+    if fitkey in ["fit01", "basic"]:
         # prefit strf
         xfspec.append(['nems.xforms.fit_basic_init', {}])
         xfspec.append(['nems.xforms.fit_basic', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
-    elif fitter in ["fit01a", "basicqk"]:
+    elif fitkey in ["fit01a", "basicqk"]:
         # prefit strf
         xfspec.append(['nems.xforms.fit_basic_init', {}])
         xfspec.append(['nems.xforms.fit_basic',
                        {'max_iter': 1000, 'tolerance': 1e-5}])
         xfspec.append(['nems.xforms.predict',    {}])
 
-    elif fitter in ["fit01b", "basic-shr"]:
+    elif fitkey in ["fit01b", "basic-shr"]:
         # prefit strf
         xfspec.append(['nems.xforms.fit_basic_init', {}])
         xfspec.append(['nems.xforms.fit_basic',
                        {'shrinkage': 1, 'tolerance': 1e-8}])
         xfspec.append(['nems.xforms.predict', {}])
 
-    elif fitter in ["fit01b", "basic-cd"]:
+    elif fitkey in ["fit01b", "basic-cd"]:
         # prefit strf
         xfspec.append(['nems.xforms.fit_basic_init', {}])
         xfspec.append(['nems.xforms.fit_basic_cd', {'shrinkage': 0}])
         xfspec.append(['nems.xforms.predict', {}])
 
-    elif fitter in ["fit01b", "basic-cd-shr"]:
+    elif fitkey in ["fit01b", "basic-cd-shr"]:
         # prefit strf
         xfspec.append(['nems.xforms.fit_basic_init', {}])
         xfspec.append(['nems.xforms.fit_basic_cd',
                        {'shrinkage': 1, 'tolerance': 1e-8}])
         xfspec.append(['nems.xforms.predict', {}])
 
-    elif fitter == "fitjk01":
+    elif fitkey == "fitjk01":
 
         log.info("n-fold fitting...")
         xfspec.append(['nems.xforms.split_for_jackknife',
@@ -116,7 +116,7 @@ def generate_fitter_xfspec(fitter, fitter_kwargs=None):
         xfspec.append(['nems.xforms.fit_nfold', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
-    elif (fitter == "fitpjk01") or (fitter == "basic-nf"):
+    elif (fitkey == "fitpjk01") or (fitkey == "basic-nf"):
 
         log.info("n-fold fitting...")
         xfspec.append(['nems.xforms.split_for_jackknife',
@@ -125,7 +125,7 @@ def generate_fitter_xfspec(fitter, fitter_kwargs=None):
         xfspec.append(['nems.xforms.fit_nfold', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
-    elif fitter == "basic-nf-shr":
+    elif fitkey == "basic-nf-shr":
 
         log.info("n-fold fitting...")
         xfspec.append(['nems.xforms.split_for_jackknife',
@@ -134,7 +134,7 @@ def generate_fitter_xfspec(fitter, fitter_kwargs=None):
         xfspec.append(['nems.xforms.fit_nfold_shrinkage', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
-    elif fitter == "cd-nf-shr":
+    elif fitkey == "cd-nf-shr":
 
         log.info("n-fold fitting...")
         xfspec.append(['nems.xforms.split_for_jackknife',
@@ -143,7 +143,7 @@ def generate_fitter_xfspec(fitter, fitter_kwargs=None):
         xfspec.append(['nems.xforms.fit_cd_nfold_shrinkage', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
-    elif fitter == "iter-cd-nf-shr":
+    elif fitkey == "iter-cd-nf-shr":
 
         log.info("Iterative cd, n-fold, shrinkage fitting...")
         xfspec.append(['nems.xforms.split_for_jackknife',
@@ -152,18 +152,18 @@ def generate_fitter_xfspec(fitter, fitter_kwargs=None):
         xfspec.append(['nems.xforms.fit_iter_cd_nfold_shrink', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
-    elif fitter == "fit02":
+    elif fitkey == "fit02":
         # no pre-fit
         log.info("Performing full fit...")
         xfspec.append(['nems.xforms.fit_basic', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
-    elif fitter == "fitsubs":
+    elif fitkey == "fitsubs":
         '''fit_subsets with scipy_minimize'''
         kw_list = ['module_sets', 'tolerance', 'fitter']
         defaults = [None, 1e-4, coordinate_descent]
         module_sets, tolerance, my_fitter = \
-            _get_my_kwargs(fitter_kwargs, kw_list, defaults)
+            _get_my_kwargs(fitkey_kwargs, kw_list, defaults)
         xfspec.append([
                 'nems.xforms.fit_module_sets',
                 {'module_sets': module_sets, 'fitter': scipy_minimize,
@@ -171,16 +171,16 @@ def generate_fitter_xfspec(fitter, fitter_kwargs=None):
                 ])
         xfspec.append(['nems.xforms.predict', {}])
 
-    elif fitter.startswith("fitsubs"):
-        xfspec.append(_parse_fitsubs(fitter))
+    elif fitkey.startswith("fitsubs"):
+        xfspec.append(_parse_fitsubs(fitkey))
         xfspec.append(['nems.xforms.predict', {}])
 
-    elif fitter == "fititer":
+    elif fitkey == "fititer":
         kw_list = ['module_sets', 'tolerances', 'tol_iter', 'fit_iter',
                    'fitter']
         defaults = [None, None, 100, 20, coordinate_descent]
         module_sets, tolerances, tol_iter, fit_iter, my_fitter = \
-            _get_my_kwargs(fitter_kwargs, kw_list, defaults)
+            _get_my_kwargs(fitkey_kwargs, kw_list, defaults)
         xfspec.append([
                 'nems.xforms.fit_iteratively',
                 {'module_sets': module_sets, 'fitter': my_fitter,
@@ -189,12 +189,12 @@ def generate_fitter_xfspec(fitter, fitter_kwargs=None):
                 ])
         xfspec.append(['nems.xforms.predict', {}])
 
-    elif fitter.startswith("fititer"):
-        xfspec.append(_parse_fititer(fitter))
+    elif fitkey.startswith("fititer"):
+        xfspec.append(_parse_fititer(fitkey))
         xfspec.append(['nems.xforms.predict', {}])
 
     else:
-        raise ValueError('unknown fitter string ' + fitter)
+        raise ValueError('unknown fitter string ' + fitkey)
 
     return xfspec
 
@@ -348,9 +348,9 @@ def fit_model_xforms(recording_uri, modelname, fitter_kwargs=None,
     kws = modelname.split("_")
     loader = kws[0]
     modelspecname = "_".join(kws[1:-1])
-    fitter = kws[-1]
+    fitkey = kws[-1]
 
-    meta = {'modelname': modelname, 'loader': loader, 'fitter': fitter,
+    meta = {'modelname': modelname, 'loader': loader, 'fitkey': fitkey,
             'modelspecname': modelspecname}
 
     # TODO: These should be added to meta by nems_db after ctx is returned.
@@ -369,7 +369,7 @@ def fit_model_xforms(recording_uri, modelname, fitter_kwargs=None,
                    {'keywordstring': modelspecname, 'meta': meta}])
 
     # 3) fit the data
-    xfspec += generate_fitter_xfspec(fitter, fitter_kwargs)
+    xfspec += generate_fitter_xfspec(fitkey, fitkey_kwargs)
 
     # 4) add some performance statistics
     xfspec.append(['nems.analysis.api.standard_correlation', {},
