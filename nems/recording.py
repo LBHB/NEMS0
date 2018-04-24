@@ -127,48 +127,10 @@ class Recording:
     def load_targz(targz):
         if os.path.exists(targz):
             with open(targz, 'rb') as stream:
-                return Recording.load_from_targz_stream(stream)
+                return load_recording_from_targz_stream(stream)
         else:
             m = 'Not a .tar.gz file: {}'.format(targz)
             raise ValueError(m)
-
-    @staticmethod
-    def load_from_targz_stream(tgz_stream):
-        '''
-        Loads the recording object from the given .tar.gz stream, which
-        is expected to be a io.BytesIO object.
-        '''
-        streams = {}  # For holding file streams as we unpack
-        with tarfile.open(fileobj=tgz_stream, mode='r:gz') as t:
-            for member in t.getmembers():
-                if member.size == 0:  # Skip empty files
-                    continue
-                basename = os.path.basename(member.name)
-                # Now put it in a subdict so we can find it again
-                signame = str(basename.split('.')[0:2])
-                if basename.endswith('epoch.csv'):
-                    keyname = 'epoch_stream'
-                elif basename.endswith('.csv'):
-                    keyname = 'data_stream'
-                elif basename.endswith('.h5'):
-                    keyname = 'data_stream'
-                elif basename.endswith('.json'):
-                    keyname = 'json_stream'
-                else:
-                    m = 'Unexpected file found in tar.gz: {} (size={})'.format(member.name, member.size)
-                    raise ValueError(m)
-                # Ensure that we can doubly nest the streams dict
-                if signame not in streams:
-                    streams[signame] = {}
-                # Read out a stringIO object for each file now while it's open
-                f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
-                streams[signame][keyname] = f
-
-        # Now that the streams are organized, convert them into signals
-        # log.debug({k: streams[k].keys() for k in streams})
-        signals = [load_signal_from_streams(**sg) for sg in streams.values()]
-        signals_dict = {s.name: s for s in signals}
-        return Recording(signals=signals_dict)
 
     @staticmethod
     def load_url(url):
@@ -183,12 +145,12 @@ class Recording:
                  r.headers['content-type'] == 'application/x-compressed' or
                  r.headers['content-type'] == 'application/x-tar' or
                  r.headers['content-type'] == 'application/x-tgz')):
-            log.info('got response: {}, {}'.format(r.headers, r.status_code))
+            log.info('got response: %s, %d', r.headers, r.status_code)
             m = 'Error loading URL: {}'.format(url)
             log.error(m)
             raise Exception(m)
         obj = io.BytesIO(r.raw.read()) # Not sure why I need this!
-        return Recording.load_from_targz_stream(obj)
+        return load_recording_from_targz_stream(obj)
 
     @staticmethod
     def load_from_arrays(arrays, rec_name, fs, sig_names=None,
@@ -646,6 +608,7 @@ class Recording:
 
         return Recording(newsigs)
 
+
     def nan_times(self, times, padding=0):
 
         if padding != 0:
@@ -789,14 +752,16 @@ def load_recording_from_url(url):
              r.headers['content-type'] == 'text/plain' or
              r.headers['content-type'] == 'application/x-gzip' or
              r.headers['content-type'] == 'application/x-compressed' or
+             r.headers['content-type'] == 'application/x-compressed-tar' or
              r.headers['content-type'] == 'application/x-tar' or
              r.headers['content-type'] == 'application/x-tgz')):
         log.info('got response: {}, {}'.format(r.headers, r.status_code))
+        log.info('status_code: %d, content-type: %s', r.status_code, r.headers['content-type'])
         m = 'Error loading URL: {}'.format(url)
         log.error(m)
         raise Exception(m)
     obj = io.BytesIO(r.raw.read()) # Not sure why I need this!
-    return Recording.load_from_targz_stream(obj)
+    return load_recording_from_targz_stream(obj)
 
 def load_recording_from_arrays(arrays, rec_name, fs, sig_names=None,
                      signal_kwargs={}):
@@ -918,4 +883,3 @@ def jackknife_inverse_merge(rec_list):
         #new_sigs[sn]=sig_list[0].jackknife_inverse_merge(sig_list)
         new_sigs[sn]=merge_selections(sig_list)
     return Recording(signals=new_sigs)
-
