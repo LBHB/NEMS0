@@ -333,10 +333,12 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
 
     # DEPRECATED, NOW THAT NORMALIZATION IS IMPLEMENTED
     if ('pupil' in state_signals) or ('pupil_ev' in state_signals) or \
-        ('pupil_bs' in state_signals):
-        # normalize by 100
-        newrec["pupil"] = newrec["pupil"]._modified_copy(
-                   newrec["pupil"].as_continuous() / 100)
+       ('pupil_bs' in state_signals):
+        # normalize min-max
+        p = newrec["pupil"].as_continuous()
+        p -= np.nanmean(p)
+        p /= np.nanstd(p)
+        newrec["pupil"] = newrec["pupil"]._modified_copy(p)
 
     if ('pupil_ev' in state_signals) or ('pupil_bs' in state_signals):
         # generate separate pupil baseline and evoked signals
