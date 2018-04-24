@@ -384,7 +384,6 @@ defkey('stategain3',
                   'd': ('Normal', {'mean': [0,0,0], 'sd': [1,1,1]})}
         })
 
-
 defkey('stategain4',
        {'fn': 'nems.modules.state.state_dc_gain',
         'fn_kwargs': {'i': 'pred',
@@ -396,6 +395,16 @@ defkey('stategain4',
                                    'sd': np.ones(4)})}
             })
 
+defkey('stategain5',
+       {'fn': 'nems.modules.state.state_dc_gain',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      's': 'state'},
+        'prior': {'g': ('Normal', {'mean': _one_zz(4),
+                                   'sd': np.ones(5)}),
+                  'd': ('Normal', {'mean': np.zeros(5),
+                                   'sd': np.ones(5)})}
+            })
 
 defkey('stategain28',
        {'fn': 'nems.modules.state.state_dc_gain',

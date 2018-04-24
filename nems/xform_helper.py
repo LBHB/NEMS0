@@ -59,6 +59,14 @@ def generate_loader_xfspec(loader, recording_uri):
         elif loader.endswith("prebeh"):
             state_signals = ['pre_passive', 'active']
             permute_signals = []
+        elif loader.endswith("predif0beh"):
+            state_signals = ['pre_passive', 'puretone_trials',
+                             'hard_trials', 'active']
+            permute_signals = ['puretone_trials', 'hard_trials']
+        elif loader.endswith("predifbeh"):
+            state_signals = ['pre_passive', 'puretone_trials',
+                             'hard_trials', 'active']
+            permute_signals = []
         elif loader.endswith("pbs0pev0beh0"):
             state_signals = ['pupil_bs', 'pupil_ev', 'active']
             permute_signals = ['pupil_bs', 'pupil_ev', 'active']

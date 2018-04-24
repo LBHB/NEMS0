@@ -373,8 +373,11 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     newrec['miss_trials'] = resp.epoch_to_signal('MISS_TRIAL')
     newrec['fa_trials'] = resp.epoch_to_signal('FA_TRIAL')
     newrec['puretone_trials'] = resp.epoch_to_signal('PURETONE_BEHAVIOR')
+    newrec['puretone_trials'].chans = ['puretone_trials']
     newrec['easy_trials'] = resp.epoch_to_signal('EASY_BEHAVIOR')
+    newrec['easy_trials'].chans = ['easy_trials']
     newrec['hard_trials'] = resp.epoch_to_signal('HARD_BEHAVIOR')
+    newrec['hard_trials'].chans = ['hard_trials']
     newrec['active'] = resp.epoch_to_signal('ACTIVE_EXPERIMENT')
     newrec['active'].chans = ['active']
     state_sig_list = [ones_sig]
@@ -385,9 +388,11 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
             # TODO support for signals_permute
             # raise ValueError("permute_signals not yet supported")
             state_sig_list += [newrec[x].shuffle_time()]
-            # print(state_sig_list[-1].shape)
         else:
             state_sig_list += [newrec[x]]
+        # print(x)
+        # print(state_sig_list[-1])
+        # print(state_sig_list[-1].shape)
 
     state = signal.RasterizedSignal.concatenate_channels(state_sig_list)
     state.name = new_signalname
