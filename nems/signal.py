@@ -610,7 +610,7 @@ class SignalBase:
         '''
         # TODO: Update this to work with a mapping of key -> Nx2 epoch
         # structure as well.
-        return {name: self.extract_epoch(name) for name in epoch_names}
+        return {name: self.extract_epoch(name, allow_empty=True) for name in epoch_names}
 
     def epoch_to_signal(self, epoch, boundary_mode='trim', fix_overlap='merge'):
         '''
@@ -886,7 +886,7 @@ class RasterizedSignal(SignalBase):
         return RasterizedSignal(data=data, safety_checks=False, **attributes)
 
     def extract_epoch(self, epoch, boundary_mode='exclude',
-                                               fix_overlap='first'):
+                      fix_overlap='first', allow_empty=False):
         '''
         Extracts all occurances of epoch from the signal.
 
@@ -897,6 +897,9 @@ class RasterizedSignal(SignalBase):
             extract. If Nx2 array, the first column indicates the start time
             (in seconds) and the second column indicates the end time
             (in seconds) to extract.
+
+            allow_empty: if true, returns empty matrix if no valid epoch
+            matches. otherwise, throw error when this happens
 
         Returns
         -------
@@ -915,9 +918,11 @@ class RasterizedSignal(SignalBase):
                                                fix_overlap=fix_overlap)
 
         if epoch_indices.size == 0:
-            raise IndexError("No matching epochs to extract for: {0}\n"
-                             "In signal: {1}"
-                             .format(epoch, self.name))
+            if allow_empty:
+                return []
+            else:
+                raise IndexError("No matching epochs to extract for: %s\n"
+                                 "In signal: %s", epoch, self.name)
         n_samples = np.max(epoch_indices[:, 1]-epoch_indices[:, 0])
         n_epochs = len(epoch_indices)
 
