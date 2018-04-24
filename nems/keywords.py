@@ -4,6 +4,11 @@ import numpy as np
 defaults = {}
 
 
+def _one_zz(zerocount=1):
+    """ vector of 1 followed by zerocount 0s """
+    return np.concatenate((np.ones(1), np.zeros(zerocount)))
+
+
 def defkey(keyword, modulespec):
     '''
     Adds modulespec to the defaults keyword dictionary.
@@ -380,13 +385,27 @@ defkey('stategain3',
         })
 
 
+defkey('stategain4',
+       {'fn': 'nems.modules.state.state_dc_gain',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      's': 'state'},
+        'prior': {'g': ('Normal', {'mean': _one_zz(3),
+                                   'sd': np.ones(4)}),
+                  'd': ('Normal', {'mean': np.zeros(4),
+                                   'sd': np.ones(4)})}
+            })
+
+
 defkey('stategain28',
        {'fn': 'nems.modules.state.state_dc_gain',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
                       's': 'state'},
-        'prior': {'g': ('Normal', {'mean': np.concatenate((np.ones(1),np.zeros(27))), 'sd': np.ones(28)}),
-                  'd': ('Normal', {'mean': np.zeros(28), 'sd': np.ones(28)})}
+        'prior': {'g': ('Normal', {'mean': _one_zz(27),
+                                   'sd': np.ones(28)}),
+                  'd': ('Normal', {'mean': np.zeros(28),
+                                   'sd': np.ones(28)})}
         })
 
 

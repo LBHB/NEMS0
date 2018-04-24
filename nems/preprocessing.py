@@ -332,10 +332,29 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     ones_sig.chans = ["baseline"]
 
     # DEPRECATED, NOW THAT NORMALIZATION IS IMPLEMENTED
-    if 'pupil' in state_signals:
+    if ('pupil' in state_signals) or ('pupil_ev' in state_signals) or \
+        ('pupil_bs' in state_signals):
         # normalize by 100
         newrec["pupil"] = newrec["pupil"]._modified_copy(
                    newrec["pupil"].as_continuous() / 100)
+
+    if ('pupil_ev' in state_signals) or ('pupil_bs' in state_signals):
+        # generate separate pupil baseline and evoked signals
+
+        prestimsilence = newrec["pupil"].extract_epoch('PreStimSilence')
+        spont_bins = prestimsilence.shape[2]
+        pupil_trial = newrec["pupil"].extract_epoch('TRIAL')
+
+        pupil_bs = np.zeros(pupil_trial.shape)
+        for ii in range(pupil_trial.shape[0]):
+            pupil_bs[ii, :, :] = np.mean(
+                    pupil_trial[ii, :, :spont_bins])
+        pupil_ev = pupil_trial - pupil_bs
+
+        newrec['pupil_ev'] = newrec["pupil"].replace_epoch(
+                'TRIAL', pupil_ev)
+        newrec['pupil_bs'] = newrec["pupil"].replace_epoch(
+                'TRIAL', pupil_bs)
 
     # generate stask tate signals
     fpre = (resp.epochs['name'] == "PRE_PASSIVE")

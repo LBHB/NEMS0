@@ -1235,16 +1235,27 @@ class RasterizedSignal(SignalBase):
         Returns a new signal, created by replacing every occurrence of
         epoch with epoch_data, assumed to be a 2D matrix of data
         (chans x time).
+
+        Or if epoch_data is occurence X chans X time, replace each epoch with
+        the corresponding occurence in epcoh_data
         '''
-        data = self.as_continuous()
+        data = self.as_continuous().copy()
         if preserve_nan:
             nan_bins = np.isnan(data[0, :])
         indices = self.get_epoch_indices(epoch)
         if indices.size == 0:
             raise RuntimeWarning("No occurrences of epoch were found: \n{}\n"
                                  "Nothing to replace.".format(epoch))
-        for lb, ub in indices:
-            data[:, lb:ub] = epoch_data
+        if epoch_data.ndim == 2:
+            for lb, ub in indices:
+                data[:, lb:ub] = epoch_data
+        else:
+            ii = 0
+            for lb, ub in indices:
+                n = ub-lb
+                data[:, lb:ub] = epoch_data[ii, :, :n]
+                ii += 1
+
         if preserve_nan:
             data[:, nan_bins] = np.nan
 
