@@ -579,16 +579,33 @@ def fit_nfold_shrinkage(modelspecs, est, IsReload=False, **context):
     return {'modelspecs': modelspecs}
 
 
-def fit_cd_nfold_shrinkage(modelspecs, est, IsReload=False, **context):
+def fit_cd_nfold(modelspecs, est, tolerance=1e-8, max_iter=1000,
+                 IsReload=False, **context):
     ''' fitting n fold, one from each entry in est, use mse_shrink for
     cost function'''
     if not IsReload:
-        metric = lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
+        fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter,
+                      'step_size': 0.05}
         modelspecs = nems.analysis.api.fit_nfold(
-                est, modelspecs, metric=metric,
+                est, modelspecs,
+                fit_kwargs=fit_kwargs,
                 fitter=coordinate_descent)
     return {'modelspecs': modelspecs}
 
+
+def fit_cd_nfold_shrinkage(modelspecs, est, tolerance=1e-8,
+                           max_iter=1000, IsReload=False, **context):
+    ''' fitting n fold, one from each entry in est, use mse_shrink for
+    cost function'''
+    if not IsReload:
+        fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter,
+                      'step_size': 0.05}
+        metric = lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
+        modelspecs = nems.analysis.api.fit_nfold(
+                est, modelspecs, metric=metric,
+                fit_kwargs=fit_kwargs,
+                fitter=coordinate_descent)
+    return {'modelspecs': modelspecs}
 
 
 def save_recordings(modelspecs, est, val, **context):
