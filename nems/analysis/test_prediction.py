@@ -50,7 +50,7 @@ def standard_correlation(est, val, modelspecs, rec=None):
     return modelspecs
 
 
-def generate_prediction_sets(est,val,modelspecs):
+def generate_prediction_sets(est, val, modelspecs):
     if type(val) is list:
         # ie, if jackknifing
         new_est = [ms.evaluate(d, m) for m,d in zip(modelspecs,est)]
@@ -60,7 +60,8 @@ def generate_prediction_sets(est,val,modelspecs):
 
     return new_est, new_val
 
-def standard_correlation_by_set(est,val,modelspecs):
+
+def standard_correlation_by_set(est, val, modelspecs):
 
     # Compute scores for validation data
     r_test = [nmet.corrcoef(p, 'pred', 'resp') for p in val]
@@ -71,8 +72,6 @@ def standard_correlation_by_set(est,val,modelspecs):
     r_fit = [nmet.corrcoef(p, 'pred', 'resp') for p in est]
     mse_fit = [nmet.nmse(p, 'pred', 'resp') for p in est]
     ll_fit = [nmet.likelihood_poisson(p, 'pred', 'resp') for p in est]
-
-
     for i in range(len(modelspecs)):
         modelspecs[i][0]['meta']['r_test'] = r_test[i]
         modelspecs[i][0]['meta']['mse_test'] = mse_test[i]

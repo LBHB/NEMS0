@@ -6,6 +6,7 @@ import re
 import math
 import copy
 import tempfile
+import warnings
 
 import pandas as pd
 import numpy as np
@@ -16,58 +17,6 @@ from nems.epoch import (remove_overlap, merge_epoch, epoch_contained,
 
 log = logging.getLogger(__name__)
 
-""" Proposed modifications for non-raster signals:
-
-    1. create base class with subclasses:
-            SignalRasterized --DONE? Not much needs to change
-            SignalTimeSeries (for spike events) --DONE
-            SignalDictionary (for stimulus events) --DONE
-    2. for latter two, raw data gets stored in a ._data field --DONE
-    3. for saving, save _data to an HDF5 file (using pytables lib?) --DONE
-    4. for SignalTimeSeries use spike_time_to_raster to generate _data first
-       time it's needed. then save --DONE
-    5. for SignalDictionary use dict_to_signal for the same purpose --DONE
-    6. delete_cached_data() method to clear/delete _data
-                    --Maybe done? But hard to test. Python memory is weird.
-
------------
-    @SVD I didn't get to the subset stuff yet, but it's stubbed out at
-         the very bottom of the file
-
-         The other two new subclasses and the new base class have been created
-         and are functional with save/load  and caching their _data  etc,
-         but can't do much else yet. However, I think once we decide which
-         methods should be useable by all signals (i.e. move those methods
-         to the base class) the new subclass *should* "just work" for
-         the most part.
-
-         I was not able to start on the concatenate_time
-         method for SignalTimeSeries which is needed for baphy_load_recording.
-
-         Just for your reference: the saved hdf5 files for stim and resp
-         were a total of about 9mb combined for me, including epochs stored
-         in each. Not sure how that compares to the csv setup. Re-creating
-         the cached_data also only took about a second, so not bad if
-         the memory savings end up being susbtantial.
-
-                --jacob 3/25/2018
-
------------
-
-    7. next steps: SignalSubset subclass to which is a masked/subset of a
-        SignalRasterized where epochs are discarded but enough information
-        is saved from the masking so that the signal can be cast back into
-        its original shape & size
-        example sig_sub=original_signal.subset(np.array([0,1,2,3..,10,21,...30]))
-          or ..= signal.subset([True,True,...True,False,False...True...])
-          or ..= signal.subset([range variables])
-          sig_sub contains only the indexed samples and the masking information
-            so that it can be inverted back to the original signal
-        original_signal.replace_data(sig_sub)
-            --- note this should only replace the samples from sig_sub and
-            preserve other samples already in original_signal
-    8. Then RecordingSubset is a contained for SignalSubset?
-"""
 
 ################################################################################
 # Utility methods
@@ -546,7 +495,7 @@ class SignalBase:
             elif repochs.size == 0:
                 portion = 'second'
             if portion:
-                raise RuntimeWarning("Epochs for {0} portion of signal: {1}"
+                warnings.warn("Epochs for {0} portion of signal: {1}"
                                      "ended up empty after splitting by time."
                                      .format(portion, self.name))
 
@@ -731,7 +680,7 @@ class RasterizedSignal(SignalBase):
         if safety_checks and self.ntimes < self.nchans:
             m = 'Incorrect matrix dimensions?: (C, T) is {}. ' \
                 'We expect a long time series, but T < C'
-            raise RuntimeWarning(m.format((C, T)))
+            warnings.warn(m.format((C, T)))
 
         if safety_checks:
             self._run_safety_checks()
@@ -848,6 +797,7 @@ class RasterizedSignal(SignalBase):
                    fs=js['fs'],
                    meta=js['meta'],
                    data=mat)
+        s.segments = js.get('segments', s.segments)
         return s
 
     @staticmethod
@@ -1249,7 +1199,7 @@ class RasterizedSignal(SignalBase):
             nan_bins = np.isnan(data[0, :])
         indices = self.get_epoch_indices(epoch)
         if indices.size == 0:
-            raise RuntimeWarning("No occurrences of epoch were found: \n{}\n"
+            warnings.warn("No occurrences of epoch were found: \n{}\n"
                                  "Nothing to replace.".format(epoch))
         if epoch_data.ndim == 2:
             for lb, ub in indices:
@@ -1316,7 +1266,7 @@ class RasterizedSignal(SignalBase):
         for (lb, ub) in self.get_epoch_indices(epoch, trim=True):
             new_data[:, lb:ub] = self._data[:, lb:ub]
         if np.all(np.isnan(new_data)):
-            raise RuntimeWarning("No matched occurrences for epoch: \n{}\n"
+            warnings.warn("No matched occurrences for epoch: \n{}\n"
                                  "Returned signal will be only NaN."
                                  .format(epoch))
         return self._modified_copy(new_data)
@@ -1334,7 +1284,7 @@ class RasterizedSignal(SignalBase):
             for (lb, ub) in self.get_epoch_indices(epoch_name):
                 new_data[:, lb:ub] = self._data[:, lb:ub]
         if np.all(np.isnan(new_data)):
-            raise RuntimeWarning("No matched occurrences for epochs: \n{}\n"
+            warnings.warn("No matched occurrences for epochs: \n{}\n"
                                  "Returned signal will be only NaN."
                                  .format(list_of_epoch_names))
         return self._modified_copy(new_data)
@@ -1990,6 +1940,9 @@ def load_signal(basepath):
                     fs=js['fs'],
                     meta=js['meta'],
                     data=mat)
+        # NOTE: Moved this outside of call to initializer because
+        #       some saved signals don't have segments in their json sidecar.
+        s.segments = js.get('segments', s.segments)
 
     elif 'PointProcess' in signal_type:
         with h5py.File(h5filepath, 'r') as f:
@@ -2050,12 +2003,18 @@ def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
                     fs=js['fs'],
                     meta=js['meta'],
                     data=mat)
+        s.segments = js.get('segments', s.segments)
 
     elif 'PointProcess' in signal_type:
         with h5py.File(data_stream, 'r') as f:
             data = {}
             for key, dataset in f.items():
                 data[key] = np.array(dataset[:])
+
+        if not data:
+            warnings.warn("Tried to load data stream {0} but data object"
+                             "ended up empty. Potential bug upstream?"
+                             .format(data_stream))
 
         s = PointProcess(name=js['name'],
                     chans=js.get('chans', None),
@@ -2084,24 +2043,6 @@ def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
 
     return s
 
-    # TODO add logic for different signal subclasses, identified by metadata
-    # in the JSON file
-    # ONLY if data_stream is csv then do this:
-
-    # Read the CSV
-    mat = pd.read_csv(data_stream, header=None).values
-    mat = mat.astype('float')
-    mat = np.swapaxes(mat, 0, 1)
-    # mat = np.genfromtxt(csv_stream, delimiter=',')
-    # Now build the signal
-    s = RasterizedSignal(name=js['name'],
-               chans=js.get('chans', None),
-               epochs=epochs,
-               recording=js['recording'],
-               fs=js['fs'],
-               meta=js['meta'],
-               data=mat)
-    return s
 
 def load_rasterized_signal(basepath):
     csvfilepath = basepath + '.csv'
@@ -2124,6 +2065,7 @@ def load_rasterized_signal(basepath):
                     fs=js['fs'],
                     meta=js['meta'],
                     data=mat)
+        s.segments = js.get('segments', s.segments)
         return s
 
 
@@ -2276,7 +2218,7 @@ def _split_epochs(epochs,split_time):
     elif repochs.size == 0:
         portion = 'second'
     if portion:
-        raise RuntimeWarning("Epochs for {0} portion of signal"
+        warnings.warn("Epochs for {0} portion of signal"
                              "ended up empty after splitting by time."
                              .format(portion))
 
