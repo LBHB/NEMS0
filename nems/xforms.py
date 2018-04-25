@@ -579,7 +579,7 @@ def fit_nfold_shrinkage(modelspecs, est, IsReload=False, **context):
     return {'modelspecs': modelspecs}
 
 
-def fit_cd_nfold(modelspecs, est, tolerance=1e-8, max_iter=1000,
+def fit_cd_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
                  IsReload=False, **context):
     ''' fitting n fold, one from each entry in est, use mse_shrink for
     cost function'''
@@ -593,7 +593,7 @@ def fit_cd_nfold(modelspecs, est, tolerance=1e-8, max_iter=1000,
     return {'modelspecs': modelspecs}
 
 
-def fit_cd_nfold_shrinkage(modelspecs, est, tolerance=1e-8,
+def fit_cd_nfold_shrinkage(modelspecs, est, tolerance=1e-7,
                            max_iter=1000, IsReload=False, **context):
     ''' fitting n fold, one from each entry in est, use mse_shrink for
     cost function'''

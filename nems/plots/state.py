@@ -96,17 +96,21 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', state_sig='pupil',
         low = np.ones(folded_psth[0, :, :].shape).T * np.nan
 
     # high = response on epochs when state less than mean
+    title = state_sig
     high = np.nanmean(folded_psth[m >= mean, :, :], axis=0).T
     hv = np.nanmean(m[m >= mean])
-    lv = np.nanmean(m[m < mean])
-    if (hv > 0.95) and (hv < 1.05) and (lv > -0.05) and (lv < 0.05):
-        legend = ('Lo', 'Hi')
-    else:
-        legend = ('< Mean', '>= Mean')
-    title = state_sig
+    if np.sum(m < mean) > 0:
+        lv = np.nanmean(m[m < mean])
+        if (hv > 0.95) and (hv < 1.05) and (lv > -0.05) and (lv < 0.05):
+            legend = ('Lo', 'Hi')
+        else:
+            legend = ('< Mean', '>= Mean')
 
-    timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
-                            legend=legend)
+        timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
+                                legend=legend)
+    else:
+        timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax)
+
     if state_sig == 'baseline':
         ax.set_xlabel(epoch)
 
