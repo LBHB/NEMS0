@@ -255,7 +255,9 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
             # replace each epoch (pre, during, post) with average
             v[:, :, :prebins] = np.nanmean(v[:, :, :prebins],
                                            axis=2, keepdims=True)
-            v[:, :, prebins:-postbins] = np.nanmean(v[:, :, prebins:-postbins],
+            v[:, :, prebins:(prebins+3)] = np.nanmean(v[:, :, prebins:(prebins+3)],
+                                                    axis=2, keepdims=True)
+            v[:, :, (prebins+3):-postbins] = np.nanmean(v[:, :, (prebins+3):-postbins],
                                                     axis=2, keepdims=True)
             v[:, :, -postbins:] = np.nanmean(v[:, :, -postbins:],
                                              axis=2, keepdims=True)
