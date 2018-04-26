@@ -223,7 +223,7 @@ def nan_invalid_segments(rec):
     return newrec
 
 
-def generate_psth_from_resp(rec, epoch_regex='^STIM_'):
+def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     '''
     Estimates a PSTH from all responses to each regex match in a recording
 
@@ -239,22 +239,40 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_'):
     else:
         spont_rate = np.nanmean(prestimsilence)
 
+    idx = resp.get_epoch_indices('PreStimSilence')
+    prebins = idx[0][1] - idx[0][0]
+    idx = resp.get_epoch_indices('PostStimSilence')
+    postbins = idx[0][1] - idx[0][0]
+
     epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
     folded_matrices = resp.extract_epochs(epochs_to_extract)
 
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()
-    for k in folded_matrices.keys():
-        per_stim_psth[k] = np.nanmean(folded_matrices[k], axis=0) - \
-            spont_rate[:, np.newaxis]
+    for k, v in folded_matrices.items():
+        if smooth_resp:
+            # replace each epoch (pre, during, post) with average
+            v[:, :, :prebins] = np.nanmean(v[:, :, :prebins],
+                                           axis=2, keepdims=True)
+            v[:, :, prebins:-postbins] = np.nanmean(v[:, :, prebins:-postbins],
+                                                    axis=2, keepdims=True)
+            v[:, :, -postbins:] = np.nanmean(v[:, :, -postbins:],
+                                             axis=2, keepdims=True)
+
+        per_stim_psth[k] = np.nanmean(v, axis=0) - spont_rate[:, np.newaxis]
 
     # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
     #   replacing all epochs in the signal with their average (psth)
     respavg = resp.replace_epochs(per_stim_psth)
     respavg.name = 'psth'
 
-    # add signal to the est recording
+    # add signal to the recording
     rec.add_signal(respavg)
+
+    if smooth_resp:
+        log.info('Replacing resp with smoothed resp')
+        resp = resp.replace_epochs(folded_matrices)
+        rec.add_signal(resp)
 
     return rec
 

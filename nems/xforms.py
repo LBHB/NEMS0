@@ -214,12 +214,14 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
         return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
 
-def generate_psth_from_resp(rec, epoch_regex='^STIM_', **context):
+def generate_psth_from_resp(rec, epoch_regex='^STIM_',
+                            smooth_resp=False, **context):
     '''
     generate PSTH prediction for each set
     '''
 
-    rec = preproc.generate_psth_from_resp(rec, epoch_regex)
+    rec = preproc.generate_psth_from_resp(rec, epoch_regex,
+                                          smooth_resp=smooth_resp)
 
     return {'rec': rec}
 

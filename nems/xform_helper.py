@@ -88,7 +88,16 @@ def generate_loader_xfspec(loader, recording_uri):
         else:
             raise ValueError("invalid loader string")
 
-        if loader.startswith("psth"):
+        if loader.startswith("psths"):
+            xfspec = [['nems.xforms.load_recordings',
+                       {'recording_uri_list': recordings}],
+                      ['nems.xforms.generate_psth_from_resp',
+                       {'smooth_resp': True}],
+                      ['nems.xforms.make_state_signal',
+                       {'state_signals': state_signals,
+                        'permute_signals': permute_signals,
+                        'new_signalname': 'state'}]]
+        elif loader.startswith("psth"):
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
                       ['nems.xforms.generate_psth_from_resp', {}],

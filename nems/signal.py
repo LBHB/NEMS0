@@ -1203,7 +1203,7 @@ class RasterizedSignal(SignalBase):
         indices = self.get_epoch_indices(epoch)
         if indices.size == 0:
             warnings.warn("No occurrences of epoch were found: \n{}\n"
-                                 "Nothing to replace.".format(epoch))
+                          "Nothing to replace.".format(epoch))
         if epoch_data.ndim == 2:
             for lb, ub in indices:
                 data[:, lb:ub] = epoch_data
@@ -1234,27 +1234,35 @@ class RasterizedSignal(SignalBase):
         we do not recommend replacing overlapping epochs in a single
         operation because there is some ambiguity as to the result.
         '''
-        # TODO: Update this to work with a mapping of key -> Nx2 epoch
-        # structure as well.
+
         data = self.as_continuous().copy()
         if preserve_nan:
             nan_bins = np.isnan(data[0, :])
         for epoch, epoch_data in epoch_dict.items():
-            for lb, ub in self.get_epoch_indices(epoch):
+            indices = self.get_epoch_indices(epoch)
+            if epoch_data.ndim == 2:
+                for lb, ub in indices:
+                    # SVD kludge to deal with rounding from floating-point time
+                    # to integer bin index
+                    if ub-lb < epoch_data.shape[1]:
+                        # epoch data may be too long bc padded with nans,
+                        # truncate!
+                        epoch_data = epoch_data[:, 0:(ub-lb)]
+                        # ub += epoch_data.shape[1]-(ub-lb)
+                    elif ub-lb > epoch_data.shape[1]:
+                        ub -= (ub-lb)-epoch_data.shape[1]
+                    if ub > data.shape[1]:
+                        ub -= ub-data.shape[1]
+                        epoch_data = epoch_data[:, 0:(ub-lb)]
+                    data[:, lb:ub] = epoch_data
 
-                # SVD kludge to deal with rounding from floating-point time
-                # to integer bin index
-                if ub-lb < epoch_data.shape[1]:
-                    # epoch data may be too long bc padded with nans,
-                    # truncate!
-                    epoch_data = epoch_data[:, 0:(ub-lb)]
-                    # ub += epoch_data.shape[1]-(ub-lb)
-                elif ub-lb > epoch_data.shape[1]:
-                    ub -= (ub-lb)-epoch_data.shape[1]
-                if ub > data.shape[1]:
-                    ub -= ub-data.shape[1]
-                    epoch_data = epoch_data[:, 0:(ub-lb)]
-                data[:, lb:ub] = epoch_data
+            else:
+                ii = 0
+                for lb, ub in indices:
+                    n = ub-lb
+                    data[:, lb:ub] = epoch_data[ii, :, :n]
+                    ii += 1
+
 
         if preserve_nan:
             data[:, nan_bins] = np.nan
