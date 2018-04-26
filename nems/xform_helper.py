@@ -177,7 +177,7 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
 
         log.info("n-fold fitting...")
         xfspec.append(['nems.xforms.split_for_jackknife',
-                       {'njacks': 16, 'epoch_name': 'REFERENCE'}])
+                       {'njacks': 12, 'epoch_name': 'REFERENCE'}])
         # xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
         xfspec.append(['nems.xforms.fit_nfold', {}])
         xfspec.append(['nems.xforms.predict',    {}])
@@ -186,7 +186,7 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
 
         log.info("n-fold fitting...")
         xfspec.append(['nems.xforms.split_for_jackknife',
-                       {'njacks': 16, 'epoch_name': 'REFERENCE'}])
+                       {'njacks': 12, 'epoch_name': 'REFERENCE'}])
         # xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
         xfspec.append(['nems.xforms.fit_nfold_shrinkage', {}])
         xfspec.append(['nems.xforms.predict',    {}])
@@ -195,7 +195,7 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
 
         log.info("n-fold fitting...")
         xfspec.append(['nems.xforms.split_for_jackknife',
-                       {'njacks': 16, 'epoch_name': 'REFERENCE'}])
+                       {'njacks': 12, 'epoch_name': 'REFERENCE'}])
         # xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
         xfspec.append(['nems.xforms.fit_cd_nfold', {}])
         xfspec.append(['nems.xforms.predict',    {}])
@@ -204,7 +204,7 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
 
         log.info("n-fold fitting...")
         xfspec.append(['nems.xforms.split_for_jackknife',
-                       {'njacks': 16, 'epoch_name': 'REFERENCE'}])
+                       {'njacks': 12, 'epoch_name': 'REFERENCE'}])
         # xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
         xfspec.append(['nems.xforms.fit_cd_nfold_shrinkage', {}])
         xfspec.append(['nems.xforms.predict',    {}])
@@ -213,7 +213,7 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
 
         log.info("Iterative cd, n-fold, shrinkage fitting...")
         xfspec.append(['nems.xforms.split_for_jackknife',
-                       {'njacks': 10, 'epoch_name': 'REFERENCE'}])
+                       {'njacks': 12, 'epoch_name': 'REFERENCE'}])
         #xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
         xfspec.append(['nems.xforms.fit_iter_cd_nfold_shrink', {}])
         xfspec.append(['nems.xforms.predict',    {}])
