@@ -6,7 +6,8 @@ import nems.signal as signal
 import copy
 
 import logging
-logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
+
 
 def generate_average_sig(signal_to_average,
                          new_signalname='respavg', epoch_regex='^STIM_'):
