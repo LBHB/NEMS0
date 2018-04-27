@@ -213,7 +213,7 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
         xfspec.append(['nems.xforms.split_for_jackknife',
                        {'njacks': pfolds, 'epoch_name': 'REFERENCE'}])
         # xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
-        xfspec.append(['nems.xforms.fit_cd_nfold', {}])
+        xfspec.append(['nems.xforms.fit_cd_nfold', {'tolerance': 1e-6}])
         xfspec.append(['nems.xforms.predict',    {}])
 
     elif fitkey == "cd-nf-shr":
