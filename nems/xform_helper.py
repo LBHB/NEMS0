@@ -136,6 +136,13 @@ def generate_loader_xfspec(loader, recording_uri):
                    {'epoch_regex': '^STIM_'}],
                   ['nems.xforms.average_away_stim_occurrences', {}]]
 
+    elif loader in ["env100pt","env100ptn"]:
+        normalize = int(loader == "env100ptn")
+        xfspec = [['nems.xforms.load_recordings',
+                   {'recording_uri_list': recordings, 'normalize': normalize}],
+                  ['nems.xforms.split_by_occurrence_counts',
+                   {'epoch_regex': '^STIM_'}]]
+
     else:
         raise ValueError('unknown loader string')
 

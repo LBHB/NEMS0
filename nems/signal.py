@@ -1729,15 +1729,18 @@ class TiledSignal(SignalBase):
         fs is not used but in parameters for compatibility with PointProcess
         '''
         maxtime = np.max(self.epochs["end"])
-        maxbin = int(self.fs*maxtime)
+        maxbin = self.shape[1]
+        if self.fs*maxtime > maxbin:
+            maxbin = self.fs*maxtime
         tags = list(self._data.keys())
         chancount = self._data[tags[0]].shape[0]
 
         z = np.zeros([chancount, maxbin])
-        empty_signal=RasterizedSignal(fs=self.fs, data=z, name=self.name,
+        zsig = RasterizedSignal(fs=self.fs, data=z, name=self.name,
                                 recording=self.recording, chans=self.chans,
                                 epochs=self.epochs, meta=self.meta)
-        signal=empty_signal.replace_epochs(self._data)
+        signal = zsig.replace_epochs(self._data)
+
         return signal
 
     def save(self, dirpath, fmt='%.18e'):
