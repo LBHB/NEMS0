@@ -113,6 +113,7 @@ def basic_cost(sigma, unpacker, modelspec, data, segmentor,
         basic_cost.counter += 1
         if basic_cost.counter % 1000 == 0:
             log.info('Eval #%d. E=%.06f', basic_cost.counter, error)
+            nems.utils.progress_fun()
 
     if hasattr(basic_cost, 'error'):
         basic_cost.error = error

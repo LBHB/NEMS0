@@ -43,3 +43,11 @@ def shrinkage(mH, eH, sigrat=1, thresh=0):
         hf = mH * smd
 
     return hf
+
+
+def progress_fun():
+    """
+    This function can be redirected to a function that tracks progress
+    externallly, eg, in a queueing system
+    """
+    pass
