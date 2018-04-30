@@ -209,7 +209,7 @@ def init_dexp(rec, modelspec):
 
     shift = np.mean(pred)
     #shift = (np.max(pred) + np.min(pred)) / 2
-    predrange = 2 / (np.max(pred) - np.min(pred))
+    predrange = 2 / (np.max(pred) - np.min(pred) + 1)
 
     modelspec[target_i]['phi'] = {}
     modelspec[target_i]['phi']['amplitude'] = amp

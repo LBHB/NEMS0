@@ -1263,7 +1263,6 @@ class RasterizedSignal(SignalBase):
                     data[:, lb:ub] = epoch_data[ii, :, :n]
                     ii += 1
 
-
         if preserve_nan:
             data[:, nan_bins] = np.nan
         return self._modified_copy(data)

@@ -277,7 +277,7 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                         target_module='levelshift',
                         extra_exclude=['stp'],
                         fitter=scipy_minimize,
-                        fit_kwargs={'tolerance': 1e-3, 'max_iter': 500})
+                        fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
                         for modelspec in modelspecs]
                 break
 
@@ -286,7 +286,7 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                 est, modelspec, nems.analysis.api.fit_basic,
                 target_module='levelshift',
                 fitter=scipy_minimize,
-                fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
+                fit_kwargs={'tolerance': 1e-5, 'max_iter': 500})
                 for modelspec in modelspecs]
 
         # possibility: pre-fit static NL .  But this doesn't seem to help...

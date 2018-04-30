@@ -34,7 +34,7 @@ def defkey_wc(n_inputs, n_outputs):
     '''
     name = 'wc{}x{}'.format(n_inputs, n_outputs)
     p_coefficients = {
-        'mean': np.zeros((n_outputs, n_inputs)),
+        'mean': np.zeros((n_outputs, n_inputs))+0.01,
         'sd': np.ones((n_outputs, n_inputs)),
     }
     template = {
@@ -405,7 +405,7 @@ defkey('stategain5',
                   'd': ('Normal', {'mean': np.zeros(5),
                                    'sd': np.ones(5)})}
             })
-        
+
 
 defkey('stategain6',
        {'fn': 'nems.modules.state.state_dc_gain',
@@ -416,8 +416,8 @@ defkey('stategain6',
                                    'sd': np.ones(6)}),
                   'd': ('Normal', {'mean': np.zeros(6),
                                    'sd': np.ones(6)})}
-            })      
-        
+            })
+
 
 defkey('stategain28',
        {'fn': 'nems.modules.state.state_dc_gain',
