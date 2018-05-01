@@ -95,8 +95,11 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
     for i in range(0, target_i):
         m = copy.deepcopy(modelspec[i])
         for fn in extra_exclude:
-            if (fn in m['fn']) and (not m.get('phi')):
-                log.debug('Module %d (%s) fixing phi to mean of prior:',
+#            log.info('exluding '+fn)
+#            log.info(m['fn'])
+#            log.info(m.get('phi'))
+            if (fn in m['fn']) and (m.get('phi') is None):
+                log.info('Module %d (%s) fixing phi to mean of prior',
                           i, fn)
                 m = nems.priors.set_mean_phi([m])[0]  # Inits phi
                 m['fn_kwargs'].update(m['phi'])
@@ -137,7 +140,7 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
                 log.info('Found module %d (%s) for subset prefit', i, fn)
         tmodelspec.append(m)
 
-    if len(fit_idx)==0:
+    if len(fit_idx) == 0:
         log.info('No modules matching fit_set for subset prefit')
         return modelspec
 

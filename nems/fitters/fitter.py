@@ -95,6 +95,7 @@ def scipy_minimize(sigma, cost_fn, tolerance=None, max_iter=None,
     TODO: Pull in code from scipy.py in docs/planning to
           expose more output during iteration.
     """
+    options = options.copy()
     if tolerance is not None:
         if 'ftol' in options:
             log.warn("Both <tolerance> and <options: ftol> provided for\n"

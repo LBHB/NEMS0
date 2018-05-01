@@ -272,24 +272,30 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
     if not IsReload:
         # HACK ALERT! THIS IS MESSY
         # fit without STP module first (if there is one)
+        modelspecs = [nems.initializers.prefit_to_target(
+                est, modelspec, nems.analysis.api.fit_basic,
+                target_module='levelshift',
+                extra_exclude=['stp'],
+                fitter=scipy_minimize,
+                fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
+                for modelspec in modelspecs]
         for m in modelspecs[0]:
             if 'stp' in m['fn']:
-                modelspecs = [nems.initializers.prefit_to_target(
+                modelspecs = [nems.initializers.prefit_mod_subset(
                         est, modelspec, nems.analysis.api.fit_basic,
-                        target_module='levelshift',
-                        extra_exclude=['stp'],
+                        fit_set=['stp'],
                         fitter=scipy_minimize,
                         fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
                         for modelspec in modelspecs]
                 break
-
-        # then pre-fit with STP
-        modelspecs = [nems.initializers.prefit_to_target(
-                est, modelspec, nems.analysis.api.fit_basic,
-                target_module='levelshift',
-                fitter=scipy_minimize,
-                fit_kwargs={'tolerance': 1e-5, 'max_iter': 500})
-                for modelspec in modelspecs]
+#        if not stp_flag:
+#            # pre-fit with STP
+#            modelspecs = [nems.initializers.prefit_to_target(
+#                    est, modelspec, nems.analysis.api.fit_basic,
+#                    target_module='levelshift',
+#                    fitter=scipy_minimize,
+#                    fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
+#                    for modelspec in modelspecs]
 
         # possibility: pre-fit static NL .  But this doesn't seem to help...
         for m in modelspecs[0]:
@@ -300,7 +306,7 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                         est, modelspec, nems.analysis.api.fit_basic,
                         fit_set=['double_exponential'],
                         fitter=scipy_minimize,
-                        fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
+                        fit_kwargs={'tolerance': 1e-5, 'max_iter': 500})
                         for modelspec in modelspecs]
                 break
 

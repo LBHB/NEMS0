@@ -94,7 +94,7 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
 
 
 def before_and_after_stp(rec, modelspec, sig_name='pred', ax=None, title=None,
-                     channels=0, xlabel='Time', ylabel='Value'):
+                         channels=0, xlabel='Time', ylabel='Value'):
     '''
     Plots a timeseries of specified signal just before and just after
     the transformation performed at some step in the modelspec.
@@ -102,25 +102,17 @@ def before_and_after_stp(rec, modelspec, sig_name='pred', ax=None, title=None,
     Arguments:
     ----------
     rec : recording object
-        The dataset to use. See nems/recording.py.
+        really only used to get the sampling rate, since we're using
+        a cartoon stimulus
 
     modelspec : list of dicts
         The transformations to perform. See nems/modelspec.py.
-
-    sig_name : str
-        Specifies the signal in 'rec' to be examined.
-
-    idx : int
-        An index into the modelspec. rec[sig_name] will be plotted
-        as it exists after step idx-1 and after step idx.
 
     Returns:
     --------
     None
     '''
-    # HACK: shouldn't hardcode 'stim', might be named something else
-    #       or not present at all. Need to figure out a better solution
-    #       for special case of idx = 0
+
     for m in modelspec:
         if 'stp' in m['fn']:
             break
