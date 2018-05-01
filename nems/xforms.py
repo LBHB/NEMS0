@@ -186,6 +186,7 @@ def average_away_stim_occurrences(est, val, **context):
     val = preproc.average_away_epoch_occurrences(val, epoch_regex='^STIM_')
     return {'est': est, 'val': val}
 
+
 def average_away_stim_occurrences_rec(rec, **context):
     rec = preproc.average_away_epoch_occurrences(rec, epoch_regex='^STIM_')
     return {'rec': rec}
@@ -201,10 +202,11 @@ def use_all_data_for_est_and_val(rec, **context):
     val = rec
     return {'est': est, 'val': val}
 
+
 def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
                         njacks=10, IsReload=False, **context):
 
-    est_out,val_out,modelspecs_out = \
+    est_out, val_out, modelspecs_out = \
         preproc.split_est_val_for_jackknife(rec, modelspecs=modelspecs,
                                             epoch_name=epoch_name,
                                             njacks=njacks, IsReload=IsReload)
@@ -228,12 +230,12 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_',
 
 def generate_psth_from_est_for_both_est_and_val_nfold(
         est, val, epoch_regex='^STIM_', **context):
-     '''
-     generate PSTH prediction for each set
-     '''
-     est_out, val_out = \
-         preproc.generate_psth_from_est_for_both_est_and_val_nfold(est, val)
-     return {'est': est_out, 'val': val_out}
+    '''
+    generate PSTH prediction for each set
+    '''
+    est_out, val_out = \
+        preproc.generate_psth_from_est_for_both_est_and_val_nfold(est, val)
+    return {'est': est_out, 'val': val_out}
 
 
 def init_from_keywords(keywordstring, meta={}, IsReload=False, **context):
