@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 
 from nems.plots.assemble import pad_to_signals
 import nems.modelspec as ms
+import nems.signal as signal
+import nems.recording as recording
+import nems.modules.stp as stp
 
 def plot_timeseries(times, values, xlabel='Time', ylabel='Value',
                     legend=None, ax=None, title=None):
@@ -51,9 +54,9 @@ def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
     """TODO: doc"""
     channels = pad_to_signals(signals, channels)
 
-    legend = [s.name for s in signals]
     times = []
     values = []
+    legend = []
     for s, c in zip(signals, channels):
         # Get values from specified channel
         value_vector = s.as_continuous()[c]
@@ -61,6 +64,8 @@ def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
         time_vector = np.arange(0, len(value_vector)) / s.fs
         times.append(time_vector)
         values.append(value_vector)
+        legend.append(s.name+' '+s.chans[c])
+
     plot_timeseries(times, values, xlabel, ylabel, legend, ax=ax, title=title)
 
 
@@ -86,6 +91,77 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
         times.append(time_vector)
         values.append(value_vector)
     plot_timeseries(times, values, xlabel, ylabel, legend, ax=ax, title=title)
+
+
+def before_and_after_stp(rec, modelspec, sig_name='pred', ax=None, title=None,
+                     channels=0, xlabel='Time', ylabel='Value'):
+    '''
+    Plots a timeseries of specified signal just before and just after
+    the transformation performed at some step in the modelspec.
+
+    Arguments:
+    ----------
+    rec : recording object
+        The dataset to use. See nems/recording.py.
+
+    modelspec : list of dicts
+        The transformations to perform. See nems/modelspec.py.
+
+    sig_name : str
+        Specifies the signal in 'rec' to be examined.
+
+    idx : int
+        An index into the modelspec. rec[sig_name] will be plotted
+        as it exists after step idx-1 and after step idx.
+
+    Returns:
+    --------
+    None
+    '''
+    # HACK: shouldn't hardcode 'stim', might be named something else
+    #       or not present at all. Need to figure out a better solution
+    #       for special case of idx = 0
+    for m in modelspec:
+        if 'stp' in m['fn']:
+            break
+    c = len(m['phi']['tau'])
+    fs = rec['resp'].fs
+    seg = np.int(fs * 0.05)
+
+    pred = np.concatenate([np.zeros([c, seg * 2]), np.ones([c, seg * 4]),
+                           np.zeros([c, seg * 4]), np.ones([c, seg]),
+                           np.zeros([c, seg]), np.ones([c, seg]),
+                           np.zeros([c, seg]), np.ones([c, seg]),
+                           np.zeros([c, seg * 2])], axis=1)
+
+    kwargs = {
+        'data': pred,
+        'name': 'pred',
+        'recording': 'rec',
+        'chans': ['chan' + str(n) for n in range(c)],
+        'fs': fs,
+        'meta': {},
+    }
+    pred = signal.RasterizedSignal(**kwargs)
+    r = recording.Recording({'pred': pred})
+
+    u = m['phi']['u']
+    tau = m['phi']['tau']
+
+    r = stp.short_term_plasticity(r, 'pred', 'pred_out', u=u, tau=tau)
+    pred_out = r[0]
+
+    pred.name = 'before'
+    pred_out.name = 'after'
+    signals = [pred]
+    channels = [0]
+    for i in range(c):
+        signals.append(pred_out)
+        channels.append(i)
+
+    timeseries_from_signals(signals, channels=channels,
+                            xlabel=xlabel, ylabel=ylabel, ax=ax,
+                            title=title)
 
 
 def before_and_after(rec, modelspec, sig_name, ax=None, title=None,
