@@ -285,7 +285,7 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                 target_module='levelshift',
                 extra_exclude=['stp'],
                 fitter=scipy_minimize,
-                fit_kwargs={'tolerance': 1e-5.5, 'max_iter': 700})
+                fit_kwargs={'tolerance': 1e-6, 'max_iter': 700})
                 for modelspec in modelspecs]
 
         # then initialize the STP module (if there is one)
@@ -303,14 +303,14 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                         est, modelspec, nems.analysis.api.fit_basic,
                         fit_set=['double_exponential'],
                         fitter=scipy_minimize,
-                        fit_kwargs={'tolerance': 1e-5.5, 'max_iter': 500})
+                        fit_kwargs={'tolerance': 1e-6, 'max_iter': 500})
                         for modelspec in modelspecs]
                 modelspecs = [nems.initializers.prefit_to_target(
                         est, modelspec, nems.analysis.api.fit_basic,
                         target_module='double_exponential',
                         extra_exclude=['stp'],
                         fitter=scipy_minimize,
-                        fit_kwargs={'tolerance': 1e-5.5, 'max_iter': 500})
+                        fit_kwargs={'tolerance': 1e-6, 'max_iter': 500})
                         for modelspec in modelspecs]
                 break
 
