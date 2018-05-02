@@ -95,20 +95,20 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
     for i in range(target_i):
         m = copy.deepcopy(modelspec[i])
         for fn in extra_exclude:
-#            log.info('exluding '+fn)
-#            log.info(m['fn'])
-#            log.info(m.get('phi'))
+            # log.info('exluding '+fn)
+            # log.info(m['fn'])
+            # log.info(m.get('phi'))
             if (fn in m['fn']):
                 if (m.get('phi') is None):
-                   m = nems.priors.set_mean_phi([m])[0]  # Inits phi
-                   log.info('Mod %d (%s) fixing phi to prior mean', i, fn)
+                    m = nems.priors.set_mean_phi([m])[0]  # Inits phi
+                    log.info('Mod %d (%s) fixing phi to prior mean', i, fn)
                 else:
-                   log.info('Mod %d (%s) fixing phi', i, fn)
+                    log.info('Mod %d (%s) fixing phi', i, fn)
 
                 m['fn_kwargs'].update(m['phi'])
                 m['phi'] = {}
                 exclude_idx.append(i)
-                log.info(m)
+                # log.info(m)
 
         tmodelspec.append(m)
 
@@ -153,13 +153,14 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
     for i in exclude_idx:
         m = tmodelspec[i]
         if not m.get('phi'):
+            log.info('Intializing phi for module %d (%s)', i, m['fn'])
             m = nems.priors.set_mean_phi([m])[0]  # Inits phi
 
-        log.debug('Freezing phi for module %d (%s)', i, m['fn'])
+        log.info('Freezing phi for module %d (%s)', i, m['fn'])
 
         m['fn_kwargs'].update(m['phi'])
         m['phi'] = {}
-        # tmodelspec[i] = m
+        tmodelspec[i] = m
 
     # fit the subset of modules
     tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,

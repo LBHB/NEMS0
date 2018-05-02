@@ -114,5 +114,6 @@ def scipy_minimize(sigma, cost_fn, tolerance=None, max_iter=None,
                                    options=options)
     sigma = result.x
     final_err = cost_fn(sigma)
-    log.info("Final error: %.06f\n", final_err)
+    log.info("Final error: %.06f", final_err)
+    log.info("Final sigma: %s\n", sigma)
     return sigma
