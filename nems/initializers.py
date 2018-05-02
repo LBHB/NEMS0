@@ -106,8 +106,9 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
                    log.info('Mod %d (%s) fixing phi', i, fn)
 
                 m['fn_kwargs'].update(m['phi'])
-                del m['phi']
+                m['phi'] = {}
                 exclude_idx.append(i)
+                log.info(m)
 
         tmodelspec.append(m)
 

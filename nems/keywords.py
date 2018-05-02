@@ -288,6 +288,14 @@ defkey('stp2',
         'prior': {'u': ('Normal', {'mean': [0.01, 0.01], 'sd': [0.01, 0.01]}),
                   'tau': ('Normal', {'mean': [0.04, 0.04], 'sd': [0.05, 0.05]})}})
 
+defkey('stpz2',
+       {'fn': 'nems.modules.stp.short_term_plasticity',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'crosstalk': 0},
+        'prior': {'u': ('Normal', {'mean': [0.0, 0.0], 'sd': [0.01, 0.01]}),
+                  'tau': ('Normal', {'mean': [0.04, 0.04], 'sd': [0.05, 0.05]})}})
+
 defkey('stpn2',
        {'fn': 'nems.modules.stp.short_term_plasticity',
         'fn_kwargs': {'i': 'pred',
