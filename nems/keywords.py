@@ -285,16 +285,16 @@ defkey('stp2',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
                       'crosstalk': 0},
-        'prior': {'u': ('Normal', {'mean': [0.01, 0.01], 'sd': [0.01, 0.01]}),
-                  'tau': ('Normal', {'mean': [0.04, 0.04], 'sd': [0.05, 0.05]})}})
+        'prior': {'u': ('Normal', {'mean': [.01, .01], 'sd': [.01, .01]}),
+                  'tau': ('Normal', {'mean': [.04, .04], 'sd': [.05, .05]})}})
 
 defkey('stpz2',
        {'fn': 'nems.modules.stp.short_term_plasticity',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
                       'crosstalk': 0},
-        'prior': {'u': ('Normal', {'mean': [0.0, 0.0], 'sd': [0.01, 0.01]}),
-                  'tau': ('Normal', {'mean': [0.04, 0.04], 'sd': [0.05, 0.05]})}})
+        'prior': {'u': ('Normal', {'mean': [.02, .02], 'sd': [.02, .02]}),
+                  'tau': ('Normal', {'mean': [.05, .05], 'sd': [.05, .05]})}})
 
 defkey('stpn2',
        {'fn': 'nems.modules.stp.short_term_plasticity',
@@ -346,7 +346,7 @@ defkey('dlog',
        {'fn': 'nems.modules.nonlinearity.dlog',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'offset': ('Normal', {'mean': [-2], 'sd': [2]})}})
+        'prior': {'offset': ('Normal', {'mean': [0], 'sd': [2]})}})
 
 defkey('dlogz',
        {'fn': 'nems.modules.nonlinearity.dlog',
