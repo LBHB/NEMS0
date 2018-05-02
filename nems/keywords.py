@@ -366,9 +366,9 @@ defkey('dlogn18',
        {'fn': 'nems.modules.nonlinearity.dlog',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'norm': {'type': 'minmax', 'recalc': 0, 'd': np.zeros([18,1]),
-                 'g': np.ones([18,1])},
-        'prior': {'offset': ('Normal', {'mean': [-2], 'sd': [2]})}})
+        'norm': {'type': 'minmax', 'recalc': 0, 'd': np.zeros([18, 1]),
+                 'g': np.ones([18, 1])},
+        'prior': {'offset': ('Normal', {'mean': [0], 'sd': [2]})}})
 
 
 """ state-related and signal manipulation/generation """
