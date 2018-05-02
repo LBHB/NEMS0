@@ -59,13 +59,13 @@ def double_exponential(rec, i, o, base, amplitude, shift, kappa):
 def _dlog(x, offset):
 
     # soften effects of more extreme offsets
-    inflect=2
-    if offset>inflect:
-        adjoffset=inflect+(offset-inflect)/50
-    elif offset<-inflect:
-        adjoffset=-inflect+(offset+inflect)/50
+    inflect = 2
+    if offset > inflect:
+        adjoffset = inflect + (offset-inflect) / 50
+    elif offset < -inflect:
+        adjoffset = -inflect + (offset + inflect) / 50
     else:
-        adjoffset=offset
+        adjoffset = offset
 
     d = 10.0**adjoffset
     zeroer = 0

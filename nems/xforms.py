@@ -294,6 +294,17 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                 m = priors.set_mean_phi([m])[0]  # Init phi for module
                 modelspecs[0][i] = m
 
+        # then pre-fit just the STP module-- does this do ANYTHING useful?
+        for m in modelspecs[0]:
+            if 'stp' in m['fn']:
+                modelspecs = [nems.initializers.prefit_mod_subset(
+                        est, modelspec, nems.analysis.api.fit_basic,
+                        fit_set=['stp'],
+                        fitter=scipy_minimize,
+                        fit_kwargs={'tolerance': 1e-6, 'max_iter': 500})
+                        for modelspec in modelspecs]
+                break
+
         # pre-fit static NL if it exists
         for m in modelspecs[0]:
             if 'double_exponential' in m['fn']:
@@ -305,25 +316,15 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                         fitter=scipy_minimize,
                         fit_kwargs={'tolerance': 1e-6, 'max_iter': 500})
                         for modelspec in modelspecs]
-                modelspecs = [nems.initializers.prefit_to_target(
-                        est, modelspec, nems.analysis.api.fit_basic,
-                        target_module='double_exponential',
-                        extra_exclude=['stp'],
-                        fitter=scipy_minimize,
-                        fit_kwargs={'tolerance': 1e-6, 'max_iter': 500})
-                        for modelspec in modelspecs]
+#                modelspecs = [nems.initializers.prefit_to_target(
+#                        est, modelspec, nems.analysis.api.fit_basic,
+#                        target_module='double_exponential',
+#                        extra_exclude=['stp'],
+#                        fitter=scipy_minimize,
+#                        fit_kwargs={'tolerance': 1e-6, 'max_iter': 500})
+#                        for modelspec in modelspecs]
                 break
 
-        # then pre-fit just the STP module-- does this do ANYTHING useful?
-#        for m in modelspecs[0]:
-#            if 'stp' in m['fn']:
-#                modelspecs = [nems.initializers.prefit_mod_subset(
-#                        est, modelspec, nems.analysis.api.fit_basic,
-#                        fit_set=['stp'],
-#                        fitter=scipy_minimize,
-#                        fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
-#                        for modelspec in modelspecs]
-#                break
 
     return {'modelspecs': modelspecs}
 
