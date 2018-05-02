@@ -268,36 +268,33 @@ def set_random_phi(modelspecs, IsReload=False, **context):
 
 
 def fit_basic_init(modelspecs, est, IsReload=False, **context):
-    ''' A basic fit that optimizes every input modelspec. '''
+    '''
+    Initialize modelspecs in a way that avoids getting stuck in
+    local minima.
+
+    written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
+    optional modules in (parens)
+
+    '''
     if not IsReload:
-        # HACK ALERT! THIS IS MESSY
+        # TODO -- make sure this works generally or create alternatives
+
         # fit without STP module first (if there is one)
         modelspecs = [nems.initializers.prefit_to_target(
                 est, modelspec, nems.analysis.api.fit_basic,
                 target_module='levelshift',
                 extra_exclude=['stp'],
                 fitter=scipy_minimize,
-                fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
+                fit_kwargs={'tolerance': 1e-5, 'max_iter': 500})
                 for modelspec in modelspecs]
-        for m in modelspecs[0]:
-            if 'stp' in m['fn']:
-                modelspecs = [nems.initializers.prefit_mod_subset(
-                        est, modelspec, nems.analysis.api.fit_basic,
-                        fit_set=['stp'],
-                        fitter=scipy_minimize,
-                        fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
-                        for modelspec in modelspecs]
-                break
-#        if not stp_flag:
-#            # pre-fit with STP
-#            modelspecs = [nems.initializers.prefit_to_target(
-#                    est, modelspec, nems.analysis.api.fit_basic,
-#                    target_module='levelshift',
-#                    fitter=scipy_minimize,
-#                    fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
-#                    for modelspec in modelspecs]
 
-        # possibility: pre-fit static NL .  But this doesn't seem to help...
+        # then initialize the STP module
+        for i, m in enumerate(modelspecs[0]):
+            if 'stp' in m['fn']:
+                m = priors.set_mean_phi([m])[0]  # Init phi for module
+                modelspecs[0][i] = m
+
+        # pre-fit static NL if it exists
         for m in modelspecs[0]:
             if 'double_exponential' in m['fn']:
                 modelspecs = [nems.initializers.init_dexp(est, modelspec)
@@ -310,46 +307,16 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                         for modelspec in modelspecs]
                 break
 
-    return {'modelspecs': modelspecs}
-
-
-def fit_basic_init_stp_freeze(modelspecs, est, IsReload=False, **context):
-    ''' A basic fit that optimizes every input modelspec. '''
-    if not IsReload:
-        # if STP is a module, then first pre-fit with frozen STP
-        # HACK ALERT! THIS IS MESSY. AND IT DOESN'T HELP??
-        stp_sm=None
-        for m in modelspecs[0]:
-            if 'stp' in m['fn']:
-                log.info("Freezing STP module for pre-fit")
-                stp_sm=copy.deepcopy(m)
-                m['fn_kwargs']['u'] = m['prior']['u'][1]['mean']
-                m['fn_kwargs']['tau'] = m['prior']['u'][1]['mean']
-                del m['prior']
-                break
-
-        # then pre-fit with STP
-        modelspecs = [nems.initializers.prefit_to_target(
-                est, modelspec, nems.analysis.api.fit_basic,
-                target_module='levelshift',
-                fitter=scipy_minimize,
-                fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
-                for modelspec in modelspecs]
-
-        # restore STP module to normal state
-        if stp_sm is not None:
-            for i, m in enumerate(modelspecs[0]):
-                if 'stp' in m['fn']:
-                    log.info("Restoring STP module for full fit")
-                    stp_sm['phi'] = {}
-                    stp_sm['phi']['u'] = stp_sm['prior']['u'][1]['mean']
-                    stp_sm['phi']['tau'] = stp_sm['prior']['u'][1]['mean']
-                    modelspecs[0][i] = stp_sm
-
-        # possibility: pre-fit static NL .  But this doesn't seem to help...
-        # modelspecs = [nems.initializers.init_dexp(
-        #        est, modelspec)
-        #        for modelspec in modelspecs]
+        # then pre-fit just the STP module-- does this do ANYTHING useful?
+#        for m in modelspecs[0]:
+#            if 'stp' in m['fn']:
+#                modelspecs = [nems.initializers.prefit_mod_subset(
+#                        est, modelspec, nems.analysis.api.fit_basic,
+#                        fit_set=['stp'],
+#                        fitter=scipy_minimize,
+#                        fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
+#                        for modelspec in modelspecs]
+#                break
 
     return {'modelspecs': modelspecs}
 
