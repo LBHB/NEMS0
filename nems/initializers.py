@@ -92,16 +92,19 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
     # that will be fit here
     exclude_idx = []
     tmodelspec = []
-    for i in range(0, target_i):
+    for i in range(target_i):
         m = copy.deepcopy(modelspec[i])
         for fn in extra_exclude:
 #            log.info('exluding '+fn)
 #            log.info(m['fn'])
 #            log.info(m.get('phi'))
-            if (fn in m['fn']) and (m.get('phi') is None):
-                log.info('Module %d (%s) fixing phi to mean of prior',
-                          i, fn)
-                m = nems.priors.set_mean_phi([m])[0]  # Inits phi
+            if (fn in m['fn']):
+                if (m.get('phi') is None):
+                   m = nems.priors.set_mean_phi([m])[0]  # Inits phi
+                   log.info('Mod %d (%s) fixing phi to prior mean', i, fn)
+                else:
+                   log.info('Mod %d (%s) fixing phi', i, fn)
+
                 m['fn_kwargs'].update(m['phi'])
                 del m['phi']
                 exclude_idx.append(i)

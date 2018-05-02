@@ -305,6 +305,13 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                         fitter=scipy_minimize,
                         fit_kwargs={'tolerance': 1e-5, 'max_iter': 500})
                         for modelspec in modelspecs]
+                modelspecs = [nems.initializers.prefit_to_target(
+                        est, modelspec, nems.analysis.api.fit_basic,
+                        target_module='double_exponential',
+                        extra_exclude=['stp'],
+                        fitter=scipy_minimize,
+                        fit_kwargs={'tolerance': 1e-5, 'max_iter': 500})
+                        for modelspec in modelspecs]
                 break
 
         # then pre-fit just the STP module-- does this do ANYTHING useful?
