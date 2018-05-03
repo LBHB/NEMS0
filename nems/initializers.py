@@ -209,7 +209,7 @@ def init_dexp(rec, modelspec):
 
     # choose phi s.t. dexp starts as almost a straight line
     # phi=[max_out min_out slope mean_in]
-    meanr = np.nanmean(resp)
+    # meanr = np.nanmean(resp)
     stdr = np.nanstd(resp)
     # base = np.max(np.array([meanr - stdr * 4, 0]))
     # amp = np.max(resp) - np.min(resp)
@@ -218,7 +218,7 @@ def init_dexp(rec, modelspec):
     # base = meanr - stdr * 3
 
     shift = np.mean(pred)
-    #shift = (np.max(pred) + np.min(pred)) / 2
+    # shift = (np.max(pred) + np.min(pred)) / 2
     predrange = 2 / (np.max(pred) - np.min(pred) + 1)
 
     modelspec[target_i]['phi'] = {}
