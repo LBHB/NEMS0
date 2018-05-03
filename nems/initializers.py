@@ -198,7 +198,9 @@ def init_dexp(rec, modelspec):
         fit_portion = modelspec[:target_i]
 
     # generate prediction from module preceeding dexp
+    ms.fit_mode_on(fit_portion)
     rec = ms.evaluate(rec, fit_portion)
+    ms.fit_mode_off(fit_portion)
     resp = rec['resp'].as_continuous()
     pred = rec['pred'].as_continuous()
     keepidx = np.isfinite(resp) * np.isfinite(pred)
