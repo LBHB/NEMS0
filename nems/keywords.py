@@ -303,8 +303,8 @@ defkey('stpn2',
                       'crosstalk': 0},
         'norm': {'type': 'minmax', 'recalc': 0, 'd': np.array([[0, 0]]),
                  'g': np.array([[1, 1]])},
-        'prior': {'u': ('Normal', {'mean': [0.01, 0.01], 'sd': [0.01, 0.01]}),
-                  'tau': ('Normal', {'mean': [0.04, 0.04], 'sd': [0.05, 0.05]})}})
+        'prior': {'u': ('Normal', {'mean': [.01, .01], 'sd': [.01, .01]}),
+                  'tau': ('Normal', {'mean': [.04, .04], 'sd': [.05, .05]})}})
 
 defkey('dexp1',
        {'fn': 'nems.modules.nonlinearity.double_exponential',

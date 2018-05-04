@@ -52,9 +52,9 @@ def fit_module_sets(
     # Ensure that phi exists for all modules; choose prior mean if not found
     for i, m in enumerate(modelspec):
         if not m.get('phi'):
+            m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
             log.debug('Phi not found for module, using mean of prior: {}'
                       .format(m))
-            m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
             modelspec[i] = m
 
     if invert:
@@ -114,7 +114,7 @@ def _module_set_loop(subset, data, modelspec, cost_function, fitter,
         log.debug("Modelspec after freeze: %s", modelspec)
 
         packer, unpacker = mapper(modelspec)
-        #cost_function.counter = 0
+        # cost_function.counter = 0
         cost_function.error = None
         cost_fn = partial(cost_function,
                           unpacker=unpacker, modelspec=modelspec,
@@ -186,19 +186,22 @@ def fit_iteratively(
     # Ensure that phi exists for all modules; choose prior mean if not found
     for i, m in enumerate(modelspec):
         if not m.get('phi'):
+            m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
             log.debug('Phi not found for module, using mean of prior: {}'
                       .format(m))
-            m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
             modelspec[i] = m
 
     error = np.inf
     for tol in tolerances:
-        log.info("Fitting all subsets with tolerance: %.2E", tol)
+        log.info("Fitting subsets with tol: %.2E fit_iter %d tol_iter %d",
+                 tol, fit_iter, tol_iter)
         fit_kwargs.update({'tolerance': tol, 'max_iter': fit_iter})
-        error_reduction = np.inf
+        max_error_reduction = np.inf
         i = 0
 
-        while (error_reduction >= tol) and (i < tol_iter):
+        while (max_error_reduction >= tol) and (i < tol_iter):
+            max_error_reduction = 0
+            j = 0
             for subset in module_sets:
                 improved_modelspec = _module_set_loop(
                         subset, data, modelspec, cost_function, fitter,
@@ -207,8 +210,14 @@ def fit_iteratively(
                 new_error = cost_function.error
                 error_reduction = error-new_error
                 error = new_error
-                log.debug("Error reduction was: %.6E", error_reduction)
+                j += 1
+                if error_reduction > max_error_reduction:
+                    max_error_reduction = error_reduction
+            log.info("tol=%.2E, iter=%d/%d: max deltaE=%.6E",
+                     tol, i, tol_iter, max_error_reduction)
             i += 1
+        log.info("Done with tol %.2E (i=%d, max_error_reduction %.7f)",
+                 tol, i, error_reduction)
 
     elapsed_time = (time.time() - start_time)
 

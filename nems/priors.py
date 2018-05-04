@@ -2,6 +2,7 @@ import logging as log
 from nems.distributions.distribution import Distribution
 import nems.keywords
 import nems.distributions.api
+import numpy as np
 
 # For creating values of 'phi' from the priors in a modelspec.
 #
@@ -85,7 +86,7 @@ def _to_phi(prior, method='mean', percentile=50):
             ary = dist.percentile(percentile)
         else:
             raise ValueError('_to_phi got invalid method name.')
-        phi[param_name] = ary.tolist()
+        phi[param_name] = np.array(ary)
     return phi
 
 

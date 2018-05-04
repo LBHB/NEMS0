@@ -245,14 +245,14 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
         xfspec.append(['nems.xforms.fit_cd_nfold_shrinkage', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
-    elif fitkey == "iter-cd-nf-shr":
-
-        log.info("Iterative cd, n-fold, shrinkage fitting...")
-        xfspec.append(['nems.xforms.split_for_jackknife',
-                       {'njacks': pfolds, 'epoch_name': 'REFERENCE'}])
-        #xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
-        xfspec.append(['nems.xforms.fit_iter_cd_nfold_shrink', {}])
-        xfspec.append(['nems.xforms.predict',    {}])
+#    elif fitkey == "iter-cd-nf-shr":
+#
+#        log.info("Iterative cd, n-fold, shrinkage fitting...")
+#        xfspec.append(['nems.xforms.split_for_jackknife',
+#                       {'njacks': pfolds, 'epoch_name': 'REFERENCE'}])
+#        #xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
+#        xfspec.append(['nems.xforms.fit_iter_cd_nfold_shrink', {}])
+#        xfspec.append(['nems.xforms.predict',    {}])
 
     elif fitkey == "fit02":
         # no pre-fit
@@ -291,7 +291,8 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
                 ])
         xfspec.append(['nems.xforms.predict', {}])
 
-    elif fitkey.startswith("fititer"):
+    elif fitkey.startswith("fititer") or fitkey.startswith("iter"):
+        xfspec.append(['nems.xforms.fit_iter_init', {}])
         xfspec.append(_parse_fititer(fitkey))
         xfspec.append(['nems.xforms.predict', {}])
 
@@ -323,13 +324,13 @@ def _parse_fititer(fit_keyword):
 
     fit = chunks[0]
     if fit.endswith('01'):
-        fitter = scipy_minimize
+        fitter = 'scipy_minimize'
     elif fit.endswith('02'):
-        fitter = coordinate_descent
+        fitter = 'coordinate_descent'
     else:
-        fitter = coordinate_descent
+        fitter = 'coordinate_descent'
         log.warn("Unrecognized or unspecified fit algorithm for fititer: %s\n"
-                 "Using default instead: %s", fit[7:], fitter)
+                 "Using default instead: %s", fit, fitter)
 
     tolerances = []
     module_sets = []
@@ -355,7 +356,6 @@ def _parse_fititer(fit_keyword):
                     "fititer<fitter>-S<i>x<j>...-T<tolpower>...ti<tol_iter>"
                     "-fi<fit_iter>", c
                     )
-
 
     if not tolerances:
         tolerances = None

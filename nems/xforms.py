@@ -328,6 +328,51 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
     return {'modelspecs': modelspecs}
 
 
+def fit_iter_init(modelspecs, est, IsReload=False, **context):
+    '''
+    Initialize modelspecs in a way that avoids getting stuck in
+    local minima.
+
+    written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
+    optional modules in (parens)
+
+    '''
+    if not IsReload:
+        # TODO -- make sure this works generally or create alternatives
+
+        # fit without STP module first (if there is one)
+        modelspecs = [nems.initializers.prefit_to_target(
+                est, modelspec, nems.analysis.api.fit_basic,
+                target_module='levelshift',
+                extra_exclude=['stp'],
+                fitter=scipy_minimize,
+                fit_kwargs={'tolerance': 10**-4, 'max_iter': 700})
+                for modelspec in modelspecs]
+
+        # then initialize the STP module (if there is one)
+        for i, m in enumerate(modelspecs[0]):
+            if 'stp' in m['fn']:
+                m = priors.set_mean_phi([m])[0]  # Init phi for module
+                modelspecs[0][i] = m
+
+                break
+
+        # pre-fit static NL if it exists
+        for m in modelspecs[0]:
+            if 'double_exponential' in m['fn']:
+                modelspecs = [nems.initializers.init_dexp(est, modelspec)
+                              for modelspec in modelspecs]
+                modelspecs = [nems.initializers.prefit_mod_subset(
+                        est, modelspec, nems.analysis.api.fit_basic,
+                        fit_set=['double_exponential'],
+                        fitter=scipy_minimize,
+                        fit_kwargs={'tolerance': 10**-4, 'max_iter': 500})
+                        for modelspec in modelspecs]
+                break
+
+    return {'modelspecs': modelspecs}
+
+
 def fit_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
               shrinkage=0, IsReload=False, **context):
     ''' A basic fit that optimizes every input modelspec. '''
@@ -466,7 +511,11 @@ def fit_module_sets(modelspecs, est, max_iter=1000, IsReload=False,
 
 def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
                     module_sets=None, invert=False, tolerances=[1e-4],
-                    fitter=scipy_minimize, fit_kwargs={}, **context):
+                    fitter='scipy_minimize', fit_kwargs={}, **context):
+    if fitter == 'scipy_minimize':
+        fitfun = scipy_minimize
+    elif fitter == 'coordinate_descent':
+        fitfun = coordinate_descent
 
     if not IsReload:
         if type(est) is list:
@@ -477,7 +526,7 @@ def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
                 i += 1
                 log.info("Fitting JK %d/%d", i, njacks)
                 modelspecs_out += nems.analysis.api.fit_iteratively(
-                        d, m, fit_kwargs=fit_kwargs, fitter=fitter,
+                        d, m, fit_kwargs=fit_kwargs, fitter=fitfun,
                         module_sets=module_sets, invert=False,
                         tolerances=tolerances, tol_iter=tol_iter,
                         fit_iter=fit_iter
@@ -487,7 +536,7 @@ def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
             modelspecs = [
                     nems.analysis.api.fit_iteratively(
                             est, modelspec, fit_kwargs=fit_kwargs,
-                            fitter=fitter, module_sets=module_sets,
+                            fitter=fitfun, module_sets=module_sets,
                             invert=invert, tolerances=tolerances,
                             tol_iter=tol_iter, fit_iter=fit_iter)[0]
                     for modelspec in modelspecs
