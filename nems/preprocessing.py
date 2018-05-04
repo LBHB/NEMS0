@@ -162,6 +162,9 @@ def remove_invalid_segments(rec):
 
     # First, select the appropriate subset of data
     rec['resp'] = rec['resp'].rasterize()
+    if 'stim' in rec.signals.keys():
+        rec['stim'] = rec['stim'].rasterize()
+        
     sig = rec['resp']
 
     # get list of start and stop times (epoch bounds)
@@ -431,24 +434,24 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     return newrec
 
 
-def split_est_val_for_jackknife(est, epoch_name='TRIAL', modelspecs=None,
+def split_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
                                 njacks=10, IsReload=False, **context):
     """
     take a single recording (est) and define njacks est/val sets using a
     jackknife logic. returns lists est_out and val_out of corresponding
     jackknife subsamples. removed timepoints are replaced with nan
     """
-    est_out = []
-    val_out = []
+    est = []
+    val = []
     # logging.info("Generating {} jackknifes".format(njacks))
 
     for i in range(njacks):
         # est_out += [est.jackknife_by_time(njacks, i)]
         # val_out += [est.jackknife_by_time(njacks, i, invert=True)]
-        est_out += [est.jackknife_by_epoch(njacks, i, epoch_name,
-                                           tiled=True)]
-        val_out += [est.jackknife_by_epoch(njacks, i, epoch_name,
-                                           tiled=True, invert=True)]
+        est += [rec.jackknife_by_epoch(njacks, i, epoch_name,
+                                       tiled=True)]
+        val += [rec.jackknife_by_epoch(njacks, i, epoch_name,
+                                       tiled=True, invert=True)]
 
     modelspecs_out = []
     if (not IsReload) and (modelspecs is not None):
@@ -461,4 +464,4 @@ def split_est_val_for_jackknife(est, epoch_name='TRIAL', modelspecs=None,
         else:
             raise ValueError('modelspecs must be len 1 or njacks')
 
-    return est_out, val_out, modelspecs_out
+    return est, val, modelspecs_out

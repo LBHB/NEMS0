@@ -26,16 +26,36 @@ def generate_loader_xfspec(loader, recording_uri):
                    {'state_signals': ['pupil'], 'permute_signals': [],
                     'new_signalname': 'state'}]]
 
+    elif loader in ["env100","env100n"]:
+        normalize = int(loader == "env100n")
+        xfspec = [['nems.xforms.load_recordings',
+                   {'recording_uri_list': recordings, 'normalize': normalize}],
+                  ['nems.xforms.split_by_occurrence_counts',
+                   {'epoch_regex': '^STIM_'}],
+                  ['nems.xforms.average_away_stim_occurrences', {}]]
+
+    elif loader in ["env100pt","env100ptn"]:
+        normalize = int(loader == "env100ptn")
+        xfspec = [['nems.xforms.load_recordings',
+                   {'recording_uri_list': recordings, 'normalize': normalize}],
+                  ['nems.xforms.split_by_occurrence_counts',
+                   {'epoch_regex': '^STIM_'}]]
+
     elif loader == "nostim10pup":
         # DEPRECATED?
         xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
                   ['nems.preprocessing.make_state_signal', {'state_signals': ['pupil'], 'permute_signals': [], 'new_signalname': 'state'},['rec'],['rec']]]
 
-    elif loader.startswith("psth") or loader.startswith("nostim"):
+    elif (loader.startswith("psth") or loader.startswith("nostim") or
+          loader.startswith("env")):
 
-        state_signals = ['pupil', 'active']
-
-        if loader.endswith("pup0beh0"):
+        if loader.endswith("beh0"):
+            state_signals = ['active']
+            permute_signals = ['active']
+        elif loader.endswith("beh"):
+            state_signals = ['active']
+            permute_signals = []
+        elif loader.endswith("pup0beh0"):
             state_signals = ['pupil', 'active']
             permute_signals = ['pupil', 'active']
         elif loader.endswith("pup0beh"):
@@ -120,6 +140,13 @@ def generate_loader_xfspec(loader, recording_uri):
                        {'state_signals': state_signals,
                         'permute_signals': permute_signals,
                         'new_signalname': 'state'}]]
+        elif loader.startswith("env"):
+            xfspec = [['nems.xforms.load_recordings',
+                       {'recording_uri_list': recordings}],
+                      ['nems.xforms.make_state_signal',
+                       {'state_signals': state_signals,
+                        'permute_signals': permute_signals,
+                        'new_signalname': 'state'}]]
         else:
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
@@ -128,20 +155,6 @@ def generate_loader_xfspec(loader, recording_uri):
                         'permute_signals': permute_signals,
                         'new_signalname': 'state'}]]
 
-    elif loader in ["env100","env100n"]:
-        normalize = int(loader == "env100n")
-        xfspec = [['nems.xforms.load_recordings',
-                   {'recording_uri_list': recordings, 'normalize': normalize}],
-                  ['nems.xforms.split_by_occurrence_counts',
-                   {'epoch_regex': '^STIM_'}],
-                  ['nems.xforms.average_away_stim_occurrences', {}]]
-
-    elif loader in ["env100pt","env100ptn"]:
-        normalize = int(loader == "env100ptn")
-        xfspec = [['nems.xforms.load_recordings',
-                   {'recording_uri_list': recordings, 'normalize': normalize}],
-                  ['nems.xforms.split_by_occurrence_counts',
-                   {'epoch_regex': '^STIM_'}]]
 
     else:
         raise ValueError('unknown loader string')

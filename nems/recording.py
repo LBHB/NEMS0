@@ -516,6 +516,8 @@ class Recording:
         for sn in self.signals.keys():
             if (not only_signals or sn in set(only_signals)):
                 s = self.signals[sn]
+                log.debug("JK: {0} {1}/{2} {3}".format(s.name,jack_idx,
+                          njacks,epoch_name))
                 new_sigs[sn] = s.jackknife_by_epoch(njacks, jack_idx,
                                                     epoch_name=epoch_name,
                                                     invert=invert, tiled=tiled)
