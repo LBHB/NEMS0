@@ -169,19 +169,10 @@ def init_dexp(rec, modelspec):
     choose initial values for dexp applied after preceeding fir is
     initialized
     """
-    target_i = None
-    target_module = 'double_exponential'
-    for i, m in enumerate(modelspec):
-        if target_module in m['fn']:
-            target_i = i
-            break
-
-    if not target_i:
-        log.info("target_module: %s not found in modelspec.", target_module)
+    target_i = _find_module('logsig', modelspec)
+    if target_i is None:
+        log.warning("No dexp module was found, can't initialize.")
         return modelspec
-
-    log.info("target_module: %s found at modelspec[%d]",
-             target_module, target_i)
 
     if target_i == len(modelspec):
         fit_portion = modelspec
@@ -210,16 +201,10 @@ def init_dexp(rec, modelspec):
     #shift = (np.max(pred) + np.min(pred)) / 2
     predrange = 2 / (np.max(pred) - np.min(pred))
 
-    modelspec[target_i]['phi'] = {}
-    modelspec[target_i]['phi']['amplitude'] = amp
-    modelspec[target_i]['phi']['base'] = base
-    modelspec[target_i]['phi']['kappa'] = np.log(predrange)
-    modelspec[target_i]['phi']['shift'] = shift
+    modelspec[target_i]['phi'] = {'amplitude': amp, 'base': base,
+                                  'kappa': np.log(predrange), 'shift': shift}
     log.info("Init dexp (amp,base,kappa,shift)=(%.3f,%.3f,%.3f,%.3f)",
-             modelspec[target_i]['phi']['amplitude'],
-             modelspec[target_i]['phi']['base'],
-             modelspec[target_i]['phi']['kappa'],
-             modelspec[target_i]['phi']['shift'])
+             *modelspec[target_i]['phi'].values())
 
 #    rec = ms.evaluate(rec, modelspec)
 #    x = rec['resp'].as_continuous()
@@ -230,3 +215,53 @@ def init_dexp(rec, modelspec):
 #
 
     return modelspec
+
+def init_logsig(rec, modelspec):
+    logsig_idx = _find_module('logsig', modelspec)
+    if logsig_idx is None:
+        log.warning("No logsig module was found, can't initialize.")
+        return modelspec
+    
+    stim = rec['stim'].as_continuous()
+    resp = rec['resp'].as_continuous()
+    # TODO: Probably need a more sophisticated calculation for this
+    collapsed_stim = np.nanmean(stim, axis=0)
+    mean_stim = np.nanmean(collapsed_stim)
+    min_stim = np.min(collapsed_stim)
+    max_stim = np.max(collapsed_stim)
+    stim_range = max_stim - min_stim
+    min_resp = np.min(resp)
+    max_resp = np.max(resp)
+    resp_range = max_resp - min_resp
+    
+    # Rather than setting a hard value for initial phi,
+    # set the prior distributions and let the fitter/analysis
+    # decide how to use it.
+    base = ('Exponential', {'beta': min_resp + 0.05*(resp_range)})
+    amplitude = ('Exponential', {'beta': 2*resp_range})
+    shift = ('Normal', {'mean': mean_stim, 'std': stim_range})
+    kappa = ('Exponential', {'beta': stim_range/len(mean_stim)})
+    
+    modelspec[logsig_idx]['prior'] = {
+            'base': base, 'amplitude': amplitude, 'shift': shift,
+            'kappa': kappa
+            }
+
+    return modelspec
+
+
+def _find_module(name, modelspec):
+    target_i = None
+    target_module = name
+    for i, m in enumerate(modelspec):
+        if target_module in m['fn']:
+            target_i = i
+            break
+
+    if not target_i:
+        log.info("target_module: %s not found in modelspec.", target_module)
+
+    log.info("target_module: %s found at modelspec[%d]",
+             target_module, target_i)
+
+    return target_i

@@ -315,10 +315,10 @@ defkey('logsig1',
        {'fn': 'nems.modules.nonlinearity.logistic_sigmoid',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'base': ('Normal', {'mean': [0], 'sd': [1]}),
-                  'amplitude': ('Normal', {'mean': [0.2], 'sd': [1]}),
-                  'shift': ('Normal', {'mean': [1], 'sd': [1]}),
-                  'kappa': ('Normal', {'mean': [-2], 'sd': [1]})}})
+        'prior': {'base': ('Exponential', {'beta': [0.1]}),
+                  'amplitude': ('Exponential', {'beta': [2.0]}),
+                  'shift': ('Normal', {'mean': [1.0], 'sd': [1.0]}),
+                  'kappa': ('Exponential', {'beta': [0.1]})}})
 
 defkey('tanh1',
        {'fn': 'nems.modules.nonlinearity.tanh',
