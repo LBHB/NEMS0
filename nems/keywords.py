@@ -235,6 +235,39 @@ def defkey_fir(n_coefs, n_outputs):
     return defkey(name, template)
 
 
+def defkey_firbank(n_coefs, n_inputs, n_banks):
+    '''
+    Generate and register default modulespec for basic channel weighting
+
+    Parameters
+    ----------
+    n_inputs : int
+        Number of input channels.
+    n_outputs : int
+        Number of output channels.
+    '''
+    name = 'fir{}x{}x{}'.format(n_banks, n_inputs, n_coefs)
+    p_coefficients = {
+        'mean': np.zeros((n_banks*n_inputs, n_coefs)),
+        'sd': np.ones((n_banks*n_inputs, n_coefs)),
+    }
+
+    if n_coefs > 2:
+        # p_coefficients['mean'][:, 1] = 1
+        # p_coefficients['mean'][:, 2] = -0.5
+        pass
+    else:
+        p_coefficients['mean'][:, 0] = 1
+
+    template = {
+        'fn': 'nems.modules.fir.filter_bank',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'bank_count': n_banks},
+        'prior': {
+            'coefficients': ('Normal', p_coefficients),
+        }
+    }
+    return defkey(name, template)
+
 # Autogenerate some standard keywords. TODO: this should be parseable from the
 # keyword name rather than requring an explicit definition for each. Port over
 # the parsing code from old NEMS?
@@ -253,6 +286,8 @@ for n_outputs in (1, 2, 3, 4):
     for n_coefs in (10, 15, 18):
         defkey_fir(n_coefs, n_outputs)
 
+defkey_firbank(15, 2, 2)
+
 # defkey_fir(10, 2)
 # defkey_fir(15, 2)
 # defkey_fir(18, 2)
@@ -261,7 +296,15 @@ defkey('lvl1',
        {'fn': 'nems.modules.levelshift.levelshift',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'level': ('Normal', {'mean': [0], 'sd': [1]})}})
+        'prior': {'level': ('Normal', {'mean': np.zeros([1,1]), 'sd': np.ones([1,1])})}
+        })
+
+defkey('lvl2',
+       {'fn': 'nems.modules.levelshift.levelshift',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred'},
+        'prior': {'level': ('Normal', {'mean': np.zeros([2,1]), 'sd': np.ones([2,1])})}
+        })
 
 defkey('stp1',
        {'fn': 'nems.modules.stp.short_term_plasticity',
@@ -269,7 +312,8 @@ defkey('stp1',
                       'o': 'pred',
                       'crosstalk': 0},
         'prior': {'u': ('Normal', {'mean': [0.01], 'sd': [0.01]}),
-                  'tau': ('Normal', {'mean': [0.04], 'sd': [0.01]})}})
+                  'tau': ('Normal', {'mean': [0.04], 'sd': [0.01]})}
+        })
 
 defkey('stpn1',
        {'fn': 'nems.modules.stp.short_term_plasticity',
@@ -278,7 +322,8 @@ defkey('stpn1',
                       'crosstalk': 0},
         'norm': {'type': 'minmax', 'recalc': 0, 'd': [0], 'g': [1]},
         'prior': {'u': ('Normal', {'mean': [0.01], 'sd': [0.01]}),
-                  'tau': ('Normal', {'mean': [0.04], 'sd': [0.01]})}})
+                  'tau': ('Normal', {'mean': [0.04], 'sd': [0.01]})}
+        })
 
 defkey('stp2',
        {'fn': 'nems.modules.stp.short_term_plasticity',
@@ -286,7 +331,8 @@ defkey('stp2',
                       'o': 'pred',
                       'crosstalk': 0},
         'prior': {'u': ('Normal', {'mean': [.01, .01], 'sd': [.01, .01]}),
-                  'tau': ('Normal', {'mean': [.04, .04], 'sd': [.05, .05]})}})
+                  'tau': ('Normal', {'mean': [.04, .04], 'sd': [.05, .05]})}
+        })
 
 defkey('stpz2',
        {'fn': 'nems.modules.stp.short_term_plasticity',
@@ -294,7 +340,8 @@ defkey('stpz2',
                       'o': 'pred',
                       'crosstalk': 0},
         'prior': {'u': ('Normal', {'mean': [.02, .02], 'sd': [.02, .02]}),
-                  'tau': ('Normal', {'mean': [.05, .05], 'sd': [.05, .05]})}})
+                  'tau': ('Normal', {'mean': [.05, .05], 'sd': [.05, .05]})}
+        })
 
 defkey('stpn2',
        {'fn': 'nems.modules.stp.short_term_plasticity',
@@ -304,7 +351,8 @@ defkey('stpn2',
         'norm': {'type': 'minmax', 'recalc': 0, 'd': np.array([[0, 0]]),
                  'g': np.array([[1, 1]])},
         'prior': {'u': ('Normal', {'mean': [.01, .01], 'sd': [.01, .01]}),
-                  'tau': ('Normal', {'mean': [.04, .04], 'sd': [.05, .05]})}})
+                  'tau': ('Normal', {'mean': [.04, .04], 'sd': [.05, .05]})}
+        })
 
 defkey('dexp1',
        {'fn': 'nems.modules.nonlinearity.double_exponential',
@@ -314,6 +362,15 @@ defkey('dexp1',
                   'amplitude': ('Normal', {'mean': [0.2], 'sd': [0.1]}),
                   'shift': ('Normal', {'mean': [0], 'sd': [1]}),
                   'kappa': ('Normal', {'mean': [0], 'sd': [0.1]})}})
+
+defkey('dexp2',
+       {'fn': 'nems.modules.nonlinearity.double_exponential',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred'},
+        'prior': {'base': ('Normal', {'mean': np.zeros([2,1]), 'sd': np.ones([2,1])}),
+                  'amplitude': ('Normal', {'mean': np.zeros([2,1])+0.2, 'sd': np.zeros([2,1])+0.1}),
+                  'shift': ('Normal', {'mean': np.zeros([2,1]), 'sd': np.ones([2,1])}),
+                  'kappa': ('Normal', {'mean': np.zeros([2,1]), 'sd': np.zeros([2,1])+0.1})}})
 
 defkey('qsig1',
        {'fn': 'nems.modules.nonlinearity.quick_sigmoid',
@@ -451,3 +508,26 @@ defkey('psth',
                       'o': 'pred'}
         })
 
+defkey('rep2',
+       {'fn': 'nems.modules.signal_mod.replicate_channels',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'repcount': 2},
+        'phi': {}
+        })
+
+defkey('rep3',
+       {'fn': 'nems.modules.signal_mod.replicate_channels',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'repcount': 3},
+        'phi': {}
+        })
+
+defkey('mrg',
+       {'fn': 'nems.modules.signal_mod.merge_channels',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      's': 'state'},
+        'phi': {}
+        })

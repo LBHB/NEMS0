@@ -48,7 +48,7 @@ def fit_basic(data, modelspec,
     if require_phi:
         # Ensure that phi exists for all modules; choose prior mean if not found
         for i, m in enumerate(modelspec):
-            if 'phi' not in m.keys():
+            if ('phi' not in m.keys()) and ('prior' in m.keys()):
                 log.debug('Phi not found for module, using mean of prior: %s', m)
                 m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
                 modelspec[i] = m
@@ -160,6 +160,38 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
         tms = nems.initializers.prefit_to_target(
                 data_list[i], copy.deepcopy(modelspecs[0]),
                 nems.analysis.api.fit_basic, 'levelshift',
+                fitter=scipy_minimize,
+                fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
+
+        models += fit_basic(data_list[i], tms,
+                            fitter=fitter,
+                            metric=metric,
+                            metaname='fit_nfold',
+                            fit_kwargs=fit_kwargs)
+
+    return models
+
+
+def fit_state_nfold(data_list, modelspecs, generate_psth=False,
+              fitter=scipy_minimize,
+              metric=None,
+              fit_kwargs={'options': {'ftol': 1e-7, 'maxiter': 1000}}):
+    '''
+    Generic state-dependent-stream model fitter
+    Takes njacks jackknifes, where each jackknife has some small
+    fraction of data NaN'd out, and fits modelspec to them.
+    '''
+    nfolds = len(data_list)
+
+    models = []
+    if not metric:
+        metric = lambda d: metrics.nmse(d, 'pred', 'resp')
+
+    for i in range(nfolds):
+        log.info("Fitting fold {}/{}".format(i+1, nfolds))
+        tms = nems.initializers.prefit_to_target(
+                data_list[i], copy.deepcopy(modelspecs[0]),
+                nems.analysis.api.fit_basic, 'merge_channels',
                 fitter=scipy_minimize,
                 fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
 

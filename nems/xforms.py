@@ -600,6 +600,13 @@ def fit_nfold(modelspecs, est, IsReload=False, **context):
                 est, modelspecs, fitter=scipy_minimize)
     return {'modelspecs': modelspecs}
 
+def fit_state_nfold(modelspecs, est, IsReload=False, **context):
+    ''' fitting n fold, one from each entry in est '''
+    if not IsReload:
+        modelspecs = nems.analysis.api.fit_state_nfold(
+                est, modelspecs, fitter=scipy_minimize)
+    return {'modelspecs': modelspecs}
+
 
 def fit_nfold_shrinkage(modelspecs, est, IsReload=False, **context):
     ''' fitting n fold, one from each entry in est, use mse_shrink for

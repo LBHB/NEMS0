@@ -209,6 +209,14 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
         xfspec.append(['nems.xforms.fit_nfold', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
+    elif fitkey == "state01-jk":
+
+        log.info("n-fold fitting...")
+        xfspec.append(['nems.xforms.split_for_jackknife',
+                       {'njacks': 5, 'epoch_name': 'REFERENCE'}])
+        xfspec.append(['nems.xforms.fit_state_nfold', {}])
+        xfspec.append(['nems.xforms.predict',    {}])
+
     elif (fitkey == "fitpjk01") or (fitkey == "basic-nf"):
 
         log.info("n-fold fitting...")

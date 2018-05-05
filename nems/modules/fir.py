@@ -13,7 +13,7 @@ def get_zi(b, x):
     return scipy.signal.lfilter(b, [1], null_data, zi=zi)[1]
 
 
-def per_channel(x, coefficients):
+def per_channel(x, coefficients, bank_count=1):
     '''
     Private function used by fir_filter().
     '''
@@ -36,9 +36,19 @@ def per_channel(x, coefficients):
         # r = np.convolve(c, x, mode='same')
         result.append(r[np.newaxis])
     result = np.concatenate(result)
-    return np.sum(result, axis=-2, keepdims=True)
+    if bank_count <= 1:
+        return np.sum(result, axis=-2, keepdims=True)
+    else:
+        s=list(result.shape)
+        return np.sum(np.reshape(result,s[:-2] + [bank_count,
+                                 int(s[-2]/bank_count), s[-1]]), axis=-2)
 
-
-def basic(rec, i, o, coefficients):
+def basic(rec, i='pred', o='pred', coefficients=[]):
     fn = lambda x: per_channel(x, coefficients)
+    return [rec[i].transform(fn, o)]
+
+
+def filter_bank(rec, i='pred', o='pred', coefficients=[], bank_count=1):
+    # TODO: test, optimize
+    fn = lambda x: per_channel(x, coefficients, bank_count)
     return [rec[i].transform(fn, o)]
