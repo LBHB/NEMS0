@@ -315,15 +315,6 @@ defkey('stp1',
                   'tau': ('Normal', {'mean': [0.04], 'sd': [0.01]})}
         })
 
-defkey('stpn1',
-       {'fn': 'nems.modules.stp.short_term_plasticity',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      'crosstalk': 0},
-        'norm': {'type': 'minmax', 'recalc': 0, 'd': [0], 'g': [1]},
-        'prior': {'u': ('Normal', {'mean': [0.01], 'sd': [0.01]}),
-                  'tau': ('Normal', {'mean': [0.04], 'sd': [0.01]})}
-        })
 
 defkey('stp2',
        {'fn': 'nems.modules.stp.short_term_plasticity',
@@ -332,6 +323,24 @@ defkey('stp2',
                       'crosstalk': 0},
         'prior': {'u': ('Normal', {'mean': [.01, .01], 'sd': [.01, .01]}),
                   'tau': ('Normal', {'mean': [.04, .04], 'sd': [.05, .05]})}
+        })
+
+defkey('stp3',
+       {'fn': 'nems.modules.stp.short_term_plasticity',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'crosstalk': 0},
+        'prior': {'u': ('Normal', {'mean': [.01, .01, .01], 'sd': [.01, .01, .01]}),
+                  'tau': ('Normal', {'mean': [.04, .04, .04], 'sd': [.05, .05, .05]})}
+        })
+
+defkey('stp4',
+       {'fn': 'nems.modules.stp.short_term_plasticity',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'crosstalk': 0},
+        'prior': {'u': ('Normal', {'mean': [.01, .01, .01, .01], 'sd': [.01, .01, .01, .01]}),
+                  'tau': ('Normal', {'mean': [.04, .04, .04, .04], 'sd': [.05, .05, .05, .05]})}
         })
 
 defkey('stpz2',
@@ -343,6 +352,15 @@ defkey('stpz2',
                   'tau': ('Normal', {'mean': [.05, .05], 'sd': [.05, .05]})}
         })
 
+defkey('stpn1',
+       {'fn': 'nems.modules.stp.short_term_plasticity',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'crosstalk': 0},
+        'norm': {'type': 'minmax', 'recalc': 0, 'd': [0], 'g': [1]},
+        'prior': {'u': ('Normal', {'mean': [0.01], 'sd': [0.01]}),
+                  'tau': ('Normal', {'mean': [0.04], 'sd': [0.01]})}
+        })
 defkey('stpn2',
        {'fn': 'nems.modules.stp.short_term_plasticity',
         'fn_kwargs': {'i': 'pred',
