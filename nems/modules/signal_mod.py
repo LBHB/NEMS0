@@ -44,6 +44,7 @@ def _merge_states(x, state):
        s - 1 X T matrix with integer values 0 ... N-1
     """
     res = np.zeros_like(x[:1,:])
+    res.fill(np.nan)
     #print(state.shape)
     for i in range(x.shape[0]):
         res[state[-1:,:]==i]=x[i,state[-1,:]==i]
