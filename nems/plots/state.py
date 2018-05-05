@@ -5,7 +5,7 @@ import scipy
 from .timeseries import timeseries_from_signals, timeseries_from_vectors
 
 def state_vars_timeseries(rec, modelspec, ax=None):
-    
+
     if ax is not None:
         plt.sca(ax)
 
@@ -35,7 +35,7 @@ def state_vars_timeseries(rec, modelspec, ax=None):
                     s += " g={} d={} ".format(g_string, d_string)
                 else:
                     s=None
-                    
+
         num_vars = rec['state'].shape[0]
         for i in range(1, num_vars):
             d = rec['state'].as_continuous()[[i], :].T
@@ -96,23 +96,34 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', state_sig='pupil',
         low = np.ones(folded_psth[0, :, :].shape).T * np.nan
 
     # high = response on epochs when state less than mean
+    title = state_sig
     high = np.nanmean(folded_psth[m >= mean, :, :], axis=0).T
+    hv = np.nanmean(m[m >= mean])
+    if np.sum(m < mean) > 0:
+        lv = np.nanmean(m[m < mean])
+        if (hv > 0.95) and (hv < 1.05) and (lv > -0.05) and (lv < 0.05):
+            legend = ('Lo', 'Hi')
+        else:
+            legend = ('< Mean', '>= Mean')
 
-    legend = ('< Mean', '>= Mean')
-    title = '{} conditioned {}'.format(state_sig, epoch)
+        timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
+                                legend=legend)
+    else:
+        timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax)
 
-    timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
-                            legend=legend)
+    if state_sig == 'baseline':
+        ax.set_xlabel(epoch)
+
 
 def state_gain_plot(modelspec, ax=None, clim=None, title=None):
     for m in modelspec:
         if 'state_dc_gain' in m['fn']:
             g = m['phi']['g']
             d = m['phi']['d']
-            
+
     if ax is not None:
         plt.sca(ax)
-        
+
     plt.plot(d)
     plt.plot(g)
     plt.xlabel('state channel')

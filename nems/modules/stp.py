@@ -49,7 +49,10 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
         a = 1/taui[i]
         ustim = 1.0/taui[i] + ui[i] * tstim[i, :]
         # ustim = ui[i] * tstim[i, :]
-        if ui[i] > 0:
+        if ui[i] == 0:
+            # passthru, no STP
+            pass
+        elif ui[i] > 0:
             # depression
             for tt in range(1, s[1]):
                 # td = di[i, tt - 1]  # previous time bin depression
@@ -68,6 +71,7 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
                 stim_out[i, tt] *= td
     # print("(u,tau)=({0},{1})".format(ui,taui))
 
+    stim_out[np.isnan(X)] = np.nan
     return stim_out
 
 

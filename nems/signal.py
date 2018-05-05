@@ -559,7 +559,7 @@ class SignalBase:
         '''
         # TODO: Update this to work with a mapping of key -> Nx2 epoch
         # structure as well.
-        return {name: self.extract_epoch(name) for name in epoch_names}
+        return {name: self.extract_epoch(name, allow_empty=True) for name in epoch_names}
 
     def epoch_to_signal(self, epoch, boundary_mode='trim', fix_overlap='merge'):
         '''
@@ -836,7 +836,7 @@ class RasterizedSignal(SignalBase):
         return RasterizedSignal(data=data, safety_checks=False, **attributes)
 
     def extract_epoch(self, epoch, boundary_mode='exclude',
-                                               fix_overlap='first'):
+                      fix_overlap='first', allow_empty=False):
         '''
         Extracts all occurances of epoch from the signal.
 
@@ -847,6 +847,9 @@ class RasterizedSignal(SignalBase):
             extract. If Nx2 array, the first column indicates the start time
             (in seconds) and the second column indicates the end time
             (in seconds) to extract.
+
+            allow_empty: if true, returns empty matrix if no valid epoch
+            matches. otherwise, throw error when this happens
 
         Returns
         -------
@@ -860,14 +863,19 @@ class RasterizedSignal(SignalBase):
         Epochs tagged with the same name may have various lengths. Shorter
         epochs will be padded with NaN.
         '''
-        epoch_indices = self.get_epoch_indices(epoch,
-                                               boundary_mode=boundary_mode,
-                                               fix_overlap=fix_overlap)
+        if type(epoch) is str:
+            epoch_indices = self.get_epoch_indices(epoch,
+                                                   boundary_mode=boundary_mode,
+                                                   fix_overlap=fix_overlap)
+        else:
+            epoch_indices = epoch
 
         if epoch_indices.size == 0:
-            raise IndexError("No matching epochs to extract for: {0}\n"
-                             "In signal: {1}"
-                             .format(epoch, self.name))
+            if allow_empty:
+                return []
+            else:
+                raise IndexError("No matching epochs to extract for: %s\n"
+                                 "In signal: %s", epoch, self.name)
         n_samples = np.max(epoch_indices[:, 1]-epoch_indices[:, 0])
         n_epochs = len(epoch_indices)
 
@@ -1023,7 +1031,12 @@ class RasterizedSignal(SignalBase):
 
         data = self.as_continuous().copy()
         mask = np.zeros_like(data, dtype=np.bool)
+        mask2 = np.zeros_like(data, dtype=np.bool)
 
+        for ep in epochs:
+            lb, ub = ep
+            mask2[:,lb:ub]=1
+        
         for idx in idx_data[jack_idx].tolist():
             if idx < occurrences:
                 lb, ub = epochs[idx]
@@ -1033,7 +1046,8 @@ class RasterizedSignal(SignalBase):
             mask = ~mask
 
         data[mask] = np.nan
-
+        data[~mask2] = np.nan   
+        
         return self._modified_copy(data)
 
     def jackknifes_by_epoch(self, njacks, epoch_name, tiled=True):
@@ -1185,16 +1199,27 @@ class RasterizedSignal(SignalBase):
         Returns a new signal, created by replacing every occurrence of
         epoch with epoch_data, assumed to be a 2D matrix of data
         (chans x time).
+
+        Or if epoch_data is occurence X chans X time, replace each epoch with
+        the corresponding occurence in epcoh_data
         '''
-        data = self.as_continuous()
+        data = self.as_continuous().copy()
         if preserve_nan:
             nan_bins = np.isnan(data[0, :])
         indices = self.get_epoch_indices(epoch)
         if indices.size == 0:
             warnings.warn("No occurrences of epoch were found: \n{}\n"
-                                 "Nothing to replace.".format(epoch))
-        for lb, ub in indices:
-            data[:, lb:ub] = epoch_data
+                          "Nothing to replace.".format(epoch))
+        if epoch_data.ndim == 2:
+            for lb, ub in indices:
+                data[:, lb:ub] = epoch_data
+        else:
+            ii = 0
+            for lb, ub in indices:
+                n = ub-lb
+                data[:, lb:ub] = epoch_data[ii, :, :n]
+                ii += 1
+
         if preserve_nan:
             data[:, nan_bins] = np.nan
 
@@ -1215,27 +1240,34 @@ class RasterizedSignal(SignalBase):
         we do not recommend replacing overlapping epochs in a single
         operation because there is some ambiguity as to the result.
         '''
-        # TODO: Update this to work with a mapping of key -> Nx2 epoch
-        # structure as well.
+
         data = self.as_continuous().copy()
         if preserve_nan:
             nan_bins = np.isnan(data[0, :])
         for epoch, epoch_data in epoch_dict.items():
-            for lb, ub in self.get_epoch_indices(epoch):
+            indices = self.get_epoch_indices(epoch)
+            if epoch_data.ndim == 2:
+                for lb, ub in indices:
+                    # SVD kludge to deal with rounding from floating-point time
+                    # to integer bin index
+                    if ub-lb < epoch_data.shape[1]:
+                        # epoch data may be too long bc padded with nans,
+                        # truncate!
+                        epoch_data = epoch_data[:, 0:(ub-lb)]
+                        # ub += epoch_data.shape[1]-(ub-lb)
+                    elif ub-lb > epoch_data.shape[1]:
+                        ub -= (ub-lb)-epoch_data.shape[1]
+                    if ub > data.shape[1]:
+                        ub -= ub-data.shape[1]
+                        epoch_data = epoch_data[:, 0:(ub-lb)]
+                    data[:, lb:ub] = epoch_data
 
-                # SVD kludge to deal with rounding from floating-point time
-                # to integer bin index
-                if ub-lb < epoch_data.shape[1]:
-                    # epoch data may be too long bc padded with nans,
-                    # truncate!
-                    epoch_data = epoch_data[:, 0:(ub-lb)]
-                    # ub += epoch_data.shape[1]-(ub-lb)
-                elif ub-lb > epoch_data.shape[1]:
-                    ub -= (ub-lb)-epoch_data.shape[1]
-                if ub > data.shape[1]:
-                    ub -= ub-data.shape[1]
-                    epoch_data = epoch_data[:, 0:(ub-lb)]
-                data[:, lb:ub] = epoch_data
+            else:
+                ii = 0
+                for lb, ub in indices:
+                    n = ub-lb
+                    data[:, lb:ub] = epoch_data[ii, :, :n]
+                    ii += 1
 
         if preserve_nan:
             data[:, nan_bins] = np.nan
@@ -1702,15 +1734,18 @@ class TiledSignal(SignalBase):
         fs is not used but in parameters for compatibility with PointProcess
         '''
         maxtime = np.max(self.epochs["end"])
-        maxbin = int(self.fs*maxtime)
+        maxbin = self.shape[1]
+        if self.fs*maxtime > maxbin:
+            maxbin = self.fs*maxtime
         tags = list(self._data.keys())
         chancount = self._data[tags[0]].shape[0]
 
         z = np.zeros([chancount, maxbin])
-        empty_signal=RasterizedSignal(fs=self.fs, data=z, name=self.name,
+        zsig = RasterizedSignal(fs=self.fs, data=z, name=self.name,
                                 recording=self.recording, chans=self.chans,
                                 epochs=self.epochs, meta=self.meta)
-        signal=empty_signal.replace_epochs(self._data)
+        signal = zsig.replace_epochs(self._data)
+
         return signal
 
     def save(self, dirpath, fmt='%.18e'):

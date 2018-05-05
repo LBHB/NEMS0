@@ -89,6 +89,9 @@ def fit_basic(data, modelspec,
     ms.fit_mode_off(improved_modelspec)
     ms.set_modelspec_metadata(improved_modelspec, 'fitter', metaname)
     ms.set_modelspec_metadata(improved_modelspec, 'fit_time', elapsed_time)
+    ms.set_modelspec_metadata(improved_modelspec, 'n_parms',
+                              len(improved_sigma))
+
     results = [copy.deepcopy(improved_modelspec)]
     return results
 
@@ -104,12 +107,14 @@ def basic_cost(sigma, unpacker, modelspec, data, segmentor,
     updated_data_subset = evaluator(data_subset, updated_spec)
     error = metric(updated_data_subset)
     log.debug("inside cost function, current error: %.06f", error)
-    log.debug("\ncurrent sigma: %s", sigma)
+    log.debug("current sigma: %s", sigma)
 
     if hasattr(basic_cost, 'counter'):
         basic_cost.counter += 1
-        if basic_cost.counter % 1000 == 0:
+        if basic_cost.counter % 500 == 0:
             log.info('Eval #%d. E=%.06f', basic_cost.counter, error)
+            # log.debug("current sigma: %s", sigma)
+            nems.utils.progress_fun()
 
     if hasattr(basic_cost, 'error'):
         basic_cost.error = error

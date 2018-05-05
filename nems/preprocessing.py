@@ -6,7 +6,8 @@ import nems.signal as signal
 import copy
 
 import logging
-logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
+
 
 def generate_average_sig(signal_to_average,
                          new_signalname='respavg', epoch_regex='^STIM_'):
@@ -161,6 +162,9 @@ def remove_invalid_segments(rec):
 
     # First, select the appropriate subset of data
     rec['resp'] = rec['resp'].rasterize()
+    if 'stim' in rec.signals.keys():
+        rec['stim'] = rec['stim'].rasterize()
+        
     sig = rec['resp']
 
     # get list of start and stop times (epoch bounds)
@@ -221,6 +225,64 @@ def nan_invalid_segments(rec):
     newrec = rec.nan_times(epoch_indices2)
 
     return newrec
+
+
+def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
+    '''
+    Estimates a PSTH from all responses to each regex match in a recording
+
+    subtract spont rate based on pre-stim silence for ALL estimation data.
+    '''
+
+    resp = rec['resp'].rasterize()
+
+    # compute PSTH response and spont rate during those valid trials
+    prestimsilence = resp.extract_epoch('PreStimSilence')
+    if len(prestimsilence.shape) == 3:
+        spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
+    else:
+        spont_rate = np.nanmean(prestimsilence)
+
+    idx = resp.get_epoch_indices('PreStimSilence')
+    prebins = idx[0][1] - idx[0][0]
+    idx = resp.get_epoch_indices('PostStimSilence')
+    postbins = idx[0][1] - idx[0][0]
+
+    epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
+    folded_matrices = resp.extract_epochs(epochs_to_extract)
+
+    # 2. Average over all reps of each stim and save into dict called psth.
+    per_stim_psth = dict()
+    for k, v in folded_matrices.items():
+        if smooth_resp:
+            # replace each epoch (pre, during, post) with average
+            v[:, :, :prebins] = np.nanmean(v[:, :, :prebins],
+                                           axis=2, keepdims=True)
+            v[:, :, prebins:(prebins+2)] = np.nanmean(v[:, :, prebins:(prebins+2)],
+                                                      axis=2, keepdims=True)
+            v[:, :, (prebins+2):-postbins] = np.nanmean(v[:, :, (prebins+2):-postbins],
+                                                        axis=2, keepdims=True)
+            v[:, :, -postbins:(-postbins+2)] = np.nanmean(v[:, :, -postbins:(-postbins+2)],
+                                                          axis=2, keepdims=True)
+            v[:, :, (-postbins+2):] = np.nanmean(v[:, :, (-postbins+2):],
+                                                 axis=2, keepdims=True)
+
+        per_stim_psth[k] = np.nanmean(v, axis=0) - spont_rate[:, np.newaxis]
+
+    # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
+    #   replacing all epochs in the signal with their average (psth)
+    respavg = resp.replace_epochs(per_stim_psth)
+    respavg.name = 'psth'
+
+    # add signal to the recording
+    rec.add_signal(respavg)
+
+    if smooth_resp:
+        log.info('Replacing resp with smoothed resp')
+        resp = resp.replace_epochs(folded_matrices)
+        rec.add_signal(resp)
+
+    return rec
 
 
 def generate_psth_from_est_for_both_est_and_val(est, val,
@@ -285,20 +347,43 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     generate state signal for stategainX models
     TODO: SVD document this and/or move it out of generic nems code
     """
+
+    newrec = rec.copy()
+    resp = newrec['resp'].rasterize()
+
     # Much faster; TODO: Test if throws warnings
-    x = np.ones([1, rec[state_signals[0]]._data.shape[1]])
-    ones_sig = rec[state_signals[0]]._modified_copy(x)
+    x = np.ones([1, resp.shape[1]])
+    ones_sig = resp._modified_copy(x)
     ones_sig.name = "baseline"
     ones_sig.chans = ["baseline"]
 
-    newrec = rec.copy()
-    resp = newrec['resp']
-
     # DEPRECATED, NOW THAT NORMALIZATION IS IMPLEMENTED
-    # if 'pupil' in state_signals:
-    #    # normalize by 100
-    #    newrec["pupil"] = newrec["pupil"]._modified_copy(
-    #            newrec["pupil"].as_continuous() / 100)
+    if ('pupil' in state_signals) or ('pupil_ev' in state_signals) or \
+       ('pupil_bs' in state_signals):
+        # normalize min-max
+        p = newrec["pupil"].as_continuous()
+        # p[p < np.nanmax(p)/5] = np.nanmax(p)/5
+        p -= np.nanmean(p)
+        p /= np.nanstd(p)
+        newrec["pupil"] = newrec["pupil"]._modified_copy(p)
+
+    if ('pupil_ev' in state_signals) or ('pupil_bs' in state_signals):
+        # generate separate pupil baseline and evoked signals
+
+        prestimsilence = newrec["pupil"].extract_epoch('PreStimSilence')
+        spont_bins = prestimsilence.shape[2]
+        pupil_trial = newrec["pupil"].extract_epoch('TRIAL')
+
+        pupil_bs = np.zeros(pupil_trial.shape)
+        for ii in range(pupil_trial.shape[0]):
+            pupil_bs[ii, :, :] = np.mean(
+                    pupil_trial[ii, :, :spont_bins])
+        pupil_ev = pupil_trial - pupil_bs
+
+        newrec['pupil_ev'] = newrec["pupil"].replace_epoch(
+                'TRIAL', pupil_ev)
+        newrec['pupil_bs'] = newrec["pupil"].replace_epoch(
+                'TRIAL', pupil_bs)
 
     # generate stask tate signals
     fpre = (resp.epochs['name'] == "PRE_PASSIVE")
@@ -317,8 +402,11 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     newrec['miss_trials'] = resp.epoch_to_signal('MISS_TRIAL')
     newrec['fa_trials'] = resp.epoch_to_signal('FA_TRIAL')
     newrec['puretone_trials'] = resp.epoch_to_signal('PURETONE_BEHAVIOR')
+    newrec['puretone_trials'].chans = ['puretone_trials']
     newrec['easy_trials'] = resp.epoch_to_signal('EASY_BEHAVIOR')
+    newrec['easy_trials'].chans = ['easy_trials']
     newrec['hard_trials'] = resp.epoch_to_signal('HARD_BEHAVIOR')
+    newrec['hard_trials'].chans = ['hard_trials']
     newrec['active'] = resp.epoch_to_signal('ACTIVE_EXPERIMENT')
     newrec['active'].chans = ['active']
     state_sig_list = [ones_sig]
@@ -329,39 +417,41 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
             # TODO support for signals_permute
             # raise ValueError("permute_signals not yet supported")
             state_sig_list += [newrec[x].shuffle_time()]
-            # print(state_sig_list[-1].shape)
         else:
             state_sig_list += [newrec[x]]
+        # print(x)
+        # print(state_sig_list[-1])
+        # print(state_sig_list[-1].shape)
 
     state = signal.RasterizedSignal.concatenate_channels(state_sig_list)
     state.name = new_signalname
 
     # scale all signals to range from 0 - 1
-    state = state.normalize(normalization='minmax')
+    # state = state.normalize(normalization='minmax')
 
     newrec.add_signal(state)
 
     return newrec
 
 
-def split_est_val_for_jackknife(est, epoch_name='TRIAL', modelspecs=None,
+def split_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
                                 njacks=10, IsReload=False, **context):
     """
     take a single recording (est) and define njacks est/val sets using a
     jackknife logic. returns lists est_out and val_out of corresponding
     jackknife subsamples. removed timepoints are replaced with nan
     """
-    est_out = []
-    val_out = []
+    est = []
+    val = []
     # logging.info("Generating {} jackknifes".format(njacks))
 
     for i in range(njacks):
         # est_out += [est.jackknife_by_time(njacks, i)]
         # val_out += [est.jackknife_by_time(njacks, i, invert=True)]
-        est_out += [est.jackknife_by_epoch(njacks, i, epoch_name,
-                                           tiled=True)]
-        val_out += [est.jackknife_by_epoch(njacks, i, epoch_name,
-                                           tiled=True, invert=True)]
+        est += [rec.jackknife_by_epoch(njacks, i, epoch_name,
+                                       tiled=True)]
+        val += [rec.jackknife_by_epoch(njacks, i, epoch_name,
+                                       tiled=True, invert=True)]
 
     modelspecs_out = []
     if (not IsReload) and (modelspecs is not None):
@@ -374,4 +464,4 @@ def split_est_val_for_jackknife(est, epoch_name='TRIAL', modelspecs=None,
         else:
             raise ValueError('modelspecs must be len 1 or njacks')
 
-    return est_out, val_out, modelspecs_out
+    return est, val, modelspecs_out
