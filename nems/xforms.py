@@ -144,7 +144,7 @@ def load_recordings(recording_uri_list, normalize=False, **context):
     '''
     rec = load_recording(recording_uri_list[0])
     other_recordings = [load_recording(uri) for uri in recording_uri_list[1:]]
-    if normalize and other_recordings:
+    if other_recordings:
         rec.concatenate_recordings(other_recordings)
 
     if normalize and 'stim' in rec.signals.keys():
@@ -186,6 +186,7 @@ def average_away_stim_occurrences(est, val, **context):
     val = preproc.average_away_epoch_occurrences(val, epoch_regex='^STIM_')
     return {'est': est, 'val': val}
 
+
 def average_away_stim_occurrences_rec(rec, **context):
     rec = preproc.average_away_epoch_occurrences(rec, epoch_regex='^STIM_')
     return {'rec': rec}
@@ -201,10 +202,11 @@ def use_all_data_for_est_and_val(rec, **context):
     val = rec
     return {'est': est, 'val': val}
 
+
 def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
                         njacks=10, IsReload=False, **context):
 
-    est_out,val_out,modelspecs_out = \
+    est_out, val_out, modelspecs_out = \
         preproc.split_est_val_for_jackknife(rec, modelspecs=modelspecs,
                                             epoch_name=epoch_name,
                                             njacks=njacks, IsReload=IsReload)
@@ -213,12 +215,27 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
     else:
         return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
-def generate_psth_from_est_for_both_est_and_val_nfold(est, val, **context):
-     '''
-     generate PSTH prediction for each set
-     '''
-     est_out,val_out=preproc.generate_psth_from_est_for_both_est_and_val_nfold(est, val)
-     return {'est': est_out, 'val': val_out}
+
+def generate_psth_from_resp(rec, epoch_regex='^STIM_',
+                            smooth_resp=False, **context):
+    '''
+    generate PSTH prediction for each set
+    '''
+
+    rec = preproc.generate_psth_from_resp(rec, epoch_regex,
+                                          smooth_resp=smooth_resp)
+
+    return {'rec': rec}
+
+
+def generate_psth_from_est_for_both_est_and_val_nfold(
+        est, val, epoch_regex='^STIM_', **context):
+    '''
+    generate PSTH prediction for each set
+    '''
+    est_out, val_out = \
+        preproc.generate_psth_from_est_for_both_est_and_val_nfold(est, val)
+    return {'est': est_out, 'val': val_out}
 
 
 def init_from_keywords(keywordstring, meta={}, IsReload=False, **context):
@@ -251,30 +268,44 @@ def set_random_phi(modelspecs, IsReload=False, **context):
 
 
 def fit_basic_init(modelspecs, est, IsReload=False, **context):
-    ''' A basic fit that optimizes every input modelspec. '''
-    if not IsReload:
-        # HACK ALERT! THIS IS MESSY
-        # fit without STP module first (if there is one)
-        for m in modelspecs[0]:
-            if 'stp' in m['fn']:
-                modelspecs = [nems.initializers.prefit_to_target(
-                        est, modelspec, nems.analysis.api.fit_basic,
-                        target_module='levelshift',
-                        extra_exclude=['stp'],
-                        fitter=scipy_minimize,
-                        fit_kwargs={'tolerance': 1e-3, 'max_iter': 500})
-                        for modelspec in modelspecs]
-                break
+    '''
+    Initialize modelspecs in a way that avoids getting stuck in
+    local minima.
 
-        # then pre-fit with STP
+    written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
+    optional modules in (parens)
+
+    '''
+    if not IsReload:
+        # TODO -- make sure this works generally or create alternatives
+
+        # fit without STP module first (if there is one)
         modelspecs = [nems.initializers.prefit_to_target(
                 est, modelspec, nems.analysis.api.fit_basic,
                 target_module='levelshift',
+                extra_exclude=['stp'],
                 fitter=scipy_minimize,
-                fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
+                fit_kwargs={'tolerance': 10**-5.5, 'max_iter': 700})
                 for modelspec in modelspecs]
 
-        # possibility: pre-fit static NL .  But this doesn't seem to help...
+        # then initialize the STP module (if there is one)
+        for i, m in enumerate(modelspecs[0]):
+            if 'stp' in m['fn']:
+                m = priors.set_mean_phi([m])[0]  # Init phi for module
+                modelspecs[0][i] = m
+
+        # then pre-fit just the STP module-- does this do ANYTHING useful?
+        #for m in modelspecs[0]:
+        #    if 'stp' in m['fn']:
+        #        modelspecs = [nems.initializers.prefit_mod_subset(
+        #                est, modelspec, nems.analysis.api.fit_basic,
+        #                fit_set=['stp'],
+        #                fitter=scipy_minimize,
+        #                fit_kwargs={'tolerance': 10**-5.5, 'max_iter': 500})
+        #                for modelspec in modelspecs]
+                break
+
+        # pre-fit static NL if it exists
         for m in modelspecs[0]:
             if 'double_exponential' in m['fn']:
                 modelspecs = [nems.initializers.init_dexp(est, modelspec)
@@ -283,8 +314,15 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
                         est, modelspec, nems.analysis.api.fit_basic,
                         fit_set=['double_exponential'],
                         fitter=scipy_minimize,
-                        fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
+                        fit_kwargs={'tolerance': 10**-5.5, 'max_iter': 500})
                         for modelspec in modelspecs]
+#                modelspecs = [nems.initializers.prefit_to_target(
+#                        est, modelspec, nems.analysis.api.fit_basic,
+#                        target_module='double_exponential',
+#                        extra_exclude=['stp'],
+#                        fitter=scipy_minimize,
+#                        fit_kwargs={'tolerance': 1e-6, 'max_iter': 500})
+#                        for modelspec in modelspecs]
                 break
 
             elif 'logistic_sigmoid' in m['fn']:
@@ -295,43 +333,47 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
     return {'modelspecs': modelspecs}
 
 
-def fit_basic_init_stp_freeze(modelspecs, est, IsReload=False, **context):
-    ''' A basic fit that optimizes every input modelspec. '''
-    if not IsReload:
-        # if STP is a module, then first pre-fit with frozen STP
-        # HACK ALERT! THIS IS MESSY. AND IT DOESN'T HELP??
-        stp_sm=None
-        for m in modelspecs[0]:
-            if 'stp' in m['fn']:
-                log.info("Freezing STP module for pre-fit")
-                stp_sm=copy.deepcopy(m)
-                m['fn_kwargs']['u'] = m['prior']['u'][1]['mean']
-                m['fn_kwargs']['tau'] = m['prior']['u'][1]['mean']
-                del m['prior']
-                break
+def fit_iter_init(modelspecs, est, IsReload=False, **context):
+    '''
+    Initialize modelspecs in a way that avoids getting stuck in
+    local minima.
 
-        # then pre-fit with STP
+    written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
+    optional modules in (parens)
+
+    '''
+    if not IsReload:
+        # TODO -- make sure this works generally or create alternatives
+
+        # fit without STP module first (if there is one)
         modelspecs = [nems.initializers.prefit_to_target(
                 est, modelspec, nems.analysis.api.fit_basic,
                 target_module='levelshift',
+                extra_exclude=['stp'],
                 fitter=scipy_minimize,
-                fit_kwargs={'tolerance': 1e-4, 'max_iter': 500})
+                fit_kwargs={'tolerance': 10**-4, 'max_iter': 700})
                 for modelspec in modelspecs]
 
-        # restore STP module to normal state
-        if stp_sm is not None:
-            for i, m in enumerate(modelspecs[0]):
-                if 'stp' in m['fn']:
-                    log.info("Restoring STP module for full fit")
-                    stp_sm['phi'] = {}
-                    stp_sm['phi']['u'] = stp_sm['prior']['u'][1]['mean']
-                    stp_sm['phi']['tau'] = stp_sm['prior']['u'][1]['mean']
-                    modelspecs[0][i] = stp_sm
+        # then initialize the STP module (if there is one)
+        for i, m in enumerate(modelspecs[0]):
+            if 'stp' in m['fn']:
+                m = priors.set_mean_phi([m])[0]  # Init phi for module
+                modelspecs[0][i] = m
 
-        # possibility: pre-fit static NL .  But this doesn't seem to help...
-        # modelspecs = [nems.initializers.init_dexp(
-        #        est, modelspec)
-        #        for modelspec in modelspecs]
+                break
+
+        # pre-fit static NL if it exists
+        for m in modelspecs[0]:
+            if 'double_exponential' in m['fn']:
+                modelspecs = [nems.initializers.init_dexp(est, modelspec)
+                              for modelspec in modelspecs]
+                modelspecs = [nems.initializers.prefit_mod_subset(
+                        est, modelspec, nems.analysis.api.fit_basic,
+                        fit_set=['double_exponential'],
+                        fitter=scipy_minimize,
+                        fit_kwargs={'tolerance': 10**-4, 'max_iter': 500})
+                        for modelspec in modelspecs]
+                break
 
     return {'modelspecs': modelspecs}
 
@@ -474,7 +516,11 @@ def fit_module_sets(modelspecs, est, max_iter=1000, IsReload=False,
 
 def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
                     module_sets=None, invert=False, tolerances=[1e-4],
-                    fitter=scipy_minimize, fit_kwargs={}, **context):
+                    fitter='scipy_minimize', fit_kwargs={}, **context):
+    if fitter == 'scipy_minimize':
+        fitfun = scipy_minimize
+    elif fitter == 'coordinate_descent':
+        fitfun = coordinate_descent
 
     if not IsReload:
         if type(est) is list:
@@ -485,7 +531,7 @@ def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
                 i += 1
                 log.info("Fitting JK %d/%d", i, njacks)
                 modelspecs_out += nems.analysis.api.fit_iteratively(
-                        d, m, fit_kwargs=fit_kwargs, fitter=fitter,
+                        d, m, fit_kwargs=fit_kwargs, fitter=fitfun,
                         module_sets=module_sets, invert=False,
                         tolerances=tolerances, tol_iter=tol_iter,
                         fit_iter=fit_iter
@@ -495,7 +541,7 @@ def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
             modelspecs = [
                     nems.analysis.api.fit_iteratively(
                             est, modelspec, fit_kwargs=fit_kwargs,
-                            fitter=fitter, module_sets=module_sets,
+                            fitter=fitfun, module_sets=module_sets,
                             invert=invert, tolerances=tolerances,
                             tol_iter=tol_iter, fit_iter=fit_iter)[0]
                     for modelspec in modelspecs
@@ -571,16 +617,33 @@ def fit_nfold_shrinkage(modelspecs, est, IsReload=False, **context):
     return {'modelspecs': modelspecs}
 
 
-def fit_cd_nfold_shrinkage(modelspecs, est, IsReload=False, **context):
+def fit_cd_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
+                 IsReload=False, **context):
     ''' fitting n fold, one from each entry in est, use mse_shrink for
     cost function'''
     if not IsReload:
-        metric = lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
+        fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter,
+                      'step_size': 0.05}
         modelspecs = nems.analysis.api.fit_nfold(
-                est, modelspecs, metric=metric,
+                est, modelspecs,
+                fit_kwargs=fit_kwargs,
                 fitter=coordinate_descent)
     return {'modelspecs': modelspecs}
 
+
+def fit_cd_nfold_shrinkage(modelspecs, est, tolerance=1e-7,
+                           max_iter=1000, IsReload=False, **context):
+    ''' fitting n fold, one from each entry in est, use mse_shrink for
+    cost function'''
+    if not IsReload:
+        fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter,
+                      'step_size': 0.05}
+        metric = lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
+        modelspecs = nems.analysis.api.fit_nfold(
+                est, modelspecs, metric=metric,
+                fit_kwargs=fit_kwargs,
+                fitter=coordinate_descent)
+    return {'modelspecs': modelspecs}
 
 
 def save_recordings(modelspecs, est, val, **context):

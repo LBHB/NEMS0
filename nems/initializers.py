@@ -1,5 +1,4 @@
 import logging
-log = logging.getLogger(__name__)
 
 import copy
 import numpy as np
@@ -10,6 +9,8 @@ from nems.fitters.api import scipy_minimize
 import nems.priors
 import nems.modelspec as ms
 import nems.metrics.api as metrics
+
+log = logging.getLogger(__name__)
 
 
 def from_keywords(keyword_string, registry=keywords.defaults, meta={}):
@@ -91,16 +92,23 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
     # that will be fit here
     exclude_idx = []
     tmodelspec = []
-    for i in range(0, target_i):
+    for i in range(target_i):
         m = copy.deepcopy(modelspec[i])
         for fn in extra_exclude:
-            if (fn in m['fn']) and (not m.get('phi')):
-                log.debug('Module %d (%s) fixing phi to mean of prior:',
-                          i, fn)
-                m = nems.priors.set_mean_phi([m])[0]  # Inits phi
+            # log.info('exluding '+fn)
+            # log.info(m['fn'])
+            # log.info(m.get('phi'))
+            if (fn in m['fn']):
+                if (m.get('phi') is None):
+                    m = nems.priors.set_mean_phi([m])[0]  # Inits phi
+                    log.info('Mod %d (%s) fixing phi to prior mean', i, fn)
+                else:
+                    log.info('Mod %d (%s) fixing phi', i, fn)
+
                 m['fn_kwargs'].update(m['phi'])
-                del m['phi']
+                m['phi'] = {}
                 exclude_idx.append(i)
+                # log.info(m)
 
         tmodelspec.append(m)
 
@@ -136,7 +144,7 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
                 log.info('Found module %d (%s) for subset prefit', i, fn)
         tmodelspec.append(m)
 
-    if len(fit_idx)==0:
+    if len(fit_idx) == 0:
         log.info('No modules matching fit_set for subset prefit')
         return modelspec
 
@@ -145,13 +153,14 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
     for i in exclude_idx:
         m = tmodelspec[i]
         if not m.get('phi'):
+            log.info('Intializing phi for module %d (%s)', i, m['fn'])
             m = nems.priors.set_mean_phi([m])[0]  # Inits phi
 
-        log.debug('Freezing phi for module %d (%s)', i, m['fn'])
+        log.info('Freezing phi for module %d (%s)', i, m['fn'])
 
         m['fn_kwargs'].update(m['phi'])
         m['phi'] = {}
-        # tmodelspec[i] = m
+        tmodelspec[i] = m
 
     # fit the subset of modules
     tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
@@ -180,7 +189,9 @@ def init_dexp(rec, modelspec):
         fit_portion = modelspec[:target_i]
 
     # generate prediction from module preceeding dexp
+    ms.fit_mode_on(fit_portion)
     rec = ms.evaluate(rec, fit_portion)
+    ms.fit_mode_off(fit_portion)
     resp = rec['resp'].as_continuous()
     pred = rec['pred'].as_continuous()
     keepidx = np.isfinite(resp) * np.isfinite(pred)
@@ -189,7 +200,7 @@ def init_dexp(rec, modelspec):
 
     # choose phi s.t. dexp starts as almost a straight line
     # phi=[max_out min_out slope mean_in]
-    meanr = np.nanmean(resp)
+    # meanr = np.nanmean(resp)
     stdr = np.nanstd(resp)
     # base = np.max(np.array([meanr - stdr * 4, 0]))
     # amp = np.max(resp) - np.min(resp)
@@ -199,7 +210,7 @@ def init_dexp(rec, modelspec):
 
     shift = np.mean(pred)
     # shift = (np.max(pred) + np.min(pred)) / 2
-    predrange = 2 / (np.max(pred) - np.min(pred))
+    predrange = 2 / (np.max(pred) - np.min(pred) + 1)
 
     modelspec[target_i]['phi'] = {'amplitude': amp, 'base': base,
                                   'kappa': np.log(predrange), 'shift': shift}

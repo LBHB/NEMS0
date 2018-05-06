@@ -14,7 +14,8 @@ import nems.metrics.api as nm
 from nems.plots.scatter import plot_scatter
 from nems.plots.spectrogram import (plot_spectrogram, spectrogram_from_signal,
                           spectrogram_from_epoch)
-from nems.plots.timeseries import timeseries_from_signals, timeseries_from_epoch
+from nems.plots.timeseries import timeseries_from_signals, \
+    timeseries_from_epoch, before_and_after_stp
 from nems.plots.heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap
 from nems.plots.histogram import pred_error_hist
 from nems.plots.state import (state_vars_timeseries, state_var_psth_from_epoch,
@@ -83,13 +84,13 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     extracted = rec['resp'].extract_epoch(epoch)
     finite_trial = [np.sum(np.isfinite(x)) > 0 for x in extracted]
     occurrences, = np.where(finite_trial)
-    if occurrence is None or occurrence>len(occurrences):
-        if len(occurrences)==0:
-            occurrence=None
+    if occurrence is None or occurrence > len(occurrences):
+        if len(occurrences) == 0:
+            occurrence = None
         else:
             occurrence = occurrences[0]
     else:
-        occurrence=occurrences[occurrence]
+        occurrence = occurrences[occurrence]
 
     # determine if 'stim' signal exists
     show_spectrogram = ('stim' in rec.signals.keys())
@@ -178,8 +179,12 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     # Pred v Resp Scatter Smoothed
     r_test = modelspec[0]['meta']['r_test']
     r_fit = modelspec[0]['meta']['r_fit']
+
+    # re-evaluate in case rec left in strange state
+    rec = ms.evaluate(rec, modelspec)
     pred = rec['pred']
     resp = rec['resp']
+
     text = 'r_test: {0:.3f}\nr_fit: {1:.3f}'.format(r_test, r_fit)
     smoothed = partial(
             plot_scatter, pred, resp, text=text, smoothing_bins=100,
@@ -290,9 +295,11 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
         elif 'stp' in fname:
             # channels = np.arange(m['phi']['u'].size)
             channels = 0
-            fn = before_and_after_psth(rec, modelspec, idx, sig_name='pred',
-                                       epoch=epoch, occurrences=occurrence,
-                                       channels=channels, mod_name='STP')
+            # fn = before_and_after_psth(rec, modelspec, idx, sig_name='pred',
+            #                           epoch=epoch, occurrences=occurrence,
+            #                           channels=channels, mod_name='STP')
+            fn = partial(before_and_after_stp, rec, modelspec, sig_name='pred',
+                         channels=channels, title='STP')
             plot = (fn, 1)
             plot_fns.append(plot)
 
@@ -357,7 +364,7 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                     fn2 = partial(state_gain_plot, modelspec)
                     #fn2 = partial(state_vars_timeseries, rec, modelspec)
                     plot2 = (fn2, 1)
-                                        
+
                 else:
                     fns = get_state_vars_psths(rec, epoch, psth_name='resp',
                                                occurrence=occurrence)

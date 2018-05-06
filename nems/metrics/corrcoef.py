@@ -43,7 +43,7 @@ def corrcoef(result, pred_name='pred', resp_name='resp'):
         raise ValueError("multi-channel signals not supported yet.")
 
     ff = np.isfinite(pred) & np.isfinite(resp)
-    if np.sum(ff) == 0:
+    if (np.sum(ff) == 0) or (np.sum(pred[ff]) == 0) or (np.sum(resp[ff]) == 0):
         return 0
     else:
         cc = np.corrcoef(pred[ff], resp[ff])
@@ -99,16 +99,16 @@ def _r_single(X, N=100):
     if X.shape[1] > 1:
         raise ValueError("multi-channel signals not supported yet.")
 
-    repcount=X.shape[0]
+    repcount = X.shape[0]
     if repcount <= 1:
         log.info('repcount<=1, rnorm=0')
         return 0
 
-    paircount=np.int(scipy.special.comb(repcount, 2))
+    paircount = np.int(scipy.special.comb(repcount, 2))
     pairs = []
     for p1 in range(repcount):
-        for p2 in range (p1+1, repcount):
-            pairs.append([p1,p2])
+        for p2 in range(p1+1, repcount):
+            pairs.append([p1, p2])
 
     if paircount < N:
         N = paircount
@@ -116,7 +116,7 @@ def _r_single(X, N=100):
     if N == 1:
         # only two repeats, break up data in time to get a better
         # estimate of single-trial correlations
-        raise ValueError("2 repeats condition not supported yet.")
+        # raise ValueError("2 repeats condition not supported yet.")
         # N=10;
         # bstep=size(pred,1)./N;
         # rac=zeros(N,1);
@@ -126,24 +126,29 @@ def _r_single(X, N=100):
         #         rac(nn)=xcov(resp(tt,1),resp(tt,2),0,'coeff');
         #     end
         # end
-
+        print('r_ceiling invalid')
+        return 0.05
     else:
 
-        rac=np.zeros(N)
+        rac = np.zeros(N)
         sidx = np.argsort(np.random.rand(paircount))
         for nn in range(N):
-            X1 = X[pairs[sidx[nn]][0],0,:]
-            X2 = X[pairs[sidx[nn]][1],0,:]
+            X1 = X[pairs[sidx[nn]][0], 0, :]
+            X2 = X[pairs[sidx[nn]][1], 0, :]
 
             # remove all nans from pred and resp
             ff = np.isfinite(X1) & np.isfinite(X2)
-            X1=X1[ff]
-            X2=X2[ff]
+            X1 = X1[ff]
+            X2 = X2[ff]
+            if (np.sum(X1) > 0) and (np.sum(X2) > 0):
+                rac[nn] = np.corrcoef(X1, X2)[0, 1]
+            else:
+                rac[nn] = 0
 
-            rac[nn] = np.corrcoef(X1, X2)[0, 1]
-
-    rac=np.mean(rac);
-    if rac<0.05:
+    # hard limit on single-trial correlation to prevent explosion
+    # TODO: better logic for this
+    rac = np.mean(rac)
+    if rac < 0.05:
         rac = 0.05
 
     return rac
@@ -151,50 +156,66 @@ def _r_single(X, N=100):
 
 def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
     """
+<<<<<<< HEAD
     Assume X is trials X time raster
 
     test data from SPN recording
     X=rec['resp'].extract_epoch('STIM_BNB+si464+si1889')
+=======
+    Compute noise-corrected correlation coefficient based on single-trial
+    correlations in the actual response.
+>>>>>>> origin/master
     """
     epoch_regex = '^STIM_'
-    epochs_to_extract = ep.epoch_names_matching(result[pred_name].epochs, epoch_regex)
+    epochs_to_extract = ep.epoch_names_matching(result[resp_name].epochs,
+                                                epoch_regex)
+    folded_resp = result[resp_name].extract_epochs(epochs_to_extract)
+
+    epochs_to_extract = ep.epoch_names_matching(result[pred_name].epochs,
+                                                epoch_regex)
     folded_pred = result[pred_name].extract_epochs(epochs_to_extract)
 
+    resp = fullrec[resp_name].rasterize()
     rnorm_c = 0
     n = 0
-    resp = fullrec[resp_name].rasterize()
 
-    for k, d in folded_pred.items():
+    for k, d in folded_resp.items():
         if np.sum(np.isfinite(d)) > 0:
 
             X = resp.extract_epoch(k)
             rac = _r_single(X, N)
 
-            # print(k)
+            # print("{0} shape: {1},{2}".format(k,X.shape[0],X.shape[2]))
             # print(rac)
 
             if rac > 0:
+                p = folded_pred[k]
+
                 repcount = X.shape[0]
                 rs = np.zeros(repcount)
                 for nn in range(repcount):
-                    X1 = X[nn,0,:]
-                    X2 = d[0,0,:]
+                    X1 = X[nn, 0, :]
+                    X2 = p[0, 0, :]
 
                     # remove all nans from pred and resp
                     ff = np.isfinite(X1) & np.isfinite(X2)
-                    X1=X1[ff]
-                    X2=X2[ff]
+                    X1 = X1[ff]
+                    X2 = X2[ff]
 
-                    rs[nn] = np.corrcoef(X1, X2)[0, 1]
+                    if (np.sum(X1) > 0) and (np.sum(X2) > 0):
+                        rs[nn] = np.corrcoef(X1, X2)[0, 1]
+                    else:
+                        rs[nn] = 0
 
-                rs=np.mean(rs)
+                rs = np.mean(rs)
 
                 rnorm_c += (rs / np.sqrt(rac)) * X1.shape[-1]
                 n += X1.shape[-1]
+
+                # print(rnorm_c)
+                # print(n)
 
     # weighted average based on number of samples in each epoch
     rnorm = rnorm_c / n
 
     return rnorm
-
-

@@ -4,6 +4,11 @@ import numpy as np
 defaults = {}
 
 
+def _one_zz(zerocount=1):
+    """ vector of 1 followed by zerocount 0s """
+    return np.concatenate((np.ones(1), np.zeros(zerocount)))
+
+
 def defkey(keyword, modulespec):
     '''
     Adds modulespec to the defaults keyword dictionary.
@@ -29,7 +34,7 @@ def defkey_wc(n_inputs, n_outputs):
     '''
     name = 'wc{}x{}'.format(n_inputs, n_outputs)
     p_coefficients = {
-        'mean': np.zeros((n_outputs, n_inputs)),
+        'mean': np.zeros((n_outputs, n_inputs))+0.01,
         'sd': np.ones((n_outputs, n_inputs)),
     }
     template = {
@@ -280,8 +285,16 @@ defkey('stp2',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
                       'crosstalk': 0},
-        'prior': {'u': ('Normal', {'mean': [0.01, 0.01], 'sd': [0.01, 0.01]}),
-                  'tau': ('Normal', {'mean': [0.04, 0.04], 'sd': [0.05, 0.05]})}})
+        'prior': {'u': ('Normal', {'mean': [.01, .01], 'sd': [.01, .01]}),
+                  'tau': ('Normal', {'mean': [.04, .04], 'sd': [.05, .05]})}})
+
+defkey('stpz2',
+       {'fn': 'nems.modules.stp.short_term_plasticity',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'crosstalk': 0},
+        'prior': {'u': ('Normal', {'mean': [.02, .02], 'sd': [.02, .02]}),
+                  'tau': ('Normal', {'mean': [.05, .05], 'sd': [.05, .05]})}})
 
 defkey('stpn2',
        {'fn': 'nems.modules.stp.short_term_plasticity',
@@ -290,8 +303,8 @@ defkey('stpn2',
                       'crosstalk': 0},
         'norm': {'type': 'minmax', 'recalc': 0, 'd': np.array([[0, 0]]),
                  'g': np.array([[1, 1]])},
-        'prior': {'u': ('Normal', {'mean': [0.01, 0.01], 'sd': [0.01, 0.01]}),
-                  'tau': ('Normal', {'mean': [0.04, 0.04], 'sd': [0.05, 0.05]})}})
+        'prior': {'u': ('Normal', {'mean': [.01, .01], 'sd': [.01, .01]}),
+                  'tau': ('Normal', {'mean': [.04, .04], 'sd': [.05, .05]})}})
 
 defkey('dexp1',
        {'fn': 'nems.modules.nonlinearity.double_exponential',
@@ -334,7 +347,13 @@ defkey('dlog',
        {'fn': 'nems.modules.nonlinearity.dlog',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'offset': ('Normal', {'mean': [-2], 'sd': [2]})}})
+        'prior': {'offset': ('Normal', {'mean': [0], 'sd': [2]})}})
+
+defkey('dlogz',
+       {'fn': 'nems.modules.nonlinearity.dlog',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred'},
+        'prior': {'offset': ('Normal', {'mean': [0], 'sd': [2]})}})
 
 defkey('dlogn2',
        {'fn': 'nems.modules.nonlinearity.dlog',
@@ -348,9 +367,9 @@ defkey('dlogn18',
        {'fn': 'nems.modules.nonlinearity.dlog',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'norm': {'type': 'minmax', 'recalc': 0, 'd': np.zeros([18,1]),
-                 'g': np.ones([18,1])},
-        'prior': {'offset': ('Normal', {'mean': [-2], 'sd': [2]})}})
+        'norm': {'type': 'minmax', 'recalc': 0, 'd': np.zeros([18, 1]),
+                 'g': np.ones([18, 1])},
+        'prior': {'offset': ('Normal', {'mean': [0], 'sd': [2]})}})
 
 
 """ state-related and signal manipulation/generation """
@@ -380,14 +399,50 @@ defkey('stategain3',
                   'd': ('Normal', {'mean': [0,0,0], 'sd': [1,1,1]})}
         })
 
+defkey('stategain4',
+       {'fn': 'nems.modules.state.state_dc_gain',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      's': 'state'},
+        'prior': {'g': ('Normal', {'mean': _one_zz(3),
+                                   'sd': np.ones(4)}),
+                  'd': ('Normal', {'mean': np.zeros(4),
+                                   'sd': np.ones(4)})}
+            })
+
+defkey('stategain5',
+       {'fn': 'nems.modules.state.state_dc_gain',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      's': 'state'},
+        'prior': {'g': ('Normal', {'mean': _one_zz(4),
+                                   'sd': np.ones(5)}),
+                  'd': ('Normal', {'mean': np.zeros(5),
+                                   'sd': np.ones(5)})}
+            })
+
+
+defkey('stategain6',
+       {'fn': 'nems.modules.state.state_dc_gain',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      's': 'state'},
+        'prior': {'g': ('Normal', {'mean': _one_zz(5),
+                                   'sd': np.ones(6)}),
+                  'd': ('Normal', {'mean': np.zeros(6),
+                                   'sd': np.ones(6)})}
+            })
+
 
 defkey('stategain28',
        {'fn': 'nems.modules.state.state_dc_gain',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
                       's': 'state'},
-        'prior': {'g': ('Normal', {'mean': np.concatenate((np.ones(1),np.zeros(27))), 'sd': np.ones(28)}),
-                  'd': ('Normal', {'mean': np.zeros(28), 'sd': np.ones(28)})}
+        'prior': {'g': ('Normal', {'mean': _one_zz(27),
+                                   'sd': np.ones(28)}),
+                  'd': ('Normal', {'mean': np.zeros(28),
+                                   'sd': np.ones(28)})}
         })
 
 

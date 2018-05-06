@@ -13,8 +13,8 @@ import shutil
 
 from nems.uri import local_uri, http_uri, targz_uri
 import nems.epoch as ep
-from nems.signal import RasterizedSignal, TiledSignal, PointProcess, RasterizedSignalSubset, \
-    merge_selections, list_signals, load_signal, load_signal_from_streams
+from nems.signal import SignalBase, merge_selections, list_signals, \
+                        load_signal, load_signal_from_streams
 
 log = logging.getLogger(__name__)
 
@@ -415,12 +415,10 @@ class Recording:
         Adds the signal equal to this recording. Any existing signal
         with the same name will be overwritten. No return value.
         '''
-        if not (isinstance(signal, RasterizedSignal) or
-                isinstance(signal, PointProcess) or
-                isinstance(signal, TiledSignal) or
-                isinstance(signal, RasterizedSignalSubset)):
+        if not isinstance(signal, SignalBase):
             raise TypeError("Recording signals must be instances of"
-                            " a Signal class.")
+                            " a Signal class. signal {} was type: {}"
+                            .format(signal.name, type(signal)))
         self.signals[signal.name] = signal
 
     def _split_helper(self, fn):
@@ -518,6 +516,8 @@ class Recording:
         for sn in self.signals.keys():
             if (not only_signals or sn in set(only_signals)):
                 s = self.signals[sn]
+                log.debug("JK: {0} {1}/{2} {3}".format(s.name,jack_idx,
+                          njacks,epoch_name))
                 new_sigs[sn] = s.jackknife_by_epoch(njacks, jack_idx,
                                                     epoch_name=epoch_name,
                                                     invert=invert, tiled=tiled)

@@ -181,6 +181,26 @@ def epoch_difference(a, b):
     return result
 
 
+def epoch_intersection_full(a, b):
+    """
+    returns all epoch times a that are fully spanned by epoch
+    times in b
+    """
+    a = a.copy().tolist()
+    a.sort()
+    b = b.copy().tolist()
+    b.sort()
+    intersection = []
+    for lb, ub in a:
+        for lb_b, ub_b in b:
+            if lb >= lb_b and ub <= ub_b:
+                intersection.append([lb, ub])
+                break
+
+    result = np.array(intersection)
+    return result
+
+
 def epoch_intersection(a, b):
     '''
     Compute the intersection of the epochs. Only regions in a which overlap with

@@ -59,7 +59,7 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
         err = step_errors[i_param, j_sign]
 
         # If change was negative, try reducing step size.
-        if err > stepinfo['err']:
+        if err >= stepinfo['err']:
             log.debug("Error got worse, reducing step size from: %.06f to: "
                       "%.06f", step_size, step_size * step_change)
             step_size *= step_change
@@ -76,7 +76,8 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
         if stepinfo['stepnum'] % 20 == 0:
             log.debug("sigma is now: %s", sigma)
 
-    log.info("Final error: %.06f\n", stepinfo['err'])
+    log.info("Final error: %.06f (step size %.06f)\n",
+             stepinfo['err'], step_size)
     return sigma
 
 
@@ -96,6 +97,7 @@ def scipy_minimize(sigma, cost_fn, tolerance=None, max_iter=None,
     """
     # Convert NEMS' tolerance and max_iter kwargs to scipy options,
     # but also allow passing options directly
+    options = options.copy()
     if tolerance is not None:
         if 'ftol' in options:
             log.warn("Both <tolerance> and <options: ftol> provided for\n"
@@ -118,5 +120,6 @@ def scipy_minimize(sigma, cost_fn, tolerance=None, max_iter=None,
                                    options=options)
     sigma = result.x
     final_err = cost_fn(sigma)
-    log.info("Final error: %.06f\n", final_err)
+    log.info("Final error: %.06f", final_err)
+    log.info("Final sigma: %s\n", sigma)
     return sigma
