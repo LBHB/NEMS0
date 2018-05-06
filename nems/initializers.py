@@ -169,7 +169,7 @@ def init_dexp(rec, modelspec):
     choose initial values for dexp applied after preceeding fir is
     initialized
     """
-    target_i = _find_module('logsig', modelspec)
+    target_i = _find_module('double_exponential', modelspec)
     if target_i is None:
         log.warning("No dexp module was found, can't initialize.")
         return modelspec
@@ -198,7 +198,7 @@ def init_dexp(rec, modelspec):
     # base = meanr - stdr * 3
 
     shift = np.mean(pred)
-    #shift = (np.max(pred) + np.min(pred)) / 2
+    # shift = (np.max(pred) + np.min(pred)) / 2
     predrange = 2 / (np.max(pred) - np.min(pred))
 
     modelspec[target_i]['phi'] = {'amplitude': amp, 'base': base,
@@ -206,46 +206,48 @@ def init_dexp(rec, modelspec):
     log.info("Init dexp (amp,base,kappa,shift)=(%.3f,%.3f,%.3f,%.3f)",
              *modelspec[target_i]['phi'].values())
 
-#    rec = ms.evaluate(rec, modelspec)
-#    x = rec['resp'].as_continuous()
-#    y = rec['pred'].as_continuous()
-#    keepidx = np.isfinite(x) * np.isfinite(y)
-#    x = x[keepidx]
-#    y = y[keepidx]
-#
-
     return modelspec
 
+
 def init_logsig(rec, modelspec):
-    logsig_idx = _find_module('logsig', modelspec)
+    '''
+    Initialization of priors for logistic_sigmoid,
+    based on process described in methods of Rabinowitz et al. 2014.
+    '''
+    logsig_idx = _find_module('logistic_sigmoid', modelspec)
     if logsig_idx is None:
         log.warning("No logsig module was found, can't initialize.")
         return modelspec
-    
+
     stim = rec['stim'].as_continuous()
     resp = rec['resp'].as_continuous()
-    # TODO: Probably need a more sophisticated calculation for this
-    collapsed_stim = np.nanmean(stim, axis=0)
-    mean_stim = np.nanmean(collapsed_stim)
-    min_stim = np.min(collapsed_stim)
-    max_stim = np.max(collapsed_stim)
+    # TODO: Maybe need a more sophisticated calculation for this?
+    #       Paper isn't very clear on how they calculate "X-bar" and "Y-bar"
+    #       They also mention that their stim-resp data is split up into 20
+    #       bins, maybe averaged across trials or something?
+    mean_stim = np.nanmean(stim)
+    min_stim = np.nanmin(stim)
+    max_stim = np.nanmax(stim)
     stim_range = max_stim - min_stim
-    min_resp = np.min(resp)
-    max_resp = np.max(resp)
+    min_resp = np.nanmin(resp)
+    max_resp = np.nanmax(resp)
     resp_range = max_resp - min_resp
-    
+
     # Rather than setting a hard value for initial phi,
     # set the prior distributions and let the fitter/analysis
     # decide how to use it.
     base = ('Exponential', {'beta': min_resp + 0.05*(resp_range)})
     amplitude = ('Exponential', {'beta': 2*resp_range})
-    shift = ('Normal', {'mean': mean_stim, 'std': stim_range})
-    kappa = ('Exponential', {'beta': stim_range/len(mean_stim)})
-    
+    shift = ('Normal', {'mean': mean_stim, 'sd': stim_range})
+    kappa = ('Exponential', {'beta': stim_range/stim.shape[1]})
+
     modelspec[logsig_idx]['prior'] = {
             'base': base, 'amplitude': amplitude, 'shift': shift,
             'kappa': kappa
             }
+    log.info("logistic_sigmoid priors initialized to: "
+             "base: %s\namplitude: %s\nshift: %s\nkappa: %s\n",
+             *modelspec[logsig_idx]['prior'].values())
 
     return modelspec
 

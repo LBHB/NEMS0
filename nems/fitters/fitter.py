@@ -81,7 +81,7 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
 
 
 def scipy_minimize(sigma, cost_fn, tolerance=None, max_iter=None,
-                   method='L-BFGS-B', options={'maxiter': 1000, 'ftol': 1e-7}):
+                   method='L-BFGS-B', options={}):
     """
     Wrapper for scipy.optimize.minimize to normalize format with
     NEMS fitters.
@@ -94,12 +94,16 @@ def scipy_minimize(sigma, cost_fn, tolerance=None, max_iter=None,
     TODO: Pull in code from scipy.py in docs/planning to
           expose more output during iteration.
     """
+    # Convert NEMS' tolerance and max_iter kwargs to scipy options,
+    # but also allow passing options directly
     if tolerance is not None:
         if 'ftol' in options:
             log.warn("Both <tolerance> and <options: ftol> provided for\n"
                      "scipy_minimize, using <tolerance> by default: %.2E",
                      tolerance)
         options['ftol'] = tolerance
+    elif tolerance is None and 'ftol' not in options:
+        options['ftol'] = 1e-7
 
     if max_iter is not None:
         if 'maxiter' in options:
@@ -107,6 +111,8 @@ def scipy_minimize(sigma, cost_fn, tolerance=None, max_iter=None,
                      "scipy_minimize, using <max_iter> by default: %d",
                      max_iter)
         options['maxiter'] = max_iter
+    elif max_iter is None and 'maxiter' not in options:
+        options['maxiter'] = 1000
 
     result = scp.optimize.minimize(cost_fn, sigma, method=method,
                                    options=options)

@@ -311,6 +311,7 @@ defkey('qsig1',
                   'shift': ('Normal', {'mean': [1.5], 'sd': [1.0]}),
                   'kappa': ('Normal', {'mean': [0.1], 'sd': [0.1]})}})
 
+# NOTE: Typically overwritten by nems.initializers.init_logsig
 defkey('logsig1',
        {'fn': 'nems.modules.nonlinearity.logistic_sigmoid',
         'fn_kwargs': {'i': 'pred',
