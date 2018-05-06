@@ -325,6 +325,11 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
 #                        for modelspec in modelspecs]
                 break
 
+            elif 'logistic_sigmoid' in m['fn']:
+                modelspecs = [nems.initializers.init_logsig(est, modelspec)
+                              for modelspec in modelspecs]
+                break
+
     return {'modelspecs': modelspecs}
 
 

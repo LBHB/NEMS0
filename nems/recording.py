@@ -13,8 +13,8 @@ import shutil
 
 from nems.uri import local_uri, http_uri, targz_uri
 import nems.epoch as ep
-from nems.signal import SignalBase, merge_selections, list_signals, \
-                        load_signal, load_signal_from_streams
+from nems.signal import SignalBase, RasterizedSignal, merge_selections, \
+                        list_signals, load_signal, load_signal_from_streams
 
 log = logging.getLogger(__name__)
 
