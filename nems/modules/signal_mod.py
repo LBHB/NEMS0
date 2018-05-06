@@ -30,3 +30,28 @@ def average_sig(rec, i='resp', o='resp'):
 
     return [preproc.generate_average_sig(rec[i], new_signalname=o, 
                                  epoch_regex='^STIM_')]
+    
+def replicate_channels(rec, i='pred', o='pred', repcount=2):
+    
+    fn = lambda x: np.tile(x,(repcount,1))
+
+    return [rec[i].transform(fn, o)]
+
+def _merge_states(x, state):
+    """
+    inputs 
+       x - N x T matrix, 
+       s - 1 X T matrix with integer values 0 ... N-1
+    """
+    res = np.zeros_like(x[:1,:])
+    res.fill(np.nan)
+    #print(state.shape)
+    for i in range(x.shape[0]):
+        res[state[-1:,:]==i]=x[i,state[-1,:]==i]
+    return res
+
+def merge_channels(rec, i='pred', o='pred', s='state'):
+    fn = lambda x: _merge_states(x, rec[s].as_continuous())
+    return [rec[i].transform(fn, o)]
+    
+    

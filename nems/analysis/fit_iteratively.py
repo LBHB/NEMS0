@@ -51,7 +51,7 @@ def fit_module_sets(
 
     # Ensure that phi exists for all modules; choose prior mean if not found
     for i, m in enumerate(modelspec):
-        if not m.get('phi'):
+        if ('phi' not in m.keys()) and ('prior' in m.keys()):
             m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
             log.debug('Phi not found for module, using mean of prior: {}'
                       .format(m))
@@ -185,7 +185,7 @@ def fit_iteratively(
     ms.fit_mode_on(modelspec)
     # Ensure that phi exists for all modules; choose prior mean if not found
     for i, m in enumerate(modelspec):
-        if not m.get('phi'):
+        if ('phi' not in m.keys()) and ('prior' in m.keys()):
             m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
             log.debug('Phi not found for module, using mean of prior: {}'
                       .format(m))
