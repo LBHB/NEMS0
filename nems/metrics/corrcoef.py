@@ -156,15 +156,8 @@ def _r_single(X, N=100):
 
 def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
     """
-<<<<<<< HEAD
-    Assume X is trials X time raster
-
-    test data from SPN recording
-    X=rec['resp'].extract_epoch('STIM_BNB+si464+si1889')
-=======
     Compute noise-corrected correlation coefficient based on single-trial
     correlations in the actual response.
->>>>>>> origin/master
     """
     epoch_regex = '^STIM_'
     epochs_to_extract = ep.epoch_names_matching(result[resp_name].epochs,
