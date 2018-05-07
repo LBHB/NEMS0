@@ -51,3 +51,21 @@ def progress_fun():
     externallly, eg, in a queueing system
     """
     pass
+
+
+def find_module(name, modelspec):
+    """
+    return first index where modelspec[]['fn'] contains name
+    retrns None if no match
+    
+    TODO: deal with multiple matches
+    """
+    
+    target_i = None
+    target_module = name
+    for i, m in enumerate(modelspec):
+        if target_module in m['fn']:
+            target_i = i
+            break
+
+    return target_i

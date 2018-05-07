@@ -13,9 +13,11 @@ import nems.plots.api as nplt
 import nems.preprocessing as preproc
 import nems.priors as priors
 from nems.uri import save_resource, load_resource
-from nems.utils import iso8601_datestring
+from nems.utils import iso8601_datestring, find_module
 from nems.fitters.api import scipy_minimize, coordinate_descent
 from nems.recording import load_recording
+
+import numpy as np
 
 log = logging.getLogger(__name__)
 xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
@@ -276,59 +278,76 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
     optional modules in (parens)
 
     '''
+    # only run if fitting
     if not IsReload:
-        # TODO -- make sure this works generally or create alternatives
+        modelspecs = [nems.initializers.prefit_LN(
+                est, modelspecs[0], 
+                analysis_function=nems.analysis.api.fit_basic,
+                fitter=scipy_minimize, 
+                tolerance=10**-5.5, max_iter=700)]
 
-        # fit without STP module first (if there is one)
-        modelspecs = [nems.initializers.prefit_to_target(
-                est, modelspec, nems.analysis.api.fit_basic,
-                target_module='levelshift',
-                extra_exclude=['stp'],
-                fitter=scipy_minimize,
-                fit_kwargs={'tolerance': 10**-5.5, 'max_iter': 700})
-                for modelspec in modelspecs]
+    return {'modelspecs': modelspecs}
 
-        # then initialize the STP module (if there is one)
-        for i, m in enumerate(modelspecs[0]):
-            if 'stp' in m['fn']:
-                m = priors.set_mean_phi([m])[0]  # Init phi for module
-                modelspecs[0][i] = m
 
-        # then pre-fit just the STP module-- does this do ANYTHING useful?
-        #for m in modelspecs[0]:
-        #    if 'stp' in m['fn']:
-        #        modelspecs = [nems.initializers.prefit_mod_subset(
-        #                est, modelspec, nems.analysis.api.fit_basic,
-        #                fit_set=['stp'],
-        #                fitter=scipy_minimize,
-        #                fit_kwargs={'tolerance': 10**-5.5, 'max_iter': 500})
-        #                for modelspec in modelspecs]
-                break
+def _set_zero(x):
+    y = x.copy()
+    y[np.isfinite(y)] = 0
+    return y
 
-        # pre-fit static NL if it exists
-        for m in modelspecs[0]:
-            if 'double_exponential' in m['fn']:
-                modelspecs = [nems.initializers.init_dexp(est, modelspec)
-                              for modelspec in modelspecs]
-                modelspecs = [nems.initializers.prefit_mod_subset(
-                        est, modelspec, nems.analysis.api.fit_basic,
-                        fit_set=['double_exponential'],
-                        fitter=scipy_minimize,
-                        fit_kwargs={'tolerance': 10**-5.5, 'max_iter': 500})
-                        for modelspec in modelspecs]
-#                modelspecs = [nems.initializers.prefit_to_target(
-#                        est, modelspec, nems.analysis.api.fit_basic,
-#                        target_module='double_exponential',
-#                        extra_exclude=['stp'],
-#                        fitter=scipy_minimize,
-#                        fit_kwargs={'tolerance': 1e-6, 'max_iter': 500})
-#                        for modelspec in modelspecs]
-                break
 
-            elif 'logistic_sigmoid' in m['fn']:
-                modelspecs = [nems.initializers.init_logsig(est, modelspec)
-                              for modelspec in modelspecs]
-                break
+def fit_state_init(modelspecs, est, IsReload=False, **context):
+    '''
+    Initialize modelspecs in a way that avoids getting stuck in
+    local minima. Remove state separation first
+
+    written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
+    optional modules in (parens)
+    
+    assumption -- rec['state'] is being used for merge
+
+    '''
+    if not IsReload:
+        if type(est) is not list:
+            # make est a list so that this function can handle standard 
+            # or n-fold fits
+            est=[est]
+            
+        modelspecs_out = []
+        i = 0
+        for m, d in zip(modelspecs, est):
+            i += 1
+            log.info("Initializing modelspec %d/%d state-free", i, len(modelspecs))
+            
+            # set state to 0 for all timepoints so that only first filterbank
+            # is used
+            dc = d.copy()
+            dc['state'] = dc['state'].transform(_set_zero, 'state')
+
+            m = nems.initializers.prefit_LN(
+                    dc, m,
+                    analysis_function=nems.analysis.api.fit_basic,
+                    fitter=scipy_minimize, 
+                    tolerance=10**-3, max_iter=700)
+            rep_idx = find_module('replicate_channels',m)
+            mrg_idx = find_module('merge_channels',m)
+            repcount = m[rep_idx]['fn_kwargs']['repcount']
+            for i in range(rep_idx+1,mrg_idx):
+                # assume all phi 
+                log.info(m[i]['fn'])
+                if 'phi' in m[i].keys():
+                    for phi in m[i]['phi'].keys():
+                        s=m[i]['phi'][phi].shape
+                        setcount=int(s[0]/repcount)
+                        log.info('phi[%s] setcount=%d',phi,setcount)
+                        snew=np.ones(len(s))
+                        snew[0]=repcount
+                        new_value=np.tile(m[i]['phi'][phi][:setcount,...],snew.astype(int))
+                        log.info(new_value)
+                        m[i]['phi'][phi] = new_value
+                        
+            modelspecs_out.append(m)
+            
+        modelspecs = modelspecs_out
 
     return {'modelspecs': modelspecs}
 
@@ -343,37 +362,11 @@ def fit_iter_init(modelspecs, est, IsReload=False, **context):
 
     '''
     if not IsReload:
-        # TODO -- make sure this works generally or create alternatives
-
-        # fit without STP module first (if there is one)
-        modelspecs = [nems.initializers.prefit_to_target(
-                est, modelspec, nems.analysis.api.fit_basic,
-                target_module='levelshift',
-                extra_exclude=['stp'],
-                fitter=scipy_minimize,
-                fit_kwargs={'tolerance': 10**-4, 'max_iter': 700})
-                for modelspec in modelspecs]
-
-        # then initialize the STP module (if there is one)
-        for i, m in enumerate(modelspecs[0]):
-            if 'stp' in m['fn']:
-                m = priors.set_mean_phi([m])[0]  # Init phi for module
-                modelspecs[0][i] = m
-
-                break
-
-        # pre-fit static NL if it exists
-        for m in modelspecs[0]:
-            if 'double_exponential' in m['fn']:
-                modelspecs = [nems.initializers.init_dexp(est, modelspec)
-                              for modelspec in modelspecs]
-                modelspecs = [nems.initializers.prefit_mod_subset(
-                        est, modelspec, nems.analysis.api.fit_basic,
-                        fit_set=['double_exponential'],
-                        fitter=scipy_minimize,
-                        fit_kwargs={'tolerance': 10**-4, 'max_iter': 500})
-                        for modelspec in modelspecs]
-                break
+        modelspecs = [nems.initializers.prefit_LN(
+                est, modelspecs[0], 
+                analysis_function=nems.analysis.api.fit_basic,
+                fitter=scipy_minimize, 
+                tolerance=10**-4, max_iter=700)]
 
     return {'modelspecs': modelspecs}
 
@@ -408,41 +401,6 @@ def fit_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
                     metric=metric,
                     fitter=scipy_minimize)[0]
                 for modelspec in modelspecs]
-    return {'modelspecs': modelspecs}
-
-
-def fit_basic_shrink(modelspecs, est, max_iter=1000, tolerance=1e-8,
-                     IsReload=False, shrinkage=0, **context):
-    ''' A basic fit that optimizes every input modelspec. Use nmse_shrink!
-    DEPRECATED???'''
-
-    if not IsReload:
-        fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
-        if type(est) is list:
-            # jackknife!
-            modelspecs_out = []
-            njacks = len(modelspecs)
-            i = 0
-            for m, d in zip(modelspecs, est):
-                i += 1
-                log.info("Fitting JK {}/{}".format(i, njacks))
-                metric=lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
-                modelspecs_out += nems.analysis.api.fit_basic(
-                        d, m, fit_kwargs=fit_kwargs,
-                        metric=metric,
-                        fitter=scipy_minimize)
-            modelspecs = modelspecs_out
-        else:
-            # standard single shot
-            # print('Fitting fit_basic')
-            # print(fit_kwargs)
-
-            metric=lambda est: metrics.nmse_shrink(est, 'pred', 'resp')
-            modelspecs = [nems.analysis.api.fit_basic(est, modelspec,
-                                                      fit_kwargs=fit_kwargs,
-                                                      metric=metric,
-                                                      fitter=scipy_minimize)[0]
-                          for modelspec in modelspecs]
     return {'modelspecs': modelspecs}
 
 
