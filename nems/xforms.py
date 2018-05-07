@@ -281,9 +281,9 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
     # only run if fitting
     if not IsReload:
         modelspecs = [nems.initializers.prefit_LN(
-                est, modelspecs[0], 
+                est, modelspecs[0],
                 analysis_function=nems.analysis.api.fit_basic,
-                fitter=scipy_minimize, 
+                fitter=scipy_minimize,
                 tolerance=10**-5.5, max_iter=700)]
 
     return {'modelspecs': modelspecs}
@@ -302,22 +302,23 @@ def fit_state_init(modelspecs, est, IsReload=False, **context):
 
     written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
     optional modules in (parens)
-    
+
     assumption -- rec['state'] is being used for merge
 
     '''
     if not IsReload:
         if type(est) is not list:
-            # make est a list so that this function can handle standard 
+            # make est a list so that this function can handle standard
             # or n-fold fits
-            est=[est]
-            
+            est = [est]
+
         modelspecs_out = []
         i = 0
         for m, d in zip(modelspecs, est):
             i += 1
-            log.info("Initializing modelspec %d/%d state-free", i, len(modelspecs))
-            
+            log.info("Initializing modelspec %d/%d state-free",
+                     i, len(modelspecs))
+
             # set state to 0 for all timepoints so that only first filterbank
             # is used
             dc = d.copy()
@@ -326,27 +327,28 @@ def fit_state_init(modelspecs, est, IsReload=False, **context):
             m = nems.initializers.prefit_LN(
                     dc, m,
                     analysis_function=nems.analysis.api.fit_basic,
-                    fitter=scipy_minimize, 
-                    tolerance=10**-3, max_iter=700)
-            rep_idx = find_module('replicate_channels',m)
-            mrg_idx = find_module('merge_channels',m)
+                    fitter=scipy_minimize,
+                    tolerance=10**-4, max_iter=700)
+            rep_idx = find_module('replicate_channels', m)
+            mrg_idx = find_module('merge_channels', m)
             repcount = m[rep_idx]['fn_kwargs']['repcount']
-            for i in range(rep_idx+1,mrg_idx):
-                # assume all phi 
-                log.info(m[i]['fn'])
-                if 'phi' in m[i].keys():
-                    for phi in m[i]['phi'].keys():
-                        s=m[i]['phi'][phi].shape
-                        setcount=int(s[0]/repcount)
-                        log.info('phi[%s] setcount=%d',phi,setcount)
-                        snew=np.ones(len(s))
-                        snew[0]=repcount
-                        new_value=np.tile(m[i]['phi'][phi][:setcount,...],snew.astype(int))
-                        log.info(new_value)
-                        m[i]['phi'][phi] = new_value
-                        
+            for j in range(rep_idx+1, mrg_idx):
+                # assume all phi
+                log.info(m[j]['fn'])
+                if 'phi' in m[j].keys():
+                    for phi in m[j]['phi'].keys():
+                        s = m[j]['phi'][phi].shape
+                        setcount = int(s[0] / repcount)
+                        log.info('phi[%s] setcount=%d', phi, setcount)
+                        snew = np.ones(len(s))
+                        snew[0] = repcount
+                        new_value = np.tile(m[j]['phi'][phi][:setcount, ...],
+                                            snew.astype(int))
+                        log.debug(new_value)
+                        m[j]['phi'][phi] = new_value
+
             modelspecs_out.append(m)
-            
+
         modelspecs = modelspecs_out
 
     return {'modelspecs': modelspecs}
@@ -363,9 +365,9 @@ def fit_iter_init(modelspecs, est, IsReload=False, **context):
     '''
     if not IsReload:
         modelspecs = [nems.initializers.prefit_LN(
-                est, modelspecs[0], 
+                est, modelspecs[0],
                 analysis_function=nems.analysis.api.fit_basic,
-                fitter=scipy_minimize, 
+                fitter=scipy_minimize,
                 tolerance=10**-4, max_iter=700)]
 
     return {'modelspecs': modelspecs}
@@ -563,10 +565,12 @@ def fit_nfold(modelspecs, est, IsReload=False, **context):
                 est, modelspecs, fitter=scipy_minimize)
     return {'modelspecs': modelspecs}
 
+
 def fit_state_nfold(modelspecs, est, IsReload=False, **context):
     ''' fitting n fold, one from each entry in est '''
+    ''' DEPRECATED? REPLACE WITH fit_nfold? '''
     if not IsReload:
-        modelspecs = nems.analysis.api.fit_state_nfold(
+        modelspecs = nems.analysis.api.fit_nfold(
                 est, modelspecs, fitter=scipy_minimize)
     return {'modelspecs': modelspecs}
 

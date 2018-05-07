@@ -75,16 +75,16 @@ def prefit_LN(est, modelspec, analysis_function,
     optional modules in (parens)
 
     input: a single est recording and a single modelspec
-    
+
     output: a single modelspec
-    
+
     TODO -- make sure this works generally or create alternatives
 
     '''
     fit_kwargs={'tolerance': tolerance, 'max_iter': max_iter}
 
     # fit without STP module first (if there is one)
-    modelspec = prefit_to_target(est, modelspec, fit_basic, 
+    modelspec = prefit_to_target(est, modelspec, fit_basic,
                                  target_module='levelshift',
                                  extra_exclude=['stp'],
                                  fitter=scipy_minimize,
@@ -122,7 +122,7 @@ def prefit_LN(est, modelspec, analysis_function,
 
 
     return modelspec
-    
+
 
 def prefit_to_target(rec, modelspec, analysis_function, target_module,
                      extra_exclude=[],
@@ -252,30 +252,42 @@ def init_dexp(rec, modelspec):
     ms.fit_mode_on(fit_portion)
     rec = ms.evaluate(rec, fit_portion)
     ms.fit_mode_off(fit_portion)
-    resp = rec['resp'].as_continuous()
-    pred = rec['pred'].as_continuous()
-    keepidx = np.isfinite(resp) * np.isfinite(pred)
-    resp = resp[keepidx]
-    pred = pred[keepidx]
 
-    # choose phi s.t. dexp starts as almost a straight line
-    # phi=[max_out min_out slope mean_in]
-    # meanr = np.nanmean(resp)
-    stdr = np.nanstd(resp)
-    # base = np.max(np.array([meanr - stdr * 4, 0]))
-    # amp = np.max(resp) - np.min(resp)
-    base = np.min(resp)
-    amp = stdr * 3
-    # base = meanr - stdr * 3
+    pchans = rec['pred'].shape[0]
+    amp = np.zeros([pchans, 1])
+    base = np.zeros([pchans, 1])
+    kappa = np.zeros([pchans, 1])
+    shift = np.zeros([pchans, 1])
 
-    shift = np.mean(pred)
-    # shift = (np.max(pred) + np.min(pred)) / 2
-    predrange = 2 / (np.max(pred) - np.min(pred) + 1)
+    for i in range(pchans):
+        resp = rec['resp'].as_continuous()
+        pred = rec['pred'].as_continuous()[i:(i+1), :]
+
+        keepidx = np.isfinite(resp) * np.isfinite(pred)
+        resp = resp[keepidx]
+        pred = pred[keepidx]
+
+        # choose phi s.t. dexp starts as almost a straight line
+        # phi=[max_out min_out slope mean_in]
+        # meanr = np.nanmean(resp)
+        stdr = np.nanstd(resp)
+
+        # base = np.max(np.array([meanr - stdr * 4, 0]))
+        base[i, 0] = np.min(resp)
+        # base = meanr - stdr * 3
+
+        # amp = np.max(resp) - np.min(resp)
+        amp[i, 0] = stdr * 3
+
+        shift[i, 0] = np.mean(pred)
+        # shift = (np.max(pred) + np.min(pred)) / 2
+
+        predrange = 2 / (np.max(pred) - np.min(pred) + 1)
+        kappa[i, 0] = np.log(predrange)
 
     modelspec[target_i]['phi'] = {'amplitude': amp, 'base': base,
-                                  'kappa': np.log(predrange), 'shift': shift}
-    log.info("Init dexp (amp,base,kappa,shift)=(%.3f,%.3f,%.3f,%.3f)",
-             *modelspec[target_i]['phi'].values())
+                                  'kappa': kappa, 'shift': shift}
+    log.info("Init dexp: %s", modelspec[target_i]['phi'])
 
     return modelspec
 

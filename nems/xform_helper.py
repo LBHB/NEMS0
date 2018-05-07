@@ -215,8 +215,8 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
         xfspec.append(['nems.xforms.split_for_jackknife',
                        {'njacks': 5, 'epoch_name': 'REFERENCE'}])
         xfspec.append(['nems.xforms.fit_state_init', {}])
-        xfspec.append(['nems.xforms.fit_state_nfold', {}])
-        xfspec.append(['nems.xforms.predict',    {}])
+        xfspec.append(['nems.xforms.fit_nfold', {}])
+        xfspec.append(['nems.xforms.predict', {}])
 
     elif (fitkey == "fitpjk01") or (fitkey == "basic-nf"):
 
@@ -225,7 +225,7 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
                        {'njacks': pfolds, 'epoch_name': 'REFERENCE'}])
         # xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
         xfspec.append(['nems.xforms.fit_nfold', {}])
-        xfspec.append(['nems.xforms.predict',    {}])
+        xfspec.append(['nems.xforms.predict', {}])
 
     elif fitkey == "basic-nf-shr":
 

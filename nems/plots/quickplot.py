@@ -443,13 +443,18 @@ def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
         before = ms.evaluate(rec, modelspec, start=None, stop=idx)
         before_sig = before[sig_name]
 
-    # compute correlation for pre-module before it's over-written
-    corr1 = nm.corrcoef(before, pred_name=sig_name, resp_name=compare)
-
     # now evaluate next module step
     after = ms.evaluate(before.copy(), modelspec, start=idx, stop=idx+1)
     after_sig = after[sig_name]
-    corr2 = nm.corrcoef(after, pred_name=sig_name, resp_name=compare)
+
+    # compute correlation for pre-module before it's over-written
+    if before[sig_name].shape[0] == 1:
+        corr1 = nm.corrcoef(before, pred_name=sig_name, resp_name=compare)
+        corr2 = nm.corrcoef(after, pred_name=sig_name, resp_name=compare)
+    else:
+        corr1 = 0
+        corr2 = 0
+        log.warning('corr coef expects single-dim predictions')
 
     compare_to = rec[compare]
     title1 = '{} vs {} before {}'.format(sig_name, compare, mod_name)

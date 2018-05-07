@@ -385,10 +385,10 @@ defkey('dexp2',
        {'fn': 'nems.modules.nonlinearity.double_exponential',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'base': ('Normal', {'mean': np.zeros([2,1]), 'sd': np.ones([2,1])}),
-                  'amplitude': ('Normal', {'mean': np.zeros([2,1])+0.2, 'sd': np.zeros([2,1])+0.1}),
-                  'shift': ('Normal', {'mean': np.zeros([2,1]), 'sd': np.ones([2,1])}),
-                  'kappa': ('Normal', {'mean': np.zeros([2,1]), 'sd': np.zeros([2,1])+0.1})}})
+        'prior': {'base': ('Normal', {'mean': np.zeros([2, 1]), 'sd': np.ones([2, 1])}),
+                  'amplitude': ('Normal', {'mean': np.zeros([2, 1])+0.2, 'sd': np.zeros([2, 1])+0.1}),
+                  'shift': ('Normal', {'mean': np.zeros([2, 1]), 'sd': np.ones([2, 1])}),
+                  'kappa': ('Normal', {'mean': np.zeros([2, 1]), 'sd': np.zeros([2, 1])+0.1})}})
 
 defkey('qsig1',
        {'fn': 'nems.modules.nonlinearity.quick_sigmoid',
