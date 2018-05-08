@@ -1,6 +1,9 @@
 import re
 import numpy as np
 
+import logging
+log = logging.getLogger(__name__)
+
 
 def remove_overlap(a):
     '''
@@ -324,8 +327,8 @@ def epoch_intersection(a, b):
     intersection.extend(a[::-1])
     result = np.array(intersection)
     if result.size == 0:
-        raise RuntimeWarning("Epochs did not intersect, resulting array"
-                             "is empty.")
+        log.warning("Epochs did not intersect, resulting array"
+                    " is empty.")
     return result
 
 

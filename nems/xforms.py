@@ -331,21 +331,22 @@ def fit_state_init(modelspecs, est, IsReload=False, **context):
                     tolerance=10**-4, max_iter=700)
             rep_idx = find_module('replicate_channels', m)
             mrg_idx = find_module('merge_channels', m)
-            repcount = m[rep_idx]['fn_kwargs']['repcount']
-            for j in range(rep_idx+1, mrg_idx):
-                # assume all phi
-                log.info(m[j]['fn'])
-                if 'phi' in m[j].keys():
-                    for phi in m[j]['phi'].keys():
-                        s = m[j]['phi'][phi].shape
-                        setcount = int(s[0] / repcount)
-                        log.info('phi[%s] setcount=%d', phi, setcount)
-                        snew = np.ones(len(s))
-                        snew[0] = repcount
-                        new_value = np.tile(m[j]['phi'][phi][:setcount, ...],
+            if rep_idx is not None:
+                repcount = m[rep_idx]['fn_kwargs']['repcount']
+                for j in range(rep_idx+1, mrg_idx):
+                    # assume all phi
+                    log.info(m[j]['fn'])
+                    if 'phi' in m[j].keys():
+                        for phi in m[j]['phi'].keys():
+                            s = m[j]['phi'][phi].shape
+                            setcount = int(s[0] / repcount)
+                            log.info('phi[%s] setcount=%d', phi, setcount)
+                            snew = np.ones(len(s))
+                            snew[0] = repcount
+                            new_v = np.tile(m[j]['phi'][phi][:setcount, ...],
                                             snew.astype(int))
-                        log.debug(new_value)
-                        m[j]['phi'][phi] = new_value
+                            log.debug(new_v)
+                            m[j]['phi'][phi] = new_v
 
             modelspecs_out.append(m)
 
