@@ -882,9 +882,12 @@ class RasterizedSignal(SignalBase):
         data = self.as_continuous()
         n_chans = data.shape[0]
         epoch_data = np.full((n_epochs, n_chans, n_samples), np.nan)
-
+        print(epoch)
         for i, (lb, ub) in enumerate(epoch_indices):
             samples = ub-lb
+            print(samples)
+            print(lb)
+            print(ub)
             epoch_data[i, ..., :samples] = data[..., lb:ub]
 
         return epoch_data
@@ -1036,7 +1039,7 @@ class RasterizedSignal(SignalBase):
         for ep in epochs:
             lb, ub = ep
             mask2[:,lb:ub]=1
-        
+
         for idx in idx_data[jack_idx].tolist():
             if idx < occurrences:
                 lb, ub = epochs[idx]
@@ -1046,8 +1049,8 @@ class RasterizedSignal(SignalBase):
             mask = ~mask
 
         data[mask] = np.nan
-        data[~mask2] = np.nan   
-        
+        data[~mask2] = np.nan
+
         return self._modified_copy(data)
 
     def jackknifes_by_epoch(self, njacks, epoch_name, tiled=True):

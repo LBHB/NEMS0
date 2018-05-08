@@ -164,29 +164,37 @@ def remove_invalid_segments(rec):
     rec['resp'] = rec['resp'].rasterize()
     if 'stim' in rec.signals.keys():
         rec['stim'] = rec['stim'].rasterize()
-        
+
     sig = rec['resp']
 
     # get list of start and stop times (epoch bounds)
+#    epoch_indices = np.vstack((
+#            ep.epoch_intersection(sig.get_epoch_bounds('HIT_TRIAL'),
+#                                  sig.get_epoch_bounds('REFERENCE')),
+#            ep.epoch_intersection(sig.get_epoch_bounds('REFERENCE'),
+#                                  sig.get_epoch_bounds('PASSIVE_EXPERIMENT'))))
     epoch_indices = np.vstack((
-            ep.epoch_intersection(sig.get_epoch_bounds('HIT_TRIAL'),
-                                  sig.get_epoch_bounds('REFERENCE')),
-            ep.epoch_intersection(sig.get_epoch_bounds('REFERENCE'),
-                                  sig.get_epoch_bounds('PASSIVE_EXPERIMENT'))))
+            ep.epoch_intersection(sig.get_epoch_indices('HIT_TRIAL'),
+                                  sig.get_epoch_indices('REFERENCE')),
+            ep.epoch_intersection(sig.get_epoch_indices('REFERENCE'),
+                                  sig.get_epoch_indices('PASSIVE_EXPERIMENT'))))
 
     # Only takes the first of any conflicts (don't think I actually need this)
     epoch_indices = ep.remove_overlap(epoch_indices)
 
-    epoch_indices2=epoch_indices[0:1,:]
-    for i in range(1,epoch_indices.shape[0]):
-        if epoch_indices[i,0]==epoch_indices2[-1,1]:
-            epoch_indices2[-1,1]=epoch_indices[i,0]
+    # merge any epochs that are directly adjacent
+    epoch_indices2 = epoch_indices[0:1, :]
+    for i in range(1, epoch_indices.shape[0]):
+        if epoch_indices[i, 0] == epoch_indices2[-1, 1]:
+            epoch_indices2[-1, 1] = epoch_indices[i, 0]
         else:
-            epoch_indices2=np.concatenate((epoch_indices2,epoch_indices[i:(i+1),:]),
-                                          axis=0)
+            epoch_indices2 = np.concatenate(
+                    (epoch_indices2, epoch_indices[i:(i + 1), :]), axis=0)
+
+    epoch_times = epoch_indices2 / sig.fs
 
     # add adjusted signals to the recording
-    newrec = rec.select_times(epoch_indices2)
+    newrec = rec.select_times(epoch_times)
 
     return newrec
 
