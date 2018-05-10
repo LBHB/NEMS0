@@ -882,12 +882,11 @@ class RasterizedSignal(SignalBase):
         data = self.as_continuous()
         n_chans = data.shape[0]
         epoch_data = np.full((n_epochs, n_chans, n_samples), np.nan)
-        print(epoch)
+        # print(epoch)
         for i, (lb, ub) in enumerate(epoch_indices):
             samples = ub-lb
-            print(samples)
-            print(lb)
-            print(ub)
+            # print(samples)
+            # print([lb, ub])
             epoch_data[i, ..., :samples] = data[..., lb:ub]
 
         return epoch_data

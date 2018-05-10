@@ -26,7 +26,8 @@ def generate_average_sig(signal_to_average,
 
     # 1. Fold matrix over all stimuli, returning a dict where keys are stimuli
     #    and each value in the dictionary is (reps X cell X bins)
-    epochs_to_extract = ep.epoch_names_matching(signal_to_average.epochs, epoch_regex)
+    epochs_to_extract = ep.epoch_names_matching(signal_to_average.epochs,
+                                                epoch_regex)
     folded_matrices = signal_to_average.extract_epochs(epochs_to_extract)
 
     # 2. Average over all reps of each stim and save into dict called psth.
@@ -96,15 +97,14 @@ def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
     # Create new recording
     newrec = rec.copy()
 
-    counter=0
+    counter = 0
 
     # iterate through each signal
     for signal_name, signal_to_average in rec.signals.items():
         # TODO: for TiledSignals, there is a much simpler way to do this!
 
         # 0. rasterize
-        signal_to_average=signal_to_average.rasterize()
-
+        signal_to_average = signal_to_average.rasterize()
 
         # 1. Find matching epochs
         epochs_to_extract = ep.epoch_names_matching(rec.epochs, epoch_regex)
@@ -114,10 +114,10 @@ def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
         folded_matrices = signal_to_average.extract_epochs(epochs_to_extract)
 
         # force a standard list of sorted keys for all signals
-        if counter==0:
-            sorted_keys=list(folded_matrices.keys())
+        if counter == 0:
+            sorted_keys = list(folded_matrices.keys())
             sorted_keys.sort()
-        counter+=1
+        counter += 1
 
         # 3. Average over all occurrences of each epoch, and append to data
         fs = signal_to_average.fs
@@ -139,14 +139,15 @@ def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
             else:
                 epochs = df
             current_time = epoch[0, 1]
-            #print("{0} epoch: {1}-{2}".format(k,epoch[0,0],epoch[0,1]))
+            # print("{0} epoch: {1}-{2}".format(k,epoch[0,0],epoch[0,1]))
 
-        avg_signal = signal.RasterizedSignal(fs=fs, data=data,
-                                   name=signal_to_average.name,
-                                   recording=signal_to_average.recording,
-                                   chans=signal_to_average.chans,
-                                   epochs=epochs,
-                                   meta=signal_to_average.meta)
+        avg_signal = signal.RasterizedSignal(
+                fs=fs, data=data,
+                name=signal_to_average.name,
+                recording=signal_to_average.recording,
+                chans=signal_to_average.chans,
+                epochs=epochs,
+                meta=signal_to_average.meta)
         newrec.add_signal(avg_signal)
 
     return newrec
@@ -154,10 +155,10 @@ def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
 
 def remove_invalid_segments(rec):
     """
-    Currently a specialized signal for removing incorrect trials from data
+    Currently a specialized function for removing incorrect trials from data
     collected using baphy during behavior.
 
-    TODO: Migrate to nems_db or make a more generic version
+    TODO: Migrate to nems_lbhb or make a more generic version
     """
 
     # First, select the appropriate subset of data
@@ -204,7 +205,9 @@ def nan_invalid_segments(rec):
     Currently a specialized signal for removing incorrect trials from data
     collected using baphy during behavior.
 
-    TODO: Migrate to nems_db or make a more generic version
+    TODO: Complete this function, replicate remove_invalid_segments logic
+          Or delete ME
+    TODO: Migrate to nems_lbhb or make a more generic version
     """
 
     # First, select the appropriate subset of data
@@ -353,7 +356,8 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
                       new_signalname='state'):
     """
     generate state signal for stategainX models
-    TODO: SVD document this and/or move it out of generic nems code
+
+    TODO: Migrate to nems_lbhb or make a more generic version
     """
 
     newrec = rec.copy()

@@ -305,6 +305,13 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
         xfspec.append(_parse_fititer(fitkey))
         xfspec.append(['nems.xforms.predict', {}])
 
+    elif fitkey.startswith("state"):
+        xfspec.append(['nems.xforms.split_for_jackknife',
+                       {'njacks': 5, 'epoch_name': 'REFERENCE'}])
+        xfspec.append(['nems.xforms.fit_state_init', {}])
+        xfspec.append(_parse_fititer(fitkey))
+        xfspec.append(['nems.xforms.predict', {}])
+
     else:
         raise ValueError('unknown fitter string ' + fitkey)
 

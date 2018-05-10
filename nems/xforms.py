@@ -297,14 +297,13 @@ def _set_zero(x):
 
 def fit_state_init(modelspecs, est, IsReload=False, **context):
     '''
-    Initialize modelspecs in a way that avoids getting stuck in
-    local minima. Remove state separation first
+    Initialize modelspecs in an attempt to avoid getting stuck in
+    local minima. Remove state replication/merging first.
 
     written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
     optional modules in (parens)
 
-    assumption -- rec['state'] is being used for merge
-
+    assumption -- est['state'] signal is being used for merge
     '''
     if not IsReload:
         if type(est) is not list:
