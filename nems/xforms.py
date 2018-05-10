@@ -633,7 +633,8 @@ def add_summary_statistics(est, val, modelspecs, rec=None, **context):
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs, rec)
     # TODO: Add statistics to metadata of every modelspec
 
-    modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs, rec)
+    modelspecs = nems.analysis.api.standard_correlation(
+            est, val, modelspecs, rec=rec)
 
     return {'modelspecs': modelspecs}
 

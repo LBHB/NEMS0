@@ -32,7 +32,10 @@ def standard_correlation(est, val, modelspecs, rec=None):
     r_fit = [nmet.corrcoef(p, 'pred', 'resp') for p in est]
     r_floor = [nmet.r_floor(p, 'pred', 'resp') for p in val]
     if rec is not None:
+        print('running r_ceiling')
         r_ceiling = [nmet.r_ceiling(p, rec, 'pred', 'resp') for p in val]
+    else:
+        print('skipping r_ceiling')
     mse_fit = [nmet.nmse(p, 'pred', 'resp') for p in val]
     ll_fit = [nmet.likelihood_poisson(p, 'pred', 'resp') for p in est]
 

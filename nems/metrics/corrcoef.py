@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import scipy.special
+import scipy.stats as stats
+import nems.epoch as ep
 
 import logging
 log = logging.getLogger(__name__)
-
-import nems.epoch as ep
 
 
 def corrcoef(result, pred_name='pred', resp_name='resp'):
@@ -154,7 +154,7 @@ def _r_single(X, N=100):
     return rac
 
 
-def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
+def r_ceiling_old(result, fullrec, pred_name='pred', resp_name='resp', N=100):
     """
     Compute noise-corrected correlation coefficient based on single-trial
     correlations in the actual response.
@@ -212,3 +212,68 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
     rnorm = rnorm_c / n
 
     return rnorm
+
+
+def r_ceiling(result, fullrec, pred_name='pred',
+              resp_name='resp', N=100):
+
+    """
+    Compute noise-corrected correlation coefficient based on single-trial
+    correlations in the actual response.
+    """
+    epoch_regex = '^STIM_'
+    epochs_to_extract = ep.epoch_names_matching(result[resp_name].epochs,
+                                                epoch_regex)
+    folded_resp = result[resp_name].extract_epochs(epochs_to_extract)
+
+    epochs_to_extract = ep.epoch_names_matching(result[pred_name].epochs,
+                                                epoch_regex)
+    folded_pred = result[pred_name].extract_epochs(epochs_to_extract)
+
+    resp = fullrec[resp_name].rasterize()
+    rnorm_c = 0
+    n = 0
+
+    X=np.array([])
+    Y=np.array([])
+    for k, d in folded_resp.items():
+        if np.sum(np.isfinite(d)) > 0:
+
+            x = resp.extract_epoch(k)
+            X = np.concatenate((X,x.flatten()))
+
+            p = np.tile(folded_pred[k],(x.shape[0],1,1));
+            Y = np.concatenate((Y,p.flatten()))
+
+    nx=np.sum(np.isfinite(X) & np.isfinite(Y), axis=0)
+
+    # exclude nan values of x
+    gidx = (nx > 0)
+    X = X[gidx]
+    Y = Y[gidx]
+
+    # count number of non-nan values for each time sample
+    nx=nx[gidx]
+
+    sx=X
+    mx=X
+
+    ax = X[gidx]
+
+    fit_alpha, fit_loc, fit_beta = stats.gamma.fit(X)
+
+    mu = [np.reshape(stats.gamma.rvs(fit_alpha+sx, loc=fit_loc, scale=fit_beta/(1+nx*fit_beta)) ,(1, -1))for a in range(10)]
+    mu = np.concatenate(mu)
+    mu[mu>np.max(X)]=np.max(X)
+    xc_set = [np.corrcoef(mu[i,:], X)[0, 1] for i in range(10)]
+    log.info("Simulated r_single: %.3f +/- %.3f",
+             np.mean(xc_set), np.std(xc_set)/np.sqrt(10))
+
+    xc_act = np.corrcoef(Y, X)[0, 1]
+    log.info("actual r_single: %.03f", xc_act)
+
+    # weighted average based on number of samples in each epoch
+    rnorm = xc_act / np.mean(xc_set)
+
+    return rnorm
+
