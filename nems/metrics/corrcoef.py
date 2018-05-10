@@ -257,7 +257,7 @@ def r_ceiling(result, fullrec, pred_name='pred',
 
     mu = [np.reshape(stats.gamma.rvs(
             fit_alpha + sx, loc=fit_loc,
-            scale=fit_beta / (1 + nx * fit_beta)), (1, -1))
+            scale=fit_beta / (1 + fit_beta)), (1, -1))
           for a in range(10)]
     mu = np.concatenate(mu)
     mu[mu > np.max(X)] = np.max(X)
