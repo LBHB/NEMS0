@@ -231,41 +231,37 @@ def r_ceiling(result, fullrec, pred_name='pred',
     folded_pred = result[pred_name].extract_epochs(epochs_to_extract)
 
     resp = fullrec[resp_name].rasterize()
-    rnorm_c = 0
-    n = 0
 
-    X=np.array([])
-    Y=np.array([])
+    X = np.array([])
+    Y = np.array([])
     for k, d in folded_resp.items():
         if np.sum(np.isfinite(d)) > 0:
 
             x = resp.extract_epoch(k)
-            X = np.concatenate((X,x.flatten()))
+            X = np.concatenate((X, x.flatten()))
 
-            p = np.tile(folded_pred[k],(x.shape[0],1,1));
-            Y = np.concatenate((Y,p.flatten()))
+            p = folded_pred[k]
+            if p.shape[0] < x.shape[0]:
+                p = np.tile(p, (x.shape[0], 1, 1))
+            Y = np.concatenate((Y, p.flatten()))
 
-    nx=np.sum(np.isfinite(X) & np.isfinite(Y), axis=0)
-
-    # exclude nan values of x
-    gidx = (nx > 0)
+    # exclude nan values of X or Y
+    gidx = (np.isfinite(X) & np.isfinite(Y))
     X = X[gidx]
     Y = Y[gidx]
 
-    # count number of non-nan values for each time sample
-    nx=nx[gidx]
-
-    sx=X
-    mx=X
-
-    ax = X[gidx]
+    sx = X
+    mx = X
 
     fit_alpha, fit_loc, fit_beta = stats.gamma.fit(X)
 
-    mu = [np.reshape(stats.gamma.rvs(fit_alpha+sx, loc=fit_loc, scale=fit_beta/(1+nx*fit_beta)) ,(1, -1))for a in range(10)]
+    mu = [np.reshape(stats.gamma.rvs(
+            fit_alpha + sx, loc=fit_loc,
+            scale=fit_beta / (1 + nx * fit_beta)), (1, -1))
+          for a in range(10)]
     mu = np.concatenate(mu)
-    mu[mu>np.max(X)]=np.max(X)
-    xc_set = [np.corrcoef(mu[i,:], X)[0, 1] for i in range(10)]
+    mu[mu > np.max(X)] = np.max(X)
+    xc_set = [np.corrcoef(mu[i, :], X)[0, 1] for i in range(10)]
     log.info("Simulated r_single: %.3f +/- %.3f",
              np.mean(xc_set), np.std(xc_set)/np.sqrt(10))
 
@@ -276,4 +272,3 @@ def r_ceiling(result, fullrec, pred_name='pred',
     rnorm = xc_act / np.mean(xc_set)
 
     return rnorm
-
