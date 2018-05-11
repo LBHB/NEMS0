@@ -222,7 +222,7 @@ def evaluate(rec, modelspec, start=None, stop=None):
     return d
 
 
-def summary_stats(modelspecs, mod_key='fn'):
+def summary_stats(modelspecs, mod_key='fn', meta_include=[]):
     '''
     Generates summary statistics for a list of modelspecs.
     Each modelspec must be of the same length and contain the same
@@ -275,6 +275,19 @@ def summary_stats(modelspecs, mod_key='fn'):
             # Abbreviate by default if using 'fn'
             if name.startswith('nems.modules.'):
                 name = name[13:]
+
+            # Add information from first-module meta
+            if i == 0:
+                meta = m['meta']
+                meta_keys = [k for k in meta.keys() if k in meta_include]
+                for k in meta_keys:
+                    column_entry = 'meta--%s' % (k)
+                    if column_entry in columns.keys():
+                        columns[column_entry].append(meta[k])
+                    else:
+                        columns.update({column_entry: [meta[k]]})
+
+            # Add in phi values
             phi = m['phi']
             params = phi.keys()
             for p in params:
@@ -283,6 +296,7 @@ def summary_stats(modelspecs, mod_key='fn'):
                     columns[column_entry].append(phi[p])
                 else:
                     columns.update({column_entry: [phi[p]]})
+
 
     # Convert entries from lists of values to dictionaries
     # containing keys for mean, std and the raw values.
