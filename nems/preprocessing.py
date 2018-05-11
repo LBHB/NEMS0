@@ -164,7 +164,7 @@ def remove_invalid_segments(rec):
     rec['resp'] = rec['resp'].rasterize()
     if 'stim' in rec.signals.keys():
         rec['stim'] = rec['stim'].rasterize()
-        
+
     sig = rec['resp']
 
     # get list of start and stop times (epoch bounds)
@@ -465,3 +465,48 @@ def split_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
             raise ValueError('modelspecs must be len 1 or njacks')
 
     return est, val, modelspecs_out
+
+
+def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
+                         bins=None):
+    '''
+    Creates a new signal whose values represent the degree of variability
+    in each channel of the source signal. Each value is based on the
+    previous values within a range specified by either <ms> or <bins>.
+    Only supports RasterizedSignal.
+    '''
+    source_signal = rec[source_name]
+    if not isinstance(source_signal, signal.RasterizedSignal):
+        raise TypeError("signal with key {} was not a RasterizedSignal"
+                        .format(source_name))
+    array = source_signal.as_continuous()
+    if ms:
+        history = int((ms/1000)*source_signal.fs)
+    elif bins:
+        history = int(bins)
+    else:
+        raise ValueError("Either ms or bins parameter must be specified "
+                         "and nonzero.")
+    # TODO: Alternatively, base history length on some feature of signal?
+    #       Like average length of some epoch ex 'TRIAL'
+
+    # figure out an efficient np-based solution, nested loops on giant arrays
+    # are bad.
+    contrast = np.zeros_like(array, dtype=np.int)
+    for i, hz in enumerate(array):
+        for j, t in enumerate(hz):
+            my_history = array[i][j-history:j]
+            if my_history.size == 0:
+                # Skip calculation if full history window isn't available
+                continue
+            half_width = np.max(my_history) - np.min(my_history)
+            std = np.std(my_history)
+            # binary implementation - start with this since it's easy.
+            # for real value, some formula based on width and variance?
+            if half_width > 30 and std > 5:  # db
+                contrast[i][j] = 1
+            else:
+                contrast[i][j] = 0
+
+    contrast_sig = source_signal._modified_copy(contrast)
+    rec[name] = contrast_sig
