@@ -4,6 +4,7 @@ import copy
 import json
 import importlib
 import numpy as np
+import scipy.stats as st
 import nems.utils
 import nems.uri
 
@@ -304,12 +305,15 @@ def summary_stats(modelspecs, mod_key='fn', meta_include=[]):
     for col, values in columns.items():
         mean = try_scalar((np.mean(values, axis=0)))
         std = try_scalar((np.std(values, axis=0)))
+        sem = try_scalar((st.sem(values, axis=0)))
+        max = try_scalar((np.max(values, axis=0)))
+        min = try_scalar((np.min(values, axis=0)))
         values = try_scalar((np.array(values)))
 
-        with_stats[col] = {}
-        with_stats[col]['mean'] = mean
-        with_stats[col]['std'] = std
-        with_stats[col]['values'] = values
+        with_stats[col] = {
+                'mean': mean, 'std': std, 'sem': sem, 'max': max, 'min': min,
+                'values': values
+                }
 
     return with_stats
 
