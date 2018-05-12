@@ -154,7 +154,7 @@ def _r_single(X, N=100):
     return rac
 
 
-def r_ceiling_old(result, fullrec, pred_name='pred', resp_name='resp', N=100):
+def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
     """
     Compute noise-corrected correlation coefficient based on single-trial
     correlations in the actual response.
@@ -214,7 +214,7 @@ def r_ceiling_old(result, fullrec, pred_name='pred', resp_name='resp', N=100):
     return rnorm
 
 
-def r_ceiling(result, fullrec, pred_name='pred',
+def r_ceiling_test(result, fullrec, pred_name='pred',
               resp_name='resp', N=100):
 
     """
