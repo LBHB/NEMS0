@@ -4,6 +4,7 @@ import copy
 import json
 import importlib
 import numpy as np
+import scipy.stats as st
 import nems.utils
 import nems.uri
 
@@ -222,7 +223,7 @@ def evaluate(rec, modelspec, start=None, stop=None):
     return d
 
 
-def summary_stats(modelspecs, mod_key='fn'):
+def summary_stats(modelspecs, mod_key='fn', meta_include=[]):
     '''
     Generates summary statistics for a list of modelspecs.
     Each modelspec must be of the same length and contain the same
@@ -275,6 +276,19 @@ def summary_stats(modelspecs, mod_key='fn'):
             # Abbreviate by default if using 'fn'
             if name.startswith('nems.modules.'):
                 name = name[13:]
+
+            # Add information from first-module meta
+            if i == 0:
+                meta = m['meta']
+                meta_keys = [k for k in meta.keys() if k in meta_include]
+                for k in meta_keys:
+                    column_entry = 'meta--%s' % (k)
+                    if column_entry in columns.keys():
+                        columns[column_entry].append(meta[k])
+                    else:
+                        columns.update({column_entry: [meta[k]]})
+
+            # Add in phi values
             phi = m['phi']
             params = phi.keys()
             for p in params:
@@ -284,18 +298,22 @@ def summary_stats(modelspecs, mod_key='fn'):
                 else:
                     columns.update({column_entry: [phi[p]]})
 
+
     # Convert entries from lists of values to dictionaries
     # containing keys for mean, std and the raw values.
     with_stats = {}
     for col, values in columns.items():
         mean = try_scalar((np.mean(values, axis=0)))
         std = try_scalar((np.std(values, axis=0)))
+        sem = try_scalar((st.sem(values, axis=0)))
+        max = try_scalar((np.max(values, axis=0)))
+        min = try_scalar((np.min(values, axis=0)))
         values = try_scalar((np.array(values)))
 
-        with_stats[col] = {}
-        with_stats[col]['mean'] = mean
-        with_stats[col]['std'] = std
-        with_stats[col]['values'] = values
+        with_stats[col] = {
+                'mean': mean, 'std': std, 'sem': sem, 'max': max, 'min': min,
+                'values': values
+                }
 
     return with_stats
 
