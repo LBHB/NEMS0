@@ -29,8 +29,10 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
 
     # TODO: move bounds to fitter
     # limits, assumes input (X) range is approximately -1 to +1
-    ui = np.absolute(u)
-    ui[ui > 0.3] = 0.3
+    # ui = np.absolute(u)
+    ui = u
+    ui[ui > 0.4] = 0.4
+    ui[ui < -0.4] = -0.4
 
     # convert tau units from sec to bins
     taui = np.absolute(tau) * fs
@@ -50,14 +52,15 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
         ustim = 1.0/taui[i] + ui[i] * tstim[i, :]
         # ustim = ui[i] * tstim[i, :]
         if ui[i] == 0:
-            # passthru, no STP
+            # passthru, no STP, preserve stim_out = tstim
             pass
         elif ui[i] > 0:
             # depression
             for tt in range(1, s[1]):
                 # td = di[i, tt - 1]  # previous time bin depression
                 # delta = (1 - td) / taui[i] - ui[i] * td * tstim[i, tt - 1]
-                # delta = (1 - td) / taui[i] - td * ustim[tt - 1]
+                # delta = 1/taui[i] - td * (1/taui[i] - ui[i] * tstim[i, tt - 1])
+                # then a=1/taui[i] and ustim=1/taui[i] - ui[i] * tstim[i,:]
                 delta = a - td * ustim[tt - 1]
                 td = td + delta
                 #td = np.max([td, 0])
