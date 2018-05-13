@@ -29,7 +29,8 @@ def dummy_fitter(sigma, cost_fn, bounds=None, fixed=None):
 
 
 def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
-                       step_min=1e-5, tolerance=1e-5, max_iter=100, **kwargs):
+                       step_min=1e-5, tolerance=1e-5, max_iter=100,
+                       bounds=None, **kwargs):
 
     stepinfo, update_stepinfo = tc.create_stepinfo()
     stop_fit = lambda : (tc.error_non_decreasing(stepinfo, tolerance)
@@ -43,12 +44,22 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
               step_size, tolerance)
     while not stop_fit():
         for i in range(0, n_parameters):
+            if bounds is None:
+                lower = np.NINF
+                upper = np.inf
+            else:
+                lower = bounds[i][0] if bounds[i][0] is not None else np.NINF
+                upper = bounds[i][1] if bounds[i][1] is not None else np.inf
             # Try shifting each parameter both negatively and positively
             # proportional to step_size, and save both the new
             # sigma vectors and resulting cost_fn outputs
             this_sigma[i] = sigma[i] + step_size
+            if this_sigma[i] > upper:
+                this_sigma[i] = upper
             step_errors[i, 0] = cost_fn(this_sigma)
             this_sigma[i] = sigma[i] - step_size
+            if this_sigma[i] < lower:
+                this_sigma[i] = lower
             step_errors[i, 1] = cost_fn(this_sigma)
             this_sigma[i] = sigma[i]
         # Get index tuple for the lowest error that resulted,
@@ -82,7 +93,7 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
 
 
 def scipy_minimize(sigma, cost_fn, tolerance=None, max_iter=None,
-                   method='L-BFGS-B', options={}):
+                   bounds=None, method='L-BFGS-B', options={}):
     """
     Wrapper for scipy.optimize.minimize to normalize format with
     NEMS fitters.
@@ -117,7 +128,7 @@ def scipy_minimize(sigma, cost_fn, tolerance=None, max_iter=None,
         options['maxiter'] = 1000
 
     result = scp.optimize.minimize(cost_fn, sigma, method=method,
-                                   options=options)
+                                   bounds=bounds, options=options)
     sigma = result.x
     final_err = cost_fn(sigma)
     log.info("Final error: %.06f", final_err)
