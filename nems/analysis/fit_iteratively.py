@@ -114,6 +114,9 @@ def _module_set_loop(subset, data, modelspec, cost_function, fitter,
         log.debug("Modelspec after freeze: %s", modelspec)
 
         packer, unpacker = mapper(modelspec)
+        bounds_to_vec, _ = nems.fitters.mappers.bounds_vector(modelspec)
+        bounds = bounds_to_vec(modelspec)
+
         # cost_function.counter = 0
         cost_function.error = None
         cost_fn = partial(cost_function,
@@ -122,7 +125,7 @@ def _module_set_loop(subset, data, modelspec, cost_function, fitter,
                           metric=metric)
         sigma = packer(modelspec)
 
-        improved_sigma = fitter(sigma, cost_fn, **fit_kwargs)
+        improved_sigma = fitter(sigma, cost_fn, bounds=bounds, **fit_kwargs)
         improved_modelspec = unpacker(improved_sigma)
 
         for i, m in enumerate(improved_modelspec):
@@ -229,4 +232,3 @@ def fit_iteratively(
     results = [copy.deepcopy(improved_modelspec)]
 
     return results
-
