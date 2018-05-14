@@ -169,6 +169,14 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
                 m['phi'] = {}
                 exclude_idx.append(i)
                 # log.info(m)
+
+        if ('levelshift' in m['fn']) and (m.get('phi') is None):
+            m = priors.set_mean_phi([m])[0]
+            mean_resp = np.nanmean(rec['resp'].as_continuous())
+            log.info('Mod %d (%s) fixing level to response mean %.3f',
+                     i, m['fn'], mean_resp)
+            m['phi']['level'][:] = mean_resp
+
         if (i < target_i) or ('merge_channels' in m['fn']):
             tmodelspec.append(m)
 
