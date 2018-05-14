@@ -70,6 +70,7 @@ def defkey_wcc(n_inputs, n_outputs):
             'mean': np.eye(n_outputs, n_inputs),
             'sd': np.ones((n_outputs, n_inputs)),
         }
+        p_coefficients['mean'][(n_outputs-1):, :] = 1 / n_inputs
 
     template = {
         'fn': 'nems.modules.weight_channels.basic',
