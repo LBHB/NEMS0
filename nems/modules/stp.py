@@ -31,8 +31,8 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
     # limits, assumes input (X) range is approximately -1 to +1
     # ui = np.absolute(u)
     ui = u
-    ui[ui > 0.5] = 0.5
-    ui[ui < -0.5] = -0.5
+    ui[ui > 0.75] = 0.75
+    ui[ui < -0.75] = -0.75
 
     # convert tau units from sec to bins
     taui = np.absolute(tau) * fs

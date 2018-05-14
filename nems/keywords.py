@@ -297,14 +297,16 @@ defkey('lvl1',
        {'fn': 'nems.modules.levelshift.levelshift',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'level': ('Normal', {'mean': np.zeros([1,1]), 'sd': np.ones([1,1])})}
+        'prior': {'level': ('Normal', {'mean': np.zeros([1,1]),
+                                       'sd': np.ones([1,1])})}
         })
 
 defkey('lvl2',
        {'fn': 'nems.modules.levelshift.levelshift',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'level': ('Normal', {'mean': np.zeros([2,1]), 'sd': np.ones([2,1])})}
+        'prior': {'level': ('Normal', {'mean': np.zeros([2, 1]),
+                                       'sd': np.ones([2, 1])})}
         })
 
 defkey('stp1',
