@@ -46,10 +46,12 @@ def fit_basic(data, modelspec,
         cost_function = basic_cost
 
     if require_phi:
-        # Ensure that phi exists for all modules; choose prior mean if not found
+        # Ensure that phi exists for all modules;
+        # choose prior mean if not found
         for i, m in enumerate(modelspec):
             if ('phi' not in m.keys()) and ('prior' in m.keys()):
-                log.debug('Phi not found for module, using mean of prior: %s', m)
+                log.debug('Phi not found for module, using mean of prior: %s',
+                          m)
                 m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
                 modelspec[i] = m
 
@@ -74,12 +76,15 @@ def fit_basic(data, modelspec,
                       data=data, segmentor=segmentor, evaluator=evaluator,
                       metric=metric)
 
-    # get initial sigma value representing some point in the fit space
+    # get initial sigma value representing some point in the fit space,
+    # and corresponding bounds for each value
     sigma = packer(modelspec)
+    bounds_to_vec, _ = nems.fitters.mappers.bounds_vector(modelspec)
+    bounds = bounds_to_vec(modelspec)
 
     # Results should be a list of modelspecs
     # (might only be one in list, but still should be packaged as a list)
-    improved_sigma = fitter(sigma, cost_fn, **fit_kwargs)
+    improved_sigma = fitter(sigma, cost_fn, bounds=bounds, **fit_kwargs)
     improved_modelspec = unpacker(improved_sigma)
 
     elapsed_time = (time.time() - start_time)
