@@ -4,38 +4,60 @@ log = logging.getLogger(__name__)
 
 def load_config():
     # Load the default settings
-    from os import environ
-    from . import default_config as config
+    from os import environ, path, utime
+    from configs import defaults as config
 
+    # leave defaults.py off the end of path
+    configs_path = path.dirname(path.abspath(config.__file__))
+    # import configs/settings.py for user-specified overrides.
+    # If it doesn't exist, create a dummy file in its place that
+    # the user can fill in later.
     try:
-        # Load the computer-specific settings
-        path = environ['NEMS_CONFIG']
-        import imp
-        from os.path import dirname
-        extra_settings = imp.load_module('settings', open(path), dirname(path),
-                                         ('.py', 'r', imp.PY_SOURCE))
-        # Update the setting defaults with the computer-specific settings
-        for setting in dir(extra_settings):
-            value = getattr(extra_settings, setting)
-            setattr(config, setting, value)
-        config.init_settings()
-    except KeyError:
-        # We repeat config.init_settings before each logging message n the
-        # except block (to ensure that logging gets configured properly so the
-        # message appears in the right places).
-        config.init_settings()
-        log.warn('No NEMS_CONFIG defined')
-    except IOError:
-        config.init_settings()
-        log.warn('%s file defined by NEMS_CONFIG is missing', path)
+        from configs import settings
+    except ImportError:
+        settings_path = path.join(configs_path, 'settings.py')
+        # this should be equivalent to
+        # `touch path/to/configs/settings.py`
+        with open(settings_path, 'a'):
+            utime(settings_path, None)
+        log.info("No settings.py found in configs directory,"
+                 " generating blank file ... ")
+        from configs import settings
 
+    for s in config.__dir__():
+        if s.startswith('__') or not (s == s.upper()):
+            # Ignore python magic variables and any that are not in
+            # all caps.
+            pass
+        elif s == s.upper():
+            if s in environ:
+                # If it's already in the environment, don't need
+                # to do anything else.
+                pass
+            elif hasattr(settings, s):
+                log.info("Found setting: %s in %s, adding "
+                         "value to environment ... ", s, settings.__name__)
+                d = getattr(settings, s)
+                if d is None:
+                    d = ''
+                environ[s] = d
+            else:
+                log.info("No value specified for: %s. Using default value "
+                         "in %s", s, config.__name__)
+                d = getattr(config, s)
+                if d is None:
+                    d = ''
+                environ[s] = d
+            setattr(config, s, environ[s])
+
+    config.init_settings()
     return config
 
 
 _config = load_config()
 
 
-def get_config(setting):
+def get_setting(setting):
     '''
     Get value of setting.
     '''
