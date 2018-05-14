@@ -49,13 +49,7 @@ def generate_loader_xfspec(loader, recording_uri):
     elif (loader.startswith("psth") or loader.startswith("nostim") or
           loader.startswith("env")):
 
-        if loader.endswith("beh0"):
-            state_signals = ['active']
-            permute_signals = ['active']
-        elif loader.endswith("beh"):
-            state_signals = ['active']
-            permute_signals = []
-        elif loader.endswith("pup0beh0"):
+        if loader.endswith("pup0beh0"):
             state_signals = ['pupil', 'active']
             permute_signals = ['pupil', 'active']
         elif loader.endswith("pup0beh"):
@@ -120,6 +114,14 @@ def generate_loader_xfspec(loader, recording_uri):
         elif loader.endswith("pbspevbeh"):
             state_signals = ['pupil_bs', 'pupil_ev', 'active']
             permute_signals = []
+
+        elif loader.endswith("beh0"):
+            state_signals = ['active']
+            permute_signals = ['active']
+        elif loader.endswith("beh"):
+            state_signals = ['active']
+            permute_signals = []
+
         else:
             raise ValueError("invalid loader string")
 

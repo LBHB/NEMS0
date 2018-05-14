@@ -63,21 +63,17 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
                 # then a=1/taui[i] and ustim=1/taui[i] - ui[i] * tstim[i,:]
                 delta = a - td * ustim[tt - 1]
                 td = td + delta
-                #td = np.max([td, 0])
+                # td = np.max([td, 0])
                 stim_out[i, tt] *= td
         else:
             # facilitation
             for tt in range(1, s[1]):
                 delta = a - td * ustim[tt - 1]
                 td = td + delta
-                #td = np.min([td, 1])
+                # td = np.min([td, 1])
                 stim_out[i, tt] *= td
     # print("(u,tau)=({0},{1})".format(ui,taui))
 
     stim_out[np.isnan(X)] = np.nan
     return stim_out
-
-
-
-
 
