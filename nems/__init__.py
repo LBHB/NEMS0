@@ -6,9 +6,12 @@ def load_config():
     # Load the default settings
     from os import environ, path, utime
     from configs import defaults as config
-    # leave defaults.py off the end
-    configs_path = path.abspath(config.__file__)[:-11]
 
+    # leave defaults.py off the end of path
+    configs_path = path.dirname(path.abspath(config.__file__))
+    # import configs/settings.py for user-specified overrides.
+    # If it doesn't exist, create a dummy file in its place that
+    # the user can fill in later.
     try:
         from configs import settings
     except ImportError:
@@ -23,8 +26,8 @@ def load_config():
 
     for s in config.__dir__():
         if s.startswith('__') or not (s == s.upper()):
-            # Ignore python magic variables. Everything else in
-            # the defaults files should be valid settings.
+            # Ignore python magic variables and any that are not in
+            # all caps.
             pass
         elif s == s.upper():
             if s in environ:
