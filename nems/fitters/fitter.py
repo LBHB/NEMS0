@@ -126,7 +126,7 @@ def scipy_minimize(sigma, cost_fn, tolerance=None, max_iter=None,
         options['maxiter'] = max_iter
     elif max_iter is None and 'maxiter' not in options:
         options['maxiter'] = 1000
-
+    print(bounds)
     result = scp.optimize.minimize(cost_fn, sigma, method=method,
                                    bounds=bounds, options=options)
     sigma = result.x

@@ -323,16 +323,20 @@ defkey('stp2',
                       'o': 'pred',
                       'crosstalk': 0},
         'prior': {'u': ('Normal', {'mean': [.01, .01], 'sd': [.01, .01]}),
-                  'tau': ('Normal', {'mean': [.04, .04], 'sd': [.05, .05]})}
+                  'tau': ('Normal', {'mean': [.04, .04], 'sd': [.05, .05]})},
         })
+#        'bounds': {'u': ([-0.5, -0.5], [0.5, 0.5]),
+#                   'tau': ([.02, .02], None)}
 
 defkey('stp3',
        {'fn': 'nems.modules.stp.short_term_plasticity',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
                       'crosstalk': 0},
-        'prior': {'u': ('Normal', {'mean': [.01, .01, .01], 'sd': [.01, .01, .01]}),
-                  'tau': ('Normal', {'mean': [.04, .04, .04], 'sd': [.05, .05, .05]})}
+        'prior': {'u': ('Normal', {'mean': [.01, .01, .01],
+                                   'sd': [.01, .01, .01]}),
+                  'tau': ('Normal', {'mean': [.04, .04, .04],
+                                     'sd': [.05, .05, .05]})}
         })
 
 defkey('stp4',
