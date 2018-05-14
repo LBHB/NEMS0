@@ -3,6 +3,7 @@ import numpy as np
 
 from .distribution import Distribution
 
+
 class Exponential(Distribution):
     '''
     Exponential Prior
@@ -19,4 +20,4 @@ class Exponential(Distribution):
         self.distribution = stats.expon(scale=beta)
 
     def __repr__(self):
-        return 'Exponential(β={})'.format(beta)
+        return 'Exponential(β={})'.format(self._beta)
