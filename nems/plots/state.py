@@ -64,8 +64,8 @@ def state_var_psth(rec, psth_name='resp', var_name='pupil', ax=None):
     timeseries_from_vectors([low, high], fs=fs, title=var_name, ax=ax)
 
 
-def state_var_psth_from_epoch(rec, epoch, psth_name='resp', state_sig='pupil',
-                              ax=None):
+def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
+                              state_sig='pupil', ax=None):
     """
     Plot PSTH averaged across all occurences of epoch, grouped by
     above- and below-average values of a state signal (state_sig)
@@ -79,6 +79,9 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', state_sig='pupil',
 
     full_psth = rec[psth_name]
     folded_psth = full_psth.extract_epoch(epoch)
+    if psth_name2 is not None:
+        full_psth2 = rec[psth_name2]
+        folded_psth2 = full_psth2.extract_epoch(epoch)
 
     full_var = rec['state'].loc[state_sig]
     folded_var = np.squeeze(full_var.extract_epoch(epoch))
@@ -92,12 +95,16 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', state_sig='pupil',
     # low = response on epochs when state less than mean
     if np.sum(m < mean):
         low = np.nanmean(folded_psth[m < mean, :, :], axis=0).T
+        low2 = np.nanmean(folded_psth2[m < mean, :, :], axis=0).T
     else:
         low = np.ones(folded_psth[0, :, :].shape).T * np.nan
+        low2 = np.ones(folded_psth2[0, :, :].shape).T * np.nan
 
     # high = response on epochs when state less than mean
     title = state_sig
     high = np.nanmean(folded_psth[m >= mean, :, :], axis=0).T
+    high2 = np.nanmean(folded_psth2[m >= mean, :, :], axis=0).T
+
     hv = np.nanmean(m[m >= mean])
     if np.sum(m < mean) > 0:
         lv = np.nanmean(m[m < mean])
@@ -108,8 +115,12 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', state_sig='pupil',
 
         timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
                                 legend=legend)
+        timeseries_from_vectors([low2, high2], fs=fs, title=title, ax=ax,
+                                linestyle='--')
     else:
         timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax)
+        timeseries_from_vectors([low2, high2], fs=fs, title=title, ax=ax,
+                                linestyle='--')
 
     if state_sig == 'baseline':
         ax.set_xlabel(epoch)
