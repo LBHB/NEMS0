@@ -86,10 +86,10 @@ def nmse_shrink(result, pred_name='pred', resp_name='resp', shrink=0.1):
     # bounds = np.round(np.linspace(0, len(X1) + 1, 11)).astype(int)
 
     E = np.zeros([10, 1])
-    P = np.std(X2)
+    # P = np.std(X2)
     for ii in range(0, 10):
         jj = np.arange(ii, len(X1), 10)
-        #p rint(jj)
+        # print(jj)
         if len(jj) == 0:
             log.info('No data in range?')
 

@@ -23,20 +23,19 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
     tstim[np.isnan(tstim)] = 0
     tstim[tstim < 0] = 0
 
-    # ui=self.u
-    # force only depression, no facilitation
-    # TODO: support facilitcation
+    # TODO: deal with upper and lower bounds on dep and facilitation parms
+    #       need to know something about magnitude of inputs???
 
-    # TODO: move bounds to fitter
+    # TODO: move bounds to fitter? slow
+
     # limits, assumes input (X) range is approximately -1 to +1
-    # ui = np.absolute(u)
     ui = u
-    ui[ui > 0.75] = 0.75
+    ui[ui > 1] = 1
     ui[ui < -0.75] = -0.75
 
     # convert tau units from sec to bins
     taui = np.absolute(tau) * fs
-    taui[taui < 2] = 2
+    taui[taui < 3] = 3
 
     # TODO : enable crosstalk
     if crosstalk:
