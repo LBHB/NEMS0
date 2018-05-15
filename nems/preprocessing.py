@@ -397,7 +397,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         newrec['pupil_bs'] = newrec["pupil"].replace_epoch(
                 'TRIAL', pupil_bs)
 
-    # generate stask tate signals
+    # generate task state signals
     fpre = (resp.epochs['name'] == "PRE_PASSIVE")
     fpost = (resp.epochs['name'] == "POST_PASSIVE")
     INCLUDE_PRE_POST = (np.sum(fpre) > 0) & (np.sum(fpost) > 0)
@@ -421,6 +421,15 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     newrec['hard_trials'].chans = ['hard_trials']
     newrec['active'] = resp.epoch_to_signal('ACTIVE_EXPERIMENT')
     newrec['active'].chans = ['active']
+
+    # pupil interactions
+    if ('pupil' in state_signals):
+        # normalize min-max
+        p = newrec["pupil"].as_continuous()
+        a = newrec["active"].as_continuous()
+        newrec["p_x_a"] = newrec["pupil"]._modified_copy(p * a)
+        newrec["p_x_a"].chans = ["p_x_a"]
+
     state_sig_list = [ones_sig]
     # rint(state_sig_list[-1].shape)
 

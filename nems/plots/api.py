@@ -9,6 +9,7 @@ from .timeseries import (timeseries_from_signals, timeseries_from_epoch,
 from .heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap
 from .file import save_figure, load_figure_img, load_figure_bytes, fig2BytesIO
 from .histogram import pred_error_hist
-from .state import state_vars_timeseries
+from .state import (state_vars_timeseries, state_var_psth,
+                    state_var_psth_from_epoch)
 from .quickplot import quickplot
 from .diagnostic import diagnostic

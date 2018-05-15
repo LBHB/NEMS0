@@ -8,7 +8,6 @@ def short_term_plasticity(rec, i, o, u, tau, crosstalk=0):
         u (release probability)
         tau (recovery time constant)
     '''
-
     fn = lambda x : _stp(x, u, tau, crosstalk, rec[i].fs)
 
     return [rec[i].transform(fn, o)]
@@ -31,7 +30,7 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
     # limits, assumes input (X) range is approximately -1 to +1
     ui = u
     ui[ui > 1] = 1
-    ui[ui < -0.75] = -0.75
+    ui[ui < -0.5] = -0.5
 
     # convert tau units from sec to bins
     taui = np.absolute(tau) * fs
@@ -75,4 +74,3 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
 
     stim_out[np.isnan(X)] = np.nan
     return stim_out
-

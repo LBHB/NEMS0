@@ -370,8 +370,8 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                     plot2 = (fn2, 1)
 
                 else:
-                    fns = get_state_vars_psths(rec, epoch, psth_name='resp',
-                                               occurrence=occurrence)
+                    fns = state_vars_psths(rec, epoch, psth_name='resp',
+                                           occurrence=occurrence)
                     plot2 = (fns, [1]*len(fns))
                 plot_fns.extend([plot1, plot2])
             else:
@@ -473,7 +473,7 @@ def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
     return fn1, fn2
 
 
-def get_state_vars_psths(rec, epoch, psth_name='resp', occurrence=0):
+def state_vars_psths(rec, epoch, psth_name='resp', occurrence=0):
     state_var_list = rec['state'].chans
     psth_list = [
             partial(state_var_psth_from_epoch, rec, epoch, psth_name=psth_name,

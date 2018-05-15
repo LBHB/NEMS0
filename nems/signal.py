@@ -296,8 +296,6 @@ class SignalBase:
 
         return hdf5filepath
 
-
-
     def as_continuous(self):
         '''
         Return a copy of signal data as a Numpy array of shape (chans, time).
