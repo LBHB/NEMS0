@@ -289,6 +289,26 @@ def fit_basic_init(modelspecs, est, IsReload=False, **context):
     return {'modelspecs': modelspecs}
 
 
+def fit_basic_shr_init(modelspecs, est, IsReload=False, **context):
+    '''
+    Initialize modelspecs in a way that avoids getting stuck in
+    local minima.
+
+    written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
+    optional modules in (parens)
+
+    '''
+    # only run if fitting
+    if not IsReload:
+        modelspecs = [nems.initializers.prefit_LN(
+                est, modelspecs[0],
+                analysis_function=nems.analysis.api.fit_basic,
+                fitter=scipy_minimize,
+                tolerance=10**-5.5, max_iter=700)]
+
+    return {'modelspecs': modelspecs}
+
+
 def _set_zero(x):
     y = x.copy()
     y[np.isfinite(y)] = 0

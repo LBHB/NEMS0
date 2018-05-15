@@ -65,7 +65,7 @@ def from_keywords_as_list(keyword_string, registry=keywords.defaults, meta={}):
     return [from_keywords(keyword_string, registry, meta)]
 
 
-def prefit_LN(est, modelspec, analysis_function,
+def prefit_LN(est, modelspec, analysis_function=fit_basic,
               fitter=scipy_minimize, tolerance=10**-5.5, max_iter=700):
     '''
     Initialize modelspecs in a way that avoids getting stuck in

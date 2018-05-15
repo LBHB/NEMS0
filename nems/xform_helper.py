@@ -185,7 +185,7 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
 
     elif fitkey in ["fit01b", "basic-shr"]:
         # prefit strf
-        xfspec.append(['nems.xforms.fit_basic_init', {}])
+        xfspec.append(['nems.xforms.fit_basic_shr_init', {}])
         xfspec.append(['nems.xforms.fit_basic',
                        {'shrinkage': 1, 'tolerance': 1e-8}])
         xfspec.append(['nems.xforms.predict', {}])
