@@ -404,11 +404,11 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     if INCLUDE_PRE_POST:
         # only include pre-passive if post-passive also exists
         # otherwise the regression gets screwed up
-        newrec['pre_passive'] = resp.epoch_to_signal('PRE_PASSIVE')
+        newrec['pre_passive'] = resp.epoch_to_signal('POST_PASSIVE')
     else:
         # place-holder, all zeros
         newrec['pre_passive'] = resp.epoch_to_signal('XXX')
-        newrec['pre_passive'].chans = ['PRE_PASSIVE']
+    newrec['pre_passive'].chans = ['POST_PASSIVE']
 
     newrec['hit_trials'] = resp.epoch_to_signal('HIT_TRIAL')
     newrec['miss_trials'] = resp.epoch_to_signal('MISS_TRIAL')
