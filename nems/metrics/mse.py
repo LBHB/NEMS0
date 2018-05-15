@@ -100,8 +100,8 @@ def nmse_shrink(result, pred_name='pred', resp_name='resp', shrink=0.1):
             E[ii] = 1
     #print(E)
     mE = E.mean()
-    sE = E.std()
-    #print("me={} se={} shrink={}".format(mE,sE,shrink))
+    sE = E.std() / np.sqrt(len(E))
+    # print("me={} se={} shrink={}".format(mE,sE,shrink))
     if mE < 1:
         # apply shrinkage filter to 1-E with factors self.shrink
         mse = 1 - nems.utils.shrinkage(1 - mE, sE, shrink)
