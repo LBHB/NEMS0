@@ -300,10 +300,12 @@ def fit_basic_shr_init(modelspecs, est, IsReload=False, **context):
     '''
     # only run if fitting
     if not IsReload:
+        metric=lambda data: metrics.nmse_shrink(data, 'pred', 'resp')
         modelspecs = [nems.initializers.prefit_LN(
                 est, modelspecs[0],
                 analysis_function=nems.analysis.api.fit_basic,
                 fitter=scipy_minimize,
+                metric=metric,
                 tolerance=10**-5.5, max_iter=700)]
 
     return {'modelspecs': modelspecs}

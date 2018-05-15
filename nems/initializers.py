@@ -66,7 +66,8 @@ def from_keywords_as_list(keyword_string, registry=keywords.defaults, meta={}):
 
 
 def prefit_LN(est, modelspec, analysis_function=fit_basic,
-              fitter=scipy_minimize, tolerance=10**-5.5, max_iter=700):
+              fitter=scipy_minimize, metric=None,
+              tolerance=10**-5.5, max_iter=700):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
     local minima.
@@ -88,6 +89,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
                                  target_module='levelshift',
                                  extra_exclude=['stp'],
                                  fitter=scipy_minimize,
+                                 metric=metric,
                                  fit_kwargs=fit_kwargs)
 
     # then initialize the STP module (if there is one)
@@ -105,6 +107,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
                     est, modelspec, fit_basic,
                     fit_set=['double_exponential'],
                     fitter=scipy_minimize,
+                    metric=metric,
                     fit_kwargs=fit_kwargs)
             break
 
@@ -126,7 +129,8 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
 
 def prefit_to_target(rec, modelspec, analysis_function, target_module,
                      extra_exclude=[],
-                     fitter=scipy_minimize, fit_kwargs={}):
+                     fitter=scipy_minimize, metric=None,
+                     fit_kwargs={}):
     """Removes all modules from the modelspec that come after the
     first occurrence of the target module, then performs a
     rough fit on the shortened modelspec, then adds the latter
@@ -181,8 +185,12 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
             tmodelspec.append(m)
 
     # fit the subset of modules
-    tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-                                   fit_kwargs=fit_kwargs)[0]
+    if metric is None:
+        tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
+                                       fit_kwargs=fit_kwargs)[0]
+    else:
+        tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
+                                       metric=metric, fit_kwargs=fit_kwargs)[0]
 
     # reassemble the full modelspec with updated phi values from tmodelspec
     for i in np.setdiff1d(np.arange(target_i), np.array(exclude_idx)):
@@ -193,7 +201,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
 
 def prefit_mod_subset(rec, modelspec, analysis_function,
                       fit_set=[],
-                      fitter=scipy_minimize, fit_kwargs={}):
+                      fitter=scipy_minimize, metric=None, fit_kwargs={}):
     """Removes all modules from the modelspec that come after the
     first occurrence of the target module, then performs a
     rough fit on the shortened modelspec, then adds the latter
@@ -231,8 +239,13 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
         tmodelspec[i] = m
 
     # fit the subset of modules
-    tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-                                   fit_kwargs=fit_kwargs)[0]
+    if metric is None:
+        tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
+                                       fit_kwargs=fit_kwargs)[0]
+    else:
+        tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
+                                       metric=metric, fit_kwargs=fit_kwargs)[0]
+
 
     # reassemble the full modelspec with updated phi values from tmodelspec
     for i in fit_idx:
