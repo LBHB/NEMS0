@@ -93,7 +93,7 @@ def nmse_shrink(result, pred_name='pred', resp_name='resp', shrink=0.1):
         if len(jj) == 0:
             log.info('No data in range?')
 
-        # P = np.std(X2[jj])
+        P = np.std(X2[jj])
         if P > 0:
             E[ii] = np.sqrt(np.mean(np.square(X1[jj] - X2[jj]))) / P
         else:
