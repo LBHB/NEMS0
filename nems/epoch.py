@@ -439,6 +439,10 @@ def epoch_names_matching(epochs, regex_str):
     r = re.compile(regex_str)
     names = epochs['name'].tolist()
     matches = filter(r.match, names)
+    
+    # convert to list
+    matches = [name for name in matches]
+    
     return matches
 
 

@@ -284,7 +284,7 @@ def get_demo_recordings(directory, unpack=False):
             file = uri.split('/')[-1]
             local = os.path.join(directory, file)
             if os.path.isfile(local):
-                log.info("Local file {} already exists, skipping.".format(local))
+                log.debug("Local file {} already exists, skipping.".format(local))
             else:
                 log.info("Saving file at {} to {}".format(uri, local))
                 r = requests.get(uri, stream=True)
