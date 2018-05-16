@@ -434,15 +434,16 @@ def verify_epoch_integrity(epoch):
 
 def epoch_names_matching(epochs, regex_str):
     '''
-    Returns a list of epoch names that match the (uncompiled) regex string regex_str.
+    Returns a list of epoch names that regex match the regex_str.
     '''
     r = re.compile(regex_str)
     names = epochs['name'].tolist()
     matches = filter(r.match, names)
-    
+
     # convert to list
     matches = [name for name in matches]
-    
+    matches.sort()
+
     return matches
 
 
@@ -459,8 +460,8 @@ def epoch_occurrences(epochs, regex=None):
 
 def group_epochs_by_occurrence_counts(epochs, regex=None):
     '''
-    Returns a dictionary mapping the number of occurrences to a list of epoch names.
-    This is essentially the inverse mapping of epoch_occurrences().
+    Returns a dictionary mapping the number of occurrences to a list of epoch
+    names. This is essentially the inverse mapping of epoch_occurrences().
     '''
     d = {}
     # Build a dict of n_occurrences -> [epoch_name1, epoch_name2, etc]

@@ -162,8 +162,7 @@ def generate_loader_xfspec(loader, recording_uri):
                        {'state_signals': state_signals,
                         'permute_signals': permute_signals,
                         'new_signalname': 'state'}]]
-
-
+        # end of psth / env loader processing
     else:
         raise ValueError('unknown loader string')
 

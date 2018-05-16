@@ -10,6 +10,8 @@ import nems.metrics.api as metrics
 import nems.segmentors
 import nems.utils
 
+import numpy as np
+
 log = logging.getLogger(__name__)
 
 
@@ -169,6 +171,12 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
             msidx = 0
 
         log.info("Fitting fold %d/%d from modelspec %d", i+1, nfolds, msidx)
+#        resp = data_list[i]['resp']
+#        resp_len = np.sum(np.isfinite(resp.as_continuous()))
+#        log.info("non-nan resp samples: %d", resp_len)
+#        stim = data_list[i]['psth']
+#        stim_len = np.sum(np.isfinite(stim.as_continuous()[0, :]))
+#        log.info("non-nan stim samples: %d", stim_len)
         models += fit_basic(data_list[i], copy.deepcopy(modelspecs[msidx]),
                             fitter=fitter,
                             metric=metric,
