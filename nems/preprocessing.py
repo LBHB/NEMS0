@@ -373,7 +373,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     if ('pupil' in state_signals) or ('pupil_ev' in state_signals) or \
        ('pupil_bs' in state_signals):
         # normalize min-max
-        p = newrec["pupil"].as_continuous()
+        p = newrec["pupil"].as_continuous().copy()
         # p[p < np.nanmax(p)/5] = np.nanmax(p)/5
         p -= np.nanmean(p)
         p /= np.nanstd(p)

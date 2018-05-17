@@ -166,14 +166,49 @@ def add_average_sig(rec, signal_to_average, new_signalname, epoch_regex,
     return {'rec': rec}
 
 
+def remove_all_but_correct_references(rec, **context):
+    '''
+    find REFERENCE epochs spanned by either PASSIVE_EXPERIMENT or
+    HIT_TRIAL epochs. remove all other segments from signals in rec
+    '''
+    rec = preproc.remove_invalid_segments(rec)
+
+    return {'rec': rec}
+
+
+def generate_psth_from_resp(rec, epoch_regex='^STIM_',
+                            smooth_resp=False, **context):
+    '''
+    generate PSTH prediction from rec['resp'] (before est/val split). Could
+    be considered "cheating" b/c predicted PSTH then is based on data in
+    val set, but this is because we're interested in testing state effects,
+    not sensory coding models. The appropriate control, however is to run
+    generate_psth_from_est_for_both_est_and_val_nfold on each nfold est/val
+    split.
+    '''
+
+    rec = preproc.generate_psth_from_resp(rec, epoch_regex,
+                                          smooth_resp=smooth_resp)
+
+    return {'rec': rec}
+
+
+def generate_psth_from_est_for_both_est_and_val_nfold(
+        est, val, epoch_regex='^STIM_', **context):
+    '''
+    generate PSTH prediction for each set
+    '''
+    est_out, val_out = \
+        preproc.generate_psth_from_est_for_both_est_and_val_nfold(est, val)
+    return {'est': est_out, 'val': val_out}
+
+
 def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
                       new_signalname='state', **context):
 
     rec = preproc.make_state_signal(rec, state_signals=state_signals,
                                     permute_signals=permute_signals,
                                     new_signalname=new_signalname)
-    rec = preproc.remove_invalid_segments(rec)
-    # rec = preproc.nan_invalid_segments(rec)
 
     return {'rec': rec}
 
@@ -217,27 +252,6 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
     else:
         return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
-
-def generate_psth_from_resp(rec, epoch_regex='^STIM_',
-                            smooth_resp=False, **context):
-    '''
-    generate PSTH prediction for each set
-    '''
-
-    rec = preproc.generate_psth_from_resp(rec, epoch_regex,
-                                          smooth_resp=smooth_resp)
-
-    return {'rec': rec}
-
-
-def generate_psth_from_est_for_both_est_and_val_nfold(
-        est, val, epoch_regex='^STIM_', **context):
-    '''
-    generate PSTH prediction for each set
-    '''
-    est_out, val_out = \
-        preproc.generate_psth_from_est_for_both_est_and_val_nfold(est, val)
-    return {'est': est_out, 'val': val_out}
 
 
 def init_from_keywords(keywordstring, meta={}, IsReload=False, **context):

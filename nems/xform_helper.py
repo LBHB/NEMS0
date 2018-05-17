@@ -134,6 +134,7 @@ def generate_loader_xfspec(loader, recording_uri):
         if loader.startswith("psths"):
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
+                      ['nems.xforms.remove_all_but_correct_references', {}],
                       ['nems.xforms.generate_psth_from_resp',
                        {'smooth_resp': True}],
                       ['nems.xforms.make_state_signal',
@@ -143,6 +144,7 @@ def generate_loader_xfspec(loader, recording_uri):
         elif loader.startswith("psth"):
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
+                      ['nems.xforms.remove_all_but_correct_references', {}],
                       ['nems.xforms.generate_psth_from_resp', {}],
                       ['nems.xforms.make_state_signal',
                        {'state_signals': state_signals,
@@ -151,6 +153,7 @@ def generate_loader_xfspec(loader, recording_uri):
         elif loader.startswith("env"):
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
+                      ['nems.xforms.remove_all_but_correct_references', {}],
                       ['nems.xforms.make_state_signal',
                        {'state_signals': state_signals,
                         'permute_signals': permute_signals,
@@ -158,6 +161,7 @@ def generate_loader_xfspec(loader, recording_uri):
         else:
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
+                      ['nems.xforms.remove_all_but_correct_references', {}],
                       ['nems.xforms.make_state_signal',
                        {'state_signals': state_signals,
                         'permute_signals': permute_signals,
