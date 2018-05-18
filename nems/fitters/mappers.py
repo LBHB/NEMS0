@@ -72,7 +72,16 @@ def bounds_vector(initial_modelspec):
                     if b is None:
                         bounds.extend([(None, None)]*flattened.size)
                     else:
-                        bounds.extend([b.get(k, (None, None))]*flattened.size)
+                        this_bound = b.get(k, (None, None))
+                        if this_bound[0] is None or np.isscalar(this_bound[0]):
+                            lowers = [this_bound[0]]*flattened.size
+                        else:
+                            lowers = [x for x in this_bound[0]]
+                        if this_bound[1] is None or np.isscalar(this_bound[1]):
+                            uppers = [this_bound[1]]*flattened.size
+                        else:
+                            uppers = [y for y in this_bound[1]]
+                        bounds.extend(zip(lowers, uppers))
 
         return bounds
 
