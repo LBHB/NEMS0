@@ -442,6 +442,7 @@ def epoch_names_matching(epochs, regex_str):
 
     # convert to list
     matches = [name for name in matches]
+    matches = list(set(matches))  # unique values
     matches.sort()
 
     return matches

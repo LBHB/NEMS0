@@ -926,6 +926,7 @@ class RasterizedSignal(SignalBase):
             else:
                 raise IndexError("No matching epochs to extract for: %s\n"
                                  "In signal: %s", epoch, self.name)
+
         n_samples = np.max(epoch_indices[:, 1]-epoch_indices[:, 0])
         n_epochs = len(epoch_indices)
 
