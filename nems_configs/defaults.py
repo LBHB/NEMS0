@@ -45,6 +45,32 @@ NEMS_LOG_CONSOLE_LEVEL = 'DEBUG'
 
 
 ################################################################################
+# Keywords / Libraries / Registries
+################################################################################
+# Module containing definition of keywords
+KW_REGISTRY_MODULE = 'nems.keywords'
+
+# Name of the variable where the keyword dictionary is stored within the module
+KW_REGISTRY_NAME = 'defaults'
+
+
+################################################################################
+# Xforms
+################################################################################
+# Module containing function for generating loader xfspec
+XF_LOADER_MODULE = 'nems.xform_helper'
+
+# Name of the function
+XF_LOADER_FN = 'default_loader_xfspec'
+
+# Module containing function for generating fitter xfspec
+XF_FITTER_MODULE = 'nems.xform_helper'
+
+# Name of the function
+XF_FITTER_FN = 'default_fitter_xfspec'
+
+
+################################################################################
 # Post config
 ################################################################################
 def configure_logging(filename=None):

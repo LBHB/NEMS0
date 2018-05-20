@@ -25,7 +25,7 @@ def defkey_wc(n_inputs, n_outputs):
     '''
     Generate and register default modulespec for basic channel weighting
 
-    Parameters
+    Parameter
     ----------
     n_inputs : int
         Number of input channels.
