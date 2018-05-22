@@ -92,15 +92,15 @@ def test_select_times(recording):
     '''
     bounds = recording['dummy_signal_1'].get_epoch_bounds('trial2')
     newrec = recording.select_times(bounds)
-    
+
     # assert that pulls the correct length of data
-    assert newrec['dummy_signal_1'].as_continuous().shape == (3, 50) 
-    
+    assert newrec['dummy_signal_1'].as_continuous().shape == (3, 50)
+
     # assert that epochs outside of this time window no longer exist
     with pytest.raises(IndexError):
         newrec['dummy_signal_1'].extract_epoch('pupil_closed')
 
-    
+
 def test_recording_loading():
     '''
     Test the loading and saving of files to various HTTP/S3/File routes.
@@ -145,6 +145,7 @@ def test_recording_loading():
     #    print('Error saving to a directory URI')
     #    assert 0
 
+
 def test_recording_from_arrays():
     # need a list of array-like data structures
     x = np.random.rand(3, 200)
@@ -181,3 +182,9 @@ def test_recording_from_arrays():
         rec = Recording.load_from_arrays(arrays, rec_name, fs,
                                          sig_names=bad_names,
                                          signal_kwargs=kwargs)
+
+
+def test_recording_copy(recording):
+    # Ensure we get a true copy of recording
+    recording_copy = recording.copy()
+    assert id(recording.signals) != id(recording_copy.signals)

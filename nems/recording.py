@@ -41,7 +41,13 @@ class Recording:
         '''
         Returns a copy of this recording.
         '''
-        return copy.copy(self)
+        signals = self.signals.copy()
+        other = Recording(signals)
+        for k, v in vars(self).items():
+            if k == 'signals':
+                continue
+            setattr(other, k, copy.copy(v))
+        return other
 
     @property
     def epochs(self):
@@ -57,6 +63,7 @@ class Recording:
         df = pd.concat(epoch_set, ignore_index=True)
         df.drop_duplicates(inplace=True)
         df.sort_values('start', inplace=True)
+        df.index = np.arange(len(df))
         return df
 
     # Defining __getitem__ and __setitem__ make recording objects behave
