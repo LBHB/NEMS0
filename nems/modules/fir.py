@@ -14,35 +14,49 @@ def get_zi(b, x):
 
 
 def per_channel(x, coefficients, bank_count=1):
-    '''
-    Private function used by fir_filter().
-    '''
-    result = []
+    '''Private function used by fir_filter().
 
+    Parameters
+    ----------
+    x : array (n_channels, n_times)
+        Input data.
+    coefficients : array (n_channels * bank_count, n_taps)
+        Filter coefficients.
+    bank_count : int
+        Number of filters in each bank.
+
+    Returns
+    -------
+    signal : array (bank_count, n_times)
+        Filtered signal.
+    '''
     # Make sure the number of input channels (x) match the number FIR filters
     # provided (we have a separate filter for each channel). The `zip` function
     # doesn't require the iterables to be the same length.
-    if len(x) != len(coefficients):
-        m = 'Dimension mismatch. Number of channels and filters must match. ' \
-            '{} channels provided for {} FIR filters.'
-        raise ValueError(m.format(len(x), len(coefficients)))
+    n_in = len(x)
+    if len(coefficients) != n_in * bank_count:
+        if bank_count == 1:
+            desc = '%i FIR filters' % len(coefficients)
+        else:
+            n_banks = len(coefficients) / bank_count
+            desc = '%i FIR filter banks' % n_banks
+        raise ValueError(
+            'Dimension mismatch. %s channels provided for %s.' % (n_in, desc))
 
-    for x, c in zip(x, coefficients):
-        # It is slightly more "correct" to use lfilter than convolve at edges,
-        # but also about 25% slower (Measured on Intel Python Dist, using
-        # i5-4300M)
-        zi = get_zi(c, x)
-        r, zf = scipy.signal.lfilter(c, [1], x, zi=zi)
-        # TODO: Use convolve. Why is this giving the wrong answer?
-        # r = np.convolve(c, x, mode='same')
-        result.append(r[np.newaxis])
-    result = np.concatenate(result)
-    if bank_count <= 1:
-        return np.sum(result, axis=-2, keepdims=True)
-    else:
-        s = list(result.shape)
-        return np.sum(np.reshape(result, s[:-2] + [bank_count,
-                                 int(s[-2]/bank_count), s[-1]]), axis=-2)
+    out = np.zeros((bank_count, x.shape[1]))
+    for i_in in range(n_in):
+        x_ = x[i_in]
+        for i_bank in range(bank_count):
+            # It is slightly more "correct" to use lfilter than convolve at
+            # edges, but but also about 25% slower (Measured on Intel Python
+            # Dist, using i5-4300M)
+            c = coefficients[i_in * bank_count + i_bank]
+            zi = get_zi(c, x_)
+            r, zf = scipy.signal.lfilter(c, [1], x_, zi=zi)
+            # TODO: Use convolve. Why is this giving the wrong answer?
+            # r = np.convolve(c, x, mode='same')
+            out[i_bank] += r
+    return out
 
 
 def basic(rec, i='pred', o='pred', coefficients=[]):
