@@ -13,3 +13,4 @@ from .state import (state_vars_timeseries, state_var_psth,
                     state_var_psth_from_epoch)
 from .quickplot import quickplot
 from .diagnostic import diagnostic
+from .raster import (raster, raster_from_epoch)
