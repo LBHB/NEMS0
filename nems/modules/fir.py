@@ -18,8 +18,13 @@ def per_channel(x, coefficients, bank_count=1):
 
     Parameters
     ----------
-    x : array (n_channels, n_times)
-        Input data.
+    x : array (n_channels, n_times) or (n_channels * bank_count, n_times)
+        Input data. Can be sized two different ways:
+        option 1: number of input channels is same as total channels in the
+          filterbank, allowing a different stimulus into each filter
+        option 2: number of input channels is same as number of coefficients
+          in each fir filter, so that the same stimulus goes into each
+          filter
     coefficients : array (n_channels * bank_count, n_taps)
         Filter coefficients.
     bank_count : int
@@ -34,7 +39,20 @@ def per_channel(x, coefficients, bank_count=1):
     # provided (we have a separate filter for each channel). The `zip` function
     # doesn't require the iterables to be the same length.
     n_in = len(x)
-    if len(coefficients) != n_in * bank_count:
+    if len(coefficients) == n_in:
+        # option 1: number of input channels is same as total channels in the
+        # filterbank, allowing a different stimulus into each filter
+        input_channels_already_repeating = True
+        i_bank = -1
+        channels_per_bank = n_in / bank_count
+
+    elif len(coefficients) == n_in * bank_count:
+        # option 2: number of input channels is same as number of coefficients
+        # in each fir filter, so that the same stimulus goes into each
+        # filter
+        input_channels_already_repeating = False
+
+    else:
         if bank_count == 1:
             desc = '%i FIR filters' % len(coefficients)
         else:
@@ -46,16 +64,29 @@ def per_channel(x, coefficients, bank_count=1):
     out = np.zeros((bank_count, x.shape[1]))
     for i_in in range(n_in):
         x_ = x[i_in]
-        for i_bank in range(bank_count):
-            # It is slightly more "correct" to use lfilter than convolve at
-            # edges, but but also about 25% slower (Measured on Intel Python
-            # Dist, using i5-4300M)
-            c = coefficients[i_in * bank_count + i_bank]
+
+        # It is slightly more "correct" to use lfilter than convolve at
+        # edges, but but also about 25% slower (Measured on Intel Python
+        # Dist, using i5-4300M)
+
+        # TODO: Can probably simplify so there is not redundancy in these two
+        # conditions.
+        if input_channels_already_repeating:
+            if i_in % channels_per_bank == 0:
+                i_bank += 1
+            c = coefficients[i_in]
             zi = get_zi(c, x_)
             r, zf = scipy.signal.lfilter(c, [1], x_, zi=zi)
-            # TODO: Use convolve. Why is this giving the wrong answer?
-            # r = np.convolve(c, x, mode='same')
             out[i_bank] += r
+
+        else:
+            for i_bank in range(bank_count):
+                c = coefficients[i_in * bank_count + i_bank]
+                zi = get_zi(c, x_)
+                r, zf = scipy.signal.lfilter(c, [1], x_, zi=zi)
+                # TODO: Use convolve. Why is this giving the wrong answer?
+                # r = np.convolve(c, x, mode='same')
+                out[i_bank] += r
     return out
 
 
