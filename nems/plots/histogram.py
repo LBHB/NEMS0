@@ -75,3 +75,45 @@ def pred_error_hist(resp, pred, ax=None, channel=0, bins=None,
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(title)
+
+
+def isi_histogram(resp, fs=1000, epoch="REFERENCE", ax=None, channel=0,
+                  bins=None, xlabel='ISI (sec)', ylabel='Count',
+                  title='ISI histogram'):
+    """
+    assume data is a N x T array of spike events (0 or 1)
+      or N x 1 x T array
+    """
+    if type(resp) is np.ndarray:
+        # ignore epoch
+        data = resp
+    else:
+        data = resp.extract_epoch(epoch)
+        fs = resp.fs
+
+    if data.ndim == 3:
+        data = data[:,channel,:]
+
+    dd = np.array([])
+    for i in range(data.shape[0]):
+        spike_times,=np.where(data[i,:] > 0)
+        dual_spike_times, = np.where(data[i,:]>1)
+        dual_spike_count = np.int(np.sum(data[i,dual_spike_times]))
+        dd = np.concatenate((dd,np.diff(spike_times),np.zeros(dual_spike_count)))
+
+    dd /= fs
+
+    if bins is None:
+        # TODO: Might need to adjust this calculation to find
+        #       the optimum.
+        bins = np.arange(0, 0.2, 1/fs) - 1/fs/2
+
+    if ax:
+        plt.sca(ax)
+
+    plt.hist(dd, bins=bins)
+
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+

@@ -179,7 +179,16 @@ def fit_iteratively(
     by this fitter.
     '''
     if module_sets is None:
-        module_sets = [[i] for i in range(len(modelspec))]
+        module_sets = []
+        for i, m in enumerate(modelspec):
+            if 'prior' in m.keys():
+                if 'levelshift' in m['fn'] and 'fir' in modelspec[i-1]['fn']:
+                    # group levelshift with preceding fir filter by default
+                    module_sets[-1].append(i)
+                else:
+                    # otherwise just fit each module separately
+                    module_sets.append([i])
+        log.info('Fit sets: %s', module_sets)
 
     if tolerances is None:
         tolerances = [1e-6]

@@ -7,8 +7,10 @@ import nems.signal as signal
 import nems.recording as recording
 import nems.modules.stp as stp
 
-def plot_timeseries(times, values, xlabel='Time', ylabel='Value',
-                    legend=None, ax=None, title=None):
+
+def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
+                    linestyle='-', linewidth=1,
+                    ax=None, title=None):
     '''
     Plots a simple timeseries with one line for each pair of
     time and value vectors.
@@ -19,13 +21,15 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value',
     xlabel : str
     ylabel : str
     legend : list of strings
+    linestyle, linewidth : pass-through options to plt.plot()
+
     TODO: expand this doc  -jacob 2-17-18
     '''
     if ax is not None:
         plt.sca(ax)
 
     for t, v in zip(times, values):
-        plt.plot(t, v)
+        plt.plot(t, v, linestyle=linestyle, linewidth=linewidth)
 
     plt.margins(x=0)
     plt.xlabel(xlabel)
@@ -37,7 +41,9 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value',
 
 
 def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
-                            legend=None, ax=None, title=None):
+                            linestyle='-', linewidth=1, legend=None,
+                            ax=None, title=None):
+    """TODO: doc"""
     times = []
     values = []
     for v in vectors:
@@ -46,10 +52,13 @@ def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
             times.append(np.arange(0, len(v)))
         else:
             times.append(np.arange(0, len(v))/fs)
-    plot_timeseries(times, values, xlabel, ylabel, legend, ax, title)
+    plot_timeseries(times, values, xlabel, ylabel, legend=legend,
+                    linestyle=linestyle, linewidth=linewidth,
+                    ax=ax, title=title)
 
 
 def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
+                            linestyle='-', linewidth=1,
                             ax=None, title=None):
     """TODO: doc"""
     channels = pad_to_signals(signals, channels)
@@ -66,11 +75,15 @@ def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
         values.append(value_vector)
         legend.append(s.name+' '+s.chans[c])
 
-    plot_timeseries(times, values, xlabel, ylabel, legend, ax=ax, title=title)
+    plot_timeseries(times, values, xlabel, ylabel, legend=legend,
+                    linestyle=linestyle, linewidth=linewidth,
+                    ax=ax, title=title)
 
 
 def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
-                          xlabel='Time', ylabel='Value', ax=None, title=None):
+                          xlabel='Time', ylabel='Value',
+                          linestyle='-', linewidth=1,
+                          ax=None, title=None):
     """TODO: doc"""
     if occurrences is None:
         return
@@ -90,7 +103,9 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
         time_vector = np.arange(0, len(value_vector)) / s.fs
         times.append(time_vector)
         values.append(value_vector)
-    plot_timeseries(times, values, xlabel, ylabel, legend, ax=ax, title=title)
+    plot_timeseries(times, values, xlabel, ylabel, legend=legend,
+                    linestyle=linestyle, linewidth=linewidth,
+                    ax=ax, title=title)
 
 
 def before_and_after_stp(rec, modelspec, sig_name='pred', ax=None, title=None,

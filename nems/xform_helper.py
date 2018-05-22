@@ -49,13 +49,7 @@ def generate_loader_xfspec(loader, recording_uri):
     elif (loader.startswith("psth") or loader.startswith("nostim") or
           loader.startswith("env")):
 
-        if loader.endswith("beh0"):
-            state_signals = ['active']
-            permute_signals = ['active']
-        elif loader.endswith("beh"):
-            state_signals = ['active']
-            permute_signals = []
-        elif loader.endswith("pup0beh0"):
+        if loader.endswith("pup0beh0"):
             state_signals = ['pupil', 'active']
             permute_signals = ['pupil', 'active']
         elif loader.endswith("pup0beh"):
@@ -66,6 +60,12 @@ def generate_loader_xfspec(loader, recording_uri):
             permute_signals = ['active']
         elif loader.endswith("pupbeh"):
             state_signals = ['pupil', 'active']
+            permute_signals = []
+        elif loader.endswith("pupbehpxb0"):
+            state_signals = ['pupil', 'active', 'p_x_a']
+            permute_signals = ['p_x_a']
+        elif loader.endswith("pupbehpxb"):
+            state_signals = ['pupil', 'active', 'p_x_a']
             permute_signals = []
 
         elif loader.endswith("pup0pre0beh"):
@@ -120,12 +120,21 @@ def generate_loader_xfspec(loader, recording_uri):
         elif loader.endswith("pbspevbeh"):
             state_signals = ['pupil_bs', 'pupil_ev', 'active']
             permute_signals = []
+
+        elif loader.endswith("beh0"):
+            state_signals = ['active']
+            permute_signals = ['active']
+        elif loader.endswith("beh"):
+            state_signals = ['active']
+            permute_signals = []
+
         else:
             raise ValueError("invalid loader string")
 
         if loader.startswith("psths"):
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
+                      ['nems.xforms.remove_all_but_correct_references', {}],
                       ['nems.xforms.generate_psth_from_resp',
                        {'smooth_resp': True}],
                       ['nems.xforms.make_state_signal',
@@ -135,6 +144,7 @@ def generate_loader_xfspec(loader, recording_uri):
         elif loader.startswith("psth"):
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
+                      ['nems.xforms.remove_all_but_correct_references', {}],
                       ['nems.xforms.generate_psth_from_resp', {}],
                       ['nems.xforms.make_state_signal',
                        {'state_signals': state_signals,
@@ -143,6 +153,7 @@ def generate_loader_xfspec(loader, recording_uri):
         elif loader.startswith("env"):
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
+                      ['nems.xforms.remove_all_but_correct_references', {}],
                       ['nems.xforms.make_state_signal',
                        {'state_signals': state_signals,
                         'permute_signals': permute_signals,
@@ -150,12 +161,12 @@ def generate_loader_xfspec(loader, recording_uri):
         else:
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
+                      ['nems.xforms.remove_all_but_correct_references', {}],
                       ['nems.xforms.make_state_signal',
                        {'state_signals': state_signals,
                         'permute_signals': permute_signals,
                         'new_signalname': 'state'}]]
-
-
+        # end of psth / env loader processing
     else:
         raise ValueError('unknown loader string')
 
@@ -183,7 +194,7 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
 
     elif fitkey in ["fit01b", "basic-shr"]:
         # prefit strf
-        xfspec.append(['nems.xforms.fit_basic_init', {}])
+        xfspec.append(['nems.xforms.fit_basic_shr_init', {}])
         xfspec.append(['nems.xforms.fit_basic',
                        {'shrinkage': 1, 'tolerance': 1e-8}])
         xfspec.append(['nems.xforms.predict', {}])
@@ -214,8 +225,9 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
         log.info("n-fold fitting...")
         xfspec.append(['nems.xforms.split_for_jackknife',
                        {'njacks': 5, 'epoch_name': 'REFERENCE'}])
-        xfspec.append(['nems.xforms.fit_state_nfold', {}])
-        xfspec.append(['nems.xforms.predict',    {}])
+        xfspec.append(['nems.xforms.fit_state_init', {}])
+        xfspec.append(['nems.xforms.fit_nfold', {}])
+        xfspec.append(['nems.xforms.predict', {}])
 
     elif (fitkey == "fitpjk01") or (fitkey == "basic-nf"):
 
@@ -224,7 +236,7 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
                        {'njacks': pfolds, 'epoch_name': 'REFERENCE'}])
         # xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
         xfspec.append(['nems.xforms.fit_nfold', {}])
-        xfspec.append(['nems.xforms.predict',    {}])
+        xfspec.append(['nems.xforms.predict', {}])
 
     elif fitkey == "basic-nf-shr":
 
@@ -301,6 +313,13 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
 
     elif fitkey.startswith("fititer") or fitkey.startswith("iter"):
         xfspec.append(['nems.xforms.fit_iter_init', {}])
+        xfspec.append(_parse_fititer(fitkey))
+        xfspec.append(['nems.xforms.predict', {}])
+
+    elif fitkey.startswith("state"):
+        xfspec.append(['nems.xforms.split_for_jackknife',
+                       {'njacks': 5, 'epoch_name': 'REFERENCE'}])
+        xfspec.append(['nems.xforms.fit_state_init', {}])
         xfspec.append(_parse_fititer(fitkey))
         xfspec.append(['nems.xforms.predict', {}])
 

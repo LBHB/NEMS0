@@ -1,6 +1,9 @@
 import re
 import numpy as np
 
+import logging
+log = logging.getLogger(__name__)
+
 
 def remove_overlap(a):
     '''
@@ -324,8 +327,8 @@ def epoch_intersection(a, b):
     intersection.extend(a[::-1])
     result = np.array(intersection)
     if result.size == 0:
-        raise RuntimeWarning("Epochs did not intersect, resulting array"
-                             "is empty.")
+        log.warning("Epochs did not intersect, resulting array"
+                    " is empty.")
     return result
 
 
@@ -431,11 +434,17 @@ def verify_epoch_integrity(epoch):
 
 def epoch_names_matching(epochs, regex_str):
     '''
-    Returns a list of epoch names that match the (uncompiled) regex string regex_str.
+    Returns a list of epoch names that regex match the regex_str.
     '''
     r = re.compile(regex_str)
     names = epochs['name'].tolist()
     matches = filter(r.match, names)
+
+    # convert to list
+    matches = [name for name in matches]
+    matches = list(set(matches))  # unique values
+    matches.sort()
+
     return matches
 
 
@@ -452,8 +461,8 @@ def epoch_occurrences(epochs, regex=None):
 
 def group_epochs_by_occurrence_counts(epochs, regex=None):
     '''
-    Returns a dictionary mapping the number of occurrences to a list of epoch names.
-    This is essentially the inverse mapping of epoch_occurrences().
+    Returns a dictionary mapping the number of occurrences to a list of epoch
+    names. This is essentially the inverse mapping of epoch_occurrences().
     '''
     d = {}
     # Build a dict of n_occurrences -> [epoch_name1, epoch_name2, etc]
