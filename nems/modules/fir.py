@@ -54,7 +54,7 @@ def per_channel(x, coefficients, bank_count=1):
         all_x = chain.from_iterable(repeat(x_i, bank_count) for x_i in x)
     else:
         if bank_count == 1:
-            desc = '%i FIR filters' % len(coefficients)
+            desc = '%i FIR filters' % n_filters
         else:
             desc = '%i FIR filter banks' % n_banks
         raise ValueError(
