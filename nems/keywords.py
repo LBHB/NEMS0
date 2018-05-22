@@ -208,10 +208,10 @@ def defkey_fir(n_coefs, n_outputs):
 
     Parameters
     ----------
-    n_coefs : int
-        Number of filter coefficients/taps.
+    n_inputs : int
+        Number of input channels.
     n_outputs : int
-        Number of channels.
+        Number of output channels.
     '''
     name = 'fir{}x{}'.format(n_outputs, n_coefs)
     p_coefficients = {
@@ -242,12 +242,10 @@ def defkey_firbank(n_coefs, n_inputs, n_banks):
 
     Parameters
     ----------
-    n_coefs : int
-        Number of filter coefficients/taps.
     n_inputs : int
         Number of input channels.
-    n_banks : int
-        Number of output channels per input channel.
+    n_outputs : int
+        Number of output channels.
     '''
     name = 'fir{}x{}x{}'.format(n_banks, n_inputs, n_coefs)
     p_coefficients = {
