@@ -505,7 +505,7 @@ def find_common_epochs(epochs, epoch_name, d=12):
     # time so that they are relative to the beginning of the occurance of that
     # epoch.
     epoch_subsets = []
-    matches =  epochs.query(f'name == "{epoch_name}"')
+    matches =  epochs.query('name == "{}"'.format(epoch_name))
     for lb, ub in matches[['start', 'end']].values:
         m = (epochs['start'] >= lb) & (epochs['end'] <= ub)
         epoch_subset = epochs.loc[m].copy()

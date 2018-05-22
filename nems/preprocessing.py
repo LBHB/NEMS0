@@ -100,7 +100,8 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
     new_epochs = []
     for epoch_name in epoch_names:
         common_epochs = ep.find_common_epochs(epochs, epoch_name)
-        end = common_epochs.query(f'name == "{epoch_name}"').iloc[0]['end']
+        query = 'name == "{}"'.format(epoch_name)
+        end = common_epochs.query(query).iloc[0]['end']
         common_epochs[['start', 'end']] += offset
         offset += end
         new_epochs.append(common_epochs)
