@@ -49,8 +49,8 @@ def psth_from_raster(times, values, xlabel='Time', ylabel='Value',
                      legend=None, linestyle='-', linewidth=1,
                      ax=None, title=None, facecolor='lightblue'):
     
-    m = np.mean(values, axis=0)
-    e = np.std(values, axis=0) / np.sqrt(values.shape[0])
+    m = np.nanmean(values, axis=0)
+    e = np.nanstd(values, axis=0) / np.sqrt(np.sum(np.isfinite(values[:,0])))
     
     if ax is not None:
         plt.sca(ax)
