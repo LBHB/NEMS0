@@ -134,22 +134,23 @@ def generate_loader_xfspec(loader, recording_uri):
         if loader.startswith("psths"):
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
-                      ['nems.xforms.remove_all_but_correct_references', {}],
-                      ['nems.xforms.generate_psth_from_resp',
-                       {'smooth_resp': True}],
                       ['nems.xforms.make_state_signal',
                        {'state_signals': state_signals,
                         'permute_signals': permute_signals,
-                        'new_signalname': 'state'}]]
+                        'new_signalname': 'state'}],
+                      ['nems.xforms.remove_all_but_correct_references', {}],
+                      ['nems.xforms.generate_psth_from_resp',
+                       {'smooth_resp': True}]]
         elif loader.startswith("psth"):
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
-                      ['nems.xforms.remove_all_but_correct_references', {}],
-                      ['nems.xforms.generate_psth_from_resp', {}],
                       ['nems.xforms.make_state_signal',
                        {'state_signals': state_signals,
                         'permute_signals': permute_signals,
-                        'new_signalname': 'state'}]]
+                        'new_signalname': 'state'}],
+                      ['nems.xforms.remove_all_but_correct_references', {}],
+                      ['nems.xforms.generate_psth_from_resp', {}]]
+
         elif loader.startswith("env"):
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
@@ -161,11 +162,11 @@ def generate_loader_xfspec(loader, recording_uri):
         else:
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
-                      ['nems.xforms.remove_all_but_correct_references', {}],
                       ['nems.xforms.make_state_signal',
                        {'state_signals': state_signals,
                         'permute_signals': permute_signals,
-                        'new_signalname': 'state'}]]
+                        'new_signalname': 'state'}],
+                      ['nems.xforms.remove_all_but_correct_references', {}]]
         # end of psth / env loader processing
     else:
         raise ValueError('unknown loader string')
