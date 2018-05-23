@@ -922,7 +922,7 @@ class RasterizedSignal(SignalBase):
 
         if epoch_indices.size == 0:
             if allow_empty:
-                return []
+                return np.empty([0, 0, 0])
             else:
                 raise IndexError("No matching epochs to extract for: %s\n"
                                  "In signal: %s", epoch, self.name)

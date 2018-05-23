@@ -2,15 +2,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from nems.plots.assemble import pad_to_signals
+from nems.plots.timeseries import plot_timeseries
+
 import nems.modelspec as ms
 import nems.signal as signal
 import nems.recording as recording
 
-def raster(times, values, xlabel='Time', ylabel='Value', legend=None,
-                    linestyle='-', linewidth=1,
-                    ax=None, title=None):
+def raster(times, values, xlabel='Time', ylabel='Trial', legend=None,
+           linestyle='-', linewidth=1,
+           ax=None, title=None):
     '''
-    Plots a simple timeseries with one line for each pair of
+    Plots a raster with one line for each pair of
     time and value vectors.
     Lines will be auto-colored according to matplotlib defaults.
 
@@ -23,22 +25,41 @@ def raster(times, values, xlabel='Time', ylabel='Value', legend=None,
 
     TODO: expand this doc  -jacob 2-17-18
     '''
-    raise NotImplementedError
 
     if ax is not None:
         plt.sca(ax)
-
-    for t, v in zip(times, values):
-        plt.plot(t, v, linestyle=linestyle, linewidth=linewidth)
-
-    plt.margins(x=0)
+        
+    i, j = np.where(values)
+    i += 1
+    if times is not None:
+        t = times[j]
+    else:
+        t = j
+        
+    plt.plot(t,i,'k.', markersize=2)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    if legend:
-        plt.legend(legend)
+    plt.xlim(np.min(t),np.max(t))
+    plt.ylim(0,values.shape[0]+1)
+    
     if title:
         plt.title(title)
 
+def psth_from_raster(times, values, xlabel='Time', ylabel='Value', 
+                     legend=None, linestyle='-', linewidth=1,
+                     ax=None, title=None, facecolor='lightblue'):
+    
+    m = np.mean(values, axis=0)
+    e = np.std(values, axis=0) / np.sqrt(values.shape[0])
+    
+    if ax is not None:
+        plt.sca(ax)
+        
+    plt.fill_between(times, m-e, m+e, facecolor=facecolor)
+    
+    plot_timeseries([times], [m], xlabel=xlabel, ylabel=ylabel,
+                    legend=legend, linestyle=linestyle,
+                    linewidth=linewidth, ax=ax, title=title)
 
 def raster_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
                             linestyle='-', linewidth=1, legend=None,
