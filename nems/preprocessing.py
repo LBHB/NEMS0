@@ -168,15 +168,10 @@ def remove_invalid_segments(rec):
 
     sig = rec['resp']
 
-    # get list of start and stop times (epoch bounds)
-#    epoch_indices = np.vstack((
-#            ep.epoch_intersection(sig.get_epoch_bounds('HIT_TRIAL'),
-#                                  sig.get_epoch_bounds('REFERENCE')),
-#            ep.epoch_intersection(sig.get_epoch_bounds('REFERENCE'),
-#                                  sig.get_epoch_bounds('PASSIVE_EXPERIMENT'))))
+    # get list of start and stop indices (epoch bounds)
     epoch_indices = np.vstack((
-            ep.epoch_intersection(sig.get_epoch_indices('HIT_TRIAL'),
-                                  sig.get_epoch_indices('REFERENCE')),
+            ep.epoch_intersection(sig.get_epoch_indices('REFERENCE'),
+                                  sig.get_epoch_indices('HIT_TRIAL')),
             ep.epoch_intersection(sig.get_epoch_indices('REFERENCE'),
                                   sig.get_epoch_indices('PASSIVE_EXPERIMENT'))))
 
@@ -184,14 +179,16 @@ def remove_invalid_segments(rec):
     epoch_indices = ep.remove_overlap(epoch_indices)
 
     # merge any epochs that are directly adjacent
-    epoch_indices2 = epoch_indices[0:1, :]
+    epoch_indices2 = epoch_indices[0:1]
     for i in range(1, epoch_indices.shape[0]):
         if epoch_indices[i, 0] == epoch_indices2[-1, 1]:
-            epoch_indices2[-1, 1] = epoch_indices[i, 0]
+            epoch_indices2[-1, 1] = epoch_indices[i, 1]
         else:
-            epoch_indices2 = np.concatenate(
-                    (epoch_indices2, epoch_indices[i:(i + 1), :]), axis=0)
+            #epoch_indices2 = np.concatenate(
+             #       (epoch_indices2, epoch_indices[i:(i + 1), :]), axis=0)
+            epoch_indices2=np.append(epoch_indices2,epoch_indices[i:(i+1)], axis=0)
 
+    # convert back to times
     epoch_times = epoch_indices2 / sig.fs
 
     # add adjusted signals to the recording

@@ -340,7 +340,8 @@ class SignalBase:
                 raise ValueError(m)
             mask = self.epochs['name'] == epoch
             bounds = self.epochs.loc[mask, ['start', 'end']].values
-
+            bounds = np.round(bounds * self.fs) / self.fs
+            
         if boundary_mode is None:
             raise NotImplementedError
         elif boundary_mode == 'exclude':
