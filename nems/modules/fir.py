@@ -46,7 +46,7 @@ def per_channel(x, coefficients, bank_count=1):
     if n_filters == n_in:
         # option 1: number of input channels is same as total channels in the
         # filterbank, allowing a different stimulus into each filter
-        all_x = x
+        all_x = iter(x)
     elif n_filters == n_in * bank_count:
         # option 2: number of input channels is same as number of coefficients
         # in each fir filter, so that the same stimulus goes into each
