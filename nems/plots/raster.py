@@ -28,36 +28,45 @@ def raster(times, values, xlabel='Time', ylabel='Trial', legend=None,
 
     if ax is not None:
         plt.sca(ax)
-        
+
     i, j = np.where(values)
     i += 1
     if times is not None:
         t = times[j]
     else:
         t = j
-        
-    plt.plot(t,i,'k.', markersize=2)
+
+    plt.plot(t,i,'k.', markersize=1)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.xlim(np.min(t),np.max(t))
     plt.ylim(0,values.shape[0]+1)
-    
+
     if title:
         plt.title(title)
 
-def psth_from_raster(times, values, xlabel='Time', ylabel='Value', 
+def psth_from_raster(times, values, xlabel='Time', ylabel='Value',
                      legend=None, linestyle='-', linewidth=1,
-                     ax=None, title=None, facecolor='lightblue'):
-    
-    m = np.nanmean(values, axis=0)
-    e = np.nanstd(values, axis=0) / np.sqrt(np.sum(np.isfinite(values[:,0])))
-    
+                     ax=None, title=None, facecolor='lightblue',
+                     binsize=1):
+
+    if binsize > 1:
+        x = np.reshape(values,[values.shape[0],-1,binsize])
+        x = np.nanmean(x, axis=2)
+        t = times[int(binsize/2)::binsize]
+    else:
+        x = values
+        t = times
+
+    m = np.nanmean(x, axis=0)
+    e = np.nanstd(x, axis=0) / np.sqrt(np.sum(np.isfinite(x[:,0])))
+
     if ax is not None:
         plt.sca(ax)
-        
-    plt.fill_between(times, m-e, m+e, facecolor=facecolor)
-    
-    plot_timeseries([times], [m], xlabel=xlabel, ylabel=ylabel,
+
+    plt.fill_between(t, m-e, m+e, facecolor=facecolor)
+
+    plot_timeseries([t], [m], xlabel=xlabel, ylabel=ylabel,
                     legend=legend, linestyle=linestyle,
                     linewidth=linewidth, ax=ax, title=title)
 
