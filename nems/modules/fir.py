@@ -51,7 +51,8 @@ def per_channel(x, coefficients, bank_count=1):
         # option 2: number of input channels is same as number of coefficients
         # in each fir filter, so that the same stimulus goes into each
         # filter
-        all_x = chain.from_iterable(repeat(x_i, bank_count) for x_i in x)
+        #all_x = chain.from_iterable(repeat(x_i, bank_count) for x_i in x)
+        all_x = chain.from_iterable([iter(x) for i in range(bank_count)])
     else:
         if bank_count == 1:
             desc = '%i FIR filters' % n_filters
@@ -62,8 +63,8 @@ def per_channel(x, coefficients, bank_count=1):
 
     c_iter = iter(coefficients)
     out = np.zeros((bank_count, x.shape[1]))
-    for i_in in range(n_in):
-        for i_out in range(bank_count):
+    for i_out in range(bank_count):
+        for i_in in range(int(n_filters / n_banks)):
             x_ = next(all_x)
             c = next(c_iter)
             # It is slightly more "correct" to use lfilter than convolve at
