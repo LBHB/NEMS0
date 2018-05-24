@@ -1,6 +1,9 @@
 import time
 import numpy as np
 
+import logging
+log = logging.getLogger(__name__)
+
 def iso8601_datestring():
     '''
     Returns a string containing the present date as a string.
@@ -53,19 +56,36 @@ def progress_fun():
     pass
 
 
-def find_module(name, modelspec):
+def find_module(name, modelspec, find_all_matches=False):
     """
-    return first index where modelspec[]['fn'] contains name
-    retrns None if no match
-    
-    TODO: deal with multiple matches
+    name : string
+    modelspec : NEMS modelspec (list of dictionaries)
+
+    find_all_matches : boolean
+      if True:
+          returns first index where modelspec[]['fn'] contains name
+          returns None if no match
+      if False
+          returns list of index(es) where modelspec[]['fn'] contains name
+          returns empty list [] if no match
     """
-    
-    target_i = None
+    if find_all_matches:
+        target_i = []
+    else:
+        target_i = None
     target_module = name
     for i, m in enumerate(modelspec):
         if target_module in m['fn']:
-            target_i = i
-            break
+            if find_all_matches:
+                target_i.append(i)
+            else:
+                target_i = i
+                break
+
+    if not target_i:
+        log.info("target_module: %s not found in modelspec.", target_module)
+
+    log.info("target_module: %s found at modelspec[%d]",
+             target_module, target_i)
 
     return target_i
