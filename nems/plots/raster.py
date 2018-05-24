@@ -29,21 +29,25 @@ def raster(times, values, xlabel='Time', ylabel='Trial', legend=None,
     if ax is not None:
         plt.sca(ax)
 
-    i, j = np.where(values)
+    x = values.copy()
+    x = x[np.isfinite(x[:, 0]), :]
+
+    i, j = np.where(x)
     i += 1
     if times is not None:
         t = times[j]
     else:
         t = j
 
-    plt.plot(t,i,'k.', markersize=1)
+    plt.plot(t, i, 'k.', markersize=1)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.xlim(np.min(t),np.max(t))
-    plt.ylim(0,values.shape[0]+1)
+    plt.xlim(np.min(t), np.max(t))
+    plt.ylim(0, x.shape[0]+1)
 
     if title:
         plt.title(title)
+
 
 def psth_from_raster(times, values, xlabel='Time', ylabel='Value',
                      legend=None, linestyle='-', linewidth=1,
@@ -51,7 +55,7 @@ def psth_from_raster(times, values, xlabel='Time', ylabel='Value',
                      binsize=1):
 
     if binsize > 1:
-        x = np.reshape(values,[values.shape[0],-1,binsize])
+        x = np.reshape(values, [values.shape[0], -1, binsize])
         x = np.nanmean(x, axis=2)
         t = times[int(binsize/2)::binsize]
     else:
@@ -59,7 +63,7 @@ def psth_from_raster(times, values, xlabel='Time', ylabel='Value',
         t = times
 
     m = np.nanmean(x, axis=0)
-    e = np.nanstd(x, axis=0) / np.sqrt(np.sum(np.isfinite(x[:,0])))
+    e = np.nanstd(x, axis=0) / np.sqrt(np.sum(np.isfinite(x[:, 0])))
 
     if ax is not None:
         plt.sca(ax)
@@ -70,9 +74,10 @@ def psth_from_raster(times, values, xlabel='Time', ylabel='Value',
                     legend=legend, linestyle=linestyle,
                     linewidth=linewidth, ax=ax, title=title)
 
+
 def raster_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
-                            linestyle='-', linewidth=1, legend=None,
-                            ax=None, title=None):
+                        linestyle='-', linewidth=1, legend=None,
+                        ax=None, title=None):
     """TODO: doc"""
     raise NotImplementedError
     times = []
