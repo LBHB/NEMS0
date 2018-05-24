@@ -68,21 +68,23 @@ def test_stp():
 
 
 def test_firbank():
+    n_banks = 2
+    bank_count = 3
     x = np.random.randn(2, 100)
-    coefficients = np.zeros([4, 10])
+    coefficients = np.zeros([6, 10])
     coefficients[0, 1] = 1
-    coefficients[2, 3] = -0.5
+    coefficients[n_banks, 3] = -0.5
 
-    bank_count = 2
-
-    # test one stimulus, multi-banks
+    # one stimulus per bank
     y = fir.per_channel(x, coefficients, bank_count)
 
-    assert(y.shape == (2, 100))
+    assert(y.shape == (3, 100))
+    assert(y[0, 1] == x[0, 0])
     assert(np.sum(np.abs(y[0, :98] + 2 * y[1, 2:])) == 0)
+    np.testing.assert_equal(y[2], 0)
 
-    x2 = np.concatenate((x, -x), axis=0)
+    # one stimulus per filter
+    x2 = np.repeat(x, bank_count, axis=0)
     y2 = fir.per_channel(x2, coefficients, bank_count)
 
-    assert(y2.shape == (2, 100))
-    assert(np.sum(np.abs(y2[0, :98] - 2 * y2[1, 2:])) == 0)
+    np.testing.assert_array_equal(y2, y)
