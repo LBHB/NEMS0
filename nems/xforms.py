@@ -101,7 +101,7 @@ def evaluate_step(xfa, context={}):
     return context_out
 
 
-def evaluate(xformspec, context={}, stop=None):
+def evaluate(xformspec, context={}, start=0, stop=None):
     '''
     Similar to modelspec.evaluate, but for xformspecs, which is a list of
     2-element lists of function and keyword arguments dict. Each XFORM must
@@ -124,7 +124,7 @@ def evaluate(xformspec, context={}, stop=None):
     rootlogger.addHandler(ch)
 
     # Evaluate the xforms
-    for xfa in xformspec[:stop]:
+    for xfa in xformspec[start:stop]:
         context = evaluate_step(xfa, context)
 
     # Close the log, remove the handler, and add the 'log' string to context

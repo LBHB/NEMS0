@@ -79,6 +79,11 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
 
     fs = rec[psth_name].fs
 
+    d = rec[psth_name].get_epoch_bounds('PreStimSilence')
+    PreStimSilence = np.mean(np.diff(d)) - 0.5/fs
+    d = rec[psth_name].get_epoch_bounds('PostStimSilence')
+    PostStimSilence = np.mean(np.diff(d)) - 0.5/fs
+
     full_psth = rec[psth_name]
     folded_psth = full_psth.extract_epoch(epoch)
     if psth_name2 is not None:
@@ -116,13 +121,18 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
             legend = ('< Mean', '>= Mean')
 
         timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
-                                legend=legend)
+                                legend=legend, time_offset=PreStimSilence)
         timeseries_from_vectors([low2, high2], fs=fs, title=title, ax=ax,
-                                linestyle='--')
+                                linestyle='--', time_offset=PreStimSilence)
     else:
-        timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax)
+        timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
+                                time_offset=PreStimSilence)
         timeseries_from_vectors([low2, high2], fs=fs, title=title, ax=ax,
-                                linestyle='--')
+                                linestyle='--', time_offset=PreStimSilence)
+    ylim = ax.get_ylim()
+    xlim = ax.get_xlim()
+    ax.plot(np.array([0, 0]), ylim, 'k--')
+    ax.plot(np.array([0, 0])+(xlim[1]-PostStimSilence), ylim, 'k--')
 
     if state_sig == 'baseline':
         ax.set_xlabel(epoch)

@@ -42,7 +42,8 @@ def raster(times, values, xlabel='Time', ylabel='Trial', legend=None,
     plt.plot(t, i, 'k.', markersize=1)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.xlim(np.min(t), np.max(t))
+    if times is not None:
+        plt.xlim(np.min(times), np.max(times))
     plt.ylim(0, x.shape[0]+1)
 
     if title:

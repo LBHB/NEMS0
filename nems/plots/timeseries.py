@@ -42,7 +42,7 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
 
 def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
                             linestyle='-', linewidth=1, legend=None,
-                            ax=None, title=None):
+                            ax=None, title=None, time_offset=0):
     """TODO: doc"""
     times = []
     values = []
@@ -52,7 +52,8 @@ def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
             times.append(np.arange(0, len(v)))
         else:
             times.append(np.arange(0, len(v))/fs)
-    plot_timeseries(times, values, xlabel, ylabel, legend=legend,
+    plot_timeseries(times - time_offset, values, xlabel, ylabel,
+                    legend=legend,
                     linestyle=linestyle, linewidth=linewidth,
                     ax=ax, title=title)
 

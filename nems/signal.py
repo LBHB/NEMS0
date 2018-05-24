@@ -341,7 +341,7 @@ class SignalBase:
             mask = self.epochs['name'] == epoch
             bounds = self.epochs.loc[mask, ['start', 'end']].values
             bounds = np.round(bounds * self.fs) / self.fs
-            
+
         if boundary_mode is None:
             raise NotImplementedError
         elif boundary_mode == 'exclude':
@@ -826,6 +826,8 @@ class RasterizedSignal(SignalBase):
         '''
         return load_rasterized_signal(basepath)
 
+    # SVD -- 2018-05-24 -- save to delete?
+    """
     @staticmethod
     def load_from_streams(csv_stream, json_stream, epoch_stream=None):
         ''' Loads from BytesIO objects rather than files. '''
@@ -846,8 +848,9 @@ class RasterizedSignal(SignalBase):
                    fs=js['fs'],
                    meta=js['meta'],
                    data=mat)
-        s.segments = js.get('segments', s.segments)
+        s.segments = np.array(js.get('segments', s.segments))
         return s
+    """
 
     @staticmethod
     def list_signals(directory):
@@ -2026,9 +2029,6 @@ def load_signal(basepath):
                     fs=js['fs'],
                     meta=js['meta'],
                     data=mat)
-        # NOTE: Moved this outside of call to initializer because
-        #       some saved signals don't have segments in their json sidecar.
-        s.segments = js.get('segments', s.segments)
 
     elif 'PointProcess' in signal_type:
         with h5py.File(h5filepath, 'r') as f:
@@ -2061,6 +2061,10 @@ def load_signal(basepath):
     else:
         raise ValueError('signal_type unknown')
 
+    # NOTE: Moved this outside of call to initializer because
+    #       some saved signals don't have segments in their json sidecar.
+    s.segments = np.array(js.get('segments', s.segments))
+
     return s
 
 def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
@@ -2089,7 +2093,6 @@ def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
                     fs=js['fs'],
                     meta=js['meta'],
                     data=mat)
-        s.segments = js.get('segments', s.segments)
 
     elif 'PointProcess' in signal_type:
         with h5py.File(data_stream, 'r') as f:
@@ -2126,6 +2129,8 @@ def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
 
     else:
         raise ValueError('signal_type unknown')
+
+    s.segments = np.array(js.get('segments', s.segments))
 
     return s
 
