@@ -625,6 +625,144 @@ class Recording:
         newsigs = {n: s.nan_times(times) for n, s in self.signals.items()}
 
         return Recording(newsigs)
+    
+    
+    def create_mask(self):
+        ''' 
+        Initialize mask signal to False for all times
+        '''     
+        
+        rec = copy.deepcopy(self)
+        sig_name = list(rec.signals.keys())[0]
+        sig = rec[sig_name]
+        
+        data = (np.ones(sig.shape[1])*False).astype(bool)[np.newaxis, :]
+        
+        mask = RasterizedSignal(fs=sig.fs,
+                                data=data,
+                                name="mask",
+                                recording=rec.name)
+        rec.add_signal(mask)
+        
+        return rec
+    
+    def or_mask(self, list_of_epoch_names, invert=False):
+        '''
+        Make rec['mask'] == True for all epochs in list of epoch names.
+        
+        ex: 
+            rec.or_mask(['HIT_TRIAL', 'PASSIVE_EXPERIMENT']) will return a 
+            new recording with rec['mask'] == True for all PASSIVE EXPERIMENT
+            and all HIT TRIAL epochs
+        '''
+        rec = copy.deepcopy(self)
+        
+        sig_name = list(rec.signals.keys())[0]
+        sig = rec[sig_name]
+        
+        masks = rec['mask']._data.squeeze()
+        for epoch in list_of_epoch_names:
+            m = sig.epoch_to_signal(epoch).as_continuous()
+            masks = np.vstack((masks,m))
+     
+        # Perform OR operation
+        mask = [bool(index) for index in list(np.sum(masks,axis=0))]
+        
+        # Invert 
+        if invert is True:
+            mask = ~np.array(mask)[np.newaxis,:]
+        elif invert is False:
+            mask = np.array(mask)[np.newaxis,:]
+        
+        rec['mask'] = rec['mask']._modified_copy(mask)
+        
+        return rec
+        
+   
+    def and_mask(self, list_of_epoch_names, invert=False):
+        '''
+        Make mask == True for all epochs in list of epoch names where current
+        mask is also true.
+        
+        example use:
+            newrec = rec.or_mask(['ACTIVE_EXPERIMENT'])
+            newrec = rec.and_mask(['REFERENCE', 'TARGET'])
+            
+            newrec['mask'] == True only during REFERENCE and TARGET epochs 
+            contained within ACTIVE_EXPERIMENT epochs
+        '''
+        rec = copy.deepcopy(self)
+        
+        sig_name = list(rec.signals.keys())[0]
+        sig = rec[sig_name]
+        
+        current_mask = rec['mask']._data.squeeze()
+        
+        # Make OR mask for input epoch list
+        for i, epoch in enumerate(list_of_epoch_names):
+            if i == 0:
+                or_mask = sig.epoch_to_signal(epoch).as_continuous()
+            else:
+                m = sig.epoch_to_signal(epoch).as_continuous()
+                or_mask = np.vstack((or_mask, m))
+                
+        # Perform OR operation
+        or_mask = [bool(index) for index in list(np.sum(or_mask,axis=0))]
+        
+        # Invert 
+        if invert is True:
+            or_mask = ~np.array(or_mask)[np.newaxis,:]
+        elif invert is False:
+            or_mask = np.array(or_mask)[np.newaxis,:]
+            
+        # Perform AND operation with current mask
+        mask = np.multiply(current_mask, or_mask)
+        
+        rec['mask'] = rec['mask']._modified_copy(mask)
+        
+        return rec
+    
+    def mask_segments(self):
+        '''
+        Used to excise data based on boolean called mask. Returns new recording
+        with only data specified mask. To make mask, see "create_epoch_mask"
+        '''
+        rec = copy.deepcopy(self)
+        sig = rec.signals[list(rec.signals.keys())[0]]
+        if 'mask' not in rec.signals.keys():
+            raise ValueError('Need to create a mask signal first')
+        else:
+            pass
+        
+        s_indices = np.argwhere(np.diff(rec['mask']._data.squeeze())).squeeze()
+        last_ind = len(s_indices)-1
+
+        s = []
+        e = []
+    
+        i = 0
+        while i < last_ind:
+            if i == 0:
+                if rec['mask']._data.squeeze()[0] == True:
+                    print('hello')
+                    s.append(0)
+                    e.append(s_indices[i])
+                    i+=1
+                else:
+                    s.append(s_indices[i])
+                    e.append(s_indices[i+1])
+                    i+=2
+            else:
+                s.append(s_indices[i])
+                e.append(s_indices[i+1])
+                i+=2
+    
+        times = (np.vstack((np.array(s), np.array(e)))/sig.fs).T
+        if times[-1,1]==times[-1,0]:
+            times = times[:-1,:]
+        
+        newrec = rec.select_times(np.array(np.array(times.tolist())))  
+        return newrec, np.array(np.array(times.tolist()))
 
 ## I/O functions
 def load_recording_from_targz(targz):

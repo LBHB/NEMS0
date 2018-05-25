@@ -576,7 +576,7 @@ class SignalBase:
                                          overlapping_epoch=overlapping_epoch)
                 for name in epoch_names}
 
-    def epoch_to_signal(self, epoch, boundary_mode='trim',
+    def epoch_to_signal(self, epoch, boundary_mode='exclude',
                         fix_overlap='merge'):
         '''
         Convert an epoch to a RasterizedSignal using the same sampling rate
@@ -594,7 +594,7 @@ class SignalBase:
             otherwise.
         '''
         data = np.zeros([1, self.ntimes], dtype=np.bool)
-        indices = self.get_epoch_indices(epoch, boundary_mode, fix_overlap)
+        indices = self.(epoch, boundary_mode, fix_overlap)
         for lb, ub in indices:
             data[:, lb:ub] = True
         epoch_name = epoch if isinstance(epoch, str) else 'epoch'
