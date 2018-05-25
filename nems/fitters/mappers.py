@@ -5,6 +5,7 @@ corresponding to the type of sigma expected by a fitter.
 Our proposed naming convention is to use whatever the modelspec is being
 turned into as the name for the mapper function.
 """
+
 import numpy as np
 
 from nems.fitters.util import phi_to_vector, vector_to_phi
@@ -38,7 +39,7 @@ def simple_vector(initial_modelspec):
     return packer, unpacker
 
 
-def bounds_vector(initial_modelspec):
+def bounds_vector(modelspec):
     '''
     Converts module bounds from a list of dictionaries to a flattened
     vector.
@@ -69,40 +70,48 @@ def bounds_vector(initial_modelspec):
     Would all set equivalent bounds for a 2x3 parameter.
     '''
 
-    def packer(modelspec):
-        phi = [m.get('phi') for m in modelspec]
-        bounds = []
-        for i, p in enumerate(phi):
-            b = modelspec[i].get('bounds', None)
-            for k, v in p.items():
-                if np.isscalar(v):
-                    if b is None:
-                        # (None, None) is interpreted as no bounds by fitters
-                        bounds.append((None, None))
-                    else:
-                        bounds.append(b.get(k, (None, None)))
+    phi = [m.get('phi') for m in modelspec]
+    phi_vector = phi_to_vector(phi)
+    bounds = []
+    for i, p in enumerate(phi):
+        b = modelspec[i].get('bounds', None)
+        for k, v in p.items():
+            if np.isscalar(v):
+                if b is None:
+                    # (None, None) is interpreted as no bounds by fitters
+                    bounds.append((None, None))
                 else:
-                    flattened = np.asanyarray(v).ravel()
-                    if b is None:
-                        bounds.extend([(None, None)]*flattened.size)
+                    bounds.append(b.get(k, (None, None)))
+            else:
+                flattened = np.asanyarray(v).ravel()
+                if b is None:
+                    bounds.extend([(None, None)]*flattened.size)
+                else:
+                    this_bound = b.get(k, (None, None))
+                    if this_bound[0] is None or np.isscalar(this_bound[0]):
+                        lowers = [this_bound[0]]*flattened.size
                     else:
-                        this_bound = b.get(k, (None, None))
-                        if this_bound[0] is None or np.isscalar(this_bound[0]):
-                            lowers = [this_bound[0]]*flattened.size
-                        else:
-                            lowers = [x for x in
-                                      np.asanyarray(this_bound[0]).ravel()]
-                        if this_bound[1] is None or np.isscalar(this_bound[1]):
-                            uppers = [this_bound[1]]*flattened.size
-                        else:
-                            uppers = [y for y in
-                                      np.asanyarray(this_bound[1]).ravel()]
-                        bounds.extend(zip(lowers, uppers))
+                        if np.array(this_bound[0]).shape != np.array(v).shape:
+                            raise ValueError("Shape of bounds array and "
+                                             "phi array does not match for "
+                                             "module %d" % i)
+                        lowers = [x for x in
+                                  np.asanyarray(this_bound[0]).ravel()]
+                    if this_bound[1] is None or np.isscalar(this_bound[1]):
+                        uppers = [this_bound[1]]*flattened.size
+                    else:
+                        if np.array(this_bound[1]).shape != np.array(v).shape:
+                            raise ValueError("Shape of bounds array and "
+                                             "phi array does not match for "
+                                             "module %d" % i)
+                        uppers = [y for y in
+                                  np.asanyarray(this_bound[1]).ravel()]
+                    bounds.extend(zip(lowers, uppers))
+    n = len(bounds)
+    m = len(phi_vector)
+    if n != m:
+        raise ValueError("Length of bounds vector: %d\n"
+                         "Does not match length of phi vector: %d.\n" %
+                         (n, m))
 
-        return bounds
-
-    def unpacker(vec):
-        raise NotImplementedError("No reason to unpack bounds vector, "
-                                  "they don't change during fitting.")
-
-    return packer, unpacker
+    return bounds
