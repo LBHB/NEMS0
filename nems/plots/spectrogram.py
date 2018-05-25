@@ -5,19 +5,27 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
 
-def plot_spectrogram(array, fs=None, ax=None, title=None):
+def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0):
+
     if not ax:
         ax = plt.gca()
 
-    ax.imshow(array, origin='lower', interpolation='none', aspect='auto')
+    if fs is None:
+        times = np.arange(0, array.shape[1])
+    else:
+        times = np.arange(0, array.shape[1])/fs-time_offset
+
+    extent = [times[0], times[-1], 1, array.shape[0]]
+    ax.imshow(array, origin='lower', interpolation='none',
+              aspect='auto', extent=extent)
     ax.margins(x=0)
 
     # Override x-tic labels to display as real time
     # instead of time bin indices.
-    if fs is not None:
-        locs = ax.get_xticks()
-        newlabels = ["{:0.3f}".format(l/fs) for l in locs]
-        ax.set_xticklabels(newlabels)
+    #if fs is not None:
+    #    locs = ax.get_xticks()
+    #    newlabels = ["{:0.3f}".format(l/fs-time_offset) for l in locs]
+    #    ax.set_xticklabels(newlabels)
 
     # TODO: Is there a way the colorbar can overlap part of the image
     # rather than shift it over?
