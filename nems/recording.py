@@ -634,7 +634,7 @@ class Recording:
         
         rec = copy.deepcopy(self)
         sig_name = list(rec.signals.keys())[0]
-        sig = rec[sig_name]
+        sig = copy.deepcopy(rec[sig_name])
         
         data = (np.ones(sig.shape[1])*False).astype(bool)[np.newaxis, :]
         
@@ -663,7 +663,7 @@ class Recording:
         rec = copy.deepcopy(self)
         
         sig_name = list(rec.signals.keys())[0]
-        sig = rec[sig_name]
+        sig = copy.deepcopy(rec[sig_name])
         
         if type(list_of_epoch_names) is list:
             masks = rec['mask']._data.squeeze()
@@ -709,7 +709,7 @@ class Recording:
         rec = copy.deepcopy(self)
         
         sig_name = list(rec.signals.keys())[0]
-        sig = rec[sig_name]
+        sig = copy.deepcopy(rec[sig_name])
         
         current_mask = rec['mask']._data.squeeze()
         
@@ -751,7 +751,7 @@ class Recording:
         with only data specified mask. To make mask, see "create_epoch_mask"
         '''
         rec = copy.deepcopy(self)
-        sig = rec.signals[list(rec.signals.keys())[0]]
+        sig = copy.deepcopy(rec.signals[list(rec.signals.keys())[0]])
         if 'mask' not in rec.signals.keys():
             raise ValueError('Need to create a mask signal first')
         else:
@@ -785,7 +785,7 @@ class Recording:
             times = times[:-1,:]
         
         newrec = rec.select_times(np.array(np.array(times.tolist())))  
-        return newrec, np.array(np.array(times.tolist()))
+        return newrec
 
 ## I/O functions
 def load_recording_from_targz(targz):
