@@ -109,8 +109,8 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
                     ax=ax, title=title)
 
 
-def before_and_after_stp(rec, modelspec, sig_name='pred', ax=None, title=None,
-                         channels=0, xlabel='Time', ylabel='Value'):
+def before_and_after_stp(modelspec, sig_name='pred', ax=None, title=None,
+                         channels=0, xlabel='Time', ylabel='Value', fs=100):
     '''
     Plots a timeseries of specified signal just before and just after
     the transformation performed at some step in the modelspec.
@@ -133,7 +133,6 @@ def before_and_after_stp(rec, modelspec, sig_name='pred', ax=None, title=None,
         if 'stp' in m['fn']:
             break
     c = len(m['phi']['tau'])
-    fs = rec['resp'].fs
     seg = np.int(fs * 0.05)
 
     pred = np.concatenate([np.zeros([c, seg * 2]), np.ones([c, seg * 4]),
