@@ -645,10 +645,15 @@ class Recording:
         rec.add_signal(mask)
         
         return rec
+
     
     def or_mask(self, list_of_epoch_names, invert=False):
         '''
-        Make rec['mask'] == True for all epochs in list of epoch names.
+        list of epoch names can be either list of epoch names or simply an array 
+        of index segments to mask
+        
+        Make rec['mask'] == True for all epochs (or segs) in list of epoch 
+        names.
         
         ex: 
             rec.or_mask(['HIT_TRIAL', 'PASSIVE_EXPERIMENT']) will return a 
@@ -660,14 +665,20 @@ class Recording:
         sig_name = list(rec.signals.keys())[0]
         sig = rec[sig_name]
         
-        masks = rec['mask']._data.squeeze()
-        for epoch in list_of_epoch_names:
-            m = sig.epoch_to_signal(epoch).as_continuous()
-            masks = np.vstack((masks,m))
-     
-        # Perform OR operation
-        mask = [bool(index) for index in list(np.sum(masks,axis=0))]
-        
+        if type(list_of_epoch_names) is list:
+            masks = rec['mask']._data.squeeze()
+            for epoch in list_of_epoch_names:
+                m = sig.epoch_to_signal(epoch).as_continuous()
+                masks = np.vstack((masks,m))
+         
+            # Perform OR operation
+            mask = [bool(index) for index in list(np.sum(masks,axis=0))]
+            
+        elif type(list_of_epoch_names) is np.ndarray:   
+            mask = rec['mask']._data.squeeze()
+            for (lb, ub) in list_of_epoch_names:
+                mask[lb:ub] = True
+            
         # Invert 
         if invert is True:
             mask = ~np.array(mask)[np.newaxis,:]
@@ -681,8 +692,12 @@ class Recording:
    
     def and_mask(self, list_of_epoch_names, invert=False):
         '''
-        Make mask == True for all epochs in list of epoch names where current
-        mask is also true.
+        list of epoch names can be either list of epoch names or simply an array 
+        of index segments to mask
+                
+        
+        Make mask == True for all epochs (or index segments) in list of epoch 
+        names where current mask is also true.
         
         example use:
             newrec = rec.or_mask(['ACTIVE_EXPERIMENT'])
@@ -698,22 +713,29 @@ class Recording:
         
         current_mask = rec['mask']._data.squeeze()
         
-        # Make OR mask for input epoch list
-        for i, epoch in enumerate(list_of_epoch_names):
-            if i == 0:
-                or_mask = sig.epoch_to_signal(epoch).as_continuous()
-            else:
-                m = sig.epoch_to_signal(epoch).as_continuous()
-                or_mask = np.vstack((or_mask, m))
+        if type(list_of_epoch_names) is list:
+            # Make OR mask for input epoch list
+            for i, epoch in enumerate(list_of_epoch_names):
+                if i == 0:
+                    or_mask = sig.epoch_to_signal(epoch).as_continuous()
+                else:
+                    m = sig.epoch_to_signal(epoch).as_continuous()
+                    or_mask = np.vstack((or_mask, m))
+                    
+            # Perform OR operation
+            or_mask = [bool(index) for index in list(np.sum(or_mask,axis=0))]
+            
                 
-        # Perform OR operation
-        or_mask = [bool(index) for index in list(np.sum(or_mask,axis=0))]
-        
+        elif type(list_of_epoch_names) is np.ndarray:
+            or_mask = np.full((sig.shape[1]), False)
+            for (lb, ub) in list_of_epoch_names:
+                or_mask[lb:ub] = True
+            
         # Invert 
         if invert is True:
             or_mask = ~np.array(or_mask)[np.newaxis,:]
         elif invert is False:
-            or_mask = np.array(or_mask)[np.newaxis,:]
+            or_mask = np.array(or_mask)[np.newaxis,:]    
             
         # Perform AND operation with current mask
         mask = np.multiply(current_mask, or_mask)
@@ -721,6 +743,7 @@ class Recording:
         rec['mask'] = rec['mask']._modified_copy(mask)
         
         return rec
+    
     
     def mask_segments(self):
         '''
@@ -734,7 +757,7 @@ class Recording:
         else:
             pass
         
-        s_indices = np.argwhere(np.diff(rec['mask']._data.squeeze())).squeeze()
+        s_indices = np.argwhere(np.diff(rec['mask']._data.squeeze())).squeeze()+1
         last_ind = len(s_indices)-1
 
         s = []
