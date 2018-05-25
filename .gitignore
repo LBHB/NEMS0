@@ -119,9 +119,9 @@ nems.log*
 !**/nems_logs/__init__.py
 **/modelspecs/*
 
-configs/*
-!configs/__init__.py
-!configs/defaults.py
+nems_configs/*
+nems_configs/__init__.py
+nems_configs/defaults.py
 
 ### Emacs ###
 # -*- mode: gitignore; -*-
