@@ -594,7 +594,7 @@ class SignalBase:
             otherwise.
         '''
         data = np.zeros([1, self.ntimes], dtype=np.bool)
-        indices = self.(epoch, boundary_mode, fix_overlap)
+        indices = self.get_epoch_indices(epoch, boundary_mode, fix_overlap)
         for lb, ub in indices:
             data[:, lb:ub] = True
         epoch_name = epoch if isinstance(epoch, str) else 'epoch'
