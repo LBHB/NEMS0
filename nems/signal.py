@@ -576,7 +576,7 @@ class SignalBase:
                                          overlapping_epoch=overlapping_epoch)
                 for name in epoch_names}
 
-    def epoch_to_signal(self, epoch, boundary_mode='trim',
+    def epoch_to_signal(self, epoch, boundary_mode='exclude',
                         fix_overlap='merge'):
         '''
         Convert an epoch to a RasterizedSignal using the same sampling rate
