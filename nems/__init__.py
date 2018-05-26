@@ -5,7 +5,7 @@ log = logging.getLogger(__name__)
 def load_config():
     # Load the default settings
     from os import environ, path, utime
-    from nems_configs import defaults as config
+    from nems.configs import defaults as config
 
     # leave defaults.py off the end of path
     configs_path = path.dirname(path.abspath(config.__file__))
@@ -13,7 +13,7 @@ def load_config():
     # If it doesn't exist, create a dummy file in its place that
     # the user can fill in later.
     try:
-        from nems_configs import settings
+        from nems.configs import settings
     except ImportError:
         settings_path = path.join(configs_path, 'settings.py')
         # this should be equivalent to
@@ -22,7 +22,7 @@ def load_config():
             utime(settings_path, None)
         log.info("No settings.py found in configs directory,"
                  " generating blank file ... ")
-        from nems_configs import settings
+        from nems.configs import settings
 
     for s in config.__dir__():
         if s.startswith('__') or not (s == s.upper()):
