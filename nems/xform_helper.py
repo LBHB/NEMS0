@@ -154,11 +154,11 @@ def generate_loader_xfspec(loader, recording_uri):
         elif loader.startswith("env"):
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
-                      ['nems.xforms.remove_all_but_correct_references', {}],
                       ['nems.xforms.make_state_signal',
                        {'state_signals': state_signals,
                         'permute_signals': permute_signals,
-                        'new_signalname': 'state'}]]
+                        'new_signalname': 'state'}],
+                      ['nems.xforms.remove_all_but_correct_references', {}]]
         else:
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
