@@ -1,6 +1,8 @@
 import re
 from os import listdir
 import importlib as imp
+import logging
+log = logging.getLogger(__name__)
 
 
 class KeywordRegistry():
@@ -37,6 +39,8 @@ class KeywordRegistry():
         return kw.parse(kw_string, *self.args)
 
     def __setitem__(self, kw_head, parse):
+        # TODO: Warning either here or in register_module / register_plugins
+        #       to notify if keyword being overwritten?
         self.keywords[kw_head] = Keyword(kw_head, parse)
 
     def lookup(self, kw_string):
@@ -95,15 +99,15 @@ class KeywordRegistry():
         '''Invokes self.register_module for each module listed in modules.'''
         [self.register_module(m) for m in modules]
 
-    def _validate_function(m, a):
+    def _validate_function(self, m, a):
         '''
         Ignore private functions, all-caps global variables,
         and anything that isn't callable.
         '''
-        one = (not a.startswith('_'))
-        two = (a.upper() != a)
-        three = (callable(getattr(m, a)))
-        if one and two and three:
+        private = (a.startswith('_'))
+        caps = (a.upper() != a)
+        is_callable = (callable(getattr(m, a)))
+        if is_callable and not private and not caps:
             return True
         return False
 

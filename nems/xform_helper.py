@@ -2,6 +2,7 @@ import logging
 import importlib as imp
 
 import nems.xforms as xforms
+from nems.keywords import defaults
 from nems import get_setting
 from nems.registry import KeywordRegistry
 from nems.plugins.loaders import default_loaders
@@ -71,11 +72,11 @@ def fit_model_xforms(recording_uri, modelname, autoPlot=True):
     xfspec.extend(loader_xfspec)
 
     # 2) generate a modelspec
-    kw_module = imp.import_module(get_setting('KW_REGISTRY_MODULE'))
-    kw_registry = getattr(kw_module, get_setting('KW_REGISTRY_NAME'))
+    #kw_module = imp.import_module(get_setting('KW_REGISTRY_MODULE'))
+    #kw_registry = getattr(kw_module, get_setting('KW_REGISTRY_NAME'))
     xfspec.append(['nems.xforms.init_from_keywords',
                    {'keywordstring': modelspecname, 'meta': meta,
-                    'registry': kw_registry}])
+                    'registry': defaults}])
 
     # 3) fit the data
     xfspec.extend(fitter_xfspec)
