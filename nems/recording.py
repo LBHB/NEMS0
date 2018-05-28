@@ -642,6 +642,7 @@ class Recording:
                                 data=data,
                                 name="mask",
                                 recording=rec.name)
+        mask.epochs = rec.epochs
         rec.add_signal(mask)
         
         return rec
