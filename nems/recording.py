@@ -745,7 +745,7 @@ class Recording:
         return rec
     
     
-    def mask_segments(self):
+    def apply_mask(self):
         '''
         Used to excise data based on boolean called mask. Returns new recording
         with only data specified mask. To make mask, see "create_epoch_mask"
