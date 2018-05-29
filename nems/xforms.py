@@ -618,31 +618,28 @@ def fit_jackknifes(modelspecs, est, njacks,
     return {'modelspecs': modelspecs}
 
 
-def fit_nfold(modelspecs, est, IsReload=False, **context):
+def fit_nfold(modelspecs, est, ftol=1e-7, maxiter=1000,
+              IsReload=False, **context):
     ''' fitting n fold, one from each entry in est '''
     if not IsReload:
+        fit_kwargs = {'options': {'ftol': ftol, 'maxiter': maxiter}}
         modelspecs = nems.analysis.api.fit_nfold(
-                est, modelspecs, fitter=scipy_minimize)
+                est, modelspecs, fitter=scipy_minimize,
+                fit_kwargs=fit_kwargs)
     return {'modelspecs': modelspecs}
 
 
-def fit_state_nfold(modelspecs, est, IsReload=False, **context):
-    ''' fitting n fold, one from each entry in est '''
-    ''' DEPRECATED? REPLACE WITH fit_nfold? '''
-    if not IsReload:
-        modelspecs = nems.analysis.api.fit_nfold(
-                est, modelspecs, fitter=scipy_minimize)
-    return {'modelspecs': modelspecs}
-
-
-def fit_nfold_shrinkage(modelspecs, est, IsReload=False, **context):
+def fit_nfold_shrinkage(modelspecs, est, ftol=1e-7, maxiter=1000,
+                        IsReload=False, **context):
     ''' fitting n fold, one from each entry in est, use mse_shrink for
     cost function'''
     if not IsReload:
         metric = lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
+        fit_kwargs = {'options': {'ftol': ftol, 'maxiter': maxiter}}
         modelspecs = nems.analysis.api.fit_nfold(
                 est, modelspecs, metric=metric,
-                fitter=scipy_minimize)
+                fitter=scipy_minimize,
+                fit_kwargs=fit_kwargs)
     return {'modelspecs': modelspecs}
 
 

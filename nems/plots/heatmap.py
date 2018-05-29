@@ -96,7 +96,11 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
     else:
         wc_coefs = np.array(wcc).T
         fir_coefs = np.array(firc)
-        strf = wc_coefs @ fir_coefs
+        if wc_coefs.shape[1] == fir_coefs.shape[0]:
+            strf = wc_coefs @ fir_coefs
+        else:
+            strf = fir_coefs
+            show_factorized = False
 
     if not clim:
         cscale = np.nanmax(np.abs(strf.reshape(-1)))

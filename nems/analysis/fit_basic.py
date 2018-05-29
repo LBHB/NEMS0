@@ -175,7 +175,9 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
         else:
             msidx = 0
 
-        log.info("Fitting fold %d/%d from modelspec %d", i+1, nfolds, msidx)
+        log.info("Fitting fold %d/%d, modelspec %d (ftol=%e, maxit=%d)",
+                 i+1, nfolds, msidx, fit_kwargs['options']['ftol'],
+                 fit_kwargs['options']['maxiter'])
 #        resp = data_list[i]['resp']
 #        resp_len = np.sum(np.isfinite(resp.as_continuous()))
 #        log.info("non-nan resp samples: %d", resp_len)

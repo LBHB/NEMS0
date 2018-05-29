@@ -209,6 +209,7 @@ def mask_all_but_correct_references(rec):
     newrec = newrec.and_mask(['REFERENCE'])
 
     newrec['resp'] = newrec['resp'].rasterize()
+    newrec['stim'] = newrec['stim'].rasterize()
 
     return newrec
 

@@ -162,6 +162,15 @@ def generate_loader_xfspec(loader, recording_uri):
                       ['nems.xforms.remove_all_but_correct_references', {}],
                       ['nems.xforms.generate_psth_from_resp', {}]]
 
+        elif loader.startswith("envm"):
+            xfspec = [['nems.xforms.load_recordings',
+                       {'recording_uri_list': recordings}],
+                      ['nems.xforms.make_state_signal',
+                       {'state_signals': state_signals,
+                        'permute_signals': permute_signals,
+                        'new_signalname': 'state'}],
+                      ['nems.xforms.mask_all_but_correct_references', {}]]
+
         elif loader.startswith("env"):
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
@@ -170,6 +179,7 @@ def generate_loader_xfspec(loader, recording_uri):
                         'permute_signals': permute_signals,
                         'new_signalname': 'state'}],
                       ['nems.xforms.remove_all_but_correct_references', {}]]
+
         else:
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
@@ -238,6 +248,14 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
                        {'njacks': 5, 'epoch_name': 'REFERENCE'}])
         xfspec.append(['nems.xforms.fit_state_init', {}])
         xfspec.append(['nems.xforms.fit_nfold', {}])
+        xfspec.append(['nems.xforms.predict', {}])
+
+    elif fitkey == "state01-jkm":
+
+        xfspec.append(['nems.xforms.mask_for_jackknife',
+                       {'njacks': 5, 'epoch_name': 'REFERENCE'}])
+        xfspec.append(['nems.xforms.fit_state_init', {}])
+        xfspec.append(['nems.xforms.fit_nfold', {'ftol': 1e-5}])
         xfspec.append(['nems.xforms.predict', {}])
 
     elif fitkey == "state01-jk-shr":
