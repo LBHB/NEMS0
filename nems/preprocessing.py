@@ -262,11 +262,11 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     '''
 
     resp = rec['resp'].rasterize()
-
+    nCells = len(resp.chans)
     # compute spont rate during valid (non-masked) trials
     prestimsilence = resp.extract_epoch('PreStimSilence')
     if 'mask' in rec.signals.keys():
-        prestimmask = rec['mask'].extract_epoch('PreStimSilence')
+        prestimmask = np.tile(rec['mask'].extract_epoch('PreStimSilence'), [1, nCells, 1])
         prestimsilence[prestimmask == False] = np.nan
 
     if len(prestimsilence.shape) == 3:
@@ -286,6 +286,7 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
         log.info('masking out invalid time bins before PSTH calc')
         folded_mask = rec['mask'].extract_epochs(epochs_to_extract)
         for k, m in folded_mask.items():
+            m = np.tile(m, [1, nCells, 1])
             folded_matrices[k][m == False] = np.nan
 
     # 2. Average over all reps of each stim and save into dict called psth.
