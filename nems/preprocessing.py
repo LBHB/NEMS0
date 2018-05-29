@@ -205,11 +205,12 @@ def mask_all_but_correct_references(rec):
     TODO: Migrate to nems_lbhb and/or make a more generic version
     """
 
-    newrec = rec.or_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
-    newrec = newrec.and_mask(['REFERENCE'])
-
+    newrec = rec.copy()
     newrec['resp'] = newrec['resp'].rasterize()
     newrec['stim'] = newrec['stim'].rasterize()
+
+    newrec = newrec.or_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
+    newrec = newrec.and_mask(['REFERENCE'])
 
     return newrec
 
