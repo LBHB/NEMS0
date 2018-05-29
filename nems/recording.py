@@ -588,23 +588,18 @@ class Recording:
         else:
             idx_data = idx_data.reshape(njacks, nrows)
 
-        mask = np.zeros_like(m_data, dtype=np.bool)
-        mask2 = np.zeros_like(m_data, dtype=np.bool)
-
-        for e in epochs:
-            lb, ub = e
-            mask2[:, lb:ub] = True
-
+        # jmask = bins that should be excluded, on top of whatever is already
+        # False in m_data
+        jmask = np.zeros_like(m_data, dtype=np.bool)
         for idx in idx_data[jack_idx].tolist():
             if idx < occurrences:
                 lb, ub = epochs[idx]
-                mask[:, lb:ub] = True
+                jmask[:, lb:ub] = True
 
         if invert:
-            mask = ~mask
+            jmask = ~jmask
 
-        m_data[mask] = False
-        m_data[~mask2] = False
+        m_data[jmask] = False
 
         rec['mask'] = rec['mask']._modified_copy(m_data)
 
@@ -852,7 +847,7 @@ class Recording:
         while i < last_ind:
             if i == 0:
                 if rec['mask']._data.squeeze()[0] == True:
-                    print('hello')
+                    # print('hello')
                     s.append(0)
                     e.append(s_indices[i])
                     i+=1
@@ -1126,31 +1121,37 @@ def load_recording_from_arrays(arrays, rec_name, fs, sig_names=None,
 def jackknife_inverse_merge(rec_list):
     '''
     merges list of jackknife validation data into a signal recording
+    
+    currently two different approaches, depending on whether mask signal
+    is present.
     '''
     if type(rec_list) is not list:
         raise ValueError('Expecting list of recordings')
 
-    sig_list = rec_list[0].signals.keys()
+    sig_list = list(rec_list[0].signals.keys())
     if 'mask' in sig_list:
         # new system: using mask==True to identify valid segment from
         # each signal  -- only pred and mask, since those are the only
         # ones that should be modified???
-        new_sigs = rec_list[0].signals
+        new_sigs = {}
 
         #for sn in ['pred', 'mask', 'stim', 'psth']:
         for sn in sig_list:
-            if sn == 'mask':
-                _data = np.zeros(rec_list[0][sn].shape, dtype=np.bool)
-            elif sn in new_sigs:
-                _data = np.zeros(rec_list[0][sn].shape)
-                _data[:] = np.nan
-
             if sn in sig_list:
+                _data = np.zeros(rec_list[0][sn].shape, dtype=rec_list[0][sn]._data.dtype)
+                if not(rec_list[0][sn]._data.dtype == bool):
+                    _data[:] = np.nan
+
+                # print(sn)
+                # print(np.sum(np.isfinite(_data)))
                 for r in rec_list:
                     m = r['mask'].as_continuous()[0, :]
                     _data[:, m] = r[sn].as_continuous()[:, m]
-
+                    # if sn=='pred':
+                    #    print(np.sum(m))
+                    #    print(np.sum(np.isfinite(_data)))
                 new_sigs[sn] = r[sn]._modified_copy(_data)
+                # print(np.sum(np.isfinite(new_sigs[sn].as_continuous())))
     else:
         new_sigs = {}
         for sn in sig_list:

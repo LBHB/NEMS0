@@ -961,7 +961,11 @@ class RasterizedSignal(SignalBase):
 
         data = self.as_continuous()
         n_chans = data.shape[0]
-        epoch_data = np.full((n_epochs, n_chans, n_samples), np.nan)
+        if data.dtype == bool:
+            epoch_data = np.full((n_epochs, n_chans, n_samples), False, 
+                                 dtype=bool)
+        else:
+            epoch_data = np.full((n_epochs, n_chans, n_samples), np.nan)
         # print(epoch)
         for i, (lb, ub) in enumerate(epoch_indices):
             samples = ub-lb
@@ -1319,10 +1323,15 @@ class RasterizedSignal(SignalBase):
         '''
         Returns a new signal, created by replacing every occurrence of epochs
         in this signal with whatever is found in the replacement_dict under
-        the same epoch_name key. Dict values are assumed to be 2D matrices.
+        the same epoch_name key. Dict values are assumed to be 2D matrices
+        (same signal for each occurence) or 3D (different signal for each 
+        occurence).
 
+        NOTE: segments of the signal outside of any matching epoch are
+        set to np.nan
+        
         If the replacement matrix shape is not the same as the original
-        epoch being replaced, an exception will be thrown.
+        epoch being replaced, it will be truncated.
 
         If overlapping epochs are defined, then they will be replaced in
         the order present in the epochs dataframe (i.e. sorting your
@@ -1334,25 +1343,33 @@ class RasterizedSignal(SignalBase):
         data = self.as_continuous().copy()
         if preserve_nan:
             nan_bins = np.isnan(data[0, :])
+            
+        # intialize with nans so that any subsequent prediction will be
+        # restricted to the specified epochs
+        data[:] = np.nan
+        
         for epoch, epoch_data in epoch_dict.items():
             indices = self.get_epoch_indices(epoch)
             if epoch_data.ndim == 2:
+                # ndim==2: single PSTH to be inserted in every matching epoch
                 for lb, ub in indices:
                     # SVD kludge to deal with rounding from floating-point time
-                    # to integer bin index
-                    if ub-lb < epoch_data.shape[1]:
-                        # epoch data may be too long bc padded with nans,
-                        # truncate!
-                        epoch_data = epoch_data[:, 0:(ub-lb)]
-                        # ub += epoch_data.shape[1]-(ub-lb)
-                    elif ub-lb > epoch_data.shape[1]:
-                        ub -= (ub-lb)-epoch_data.shape[1]
-                    if ub > data.shape[1]:
-                        ub -= ub-data.shape[1]
-                        epoch_data = epoch_data[:, 0:(ub-lb)]
-                    data[:, lb:ub] = epoch_data
+                    # to integer bin index --- DEPRECATED????
+#                    if ub-lb < epoch_data.shape[1]:
+#                        # epoch data may be too long bc padded with nans,
+#                        # truncate!
+#                        epoch_data = epoch_data[:, 0:(ub-lb)]
+#                        # ub += epoch_data.shape[1]-(ub-lb)
+#                    elif ub-lb > epoch_data.shape[1]:
+#                        ub -= (ub-lb)-epoch_data.shape[1]
+#                    if ub > data.shape[1]:
+#                        ub -= ub-data.shape[1]
+#                        epoch_data = epoch_data[:, 0:(ub-lb)]
+                    data[:, lb:ub] = epoch_data[:, :(ub-lb)]
 
             else:
+                # ndim==3: different segment to insert for each epoch
+                # (assume epoch_data.shape[1] == len(indices))
                 ii = 0
                 for lb, ub in indices:
                     n = ub-lb
@@ -1361,6 +1378,7 @@ class RasterizedSignal(SignalBase):
 
         if preserve_nan:
             data[:, nan_bins] = np.nan
+            
         return self._modified_copy(data)
 
     def select_epoch(self, epoch):
