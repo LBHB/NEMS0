@@ -141,6 +141,17 @@ def generate_loader_xfspec(loader, recording_uri):
                       ['nems.xforms.remove_all_but_correct_references', {}],
                       ['nems.xforms.generate_psth_from_resp',
                        {'smooth_resp': True}]]
+
+        elif loader.startswith("psthm"):
+            xfspec = [['nems.xforms.load_recordings',
+                       {'recording_uri_list': recordings}],
+                      ['nems.xforms.make_state_signal',
+                       {'state_signals': state_signals,
+                        'permute_signals': permute_signals,
+                        'new_signalname': 'state'}],
+                      ['nems.xforms.mask_all_but_correct_references', {}],
+                      ['nems.xforms.generate_psth_from_resp', {}]]
+
         elif loader.startswith("psth"):
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
@@ -241,6 +252,15 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
 
         log.info("n-fold fitting...")
         xfspec.append(['nems.xforms.split_for_jackknife',
+                       {'njacks': pfolds, 'epoch_name': 'REFERENCE'}])
+        # xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
+        xfspec.append(['nems.xforms.fit_nfold', {}])
+        xfspec.append(['nems.xforms.predict', {}])
+
+    elif (fitkey == "fitpjk01") or (fitkey == "basic-nfm"):
+
+        log.info("n-fold fitting...")
+        xfspec.append(['nems.xforms.mask_for_jackknife',
                        {'njacks': pfolds, 'epoch_name': 'REFERENCE'}])
         # xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
         xfspec.append(['nems.xforms.fit_nfold', {}])

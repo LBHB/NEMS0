@@ -576,6 +576,30 @@ class SignalBase:
                                          overlapping_epoch=overlapping_epoch)
                 for name in epoch_names}
 
+    def generate_epoch_mask(self, epoch=True):
+
+        if epoch == True:
+            mask = np.ones([1, self.ntimes], dtype=np.bool)
+
+        elif epoch == False:
+            mask = np.zeros([1, self.ntimes], dtype=np.bool)
+
+        elif type(epoch) is str:
+            mask = np.zeros([1, self.ntimes], dtype=np.bool)
+
+            # assuming defaults for boundary_mask and fix_overlap!
+            indices = self.get_epoch_indices(epoch)
+            for lb, ub in indices:
+                mask[:, lb:ub] = True
+
+        elif type(epoch) is np.ndarray:
+            mask = np.zeros([1, self.ntimes], dtype=np.bool)
+
+            for (lb, ub) in epoch:
+                mask[:, lb:ub] = True
+
+        return mask
+
     def epoch_to_signal(self, epoch, boundary_mode='exclude',
                         fix_overlap='merge'):
         '''
@@ -641,7 +665,8 @@ class SignalBase:
             bound (in seconds) of the time subset to extract. This should return
             a new signal containing only the subset of desired data.
         '''
-        raise NotImplementedError
+        s = self.rasterize()
+        return s.select_times(times)
 
     def select_channels(self, channels):
         '''

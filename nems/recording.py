@@ -508,6 +508,108 @@ class Recording:
         hi_rep_epochs = groups[n_occurrences[1]]
         return self.split_by_epochs(lo_rep_epochs, hi_rep_epochs)
 
+    def jackknife_mask_by_epoch(self, njacks, jack_idx, epoch_name,
+                           tiled=True,invert=False):
+        '''
+        Creates mask or updates existing mask, with subset of epochs
+          matching epoch_name set to False
+
+        Optional argument 'invert' causes everything BUT the matched epochs
+        to be NaN'd. njacks determines the number of jackknifes to divide
+        the epochs into, and jack_idx determines which one to return.
+
+        'Tiled' makes each jackknife use every njacks'th occurrence, and is
+        probably best explained by the following example...
+
+        If there are 18 occurrences of an epoch, njacks=5, invert=False,
+        and tiled=True, then the five jackknifes will have these
+        epochs NaN'd out:
+
+           jacknife[0]:  0, 5, 10, 15
+           jacknife[1]:  1, 6, 11, 16
+           jacknife[2]:  2, 7, 12, 17
+           jacknife[3]:  3, 8, 13
+           jacknife[4]:  4, 9, 14
+
+        Note that the last two jackknifes have one fewer occurrences.
+
+        If tiled=False, then the pattern of NaN'd epochs becomes sequential:
+
+           jacknife[0]:   0,  1,  2,  3
+           jacknife[1]:   4,  5,  6,  7,
+           jacknife[2]:   8,  9, 10, 11,
+           jacknife[3]:  12, 13, 14, 15,
+           jacknife[4]:  16, 17
+
+        Here we can see the last jackknife has 2 fewer occurrences.
+        '''
+
+        # find all matching epochs
+
+        if 'mask' not in self.signals.keys():
+            rec = self.create_mask(True)
+
+            # initialize mask to be all True
+            m_data = rec['mask'].as_continuous().copy()
+            epochs = rec['mask'].get_epoch_indices(epoch_name)
+
+        else:
+            # only keep epochs matching mask
+            rec = self.copy()
+
+            # only keep epoch matching mask
+            m_data = rec['mask'].as_continuous().copy()
+            all_epochs = rec['mask'].get_epoch_indices(epoch_name)
+
+            epochs = np.zeros([0, 2], dtype=np.int32)
+            for lb, ub in all_epochs:
+                if np.sum(1 - (m_data[0, lb:ub])) == 0:
+                    epochs = np.append(epochs, [[lb, ub]], axis=0)
+
+        occurrences, _ = epochs.shape
+
+        if occurrences == 0:
+            m = 'No epochs found matching epoch_name. Unable to jackknife.'
+            raise ValueError(m)
+
+        if occurrences < njacks:
+            raise ValueError("Can't divide {0} occurrences into {1} jackknifes"
+                             .format(occurrences, njacks))
+
+        if jack_idx < 0 or njacks < 0:
+            raise ValueError("Neither jack_idx nor njacks may be negative")
+
+        nrows = np.int(np.ceil(occurrences / njacks))
+        idx_data = np.arange(nrows * njacks)
+
+        if tiled:
+            idx_data = idx_data.reshape(nrows, njacks)
+            idx_data = np.swapaxes(idx_data, 0, 1)
+        else:
+            idx_data = idx_data.reshape(njacks, nrows)
+
+        mask = np.zeros_like(m_data, dtype=np.bool)
+        mask2 = np.zeros_like(m_data, dtype=np.bool)
+
+        for e in epochs:
+            lb, ub = e
+            mask2[:, lb:ub] = True
+
+        for idx in idx_data[jack_idx].tolist():
+            if idx < occurrences:
+                lb, ub = epochs[idx]
+                mask[:, lb:ub] = True
+
+        if invert:
+            mask = ~mask
+
+        m_data[mask] = False
+        m_data[~mask2] = False
+
+        rec['mask'] = rec['mask']._modified_copy(m_data)
+
+        return rec
+
     def jackknife_by_epoch(self, njacks, jack_idx, epoch_name,
                            tiled=True,invert=False,
                            only_signals=None, excise=False):
@@ -615,7 +717,6 @@ class Recording:
 
         return Recording(newsigs)
 
-
     def nan_times(self, times, padding=0):
 
         if padding != 0:
@@ -625,145 +726,128 @@ class Recording:
         newsigs = {n: s.nan_times(times) for n, s in self.signals.items()}
 
         return Recording(newsigs)
-    
-    
-    def create_mask(self):
-        ''' 
+
+    def create_mask(self, epoch=None, base_signal=None):
+        '''
         Initialize mask signal to False for all times
-        '''     
-        
-        rec = copy.deepcopy(self)
-        sig_name = list(rec.signals.keys())[0]
-        sig = copy.deepcopy(rec[sig_name])
-        
-        data = (np.ones(sig.shape[1])*False).astype(bool)[np.newaxis, :]
-        
-        mask = RasterizedSignal(fs=sig.fs,
-                                data=data,
-                                name="mask",
-                                recording=rec.name)
-        mask.epochs = rec.epochs
-        rec.add_signal(mask)
-        
+
+        TODO: remove unnecessary deepcopys from this and subsequent functions
+        TODO: add epochs, base signal parameters
+           if epochs not None, call self.or_mask
+        '''
+
+        rec = self.copy()
+        if base_signal is None:
+            sig_name = list(rec.signals.keys())[0]
+            base_signal = rec[sig_name]
+
+        if epoch is None:
+            mask = np.zeros([1, base_signal.ntimes], dtype=np.bool)
+        else:
+            mask = base_signal.generate_epoch_mask(epoch)
+
+        mask_sig = base_signal._modified_copy(mask)
+        mask_sig.name = 'mask'
+
+        rec.add_signal(mask_sig)
+
         return rec
 
-    
-    def or_mask(self, list_of_epoch_names, invert=False):
+    def or_mask(self, epoch, invert=False):
         '''
-        list of epoch names can be either list of epoch names or simply an array 
+        epoch : string, list of strings, 2darray
+           epoch(s) can be either list of epoch names or simply an array
         of index segments to mask
-        
-        Make rec['mask'] == True for all epochs (or segs) in list of epoch 
+
+        Make rec['mask'] == True for all epochs (or segs) in list of epoch
         names.
-        
-        ex: 
-            rec.or_mask(['HIT_TRIAL', 'PASSIVE_EXPERIMENT']) will return a 
+
+        ex:
+            rec.or_mask(['HIT_TRIAL', 'PASSIVE_EXPERIMENT']) will return a
             new recording with rec['mask'] == True for all PASSIVE EXPERIMENT
             and all HIT TRIAL epochs
         '''
-        rec = copy.deepcopy(self)
-        
-        sig_name = list(rec.signals.keys())[0]
-        sig = copy.deepcopy(rec[sig_name])
-        
-        if type(list_of_epoch_names) is list:
-            masks = rec['mask']._data.squeeze()
-            for epoch in list_of_epoch_names:
-                m = sig.epoch_to_signal(epoch).as_continuous()
-                masks = np.vstack((masks,m))
-         
-            # Perform OR operation
-            mask = [bool(index) for index in list(np.sum(masks,axis=0))]
-            
-        elif type(list_of_epoch_names) is np.ndarray:   
-            mask = rec['mask']._data.squeeze()
-            for (lb, ub) in list_of_epoch_names:
-                mask[lb:ub] = True
-            
-        # Invert 
-        if invert is True:
-            mask = ~np.array(mask)[np.newaxis,:]
-        elif invert is False:
-            mask = np.array(mask)[np.newaxis,:]
-        
-        rec['mask'] = rec['mask']._modified_copy(mask)
-        
+        if 'mask' not in self.signals.keys():
+            rec = self.create_mask(False)
+        else:
+            rec = self.copy()
+
+        if (type(epoch) is str) or (type(epoch) is np.ndarray):
+            or_mask = rec['mask'].generate_epoch_mask(epoch)
+
+        elif type(epoch) is list:
+            or_mask = rec['mask'].generate_epoch_mask(epoch[0])
+
+            for e in epoch[1:]:
+                or_mask = or_mask | rec['mask'].generate_epoch_mask(e)
+
+        # Invert
+        if invert:
+            or_mask = not(or_mask)
+
+        # apply or_mask to existing mask
+        m = rec['mask'].as_continuous()
+        rec['mask'] = rec['mask']._modified_copy(m | or_mask)
+
         return rec
-        
-   
-    def and_mask(self, list_of_epoch_names, invert=False):
+
+    def and_mask(self, epoch, invert=False):
         '''
-        list of epoch names can be either list of epoch names or simply an array 
+        list of epoch names can be either list of epoch names or simply an array
         of index segments to mask
-                
-        
-        Make mask == True for all epochs (or index segments) in list of epoch 
+
+
+        Make mask == True for all epochs (or index segments) in list of epoch
         names where current mask is also true.
-        
+
         example use:
             newrec = rec.or_mask(['ACTIVE_EXPERIMENT'])
             newrec = rec.and_mask(['REFERENCE', 'TARGET'])
-            
-            newrec['mask'] == True only during REFERENCE and TARGET epochs 
+
+            newrec['mask'] == True only during REFERENCE and TARGET epochs
             contained within ACTIVE_EXPERIMENT epochs
         '''
-        rec = copy.deepcopy(self)
-        
-        sig_name = list(rec.signals.keys())[0]
-        sig = copy.deepcopy(rec[sig_name])
-        
-        current_mask = rec['mask']._data.squeeze()
-        
-        if type(list_of_epoch_names) is list:
-            # Make OR mask for input epoch list
-            for i, epoch in enumerate(list_of_epoch_names):
-                if i == 0:
-                    or_mask = sig.epoch_to_signal(epoch).as_continuous()
-                else:
-                    m = sig.epoch_to_signal(epoch).as_continuous()
-                    or_mask = np.vstack((or_mask, m))
-                    
-            # Perform OR operation
-            or_mask = [bool(index) for index in list(np.sum(or_mask,axis=0))]
-            
-                
-        elif type(list_of_epoch_names) is np.ndarray:
-            or_mask = np.full((sig.shape[1]), False)
-            for (lb, ub) in list_of_epoch_names:
-                or_mask[lb:ub] = True
-            
-        # Invert 
-        if invert is True:
-            or_mask = ~np.array(or_mask)[np.newaxis,:]
-        elif invert is False:
-            or_mask = np.array(or_mask)[np.newaxis,:]    
-            
-        # Perform AND operation with current mask
-        mask = np.multiply(current_mask, or_mask)
-        
-        rec['mask'] = rec['mask']._modified_copy(mask)
-        
+        if 'mask' not in self.signals.keys():
+            rec = self.create_mask(True)
+        else:
+            rec = self.copy()
+
+        if (type(epoch) is str) or (type(epoch) is np.ndarray):
+            and_mask = rec['mask'].generate_epoch_mask(epoch)
+
+        elif type(epoch) is list:
+            and_mask = rec['mask'].generate_epoch_mask(epoch[0])
+
+            for e in epoch[1:]:
+                and_mask = and_mask | rec['mask'].generate_epoch_mask(e)
+
+        # Invert
+        if invert:
+            and_mask = not(and_mask)
+
+        # apply and_mask to existing mask
+        m = rec['mask'].as_continuous()
+        rec['mask'] = rec['mask']._modified_copy(m & and_mask)
+
         return rec
-    
-    
+
     def apply_mask(self):
         '''
         Used to excise data based on boolean called mask. Returns new recording
         with only data specified mask. To make mask, see "create_epoch_mask"
         '''
-        rec = copy.deepcopy(self)
-        sig = copy.deepcopy(rec.signals[list(rec.signals.keys())[0]])
-        if 'mask' not in rec.signals.keys():
+        if 'mask' not in self.signals.keys():
             raise ValueError('Need to create a mask signal first')
-        else:
-            pass
-        
+
+        rec = copy.deepcopy(self)
+        sig = rec['mask']
+
         s_indices = np.argwhere(np.diff(rec['mask']._data.squeeze())).squeeze()+1
         last_ind = len(s_indices)-1
 
         s = []
         e = []
-    
+
         i = 0
         while i < last_ind:
             if i == 0:
@@ -780,12 +864,12 @@ class Recording:
                 s.append(s_indices[i])
                 e.append(s_indices[i+1])
                 i+=2
-    
+
         times = (np.vstack((np.array(s), np.array(e)))/sig.fs).T
         if times[-1,1]==times[-1,0]:
             times = times[:-1,:]
-        
-        newrec = rec.select_times(np.array(np.array(times.tolist())))  
+
+        newrec = rec.select_times(np.array(np.array(times.tolist())))
         return newrec
 
 ## I/O functions
@@ -1045,10 +1129,33 @@ def jackknife_inverse_merge(rec_list):
     '''
     if type(rec_list) is not list:
         raise ValueError('Expecting list of recordings')
-    new_sigs = {}
-    rec1=rec_list[0]
-    for sn in rec1.signals.keys():
-        sig_list=[r[sn] for r in rec_list]
-        #new_sigs[sn]=sig_list[0].jackknife_inverse_merge(sig_list)
-        new_sigs[sn]=merge_selections(sig_list)
+
+    sig_list = rec_list[0].signals.keys()
+    if 'mask' in sig_list:
+        # new system: using mask==True to identify valid segment from
+        # each signal  -- only pred and mask, since those are the only
+        # ones that should be modified???
+        new_sigs = rec_list[0].signals
+
+        #for sn in ['pred', 'mask', 'stim', 'psth']:
+        for sn in sig_list:
+            if sn == 'mask':
+                _data = np.zeros(rec_list[0][sn].shape, dtype=np.bool)
+            elif sn in new_sigs:
+                _data = np.zeros(rec_list[0][sn].shape)
+                _data[:] = np.nan
+
+            if sn in sig_list:
+                for r in rec_list:
+                    m = r['mask'].as_continuous()[0, :]
+                    _data[:, m] = r[sn].as_continuous()[:, m]
+
+                new_sigs[sn] = r[sn]._modified_copy(_data)
+    else:
+        new_sigs = {}
+        for sn in sig_list:
+            sig_list=[r[sn] for r in rec_list]
+            #new_sigs[sn]=sig_list[0].jackknife_inverse_merge(sig_list)
+            new_sigs[sn]=merge_selections(sig_list)
+
     return Recording(signals=new_sigs)

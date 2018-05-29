@@ -176,6 +176,16 @@ def remove_all_but_correct_references(rec, **context):
     return {'rec': rec}
 
 
+def mask_all_but_correct_references(rec, **context):
+    '''
+    find REFERENCE epochs spanned by either PASSIVE_EXPERIMENT or
+    HIT_TRIAL epochs. mask out all other segments from signals in rec
+    '''
+    rec = preproc.mask_all_but_correct_references(rec)
+
+    return {'rec': rec}
+
+
 def generate_psth_from_resp(rec, epoch_regex='^STIM_',
                             smooth_resp=False, **context):
     '''
@@ -247,6 +257,20 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
         preproc.split_est_val_for_jackknife(rec, modelspecs=modelspecs,
                                             epoch_name=epoch_name,
                                             njacks=njacks, IsReload=IsReload)
+    if IsReload:
+        return {'est': est_out, 'val': val_out}
+    else:
+        return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
+
+
+
+def mask_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
+                        njacks=10, IsReload=False, **context):
+
+    est_out, val_out, modelspecs_out = \
+        preproc.mask_est_val_for_jackknife(rec, modelspecs=modelspecs,
+                                           epoch_name=epoch_name,
+                                           njacks=njacks, IsReload=IsReload)
     if IsReload:
         return {'est': est_out, 'val': val_out}
     else:

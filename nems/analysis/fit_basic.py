@@ -57,6 +57,11 @@ def fit_basic(data, modelspec,
                 m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
                 modelspec[i] = m
 
+    if 'mask' in data.signals.keys():
+        log.info("Data len pre-mask: %d", data['mask'].shape[1])
+        data = data.apply_mask()
+        log.info("Data len post-mask: %d", data['mask'].shape[1])
+
     ms.fit_mode_on(modelspec)
 
     # Create the mapper object that translates to and from modelspecs.
