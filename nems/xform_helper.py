@@ -255,7 +255,7 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
         xfspec.append(['nems.xforms.mask_for_jackknife',
                        {'njacks': 5, 'epoch_name': 'REFERENCE'}])
         xfspec.append(['nems.xforms.fit_state_init', {}])
-        xfspec.append(['nems.xforms.fit_nfold', {'ftol': 1e-5}])
+        xfspec.append(['nems.xforms.fit_nfold', {}])  # 'ftol': 1e-5
         xfspec.append(['nems.xforms.predict', {}])
 
     elif fitkey == "state01-jk-shr":
