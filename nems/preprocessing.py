@@ -168,15 +168,10 @@ def remove_invalid_segments(rec):
 
     sig = rec['resp']
 
-    # get list of start and stop times (epoch bounds)
-#    epoch_indices = np.vstack((
-#            ep.epoch_intersection(sig.get_epoch_bounds('HIT_TRIAL'),
-#                                  sig.get_epoch_bounds('REFERENCE')),
-#            ep.epoch_intersection(sig.get_epoch_bounds('REFERENCE'),
-#                                  sig.get_epoch_bounds('PASSIVE_EXPERIMENT'))))
+    # get list of start and stop indices (epoch bounds)
     epoch_indices = np.vstack((
-            ep.epoch_intersection(sig.get_epoch_indices('HIT_TRIAL'),
-                                  sig.get_epoch_indices('REFERENCE')),
+            ep.epoch_intersection(sig.get_epoch_indices('REFERENCE'),
+                                  sig.get_epoch_indices('HIT_TRIAL')),
             ep.epoch_intersection(sig.get_epoch_indices('REFERENCE'),
                                   sig.get_epoch_indices('PASSIVE_EXPERIMENT'))))
 
@@ -184,18 +179,39 @@ def remove_invalid_segments(rec):
     epoch_indices = ep.remove_overlap(epoch_indices)
 
     # merge any epochs that are directly adjacent
-    epoch_indices2 = epoch_indices[0:1, :]
+    epoch_indices2 = epoch_indices[0:1]
     for i in range(1, epoch_indices.shape[0]):
         if epoch_indices[i, 0] == epoch_indices2[-1, 1]:
-            epoch_indices2[-1, 1] = epoch_indices[i, 0]
+            epoch_indices2[-1, 1] = epoch_indices[i, 1]
         else:
-            epoch_indices2 = np.concatenate(
-                    (epoch_indices2, epoch_indices[i:(i + 1), :]), axis=0)
+            #epoch_indices2 = np.concatenate(
+             #       (epoch_indices2, epoch_indices[i:(i + 1), :]), axis=0)
+            epoch_indices2=np.append(epoch_indices2,epoch_indices[i:(i+1)], axis=0)
 
+    # convert back to times
     epoch_times = epoch_indices2 / sig.fs
 
     # add adjusted signals to the recording
     newrec = rec.select_times(epoch_times)
+
+    return newrec
+
+
+def mask_all_but_correct_references(rec):
+    """
+    Specialized function for removing incorrect trials from data
+    collected using baphy during behavior.
+
+    TODO: Migrate to nems_lbhb and/or make a more generic version
+    """
+
+    newrec = rec.copy()
+    newrec['resp'] = newrec['resp'].rasterize()
+    if 'stim' in newrec.signals.keys():
+        newrec['stim'] = newrec['stim'].rasterize()
+
+    newrec = newrec.or_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
+    newrec = newrec.and_mask(['REFERENCE'])
 
     return newrec
 
@@ -243,12 +259,18 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     Estimates a PSTH from all responses to each regex match in a recording
 
     subtract spont rate based on pre-stim silence for ALL estimation data.
+
+    if rec['mask'] exists, uses rec['mask'] == True to determine valid epochs
     '''
 
     resp = rec['resp'].rasterize()
-
-    # compute PSTH response and spont rate during those valid trials
+    nCells = len(resp.chans)
+    # compute spont rate during valid (non-masked) trials
     prestimsilence = resp.extract_epoch('PreStimSilence')
+    if 'mask' in rec.signals.keys():
+        prestimmask = np.tile(rec['mask'].extract_epoch('PreStimSilence'), [1, nCells, 1])
+        prestimsilence[prestimmask == False] = np.nan
+
     if len(prestimsilence.shape) == 3:
         spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
     else:
@@ -259,8 +281,15 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     idx = resp.get_epoch_indices('PostStimSilence')
     postbins = idx[0][1] - idx[0][0]
 
+    # compute PSTH response during valid trials
     epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
     folded_matrices = resp.extract_epochs(epochs_to_extract)
+    if 'mask' in rec.signals.keys():
+        log.info('masking out invalid time bins before PSTH calc')
+        folded_mask = rec['mask'].extract_epochs(epochs_to_extract)
+        for k, m in folded_mask.items():
+            m = np.tile(m, [1, nCells, 1])
+            folded_matrices[k][m == False] = np.nan
 
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()
@@ -473,6 +502,39 @@ def split_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
                                        tiled=True)]
         val += [rec.jackknife_by_epoch(njacks, i, epoch_name,
                                        tiled=True, invert=True)]
+
+    modelspecs_out = []
+    if (not IsReload) and (modelspecs is not None):
+        if len(modelspecs) == 1:
+            modelspecs_out = [copy.deepcopy(modelspecs[0])
+                              for i in range(njacks)]
+        elif len(modelspecs) == njacks:
+            # assume modelspecs already generated for njacks
+            modelspecs_out = modelspecs
+        else:
+            raise ValueError('modelspecs must be len 1 or njacks')
+
+    return est, val, modelspecs_out
+
+
+def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
+                               njacks=10, IsReload=False, **context):
+    """
+    take a single recording (est) and define njacks est/val sets using a
+    jackknife logic. returns lists est_out and val_out of corresponding
+    jackknife subsamples. removed timepoints are replaced with nan
+    """
+    est = []
+    val = []
+    # logging.info("Generating {} jackknifes".format(njacks))
+
+    for i in range(njacks):
+        # est_out += [est.jackknife_by_time(njacks, i)]
+        # val_out += [est.jackknife_by_time(njacks, i, invert=True)]
+        est += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
+                                            tiled=True)]
+        val += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
+                                            tiled=True, invert=True)]
 
     modelspecs_out = []
     if (not IsReload) and (modelspecs is not None):

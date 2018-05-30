@@ -291,7 +291,7 @@ def epoch_intersection(a, b):
                 lb_b, ub_b = b.pop()
             except IndexError:
                 break
-        elif (lb <= lb_b) and (ub <= ub_b):
+        elif (lb <= lb_b) and (ub >= lb_b) and (ub <= ub_b):
             #   [  a    ]
             #     [ b        ]
             # Current epoch in b begins in a, but extends past a.
@@ -309,7 +309,7 @@ def epoch_intersection(a, b):
                 lb, ub = a.pop()
             except IndexError:
                 break
-        elif (ub > lb_b) and (lb > ub_b):
+        elif (ub > lb_b) and (ub < ub_b) and (lb > ub_b):
             #   [  a    ]
             # [ b    ]
             intersection.append((lb, ub_b))
@@ -324,8 +324,8 @@ def epoch_intersection(a, b):
             raise SystemError(m)
 
     # Add all remaining epochs from a
-    intersection.extend(a[::-1])
-    result = np.array(intersection)
+    #intersection.extend(a[::-1])
+    result = np.array(intersection, dtype=np.int32)
     if result.size == 0:
         log.warning("Epochs did not intersect, resulting array"
                     " is empty.")

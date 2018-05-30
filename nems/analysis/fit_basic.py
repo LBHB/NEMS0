@@ -57,6 +57,11 @@ def fit_basic(data, modelspec,
                 m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
                 modelspec[i] = m
 
+    if 'mask' in data.signals.keys():
+        log.info("Data len pre-mask: %d", data['mask'].shape[1])
+        data = data.apply_mask()
+        log.info("Data len post-mask: %d", data['mask'].shape[1])
+
     ms.fit_mode_on(modelspec)
 
     # Create the mapper object that translates to and from modelspecs.
@@ -170,7 +175,9 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
         else:
             msidx = 0
 
-        log.info("Fitting fold %d/%d from modelspec %d", i+1, nfolds, msidx)
+        log.info("Fitting fold %d/%d, modelspec %d (ftol=%e, maxit=%d)",
+                 i+1, nfolds, msidx, fit_kwargs['options']['ftol'],
+                 fit_kwargs['options']['maxiter'])
 #        resp = data_list[i]['resp']
 #        resp_len = np.sum(np.isfinite(resp.as_continuous()))
 #        log.info("non-nan resp samples: %d", resp_len)

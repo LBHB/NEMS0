@@ -6,8 +6,8 @@ import nems.modelspec as ms
 log = logging.getLogger(__name__)
 
 
-def plot_heatmap(array, xlabel='Dim One', ylabel='Dim Two',
-                 ax=None, cmap=None, clim=None, skip=0, title=None):
+def plot_heatmap(array, xlabel='Time', ylabel='Channel',
+                 ax=None, cmap=None, clim=None, skip=0, title=None, fs=None):
     '''
     A wrapper for matplotlib's plt.imshow() to ensure consistent formatting.
     '''
@@ -21,17 +21,21 @@ def plot_heatmap(array, xlabel='Dim One', ylabel='Dim Two',
         mmax = np.nanmax(np.abs(array.reshape(-1)))
         clim = [-mmax, mmax]
 
+    if fs is not None:
+        extent = [0.5/fs, (array.shape[1]+0.5)/fs, 0.5, array.shape[0]+0.5]
+    else:
+        extent = None
+
     plt.imshow(array, aspect='auto', origin='lower',
-               cmap=plt.get_cmap('jet'),
-               clim=clim,
-               interpolation='none')
+               cmap=plt.get_cmap('jet'), clim=clim,
+               interpolation='none', extent=extent)
 
     # Force integer tick labels, skipping gaps
-    y, x = array.shape
+    #y, x = array.shape
 
-    plt.xticks(np.arange(skip, x), np.arange(0, x-skip))
+    #plt.xticks(np.arange(skip, x), np.arange(0, x-skip))
     #plt.xticklabels(np.arange(0, x-skip))
-    plt.yticks(np.arange(skip, y), np.arange(0, y-skip))
+    #plt.yticks(np.arange(skip, y), np.arange(0, y-skip))
     #plt.yticklabels(np.arange(0, y-skip))
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
@@ -77,7 +81,7 @@ def fir_heatmap(modelspec, ax=None, clim=None, title=None):
 
 
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
-                 title=None):
+                 title=None, fs=None):
     wcc = _get_wc_coefficients(modelspec)
     firc = _get_fir_coefficients(modelspec)
     if wcc is None and firc is None:
@@ -92,7 +96,11 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
     else:
         wc_coefs = np.array(wcc).T
         fir_coefs = np.array(firc)
-        strf = wc_coefs @ fir_coefs
+        if wc_coefs.shape[1] == fir_coefs.shape[0]:
+            strf = wc_coefs @ fir_coefs
+        else:
+            strf = fir_coefs
+            show_factorized = False
 
     if not clim:
         cscale = np.nanmax(np.abs(strf.reshape(-1)))
@@ -124,5 +132,5 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
         everything = strf
         skip = 0
 
-    plot_heatmap(everything, xlabel='Time Bin',
-                 ylabel='Channel In', ax=ax, skip=skip, title=title)
+    plot_heatmap(everything, xlabel='Lag (s)',
+                 ylabel='Channel In', ax=ax, skip=skip, title=title, fs=fs)

@@ -302,8 +302,8 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
             # fn = before_and_after_psth(rec, modelspec, idx, sig_name='pred',
             #                           epoch=epoch, occurrences=occurrence,
             #                           channels=channels, mod_name='STP')
-            fn = partial(before_and_after_stp, rec, modelspec, sig_name='pred',
-                         channels=channels, title='STP')
+            fn = partial(before_and_after_stp, modelspec, sig_name='pred',
+                         channels=channels, title='STP', fs=rec['resp'].fs)
             plot = (fn, 1)
             plot_fns.append(plot)
 

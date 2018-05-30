@@ -79,6 +79,11 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
 
     fs = rec[psth_name].fs
 
+    d = rec[psth_name].get_epoch_bounds('PreStimSilence')
+    PreStimSilence = np.mean(np.diff(d)) - 0.5/fs
+    d = rec[psth_name].get_epoch_bounds('PostStimSilence')
+    PostStimSilence = np.mean(np.diff(d)) - 0.5/fs
+
     full_psth = rec[psth_name]
     folded_psth = full_psth.extract_epoch(epoch)
     if psth_name2 is not None:
@@ -86,10 +91,23 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
         folded_psth2 = full_psth2.extract_epoch(epoch)
 
     full_var = rec['state'].loc[state_sig]
-    folded_var = np.squeeze(full_var.extract_epoch(epoch))
+    folded_var = full_var.extract_epoch(epoch)
+    
+    # remove masked out occurences if mask signal exists
+    if 'mask' in rec.signals.keys():
+        folded_mask = rec['mask'].extract_epoch(epoch)
+        keep_occurences = folded_mask[:,0,0]
+        folded_psth=folded_psth[keep_occurences, :, :]
+        folded_psth2=folded_psth2[keep_occurences, :, :]
+        folded_var=folded_var[keep_occurences, :, :]
+
+        # print(state_sig)
+        # print(folded_var.shape)
+        # print(folded_mask.shape)
+        # print(np.sum(np.isfinite(folded_mask)))
 
     # compute the mean state for each occurrence
-    m = np.nanmean(folded_var, axis=1)
+    m = np.nanmean(folded_var[:,0,:], axis=1)
 
     # compute the mean state across all occurrences
     mean = np.nanmean(m)
@@ -116,13 +134,18 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
             legend = ('< Mean', '>= Mean')
 
         timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
-                                legend=legend)
+                                legend=legend, time_offset=PreStimSilence)
         timeseries_from_vectors([low2, high2], fs=fs, title=title, ax=ax,
-                                linestyle='--')
+                                linestyle='--', time_offset=PreStimSilence)
     else:
-        timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax)
+        timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
+                                time_offset=PreStimSilence)
         timeseries_from_vectors([low2, high2], fs=fs, title=title, ax=ax,
-                                linestyle='--')
+                                linestyle='--', time_offset=PreStimSilence)
+    ylim = ax.get_ylim()
+    xlim = ax.get_xlim()
+    ax.plot(np.array([0, 0]), ylim, 'k--')
+    ax.plot(np.array([0, 0])+(xlim[1]-PostStimSilence), ylim, 'k--')
 
     if state_sig == 'baseline':
         ax.set_xlabel(epoch)

@@ -101,7 +101,7 @@ def evaluate_step(xfa, context={}):
     return context_out
 
 
-def evaluate(xformspec, context={}, stop=None):
+def evaluate(xformspec, context={}, start=0, stop=None):
     '''
     Similar to modelspec.evaluate, but for xformspecs, which is a list of
     2-element lists of function and keyword arguments dict. Each XFORM must
@@ -124,7 +124,7 @@ def evaluate(xformspec, context={}, stop=None):
     rootlogger.addHandler(ch)
 
     # Evaluate the xforms
-    for xfa in xformspec[:stop]:
+    for xfa in xformspec[start:stop]:
         context = evaluate_step(xfa, context)
 
     # Close the log, remove the handler, and add the 'log' string to context
@@ -172,6 +172,16 @@ def remove_all_but_correct_references(rec, **context):
     HIT_TRIAL epochs. remove all other segments from signals in rec
     '''
     rec = preproc.remove_invalid_segments(rec)
+
+    return {'rec': rec}
+
+
+def mask_all_but_correct_references(rec, **context):
+    '''
+    find REFERENCE epochs spanned by either PASSIVE_EXPERIMENT or
+    HIT_TRIAL epochs. mask out all other segments from signals in rec
+    '''
+    rec = preproc.mask_all_but_correct_references(rec)
 
     return {'rec': rec}
 
@@ -231,13 +241,25 @@ def average_away_stim_occurrences_rec(rec, **context):
 
 def split_at_time(rec, fraction, **context):
     est, val = rec.split_at_time(fraction)
+    est['resp'] = est['resp'].rasterize()
+    est['stim'] = est['stim'].rasterize()
+    val['resp'] = val['resp'].rasterize()
+    val['stim'] = val['stim'].rasterize()
+
     return {'est': est, 'val': val}
 
 
 def use_all_data_for_est_and_val(rec, **context):
-    est = rec
-    val = rec
-    return {'est': est, 'val': val}
+    est = rec.copy()
+    val = rec.copy()
+    rec['resp'] = rec['resp'].rasterize()
+    rec['stim'] = rec['stim'].rasterize()
+    est['resp'] = est['resp'].rasterize()
+    est['stim'] = est['stim'].rasterize()
+    val['resp'] = val['resp'].rasterize()
+    val['stim'] = val['stim'].rasterize()
+
+    return {'rec': rec, 'est': est, 'val': val}
 
 
 def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
@@ -247,6 +269,20 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
         preproc.split_est_val_for_jackknife(rec, modelspecs=modelspecs,
                                             epoch_name=epoch_name,
                                             njacks=njacks, IsReload=IsReload)
+    if IsReload:
+        return {'est': est_out, 'val': val_out}
+    else:
+        return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
+
+
+
+def mask_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
+                        njacks=10, IsReload=False, **context):
+
+    est_out, val_out, modelspecs_out = \
+        preproc.mask_est_val_for_jackknife(rec, modelspecs=modelspecs,
+                                           epoch_name=epoch_name,
+                                           njacks=njacks, IsReload=IsReload)
     if IsReload:
         return {'est': est_out, 'val': val_out}
     else:
@@ -594,31 +630,28 @@ def fit_jackknifes(modelspecs, est, njacks,
     return {'modelspecs': modelspecs}
 
 
-def fit_nfold(modelspecs, est, IsReload=False, **context):
+def fit_nfold(modelspecs, est, ftol=1e-7, maxiter=1000,
+              IsReload=False, **context):
     ''' fitting n fold, one from each entry in est '''
     if not IsReload:
+        fit_kwargs = {'options': {'ftol': ftol, 'maxiter': maxiter}}
         modelspecs = nems.analysis.api.fit_nfold(
-                est, modelspecs, fitter=scipy_minimize)
+                est, modelspecs, fitter=scipy_minimize,
+                fit_kwargs=fit_kwargs)
     return {'modelspecs': modelspecs}
 
 
-def fit_state_nfold(modelspecs, est, IsReload=False, **context):
-    ''' fitting n fold, one from each entry in est '''
-    ''' DEPRECATED? REPLACE WITH fit_nfold? '''
-    if not IsReload:
-        modelspecs = nems.analysis.api.fit_nfold(
-                est, modelspecs, fitter=scipy_minimize)
-    return {'modelspecs': modelspecs}
-
-
-def fit_nfold_shrinkage(modelspecs, est, IsReload=False, **context):
+def fit_nfold_shrinkage(modelspecs, est, ftol=1e-7, maxiter=1000,
+                        IsReload=False, **context):
     ''' fitting n fold, one from each entry in est, use mse_shrink for
     cost function'''
     if not IsReload:
         metric = lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
+        fit_kwargs = {'options': {'ftol': ftol, 'maxiter': maxiter}}
         modelspecs = nems.analysis.api.fit_nfold(
                 est, modelspecs, metric=metric,
-                fitter=scipy_minimize)
+                fitter=scipy_minimize,
+                fit_kwargs=fit_kwargs)
     return {'modelspecs': modelspecs}
 
 
