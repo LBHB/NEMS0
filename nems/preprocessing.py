@@ -207,7 +207,8 @@ def mask_all_but_correct_references(rec):
 
     newrec = rec.copy()
     newrec['resp'] = newrec['resp'].rasterize()
-    newrec['stim'] = newrec['stim'].rasterize()
+    if 'stim' in newrec.signals.keys():
+        newrec['stim'] = newrec['stim'].rasterize()
 
     newrec = newrec.or_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
     newrec = newrec.and_mask(['REFERENCE'])

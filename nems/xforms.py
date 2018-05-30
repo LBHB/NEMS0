@@ -241,13 +241,25 @@ def average_away_stim_occurrences_rec(rec, **context):
 
 def split_at_time(rec, fraction, **context):
     est, val = rec.split_at_time(fraction)
+    est['resp'] = est['resp'].rasterize()
+    est['stim'] = est['stim'].rasterize()
+    val['resp'] = val['resp'].rasterize()
+    val['stim'] = val['stim'].rasterize()
+
     return {'est': est, 'val': val}
 
 
 def use_all_data_for_est_and_val(rec, **context):
-    est = rec
-    val = rec
-    return {'est': est, 'val': val}
+    est = rec.copy()
+    val = rec.copy()
+    rec['resp'] = rec['resp'].rasterize()
+    rec['stim'] = rec['stim'].rasterize()
+    est['resp'] = est['resp'].rasterize()
+    est['stim'] = est['stim'].rasterize()
+    val['resp'] = val['resp'].rasterize()
+    val['stim'] = val['stim'].rasterize()
+
+    return {'rec': rec, 'est': est, 'val': val}
 
 
 def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',

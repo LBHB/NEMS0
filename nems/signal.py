@@ -962,7 +962,7 @@ class RasterizedSignal(SignalBase):
         data = self.as_continuous()
         n_chans = data.shape[0]
         if data.dtype == bool:
-            epoch_data = np.full((n_epochs, n_chans, n_samples), False, 
+            epoch_data = np.full((n_epochs, n_chans, n_samples), False,
                                  dtype=bool)
         else:
             epoch_data = np.full((n_epochs, n_chans, n_samples), np.nan)
@@ -1324,12 +1324,12 @@ class RasterizedSignal(SignalBase):
         Returns a new signal, created by replacing every occurrence of epochs
         in this signal with whatever is found in the replacement_dict under
         the same epoch_name key. Dict values are assumed to be 2D matrices
-        (same signal for each occurence) or 3D (different signal for each 
+        (same signal for each occurence) or 3D (different signal for each
         occurence).
 
         NOTE: segments of the signal outside of any matching epoch are
         set to np.nan
-        
+
         If the replacement matrix shape is not the same as the original
         epoch being replaced, it will be truncated.
 
@@ -1343,11 +1343,11 @@ class RasterizedSignal(SignalBase):
         data = self.as_continuous().copy()
         if preserve_nan:
             nan_bins = np.isnan(data[0, :])
-            
+
         # intialize with nans so that any subsequent prediction will be
         # restricted to the specified epochs
         data[:] = np.nan
-        
+
         for epoch, epoch_data in epoch_dict.items():
             indices = self.get_epoch_indices(epoch)
             if epoch_data.ndim == 2:
@@ -1362,9 +1362,11 @@ class RasterizedSignal(SignalBase):
 #                        # ub += epoch_data.shape[1]-(ub-lb)
 #                    elif ub-lb > epoch_data.shape[1]:
 #                        ub -= (ub-lb)-epoch_data.shape[1]
-#                    if ub > data.shape[1]:
-#                        ub -= ub-data.shape[1]
-#                        epoch_data = epoch_data[:, 0:(ub-lb)]
+                    if ub-lb > epoch_data.shape[1]:
+                        ub = lb + epoch_data.shape[1]
+                        #epoch_data = epoch_data[:, 0:(ub-lb)]
+                    #print(ub-lb)
+                    #print(epoch_data.shape)
                     data[:, lb:ub] = epoch_data[:, :(ub-lb)]
 
             else:
@@ -1378,7 +1380,7 @@ class RasterizedSignal(SignalBase):
 
         if preserve_nan:
             data[:, nan_bins] = np.nan
-            
+
         return self._modified_copy(data)
 
     def select_epoch(self, epoch):
