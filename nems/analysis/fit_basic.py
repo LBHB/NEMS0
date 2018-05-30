@@ -10,6 +10,8 @@ import nems.metrics.api as metrics
 import nems.segmentors
 import nems.utils
 
+import numpy as np
+
 log = logging.getLogger(__name__)
 
 
@@ -148,26 +150,33 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
     '''
     Takes njacks jackknifes, where each jackknife has some small
     fraction of data NaN'd out, and fits modelspec to them.
+
+    TESTING:
+    if input len(modelspecs) == len(data_list) then use each
+      modelspec as initial condition for corresponding data_list fold
+    if len(modelspecs) == 1, then use the same initial conditions for
+      each fold
+
     '''
     nfolds = len(data_list)
-#    if type(modelspec) is not list:
-#        modelspecs=[modelspec]*nfolds
-#    elif len(modelspec)==1:
-#        modelspec=modelspec*nfolds
-
     models = []
     if not metric:
         metric = lambda d: metrics.nmse(d, 'pred', 'resp')
 
     for i in range(nfolds):
-        log.info("Fitting fold {}/{}".format(i+1, nfolds))
-        tms = nems.initializers.prefit_to_target(
-                data_list[i], copy.deepcopy(modelspecs[0]),
-                nems.analysis.api.fit_basic, 'levelshift',
-                fitter=scipy_minimize,
-                fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
+        if len(modelspecs) > 1:
+            msidx = i
+        else:
+            msidx = 0
 
-        models += fit_basic(data_list[i], tms,
+        log.info("Fitting fold %d/%d from modelspec %d", i+1, nfolds, msidx)
+#        resp = data_list[i]['resp']
+#        resp_len = np.sum(np.isfinite(resp.as_continuous()))
+#        log.info("non-nan resp samples: %d", resp_len)
+#        stim = data_list[i]['psth']
+#        stim_len = np.sum(np.isfinite(stim.as_continuous()[0, :]))
+#        log.info("non-nan stim samples: %d", stim_len)
+        models += fit_basic(data_list[i], copy.deepcopy(modelspecs[msidx]),
                             fitter=fitter,
                             metric=metric,
                             metaname='fit_nfold',
@@ -184,6 +193,8 @@ def fit_state_nfold(data_list, modelspecs, generate_psth=False,
     Generic state-dependent-stream model fitter
     Takes njacks jackknifes, where each jackknife has some small
     fraction of data NaN'd out, and fits modelspec to them.
+
+    DEPRECATED? REPLACED BY STANDARD nfold?
     '''
     nfolds = len(data_list)
 

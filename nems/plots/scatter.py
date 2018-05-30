@@ -1,6 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+import logging
+log = logging.getLogger(__name__)
+
 
 def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
                  xlabel=None, ylabel=None, legend=True, text=None,
@@ -20,9 +23,8 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
         ylabel
         legend
     '''
-    if sig1.nchans > 1 and sig1.nchans != sig2.nchans:
-        m = 'sig1 and sig2 must have same # of chans if sig1 is multichannel'
-        raise ValueError(m)
+    if (sig1.nchans > 1) or (sig2.nchans > 1):
+        log.warning('sig1 or sig2 chancount > 1, using chan 0')
 
     if ax:
         plt.sca(ax)
@@ -31,7 +33,7 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
     m2 = sig2.as_continuous()
 
     # remove NaNs
-    keepidx = np.isfinite(m1[0,:]) * np.isfinite(m2[0,:])
+    keepidx = np.isfinite(m1[0, :]) * np.isfinite(m2[0, :])
     m1 = m1[0:1, keepidx]
     m2 = m2[0:1, keepidx]
 

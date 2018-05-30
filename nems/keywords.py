@@ -70,6 +70,7 @@ def defkey_wcc(n_inputs, n_outputs):
             'mean': np.eye(n_outputs, n_inputs),
             'sd': np.ones((n_outputs, n_inputs)),
         }
+        p_coefficients['mean'][(n_outputs-1):, :] = 1 / n_inputs
 
     template = {
         'fn': 'nems.modules.weight_channels.basic',
@@ -207,10 +208,10 @@ def defkey_fir(n_coefs, n_outputs):
 
     Parameters
     ----------
-    n_inputs : int
-        Number of input channels.
+    n_coefs : int
+        Number of filter coefficients/taps.
     n_outputs : int
-        Number of output channels.
+        Number of channels.
     '''
     name = 'fir{}x{}'.format(n_outputs, n_coefs)
     p_coefficients = {
@@ -241,10 +242,12 @@ def defkey_firbank(n_coefs, n_inputs, n_banks):
 
     Parameters
     ----------
+    n_coefs : int
+        Number of filter coefficients/taps.
     n_inputs : int
         Number of input channels.
-    n_outputs : int
-        Number of output channels.
+    n_banks : int
+        Number of output channels per input channel.
     '''
     name = 'fir{}x{}x{}'.format(n_banks, n_inputs, n_coefs)
     p_coefficients = {
@@ -297,8 +300,13 @@ defkey('lvl1',
        {'fn': 'nems.modules.levelshift.levelshift',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
+<<<<<<< HEAD
         'prior': {'level': ('Normal', {'mean': np.zeros([1, 1]),
                                        'sd': np.ones([1, 1])})}
+=======
+        'prior': {'level': ('Normal', {'mean': np.zeros([1,1]),
+                                       'sd': np.ones([1,1])})}
+>>>>>>> master
         })
 
 defkey('lvl2',
@@ -325,8 +333,10 @@ defkey('stp2',
                       'o': 'pred',
                       'crosstalk': 0},
         'prior': {'u': ('Normal', {'mean': [.01, .01], 'sd': [.01, .01]}),
-                  'tau': ('Normal', {'mean': [.04, .04], 'sd': [.05, .05]})}
+                  'tau': ('Normal', {'mean': [.04, .04], 'sd': [.05, .05]})},
         })
+#        'bounds': {'u': ([-0.5, -0.5], [0.5, 0.5]),
+#                   'tau': ([.02, .02], None)}
 
 defkey('stp3',
        {'fn': 'nems.modules.stp.short_term_plasticity',
@@ -402,10 +412,10 @@ defkey('dexp2',
        {'fn': 'nems.modules.nonlinearity.double_exponential',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'base': ('Normal', {'mean': np.zeros([2,1]), 'sd': np.ones([2,1])}),
-                  'amplitude': ('Normal', {'mean': np.zeros([2,1])+0.2, 'sd': np.zeros([2,1])+0.1}),
-                  'shift': ('Normal', {'mean': np.zeros([2,1]), 'sd': np.ones([2,1])}),
-                  'kappa': ('Normal', {'mean': np.zeros([2,1]), 'sd': np.zeros([2,1])+0.1})}})
+        'prior': {'base': ('Normal', {'mean': np.zeros([2, 1]), 'sd': np.ones([2, 1])}),
+                  'amplitude': ('Normal', {'mean': np.zeros([2, 1])+0.2, 'sd': np.zeros([2, 1])+0.1}),
+                  'shift': ('Normal', {'mean': np.zeros([2, 1]), 'sd': np.ones([2, 1])}),
+                  'kappa': ('Normal', {'mean': np.zeros([2, 1]), 'sd': np.zeros([2, 1])+0.1})}})
 
 defkey('qsig1',
        {'fn': 'nems.modules.nonlinearity.quick_sigmoid',

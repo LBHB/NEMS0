@@ -64,7 +64,7 @@ def nmse(result, pred_name='pred', resp_name='resp'):
     return mse / respstd
 
 
-def nmse_shrink(result, pred_name='pred', resp_name='resp', shrink=0.25):
+def nmse_shrink(result, pred_name='pred', resp_name='resp', shrink=0.1):
     '''
     Same as MSE, but normalized by the std of the resp.
     Because it is more computationally expensive than MSE but is otherwise
@@ -86,10 +86,10 @@ def nmse_shrink(result, pred_name='pred', resp_name='resp', shrink=0.25):
     # bounds = np.round(np.linspace(0, len(X1) + 1, 11)).astype(int)
 
     E = np.zeros([10, 1])
-    P = np.std(X2)
+    # P = np.std(X2)
     for ii in range(0, 10):
         jj = np.arange(ii, len(X1), 10)
-        #print(jj)
+        # print(jj)
         if len(jj) == 0:
             log.info('No data in range?')
 
@@ -100,8 +100,8 @@ def nmse_shrink(result, pred_name='pred', resp_name='resp', shrink=0.25):
             E[ii] = 1
     #print(E)
     mE = E.mean()
-    sE = E.std()
-
+    sE = E.std() / np.sqrt(len(E))
+    # print("me={} se={} shrink={}".format(mE,sE,shrink))
     if mE < 1:
         # apply shrinkage filter to 1-E with factors self.shrink
         mse = 1 - nems.utils.shrinkage(1 - mE, sE, shrink)

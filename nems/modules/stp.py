@@ -8,7 +8,6 @@ def short_term_plasticity(rec, i, o, u, tau, crosstalk=0):
         u (release probability)
         tau (recovery time constant)
     '''
-
     fn = lambda x : _stp(x, u, tau, crosstalk, rec[i].fs)
 
     return [rec[i].transform(fn, o)]
@@ -23,18 +22,19 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
     tstim[np.isnan(tstim)] = 0
     tstim[tstim < 0] = 0
 
-    # ui=self.u
-    # force only depression, no facilitation
-    # TODO: support facilitcation
+    # TODO: deal with upper and lower bounds on dep and facilitation parms
+    #       need to know something about magnitude of inputs???
 
-    # TODO: move bounds to fitter
+    # TODO: move bounds to fitter? slow
+
     # limits, assumes input (X) range is approximately -1 to +1
-    ui = np.absolute(u)
-    ui[ui > 0.3] = 0.3
+    ui = u
+    ui[ui > 1] = 1
+    ui[ui < -0.5] = -0.5
 
     # convert tau units from sec to bins
     taui = np.absolute(tau) * fs
-    taui[taui < 1] = 1
+    taui[taui < 3] = 3
 
     # TODO : enable crosstalk
     if crosstalk:
@@ -50,31 +50,27 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
         ustim = 1.0/taui[i] + ui[i] * tstim[i, :]
         # ustim = ui[i] * tstim[i, :]
         if ui[i] == 0:
-            # passthru, no STP
+            # passthru, no STP, preserve stim_out = tstim
             pass
         elif ui[i] > 0:
             # depression
             for tt in range(1, s[1]):
                 # td = di[i, tt - 1]  # previous time bin depression
                 # delta = (1 - td) / taui[i] - ui[i] * td * tstim[i, tt - 1]
-                # delta = (1 - td) / taui[i] - td * ustim[tt - 1]
+                # delta = 1/taui[i] - td * (1/taui[i] - ui[i] * tstim[i, tt - 1])
+                # then a=1/taui[i] and ustim=1/taui[i] - ui[i] * tstim[i,:]
                 delta = a - td * ustim[tt - 1]
                 td = td + delta
-                #td = np.max([td, 0])
+                # td = np.max([td, 0])
                 stim_out[i, tt] *= td
         else:
             # facilitation
             for tt in range(1, s[1]):
                 delta = a - td * ustim[tt - 1]
                 td = td + delta
-                #td = np.min([td, 1])
+                # td = np.min([td, 1])
                 stim_out[i, tt] *= td
     # print("(u,tau)=({0},{1})".format(ui,taui))
 
     stim_out[np.isnan(X)] = np.nan
     return stim_out
-
-
-
-
-
