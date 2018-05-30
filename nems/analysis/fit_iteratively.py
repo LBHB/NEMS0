@@ -114,8 +114,7 @@ def _module_set_loop(subset, data, modelspec, cost_function, fitter,
         log.debug("Modelspec after freeze: %s", modelspec)
 
         packer, unpacker = mapper(modelspec)
-        bounds_to_vec, _ = nems.fitters.mappers.bounds_vector(modelspec)
-        bounds = bounds_to_vec(modelspec)
+        bounds = nems.fitters.mappers.bounds_vector(modelspec)
 
         # cost_function.counter = 0
         cost_function.error = None

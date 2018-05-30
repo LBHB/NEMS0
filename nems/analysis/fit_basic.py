@@ -86,8 +86,7 @@ def fit_basic(data, modelspec,
     # get initial sigma value representing some point in the fit space,
     # and corresponding bounds for each value
     sigma = packer(modelspec)
-    bounds_to_vec, _ = nems.fitters.mappers.bounds_vector(modelspec)
-    bounds = bounds_to_vec(modelspec)
+    bounds = nems.fitters.mappers.bounds_vector(modelspec)
 
     # Results should be a list of modelspecs
     # (might only be one in list, but still should be packaged as a list)
