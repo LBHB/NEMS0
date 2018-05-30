@@ -268,6 +268,7 @@ def defkey_firbank(n_coefs, n_inputs, n_banks):
     }
     return defkey(name, template)
 
+
 # Autogenerate some standard keywords. TODO: this should be parseable from the
 # keyword name rather than requring an explicit definition for each. Port over
 # the parsing code from old NEMS?
@@ -296,14 +297,16 @@ defkey('lvl1',
        {'fn': 'nems.modules.levelshift.levelshift',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'level': ('Normal', {'mean': np.zeros([1,1]), 'sd': np.ones([1,1])})}
+        'prior': {'level': ('Normal', {'mean': np.zeros([1, 1]),
+                                       'sd': np.ones([1, 1])})}
         })
 
 defkey('lvl2',
        {'fn': 'nems.modules.levelshift.levelshift',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'level': ('Normal', {'mean': np.zeros([2,1]), 'sd': np.ones([2,1])})}
+        'prior': {'level': ('Normal', {'mean': np.zeros([2, 1]),
+                                       'sd': np.ones([2, 1])})}
         })
 
 defkey('stp1',
@@ -330,8 +333,10 @@ defkey('stp3',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
                       'crosstalk': 0},
-        'prior': {'u': ('Normal', {'mean': [.01, .01, .01], 'sd': [.01, .01, .01]}),
-                  'tau': ('Normal', {'mean': [.04, .04, .04], 'sd': [.05, .05, .05]})}
+        'prior': {'u': ('Normal', {'mean': [.01, .01, .01],
+                                   'sd': [.01, .01, .01]}),
+                  'tau': ('Normal', {'mean': [.04, .04, .04],
+                                     'sd': [.05, .05, .05]})}
         })
 
 defkey('stp4',
@@ -339,8 +344,20 @@ defkey('stp4',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
                       'crosstalk': 0},
-        'prior': {'u': ('Normal', {'mean': [.01, .01, .01, .01], 'sd': [.01, .01, .01, .01]}),
-                  'tau': ('Normal', {'mean': [.04, .04, .04, .04], 'sd': [.05, .05, .05, .05]})}
+        'prior': {'u': ('Normal', {'mean': [.01, .01, .01, .01],
+                                   'sd': [.01, .01, .01, .01]}),
+                  'tau': ('Normal', {'mean': [.04, .04, .04, .04],
+                                     'sd': [.05, .05, .05, .05]})}
+        })
+
+defkey('stp2b',
+       {'fn': 'nems.modules.stp.short_term_plasticity',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'crosstalk': 0},
+        'prior': {'u': ('Normal', {'mean': [.01, .01], 'sd': [.01, .01]}),
+                  'tau': ('Normal', {'mean': [.04, .04], 'sd': [.05, .05]})},
+        'bounds': {'tau': ([0, 0], None)}
         })
 
 defkey('stpz2',
