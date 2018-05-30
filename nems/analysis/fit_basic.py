@@ -57,11 +57,16 @@ def fit_basic(data, modelspec,
                 m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
                 modelspec[i] = m
 
+    # apply mask to remove invalid portions of signals and allow fit to
+    # only evaluate the model on the valid portion of the signals
     if 'mask' in data.signals.keys():
         log.info("Data len pre-mask: %d", data['mask'].shape[1])
         data = data.apply_mask()
         log.info("Data len post-mask: %d", data['mask'].shape[1])
 
+    # turn on "fit mode". currently this serves one purpose, for normalization
+    # parameters to be re-fit for the output of each module that uses
+    # normalization. does nothing if normalization is not being used.
     ms.fit_mode_on(modelspec)
 
     # Create the mapper object that translates to and from modelspecs.
@@ -109,7 +114,7 @@ def fit_basic(data, modelspec,
 
 def basic_cost(sigma, unpacker, modelspec, data, segmentor,
                evaluator, metric):
-    '''Stanard cost function for use by fit_basic and other analyses.'''
+    '''Standard cost function for use by fit_basic and other analyses.'''
     updated_spec = unpacker(sigma)
     # The segmentor takes a subset of the data for fitting each step
     # Intended use is for CV or random selection of chunks of the data

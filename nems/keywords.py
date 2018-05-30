@@ -300,13 +300,8 @@ defkey('lvl1',
        {'fn': 'nems.modules.levelshift.levelshift',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-<<<<<<< HEAD
         'prior': {'level': ('Normal', {'mean': np.zeros([1, 1]),
                                        'sd': np.ones([1, 1])})}
-=======
-        'prior': {'level': ('Normal', {'mean': np.zeros([1,1]),
-                                       'sd': np.ones([1,1])})}
->>>>>>> master
         })
 
 defkey('lvl2',
@@ -325,7 +320,6 @@ defkey('stp1',
         'prior': {'u': ('Normal', {'mean': [0.01], 'sd': [0.01]}),
                   'tau': ('Normal', {'mean': [0.04], 'sd': [0.01]})}
         })
-
 
 defkey('stp2',
        {'fn': 'nems.modules.stp.short_term_plasticity',

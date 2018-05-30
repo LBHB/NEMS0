@@ -192,6 +192,13 @@ def fit_iteratively(
     if tolerances is None:
         tolerances = [1e-6]
 
+    # apply mask to remove invalid portions of signals and allow fit to
+    # only evaluate the model on the valid portion of the signals
+    if 'mask' in data.signals.keys():
+        log.info("Data len pre-mask: %d", data['mask'].shape[1])
+        data = data.apply_mask()
+        log.info("Data len post-mask: %d", data['mask'].shape[1])
+
     start_time = time.time()
     ms.fit_mode_on(modelspec)
     # Ensure that phi exists for all modules; choose prior mean if not found
