@@ -1,6 +1,7 @@
 language: c
 env:
     global: PYTHON_VERSION=3.6
+            DISPLAY=:99.0
             TRAVIS_PYTHON_VERSION=3.6
 
 matrix:
@@ -32,6 +33,8 @@ install:
   - python setup.py develop
 
 before_script:
+  - "sh -e /etc/init.d/xvfb start"  # headless display for matplotlib
+  - sleep 2 # give xvfb some time to start
   - python -c "import nems.uri; nems.uri.get_demo_recordings('recordings')"
 
 script:
