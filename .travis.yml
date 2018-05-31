@@ -31,5 +31,8 @@ before_install:
 install:
   - python setup.py develop
 
+before_script:
+  - python -c "import nems.uri; nems.uri.get_demo_recordings('recordings')"
+
 script:
-  - pytest nems
+  - pytest tests
