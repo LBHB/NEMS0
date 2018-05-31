@@ -23,7 +23,7 @@ before_install:
   - ./miniconda.sh -b -p $HOME/miniconda
   - export PATH=$HOME/miniconda/bin:$PATH
   - conda update --yes -n base conda
-  - conda create -n condaenv numpy scipy matplotlib pandas requests h5py
+  - conda create -n condaenv --yes numpy scipy matplotlib pandas requests h5py
   - . $HOME/miniconda/etc/profile.d/conda.sh
   - conda activate condaenv
   - python --version
