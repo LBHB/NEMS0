@@ -2,9 +2,9 @@ import logging
 import importlib as imp
 
 import nems.xforms as xforms
-from nems.keywords import defaults
 from nems import get_setting
 from nems.registry import KeywordRegistry
+from nems.plugins.keywords import default_keywords
 from nems.plugins.loaders import default_loaders
 from nems.plugins.fitters import default_fitters
 
@@ -54,6 +54,10 @@ def fit_model_xforms(recording_uri, modelname, autoPlot=True):
     fitter_lib.register_plugins(get_setting('XF_FITTER_PLUGINS'))
     fitter_xfspec = fitter_lib[fitkey]
 
+    keyword_lib = KeywordRegistry()
+    keyword_lib.register_module(default_keywords)
+    keyword_lib.register_plugins(get_setting('XF_LOADER_PLUGINS'))
+
     modelspecname = "_".join(kws[1:-1])
 
     meta = {'modelname': modelname, 'loader': loadkey, 'fitkey': fitkey,
@@ -72,11 +76,9 @@ def fit_model_xforms(recording_uri, modelname, autoPlot=True):
     xfspec.extend(loader_xfspec)
 
     # 2) generate a modelspec
-    #kw_module = imp.import_module(get_setting('KW_REGISTRY_MODULE'))
-    #kw_registry = getattr(kw_module, get_setting('KW_REGISTRY_NAME'))
     xfspec.append(['nems.xforms.init_from_keywords',
                    {'keywordstring': modelspecname, 'meta': meta,
-                    'registry': defaults}])
+                    'registry': keyword_lib}])
 
     # 3) fit the data
     xfspec.extend(fitter_xfspec)

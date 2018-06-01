@@ -1,14 +1,5 @@
-# This dict maps keywords to fragments of a modelspec
 import numpy as np
 import re
-'''WIP replacement for nems.keywords, to standardize with new
-xforms loader and fitter keyword implementation.'''
-
-# TODO: Still a lot of re-used code for cases where leading all-alpha string
-#       paradigm doesn't distinguish between options, like wc versus wcg / wcn.
-#       Redo registry to allow regex as key like bburan's implementation
-#       in old nems? or just keep those cases as separate definitions?
-#       Might not be worth the effort.
 
 
 def _one_zz(zerocount=1):
@@ -20,8 +11,8 @@ def _wc_helper(prefix, kw):
     regexp = '^{prefix}(\d{{1,}})x(\d{{1,}})$'.format(prefix=prefix)
     pattern = re.compile(regexp)
     parsed = re.match(pattern, kw)
-    n_inputs = parsed[1]
-    n_outputs = parsed[2]
+    n_inputs = int(parsed[1])
+    n_outputs = int(parsed[2])
 
     return n_inputs, n_outputs
 
@@ -206,8 +197,8 @@ def fir(kw):
     '''
     pattern = re.compile(r'^fir(\d{1,})x(\d{1,})x?(\d{1,})?$')
     parsed = re.match(pattern, kw)
-    n_outputs = parsed[1]
-    n_coefs = parsed[2]
+    n_outputs = int(parsed[1])
+    n_coefs = int(parsed[2])
     n_banks = parsed[3]  # will be None if not given in keyword string
 
     p_coefficients = {
@@ -233,7 +224,8 @@ def fir(kw):
     else:
         template = {
             'fn': 'nems.modules.fir.filter_bank',
-            'fn_kwargs': {'i': 'pred', 'o': 'pred', 'bank_count': n_banks},
+            'fn_kwargs': {'i': 'pred', 'o': 'pred',
+                          'bank_count': int(n_banks)},
             'prior': {
                 'coefficients': ('Normal', p_coefficients),
             }
@@ -243,10 +235,12 @@ def fir(kw):
 
 
 def lvl(kw):
-    ''' TODO: this doc '''
+    ''' TODO: this doc
+    format: r'^lvl(\d{1,})$'
+    '''
     pattern = re.compile(r'^lvl(\d{1,})$')
     parsed = re.match(pattern, kw)
-    n_shifts = parsed[1]
+    n_shifts = int(parsed[1])
 
     template = {
         'fn': 'nems.modules.levelshift.levelshift',
@@ -259,11 +253,13 @@ def lvl(kw):
 
 
 def stp(kw):
-    ''' TODO: this doc '''
+    ''' TODO: this doc
+    format: r'^stp([z,n]{0,})(\d{1,})$'
+    '''
     pattern = re.compile(r'^stp([z,n]{0,})(\d{1,})$')
     parsed = re.match(pattern, kw)
     options = parsed[1]
-    n_synapse = parsed[2]
+    n_synapse = int(parsed[2])
 
     if 'z' in options:
         u_mean = [0.02]*n_synapse
@@ -299,10 +295,12 @@ def stp(kw):
 
 
 def dexp(kw):
-    ''' TODO: this doc '''
+    ''' TODO: this doc
+    format: r'^dexp(\d{1,})$'
+    '''
     pattern = re.compile(r'^dexp(\d{1,})$')
     parsed = re.match(pattern, kw)
-    n_dims = parsed[1]
+    n_dims = int(parsed[1])
 
     base_mean = np.zeros([n_dims, 1]) if n_dims > 1 else np.array([0])
     base_sd = np.ones([n_dims, 1]) if n_dims > 1 else np.array([1])
@@ -326,166 +324,168 @@ def dexp(kw):
     return template
 
 
-# TODO: Ask SVD about keywords beyond this point.
+def qsig(kw):
+    ''' TODO: this doc
+    format: r'^qsig(\d{1,})$'
+    '''
+    pattern = re.compile(r'^qsig(\d{1,})$')
+    parsed = re.match(pattern, kw)
+    n_dims = int(parsed[1])
 
+    zeros = np.zeros([n_dims, 1]) if n_dims > 1 else np.array([0])
+    base_mean = zeros + 0.1
+    base_sd = base_mean
+    amp_mean = zeros + 0.7
+    amp_sd = zeros + 0.5
+    shift_mean = zeros + 1.5
+    shift_sd = zeros + 1.0
+    kappa_mean = base_mean
+    kappa_sd = base_mean
 
-defkey('qsig1',
-       {'fn': 'nems.modules.nonlinearity.quick_sigmoid',
+    template = {
+        'fn': 'nems.modules.nonlinearity.quick_sigmoid',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'base': ('Normal', {'mean': [0.1], 'sd': [0.1]}),
-                  'amplitude': ('Normal', {'mean': [0.7], 'sd': [0.5]}),
-                  'shift': ('Normal', {'mean': [1.5], 'sd': [1.0]}),
-                  'kappa': ('Normal', {'mean': [0.1], 'sd': [0.1]})}})
+        'prior': {'base': ('Normal', {'mean': base_mean, 'sd': base_sd}),
+                  'amplitude': ('Normal', {'mean': amp_mean, 'sd': amp_sd}),
+                  'shift': ('Normal', {'mean': shift_mean, 'sd': shift_sd}),
+                  'kappa': ('Normal', {'mean': kappa_mean, 'sd': kappa_sd})}
+        }
 
-# NOTE: Typically overwritten by nems.initializers.init_logsig
-defkey('logsig1',
-       {'fn': 'nems.modules.nonlinearity.logistic_sigmoid',
+    return template
+
+
+def logsig(kw):
+    ''' TODO: this doc
+        NOTE: these priors are typically overwritten by
+              nems.initializers.init_logsig
+    '''
+    template = {
+        'fn': 'nems.modules.nonlinearity.logistic_sigmoid',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
         'prior': {'base': ('Exponential', {'beta': [0.1]}),
                   'amplitude': ('Exponential', {'beta': [2.0]}),
                   'shift': ('Normal', {'mean': [1.0], 'sd': [1.0]}),
-                  'kappa': ('Exponential', {'beta': [0.1]})}})
+                  'kappa': ('Exponential', {'beta': [0.1]})}
+        }
 
-defkey('tanh1',
-       {'fn': 'nems.modules.nonlinearity.tanh',
+    return template
+
+
+def tanh(kw):
+    ''' TODO: this doc
+    format: r'^tanh(\d{1,})$'
+    '''
+    pattern = re.compile(r'^tanh(\d{1,})$')
+    parsed = re.match(pattern, kw)
+    n_dims = int(parsed[1])
+
+    zeros = np.zeros([n_dims, 1]) if n_dims > 1 else np.array([0])
+    ones = np.ones([n_dims, 1]) if n_dims > 1 else np.array([1])
+    base_mean = zeros
+    base_sd = ones
+    amp_mean = zeros + 0.2
+    amp_sd = ones
+    shift_mean = zeros
+    shift_sd = ones
+    kappa_mean = zeros
+    kappa_sd = zeros + 0.1
+
+    template = {
+        'fn': 'nems.modules.nonlinearity.tanh',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'base': ('Normal', {'mean': [0], 'sd': [1]}),
-                  'amplitude': ('Normal', {'mean': [0.2], 'sd': [1]}),
-                  'shift': ('Normal', {'mean': [0], 'sd': [1]}),
-                  'kappa': ('Normal', {'mean': [0], 'sd': [0.1]})}})
+        'prior': {'base': ('Normal', {'mean': base_mean, 'sd': base_sd}),
+                  'amplitude': ('Normal', {'mean': amp_mean, 'sd': amp_sd}),
+                  'shift': ('Normal', {'mean': shift_mean, 'sd': shift_sd}),
+                  'kappa': ('Normal', {'mean': kappa_mean, 'sd': kappa_sd})}
+    }
 
-defkey('dlog',
-       {'fn': 'nems.modules.nonlinearity.dlog',
+    return template
+
+
+def dlog(kw):
+    ''' TODO this doc
+    format: r'^dlog(n?)(\d{0,})$'
+    '''
+    pattern = re.compile(r'^dlog(n?)(\d{0,})$')
+    parsed = re.match(pattern, kw)
+    norm = parsed[1]
+    chans = parsed[2]
+
+    template = {
+        'fn': 'nems.modules.nonlinearity.dlog',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'offset': ('Normal', {'mean': [0], 'sd': [2]})}})
+        'prior': {'offset': ('Normal', {'mean': [0], 'sd': [2]})}
+    }
 
-defkey('dlogz',
-       {'fn': 'nems.modules.nonlinearity.dlog',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred'},
-        'prior': {'offset': ('Normal', {'mean': [0], 'sd': [2]})}})
+    if norm:
+        if not chans:
+            raise ValueError('Must provide number of channels in order '
+                             'to use dlog normalization: "^dlog(n?)(\d{0,})$"')
+        n_chans = int(chans)
+        d = np.zeros([n_chans, 1])
+        g = np.ones([n_chans, 1])
+        template['norm'] = {'type': 'minmax', 'recalc': 0, 'd': d, 'g': g}
 
-defkey('dlogn2',
-       {'fn': 'nems.modules.nonlinearity.dlog',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred'},
-        'norm': {'type': 'minmax', 'recalc': 0, 'd': np.array([[0, 0]]),
-                 'g': np.array([[1, 1]])},
-        'prior': {'offset': ('Normal', {'mean': [-2], 'sd': [2]})}})
-
-defkey('dlogn18',
-       {'fn': 'nems.modules.nonlinearity.dlog',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred'},
-        'norm': {'type': 'minmax', 'recalc': 0, 'd': np.zeros([18, 1]),
-                 'g': np.ones([18, 1])},
-        'prior': {'offset': ('Normal', {'mean': [0], 'sd': [2]})}})
+    return template
 
 
-""" state-related and signal manipulation/generation """
+def stategain(kw):
+    ''' TODO: this doc
+    format: r'^stategain(\d{1,})$'
+    '''
+    pattern = re.compile(r'^stategain(\d{1,})$')
+    parsed = re.match(pattern, kw)
+    n_vars = int(parsed[1])
 
-defkey('pup',
-       {'fn': 'nems.modules.signal_mod.make_state_signal',
-        'fn_kwargs': {'signals_in': ['pupil'],
-                      'signals_permute': [],
-                      'o': 'state'}
-        })
+    zeros = np.zeros(n_vars)
+    ones = np.ones(n_vars)
+    g_mean = _one_zz(n_vars-1)
+    g_sd = ones
+    d_mean = zeros
+    d_sd = ones
 
-defkey('stategain2',
-       {'fn': 'nems.modules.state.state_dc_gain',
+    template = {
+        'fn': 'nems.modules.state.state_dc_gain',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
                       's': 'state'},
-        'prior': {'g': ('Normal', {'mean': [1,0], 'sd': [1,1]}),
-                  'd': ('Normal', {'mean': [0,0], 'sd': [1,1]})}
-        })
+        'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
+                  'd': ('Normal', {'mean': d_mean, 'sd': d_sd})}
+        }
 
-defkey('stategain3',
-       {'fn': 'nems.modules.state.state_dc_gain',
+    return template
+
+
+def rep(kw):
+    ''' TODO: this doc
+    format: r'^rep(\d{1,})$'
+    '''
+    pattern = re.compile(r'^rep(\d{1,})$')
+    parsed = re.match(pattern, kw)
+    n_reps = int(parsed[1])
+
+    template = {
+        'fn': 'nems.modules.signal_mod.replicate_channels',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
-                      's': 'state'},
-        'prior': {'g': ('Normal', {'mean': [1,0,0], 'sd': [1,1,1]}),
-                  'd': ('Normal', {'mean': [0,0,0], 'sd': [1,1,1]})}
-        })
-
-defkey('stategain4',
-       {'fn': 'nems.modules.state.state_dc_gain',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      's': 'state'},
-        'prior': {'g': ('Normal', {'mean': _one_zz(3),
-                                   'sd': np.ones(4)}),
-                  'd': ('Normal', {'mean': np.zeros(4),
-                                   'sd': np.ones(4)})}
-            })
-
-defkey('stategain5',
-       {'fn': 'nems.modules.state.state_dc_gain',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      's': 'state'},
-        'prior': {'g': ('Normal', {'mean': _one_zz(4),
-                                   'sd': np.ones(5)}),
-                  'd': ('Normal', {'mean': np.zeros(5),
-                                   'sd': np.ones(5)})}
-            })
-
-
-defkey('stategain6',
-       {'fn': 'nems.modules.state.state_dc_gain',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      's': 'state'},
-        'prior': {'g': ('Normal', {'mean': _one_zz(5),
-                                   'sd': np.ones(6)}),
-                  'd': ('Normal', {'mean': np.zeros(6),
-                                   'sd': np.ones(6)})}
-            })
-
-
-defkey('stategain28',
-       {'fn': 'nems.modules.state.state_dc_gain',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      's': 'state'},
-        'prior': {'g': ('Normal', {'mean': _one_zz(27),
-                                   'sd': np.ones(28)}),
-                  'd': ('Normal', {'mean': np.zeros(28),
-                                   'sd': np.ones(28)})}
-        })
-
-
-defkey('psth',
-       {'fn': 'nems.modules.signal_mod.average_sig',
-        'fn_kwargs': {'i': 'resp',
-                      'o': 'pred'}
-        })
-
-defkey('rep2',
-       {'fn': 'nems.modules.signal_mod.replicate_channels',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      'repcount': 2},
+                      'repcount': n_reps},
         'phi': {}
-        })
+        }
 
-defkey('rep3',
-       {'fn': 'nems.modules.signal_mod.replicate_channels',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      'repcount': 3},
-        'phi': {}
-        })
+    return template
 
-defkey('mrg',
-       {'fn': 'nems.modules.signal_mod.merge_channels',
+
+def mrg(kw):
+    ''' TODO: this doc '''
+    template = {
+        'fn': 'nems.modules.signal_mod.merge_channels',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
                       's': 'state'},
         'phi': {}
-        })
+        }
+    return template

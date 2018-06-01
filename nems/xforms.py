@@ -238,9 +238,11 @@ def generate_psth_from_est_for_both_est_and_val_nfold(
     return {'est': est_out, 'val': val_out}
 
 
-def init_from_keywords(keywordstring, meta={}, IsReload=False, **context):
+def init_from_keywords(keywordstring, meta={}, IsReload=False,
+                       registry=None, **context):
     if not IsReload:
-        modelspec = init.from_keywords(keyword_string=keywordstring, meta=meta)
+        modelspec = init.from_keywords(keyword_string=keywordstring,
+                                       registry=registry, meta=meta)
 
         return {'modelspecs': [modelspec]}
     else:

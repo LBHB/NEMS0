@@ -43,7 +43,7 @@ class KeywordRegistry():
         #       to notify if keyword being overwritten?
         self.keywords[kw_head] = Keyword(kw_head, parse)
 
-    def lookup(self, kw_string):
+    def kw_head(self, kw_string):
         # look for '-' first. if not present, use first alpha-only string
         # as head instead.
         h = kw_string.split('-')
@@ -53,6 +53,10 @@ class KeywordRegistry():
             kw_head = re.match(alpha, kw_string)[0]
         else:
             kw_head = h[0]
+        return kw_head
+
+    def lookup(self, kw_string):
+        kw_head = self.kw_head(kw_string)
         return self.keywords[kw_head]
 
     def register_plugin(self, pkg):
@@ -105,11 +109,20 @@ class KeywordRegistry():
         and anything that isn't callable.
         '''
         private = (a.startswith('_'))
-        caps = (a.upper() != a)
+        caps = (a.upper() == a)
         is_callable = (callable(getattr(m, a)))
-        if is_callable and not private and not caps:
+        if (is_callable) and (not private) and (not caps):
             return True
-        return False
+        else:
+            return False
+
+    def __iter__(self):
+        # Pass through keywords dictionary's iteration to allow
+        # `for k in registry: do x`
+        return self.keywords.__iter__()
+
+    def __next__(self):
+        return self.keywords.__next__()
 
 
 class Keyword():

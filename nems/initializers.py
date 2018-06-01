@@ -4,28 +4,32 @@ import copy
 import numpy as np
 
 from nems.utils import split_keywords
-from nems import keywords
+from nems.registry import KeywordRegistry
+from nems.plugins.keywords import default_keywords
 from nems.fitters.api import scipy_minimize
 import nems.priors
 import nems.modelspec as ms
 import nems.metrics.api as metrics
 
 log = logging.getLogger(__name__)
+default_kws = KeywordRegistry().register_module(default_keywords)
 
 
-def from_keywords(keyword_string, registry=keywords.defaults, meta={}):
+def from_keywords(keyword_string, registry=None, meta={}):
     '''
     Returns a modelspec created by splitting keyword_string on underscores
     and replacing each keyword with what is found in the nems.keywords.defaults
     registry. You may provide your own keyword registry using the
     registry={...} argument.
     '''
+    if registry is None:
+        registry = default_kws
     keywords = split_keywords(keyword_string)
 
     # Lookup the modelspec fragments in the registry
     modelspec = []
     for kw in keywords:
-        if kw not in registry:
+        if registry.kw_head(kw) not in registry:
             raise ValueError("unknown keyword: {}".format(kw))
         d = copy.deepcopy(registry[kw])
         d['id'] = kw
@@ -56,11 +60,13 @@ def from_keywords(keyword_string, registry=keywords.defaults, meta={}):
     return modelspec
 
 
-def from_keywords_as_list(keyword_string, registry=keywords.defaults, meta={}):
+def from_keywords_as_list(keyword_string, registry=None, meta={}):
     '''
     wrapper for from_keywords that returns modelspec as a modelspecs list,
     ie, [modelspec]
     '''
+    if registry is None:
+        registry = default_kws
     return [from_keywords(keyword_string, registry, meta)]
 
 

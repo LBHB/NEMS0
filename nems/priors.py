@@ -1,6 +1,5 @@
 import logging as log
 from nems.distributions.distribution import Distribution
-import nems.keywords
 import nems.distributions.api
 import numpy as np
 
