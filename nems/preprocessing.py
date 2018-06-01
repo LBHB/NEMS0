@@ -216,6 +216,23 @@ def mask_all_but_correct_references(rec):
     return newrec
 
 
+def mask_all_but_targets(rec):
+    """
+    Specialized function for removing incorrect trials from data
+    collected using baphy during behavior.
+
+    TODO: Migrate to nems_lbhb and/or make a more generic version
+    """
+
+    newrec = rec.copy()
+    newrec['resp'] = newrec['resp'].rasterize()
+    if 'stim' in newrec.signals.keys():
+        newrec['stim'] = newrec['stim'].rasterize()
+
+    newrec = newrec.or_mask(['REFERENCE'])
+
+    return newrec
+
 def nan_invalid_segments(rec):
     """
     Currently a specialized signal for removing incorrect trials from data
@@ -450,6 +467,8 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     newrec['hard_trials'].chans = ['hard_trials']
     newrec['active'] = resp.epoch_to_signal('ACTIVE_EXPERIMENT')
     newrec['active'].chans = ['active']
+    if 'lick' in state_signals:
+        newrec['lick'] = resp.epoch_to_signal('LICK')
 
     # pupil interactions
     if ('pupil' in state_signals):

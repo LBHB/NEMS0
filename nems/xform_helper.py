@@ -49,7 +49,10 @@ def generate_loader_xfspec(loader, recording_uri):
     elif (loader.startswith("psth") or loader.startswith("nostim") or
           loader.startswith("env")):
 
-        if loader.endswith("pup0beh0"):
+        if loader.endswith("tarbehlic"):
+            state_signals = ['active','lick']
+            permute_signals = []
+        elif loader.endswith("pup0beh0"):
             state_signals = ['pupil', 'active']
             permute_signals = ['pupil', 'active']
         elif loader.endswith("pup0beh"):
@@ -131,7 +134,18 @@ def generate_loader_xfspec(loader, recording_uri):
         else:
             raise ValueError("invalid loader string")
 
-        if loader.startswith("psths"):
+        if loader.startswith("psth20tar"):
+            xfspec = [['nems.xforms.load_recordings',
+                       {'recording_uri_list': recordings}],
+                      ['nems.xforms.make_state_signal',
+                       {'state_signals': state_signals,
+                        'permute_signals': permute_signals,
+                        'new_signalname': 'state'}],
+                      ['nems.xforms.mask_all_but_targets', {}],
+                      ['nems.xforms.generate_psth_from_resp',
+                       {'smooth_resp': True}]]
+
+        elif loader.startswith("psths"):
             xfspec = [['nems.xforms.load_recordings',
                        {'recording_uri_list': recordings}],
                       ['nems.xforms.make_state_signal',

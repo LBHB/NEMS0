@@ -186,6 +186,15 @@ def mask_all_but_correct_references(rec, **context):
     return {'rec': rec}
 
 
+def mask_all_but_targets(rec, **context):
+    '''
+    find TARGET epochs all behaviors/outcomes
+    '''
+    rec = preproc.mask_all_but_targets(rec)
+
+    return {'rec': rec}
+
+
 def generate_psth_from_resp(rec, epoch_regex='^STIM_',
                             smooth_resp=False, **context):
     '''
