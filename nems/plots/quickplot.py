@@ -129,6 +129,29 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     # rows are needed).
     gs_outer = gridspec.GridSpec(n, 1)
 
+    def _plot_axes(col_spans, fns, outer_index):
+        """Expects col_spans and fns to be lists, outer_index integer."""
+        # Special check to allow shorthand for single column and fn
+        if isinstance(col_spans, int):
+            if not isinstance(fns, list):
+                fns = [fns]
+                col_spans = [col_spans]
+            else:
+                raise ValueError("col_spans and fns must either both be"
+                                 "lists or both be singular, got:\n {}\n{}"
+                                 .format(col_spans, fns))
+
+        n_cols = sum(col_spans)
+        g = gridspec.GridSpecFromSubplotSpec(
+                1, n_cols, subplot_spec=gs_outer[outer_index]
+                )
+        i = 0
+        for j, span in enumerate(col_spans):
+            ax = plt.Subplot(fig, g[0, i:i+span])
+            fig.add_subplot(ax)
+            fns[j](ax=ax)
+            i += span
+
     # TODO: Move pre- and post- plots to separate subfunctions?
     #       Not too awful at the moment but if we add more will
     #       get pretty crowded here
@@ -227,29 +250,6 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
 Helper functions for quickplot()
 """
 
-
-def _plot_axes(col_spans, fns, outer_index):
-    """Expects col_spans and fns to be lists, outer_index integer."""
-    # Special check to allow shorthand for single column and fn
-    if isinstance(col_spans, int):
-        if not isinstance(fns, list):
-            fns = [fns]
-            col_spans = [col_spans]
-        else:
-            raise ValueError("col_spans and fns must either both be"
-                             "lists or both be singular, got:\n {}\n{}"
-                             .format(col_spans, fns))
-
-    n_cols = sum(col_spans)
-    g = gridspec.GridSpecFromSubplotSpec(
-            1, n_cols, subplot_spec=gs_outer[outer_index]
-            )
-    i = 0
-    for j, span in enumerate(col_spans):
-        ax = plt.Subplot(fig, g[0, i:i+span])
-        fig.add_subplot(ax)
-        fns[j](ax=ax)
-        i += span
 
 def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                   r_idx=0):
