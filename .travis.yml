@@ -34,7 +34,7 @@ install:
 
 before_script:
   - if [ "${TRAVIS_OS_NAME}" == "linux" ]; then
-      sh -e /etc/init.d/xvfb start;  # headless display for matplotlib
+      "sh -e /etc/init.d/xvfb start;"  # headless display for matplotlib
       sleep 2; # give xvfb some time to start
     fi;
   - python -c "import nems.uri; nems.uri.get_demo_recordings('recordings')"
