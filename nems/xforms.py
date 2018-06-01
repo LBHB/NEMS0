@@ -400,18 +400,24 @@ def fit_state_init(modelspecs, est, IsReload=False, **context):
                     analysis_function=nems.analysis.api.fit_basic,
                     fitter=scipy_minimize,
                     tolerance=10**-4, max_iter=700)
+            # fit a bit more to settle in STP variables and anything else
+            # that might have been excluded
+            fit_kwargs = {'tolerance': 10**-4.5, 'max_iter': 500}
+            m = nems.analysis.api.fit_basic(
+                    dc, m, fit_kwargs=fit_kwargs,
+                    fitter=scipy_minimize)[0]
             rep_idx = find_module('replicate_channels', m)
             mrg_idx = find_module('merge_channels', m)
             if rep_idx is not None:
                 repcount = m[rep_idx]['fn_kwargs']['repcount']
                 for j in range(rep_idx+1, mrg_idx):
                     # assume all phi
-                    log.info(m[j]['fn'])
+                    log.debug(m[j]['fn'])
                     if 'phi' in m[j].keys():
                         for phi in m[j]['phi'].keys():
                             s = m[j]['phi'][phi].shape
                             setcount = int(s[0] / repcount)
-                            log.info('phi[%s] setcount=%d', phi, setcount)
+                            log.debug('phi[%s] setcount=%d', phi, setcount)
                             snew = np.ones(len(s))
                             snew[0] = repcount
                             new_v = np.tile(m[j]['phi'][phi][:setcount, ...],

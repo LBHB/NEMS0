@@ -203,7 +203,7 @@ def before_and_after(rec, modelspec, sig_name, ax=None, title=None,
         before = rec['stim'].copy()
         before.name += ' before**'
     else:
-        before = ms.evaluate(rec, modelspec, start=None, stop=idx)[sig_name]
+        before = ms.evaluate(rec.copy(), modelspec, start=None, stop=idx)[sig_name]
         before.name += ' before'
 
     after = ms.evaluate(rec, modelspec, start=idx, stop=idx+1)[sig_name].copy()

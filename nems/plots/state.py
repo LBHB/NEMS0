@@ -35,6 +35,8 @@ def state_vars_timeseries(rec, modelspec, ax=None):
                     s += " g={} d={} ".format(g_string, d_string)
                 else:
                     s = None
+            else:
+                s = None
 
         num_vars = rec['state'].shape[0]
         ts = rec['state'].as_continuous().copy()
@@ -92,7 +94,7 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
 
     full_var = rec['state'].loc[state_sig]
     folded_var = full_var.extract_epoch(epoch)
-    
+
     # remove masked out occurences if mask signal exists
     if 'mask' in rec.signals.keys():
         folded_mask = rec['mask'].extract_epoch(epoch)
