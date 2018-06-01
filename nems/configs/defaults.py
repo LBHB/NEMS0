@@ -52,7 +52,7 @@ NEMS_LOG_CONSOLE_LEVEL = 'DEBUG'
 KEYWORD_PLUGINS = []
 
 # Xforms Loader Plugins
-# ex: XF_LOADER_PLUGINS = ['/path/to/my/plugins/loaders', '/second/path/']
+# ex: XF_LOADER_PLUGINS = ['/path/to/my/plugins/loaders/', '/second/path/']
 XF_LOADER_PLUGINS = []
 
 # Xforms Fitter Plugins
