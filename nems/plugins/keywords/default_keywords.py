@@ -204,10 +204,11 @@ def fir(kw):
     kw : str
         A string of the form: fir{n_outputs}x{n_coefs}.
     '''
-    pattern = re.compile(r'^fir(\d{1,})x(\d{1,})$')
+    pattern = re.compile(r'^fir(\d{1,})x(\d{1,})x?(\d{1,})?$')
     parsed = re.match(pattern, kw)
     n_outputs = parsed[1]
     n_coefs = parsed[2]
+    n_banks = parsed[3]  # will be None if not given in keyword string
 
     p_coefficients = {
         'mean': np.zeros((n_outputs, n_coefs)),
@@ -221,171 +222,112 @@ def fir(kw):
     else:
         p_coefficients['mean'][:, 0] = 1
 
-    template = {
-        'fn': 'nems.modules.fir.basic',
-        'fn_kwargs': {'i': 'pred', 'o': 'pred'},
-        'prior': {
-            'coefficients': ('Normal', p_coefficients),
+    if n_banks is None:
+        template = {
+            'fn': 'nems.modules.fir.basic',
+            'fn_kwargs': {'i': 'pred', 'o': 'pred'},
+            'prior': {
+                'coefficients': ('Normal', p_coefficients),
+            }
         }
-    }
+    else:
+        template = {
+            'fn': 'nems.modules.fir.filter_bank',
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 'bank_count': n_banks},
+            'prior': {
+                'coefficients': ('Normal', p_coefficients),
+            }
+        }
 
     return template
 
 
-def defkey_firbank(n_coefs, n_inputs, n_banks):
-    '''
-    Generate and register default modulespec for basic channel weighting
-
-    Parameters
-    ----------
-    n_inputs : int
-        Number of input channels.
-    n_outputs : int
-        Number of output channels.
-    '''
-    name = 'fir{}x{}x{}'.format(n_banks, n_inputs, n_coefs)
-    p_coefficients = {
-        'mean': np.zeros((n_banks*n_inputs, n_coefs)),
-        'sd': np.ones((n_banks*n_inputs, n_coefs)),
-    }
-
-    if n_coefs > 2:
-        # p_coefficients['mean'][:, 1] = 1
-        # p_coefficients['mean'][:, 2] = -0.5
-        pass
-    else:
-        p_coefficients['mean'][:, 0] = 1
+def lvl(kw):
+    ''' TODO: this doc '''
+    pattern = re.compile(r'^lvl(\d{1,})$')
+    parsed = re.match(pattern, kw)
+    n_shifts = parsed[1]
 
     template = {
-        'fn': 'nems.modules.fir.filter_bank',
-        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'bank_count': n_banks},
-        'prior': {
-            'coefficients': ('Normal', p_coefficients),
+        'fn': 'nems.modules.levelshift.levelshift',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred'},
+        'prior': {'level': ('Normal', {'mean': np.zeros([n_shifts, 1]),
+                                       'sd': np.ones([n_shifts, 1])})}
         }
-    }
-    return defkey(name, template)
 
-# Autogenerate some standard keywords. TODO: this should be parseable from the
-# keyword name rather than requring an explicit definition for each. Port over
-# the parsing code from old NEMS?
-for n_inputs in (15, 18, 40):
-    for n_outputs in (1, 2, 3, 4):
-        defkey_wc(n_inputs, n_outputs)
-        defkey_wcg(n_inputs, n_outputs)
-        defkey_wcgn(n_inputs, n_outputs)
+    return template
 
-for n_inputs in (1, 2, 3):
-    for n_outputs in (1, 2, 3, 4):
-        defkey_wcc(n_inputs, n_outputs)
-        defkey_wccn(n_inputs, n_outputs)
 
-for n_outputs in (1, 2, 3, 4):
-    for n_coefs in (10, 15, 18):
-        defkey_fir(n_coefs, n_outputs)
+def stp(kw):
+    ''' TODO: this doc '''
+    pattern = re.compile(r'^stp([z,n]{0,})(\d{1,})$')
+    parsed = re.match(pattern, kw)
+    options = parsed[1]
+    n_synapse = parsed[2]
 
-defkey_firbank(15, 2, 2)
+    if 'z' in options:
+        u_mean = [0.02]*n_synapse
+        tau_mean = [0.05]*n_synapse
+    else:
+        u_mean = [0.01]*n_synapse
+        tau_mean = [0.04]*n_synapse
+    u_sd = u_mean
 
-# defkey_fir(10, 2)
-# defkey_fir(15, 2)
-# defkey_fir(18, 2)
+    if n_synapse == 1:
+        # TODO:
+        # @SVD: stp1 had this as 0.01, all others 0.05. intentional?
+        #       if not can just simplify this to the part within the else:
+        tau_sd = u_sd
+    else:
+        tau_sd = [0.05]*n_synapse
 
-defkey('lvl1',
-       {'fn': 'nems.modules.levelshift.levelshift',
+    template = {
+        'fn': 'nems.modules.stp.short_term_plasticity',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'crosstalk': 0},
+        'prior': {'u': ('Normal', {'mean': u_mean, 'sd': u_sd}),
+                  'tau': ('Normal', {'mean': tau_mean, 'sd': tau_sd})}
+        }
+
+    if 'n' in options:
+        d = np.array([0]*n_synapse)
+        g = np.array([1]*n_synapse)
+        template['norm'] = {'type': 'minmax', 'recalc': 0, 'd': d, 'g': g}
+
+    return template
+
+
+def dexp(kw):
+    ''' TODO: this doc '''
+    pattern = re.compile(r'^dexp(\d{1,})$')
+    parsed = re.match(pattern, kw)
+    n_dims = parsed[1]
+
+    base_mean = np.zeros([n_dims, 1]) if n_dims > 1 else np.array([0])
+    base_sd = np.ones([n_dims, 1]) if n_dims > 1 else np.array([1])
+    amp_mean = base_mean + 0.2
+    amp_sd = base_mean + 0.1
+    shift_mean = base_mean
+    shift_sd = base_sd
+    kappa_mean = base_mean
+    kappa_sd = amp_sd
+
+    template = {
+        'fn': 'nems.modules.nonlinearity.double_exponential',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
-        'prior': {'level': ('Normal', {'mean': np.zeros([1,1]), 'sd': np.ones([1,1])})}
-        })
+        'prior': {'base': ('Normal', {'mean': base_mean, 'sd': base_sd}),
+                  'amplitude': ('Normal', {'mean': amp_mean, 'sd': amp_sd}),
+                  'shift': ('Normal', {'mean': shift_mean, 'sd': shift_sd}),
+                  'kappa': ('Normal', {'mean': kappa_mean, 'sd': kappa_sd})}
+        }
 
-defkey('lvl2',
-       {'fn': 'nems.modules.levelshift.levelshift',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred'},
-        'prior': {'level': ('Normal', {'mean': np.zeros([2,1]), 'sd': np.ones([2,1])})}
-        })
-
-defkey('stp1',
-       {'fn': 'nems.modules.stp.short_term_plasticity',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      'crosstalk': 0},
-        'prior': {'u': ('Normal', {'mean': [0.01], 'sd': [0.01]}),
-                  'tau': ('Normal', {'mean': [0.04], 'sd': [0.01]})}
-        })
+    return template
 
 
-defkey('stp2',
-       {'fn': 'nems.modules.stp.short_term_plasticity',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      'crosstalk': 0},
-        'prior': {'u': ('Normal', {'mean': [.01, .01], 'sd': [.01, .01]}),
-                  'tau': ('Normal', {'mean': [.04, .04], 'sd': [.05, .05]})}
-        })
+# TODO: Ask SVD about keywords beyond this point.
 
-defkey('stp3',
-       {'fn': 'nems.modules.stp.short_term_plasticity',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      'crosstalk': 0},
-        'prior': {'u': ('Normal', {'mean': [.01, .01, .01], 'sd': [.01, .01, .01]}),
-                  'tau': ('Normal', {'mean': [.04, .04, .04], 'sd': [.05, .05, .05]})}
-        })
-
-defkey('stp4',
-       {'fn': 'nems.modules.stp.short_term_plasticity',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      'crosstalk': 0},
-        'prior': {'u': ('Normal', {'mean': [.01, .01, .01, .01], 'sd': [.01, .01, .01, .01]}),
-                  'tau': ('Normal', {'mean': [.04, .04, .04, .04], 'sd': [.05, .05, .05, .05]})}
-        })
-
-defkey('stpz2',
-       {'fn': 'nems.modules.stp.short_term_plasticity',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      'crosstalk': 0},
-        'prior': {'u': ('Normal', {'mean': [.02, .02], 'sd': [.02, .02]}),
-                  'tau': ('Normal', {'mean': [.05, .05], 'sd': [.05, .05]})}
-        })
-
-defkey('stpn1',
-       {'fn': 'nems.modules.stp.short_term_plasticity',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      'crosstalk': 0},
-        'norm': {'type': 'minmax', 'recalc': 0, 'd': [0], 'g': [1]},
-        'prior': {'u': ('Normal', {'mean': [0.01], 'sd': [0.01]}),
-                  'tau': ('Normal', {'mean': [0.04], 'sd': [0.01]})}
-        })
-defkey('stpn2',
-       {'fn': 'nems.modules.stp.short_term_plasticity',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      'crosstalk': 0},
-        'norm': {'type': 'minmax', 'recalc': 0, 'd': np.array([[0, 0]]),
-                 'g': np.array([[1, 1]])},
-        'prior': {'u': ('Normal', {'mean': [.01, .01], 'sd': [.01, .01]}),
-                  'tau': ('Normal', {'mean': [.04, .04], 'sd': [.05, .05]})}
-        })
-
-defkey('dexp1',
-       {'fn': 'nems.modules.nonlinearity.double_exponential',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred'},
-        'prior': {'base': ('Normal', {'mean': [0], 'sd': [1]}),
-                  'amplitude': ('Normal', {'mean': [0.2], 'sd': [0.1]}),
-                  'shift': ('Normal', {'mean': [0], 'sd': [1]}),
-                  'kappa': ('Normal', {'mean': [0], 'sd': [0.1]})}})
-
-defkey('dexp2',
-       {'fn': 'nems.modules.nonlinearity.double_exponential',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred'},
-        'prior': {'base': ('Normal', {'mean': np.zeros([2,1]), 'sd': np.ones([2,1])}),
-                  'amplitude': ('Normal', {'mean': np.zeros([2,1])+0.2, 'sd': np.zeros([2,1])+0.1}),
-                  'shift': ('Normal', {'mean': np.zeros([2,1]), 'sd': np.ones([2,1])}),
-                  'kappa': ('Normal', {'mean': np.zeros([2,1]), 'sd': np.zeros([2,1])+0.1})}})
 
 defkey('qsig1',
        {'fn': 'nems.modules.nonlinearity.quick_sigmoid',
