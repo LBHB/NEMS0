@@ -363,11 +363,6 @@ defkey('dlog',
                       'o': 'pred'},
         'prior': {'offset': ('Normal', {'mean': [0], 'sd': [2]})}})
 
-defkey('dlogz',
-       {'fn': 'nems.modules.nonlinearity.dlog',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred'},
-        'prior': {'offset': ('Normal', {'mean': [0], 'sd': [2]})}})
 
 defkey('dlogn2',
        {'fn': 'nems.modules.nonlinearity.dlog',
@@ -387,13 +382,6 @@ defkey('dlogn18',
 
 
 """ state-related and signal manipulation/generation """
-
-defkey('pup',
-       {'fn': 'nems.modules.signal_mod.make_state_signal',
-        'fn_kwargs': {'signals_in': ['pupil'],
-                      'signals_permute': [],
-                      'o': 'state'}
-        })
 
 defkey('stategain2',
        {'fn': 'nems.modules.state.state_dc_gain',
@@ -459,12 +447,6 @@ defkey('stategain28',
                                    'sd': np.ones(28)})}
         })
 
-
-defkey('psth',
-       {'fn': 'nems.modules.signal_mod.average_sig',
-        'fn_kwargs': {'i': 'resp',
-                      'o': 'pred'}
-        })
 
 defkey('rep2',
        {'fn': 'nems.modules.signal_mod.replicate_channels',
