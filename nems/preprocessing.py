@@ -4,6 +4,7 @@ import nems.epoch as ep
 import pandas as pd
 import nems.signal as signal
 import copy
+from scipy.signal import convolve2d
 
 import logging
 log = logging.getLogger(__name__)
@@ -229,7 +230,7 @@ def mask_all_but_targets(rec):
     if 'stim' in newrec.signals.keys():
         newrec['stim'] = newrec['stim'].rasterize()
 
-    newrec = newrec.or_mask(['REFERENCE'])
+    newrec = newrec.or_mask(['TARGET'])
 
     return newrec
 
@@ -546,6 +547,16 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
     est = []
     val = []
     # logging.info("Generating {} jackknifes".format(njacks))
+    if rec.get_epoch_indices(epoch_name).shape[0]:
+        pass
+    elif rec.get_epoch_indices('REFERENCE').shape[0]:
+        log.info('jackknifing by REFERENCE epochs')
+        epoch_name = 'REFERENCE'
+    elif rec.get_epoch_indices('TARGET').shape[0]:
+        log.info('jackknifing by TARGET epochs')
+        epoch_name = 'TARGET'
+    else:
+        raise ValueError('No epochs matching '+epoch_name)
 
     for i in range(njacks):
         # est_out += [est.jackknife_by_time(njacks, i)]
@@ -577,11 +588,14 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     previous values within a range specified by either <ms> or <bins>.
     Only supports RasterizedSignal.
     '''
+
+    rec = rec.copy()
+
     source_signal = rec[source_name]
     if not isinstance(source_signal, signal.RasterizedSignal):
         raise TypeError("signal with key {} was not a RasterizedSignal"
                         .format(source_name))
-    array = source_signal.as_continuous()
+    array = source_signal.as_continuous().copy()
     if ms:
         history = int((ms/1000)*source_signal.fs)
     elif bins:
@@ -594,6 +608,13 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
 
     # figure out an efficient np-based solution, nested loops on giant arrays
     # are bad.
+    array[np.isnan(array)] = 0
+    filt = np.concatenate((np.zeros([1, history+1]),
+                           np.ones([1, history])), axis=1)
+    contrast = convolve2d(array, filt, mode='same')
+
+    """
+    contrast = np.convolve
     contrast = np.zeros_like(array, dtype=np.int)
     for i, hz in enumerate(array):
         for j, t in enumerate(hz):
@@ -609,6 +630,10 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
                 contrast[i][j] = 1
             else:
                 contrast[i][j] = 0
+    """
 
     contrast_sig = source_signal._modified_copy(contrast)
+    contrast_sig.chans = [name]
     rec[name] = contrast_sig
+
+    return rec

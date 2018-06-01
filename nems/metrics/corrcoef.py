@@ -209,7 +209,10 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
                 # print(n)
 
     # weighted average based on number of samples in each epoch
-    rnorm = rnorm_c / n
+    if n > 0:
+        rnorm = rnorm_c / n
+    else:
+        rnorm = rnorm_c
 
     return rnorm
 

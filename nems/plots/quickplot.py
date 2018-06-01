@@ -84,11 +84,17 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     # use ctx['est'], ctx['rec'], etc.
     rec = ctx[default][r_idx]
     modelspec = ctx['modelspecs'][m_idx]
-    if not epoch:
-        if rec['resp'].count_epoch('REFERENCE'):
-            epoch = 'REFERENCE'
-        else:
-            epoch = 'TRIAL'
+    if (epoch is not None) and rec.get_epoch_indices(epoch).shape[0]:
+        pass
+    elif rec.get_epoch_indices('REFERENCE').shape[0]:
+        log.info('quickplot for REFERENCE epochs')
+        epoch = 'REFERENCE'
+    elif rec.get_epoch_indices('TARGET').shape[0]:
+        log.info('quickplot for TARGET epochs')
+        epoch = 'TARGET'
+    else:
+        raise ValueError('No epochs matching ' + epoch)
+
     extracted = rec['resp'].extract_epoch(epoch)
     finite_trial = [np.sum(np.isfinite(x)) > 0 for x in extracted]
     occurrences, = np.where(finite_trial)

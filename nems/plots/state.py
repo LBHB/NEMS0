@@ -98,10 +98,10 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
     # remove masked out occurences if mask signal exists
     if 'mask' in rec.signals.keys():
         folded_mask = rec['mask'].extract_epoch(epoch)
-        keep_occurences = folded_mask[:,0,0]
-        folded_psth=folded_psth[keep_occurences, :, :]
-        folded_psth2=folded_psth2[keep_occurences, :, :]
-        folded_var=folded_var[keep_occurences, :, :]
+        keep_occurences = folded_mask[:, 0, 0]
+        folded_psth = folded_psth[keep_occurences, :, :]
+        folded_psth2 = folded_psth2[keep_occurences, :, :]
+        folded_var = folded_var[keep_occurences, :, :]
 
         # print(state_sig)
         # print(folded_var.shape)
@@ -109,7 +109,7 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
         # print(np.sum(np.isfinite(folded_mask)))
 
     # compute the mean state for each occurrence
-    m = np.nanmean(folded_var[:,0,:], axis=1)
+    m = np.nanmean(folded_var[:, 0, :], axis=1)
 
     # compute the mean state across all occurrences
     mean = np.nanmean(m)

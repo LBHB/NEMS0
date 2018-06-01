@@ -498,7 +498,7 @@ class Recording:
             g={1: g1[:vset], 2: g1[vset:]}
             groups = g
 
-        elif len(groups)==0:
+        elif len(groups) == 0:
             m = "No occurrences?? Unable to split recording into est/val sets"
             m += str(groups)
             raise ValueError(m)
@@ -508,8 +508,26 @@ class Recording:
         hi_rep_epochs = groups[n_occurrences[1]]
         return self.split_by_epochs(lo_rep_epochs, hi_rep_epochs)
 
+    def get_epoch_indices(self, epoch_name):
+
+        keys = list(self.signals.keys())
+        if 'mask' not in keys:
+            epochs = self[keys[0]].get_epoch_indices(epoch_name)
+
+        else:
+            # only keep epoch matching mask
+            m_data = self['mask'].as_continuous().copy()
+            all_epochs = self['mask'].get_epoch_indices(epoch_name)
+
+            epochs = np.zeros([0, 2], dtype=np.int32)
+            for lb, ub in all_epochs:
+                if np.sum(1 - (m_data[0, lb:ub])) == 0:
+                    epochs = np.append(epochs, [[lb, ub]], axis=0)
+
+        return epochs
+
     def jackknife_mask_by_epoch(self, njacks, jack_idx, epoch_name,
-                           tiled=True,invert=False):
+                                tiled=True, invert=False):
         '''
         Creates mask or updates existing mask, with subset of epochs
           matching epoch_name set to False
@@ -544,29 +562,18 @@ class Recording:
         Here we can see the last jackknife has 2 fewer occurrences.
         '''
 
-        # find all matching epochs
-
+        # create mask if one doesn't exist yet
         if 'mask' not in self.signals.keys():
             rec = self.create_mask(True)
-
-            # initialize mask to be all True
-            m_data = rec['mask'].as_continuous().copy()
-            epochs = rec['mask'].get_epoch_indices(epoch_name)
-
         else:
-            # only keep epochs matching mask
             rec = self.copy()
 
-            # only keep epoch matching mask
-            m_data = rec['mask'].as_continuous().copy()
-            all_epochs = rec['mask'].get_epoch_indices(epoch_name)
+        # initialize mask to be all True
+        m_data = rec['mask'].as_continuous().copy()
 
-            epochs = np.zeros([0, 2], dtype=np.int32)
-            for lb, ub in all_epochs:
-                if np.sum(1 - (m_data[0, lb:ub])) == 0:
-                    epochs = np.append(epochs, [[lb, ub]], axis=0)
-
-        occurrences, _ = epochs.shape
+        # find all matching epochs
+        epochs = self.get_epoch_indices(epoch_name)
+        occurrences = epochs.shape[0]
 
         if occurrences == 0:
             m = 'No epochs found matching epoch_name. Unable to jackknife.'
@@ -1121,7 +1128,7 @@ def load_recording_from_arrays(arrays, rec_name, fs, sig_names=None,
 def jackknife_inverse_merge(rec_list):
     '''
     merges list of jackknife validation data into a signal recording
-    
+
     currently two different approaches, depending on whether mask signal
     is present.
     '''

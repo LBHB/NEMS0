@@ -143,7 +143,7 @@ def generate_loader_xfspec(loader, recording_uri):
                         'new_signalname': 'state'}],
                       ['nems.xforms.mask_all_but_targets', {}],
                       ['nems.xforms.generate_psth_from_resp',
-                       {'smooth_resp': True}]]
+                       {'epoch_regex': '^TAR_'}]]
 
         elif loader.startswith("psths"):
             xfspec = [['nems.xforms.load_recordings',
