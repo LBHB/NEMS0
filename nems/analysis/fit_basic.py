@@ -168,6 +168,11 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
       each fold
 
     '''
+    if 'ftol' not in fit_kwargs.keys():
+       fit_kwargs['ftol'] = 1e-7
+    if 'maxiter' not in fit_kwargs.keys():
+       fit_kwargs['maxiter'] = 1000
+
     nfolds = len(data_list)
     models = []
     if not metric:

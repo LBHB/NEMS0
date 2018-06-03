@@ -272,6 +272,25 @@ def nan_invalid_segments(rec):
     return newrec
 
 
+def generate_stim_from_epochs(rec, new_signal_name='stim', epoch_regex='^STIM_', onsets_only=True):
+
+    rec = rec.copy()
+    resp = rec['resp'].rasterize()
+
+    epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
+    print(epochs_to_extract)
+    sigs = [resp.epoch_to_signal(s, onsets_only=onsets_only, shift=5) for s in epochs_to_extract]
+    print('adding licks with shift=-5')
+    sigs.append(resp.epoch_to_signal('LICK', onsets_only=onsets_only, shift=-5))
+    stim = sigs[0].concatenate_channels(sigs)
+    stim.name = new_signal_name
+
+    # add_signal operates in place
+    rec.add_signal(stim)
+    
+    return rec
+
+
 def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     '''
     Estimates a PSTH from all responses to each regex match in a recording

@@ -15,12 +15,15 @@ def state_vars_timeseries(rec, modelspec, ax=None):
     r1 = resp.as_continuous().copy().T
     p1 = pred.as_continuous().copy().T
     nnidx = np.isfinite(p1)
+    r1=r1[nnidx]
+    p1=p1[nnidx]
+    #r1 = scipy.signal.decimate(r1[nnidx], q=5, axis=0)
+    #p1 = scipy.signal.decimate(p1[nnidx], q=5, axis=0)
+    #t = np.arange(len(r1))/pred.fs*5
+    t = np.arange(len(r1))/pred.fs
 
-    r1 = scipy.signal.decimate(r1[nnidx], q=5, axis=0)
-    p1 = scipy.signal.decimate(p1[nnidx], q=5, axis=0)
-    t = np.arange(len(r1))/pred.fs*5
-    plt.plot(t, r1)
-    plt.plot(t, p1)
+    plt.plot(t, r1, linewidth=1)
+    plt.plot(t, p1, linewidth=1)
     mmax = np.nanmax(p1) * 0.8
 
     if 'state' in rec.signals.keys():
@@ -43,9 +46,10 @@ def state_vars_timeseries(rec, modelspec, ax=None):
 
         for i in range(1, num_vars):
             d = ts[[i], :].T
-            d = scipy.signal.decimate(d[nnidx], q=5, axis=0)
+            d = d[nnidx]
+            #d = scipy.signal.decimate(d[nnidx], q=5, axis=0)
             d = d / np.nanmax(d) * mmax - (0.1 + i) * mmax
-            plt.plot(t, d)
+            plt.plot(t, d, linewidth=1)
         ax = plt.gca()
         # plt.text(0.5, 0.9, s, transform=ax.transAxes,
         #         horizontalalignment='center')

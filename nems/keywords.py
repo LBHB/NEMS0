@@ -286,8 +286,8 @@ for n_inputs in (1, 2, 3):
         defkey_wcc(n_inputs, n_outputs)
         defkey_wccn(n_inputs, n_outputs)
 
-for n_outputs in (1, 2, 3, 4):
-    for n_coefs in (10, 15, 18):
+for n_outputs in (1, 2, 3, 4, 5):
+    for n_coefs in (10, 15, 18, 20, 25, 30):
         defkey_fir(n_coefs, n_outputs)
 
 defkey_firbank(15, 1, 2)

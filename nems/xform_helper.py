@@ -52,6 +52,18 @@ def generate_loader_xfspec(loader, recording_uri):
         if loader.endswith("tarbehlic"):
             state_signals = ['active','lick']
             permute_signals = []
+        elif loader.endswith("tarbeh0lic"):
+            state_signals = ['active','lick']
+            permute_signals = ['lick']
+        elif loader.endswith("tarbehlic0"):
+            state_signals = ['active','lick']
+            permute_signals = ['lick']
+        elif loader.endswith("tarbeh0lic0"):
+            state_signals = ['active','lick']
+            permute_signals = ['active','lick']
+        elif loader.endswith("tarbehlicpup"):
+            state_signals = ['active', 'lick', 'pup']
+            permute_signals = []
         elif loader.endswith("pup0beh0"):
             state_signals = ['pupil', 'active']
             permute_signals = ['pupil', 'active']
