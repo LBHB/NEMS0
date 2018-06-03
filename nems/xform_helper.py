@@ -46,6 +46,31 @@ def generate_loader_xfspec(loader, recording_uri):
         xfspec = [['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
                   ['nems.preprocessing.make_state_signal', {'state_signals': ['pupil'], 'permute_signals': [], 'new_signalname': 'state'},['rec'],['rec']]]
 
+    elif (loader.startswith("evt")):
+
+        if loader.endswith("pupbehtarlic"):
+            state_signals = ['active','pupil']
+            permute_signals = []
+        else:
+            raise ValueError("unknown state_signals for evt loader")
+
+        if loader.startswith("evt20pup"):
+            xfspec = [['nems.xforms.load_recordings',
+                       {'recording_uri_list': recordings}],
+                      ['nems.xforms.make_state_signal',
+                       {'state_signals': state_signals,
+                        'permute_signals': permute_signals,
+                        'new_signalname': 'state'}],
+                      ['nems.preprocessing.generate_stim_from_epochs', 
+                       {'new_signal_name': 'stim', 'epoch_regex': '^TAR_',
+                        'onsets_only': True},
+                       ['rec'],['rec']],
+                      ['nems.xforms.mask_all_but_targets', {}]]
+
+        else:
+            raise ValueError("unknown evt loader keyword")
+
+        
     elif (loader.startswith("psth") or loader.startswith("nostim") or
           loader.startswith("env")):
 

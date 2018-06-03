@@ -656,13 +656,13 @@ def fit_nfold(modelspecs, est, ftol=1e-7, maxiter=1000,
     return {'modelspecs': modelspecs}
 
 
-def fit_nfold_shrinkage(modelspecs, est, ftol=1e-7, maxiter=1000,
+def fit_nfold_shrinkage(modelspecs, est, tolerance=1e-7, max_iter=1000,
                         IsReload=False, **context):
     ''' fitting n fold, one from each entry in est, use mse_shrink for
     cost function'''
     if not IsReload:
         metric = lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
-        fit_kwargs = {'options': {'ftol': ftol, 'maxiter': maxiter}}
+        fit_kwargs = {'options': {'tolerance': tolerance, 'max_iter': max_iter}}
         modelspecs = nems.analysis.api.fit_nfold(
                 est, modelspecs, metric=metric,
                 fitter=scipy_minimize,

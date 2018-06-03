@@ -156,7 +156,7 @@ def fit_random_subsets(data, modelspec, nsplits=1, rebuild_every=10000):
 def fit_nfold(data_list, modelspecs, generate_psth=False,
               fitter=scipy_minimize,
               metric=None,
-              fit_kwargs={'options': {'ftol': 1e-7, 'maxiter': 1000}}):
+              fit_kwargs={}):
     '''
     Takes njacks jackknifes, where each jackknife has some small
     fraction of data NaN'd out, and fits modelspec to them.
@@ -168,9 +168,11 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
       each fold
 
     '''
-    if 'ftol' not in fit_kwargs.keys():
+    if 'options' not in fit_kwargs.keys():
+       fit_kwargs['options'] = {}
+    if 'ftol' not in fit_kwargs['options'].keys():
        fit_kwargs['ftol'] = 1e-7
-    if 'maxiter' not in fit_kwargs.keys():
+    if 'maxiter' not in fit_kwargs['options'].keys():
        fit_kwargs['maxiter'] = 1000
 
     nfolds = len(data_list)
@@ -184,9 +186,9 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
         else:
             msidx = 0
 
-        log.info("Fitting fold %d/%d, modelspec %d (ftol=%e, maxit=%d)",
-                 i+1, nfolds, msidx, fit_kwargs['options']['ftol'],
-                 fit_kwargs['options']['maxiter'])
+        log.info("Fitting fold %d/%d, modelspec %d (tol=%e, maxit=%d)",
+                 i+1, nfolds, msidx, fit_kwargs['options']['tolerance'],
+                 fit_kwargs['options']['max_iter'])
 #        resp = data_list[i]['resp']
 #        resp_len = np.sum(np.isfinite(resp.as_continuous()))
 #        log.info("non-nan resp samples: %d", resp_len)
@@ -205,7 +207,7 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
 def fit_state_nfold(data_list, modelspecs, generate_psth=False,
               fitter=scipy_minimize,
               metric=None,
-              fit_kwargs={'options': {'ftol': 1e-7, 'maxiter': 1000}}):
+              fit_kwargs={'options': {'tolerance': 1e-7, 'max_iter': 1000}}):
     '''
     Generic state-dependent-stream model fitter
     Takes njacks jackknifes, where each jackknife has some small
@@ -225,7 +227,7 @@ def fit_state_nfold(data_list, modelspecs, generate_psth=False,
                 data_list[i], copy.deepcopy(modelspecs[0]),
                 nems.analysis.api.fit_basic, 'merge_channels',
                 fitter=scipy_minimize,
-                fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
+                fit_kwargs={'options': {'tolerance': 1e-4, 'max_iter': 500}})
 
         models += fit_basic(data_list[i], tms,
                             fitter=fitter,
