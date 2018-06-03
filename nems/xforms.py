@@ -675,7 +675,7 @@ def fit_cd_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
     ''' fitting n fold, one from each entry in est, use mse_shrink for
     cost function'''
     if not IsReload:
-        fit_kwargs = {'options': {'ftol': ftol, 'maxiter': maxiter,
+        fit_kwargs = {'options': {'ftol': tolerance, 'maxiter': max_iter,
                       'step_size': 0.05}}
         modelspecs = nems.analysis.api.fit_nfold(
                 est, modelspecs,
