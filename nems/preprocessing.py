@@ -2,7 +2,7 @@ import warnings
 import numpy as np
 import nems.epoch as ep
 import pandas as pd
-import nems.signal as signal
+from nems.signal import RasterizedSignal
 import copy
 
 import logging
@@ -69,7 +69,7 @@ def add_average_sig(rec, signal_to_average='resp',
     return newrec
 
 
-def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
+def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
     '''
     Returns a recording with _all_ signals averaged across epochs that
     match epoch_regex, shortening them so that each epoch occurs only
@@ -93,64 +93,43 @@ def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
     (based on stimulus and behaviorial state, for example) and then match
     the epoch_regex to those.
     '''
+    epochs = recording.epochs
+    epoch_names = sorted(set(ep.epoch_names_matching(epochs, epoch_regex)))
 
-    # Create new recording
-    newrec = rec.copy()
+    offset = 0
+    new_epochs = []
+    for epoch_name in epoch_names:
+        common_epochs = ep.find_common_epochs(epochs, epoch_name)
+        query = 'name == "{}"'.format(epoch_name)
+        end = common_epochs.query(query).iloc[0]['end']
+        common_epochs[['start', 'end']] += offset
+        offset += end
+        new_epochs.append(common_epochs)
+    new_epochs = pd.concat(new_epochs, ignore_index=True)
 
-    counter = 0
+    averaged_recording = recording.copy()
 
-    # iterate through each signal
-    for signal_name, signal_to_average in rec.signals.items():
-        # TODO: for TiledSignals, there is a much simpler way to do this!
+    for signal_name, signal in recording.signals.items():
+        # TODO: this may be better done as a method in signal subclasses since
+        # some subclasses may have more efficient approaches (e.g.,
+        # TiledSignal)
 
-        # 0. rasterize
-        signal_to_average = signal_to_average.rasterize()
+        # Extract all occurances of each epoch, returning a dict where keys are
+        # stimuli and each value in the dictionary is (reps X cell X bins)
+        epoch_data = signal.rasterize().extract_epochs(epoch_names)
 
-        # 1. Find matching epochs
-        epochs_to_extract = ep.epoch_names_matching(rec.epochs, epoch_regex)
+        # Average over all occurrences of each epoch
+        for epoch_name, epoch in epoch_data.items():
+            epoch_data[epoch_name] = np.nanmean(epoch, axis=0)
+        data = [epoch_data[epoch_name] for epoch_name in epoch_names]
+        data = np.concatenate(data, axis=-1)
+        if data.shape[-1] != round(signal.fs * offset):
+            raise ValueError('Misalignment issue in averaging signal')
 
-        # 2. Fold over all stimuli, returning a dict where keys are stimuli
-        #    and each value in the dictionary is (reps X cell X bins)
-        folded_matrices = signal_to_average.extract_epochs(epochs_to_extract)
+        averaged_signal = signal._modified_copy(data, epochs=new_epochs)
+        averaged_recording.add_signal(averaged_signal)
 
-        # force a standard list of sorted keys for all signals
-        if counter == 0:
-            sorted_keys = list(folded_matrices.keys())
-            sorted_keys.sort()
-        counter += 1
-
-        # 3. Average over all occurrences of each epoch, and append to data
-        fs = signal_to_average.fs
-        data = np.zeros([signal_to_average.nchans, 0])
-        current_time = 0
-        epochs = None
-        for k in sorted_keys:
-            # Supress warnings about all-nan matrices
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                per_stim_psth = np.nanmean(folded_matrices[k], axis=0)
-            data = np.concatenate((data, per_stim_psth), axis=1)
-            epoch = current_time+np.array([[0, per_stim_psth.shape[1]/fs]])
-            df = pd.DataFrame(np.tile(epoch, [2, 1]), columns=['start', 'end'])
-            df['name'] = k
-            df.at[1, 'name'] = 'TRIAL'
-            if epochs is not None:
-                epochs = epochs.append(df, ignore_index=True)
-            else:
-                epochs = df
-            current_time = epoch[0, 1]
-            # print("{0} epoch: {1}-{2}".format(k,epoch[0,0],epoch[0,1]))
-
-        avg_signal = signal.RasterizedSignal(
-                fs=fs, data=data,
-                name=signal_to_average.name,
-                recording=signal_to_average.recording,
-                chans=signal_to_average.chans,
-                epochs=epochs,
-                meta=signal_to_average.meta)
-        newrec.add_signal(avg_signal)
-
-    return newrec
+    return averaged_recording
 
 
 def remove_invalid_segments(rec):
@@ -473,7 +452,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         # print(state_sig_list[-1])
         # print(state_sig_list[-1].shape)
 
-    state = signal.RasterizedSignal.concatenate_channels(state_sig_list)
+    state = RasterizedSignal.concatenate_channels(state_sig_list)
     state.name = new_signalname
 
     # scale all signals to range from 0 - 1
@@ -559,7 +538,7 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     Only supports RasterizedSignal.
     '''
     source_signal = rec[source_name]
-    if not isinstance(source_signal, signal.RasterizedSignal):
+    if not isinstance(source_signal, RasterizedSignal):
         raise TypeError("signal with key {} was not a RasterizedSignal"
                         .format(source_name))
     array = source_signal.as_continuous()
