@@ -3,7 +3,7 @@ import logging
 import copy
 import numpy as np
 
-from nems.utils import split_keywords
+from nems.utils import (split_keywords, find_module)
 from nems import keywords
 from nems.analysis.api import fit_basic
 from nems.fitters.api import scipy_minimize
@@ -137,6 +137,9 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
     modules back on and returns the full modelspec.
     """
 
+    # preserve input modelspec
+    modelspec = copy.deepcopy(modelspec)
+
     # figure out last modelspec module to fit
     target_i = None
     for i, m in enumerate(modelspec):
@@ -208,6 +211,9 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
     modules back on and returns the full modelspec.
     """
 
+    # preserve input modelspec
+    modelspec = copy.deepcopy(modelspec)
+
     # identify any excluded modules and take them out of temp modelspec
     # that will be fit here
     fit_idx = []
@@ -259,7 +265,10 @@ def init_dexp(rec, modelspec):
     choose initial values for dexp applied after preceeding fir is
     initialized
     """
-    target_i = _find_module('double_exponential', modelspec)
+    # preserve input modelspec
+    modelspec = copy.deepcopy(modelspec)
+
+    target_i = find_module('double_exponential', modelspec)
     if target_i is None:
         log.warning("No dexp module was found, can't initialize.")
         return modelspec
@@ -318,7 +327,10 @@ def init_logsig(rec, modelspec):
     Initialization of priors for logistic_sigmoid,
     based on process described in methods of Rabinowitz et al. 2014.
     '''
-    logsig_idx = _find_module('logistic_sigmoid', modelspec)
+    # preserve input modelspec
+    modelspec = copy.deepcopy(modelspec)
+
+    logsig_idx = find_module('logistic_sigmoid', modelspec)
     if logsig_idx is None:
         log.warning("No logsig module was found, can't initialize.")
         return modelspec
@@ -356,18 +368,3 @@ def init_logsig(rec, modelspec):
     return modelspec
 
 
-def _find_module(name, modelspec):
-    target_i = None
-    target_module = name
-    for i, m in enumerate(modelspec):
-        if target_module in m['fn']:
-            target_i = i
-            break
-
-    if not target_i:
-        log.info("target_module: %s not found in modelspec.", target_module)
-
-    log.info("target_module: %s found at modelspec[%d]",
-             target_module, target_i)
-
-    return target_i
