@@ -84,8 +84,8 @@ def find_module(name, modelspec, find_all_matches=False):
 
     if not target_i:
         log.info("target_module: %s not found in modelspec.", target_module)
-
-    log.info("target_module: %s found at modelspec[%d]",
-             target_module, target_i)
+    else:
+        log.info("target_module: %s found at modelspec[%d]",
+                 target_module, target_i)
 
     return target_i

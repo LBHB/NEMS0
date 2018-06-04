@@ -93,6 +93,9 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     elif rec.get_epoch_indices('TARGET').shape[0]:
         log.info('quickplot for TARGET epochs')
         epoch = 'TARGET'
+    elif rec.get_epoch_indices('TRIAL').shape[0]:
+        log.info('quickplot for TRIAL epochs')
+        epoch = 'TRIAL'
     else:
         raise ValueError('No epochs matching ' + epoch)
 
