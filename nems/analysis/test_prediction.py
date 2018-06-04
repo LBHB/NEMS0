@@ -40,7 +40,7 @@ def standard_correlation(est, val, modelspecs, rec=None):
         pass
     mse_fit = [nmet.nmse(p, 'pred', 'resp') for p in val]
     ll_fit = [nmet.likelihood_poisson(p, 'pred', 'resp') for p in est]
-    print(r_ceiling,r_test)
+
     modelspecs[0][0]['meta']['r_test'] = np.mean(r_test)
     modelspecs[0][0]['meta']['mse_test'] = np.mean(mse_test)
     modelspecs[0][0]['meta']['ll_test'] = np.mean(ll_test)
