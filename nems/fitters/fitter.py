@@ -40,8 +40,8 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
     this_sigma = sigma.copy()
     n_parameters = len(sigma)
     step_errors = np.empty([n_parameters, 2])
-    log.debug("CD intializing: step_size=%.2f, tolerance=%e",
-              step_size, tolerance)
+    log.info("CD intializing: step_size=%.2f, tolerance=%e",
+             step_size, tolerance)
     while not stop_fit():
         for i in range(0, n_parameters):
             if bounds is None:
@@ -71,7 +71,7 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
 
         # If change was negative, try reducing step size.
         if err >= stepinfo['err']:
-            log.debug("Error got worse, reducing step size from: %.06f to: "
+            log.info("Error got worse, reducing step size from: %.06f to: "
                       "%.06f", step_size, step_size * step_change)
             step_size *= step_change
             continue

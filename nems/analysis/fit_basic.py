@@ -168,16 +168,17 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
       each fold
 
     '''
-    if 'options' not in fit_kwargs.keys():
-       fit_kwargs['options'] = {}
-    if 'ftol' not in fit_kwargs['options'].keys():
-       fit_kwargs['ftol'] = 1e-7
-    if 'maxiter' not in fit_kwargs['options'].keys():
-       fit_kwargs['maxiter'] = 1000
+    # fit_kwargs = fit_kwargs.copy()
+    # if 'options' not in fit_kwargs.keys():
+    #     fit_kwargs['options'] = {}
+    # if 'ftol' not in fit_kwargs['options'].keys():
+    #     fit_kwargs['options']['ftol'] = 1e-7
+    # if 'maxiter' not in fit_kwargs['options'].keys():
+    #     fit_kwargs['options']['maxiter'] = 1000
 
     nfolds = len(data_list)
     models = []
-    if not metric:
+    if metric is None:
         metric = lambda d: metrics.nmse(d, 'pred', 'resp')
 
     for i in range(nfolds):
@@ -185,10 +186,7 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
             msidx = i
         else:
             msidx = 0
-
-        log.info("Fitting fold %d/%d, modelspec %d (tol=%e, maxit=%d)",
-                 i+1, nfolds, msidx, fit_kwargs['options']['ftol'],
-                 fit_kwargs['options']['maxiter'])
+        log.info("Fitting fold %d/%d, modelspec %d", i+1, nfolds, msidx)
 #        resp = data_list[i]['resp']
 #        resp_len = np.sum(np.isfinite(resp.as_continuous()))
 #        log.info("non-nan resp samples: %d", resp_len)

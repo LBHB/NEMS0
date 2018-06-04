@@ -657,7 +657,23 @@ def fit_nfold(modelspecs, est, ftol=1e-7, maxiter=1000,
     return {'modelspecs': modelspecs}
 
 
-def fit_nfold_shrinkage(modelspecs, est, tolerance=1e-7, max_iter=1000,
+def fit_cd_nfold(modelspecs, est, ftol=1e-7, maxiter=1000, step_size=0.05,
+                 IsReload=False, **context):
+    '''
+    fitting n fold using coordinate descent, one from each entry in est
+    '''
+    if not IsReload:
+        #fit_kwargs = {'ftol': ftol, 'maxiter': maxiter,
+        #              'step_size': step_size}
+        fit_kwargs = {'tolerance': ftol, 'max_iter': maxiter,
+                      'step_size': step_size}
+        modelspecs = nems.analysis.api.fit_nfold(
+                est, modelspecs, fitter=coordinate_descent,
+                fit_kwargs=fit_kwargs)
+    return {'modelspecs': modelspecs}
+
+
+def fit_nfold_shrinkage(modelspecs, est, ftol=1e-7, maxiter=1000,
                         IsReload=False, **context):
     ''' fitting n fold, one from each entry in est, use mse_shrink for
     cost function'''
@@ -671,32 +687,24 @@ def fit_nfold_shrinkage(modelspecs, est, tolerance=1e-7, max_iter=1000,
     return {'modelspecs': modelspecs}
 
 
-def fit_cd_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
-                 IsReload=False, **context):
-    ''' fitting n fold, one from each entry in est, use mse_shrink for
-    cost function'''
-    if not IsReload:
-        fit_kwargs = {'options': {'ftol': tolerance, 'maxiter': max_iter,
-                      'step_size': 0.05}}
-        modelspecs = nems.analysis.api.fit_nfold(
-                est, modelspecs,
-                fit_kwargs=fit_kwargs,
-                fitter=coordinate_descent)
-    return {'modelspecs': modelspecs}
-
-
-def fit_cd_nfold_shrinkage(modelspecs, est, tolerance=1e-7,
-                           max_iter=1000, IsReload=False, **context):
-    ''' fitting n fold, one from each entry in est, use mse_shrink for
-    cost function'''
+def fit_cd_nfold_shrinkage(modelspecs, est, ftol=1e-7, maxiter=1000,
+                           IsReload=False, **context):
+    '''
+    fitting n-fold, one from each entry in est, use coordinate descent
+    '''
     if not IsReload:
         fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter,
                       'step_size': 0.05}
-        metric = lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
+        metric = lambda d: metrics.nmse(d, 'pred', 'resp')
         modelspecs = nems.analysis.api.fit_nfold(
                 est, modelspecs, metric=metric,
                 fit_kwargs=fit_kwargs,
                 fitter=coordinate_descent)
+        fit_kwargs = {'options': {'tolerance': tolerance, 'max_iter': max_iter}}
+        modelspecs = nems.analysis.api.fit_nfold(
+                est, modelspecs, metric=metric,
+                fitter=scipy_minimize,
+                fit_kwargs=fit_kwargs)
     return {'modelspecs': modelspecs}
 
 

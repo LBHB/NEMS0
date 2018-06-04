@@ -70,7 +70,7 @@ def generate_loader_xfspec(loader, recording_uri):
                        {'state_signals': state_signals,
                         'permute_signals': permute_signals,
                         'new_signalname': 'state'}],
-                      ['nems.preprocessing.generate_stim_from_epochs', 
+                      ['nems.preprocessing.generate_stim_from_epochs',
                        {'new_signal_name': 'stim', 'epoch_regex': '^TAR_',
                         'onsets_only': True},
                        ['rec'],['rec']],
@@ -79,7 +79,7 @@ def generate_loader_xfspec(loader, recording_uri):
         else:
             raise ValueError("unknown evt loader keyword")
 
-        
+
     elif (loader.startswith("psth") or loader.startswith("nostim") or
           loader.startswith("env")):
 
@@ -333,9 +333,17 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
         xfspec.append(['nems.xforms.fit_nfold', {}])
         xfspec.append(['nems.xforms.predict', {}])
 
+    elif fitkey == "cd-nf":
+
+        xfspec.append(['nems.xforms.mask_for_jackknife',
+                       {'njacks': pfolds, 'epoch_name': 'REFERENCE'}])
+        # xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
+        xfspec.append(['nems.xforms.fit_cd_nfold', {'ftol': 1e-6}])
+        xfspec.append(['nems.xforms.predict',    {}])
+
     elif (fitkey == "fitpjk01") or (fitkey == "basic-nfm"):
 
-        xfspec.append(['nems.xforms.split_for_jackknife',
+        xfspec.append(['nems.xforms.mask_for_jackknife',
                        {'njacks': pfolds, 'epoch_name': 'REFERENCE'}])
         # xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
         xfspec.append(['nems.xforms.fit_nfold', {}])
@@ -353,25 +361,16 @@ def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
     elif fitkey == "basic-nf-shr":
 
         log.info("n-fold fitting...")
-        xfspec.append(['nems.xforms.split_for_jackknife',
+        xfspec.append(['nems.xforms.mask_for_jackknife',
                        {'njacks': pfolds, 'epoch_name': 'REFERENCE'}])
         # xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
         xfspec.append(['nems.xforms.fit_nfold_shrinkage', {}])
         xfspec.append(['nems.xforms.predict',    {}])
 
-    elif fitkey == "cd-nf":
-
-        log.info("n-fold fitting...")
-        xfspec.append(['nems.xforms.split_for_jackknife',
-                       {'njacks': pfolds, 'epoch_name': 'REFERENCE'}])
-        # xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
-        xfspec.append(['nems.xforms.fit_cd_nfold', {'tolerance': 1e-6}])
-        xfspec.append(['nems.xforms.predict',    {}])
-
     elif fitkey == "cd-nf-shr":
 
         log.info("n-fold fitting...")
-        xfspec.append(['nems.xforms.split_for_jackknife',
+        xfspec.append(['nems.xforms.mask_for_jackknife',
                        {'njacks': pfolds, 'epoch_name': 'REFERENCE'}])
         # xfspec.append(['nems.xforms.generate_psth_from_est_for_both_est_and_val_nfold', {}])
         xfspec.append(['nems.xforms.fit_cd_nfold_shrinkage', {}])
