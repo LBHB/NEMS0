@@ -298,10 +298,11 @@ def mask_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
         return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
 
-
-def init_from_keywords(keywordstring, meta={}, IsReload=False, **context):
+def init_from_keywords(keywordstring, rec=None, meta={}, IsReload=False,
+                       **context):
     if not IsReload:
-        modelspec = init.from_keywords(keyword_string=keywordstring, meta=meta)
+        modelspec = init.from_keywords(keyword_string=keywordstring,
+                                       rec=rec, meta=meta)
 
         return {'modelspecs': [modelspec]}
     else:
