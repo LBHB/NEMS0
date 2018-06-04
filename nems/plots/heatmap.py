@@ -81,7 +81,12 @@ def fir_heatmap(modelspec, ax=None, clim=None, title=None):
 
 
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
-                 title=None, fs=None):
+                 title=None, fs=None, chans=None):
+    """
+    chans: list
+       if not None, label each row of the strf with the corresponding
+       channel name
+    """
     wcc = _get_wc_coefficients(modelspec)
     firc = _get_fir_coefficients(modelspec)
     if wcc is None and firc is None:
@@ -134,3 +139,7 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
 
     plot_heatmap(everything, xlabel='Lag (s)',
                  ylabel='Channel In', ax=ax, skip=skip, title=title, fs=fs)
+    if chans is not None:
+        for i, c in enumerate(chans):
+            plt.text(0, i, c)
+

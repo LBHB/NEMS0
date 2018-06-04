@@ -83,6 +83,7 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     # full recording. Keeping the full ctx reference lets those plots
     # use ctx['est'], ctx['rec'], etc.
     rec = ctx[default][r_idx]
+    log.info('Running quickplot')
     modelspec = ctx['modelspecs'][m_idx]
     if (epoch is not None) and rec.get_epoch_indices(epoch).shape[0]:
         pass
@@ -177,7 +178,6 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
         # +1 because we did spectrogram above. Adjust as necessary.
         j = i + (1 if show_spectrogram else 0)
         _plot_axes(col_spans, fns, j)
-        print(rec['pred'].shape)
 
     ## Special plots that go *AFTER* iterated modules
 
@@ -315,7 +315,10 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
         # do strf
         else:
             if not strf_done:
-                fn = partial(strf_heatmap, modelspec, title='STRF')
+                chans = rec['stim'].chans
+                print('CHANS: ')
+                print(chans)
+                fn = partial(strf_heatmap, modelspec, title='STRF', chans=chans)
                 plot = (fn, 1)
                 plot_fns.append(plot)
                 strf_done = True

@@ -51,6 +51,15 @@ def generate_loader_xfspec(loader, recording_uri):
         if loader.endswith("pupbehtarlic"):
             state_signals = ['active','pupil']
             permute_signals = []
+        elif loader.endswith("pup0behtarlic"):
+            state_signals = ['active','pupil']
+            permute_signals = ['pupil']
+        elif loader.endswith("pupbeh0tarlic"):
+            state_signals = ['active','pupil']
+            permute_signals = ['active']
+        elif loader.endswith("pup0beh0tarlic"):
+            state_signals = ['active','pupil']
+            permute_signals = ['active','pupil']
         else:
             raise ValueError("unknown state_signals for evt loader")
 
@@ -249,7 +258,7 @@ def generate_loader_xfspec(loader, recording_uri):
 def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
 
     xfspec = []
-    pfolds = 20
+    pfolds = 5
 
     # parse the fit spec: Use gradient descent on whole data set(Fast)
     if fitkey in ["fit01", "basic"]:
