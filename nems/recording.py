@@ -843,6 +843,9 @@ class Recording:
 
         rec = copy.deepcopy(self)
         sig = rec['mask']
+        
+        if np.sum(~sig._data) == 0:
+            return rec
 
         s_indices = np.argwhere(np.diff(rec['mask']._data.squeeze())).squeeze()+1
         last_ind = len(s_indices)-1
