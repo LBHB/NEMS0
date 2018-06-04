@@ -275,7 +275,6 @@ class SignalBase:
         basepath = os.path.join(dirpath, filebase)
         jsonfilepath = basepath + '.json'
         epochfilepath = basepath + '.epoch.csv'
-        print(jsonfilepath)
         with open(jsonfilepath, 'w') as md_fh, open(epochfilepath, 'w') as epoch_fh:
             self._save_metadata(epoch_fh, md_fh, fmt)
         return (jsonfilepath, epochfilepath)
@@ -1141,12 +1140,6 @@ class RasterizedSignal(SignalBase):
 
         data[mask] = np.nan
         data[~mask2] = np.nan
-
-#        if self.name == 'resp':
-#            sig_len = data.shape[1]
-#            sig_valid = np.sum(np.isfinite(data[0,:]))
-#            log.info("%s valid samples: %d/%d (%d)", self.name, sig_valid,
-#                     sig_valid_start, sig_len)
 
         return self._modified_copy(data)
 

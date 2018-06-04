@@ -1,5 +1,6 @@
 import re
 import numpy as np
+import pandas as pd
 
 import logging
 log = logging.getLogger(__name__)
@@ -473,3 +474,53 @@ def group_epochs_by_occurrence_counts(epochs, regex=None):
         else:
             d[count] = [name]
     return d
+
+
+def find_common_epochs(epochs, epoch_name, d=12):
+    '''
+    Finds all epochs contained by `epoch_name` that are common to all
+    occurances of `epoch_name`. An epoch is considered "common" to all
+    occurances if the name matches and the start and end times, relative to the
+    start `epoch_name`, are the same to the number of decimal places indicated.
+
+    Parameters
+    ----------
+    epochs : dataframe with 'name', 'start', 'end'
+        Epochs to filter through
+    epoch_name : str
+        Name of epoch to use
+    d : int
+        Number of decimal places to round start and end to. This is im portant
+        when comparing start and end times of different epochs due to
+        floating-point errors.
+
+    Result
+    ------
+    common_epochs : dataframe with 'name', 'start', 'end'
+        Epochs common to all occurances of `epoch_name`. The start and end
+        times will reflect the time relative to the onset of the epoch.
+    '''
+    # First, loop through all occurances of `epoch_name` and find all the
+    # epochs contained within that occurance. Be sure to adjust the start/end
+    # time so that they are relative to the beginning of the occurance of that
+    # epoch.
+    epoch_subsets = []
+    matches =  epochs.query('name == "{}"'.format(epoch_name))
+    for lb, ub in matches[['start', 'end']].values:
+        m = (epochs['start'] >= lb) & (epochs['end'] <= ub)
+        epoch_subset = epochs.loc[m].copy()
+        epoch_subset['start'] -= lb
+        epoch_subset['end'] -= lb
+        epoch_subset = set((n, round(s, d), round(e, d)) for (n, s, e) \
+                           in epoch_subset[['name', 'start', 'end']].values)
+        epoch_subsets.append(epoch_subset)
+
+    # Now, determine which epochs are common to all occurances.
+    common_epochs = epoch_subsets[0].copy()
+    for other_epoch in epoch_subsets[1:]:
+        common_epochs.intersection_update(other_epoch)
+
+    new_epochs = pd.DataFrame(list(common_epochs),
+                              columns=['name', 'start', 'end'])
+    new_epochs.sort_values(['start', 'end'], inplace=True)
+    return new_epochs
