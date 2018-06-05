@@ -48,18 +48,35 @@ def generate_loader_xfspec(loader, recording_uri):
 
     elif (loader.startswith("evt")):
 
+        epoch2_shuffle = False
         if loader.endswith("pupbehtarlic"):
-            state_signals = ['active','pupil']
+            state_signals = ['active', 'pupil']
             permute_signals = []
         elif loader.endswith("pup0behtarlic"):
-            state_signals = ['active','pupil']
+            state_signals = ['active', 'pupil']
             permute_signals = ['pupil']
         elif loader.endswith("pupbeh0tarlic"):
-            state_signals = ['active','pupil']
+            state_signals = ['active', 'pupil']
             permute_signals = ['active']
         elif loader.endswith("pup0beh0tarlic"):
-            state_signals = ['active','pupil']
-            permute_signals = ['active','pupil']
+            state_signals = ['active', 'pupil']
+            permute_signals = ['active', 'pupil']
+        elif loader.endswith("pupbehtarlic0"):
+            state_signals = ['active', 'pupil']
+            permute_signals = []
+            epoch2_shuffle = True
+        elif loader.endswith("pup0behtarlic0"):
+            state_signals = ['active', 'pupil']
+            permute_signals = ['pupil']
+            epoch2_shuffle = True
+        elif loader.endswith("pupbeh0tarlic0"):
+            state_signals = ['active', 'pupil']
+            permute_signals = ['active']
+            epoch2_shuffle = True
+        elif loader.endswith("pup0beh0tarlic0"):
+            state_signals = ['active', 'pupil']
+            permute_signals = ['active', 'pupil']
+            epoch2_shuffle = True
         else:
             raise ValueError("unknown state_signals for evt loader")
 
@@ -71,9 +88,11 @@ def generate_loader_xfspec(loader, recording_uri):
                         'permute_signals': permute_signals,
                         'new_signalname': 'state'}],
                       ['nems.preprocessing.generate_stim_from_epochs',
-                       {'new_signal_name': 'stim', 'epoch_regex': '^TAR_',
-                        'onsets_only': True},
-                       ['rec'],['rec']],
+                       {'new_signal_name': 'stim',
+                        'epoch_regex': '^TAR_', 'epoch_shift': 5,
+                        'epoch2_regex': 'LICK', 'epoch2_shift': -5,
+                        'epoch2_shuffle': epoch2_shuffle, 'onsets_only': True},
+                       ['rec'], ['rec']],
                       ['nems.xforms.mask_all_but_targets', {}]]
 
         else:

@@ -68,17 +68,22 @@ def _get_fir_coefficients(modelspec):
     return None
 
 
-def weight_channels_heatmap(modelspec, ax=None, clim=None, title=None):
+def weight_channels_heatmap(modelspec, ax=None, clim=None, title=None, chans=None):
     coefficients = _get_wc_coefficients(modelspec)
     plot_heatmap(coefficients, xlabel='Channel In', ylabel='Channel Out',
                  ax=ax, clim=clim, title=title)
+    if chans is not None:
+        for i, c in enumerate(chans):
+            plt.text(i, 0, c)
 
 
-def fir_heatmap(modelspec, ax=None, clim=None, title=None):
+def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None):
     coefficients = _get_fir_coefficients(modelspec)
     plot_heatmap(coefficients, xlabel='Time Bin', ylabel='Channel In',
                  ax=ax, clim=clim, title=title)
-
+    if chans is not None:
+        for i, c in enumerate(chans):
+            plt.text(-0.4, i, c, verticalalignment='center')
 
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
                  title=None, fs=None, chans=None):
@@ -141,5 +146,4 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
                  ylabel='Channel In', ax=ax, skip=skip, title=title, fs=fs)
     if chans is not None:
         for i, c in enumerate(chans):
-            plt.text(0, i, c)
-
+            plt.text(0, i + nchans + 1, c, verticalalignment='center')

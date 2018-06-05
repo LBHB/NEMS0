@@ -657,14 +657,12 @@ def fit_nfold(modelspecs, est, ftol=1e-7, maxiter=1000,
     return {'modelspecs': modelspecs}
 
 
-def fit_cd_nfold(modelspecs, est, ftol=1e-7, maxiter=1000, step_size=0.05,
+def fit_cd_nfold(modelspecs, est, ftol=1e-7, maxiter=1000, step_size=0.1,
                  IsReload=False, **context):
     '''
     fitting n fold using coordinate descent, one from each entry in est
     '''
     if not IsReload:
-        #fit_kwargs = {'ftol': ftol, 'maxiter': maxiter,
-        #              'step_size': step_size}
         fit_kwargs = {'tolerance': ftol, 'max_iter': maxiter,
                       'step_size': step_size}
         modelspecs = nems.analysis.api.fit_nfold(

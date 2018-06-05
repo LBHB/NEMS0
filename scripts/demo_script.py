@@ -75,12 +75,12 @@ logging.info('Initializing modelspec(s)...')
 
 # Method #1: create from "shorthand" keyword string
 # very simple linear model
-modelspec_name='wcg18x2_fir2x15_lvl1_dexp1'
+modelspec_name='wcg18x1_fir1x15_lvl1_dexp1'
 
 # Method #1b: constrain spectral tuning to be gaussian, add static output NL
 #modelspec_name='wcg18x2_fir2x15_lvl1_dexp1'
 
-modelspec = nems.initializers.from_keywords('wc18x2_fir2x15_lvl1')
+modelspec = nems.initializers.from_keywords(modelspec_name)
 
 # Method #2: Generate modelspec directly
 # TODO: implement this
