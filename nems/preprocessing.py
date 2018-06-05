@@ -266,6 +266,8 @@ def generate_stim_from_epochs(rec, new_signal_name='stim',
         log.info('Adding to %s: %s with shift = %d',
                  new_signal_name, e, epoch_shift)
         s = resp.epoch_to_signal(e, onsets_only=onsets_only, shift=epoch_shift)
+        if epoch_shift:
+            s.chans[0] = "{}{:+d}".format(s.chans[0], epoch_shift)
         sigs.append(s)
 
     if epoch2_regex is not None:
@@ -278,6 +280,9 @@ def generate_stim_from_epochs(rec, new_signal_name='stim',
             if epoch2_shuffle:
                 log.info('Shuffling %s', e)
                 s = s.shuffle_time()
+                s.chans[0] = "{}_shf".format(s.chans[0])
+            if epoch_shift:
+                s.chans[0] = "{}{:+d}".format(s.chans[0], epoch2_shift)
             sigs.append(s)
 
     stim = sigs[0].concatenate_channels(sigs)

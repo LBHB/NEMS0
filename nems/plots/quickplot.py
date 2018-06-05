@@ -287,15 +287,16 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
         # the dependent modules are wrapped here
         # in a separate logic heirarchy.
         if not do_strf:
+            chans = rec['stim'].chans
             if 'weight_channels' in fname:
 
                 if 'weight_channels.basic' in fname:
-                    fn = partial(weight_channels_heatmap, modelspec)
+                    fn = partial(weight_channels_heatmap, modelspec, chans=chans)
                     plot = (fn, 1)
                     plot_fns.append(plot)
 
                 elif 'weight_channels.gaussian' in fname:
-                    fn = partial(weight_channels_heatmap, modelspec)
+                    fn = partial(weight_channels_heatmap, modelspec, chans=chans)
                     plot = (fn, 1)
                     plot_fns.append(plot)
 
@@ -306,7 +307,7 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
             elif 'fir' in fname:
 
                 if 'fir.basic' in fname:
-                    fn = partial(fir_heatmap, modelspec)
+                    fn = partial(fir_heatmap, modelspec, chans=chans)
                     plot = (fn, 1)
                     plot_fns.append(plot)
                 elif 'fir.filter_bank' in fname:
