@@ -251,16 +251,35 @@ def nan_invalid_segments(rec):
     return newrec
 
 
-def generate_stim_from_epochs(rec, new_signal_name='stim', epoch_regex='^STIM_', onsets_only=True):
+def generate_stim_from_epochs(rec, new_signal_name='stim',
+                              epoch_regex='^STIM_', epoch_shift=0,
+                              epoch2_regex=None, epoch2_shift=0,
+                              epoch2_shuffle=False,
+                              onsets_only=True):
 
     rec = rec.copy()
     resp = rec['resp'].rasterize()
 
     epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
-    print(epochs_to_extract)
-    sigs = [resp.epoch_to_signal(s, onsets_only=onsets_only, shift=5) for s in epochs_to_extract]
-    print('adding licks with shift=-5')
-    sigs.append(resp.epoch_to_signal('LICK', onsets_only=onsets_only, shift=-5))
+    sigs = []
+    for e in epochs_to_extract:
+        log.info('Adding to %s: %s with shift = %d',
+                 new_signal_name, e, epoch_shift)
+        s = resp.epoch_to_signal(e, onsets_only=onsets_only, shift=epoch_shift)
+        sigs.append(s)
+
+    if epoch2_regex is not None:
+        epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch2_regex)
+        for e in epochs_to_extract:
+            log.info('Adding to %s: %s with shift = %d',
+                     new_signal_name, e, epoch2_shift)
+            s = resp.epoch_to_signal(e, onsets_only=onsets_only,
+                                     shift=epoch2_shift)
+            if epoch2_shuffle:
+                log.info('Shuffling %s', e)
+                s = s.shuffle_time()
+            sigs.append(s)
+
     stim = sigs[0].concatenate_channels(sigs)
     stim.name = new_signal_name
 
