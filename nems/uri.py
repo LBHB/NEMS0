@@ -255,7 +255,7 @@ def list_targz_in_nginx_dir(uri):
 
 
 DEMO_NAMES = [
-        'TAR010c-18-1.tgz', 'eno052d-a1.tgz'
+        'TAR010c-18-1.tgz', 'eno052d-a1.tgz', 'BRT026c-02-1.tgz', 'resp2.tgz',
         ]
 
 
