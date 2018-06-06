@@ -353,7 +353,7 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
             if 'nonlinearity.double_exponential' in fname:
                 fn1, fn2 = before_and_after_scatter(
                         rec, modelspec, idx, smoothing_bins=200,
-                        mod_name='dexp'
+                        mod_name='double_exponential'
                         )
                 plots = ([fn1, fn2], [1, 1])
                 plot_fns.append(plots)
@@ -501,9 +501,14 @@ def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
     text1 = "r = {0:.5f}".format(corr1)
     text2 = "r = {0:.5f}".format(corr2)
 
+    modidx = find_module(mod_name, modelspec)
+    if modidx:
+        module = modelspec[modidx]
+    else:
+        module = None
     fn1 = partial(plot_scatter, before_sig, compare_to, title=title1,
                   smoothing_bins=smoothing_bins, xlabel=xlabel1,
-                  ylabel=ylabel1, text=text1)
+                  ylabel=ylabel1, text=text1, module=module)
     fn2 = partial(plot_scatter, after_sig, compare_to, title=title2,
                   smoothing_bins=smoothing_bins, xlabel=xlabel2,
                   ylabel=ylabel2, text=text2)
