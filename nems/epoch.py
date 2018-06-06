@@ -336,12 +336,7 @@ def epoch_intersection(a, b):
             m = 'Unhandled epoch boundary condition. Contact the developers.'
             raise SystemError(m)
 
-    # Add all remaining epochs from a
-    #intersection.extend(a[::-1])
-    result = np.array(intersection, dtype=np.int32)
-    if result.size == 0:
-        log.warning("Epochs did not intersect, resulting array"
-                    " is empty.")
+    result = np.array(intersection)
     return result
 
 

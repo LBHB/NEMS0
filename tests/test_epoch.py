@@ -15,6 +15,7 @@ def epoch_a():
         [ 75,  76],
         [ 77,  77],
         [ 85, 100],
+        [140, 150],
      ])
 
 
@@ -68,6 +69,16 @@ def test_intersection(epoch_a, epoch_b):
     assert np.all(result == expected)
 
 
+def test_intersection_float(epoch_a, epoch_b):
+    expected = np.array([
+        [ 60,  70],
+        [ 75,  76],
+        [ 90,  95],
+    ])/10
+    result = epoch_intersection(epoch_a/10, epoch_b/10)
+    assert np.all(result == expected)
+
+
 def test_empty_intersection():
     a = np.array([
         [  0, 20],
@@ -92,8 +103,23 @@ def test_union(epoch_a, epoch_b):
         [ 77,  77],
         [ 85, 100],
         [110, 120],
+        [140, 150],
     ])
     result = epoch_union(epoch_a, epoch_b)
+    assert np.all(result == expected)
+
+
+def test_union_float(epoch_a, epoch_b):
+    expected = np.array([
+        [  0,  50],
+        [ 55,  70],
+        [ 75,  76],
+        [ 77,  77],
+        [ 85, 100],
+        [110, 120],
+        [140, 150],
+    ])/10
+    result = epoch_union(epoch_a/10, epoch_b/10)
     assert np.all(result == expected)
 
 
@@ -103,8 +129,21 @@ def test_difference(epoch_a, epoch_b):
         [ 77,  77],
         [ 85,  90],
         [ 95, 100],
+        [140, 150],
     ])
     result = epoch_difference(epoch_a, epoch_b)
+    assert np.all(result == expected)
+
+
+def test_difference_float(epoch_a, epoch_b):
+    expected = np.array([
+        [  0,  50],
+        [ 77,  77],
+        [ 85,  90],
+        [ 95, 100],
+        [140, 150],
+    ])/10
+    result = epoch_difference(epoch_a/10, epoch_b/10)
     assert np.all(result == expected)
 
 
@@ -125,6 +164,7 @@ def test_contains(epoch_a, epoch_b):
         True,
         False,
         True,
+        False,
     ])
     actual = epoch_contains(epoch_a, epoch_b, 'any')
     assert np.all(actual == expected_any)
@@ -135,6 +175,7 @@ def test_contains(epoch_a, epoch_b):
         True,
         False,
         True,
+        False,
     ])
     actual = epoch_contains(epoch_a, epoch_b, 'start')
     assert np.all(actual == expected_start)
@@ -145,6 +186,7 @@ def test_contains(epoch_a, epoch_b):
         True,
         False,
         True,
+        False,
     ])
     actual = epoch_contains(epoch_a, epoch_b, 'end')
     assert np.all(actual == expected_end)
@@ -159,6 +201,7 @@ def test_epoch_contained(epoch_a, epoch_b, epoch_c):
         False,
         True,
         True,
+        False,
         False,
         False,
     ])
@@ -180,6 +223,7 @@ def test_epoch_contained(epoch_a, epoch_b, epoch_c):
         False,
         False,
         True,
+        False,
     ])
     actual = epoch_contained(epoch_a, epoch_c)
     assert np.all(actual == expected)
