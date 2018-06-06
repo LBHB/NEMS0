@@ -22,7 +22,7 @@ def plot_nl_io(module=None, xbounds=None, ax=None):
     chancount = len(module['phi'][keys[0]])
     d_in = np.linspace(xbounds[0], xbounds[1], 100)
     if chancount > 1:
-        d_in = np.tile(d_in, (chancount,1))
+        d_in = np.tile(d_in, (chancount, 1))
     d_out = fn(d_in, **module['phi'])
     plt.plot(d_in.T, d_out.T)
 
@@ -86,7 +86,7 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
             y = s2[1, :]
 
         chan_name = 'Channel {}'.format(i) if not sig2.chans else sig2.chans[i]
-        plt.scatter(x, y, label=chan_name)
+        plt.scatter(x, y, label=chan_name, s=2, color='darkgray')
 
     if module is not None:
         xbounds = ax.get_xbound()
