@@ -558,3 +558,51 @@ def group_epochs_by_parent(epochs, epoch_name_regex):
         m_ub = epochs['end'] <= end
         m = m_lb & m_ub
         yield (name, epochs.loc[m])
+
+
+def add_epoch(df, regex_a, regex_b, new_name=None, operation='intersection'):
+    '''
+    Add a new epoch based on an operation of two epoch sets, A and B
+
+    Parameters
+    ----------
+    df : dataframe
+        Epoch dataframe with three columns (name, start, end)
+    regex_a : string
+        Regular expression to match against for A
+    regex_b : string
+        Regular expression to match against for B
+    new_name : {None, string}
+        Name to assign to result of operation. If None, name is the
+        concatenation of regex_a and regex_b.
+    operation : {'intersection', 'difference', 'contained'}
+        Operation to perform. See docstring for epoch_{operation} for details.
+    '''
+    if new_name is None:
+        new_name = '{}_{}'.format(regex_a, regex_b)
+
+    mask_a = df['name'].str.contains(regex_a)
+    mask_b = df['name'].str.contains(regex_b)
+    a = df.loc[mask_a, ['start', 'end']].values
+    b = df.loc[mask_b, ['start', 'end']].values
+
+    if operation == 'intersection':
+        c = epoch_intersection(a, b)
+    elif operation == 'difference':
+        c = epoch_difference(a, b)
+    elif operation == 'contained':
+        c = epoch_contained(a, b)
+    else:
+        raise ValueError('Unsupported operation {}'.format(operation))
+
+    if len(c) == 0:
+        return df.copy()
+
+    new_epochs = pd.DataFrame({
+        'name': new_name,
+        'start': c[:, 0],
+        'end': c[:, 1],
+    })
+    result = pd.concat((df, new_epochs))
+    result.sort_values(['start', 'end', 'name'], inplace=True)
+    return result[['name', 'start', 'end']]

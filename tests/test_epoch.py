@@ -5,7 +5,7 @@ import pandas as pd
 
 from nems.epoch import (epoch_union, epoch_difference, epoch_intersection,
                         epoch_contains, epoch_contained, adjust_epoch_bounds,
-                        remove_overlap, find_common_epochs)
+                        remove_overlap, find_common_epochs, add_epoch)
 
 @pytest.fixture()
 def epoch_a():
@@ -287,3 +287,15 @@ def group_epochs_by_parent(epoch_df):
     assert n1 == 'parent_1'
     n2, df2 = result[1]
     assert n2 == 'parent_2'
+
+
+def test_add_epoch(epoch_df):
+    result = add_epoch(epoch_df, 'parent', 'child_a')
+    assert len(result) == (len(epoch_df) + 2)
+
+    m = result['name'] == 'parent_child_a'
+    assert(m.sum() == 2)
+
+    expected = [[1, 2], [30, 31]]
+    values = result.loc[m, ['start', 'end']].values
+    assert np.array_equal(expected, values)
