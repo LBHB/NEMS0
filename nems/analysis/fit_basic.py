@@ -43,6 +43,8 @@ def fit_basic(data, modelspec,
     '''
     start_time = time.time()
 
+    modelspec = copy.deepcopy(modelspec)
+
     if cost_function is None:
         # Use the cost function defined in this module by default
         cost_function = basic_cost
@@ -284,7 +286,7 @@ def fit_from_priors(data, modelspec, ntimes=10):
     models = []
     for i in range(ntimes):
         log.info("Fitting from random start: {}/{}".format(i+1, ntimes))
-        ms = nems.priors.set_random_phi(modelspec)
+        ms = nems.priors.set_random_phi(copy.deepcopy(modelspec))
         models += fit_basic(data, ms, fitter=scipy_minimize,
                             metaname='fit_from_priors')
 
