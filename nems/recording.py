@@ -332,7 +332,7 @@ class Recording:
         else:
             os.mkdir(directory)
         if not os.path.isdir(directory):
-            os.makedirs(directory, mode=0o0777)
+            os.makedirs(directory, exist_ok=True)
         for s in self.signals.values():
             s.save(directory)
         return directory
