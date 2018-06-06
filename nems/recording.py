@@ -785,7 +785,7 @@ class Recording:
 
         # Invert
         if invert:
-            or_mask = not(or_mask)
+            or_mask = ~or_mask
 
         # apply or_mask to existing mask
         m = rec['mask'].as_continuous()
@@ -825,7 +825,7 @@ class Recording:
 
         # Invert
         if invert:
-            and_mask = not(and_mask)
+            and_mask = ~and_mask
 
         # apply and_mask to existing mask
         m = rec['mask'].as_continuous()
