@@ -1,9 +1,14 @@
+from os.path import dirname, join
+
 import numpy as np
 import pandas as pd
 import pytest
-import unittest
 from nems.recording import Recording
 from nems.signal import RasterizedSignal
+
+
+RECORDING_DIR = join(dirname(dirname(__file__)), 'recordings')
+
 
 @pytest.fixture()
 def signal1(signal_name='dummy_signal_1', recording_name='dummy_recording', fs=50,
@@ -110,12 +115,13 @@ def test_recording_loading():
 
     # Local filesystem
     # rec0 = Recording.load("/home/ivar/git/nems/signals/TAR010c-18-1.tar.gz")
-    rec0 = Recording.load("/auto/data/nems_db/recordings/eno052d-a1.tgz")
-    rec2 = Recording.load("file:///auto/data/nems_db/recordings/eno052d-a1.tgz")
+    rec_path = join(RECORDING_DIR, "eno052d-a1.tgz")
+    rec0 = Recording.load(rec_path)
+    rec2 = Recording.load("file://%s" % rec_path)
 
     # HTTP
-    rec3 = Recording.load("http://hyrax.ohsu.edu:3000/recordings/eno052d-a1.tgz")
-    rec4 = Recording.load("http://hyrax.ohsu.edu:3000/baphy/294/eno052d-a1?stim=0&pupil=0")
+    # rec3 = Recording.load("http://hyrax.ohsu.edu:3000/recordings/eno052d-a1.tgz")
+    # rec4 = Recording.load("http://hyrax.ohsu.edu:3000/baphy/294/eno052d-a1?stim=0&pupil=0")
 
     # S3
     # Direct access (would need AWS CLI lib? Maybe not best idea!)

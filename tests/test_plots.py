@@ -17,33 +17,35 @@ cellid = "TAR010c-18-1"
 uri = signals_dir + "/BRT026c-02-1.tgz"
 cellid = "BRT026c-02-1"
 
-rec = recording.load_recording(uri)
 
-resp = rec['resp'].rasterize()
-stim = rec['stim'].rasterize()
+def test_plots():
+    rec = recording.load_recording(uri)
 
-epoch_regex = "^STIM_"
+    resp = rec['resp'].rasterize()
+    stim = rec['stim'].rasterize()
 
-stim_epochs = ep.epoch_names_matching(resp.epochs, epoch_regex)
+    epoch_regex = "^STIM_"
 
-r = resp.as_matrix(stim_epochs) * resp.fs
-s = stim.as_matrix(stim_epochs)
-repcount = np.sum(np.isfinite(r[:, :, 0, 0]), axis=1)
-max_rep_id, = np.where(repcount == np.max(repcount))
+    stim_epochs = ep.epoch_names_matching(resp.epochs, epoch_regex)
 
-t = np.arange(r.shape[-1]) / resp.fs
+    r = resp.as_matrix(stim_epochs) * resp.fs
+    s = stim.as_matrix(stim_epochs)
+    repcount = np.sum(np.isfinite(r[:, :, 0, 0]), axis=1)
+    max_rep_id, = np.where(repcount == np.max(repcount))
 
-plt.figure()
+    t = np.arange(r.shape[-1]) / resp.fs
 
-ax = plt.subplot(3, 1, 1)
-nplt.plot_spectrogram(s[max_rep_id[-1],0,:,:], fs=stim.fs, ax=ax, 
-                      title="cell {} - stim".format(cellid))
+    plt.figure()
 
-ax = plt.subplot(3, 1, 2)
-nplt.raster(t,r[max_rep_id[-1],:,0,:], ax=ax, title='raster')
+    ax = plt.subplot(3, 1, 1)
+    nplt.plot_spectrogram(s[max_rep_id[-1],0,:,:], fs=stim.fs, ax=ax,
+                          title="cell {} - stim".format(cellid))
 
-ax = plt.subplot(3, 1, 3);
-nplt.psth_from_raster(t,r[max_rep_id[-1],:,0,:], ax=ax, title='raster',
-                      ylabel='spk/s')
+    ax = plt.subplot(3, 1, 2)
+    nplt.raster(t,r[max_rep_id[-1],:,0,:], ax=ax, title='raster')
 
-plt.tight_layout()
+    ax = plt.subplot(3, 1, 3);
+    nplt.psth_from_raster(t,r[max_rep_id[-1],:,0,:], ax=ax, title='raster',
+                          ylabel='spk/s')
+
+    plt.tight_layout()

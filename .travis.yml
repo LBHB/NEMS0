@@ -1,0 +1,43 @@
+language: c
+env:
+    global: PYTHON_VERSION=3.6
+            DISPLAY=:99.0
+            TRAVIS_PYTHON_VERSION=3.6
+
+matrix:
+  include:
+    - os: osx  # https://github.com/travis-ci/travis-ci/issues/2312
+      python: 3.6
+      sudo: false
+      env: CONDA_OS="MacOSX"
+    - os: linux
+      python: 3.6
+      sudo: false
+      env: CONDA_OS="Linux"
+      addons: {apt: {packages: [libwebkitgtk-dev]}}
+
+# Setup anaconda
+# https://gist.github.com/dan-blanchard/7045057
+before_install:
+  - wget -q http://repo.continuum.io/miniconda/Miniconda3-latest-$CONDA_OS-x86_64.sh -O miniconda.sh
+  - chmod +x miniconda.sh
+  - ./miniconda.sh -b -p $HOME/miniconda
+  - export PATH=$HOME/miniconda/bin:$PATH
+  - conda update --yes -n base conda
+  - conda create -n condaenv --yes numpy scipy matplotlib pandas requests h5py pytest
+  - . $HOME/miniconda/etc/profile.d/conda.sh
+  - conda activate condaenv
+  - python --version
+
+install:
+  - python setup.py develop
+
+before_script:
+  - if [ "${TRAVIS_OS_NAME}" == "linux" ]; then
+      sh -e /etc/init.d/xvfb start;
+      sleep 2;
+    fi;
+  - python -c "import nems.uri; nems.uri.get_demo_recordings('recordings')"
+
+script:
+  - pytest tests
