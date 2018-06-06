@@ -15,7 +15,6 @@ def check_result(f):
         if result.size == 0:
             mesg = 'Result is empty'
             warnings.warn(RuntimeWarning(mesg))
-            print('raised warning')
         return result
     return wrapper
 
