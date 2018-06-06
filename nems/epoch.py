@@ -1,9 +1,23 @@
+from functools import wraps
 import re
+import warnings
+
 import numpy as np
 import pandas as pd
 
 import logging
 log = logging.getLogger(__name__)
+
+def check_result(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        result = f(*args, **kwargs)
+        if result.size == 0:
+            mesg = 'Result is empty'
+            warnings.warn(RuntimeWarning(mesg))
+            print('raised warning')
+        return result
+    return wrapper
 
 
 def remove_overlap(a):
@@ -70,6 +84,7 @@ def epoch_union(a, b):
     return merge_epoch(epoch)
 
 
+@check_result
 def epoch_difference(a, b):
     '''
     Compute the difference of the epochs. All regions in a which overlap with b
@@ -178,11 +193,7 @@ def epoch_difference(a, b):
 
     # Add all remaining epochs from a
     difference.extend(a[::-1])
-    result = np.array(difference)
-    if result.size == 0:
-        raise RuntimeWarning("Epochs did not intersect, resulting array"
-                             "is empty.")
-    return result
+    return np.array(difference)
 
 
 def epoch_intersection_full(a, b):
@@ -205,6 +216,7 @@ def epoch_intersection_full(a, b):
     return result
 
 
+@check_result
 def epoch_intersection(a, b):
     '''
     Compute the intersection of the epochs. Only regions in a which overlap with
@@ -490,7 +502,7 @@ def find_common_epochs(epochs, epoch_name, d=12):
     epoch_name : str
         Name of epoch to use
     d : int
-        Number of decimal places to round start and end to. This is im portant
+        Number of decimal places to round start and end to. This is important
         when comparing start and end times of different epochs due to
         floating-point errors.
 
@@ -524,3 +536,31 @@ def find_common_epochs(epochs, epoch_name, d=12):
                               columns=['name', 'start', 'end'])
     new_epochs.sort_values(['start', 'end'], inplace=True)
     return new_epochs
+
+
+def group_epochs_by_parent(epochs, epoch_name_regex):
+    '''
+    Iterate through subgroups of the epoches contained by a parent epoch
+
+    Parameters
+    ----------
+    epochs : dataframe with 'name', 'start', 'end'
+        Epochs to filter through
+    epoch_name_regex : str
+        Regular expression that will be used to identify parent epochs to
+        iterate through.
+
+    Returns
+    -------
+    Iterator yielding a tuple of (parent epoch name, dataframe containing subset
+    of epochs contained by parent epoch).
+
+    Example
+    '''
+
+    m = epochs.name.str.match(epoch_name_regex)
+    for name, start, end in epochs.loc[m, ['name', 'start', 'end']].values:
+        m_lb = epochs['start'] >= start
+        m_ub = epochs['end'] <= end
+        m = m_lb & m_ub
+        yield (name, epochs.loc[m])

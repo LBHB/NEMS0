@@ -37,6 +37,27 @@ def epoch_c():
      ])
 
 
+@pytest.fixture()
+def epoch_df():
+    epochs = [
+        ['parent',   1, 11],
+        ['parent_1', 1, 11],
+        ['child_a',  1, 2],
+        ['child_b',  1, 6],
+        ['child_c',  6, 7],
+        ['child_d',  7, 11],
+        ['child_e',  9, 11],
+        ['parent',   30, 40],
+        ['parent_2', 30, 40],
+        ['child_a',  30, 31],
+        ['child_b',  30, 35],
+        ['child_c',  35, 36],
+        ['child_d',  36, 40],
+    ]
+    epochs = pd.DataFrame(epochs, columns=['name', 'start', 'end'])
+    return epochs
+
+
 def test_intersection(epoch_a, epoch_b):
     expected = np.array([
         [ 60,  70],
@@ -58,9 +79,9 @@ def test_empty_intersection():
         [ 30, 45]
     ])
 
-    with pytest.raises(RuntimeWarning,
-                       message="Expected RuntimeWarning for size 0"):
+    with pytest.warns(RuntimeWarning):
         result = epoch_intersection(a, b)
+        print(result)
 
 
 def test_union(epoch_a, epoch_b):
@@ -93,8 +114,7 @@ def test_empty_difference():
         [ 50, 100]
     ])
 
-    with pytest.raises(RuntimeWarning,
-                       message="Expected RuntimeWarning for size 0"):
+    with pytest.warns(RuntimeWarning):
         result = epoch_difference(a, b)
 
 
@@ -202,22 +222,7 @@ def test_remove_overlap():
     assert np.all(actual == expected)
 
 
-def test_find_common_epochs():
-    epochs = [
-        ['parent', 1, 11],
-        ['child_a', 1, 2],
-        ['child_b', 1, 6],
-        ['child_c', 6, 7],
-        ['child_d', 7, 11],
-        ['child_e', 9, 11],
-        ['parent', 30, 40],
-        ['child_a', 30, 31],
-        ['child_b', 30, 35],
-        ['child_c', 35, 36],
-        ['child_d', 36, 40],
-    ]
-    epochs = pd.DataFrame(epochs, columns=['name', 'start', 'end'])
-
+def test_find_common_epochs(epoch_df):
     expected = {
         ('parent', 0, 10),
         ('child_a', 0, 1),
@@ -227,6 +232,14 @@ def test_find_common_epochs():
     }
     expected = set(expected)
 
-    result = find_common_epochs(epochs, 'parent')
+    result = find_common_epochs(epoch_df, 'parent')
     result = set((n, s, e) for n, s, e in result.values)
     assert result == expected
+
+
+def group_epochs_by_parent(epoch_df):
+    result = list(group_epochs_by_parent(epoch_df, r'^PARENT_\d+'))
+    n1, df1 = result[0]
+    assert n1 == 'parent_1'
+    n2, df2 = result[1]
+    assert n2 == 'parent_2'
