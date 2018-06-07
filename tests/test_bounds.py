@@ -48,7 +48,7 @@ def test_scalar_bounds(modelspec):
             ]
 
 
-def test_mixed_bounds(modelspec):
+def test(modelspec):
     modelspec[0]['bounds'] = {
             'mean': (None, [1.1, 1.2]),
             'sd': ([0.0, 0.7], 5)
