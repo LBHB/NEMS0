@@ -1,21 +1,36 @@
+import re
+
 def ozgf(loadkey, recording_uri):
     recordings = [recording_uri]
+    pattern = re.compile(r'^ozgf(\d{1,})ch(\d{1,})(\w*)?')
+    parsed = re.match(pattern, loadkey)
+    # TODO: fs and chans useful for anything for the loader? They don't
+    #       seem to be used here, only in the baphy-specific stuff.
+    fs = parsed[1]
+    chans = parsed[2]
+    options = parsed[3]
 
-    if loadkey in ["ozgf100ch18", "ozgf100ch18n"]:
-        normalize = int(loadkey == "ozgf100ch18n")
+    # NOTE: These are dumb/greedy searches, so if many more options need
+    #       to be added later will need something more sofisticated.
+    normalize = ('n' in options)
+    contrast = ('c' in options)
+    pupil = ('pup' in options)
+
+    if pupil:
+        xfspec = [['nems.xforms.load_recordings',
+                   {'recording_uri_list': recordings, 'normalize': normalize}],
+                  ['nems.xforms.make_state_signal',
+                   {'state_signals': ['pupil'], 'permute_signals': [],
+                    'new_signalname': 'state'}]]
+    else:
         xfspec = [['nems.xforms.load_recordings',
                    {'recording_uri_list': recordings, 'normalize': normalize}],
                   ['nems.xforms.split_by_occurrence_counts',
                    {'epoch_regex': '^STIM_'}],
                   ['nems.xforms.average_away_stim_occurrences', {}]]
 
-    elif loadkey in ["ozgf100ch18pup", "ozgf100ch18npup"]:
-        normalize = int(loadkey == "ozgf100ch18npup")
-        xfspec = [['nems.xforms.load_recordings',
-                   {'recording_uri_list': recordings, 'normalize': normalize}],
-                  ['nems.xforms.make_state_signal',
-                   {'state_signals': ['pupil'], 'permute_signals': [],
-                    'new_signalname': 'state'}]]
+    if contrast:
+        xfspec.insert(1, ['nems.xforms.add_contrast', {}])
 
     return xfspec
 

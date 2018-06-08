@@ -1,9 +1,12 @@
 import warnings
-import numpy as np
-import nems.epoch as ep
-import pandas as pd
-import nems.signal as signal
 import copy
+
+import numpy as np
+import pandas as pd
+from scipy.signal import convolve2d
+
+import nems.epoch as ep
+import nems.signal as signal
 
 import logging
 log = logging.getLogger(__name__)
@@ -475,11 +478,19 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     previous values within a range specified by either <ms> or <bins>.
     Only supports RasterizedSignal.
     '''
+
+    rec = rec.copy()
+
     source_signal = rec[source_name]
     if not isinstance(source_signal, signal.RasterizedSignal):
-        raise TypeError("signal with key {} was not a RasterizedSignal"
-                        .format(source_name))
-    array = source_signal.as_continuous()
+        try:
+            source_signal = source_signal.rasterize()
+        except AttributeError:
+            raise TypeError("signal with key {} was not a RasterizedSignal"
+                            " and could not be converted to one."
+                            .format(source_name))
+
+    array = source_signal.as_continuous().copy()
     if ms:
         history = int((ms/1000)*source_signal.fs)
     elif bins:
@@ -490,23 +501,12 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     # TODO: Alternatively, base history length on some feature of signal?
     #       Like average length of some epoch ex 'TRIAL'
 
-    # figure out an efficient np-based solution, nested loops on giant arrays
-    # are bad.
-    contrast = np.zeros_like(array, dtype=np.int)
-    for i, hz in enumerate(array):
-        for j, t in enumerate(hz):
-            my_history = array[i][j-history:j]
-            if my_history.size == 0:
-                # Skip calculation if full history window isn't available
-                continue
-            half_width = np.max(my_history) - np.min(my_history)
-            std = np.std(my_history)
-            # binary implementation - start with this since it's easy.
-            # for real value, some formula based on width and variance?
-            if half_width > 30 and std > 5:  # db
-                contrast[i][j] = 1
-            else:
-                contrast[i][j] = 0
+    array[np.isnan(array)] = 0
+    filt = np.concatenate((np.zeros([1, history+1]),
+                           np.ones([1, history])), axis=1)
+    contrast = convolve2d(array, filt, mode='same')
 
     contrast_sig = source_signal._modified_copy(contrast)
     rec[name] = contrast_sig
+
+    return rec

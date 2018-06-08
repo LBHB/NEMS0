@@ -718,6 +718,16 @@ def fill_in_default_metadata(rec, modelspecs, IsReload=False, **context):
     return {'modelspecs': modelspecs}
 
 
+def add_contrast(rec, name='contrast', source_name='stim',
+                 ms=500, bins=None, IsReload=False, **context):
+    '''Adds contrast signal based on stim.'''
+    if not IsReload:
+        rec_with_contrast = preproc.make_contrast_signal(
+                rec, name=name, source_name=source_name, ms=ms, bins=bins
+                )
+    return {'rec': rec_with_contrast}
+
+
 # TODO: Perturb around the modelspec to get confidence intervals
 
 # TODO: Use simulated annealing (Slow, arguably gets stuck less often)
