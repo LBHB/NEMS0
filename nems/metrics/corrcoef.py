@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import scipy.special
+import scipy.stats as stats
+import nems.epoch as ep
 
 import logging
 log = logging.getLogger(__name__)
-
-import nems.epoch as ep
 
 
 def corrcoef(result, pred_name='pred', resp_name='resp'):
@@ -209,6 +209,69 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
                 # print(n)
 
     # weighted average based on number of samples in each epoch
-    rnorm = rnorm_c / n
+    if n > 0:
+        rnorm = rnorm_c / n
+    else:
+        rnorm = rnorm_c
+
+    return rnorm
+
+
+def r_ceiling_test(result, fullrec, pred_name='pred',
+              resp_name='resp', N=100):
+
+    """
+    Compute noise-corrected correlation coefficient based on single-trial
+    correlations in the actual response.
+    """
+    epoch_regex = '^STIM_'
+    epochs_to_extract = ep.epoch_names_matching(result[resp_name].epochs,
+                                                epoch_regex)
+    folded_resp = result[resp_name].extract_epochs(epochs_to_extract)
+
+    epochs_to_extract = ep.epoch_names_matching(result[pred_name].epochs,
+                                                epoch_regex)
+    folded_pred = result[pred_name].extract_epochs(epochs_to_extract)
+
+    resp = fullrec[resp_name].rasterize()
+
+    X = np.array([])
+    Y = np.array([])
+    for k, d in folded_resp.items():
+        if np.sum(np.isfinite(d)) > 0:
+
+            x = resp.extract_epoch(k)
+            X = np.concatenate((X, x.flatten()))
+
+            p = folded_pred[k]
+            if p.shape[0] < x.shape[0]:
+                p = np.tile(p, (x.shape[0], 1, 1))
+            Y = np.concatenate((Y, p.flatten()))
+
+    # exclude nan values of X or Y
+    gidx = (np.isfinite(X) & np.isfinite(Y))
+    X = X[gidx]
+    Y = Y[gidx]
+
+    sx = X
+    mx = X
+
+    fit_alpha, fit_loc, fit_beta = stats.gamma.fit(X)
+
+    mu = [np.reshape(stats.gamma.rvs(
+            fit_alpha + sx, loc=fit_loc,
+            scale=fit_beta / (1 + fit_beta)), (1, -1))
+          for a in range(10)]
+    mu = np.concatenate(mu)
+    mu[mu > np.max(X)] = np.max(X)
+    xc_set = [np.corrcoef(mu[i, :], X)[0, 1] for i in range(10)]
+    log.info("Simulated r_single: %.3f +/- %.3f",
+             np.mean(xc_set), np.std(xc_set)/np.sqrt(10))
+
+    xc_act = np.corrcoef(Y, X)[0, 1]
+    log.info("actual r_single: %.03f", xc_act)
+
+    # weighted average based on number of samples in each epoch
+    rnorm = xc_act / np.mean(xc_set)
 
     return rnorm

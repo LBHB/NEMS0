@@ -1,10 +1,11 @@
 import pytest
 
 import numpy as np
+import pandas as pd
 
 from nems.epoch import (epoch_union, epoch_difference, epoch_intersection,
                         epoch_contains, epoch_contained, adjust_epoch_bounds,
-                        remove_overlap)
+                        remove_overlap, find_common_epochs)
 
 @pytest.fixture()
 def epoch_a():
@@ -200,3 +201,32 @@ def test_remove_overlap():
     actual = remove_overlap(epochs)
     assert np.all(actual == expected)
 
+
+def test_find_common_epochs():
+    epochs = [
+        ['parent', 1, 11],
+        ['child_a', 1, 2],
+        ['child_b', 1, 6],
+        ['child_c', 6, 7],
+        ['child_d', 7, 11],
+        ['child_e', 9, 11],
+        ['parent', 30, 40],
+        ['child_a', 30, 31],
+        ['child_b', 30, 35],
+        ['child_c', 35, 36],
+        ['child_d', 36, 40],
+    ]
+    epochs = pd.DataFrame(epochs, columns=['name', 'start', 'end'])
+
+    expected = {
+        ('parent', 0, 10),
+        ('child_a', 0, 1),
+        ('child_b', 0, 5),
+        ('child_c', 5, 6),
+        ('child_d', 6, 10),
+    }
+    expected = set(expected)
+
+    result = find_common_epochs(epochs, 'parent')
+    result = set((n, s, e) for n, s, e in result.values)
+    assert result == expected

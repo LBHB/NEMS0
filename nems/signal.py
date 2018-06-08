@@ -13,7 +13,7 @@ import numpy as np
 import h5py
 
 from nems.epoch import (remove_overlap, merge_epoch, epoch_contained,
-                        epoch_intersection)
+                        epoch_intersection, epoch_names_matching)
 
 log = logging.getLogger(__name__)
 
@@ -275,7 +275,6 @@ class SignalBase:
         basepath = os.path.join(dirpath, filebase)
         jsonfilepath = basepath + '.json'
         epochfilepath = basepath + '.epoch.csv'
-        print(jsonfilepath)
         with open(jsonfilepath, 'w') as md_fh, open(epochfilepath, 'w') as epoch_fh:
             self._save_metadata(epoch_fh, md_fh, fmt)
         return (jsonfilepath, epochfilepath)
@@ -296,23 +295,8 @@ class SignalBase:
 
         return hdf5filepath
 
-
-
-    def as_continuous(self):
-        '''
-        Return a copy of signal data as a Numpy array of shape (chans, time).
-
-        Parameters
-        ----------
-        chans : {None, iterable of strings}
-            Names of channels to return. If None, return the full signal. If an
-            iterable of strings, return those channels (in the order specified
-            by the iterable).
-        '''
-        return self._data
-
     def get_epoch_bounds(self, epoch, boundary_mode='exclude',
-                         fix_overlap=None):
+                         fix_overlap=None, overlapping_epoch=None):
         '''
         Get boundaries of named epoch.
 
@@ -334,6 +318,9 @@ class SignalBase:
             boundaries as-is. If 'merge', merge overlapping epochs into a single
             epoch. If 'first', keep only the first of an overlapping set of
             epochs.
+        overlapping_epoch : {None, or string}
+            if defined, only return occurences of epoch that are spanned by
+            occurences of overlapping_epoch
         complete : boolean
             If True, eliminate any epochs whose boundaries are not fully
             contained within the signal.
@@ -352,6 +339,7 @@ class SignalBase:
                 raise ValueError(m)
             mask = self.epochs['name'] == epoch
             bounds = self.epochs.loc[mask, ['start', 'end']].values
+            bounds = np.round(bounds.astype(float) * self.fs) / self.fs
 
         if boundary_mode is None:
             raise NotImplementedError
@@ -371,10 +359,19 @@ class SignalBase:
             m = 'Unsupported mode, {}, for fix_overlap'.format(fix_overlap)
             raise ValueError(m)
 
+        if overlapping_epoch is None:
+            pass
+        else:
+            # find occurences of overlapping epoch
+            # only keep bounds that fall inside those occurences
+            overlap_bounds = self.get_epoch_bounds(overlapping_epoch)
+            bounds = epoch_intersection(bounds, overlap_bounds)
+
         bounds = np.sort(bounds, axis=0)
         return bounds
 
-    def get_epoch_indices(self, epoch, boundary_mode='exclude', fix_overlap=None):
+    def get_epoch_indices(self, epoch, boundary_mode='exclude',
+                          fix_overlap=None, overlapping_epoch=None):
         '''
         Get boundaries of named epoch as index.
 
@@ -396,6 +393,9 @@ class SignalBase:
             boundaries as-is. If 'merge', merge overlapping epochs into a
             single epoch. If 'first', keep only the first of an overlapping
             set of epochs.
+        overlapping_epoch : {None, or string}
+            if defined, only return occurences of epoch that are spanned by
+            occurences of overlapping_epoch
 
         Returns
         -------
@@ -404,7 +404,8 @@ class SignalBase:
             first column is the start time and the second column is the end
             time.
         '''
-        bounds = self.get_epoch_bounds(epoch, boundary_mode, fix_overlap)
+        bounds = self.get_epoch_bounds(epoch, boundary_mode, fix_overlap,
+                                       overlapping_epoch)
 
         # Indices of segments and epochs
         s = 0
@@ -496,8 +497,8 @@ class SignalBase:
                 portion = 'second'
             if portion:
                 warnings.warn("Epochs for {0} portion of signal: {1}"
-                                     "ended up empty after splitting by time."
-                                     .format(portion, self.name))
+                              "ended up empty after splitting by time."
+                              .format(portion, self.name))
 
         return lepochs, repochs
 
@@ -537,19 +538,25 @@ class SignalBase:
         epoch_data = self.extract_epoch(epoch)
         return np.nanmean(epoch_data, axis=0)
 
-    def extract_epochs(self, epoch_names):
+    def extract_epochs(self, epoch_names, overlapping_epoch=None):
         '''
         Returns a dictionary of the data matching each element in epoch_names.
 
         Parameters
         ----------
-        epoch_names : list
-            List of epoch names to extract. These will be keys in the result
-            dictionary.
+        epoch_names : list OR string
+            if list, list of epoch names to extract. These will be keys in the
+            result dictionary.
+            if string, will find matches via nems.epoch.epoch_names_matching
+
         chans : {None, iterable of strings}
             Names of channels to return. If None, return the full set of
             channels.  If an iterable of strings, return those channels (in the
             order specified by the iterable).
+
+        overlapping_epoch: {None, string}
+            if not None, only extracts epochs that overlap with occurrences
+            of overlapping epoch
 
         Returns
         -------
@@ -559,12 +566,44 @@ class SignalBase:
         '''
         # TODO: Update this to work with a mapping of key -> Nx2 epoch
         # structure as well.
-        return {name: self.extract_epoch(name, allow_empty=True) for name in epoch_names}
 
-    def epoch_to_signal(self, epoch, boundary_mode='trim', fix_overlap='merge'):
+        if type(epoch_names) is str:
+            epoch_regex = epoch_names
+            epoch_names = epoch_names_matching(self.epochs, epoch_regex)
+
+        return {name: self.extract_epoch(name, allow_empty=True,
+                                         overlapping_epoch=overlapping_epoch)
+                for name in epoch_names}
+
+    def generate_epoch_mask(self, epoch=True):
+
+        if epoch == True:
+            mask = np.ones([1, self.ntimes], dtype=np.bool)
+
+        elif epoch == False:
+            mask = np.zeros([1, self.ntimes], dtype=np.bool)
+
+        elif type(epoch) is str:
+            mask = np.zeros([1, self.ntimes], dtype=np.bool)
+
+            # assuming defaults for boundary_mask and fix_overlap!
+            indices = self.get_epoch_indices(epoch)
+            for lb, ub in indices:
+                mask[:, lb:ub] = True
+
+        elif type(epoch) is np.ndarray:
+            mask = np.zeros([1, self.ntimes], dtype=np.bool)
+
+            for (lb, ub) in epoch:
+                mask[:, lb:ub] = True
+
+        return mask
+
+    def epoch_to_signal(self, epoch, boundary_mode='exclude',
+                        fix_overlap='merge', onsets_only=False, shift=0):
         '''
-        Convert an epoch to a RasterizedSignal using the same sampling rate and duration
-        as this signal.
+        Convert an epoch to a RasterizedSignal using the same sampling rate
+        and duration as this signal.
 
         Parameters
         ----------
@@ -580,12 +619,18 @@ class SignalBase:
         data = np.zeros([1, self.ntimes], dtype=np.bool)
         indices = self.get_epoch_indices(epoch, boundary_mode, fix_overlap)
         for lb, ub in indices:
-            data[:, lb:ub] = True
+            if onsets_only:
+                data[:, lb] = True
+            else:
+                data[:, lb:ub] = True
+        if shift:
+            data = np.roll(data, shift, axis=1)
+
         epoch_name = epoch if isinstance(epoch, str) else 'epoch'
         attributes = self._get_attributes()
-        attributes['chans']=[epoch_name]
+        attributes['chans'] = [epoch_name]
         return RasterizedSignal(data=data, safety_checks=False, **attributes)
-        #return self._modified_copy(data, chans=[epoch_name])
+        # return self._modified_copy(data, chans=[epoch_name])
 
     @property
     def shape(self):
@@ -600,7 +645,8 @@ class SignalBase:
     def extract_channels(cls, signals):
         raise NotImplementedError
 
-    def extract_epoch(self, epoch):
+    def extract_epoch(self, epoch, allow_empty=True,
+                      overlapping_epoch=None):
         raise NotImplementedError
 
     @staticmethod
@@ -624,7 +670,8 @@ class SignalBase:
             bound (in seconds) of the time subset to extract. This should return
             a new signal containing only the subset of desired data.
         '''
-        raise NotImplementedError
+        s = self.rasterize()
+        return s.select_times(times)
 
     def select_channels(self, channels):
         '''
@@ -644,9 +691,41 @@ class SignalBase:
 
     def as_continuous(self):
         '''
-        Returns the underlying array
+        Returns the underlying array -- NOT IMPLEMENTED FOR THIS SIGNAL
         '''
         raise NotImplementedError
+
+    def as_matrix(self, epoch_names, overlapping_epoch=None):
+        """
+        epoch_names: regex or list of epochs
+        overlapping_epoch: require those epochs to overlap with epoch(s)
+           matching this name.
+        eg, epoch_names="^STIM_", overlapping_epoch="PASSIVE_EXPERIMENT"
+
+        TODO: add channel selection option?
+        """
+
+        # create dictionary of extracted epochs
+        folded_signal = self.extract_epochs(epoch_names, overlapping_epoch)
+        if type(epoch_names) is list:
+            keys = epoch_names
+        else:
+            keys = list(folded_signal.keys())
+            keys.sort()
+
+        reps = [folded_signal[k].shape[0] for k in keys]
+        chans = [folded_signal[k].shape[1] for k in keys]
+        lens = [folded_signal[k].shape[2] for k in keys]
+        max_rep = np.max(np.array(reps))
+        max_chan = np.max(np.array(chans))
+        max_len = np.max(np.array(lens))
+        d = np.empty((len(keys),max_rep,max_chan,max_len))
+        d[:] = np.nan
+
+        for i, k in enumerate(keys):
+            d[i,:reps[i],:chans[i],:lens[i]]=folded_signal[k]
+
+        return d
 
 
 class RasterizedSignal(SignalBase):
@@ -777,6 +856,8 @@ class RasterizedSignal(SignalBase):
         '''
         return load_rasterized_signal(basepath)
 
+    # SVD -- 2018-05-24 -- save to delete?
+    """
     @staticmethod
     def load_from_streams(csv_stream, json_stream, epoch_stream=None):
         ''' Loads from BytesIO objects rather than files. '''
@@ -797,8 +878,9 @@ class RasterizedSignal(SignalBase):
                    fs=js['fs'],
                    meta=js['meta'],
                    data=mat)
-        s.segments = js.get('segments', s.segments)
+        s.segments = np.array(js.get('segments', s.segments))
         return s
+    """
 
     @staticmethod
     def list_signals(directory):
@@ -836,7 +918,8 @@ class RasterizedSignal(SignalBase):
         return RasterizedSignal(data=data, safety_checks=False, **attributes)
 
     def extract_epoch(self, epoch, boundary_mode='exclude',
-                      fix_overlap='first', allow_empty=False):
+                      fix_overlap='first', allow_empty=False,
+                      overlapping_epoch=None):
         '''
         Extracts all occurances of epoch from the signal.
 
@@ -864,27 +947,35 @@ class RasterizedSignal(SignalBase):
         epochs will be padded with NaN.
         '''
         if type(epoch) is str:
-            epoch_indices = self.get_epoch_indices(epoch,
-                                                   boundary_mode=boundary_mode,
-                                                   fix_overlap=fix_overlap)
+            epoch_indices = self.get_epoch_indices(
+                    epoch, boundary_mode=boundary_mode,
+                    fix_overlap=fix_overlap,
+                    overlapping_epoch=overlapping_epoch)
         else:
             epoch_indices = epoch
 
         if epoch_indices.size == 0:
             if allow_empty:
-                return []
+                return np.empty([0, 0, 0])
             else:
                 raise IndexError("No matching epochs to extract for: %s\n"
                                  "In signal: %s", epoch, self.name)
+
         n_samples = np.max(epoch_indices[:, 1]-epoch_indices[:, 0])
         n_epochs = len(epoch_indices)
 
         data = self.as_continuous()
         n_chans = data.shape[0]
-        epoch_data = np.full((n_epochs, n_chans, n_samples), np.nan)
-
+        if data.dtype == bool:
+            epoch_data = np.full((n_epochs, n_chans, n_samples), False,
+                                 dtype=bool)
+        else:
+            epoch_data = np.full((n_epochs, n_chans, n_samples), np.nan)
+        # print(epoch)
         for i, (lb, ub) in enumerate(epoch_indices):
             samples = ub-lb
+            # print(samples)
+            # print([lb, ub])
             epoch_data[i, ..., :samples] = data[..., lb:ub]
 
         return epoch_data
@@ -1030,13 +1121,15 @@ class RasterizedSignal(SignalBase):
             idx_data = idx_data.reshape(njacks, nrows)
 
         data = self.as_continuous().copy()
+#        sig_valid_start = np.sum(np.isfinite(data[0,:]))
+
         mask = np.zeros_like(data, dtype=np.bool)
         mask2 = np.zeros_like(data, dtype=np.bool)
 
         for ep in epochs:
             lb, ub = ep
             mask2[:,lb:ub]=1
-        
+
         for idx in idx_data[jack_idx].tolist():
             if idx < occurrences:
                 lb, ub = epochs[idx]
@@ -1046,8 +1139,8 @@ class RasterizedSignal(SignalBase):
             mask = ~mask
 
         data[mask] = np.nan
-        data[~mask2] = np.nan   
-        
+        data[~mask2] = np.nan
+
         return self._modified_copy(data)
 
     def jackknifes_by_epoch(self, njacks, epoch_name, tiled=True):
@@ -1229,10 +1322,15 @@ class RasterizedSignal(SignalBase):
         '''
         Returns a new signal, created by replacing every occurrence of epochs
         in this signal with whatever is found in the replacement_dict under
-        the same epoch_name key. Dict values are assumed to be 2D matrices.
+        the same epoch_name key. Dict values are assumed to be 2D matrices
+        (same signal for each occurence) or 3D (different signal for each
+        occurence).
+
+        NOTE: segments of the signal outside of any matching epoch are
+        set to np.nan
 
         If the replacement matrix shape is not the same as the original
-        epoch being replaced, an exception will be thrown.
+        epoch being replaced, it will be truncated.
 
         If overlapping epochs are defined, then they will be replaced in
         the order present in the epochs dataframe (i.e. sorting your
@@ -1244,25 +1342,35 @@ class RasterizedSignal(SignalBase):
         data = self.as_continuous().copy()
         if preserve_nan:
             nan_bins = np.isnan(data[0, :])
+
+        # intialize with nans so that any subsequent prediction will be
+        # restricted to the specified epochs
+        data[:] = np.nan
+
         for epoch, epoch_data in epoch_dict.items():
             indices = self.get_epoch_indices(epoch)
             if epoch_data.ndim == 2:
+                # ndim==2: single PSTH to be inserted in every matching epoch
                 for lb, ub in indices:
                     # SVD kludge to deal with rounding from floating-point time
-                    # to integer bin index
-                    if ub-lb < epoch_data.shape[1]:
-                        # epoch data may be too long bc padded with nans,
-                        # truncate!
-                        epoch_data = epoch_data[:, 0:(ub-lb)]
-                        # ub += epoch_data.shape[1]-(ub-lb)
-                    elif ub-lb > epoch_data.shape[1]:
-                        ub -= (ub-lb)-epoch_data.shape[1]
-                    if ub > data.shape[1]:
-                        ub -= ub-data.shape[1]
-                        epoch_data = epoch_data[:, 0:(ub-lb)]
-                    data[:, lb:ub] = epoch_data
+                    # to integer bin index --- DEPRECATED????
+#                    if ub-lb < epoch_data.shape[1]:
+#                        # epoch data may be too long bc padded with nans,
+#                        # truncate!
+#                        epoch_data = epoch_data[:, 0:(ub-lb)]
+#                        # ub += epoch_data.shape[1]-(ub-lb)
+#                    elif ub-lb > epoch_data.shape[1]:
+#                        ub -= (ub-lb)-epoch_data.shape[1]
+                    if ub-lb > epoch_data.shape[1]:
+                        ub = lb + epoch_data.shape[1]
+                        #epoch_data = epoch_data[:, 0:(ub-lb)]
+                    #print(ub-lb)
+                    #print(epoch_data.shape)
+                    data[:, lb:ub] = epoch_data[:, :(ub-lb)]
 
             else:
+                # ndim==3: different segment to insert for each epoch
+                # (assume epoch_data.shape[1] == len(indices))
                 ii = 0
                 for lb, ub in indices:
                     n = ub-lb
@@ -1271,6 +1379,7 @@ class RasterizedSignal(SignalBase):
 
         if preserve_nan:
             data[:, nan_bins] = np.nan
+
         return self._modified_copy(data)
 
     def select_epoch(self, epoch):
@@ -1434,15 +1543,20 @@ class RasterizedSignal(SignalBase):
 
         return self._modified_copy(data)
 
-    def as_continuous(self):
-        return self._data
-
     def rasterize(self, fs=None):
         """
         basically a pass-through. we don't need to rasterize, since the
         signal is already a raster!
         """
         return self
+
+    def as_continuous(self):
+        '''
+        For SignalBase, return a signal _data variable. -- NOT COPIED!
+
+        '''
+        return self._data
+
 
 class PointProcess(SignalBase):
     '''
@@ -1959,9 +2073,6 @@ def load_signal(basepath):
                     fs=js['fs'],
                     meta=js['meta'],
                     data=mat)
-        # NOTE: Moved this outside of call to initializer because
-        #       some saved signals don't have segments in their json sidecar.
-        s.segments = js.get('segments', s.segments)
 
     elif 'PointProcess' in signal_type:
         with h5py.File(h5filepath, 'r') as f:
@@ -1994,6 +2105,10 @@ def load_signal(basepath):
     else:
         raise ValueError('signal_type unknown')
 
+    # NOTE: Moved this outside of call to initializer because
+    #       some saved signals don't have segments in their json sidecar.
+    s.segments = np.array(js.get('segments', s.segments))
+
     return s
 
 def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
@@ -2022,7 +2137,6 @@ def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
                     fs=js['fs'],
                     meta=js['meta'],
                     data=mat)
-        s.segments = js.get('segments', s.segments)
 
     elif 'PointProcess' in signal_type:
         with h5py.File(data_stream, 'r') as f:
@@ -2059,6 +2173,8 @@ def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
 
     else:
         raise ValueError('signal_type unknown')
+
+    s.segments = np.array(js.get('segments', s.segments))
 
     return s
 

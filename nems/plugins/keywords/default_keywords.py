@@ -66,6 +66,7 @@ def wcc(kw):
             'mean': np.eye(n_outputs, n_inputs),
             'sd': np.ones((n_outputs, n_inputs)),
         }
+        p_coefficients['mean'][(n_outputs-1):, :] = 1 / n_inputs
 
     template = {
         'fn': 'nems.modules.weight_channels.basic',
@@ -256,7 +257,7 @@ def stp(kw):
     ''' TODO: this doc
     format: r'^stp([z,n]{0,})(\d{1,})$'
     '''
-    pattern = re.compile(r'^stp([z,n]{0,})(\d{1,})$')
+    pattern = re.compile(r'^stp([z,n,b]{0,})(\d{1,})$')
     parsed = re.match(pattern, kw)
     options = parsed[1]
     n_synapse = int(parsed[2])
@@ -290,6 +291,9 @@ def stp(kw):
         d = np.array([0]*n_synapse)
         g = np.array([1]*n_synapse)
         template['norm'] = {'type': 'minmax', 'recalc': 0, 'd': d, 'g': g}
+
+    if 'b' in options:
+        template['bounds'] = {'tau': (0, None)}
 
     return template
 

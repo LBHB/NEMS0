@@ -255,7 +255,7 @@ def list_targz_in_nginx_dir(uri):
 
 
 DEMO_NAMES = [
-        'TAR010c-18-1.tgz', 'eno052d-a1.tgz'
+        'TAR010c-18-1.tgz', 'eno052d-a1.tgz', 'BRT026c-02-1.tgz', 'resp2.tgz',
         ]
 
 
@@ -284,7 +284,7 @@ def get_demo_recordings(directory, unpack=False):
             file = uri.split('/')[-1]
             local = os.path.join(directory, file)
             if os.path.isfile(local):
-                log.info("Local file {} already exists, skipping.".format(local))
+                log.debug("Local file {} already exists, skipping.".format(local))
             else:
                 log.info("Saving file at {} to {}".format(uri, local))
                 r = requests.get(uri, stream=True)

@@ -29,7 +29,8 @@ def generate_average_sig(signal_to_average,
 
     # 1. Fold matrix over all stimuli, returning a dict where keys are stimuli
     #    and each value in the dictionary is (reps X cell X bins)
-    epochs_to_extract = ep.epoch_names_matching(signal_to_average.epochs, epoch_regex)
+    epochs_to_extract = ep.epoch_names_matching(signal_to_average.epochs,
+                                                epoch_regex)
     folded_matrices = signal_to_average.extract_epochs(epochs_to_extract)
 
     # 2. Average over all reps of each stim and save into dict called psth.
@@ -71,7 +72,7 @@ def add_average_sig(rec, signal_to_average='resp',
     return newrec
 
 
-def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
+def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
     '''
     Returns a recording with _all_ signals averaged across epochs that
     match epoch_regex, shortening them so that each epoch occurs only
@@ -95,72 +96,51 @@ def average_away_epoch_occurrences(rec, epoch_regex='^STIM_'):
     (based on stimulus and behaviorial state, for example) and then match
     the epoch_regex to those.
     '''
+    epochs = recording.epochs
+    epoch_names = sorted(set(ep.epoch_names_matching(epochs, epoch_regex)))
 
-    # Create new recording
-    newrec = rec.copy()
+    offset = 0
+    new_epochs = []
+    for epoch_name in epoch_names:
+        common_epochs = ep.find_common_epochs(epochs, epoch_name)
+        query = 'name == "{}"'.format(epoch_name)
+        end = common_epochs.query(query).iloc[0]['end']
+        common_epochs[['start', 'end']] += offset
+        offset += end
+        new_epochs.append(common_epochs)
+    new_epochs = pd.concat(new_epochs, ignore_index=True)
 
-    counter=0
+    averaged_recording = recording.copy()
 
-    # iterate through each signal
-    for signal_name, signal_to_average in rec.signals.items():
-        # TODO: for TiledSignals, there is a much simpler way to do this!
+    for signal_name, signal in recording.signals.items():
+        # TODO: this may be better done as a method in signal subclasses since
+        # some subclasses may have more efficient approaches (e.g.,
+        # TiledSignal)
 
-        # 0. rasterize
-        signal_to_average=signal_to_average.rasterize()
+        # Extract all occurances of each epoch, returning a dict where keys are
+        # stimuli and each value in the dictionary is (reps X cell X bins)
+        epoch_data = signal.rasterize().extract_epochs(epoch_names)
 
+        # Average over all occurrences of each epoch
+        for epoch_name, epoch in epoch_data.items():
+            epoch_data[epoch_name] = np.nanmean(epoch, axis=0)
+        data = [epoch_data[epoch_name] for epoch_name in epoch_names]
+        data = np.concatenate(data, axis=-1)
+        if data.shape[-1] != round(signal.fs * offset):
+            raise ValueError('Misalignment issue in averaging signal')
 
-        # 1. Find matching epochs
-        epochs_to_extract = ep.epoch_names_matching(rec.epochs, epoch_regex)
+        averaged_signal = signal._modified_copy(data, epochs=new_epochs)
+        averaged_recording.add_signal(averaged_signal)
 
-        # 2. Fold over all stimuli, returning a dict where keys are stimuli
-        #    and each value in the dictionary is (reps X cell X bins)
-        folded_matrices = signal_to_average.extract_epochs(epochs_to_extract)
-
-        # force a standard list of sorted keys for all signals
-        if counter==0:
-            sorted_keys=list(folded_matrices.keys())
-            sorted_keys.sort()
-        counter+=1
-
-        # 3. Average over all occurrences of each epoch, and append to data
-        fs = signal_to_average.fs
-        data = np.zeros([signal_to_average.nchans, 0])
-        current_time = 0
-        epochs = None
-        for k in sorted_keys:
-            # Supress warnings about all-nan matrices
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                per_stim_psth = np.nanmean(folded_matrices[k], axis=0)
-            data = np.concatenate((data, per_stim_psth), axis=1)
-            epoch = current_time+np.array([[0, per_stim_psth.shape[1]/fs]])
-            df = pd.DataFrame(np.tile(epoch, [2, 1]), columns=['start', 'end'])
-            df['name'] = k
-            df.at[1, 'name'] = 'TRIAL'
-            if epochs is not None:
-                epochs = epochs.append(df, ignore_index=True)
-            else:
-                epochs = df
-            current_time = epoch[0, 1]
-            #print("{0} epoch: {1}-{2}".format(k,epoch[0,0],epoch[0,1]))
-
-        avg_signal = signal.RasterizedSignal(fs=fs, data=data,
-                                   name=signal_to_average.name,
-                                   recording=signal_to_average.recording,
-                                   chans=signal_to_average.chans,
-                                   epochs=epochs,
-                                   meta=signal_to_average.meta)
-        newrec.add_signal(avg_signal)
-
-    return newrec
+    return averaged_recording
 
 
 def remove_invalid_segments(rec):
     """
-    Currently a specialized signal for removing incorrect trials from data
+    Currently a specialized function for removing incorrect trials from data
     collected using baphy during behavior.
 
-    TODO: Migrate to nems_db or make a more generic version
+    TODO: Migrate to nems_lbhb or make a more generic version
     """
 
     # First, select the appropriate subset of data
@@ -170,26 +150,68 @@ def remove_invalid_segments(rec):
 
     sig = rec['resp']
 
-    # get list of start and stop times (epoch bounds)
+    # get list of start and stop indices (epoch bounds)
     epoch_indices = np.vstack((
-            ep.epoch_intersection(sig.get_epoch_bounds('HIT_TRIAL'),
-                                  sig.get_epoch_bounds('REFERENCE')),
-            ep.epoch_intersection(sig.get_epoch_bounds('REFERENCE'),
-                                  sig.get_epoch_bounds('PASSIVE_EXPERIMENT'))))
+            ep.epoch_intersection(sig.get_epoch_indices('REFERENCE'),
+                                  sig.get_epoch_indices('HIT_TRIAL')),
+            ep.epoch_intersection(sig.get_epoch_indices('REFERENCE'),
+                                  sig.get_epoch_indices('PASSIVE_EXPERIMENT'))))
 
     # Only takes the first of any conflicts (don't think I actually need this)
     epoch_indices = ep.remove_overlap(epoch_indices)
 
-    epoch_indices2=epoch_indices[0:1,:]
-    for i in range(1,epoch_indices.shape[0]):
-        if epoch_indices[i,0]==epoch_indices2[-1,1]:
-            epoch_indices2[-1,1]=epoch_indices[i,0]
+    # merge any epochs that are directly adjacent
+    epoch_indices2 = epoch_indices[0:1]
+    for i in range(1, epoch_indices.shape[0]):
+        if epoch_indices[i, 0] == epoch_indices2[-1, 1]:
+            epoch_indices2[-1, 1] = epoch_indices[i, 1]
         else:
-            epoch_indices2=np.concatenate((epoch_indices2,epoch_indices[i:(i+1),:]),
-                                          axis=0)
+            #epoch_indices2 = np.concatenate(
+             #       (epoch_indices2, epoch_indices[i:(i + 1), :]), axis=0)
+            epoch_indices2=np.append(epoch_indices2,epoch_indices[i:(i+1)], axis=0)
+
+    # convert back to times
+    epoch_times = epoch_indices2 / sig.fs
 
     # add adjusted signals to the recording
-    newrec = rec.select_times(epoch_indices2)
+    newrec = rec.select_times(epoch_times)
+
+    return newrec
+
+
+def mask_all_but_correct_references(rec):
+    """
+    Specialized function for removing incorrect trials from data
+    collected using baphy during behavior.
+
+    TODO: Migrate to nems_lbhb and/or make a more generic version
+    """
+
+    newrec = rec.copy()
+    newrec['resp'] = newrec['resp'].rasterize()
+    if 'stim' in newrec.signals.keys():
+        newrec['stim'] = newrec['stim'].rasterize()
+
+    newrec = newrec.or_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
+    newrec = newrec.and_mask(['REFERENCE'])
+
+    return newrec
+
+
+def mask_all_but_targets(rec):
+    """
+    Specialized function for removing incorrect trials from data
+    collected using baphy during behavior.
+
+    TODO: Migrate to nems_lbhb and/or make a more generic version
+    """
+
+    newrec = rec.copy()
+    newrec['resp'] = newrec['resp'].rasterize()
+    if 'stim' in newrec.signals.keys():
+        newrec['stim'] = newrec['stim'].rasterize()
+
+    newrec = newrec.or_mask(['TARGET'])
 
     return newrec
 
@@ -199,7 +221,9 @@ def nan_invalid_segments(rec):
     Currently a specialized signal for removing incorrect trials from data
     collected using baphy during behavior.
 
-    TODO: Migrate to nems_db or make a more generic version
+    TODO: Complete this function, replicate remove_invalid_segments logic
+          Or delete ME
+    TODO: Migrate to nems_lbhb or make a more generic version
     """
 
     # First, select the appropriate subset of data
@@ -216,13 +240,14 @@ def nan_invalid_segments(rec):
     # Only takes the first of any conflicts (don't think I actually need this)
     epoch_indices = ep.remove_overlap(epoch_indices)
 
-    epoch_indices2=epoch_indices[0:1,:]
-    for i in range(1,epoch_indices.shape[0]):
-        if epoch_indices[i,0]==epoch_indices2[-1,1]:
-            epoch_indices2[-1,1]=epoch_indices[i,0]
+    epoch_indices2 = epoch_indices[0:1, :]
+    for i in range(1, epoch_indices.shape[0]):
+        if epoch_indices[i, 0] == epoch_indices2[-1, 1]:
+            epoch_indices2[-1, 1] = epoch_indices[i, 0]
         else:
-            epoch_indices2=np.concatenate((epoch_indices2,epoch_indices[i:(i+1),:]),
-                                          axis=0)
+            epoch_indices2 = np.concatenate(
+                    (epoch_indices2, epoch_indices[i: (i+1), :]), axis=0
+                    )
 
     # add adjusted signals to the recording
     newrec = rec.nan_times(epoch_indices2)
@@ -230,17 +255,67 @@ def nan_invalid_segments(rec):
     return newrec
 
 
+def generate_stim_from_epochs(rec, new_signal_name='stim',
+                              epoch_regex='^STIM_', epoch_shift=0,
+                              epoch2_regex=None, epoch2_shift=0,
+                              epoch2_shuffle=False,
+                              onsets_only=True):
+
+    rec = rec.copy()
+    resp = rec['resp'].rasterize()
+
+    epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
+    sigs = []
+    for e in epochs_to_extract:
+        log.info('Adding to %s: %s with shift = %d',
+                 new_signal_name, e, epoch_shift)
+        s = resp.epoch_to_signal(e, onsets_only=onsets_only, shift=epoch_shift)
+        if epoch_shift:
+            s.chans[0] = "{}{:+d}".format(s.chans[0], epoch_shift)
+        sigs.append(s)
+
+    if epoch2_regex is not None:
+        epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch2_regex)
+        for e in epochs_to_extract:
+            log.info('Adding to %s: %s with shift = %d',
+                     new_signal_name, e, epoch2_shift)
+            s = resp.epoch_to_signal(e, onsets_only=onsets_only,
+                                     shift=epoch2_shift)
+            if epoch2_shuffle:
+                log.info('Shuffling %s', e)
+                s = s.shuffle_time()
+                s.chans[0] = "{}_shf".format(s.chans[0])
+            if epoch_shift:
+                s.chans[0] = "{}{:+d}".format(s.chans[0], epoch2_shift)
+            sigs.append(s)
+
+    stim = sigs[0].concatenate_channels(sigs)
+    stim.name = new_signal_name
+
+    # add_signal operates in place
+    rec.add_signal(stim)
+
+    return rec
+
+
 def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     '''
     Estimates a PSTH from all responses to each regex match in a recording
 
     subtract spont rate based on pre-stim silence for ALL estimation data.
+
+    if rec['mask'] exists, uses rec['mask'] == True to determine valid epochs
     '''
 
     resp = rec['resp'].rasterize()
-
-    # compute PSTH response and spont rate during those valid trials
+    nCells = len(resp.chans)
+    # compute spont rate during valid (non-masked) trials
     prestimsilence = resp.extract_epoch('PreStimSilence')
+    if 'mask' in rec.signals.keys():
+        prestimmask = np.tile(rec['mask'].extract_epoch('PreStimSilence'),
+                              [1, nCells, 1])
+        prestimsilence[prestimmask == False] = np.nan
+
     if len(prestimsilence.shape) == 3:
         spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
     else:
@@ -251,8 +326,15 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     idx = resp.get_epoch_indices('PostStimSilence')
     postbins = idx[0][1] - idx[0][0]
 
+    # compute PSTH response during valid trials
     epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
     folded_matrices = resp.extract_epochs(epochs_to_extract)
+    if 'mask' in rec.signals.keys():
+        log.info('masking out invalid time bins before PSTH calc')
+        folded_mask = rec['mask'].extract_epochs(epochs_to_extract)
+        for k, m in folded_mask.items():
+            m = np.tile(m, [1, nCells, 1])
+            folded_matrices[k][m == False] = np.nan
 
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()
@@ -333,7 +415,7 @@ def generate_psth_from_est_for_both_est_and_val(est, val,
     return est, val
 
 
-def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals, epoch_regex = '^STIM_'):
+def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals, epoch_regex='^STIM_'):
     '''
     call generate_psth_from_est_for_both_est_and_val for each e,v
     pair in ests,vals
@@ -348,7 +430,8 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
                       new_signalname='state'):
     """
     generate state signal for stategainX models
-    TODO: SVD document this and/or move it out of generic nems code
+
+    TODO: Migrate to nems_lbhb or make a more generic version
     """
 
     newrec = rec.copy()
@@ -364,7 +447,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     if ('pupil' in state_signals) or ('pupil_ev' in state_signals) or \
        ('pupil_bs' in state_signals):
         # normalize min-max
-        p = newrec["pupil"].as_continuous()
+        p = newrec["pupil"].as_continuous().copy()
         # p[p < np.nanmax(p)/5] = np.nanmax(p)/5
         p -= np.nanmean(p)
         p /= np.nanstd(p)
@@ -388,7 +471,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         newrec['pupil_bs'] = newrec["pupil"].replace_epoch(
                 'TRIAL', pupil_bs)
 
-    # generate stask tate signals
+    # generate task state signals
     fpre = (resp.epochs['name'] == "PRE_PASSIVE")
     fpost = (resp.epochs['name'] == "POST_PASSIVE")
     INCLUDE_PRE_POST = (np.sum(fpre) > 0) & (np.sum(fpost) > 0)
@@ -412,6 +495,17 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     newrec['hard_trials'].chans = ['hard_trials']
     newrec['active'] = resp.epoch_to_signal('ACTIVE_EXPERIMENT')
     newrec['active'].chans = ['active']
+    if 'lick' in state_signals:
+        newrec['lick'] = resp.epoch_to_signal('LICK')
+
+    # pupil interactions
+    if ('pupil' in state_signals):
+        # normalize min-max
+        p = newrec["pupil"].as_continuous()
+        a = newrec["active"].as_continuous()
+        newrec["p_x_a"] = newrec["pupil"]._modified_copy(p * a)
+        newrec["p_x_a"].chans = ["p_x_a"]
+
     state_sig_list = [ones_sig]
     # rint(state_sig_list[-1].shape)
 
@@ -426,7 +520,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         # print(state_sig_list[-1])
         # print(state_sig_list[-1].shape)
 
-    state = signal.RasterizedSignal.concatenate_channels(state_sig_list)
+    state = RasterizedSignal.concatenate_channels(state_sig_list)
     state.name = new_signalname
 
     # scale all signals to range from 0 - 1
@@ -470,6 +564,49 @@ def split_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
     return est, val, modelspecs_out
 
 
+def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
+                               njacks=10, IsReload=False, **context):
+    """
+    take a single recording (est) and define njacks est/val sets using a
+    jackknife logic. returns lists est_out and val_out of corresponding
+    jackknife subsamples. removed timepoints are replaced with nan
+    """
+    est = []
+    val = []
+    # logging.info("Generating {} jackknifes".format(njacks))
+    if rec.get_epoch_indices(epoch_name).shape[0]:
+        pass
+    elif rec.get_epoch_indices('REFERENCE').shape[0]:
+        log.info('jackknifing by REFERENCE epochs')
+        epoch_name = 'REFERENCE'
+    elif rec.get_epoch_indices('TARGET').shape[0]:
+        log.info('jackknifing by TARGET epochs')
+        epoch_name = 'TARGET'
+    else:
+        raise ValueError('No epochs matching '+epoch_name)
+
+    for i in range(njacks):
+        # est_out += [est.jackknife_by_time(njacks, i)]
+        # val_out += [est.jackknife_by_time(njacks, i, invert=True)]
+        est += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
+                                            tiled=True)]
+        val += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
+                                            tiled=True, invert=True)]
+
+    modelspecs_out = []
+    if (not IsReload) and (modelspecs is not None):
+        if len(modelspecs) == 1:
+            modelspecs_out = [copy.deepcopy(modelspecs[0])
+                              for i in range(njacks)]
+        elif len(modelspecs) == njacks:
+            # assume modelspecs already generated for njacks
+            modelspecs_out = modelspecs
+        else:
+            raise ValueError('modelspecs must be len 1 or njacks')
+
+    return est, val, modelspecs_out
+
+
 def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
                          bins=None):
     '''
@@ -491,6 +628,7 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
                             .format(source_name))
 
     array = source_signal.as_continuous().copy()
+
     if ms:
         history = int((ms/1000)*source_signal.fs)
     elif bins:

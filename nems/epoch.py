@@ -1,5 +1,9 @@
 import re
 import numpy as np
+import pandas as pd
+
+import logging
+log = logging.getLogger(__name__)
 
 
 def remove_overlap(a):
@@ -181,26 +185,6 @@ def epoch_difference(a, b):
     return result
 
 
-def epoch_intersection_full(a, b):
-    """
-    returns all epoch times a that are fully spanned by epoch
-    times in b
-    """
-    a = a.copy().tolist()
-    a.sort()
-    b = b.copy().tolist()
-    b.sort()
-    intersection = []
-    for lb, ub in a:
-        for lb_b, ub_b in b:
-            if lb >= lb_b and ub <= ub_b:
-                intersection.append([lb, ub])
-                break
-
-    result = np.array(intersection)
-    return result
-
-
 def epoch_intersection(a, b):
     '''
     Compute the intersection of the epochs. Only regions in a which overlap with
@@ -288,7 +272,7 @@ def epoch_intersection(a, b):
                 lb_b, ub_b = b.pop()
             except IndexError:
                 break
-        elif (lb <= lb_b) and (ub <= ub_b):
+        elif (lb <= lb_b) and (ub >= lb_b) and (ub <= ub_b):
             #   [  a    ]
             #     [ b        ]
             # Current epoch in b begins in a, but extends past a.
@@ -306,7 +290,7 @@ def epoch_intersection(a, b):
                 lb, ub = a.pop()
             except IndexError:
                 break
-        elif (ub > lb_b) and (lb > ub_b):
+        elif (ub > lb_b) and (ub < ub_b) and (lb > ub_b):
             #   [  a    ]
             # [ b    ]
             intersection.append((lb, ub_b))
@@ -321,11 +305,11 @@ def epoch_intersection(a, b):
             raise SystemError(m)
 
     # Add all remaining epochs from a
-    intersection.extend(a[::-1])
-    result = np.array(intersection)
+    #intersection.extend(a[::-1])
+    result = np.array(intersection, dtype=np.int32)
     if result.size == 0:
-        raise RuntimeWarning("Epochs did not intersect, resulting array"
-                             "is empty.")
+        log.warning("Epochs did not intersect, resulting array"
+                    " is empty.")
     return result
 
 
@@ -431,11 +415,17 @@ def verify_epoch_integrity(epoch):
 
 def epoch_names_matching(epochs, regex_str):
     '''
-    Returns a list of epoch names that match the (uncompiled) regex string regex_str.
+    Returns a list of epoch names that regex match the regex_str.
     '''
     r = re.compile(regex_str)
     names = epochs['name'].tolist()
     matches = filter(r.match, names)
+
+    # convert to list
+    matches = [name for name in matches]
+    matches = list(set(matches))  # unique values
+    matches.sort()
+
     return matches
 
 
@@ -452,8 +442,8 @@ def epoch_occurrences(epochs, regex=None):
 
 def group_epochs_by_occurrence_counts(epochs, regex=None):
     '''
-    Returns a dictionary mapping the number of occurrences to a list of epoch names.
-    This is essentially the inverse mapping of epoch_occurrences().
+    Returns a dictionary mapping the number of occurrences to a list of epoch
+    names. This is essentially the inverse mapping of epoch_occurrences().
     '''
     d = {}
     # Build a dict of n_occurrences -> [epoch_name1, epoch_name2, etc]
@@ -464,3 +454,53 @@ def group_epochs_by_occurrence_counts(epochs, regex=None):
         else:
             d[count] = [name]
     return d
+
+
+def find_common_epochs(epochs, epoch_name, d=12):
+    '''
+    Finds all epochs contained by `epoch_name` that are common to all
+    occurances of `epoch_name`. An epoch is considered "common" to all
+    occurances if the name matches and the start and end times, relative to the
+    start `epoch_name`, are the same to the number of decimal places indicated.
+
+    Parameters
+    ----------
+    epochs : dataframe with 'name', 'start', 'end'
+        Epochs to filter through
+    epoch_name : str
+        Name of epoch to use
+    d : int
+        Number of decimal places to round start and end to. This is im portant
+        when comparing start and end times of different epochs due to
+        floating-point errors.
+
+    Result
+    ------
+    common_epochs : dataframe with 'name', 'start', 'end'
+        Epochs common to all occurances of `epoch_name`. The start and end
+        times will reflect the time relative to the onset of the epoch.
+    '''
+    # First, loop through all occurances of `epoch_name` and find all the
+    # epochs contained within that occurance. Be sure to adjust the start/end
+    # time so that they are relative to the beginning of the occurance of that
+    # epoch.
+    epoch_subsets = []
+    matches =  epochs.query('name == "{}"'.format(epoch_name))
+    for lb, ub in matches[['start', 'end']].values:
+        m = (epochs['start'] >= lb) & (epochs['end'] <= ub)
+        epoch_subset = epochs.loc[m].copy()
+        epoch_subset['start'] -= lb
+        epoch_subset['end'] -= lb
+        epoch_subset = set((n, round(s, d), round(e, d)) for (n, s, e) \
+                           in epoch_subset[['name', 'start', 'end']].values)
+        epoch_subsets.append(epoch_subset)
+
+    # Now, determine which epochs are common to all occurances.
+    common_epochs = epoch_subsets[0].copy()
+    for other_epoch in epoch_subsets[1:]:
+        common_epochs.intersection_update(other_epoch)
+
+    new_epochs = pd.DataFrame(list(common_epochs),
+                              columns=['name', 'start', 'end'])
+    new_epochs.sort_values(['start', 'end'], inplace=True)
+    return new_epochs

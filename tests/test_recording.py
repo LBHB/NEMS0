@@ -1,9 +1,14 @@
+from os.path import dirname, join
+
 import numpy as np
 import pandas as pd
 import pytest
-import unittest
 from nems.recording import Recording
 from nems.signal import RasterizedSignal
+
+
+RECORDING_DIR = join(dirname(dirname(__file__)), 'recordings')
+
 
 @pytest.fixture()
 def signal1(signal_name='dummy_signal_1', recording_name='dummy_recording', fs=50,
@@ -92,15 +97,15 @@ def test_select_times(recording):
     '''
     bounds = recording['dummy_signal_1'].get_epoch_bounds('trial2')
     newrec = recording.select_times(bounds)
-    
+
     # assert that pulls the correct length of data
-    assert newrec['dummy_signal_1'].as_continuous().shape == (3, 50) 
-    
+    assert newrec['dummy_signal_1'].as_continuous().shape == (3, 50)
+
     # assert that epochs outside of this time window no longer exist
     with pytest.raises(IndexError):
         newrec['dummy_signal_1'].extract_epoch('pupil_closed')
 
-    
+
 def test_recording_loading():
     '''
     Test the loading and saving of files to various HTTP/S3/File routes.
@@ -110,12 +115,13 @@ def test_recording_loading():
 
     # Local filesystem
     # rec0 = Recording.load("/home/ivar/git/nems/signals/TAR010c-18-1.tar.gz")
-    rec0 = Recording.load("/auto/data/nems_db/recordings/eno052d-a1.tgz")
-    rec2 = Recording.load("file:///auto/data/nems_db/recordings/eno052d-a1.tgz")
+    rec_path = join(RECORDING_DIR, "eno052d-a1.tgz")
+    rec0 = Recording.load(rec_path)
+    rec2 = Recording.load("file://%s" % rec_path)
 
     # HTTP
-    rec3 = Recording.load("http://hyrax.ohsu.edu:3000/recordings/eno052d-a1.tgz")
-    rec4 = Recording.load("http://hyrax.ohsu.edu:3000/baphy/294/eno052d-a1?stim=0&pupil=0")
+    # rec3 = Recording.load("http://hyrax.ohsu.edu:3000/recordings/eno052d-a1.tgz")
+    # rec4 = Recording.load("http://hyrax.ohsu.edu:3000/baphy/294/eno052d-a1?stim=0&pupil=0")
 
     # S3
     # Direct access (would need AWS CLI lib? Maybe not best idea!)
@@ -144,6 +150,7 @@ def test_recording_loading():
     #if not rec0.save('http://hyrax:3000/recordings/'):
     #    print('Error saving to a directory URI')
     #    assert 0
+
 
 def test_recording_from_arrays():
     # need a list of array-like data structures
@@ -181,3 +188,9 @@ def test_recording_from_arrays():
         rec = Recording.load_from_arrays(arrays, rec_name, fs,
                                          sig_names=bad_names,
                                          signal_kwargs=kwargs)
+
+
+def test_recording_copy(recording):
+    # Ensure we get a true copy of recording
+    recording_copy = recording.copy()
+    assert id(recording.signals) != id(recording_copy.signals)

@@ -7,14 +7,15 @@ def _logistic_sigmoid(x, base, amplitude, shift, kappa):
     ''' This "logistic" function only has a single negative exponent '''
     return base + amplitude * 1 / (1 + exp(-kappa * (x - shift)))
 
+
 def logistic_sigmoid(rec, i, o, base, amplitude, shift, kappa):
     fn = lambda x : _logistic_sigmoid(x, base, amplitude, shift, kappa)
     return [rec[i].transform(fn, o)]
 
 
-
 def _tanh(x, base, amplitude, shift, kappa):
     return base + (0.5 * amplitude) * (1 + np.tanh(kappa * (x - shift)))
+
 
 def tanh(rec, i, o, base, amplitude, shift, kappa):
     fn = lambda x : _tanh(x, base, amplitude, shift, kappa)
@@ -24,6 +25,7 @@ def tanh(rec, i, o, base, amplitude, shift, kappa):
 def _quick_sigmoid(x, base, amplitude, shift, kappa):
     y = kappa * (x - shift)
     return base + (0.5 * amplitude) * (1 + y / np.sqrt(1 + np.square(y)))
+
 
 def quick_sigmoid(rec, i, o, base, amplitude, shift, kappa):
     fn = lambda x : _quick_sigmoid(x, base, amplitude, shift, kappa)
@@ -36,6 +38,7 @@ def _double_exponential(x, base, amplitude, shift, kappa):
     # The correct way to avoid this problem is to install the Intel Python Packages:
     # https://software.intel.com/en-us/distribution-for-python
     return base + amplitude * exp(-exp(np.array(-exp(kappa)) * (x - shift)))
+
 
 def double_exponential(rec, i, o, base, amplitude, shift, kappa):
     '''

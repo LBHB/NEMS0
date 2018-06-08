@@ -10,6 +10,8 @@ import nems.metrics.api as metrics
 import nems.segmentors
 import nems.utils
 
+import numpy as np
+
 log = logging.getLogger(__name__)
 
 
@@ -41,6 +43,8 @@ def fit_basic(data, modelspec,
     '''
     start_time = time.time()
 
+    modelspec = copy.deepcopy(modelspec)
+
     if cost_function is None:
         # Use the cost function defined in this module by default
         cost_function = basic_cost
@@ -55,6 +59,16 @@ def fit_basic(data, modelspec,
                 m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
                 modelspec[i] = m
 
+    # apply mask to remove invalid portions of signals and allow fit to
+    # only evaluate the model on the valid portion of the signals
+    if 'mask' in data.signals.keys():
+        log.info("Data len pre-mask: %d", data['mask'].shape[1])
+        data = data.apply_mask()
+        log.info("Data len post-mask: %d", data['mask'].shape[1])
+
+    # turn on "fit mode". currently this serves one purpose, for normalization
+    # parameters to be re-fit for the output of each module that uses
+    # normalization. does nothing if normalization is not being used.
     ms.fit_mode_on(modelspec)
 
     # Create the mapper object that translates to and from modelspecs.
@@ -79,8 +93,7 @@ def fit_basic(data, modelspec,
     # get initial sigma value representing some point in the fit space,
     # and corresponding bounds for each value
     sigma = packer(modelspec)
-    bounds_to_vec, _ = nems.fitters.mappers.bounds_vector(modelspec)
-    bounds = bounds_to_vec(modelspec)
+    bounds = nems.fitters.mappers.bounds_vector(modelspec)
 
     # Results should be a list of modelspecs
     # (might only be one in list, but still should be packaged as a list)
@@ -103,7 +116,7 @@ def fit_basic(data, modelspec,
 
 def basic_cost(sigma, unpacker, modelspec, data, segmentor,
                evaluator, metric):
-    '''Stanard cost function for use by fit_basic and other analyses.'''
+    '''Standard cost function for use by fit_basic and other analyses.'''
     updated_spec = unpacker(sigma)
     # The segmentor takes a subset of the data for fitting each step
     # Intended use is for CV or random selection of chunks of the data
@@ -145,30 +158,44 @@ def fit_random_subsets(data, modelspec, nsplits=1, rebuild_every=10000):
 def fit_nfold(data_list, modelspecs, generate_psth=False,
               fitter=scipy_minimize,
               metric=None,
-              fit_kwargs={'options': {'ftol': 1e-7, 'maxiter': 1000}}):
+              fit_kwargs={}):
     '''
     Takes njacks jackknifes, where each jackknife has some small
     fraction of data NaN'd out, and fits modelspec to them.
-    '''
-    nfolds = len(data_list)
-#    if type(modelspec) is not list:
-#        modelspecs=[modelspec]*nfolds
-#    elif len(modelspec)==1:
-#        modelspec=modelspec*nfolds
 
+    TESTING:
+    if input len(modelspecs) == len(data_list) then use each
+      modelspec as initial condition for corresponding data_list fold
+    if len(modelspecs) == 1, then use the same initial conditions for
+      each fold
+
+    '''
+    # fit_kwargs = fit_kwargs.copy()
+    # if 'options' not in fit_kwargs.keys():
+    #     fit_kwargs['options'] = {}
+    # if 'ftol' not in fit_kwargs['options'].keys():
+    #     fit_kwargs['options']['ftol'] = 1e-7
+    # if 'maxiter' not in fit_kwargs['options'].keys():
+    #     fit_kwargs['options']['maxiter'] = 1000
+
+    nfolds = len(data_list)
     models = []
-    if not metric:
+    if metric is None:
         metric = lambda d: metrics.nmse(d, 'pred', 'resp')
 
     for i in range(nfolds):
-        log.info("Fitting fold {}/{}".format(i+1, nfolds))
-        tms = nems.initializers.prefit_to_target(
-                data_list[i], copy.deepcopy(modelspecs[0]),
-                nems.analysis.api.fit_basic, 'levelshift',
-                fitter=scipy_minimize,
-                fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
-
-        models += fit_basic(data_list[i], tms,
+        if len(modelspecs) > 1:
+            msidx = i
+        else:
+            msidx = 0
+        log.info("Fitting fold %d/%d, modelspec %d", i+1, nfolds, msidx)
+#        resp = data_list[i]['resp']
+#        resp_len = np.sum(np.isfinite(resp.as_continuous()))
+#        log.info("non-nan resp samples: %d", resp_len)
+#        stim = data_list[i]['psth']
+#        stim_len = np.sum(np.isfinite(stim.as_continuous()[0, :]))
+#        log.info("non-nan stim samples: %d", stim_len)
+        models += fit_basic(data_list[i], copy.deepcopy(modelspecs[msidx]),
                             fitter=fitter,
                             metric=metric,
                             metaname='fit_nfold',
@@ -180,11 +207,13 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
 def fit_state_nfold(data_list, modelspecs, generate_psth=False,
               fitter=scipy_minimize,
               metric=None,
-              fit_kwargs={'options': {'ftol': 1e-7, 'maxiter': 1000}}):
+              fit_kwargs={'options': {'tolerance': 1e-7, 'max_iter': 1000}}):
     '''
     Generic state-dependent-stream model fitter
     Takes njacks jackknifes, where each jackknife has some small
     fraction of data NaN'd out, and fits modelspec to them.
+
+    DEPRECATED? REPLACED BY STANDARD nfold?
     '''
     nfolds = len(data_list)
 
@@ -198,7 +227,7 @@ def fit_state_nfold(data_list, modelspecs, generate_psth=False,
                 data_list[i], copy.deepcopy(modelspecs[0]),
                 nems.analysis.api.fit_basic, 'merge_channels',
                 fitter=scipy_minimize,
-                fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
+                fit_kwargs={'options': {'tolerance': 1e-4, 'max_iter': 500}})
 
         models += fit_basic(data_list[i], tms,
                             fitter=fitter,
@@ -257,7 +286,7 @@ def fit_from_priors(data, modelspec, ntimes=10):
     models = []
     for i in range(ntimes):
         log.info("Fitting from random start: {}/{}".format(i+1, ntimes))
-        ms = nems.priors.set_random_phi(modelspec)
+        ms = nems.priors.set_random_phi(copy.deepcopy(modelspec))
         models += fit_basic(data, ms, fitter=scipy_minimize,
                             metaname='fit_from_priors')
 
