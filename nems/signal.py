@@ -946,13 +946,9 @@ class RasterizedSignal(SignalBase):
         Epochs tagged with the same name may have various lengths. Shorter
         epochs will be padded with NaN.
         '''
-        if type(epoch) is str:
-            epoch_indices = self.get_epoch_indices(
-                    epoch, boundary_mode=boundary_mode,
-                    fix_overlap=fix_overlap,
-                    overlapping_epoch=overlapping_epoch)
-        else:
-            epoch_indices = epoch
+        epoch_indices = self.get_epoch_indices(epoch,
+                                               boundary_mode=boundary_mode,
+                                               fix_overlap=fix_overlap)
 
         if epoch_indices.size == 0:
             if allow_empty:
