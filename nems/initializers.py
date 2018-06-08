@@ -14,7 +14,8 @@ import nems.metrics.api as metrics
 log = logging.getLogger(__name__)
 
 
-def from_keywords(keyword_string, registry=keywords.defaults, meta={}):
+def from_keywords(keyword_string, registry=keywords.defaults,
+                  rec=None, meta={}):
     '''
     Returns a modelspec created by splitting keyword_string on underscores
     and replacing each keyword with what is found in the nems.keywords.defaults
@@ -26,6 +27,12 @@ def from_keywords(keyword_string, registry=keywords.defaults, meta={}):
     # Lookup the modelspec fragments in the registry
     modelspec = []
     for kw in keywords:
+        if kw.startswith("firNx") and (rec is not None):
+            N = rec['stim'].nchans
+            kw_old = kw
+            kw = kw.replace("firN", "fir{}".format(N))
+            log.info("Dynamically subbing kw %s with %s", kw_old, kw)
+
         if kw not in registry:
             raise ValueError("unknown keyword: {}".format(kw))
         d = copy.deepcopy(registry[kw])

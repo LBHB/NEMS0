@@ -4,6 +4,7 @@ import nems.epoch as ep
 import pandas as pd
 from nems.signal import RasterizedSignal
 import copy
+from scipy.signal import convolve2d
 
 import logging
 log = logging.getLogger(__name__)
@@ -195,6 +196,23 @@ def mask_all_but_correct_references(rec):
     return newrec
 
 
+def mask_all_but_targets(rec):
+    """
+    Specialized function for removing incorrect trials from data
+    collected using baphy during behavior.
+
+    TODO: Migrate to nems_lbhb and/or make a more generic version
+    """
+
+    newrec = rec.copy()
+    newrec['resp'] = newrec['resp'].rasterize()
+    if 'stim' in newrec.signals.keys():
+        newrec['stim'] = newrec['stim'].rasterize()
+
+    newrec = newrec.or_mask(['TARGET'])
+
+    return newrec
+
 def nan_invalid_segments(rec):
     """
     Currently a specialized signal for removing incorrect trials from data
@@ -231,6 +249,49 @@ def nan_invalid_segments(rec):
     newrec = rec.nan_times(epoch_indices2)
 
     return newrec
+
+
+def generate_stim_from_epochs(rec, new_signal_name='stim',
+                              epoch_regex='^STIM_', epoch_shift=0,
+                              epoch2_regex=None, epoch2_shift=0,
+                              epoch2_shuffle=False,
+                              onsets_only=True):
+
+    rec = rec.copy()
+    resp = rec['resp'].rasterize()
+
+    epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
+    sigs = []
+    for e in epochs_to_extract:
+        log.info('Adding to %s: %s with shift = %d',
+                 new_signal_name, e, epoch_shift)
+        s = resp.epoch_to_signal(e, onsets_only=onsets_only, shift=epoch_shift)
+        if epoch_shift:
+            s.chans[0] = "{}{:+d}".format(s.chans[0], epoch_shift)
+        sigs.append(s)
+
+    if epoch2_regex is not None:
+        epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch2_regex)
+        for e in epochs_to_extract:
+            log.info('Adding to %s: %s with shift = %d',
+                     new_signal_name, e, epoch2_shift)
+            s = resp.epoch_to_signal(e, onsets_only=onsets_only,
+                                     shift=epoch2_shift)
+            if epoch2_shuffle:
+                log.info('Shuffling %s', e)
+                s = s.shuffle_time()
+                s.chans[0] = "{}_shf".format(s.chans[0])
+            if epoch_shift:
+                s.chans[0] = "{}{:+d}".format(s.chans[0], epoch2_shift)
+            sigs.append(s)
+
+    stim = sigs[0].concatenate_channels(sigs)
+    stim.name = new_signal_name
+
+    # add_signal operates in place
+    rec.add_signal(stim)
+
+    return rec
 
 
 def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
@@ -429,6 +490,8 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     newrec['hard_trials'].chans = ['hard_trials']
     newrec['active'] = resp.epoch_to_signal('ACTIVE_EXPERIMENT')
     newrec['active'].chans = ['active']
+    if 'lick' in state_signals:
+        newrec['lick'] = resp.epoch_to_signal('LICK')
 
     # pupil interactions
     if ('pupil' in state_signals):
@@ -506,6 +569,16 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
     est = []
     val = []
     # logging.info("Generating {} jackknifes".format(njacks))
+    if rec.get_epoch_indices(epoch_name).shape[0]:
+        pass
+    elif rec.get_epoch_indices('REFERENCE').shape[0]:
+        log.info('jackknifing by REFERENCE epochs')
+        epoch_name = 'REFERENCE'
+    elif rec.get_epoch_indices('TARGET').shape[0]:
+        log.info('jackknifing by TARGET epochs')
+        epoch_name = 'TARGET'
+    else:
+        raise ValueError('No epochs matching '+epoch_name)
 
     for i in range(njacks):
         # est_out += [est.jackknife_by_time(njacks, i)]
@@ -537,11 +610,21 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     previous values within a range specified by either <ms> or <bins>.
     Only supports RasterizedSignal.
     '''
+
+    rec = rec.copy()
+
     source_signal = rec[source_name]
+
     if not isinstance(source_signal, RasterizedSignal):
-        raise TypeError("signal with key {} was not a RasterizedSignal"
-                        .format(source_name))
-    array = source_signal.as_continuous()
+        try:
+            source_signal = source_signal.rasterize()
+        except AttributeError:
+            raise TypeError("signal with key {} was not a RasterizedSignal"
+                            " and could not be converted to one."
+                            .format(source_name))
+
+    array = source_signal.as_continuous().copy()
+
     if ms:
         history = int((ms/1000)*source_signal.fs)
     elif bins:
@@ -552,23 +635,12 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     # TODO: Alternatively, base history length on some feature of signal?
     #       Like average length of some epoch ex 'TRIAL'
 
-    # figure out an efficient np-based solution, nested loops on giant arrays
-    # are bad.
-    contrast = np.zeros_like(array, dtype=np.int)
-    for i, hz in enumerate(array):
-        for j, t in enumerate(hz):
-            my_history = array[i][j-history:j]
-            if my_history.size == 0:
-                # Skip calculation if full history window isn't available
-                continue
-            half_width = np.max(my_history) - np.min(my_history)
-            std = np.std(my_history)
-            # binary implementation - start with this since it's easy.
-            # for real value, some formula based on width and variance?
-            if half_width > 30 and std > 5:  # db
-                contrast[i][j] = 1
-            else:
-                contrast[i][j] = 0
+    array[np.isnan(array)] = 0
+    filt = np.concatenate((np.zeros([1, history+1]),
+                           np.ones([1, history])), axis=1)
+    contrast = convolve2d(array, filt, mode='same')
 
     contrast_sig = source_signal._modified_copy(contrast)
     rec[name] = contrast_sig
+
+    return rec

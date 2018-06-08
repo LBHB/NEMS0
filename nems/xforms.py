@@ -186,6 +186,15 @@ def mask_all_but_correct_references(rec, **context):
     return {'rec': rec}
 
 
+def mask_all_but_targets(rec, **context):
+    '''
+    find TARGET epochs all behaviors/outcomes
+    '''
+    rec = preproc.mask_all_but_targets(rec)
+
+    return {'rec': rec}
+
+
 def generate_psth_from_resp(rec, epoch_regex='^STIM_',
                             smooth_resp=False, **context):
     '''
@@ -289,10 +298,11 @@ def mask_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
         return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
 
-
-def init_from_keywords(keywordstring, meta={}, IsReload=False, **context):
+def init_from_keywords(keywordstring, rec=None, meta={}, IsReload=False,
+                       **context):
     if not IsReload:
-        modelspec = init.from_keywords(keyword_string=keywordstring, meta=meta)
+        modelspec = init.from_keywords(keyword_string=keywordstring,
+                                       rec=rec, meta=meta)
 
         return {'modelspecs': [modelspec]}
     else:
@@ -400,18 +410,24 @@ def fit_state_init(modelspecs, est, IsReload=False, **context):
                     analysis_function=nems.analysis.api.fit_basic,
                     fitter=scipy_minimize,
                     tolerance=10**-4, max_iter=700)
+            # fit a bit more to settle in STP variables and anything else
+            # that might have been excluded
+            fit_kwargs = {'tolerance': 10**-4.5, 'max_iter': 500}
+            m = nems.analysis.api.fit_basic(
+                    dc, m, fit_kwargs=fit_kwargs,
+                    fitter=scipy_minimize)[0]
             rep_idx = find_module('replicate_channels', m)
             mrg_idx = find_module('merge_channels', m)
             if rep_idx is not None:
                 repcount = m[rep_idx]['fn_kwargs']['repcount']
                 for j in range(rep_idx+1, mrg_idx):
                     # assume all phi
-                    log.info(m[j]['fn'])
+                    log.debug(m[j]['fn'])
                     if 'phi' in m[j].keys():
                         for phi in m[j]['phi'].keys():
                             s = m[j]['phi'][phi].shape
                             setcount = int(s[0] / repcount)
-                            log.info('phi[%s] setcount=%d', phi, setcount)
+                            log.debug('phi[%s] setcount=%d', phi, setcount)
                             snew = np.ones(len(s))
                             snew[0] = repcount
                             new_v = np.tile(m[j]['phi'][phi][:setcount, ...],
@@ -641,13 +657,27 @@ def fit_nfold(modelspecs, est, ftol=1e-7, maxiter=1000,
     return {'modelspecs': modelspecs}
 
 
+def fit_cd_nfold(modelspecs, est, ftol=1e-7, maxiter=1000, step_size=0.1,
+                 IsReload=False, **context):
+    '''
+    fitting n fold using coordinate descent, one from each entry in est
+    '''
+    if not IsReload:
+        fit_kwargs = {'tolerance': ftol, 'max_iter': maxiter,
+                      'step_size': step_size}
+        modelspecs = nems.analysis.api.fit_nfold(
+                est, modelspecs, fitter=coordinate_descent,
+                fit_kwargs=fit_kwargs)
+    return {'modelspecs': modelspecs}
+
+
 def fit_nfold_shrinkage(modelspecs, est, ftol=1e-7, maxiter=1000,
                         IsReload=False, **context):
     ''' fitting n fold, one from each entry in est, use mse_shrink for
     cost function'''
     if not IsReload:
         metric = lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
-        fit_kwargs = {'options': {'ftol': ftol, 'maxiter': maxiter}}
+        fit_kwargs = {'options': {'tolerance': tolerance, 'max_iter': max_iter}}
         modelspecs = nems.analysis.api.fit_nfold(
                 est, modelspecs, metric=metric,
                 fitter=scipy_minimize,
@@ -655,32 +685,24 @@ def fit_nfold_shrinkage(modelspecs, est, ftol=1e-7, maxiter=1000,
     return {'modelspecs': modelspecs}
 
 
-def fit_cd_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
-                 IsReload=False, **context):
-    ''' fitting n fold, one from each entry in est, use mse_shrink for
-    cost function'''
+def fit_cd_nfold_shrinkage(modelspecs, est, ftol=1e-7, maxiter=1000,
+                           IsReload=False, **context):
+    '''
+    fitting n-fold, one from each entry in est, use coordinate descent
+    '''
     if not IsReload:
         fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter,
                       'step_size': 0.05}
-        modelspecs = nems.analysis.api.fit_nfold(
-                est, modelspecs,
-                fit_kwargs=fit_kwargs,
-                fitter=coordinate_descent)
-    return {'modelspecs': modelspecs}
-
-
-def fit_cd_nfold_shrinkage(modelspecs, est, tolerance=1e-7,
-                           max_iter=1000, IsReload=False, **context):
-    ''' fitting n fold, one from each entry in est, use mse_shrink for
-    cost function'''
-    if not IsReload:
-        fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter,
-                      'step_size': 0.05}
-        metric = lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
+        metric = lambda d: metrics.nmse(d, 'pred', 'resp')
         modelspecs = nems.analysis.api.fit_nfold(
                 est, modelspecs, metric=metric,
                 fit_kwargs=fit_kwargs,
                 fitter=coordinate_descent)
+        fit_kwargs = {'options': {'tolerance': tolerance, 'max_iter': max_iter}}
+        modelspecs = nems.analysis.api.fit_nfold(
+                est, modelspecs, metric=metric,
+                fitter=scipy_minimize,
+                fit_kwargs=fit_kwargs)
     return {'modelspecs': modelspecs}
 
 

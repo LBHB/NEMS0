@@ -339,7 +339,7 @@ class SignalBase:
                 raise ValueError(m)
             mask = self.epochs['name'] == epoch
             bounds = self.epochs.loc[mask, ['start', 'end']].values
-            bounds = np.round(bounds * self.fs) / self.fs
+            bounds = np.round(bounds.astype(float) * self.fs) / self.fs
 
         if boundary_mode is None:
             raise NotImplementedError
@@ -600,7 +600,7 @@ class SignalBase:
         return mask
 
     def epoch_to_signal(self, epoch, boundary_mode='exclude',
-                        fix_overlap='merge'):
+                        fix_overlap='merge', onsets_only=False, shift=0):
         '''
         Convert an epoch to a RasterizedSignal using the same sampling rate
         and duration as this signal.
@@ -619,7 +619,13 @@ class SignalBase:
         data = np.zeros([1, self.ntimes], dtype=np.bool)
         indices = self.get_epoch_indices(epoch, boundary_mode, fix_overlap)
         for lb, ub in indices:
-            data[:, lb:ub] = True
+            if onsets_only:
+                data[:, lb] = True
+            else:
+                data[:, lb:ub] = True
+        if shift:
+            data = np.roll(data, shift, axis=1)
+
         epoch_name = epoch if isinstance(epoch, str) else 'epoch'
         attributes = self._get_attributes()
         attributes['chans'] = [epoch_name]
