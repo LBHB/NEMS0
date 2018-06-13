@@ -29,7 +29,7 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
 
     # limits, assumes input (X) range is approximately -1 to +1
     ui = u
-    ui[ui > 1] = 1
+    ui[ui > 1.5] = 1.5
     ui[ui < -0.5] = -0.5
 
     # convert tau units from sec to bins

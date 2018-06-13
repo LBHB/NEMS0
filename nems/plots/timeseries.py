@@ -134,11 +134,11 @@ def before_and_after_stp(modelspec, sig_name='pred', ax=None, title=None,
             break
     c = len(m['phi']['tau'])
     seg = np.int(fs * 0.05)
-
-    pred = np.concatenate([np.zeros([c, seg * 2]), np.ones([c, seg * 4]),
-                           np.zeros([c, seg * 4]), np.ones([c, seg]),
-                           np.zeros([c, seg]), np.ones([c, seg]),
-                           np.zeros([c, seg]), np.ones([c, seg]),
+    A=0.5
+    pred = np.concatenate([np.zeros([c, seg * 2]), np.ones([c, seg * 4]) * A,
+                           np.zeros([c, seg * 4]), np.ones([c, seg]) * A,
+                           np.zeros([c, seg]), np.ones([c, seg]) * A,
+                           np.zeros([c, seg]), np.ones([c, seg]) * A,
                            np.zeros([c, seg * 2])], axis=1)
 
     kwargs = {
@@ -203,7 +203,7 @@ def before_and_after(rec, modelspec, sig_name, ax=None, title=None,
         before = rec['stim'].copy()
         before.name += ' before**'
     else:
-        before = ms.evaluate(rec, modelspec, start=None, stop=idx)[sig_name]
+        before = ms.evaluate(rec.copy(), modelspec, start=None, stop=idx)[sig_name]
         before.name += ' before'
 
     after = ms.evaluate(rec, modelspec, start=idx, stop=idx+1)[sig_name].copy()

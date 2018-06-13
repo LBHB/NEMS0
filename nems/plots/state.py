@@ -15,12 +15,15 @@ def state_vars_timeseries(rec, modelspec, ax=None):
     r1 = resp.as_continuous().copy().T
     p1 = pred.as_continuous().copy().T
     nnidx = np.isfinite(p1)
+    r1=r1[nnidx]
+    p1=p1[nnidx]
+    #r1 = scipy.signal.decimate(r1[nnidx], q=5, axis=0)
+    #p1 = scipy.signal.decimate(p1[nnidx], q=5, axis=0)
+    #t = np.arange(len(r1))/pred.fs*5
+    t = np.arange(len(r1))/pred.fs
 
-    r1 = scipy.signal.decimate(r1[nnidx], q=5, axis=0)
-    p1 = scipy.signal.decimate(p1[nnidx], q=5, axis=0)
-    t = np.arange(len(r1))/pred.fs*5
-    plt.plot(t, r1)
-    plt.plot(t, p1)
+    plt.plot(t, r1, linewidth=1)
+    plt.plot(t, p1, linewidth=1)
     mmax = np.nanmax(p1) * 0.8
 
     if 'state' in rec.signals.keys():
@@ -35,15 +38,18 @@ def state_vars_timeseries(rec, modelspec, ax=None):
                     s += " g={} d={} ".format(g_string, d_string)
                 else:
                     s = None
+            else:
+                s = None
 
         num_vars = rec['state'].shape[0]
         ts = rec['state'].as_continuous().copy()
 
         for i in range(1, num_vars):
             d = ts[[i], :].T
-            d = scipy.signal.decimate(d[nnidx], q=5, axis=0)
+            d = d[nnidx]
+            #d = scipy.signal.decimate(d[nnidx], q=5, axis=0)
             d = d / np.nanmax(d) * mmax - (0.1 + i) * mmax
-            plt.plot(t, d)
+            plt.plot(t, d, linewidth=1)
         ax = plt.gca()
         # plt.text(0.5, 0.9, s, transform=ax.transAxes,
         #         horizontalalignment='center')
@@ -92,14 +98,14 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
 
     full_var = rec['state'].loc[state_sig]
     folded_var = full_var.extract_epoch(epoch)
-    
+
     # remove masked out occurences if mask signal exists
     if 'mask' in rec.signals.keys():
         folded_mask = rec['mask'].extract_epoch(epoch)
-        keep_occurences = folded_mask[:,0,0]
-        folded_psth=folded_psth[keep_occurences, :, :]
-        folded_psth2=folded_psth2[keep_occurences, :, :]
-        folded_var=folded_var[keep_occurences, :, :]
+        keep_occurences = folded_mask[:, 0, 0]
+        folded_psth = folded_psth[keep_occurences, :, :]
+        folded_psth2 = folded_psth2[keep_occurences, :, :]
+        folded_var = folded_var[keep_occurences, :, :]
 
         # print(state_sig)
         # print(folded_var.shape)
@@ -107,7 +113,7 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
         # print(np.sum(np.isfinite(folded_mask)))
 
     # compute the mean state for each occurrence
-    m = np.nanmean(folded_var[:,0,:], axis=1)
+    m = np.nanmean(folded_var[:, 0, :], axis=1)
 
     # compute the mean state across all occurrences
     mean = np.nanmean(m)

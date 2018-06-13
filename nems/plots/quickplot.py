@@ -20,6 +20,7 @@ from nems.plots.heatmap import weight_channels_heatmap, fir_heatmap, strf_heatma
 from nems.plots.histogram import pred_error_hist
 from nems.plots.state import (state_vars_timeseries, state_var_psth_from_epoch,
                     state_var_psth, state_gain_plot)
+from nems.utils import find_module
 
 log = logging.getLogger(__name__)
 
@@ -63,24 +64,41 @@ log = logging.getLogger(__name__)
 
 def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
               height_mult=3.0, width_mult=1.0, m_idx=0, r_idx=0):
-    """Expects an *evaluated* context dictionary ('ctx') returned by xforms."""
-    # TODO: Or do we want 'est' by default?
-    #       Could also just
-    #       ditch default altogether and force plots to explicityly state which
-    #       dataset they're plotting, but then we lose the ability to quickly
-    #       choose between plotting est or val.
+    """
+    Summary plot for NEMS model.
+
+    ctx : xforms context dictionary
+       Expects an *evaluated* context dictionary ('ctx') returned by xforms.
+
+    default : string ('val')
+       Name of recording (key in ctx) from which to extract data for plots
+
+    epoch : string
+       Name of epoch to group data (eg "TRIAL" or "REFERENCE")
+       Need to refine exactly what we want to do here
+    """
 
     # Most plots will just use the default (typically 'val' for LBHB),
     # but some plots might want to plot est vs val or need access to the
     # full recording. Keeping the full ctx reference lets those plots
     # use ctx['est'], ctx['rec'], etc.
     rec = ctx[default][r_idx]
+    log.info('Running quickplot')
     modelspec = ctx['modelspecs'][m_idx]
-    if not epoch:
-        if rec['resp'].count_epoch('REFERENCE'):
-            epoch = 'REFERENCE'
-        else:
-            epoch = 'TRIAL'
+    if (epoch is not None) and rec.get_epoch_indices(epoch).shape[0]:
+        pass
+    elif rec.get_epoch_indices('REFERENCE').shape[0]:
+        log.info('quickplot for REFERENCE epochs')
+        epoch = 'REFERENCE'
+    elif rec.get_epoch_indices('TARGET').shape[0]:
+        log.info('quickplot for TARGET epochs')
+        epoch = 'TARGET'
+    elif rec.get_epoch_indices('TRIAL').shape[0]:
+        log.info('quickplot for TRIAL epochs')
+        epoch = 'TRIAL'
+    else:
+        raise ValueError('No epochs matching ' + epoch)
+
     extracted = rec['resp'].extract_epoch(epoch)
     finite_trial = [np.sum(np.isfinite(x)) > 0 for x in extracted]
     occurrences, = np.where(finite_trial)
@@ -113,14 +131,13 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     else:
         fig = plt.figure(figsize=figsize)
 
-    gs_outer = gridspec.GridSpec(n, 1)
-
     # Each plot will be represented as a nested gridspec.
     # That way, plots have control over how many subplots
     # they use etc. Only restriction is that they get
     # one row (but the if/else flow control above could
     # add more than one plot for a module if multiple
     # rows are needed).
+    gs_outer = gridspec.GridSpec(n, 1)
 
     def _plot_axes(col_spans, fns, outer_index):
         """Expects col_spans and fns to be lists, outer_index integer."""
@@ -152,7 +169,6 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     ### Special plots that go *BEFORE* iterated modules
 
     # Stimulus Spectrogram
-    # TODO: This is a bit screwy for state_gain model, do we want
     if show_spectrogram:
         fn_spectro = partial(
                 spectrogram_from_epoch, rec['stim'], epoch,
@@ -160,21 +176,37 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
                 )
         _plot_axes([1], [fn_spectro], 0)
 
-
-    ### Iterated module plots (defined in _get_plot_fns)
+    ## Iterated module plots (defined in _get_plot_fns)
     for i, (fns, col_spans) in enumerate(plot_fns):
         # +1 because we did spectrogram above. Adjust as necessary.
         j = i + (1 if show_spectrogram else 0)
         _plot_axes(col_spans, fns, j)
 
-    ### Special plots that go *AFTER* iterated modules
+    ## Special plots that go *AFTER* iterated modules
 
     # Pred v Resp Timeseries
-    sigs = [rec['resp'], rec['pred']]
-    title = 'Final Prediction vs Response, {} #{}'.format(epoch, occurrence)
-    timeseries = partial(timeseries_from_epoch, sigs, epoch, title=title,
-                         occurrences=occurrence)
-    _plot_axes(1, timeseries, -2)
+    if ((find_module('merge_channels', modelspec) is not None) or
+       (find_module('state_dc_gain', modelspec) is not None)):
+
+        fns = state_vars_psths(rec, epoch, psth_name='resp',
+                               occurrence=occurrence)
+        _plot_axes([1]*len(fns), fns, -2)
+        # if len(m['phi']['g']) > 5:
+        #    fn2 = partial(state_gain_plot, modelspec)
+        #    plot2 = (fn2, 1)
+        #
+        # else:
+        #    fns = state_vars_psths(rec, epoch, psth_name='resp',
+        #                           occurrence=occurrence)
+        #    plot2 = (fns, [1]*len(fns))
+        # plot_fns.extend([plot1, plot2])
+
+    else:
+        sigs = [rec['resp'], rec['pred']]
+        title = 'Prediction vs Response, {} #{}'.format(epoch, occurrence)
+        timeseries = partial(timeseries_from_epoch, sigs, epoch, title=title,
+                             occurrences=occurrence)
+        _plot_axes(1, timeseries, -2)
 
     # Pred v Resp Scatter Smoothed
     r_test = modelspec[0]['meta']['r_test']
@@ -216,11 +248,16 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
 
     # Space subplots appropriately
     # TODO: More dynamic way to determine the y-max for suptitle?
-    #y_max = 1.00 - (height_mult+1)/100
-    y_max=0.955
+    # y_max = 1.00 - (height_mult+1)/100
+    y_max = 0.955
     gs_outer.tight_layout(fig, rect=[0, 0, 1, y_max],
                           pad=1.5, w_pad=1.0, h_pad=2.5)
     return fig
+
+
+"""
+Helper functions for quickplot()
+"""
 
 
 def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
@@ -250,15 +287,16 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
         # the dependent modules are wrapped here
         # in a separate logic heirarchy.
         if not do_strf:
+            chans = rec['stim'].chans
             if 'weight_channels' in fname:
 
                 if 'weight_channels.basic' in fname:
-                    fn = partial(weight_channels_heatmap, modelspec)
+                    fn = partial(weight_channels_heatmap, modelspec, chans=chans)
                     plot = (fn, 1)
                     plot_fns.append(plot)
 
                 elif 'weight_channels.gaussian' in fname:
-                    fn = partial(weight_channels_heatmap, modelspec)
+                    fn = partial(weight_channels_heatmap, modelspec, chans=chans)
                     plot = (fn, 1)
                     plot_fns.append(plot)
 
@@ -269,7 +307,7 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
             elif 'fir' in fname:
 
                 if 'fir.basic' in fname:
-                    fn = partial(fir_heatmap, modelspec)
+                    fn = partial(fir_heatmap, modelspec, chans=chans)
                     plot = (fn, 1)
                     plot_fns.append(plot)
                 elif 'fir.filter_bank' in fname:
@@ -281,7 +319,10 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
         # do strf
         else:
             if not strf_done:
-                fn = partial(strf_heatmap, modelspec, title='STRF')
+                chans = rec['stim'].chans
+                print('CHANS: ')
+                print(chans)
+                fn = partial(strf_heatmap, modelspec, title='STRF', chans=chans)
                 plot = (fn, 1)
                 plot_fns.append(plot)
                 strf_done = True
@@ -312,7 +353,7 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
             if 'nonlinearity.double_exponential' in fname:
                 fn1, fn2 = before_and_after_scatter(
                         rec, modelspec, idx, smoothing_bins=200,
-                        mod_name='dexp'
+                        mod_name='double_exponential'
                         )
                 plots = ([fn1, fn2], [1, 1])
                 plot_fns.append(plots)
@@ -350,30 +391,27 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                 # Unrecognized nonlinearity
                 pass
 
-        elif 'signal_mod' in fname:
-            if 'signal_mod.make_state_signal' in fname:
-                # TODO
-                pass
-            elif 'signal_mod.average_sig' in fname:
-                pass
-            else:
-                pass
+        elif 'merge_channels' in fname:
+            fn1 = partial(state_vars_timeseries, rec, modelspec)
+            plot1 = (fn1, 1)
+
+            plot_fns.append(plot1)
 
         elif 'state' in fname:
             if 'state.state_dc_gain' in fname:
                 fn1 = partial(state_vars_timeseries, rec, modelspec)
                 plot1 = (fn1, 1)
 
-                if len(m['phi']['g'])>5:
-                    fn2 = partial(state_gain_plot, modelspec)
-                    #fn2 = partial(state_vars_timeseries, rec, modelspec)
-                    plot2 = (fn2, 1)
-
-                else:
-                    fns = state_vars_psths(rec, epoch, psth_name='resp',
-                                           occurrence=occurrence)
-                    plot2 = (fns, [1]*len(fns))
-                plot_fns.extend([plot1, plot2])
+                #if len(m['phi']['g']) > 5:
+                #    fn2 = partial(state_gain_plot, modelspec)
+                #    plot2 = (fn2, 1)
+                #
+                #else:
+                #    fns = state_vars_psths(rec, epoch, psth_name='resp',
+                #                           occurrence=occurrence)
+                #    plot2 = (fns, [1]*len(fns))
+                # plot_fns.extend([plot1, plot2])
+                plot_fns.append(plot1)
             else:
                 pass
 
@@ -397,10 +435,10 @@ def before_and_after_signal(rec, modelspec, idx, sig_name='pred'):
     #       for special case of idx = 0
     if idx == 0:
         # Can't have anything before index 0, so use input stimulus
-        before = rec
+        before = rec.copy()
         before_sig = copy.deepcopy(rec['stim'])
     else:
-        before = ms.evaluate(rec, modelspec, start=None, stop=idx)
+        before = ms.evaluate(rec.copy(), modelspec, start=None, stop=idx)
         before_sig = copy.deepcopy(before[sig_name])
 
     before_sig.name = 'before'
@@ -436,11 +474,11 @@ def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
     #       for special case of idx = 0
     if idx == 0:
         # Can't have anything before index 0, so use input stimulus
-        before = rec
+        before = rec.copy()
         before_sig = rec['stim']
         before.name = '**stim'
     else:
-        before = ms.evaluate(rec, modelspec, start=None, stop=idx)
+        before = ms.evaluate(rec.copy(), modelspec, start=None, stop=idx)
         before_sig = before[sig_name]
 
     # now evaluate next module step
@@ -463,9 +501,14 @@ def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
     text1 = "r = {0:.5f}".format(corr1)
     text2 = "r = {0:.5f}".format(corr2)
 
+    modidx = find_module(mod_name, modelspec)
+    if modidx:
+        module = modelspec[modidx]
+    else:
+        module = None
     fn1 = partial(plot_scatter, before_sig, compare_to, title=title1,
                   smoothing_bins=smoothing_bins, xlabel=xlabel1,
-                  ylabel=ylabel1, text=text1)
+                  ylabel=ylabel1, text=text1, module=module)
     fn2 = partial(plot_scatter, after_sig, compare_to, title=title2,
                   smoothing_bins=smoothing_bins, xlabel=xlabel2,
                   ylabel=ylabel2, text=text2)
