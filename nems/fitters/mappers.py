@@ -70,9 +70,10 @@ def bounds_vector(modelspec):
     Would all set equivalent bounds for a 2x3 parameter.
     '''
 
-    phi = [m.get('phi') for m in modelspec]
+    phi = [m.get('phi', {}) for m in modelspec]
     phi_vector = phi_to_vector(phi)
     bounds = []
+
     for i, p in enumerate(phi):
         b = modelspec[i].get('bounds', None)
         for k, v in p.items():
