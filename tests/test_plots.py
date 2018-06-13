@@ -11,11 +11,11 @@ import nems.epoch as ep
 nems_dir = os.path.abspath(os.path.dirname(recording.__file__) + '/..')
 signals_dir = nems_dir + '/recordings'
 
-uri = signals_dir + "/por074b-c2.tgz"
+#uri = signals_dir + "/por074b-c2.tgz"
+#uri = signals_dir + "/BRT026c-02-1.tgz"
+#cellid = "BRT026c-02-1"
 uri = signals_dir + "/TAR010c-18-1.tgz"
 cellid = "TAR010c-18-1"
-uri = signals_dir + "/BRT026c-02-1.tgz"
-cellid = "BRT026c-02-1"
 
 
 def test_plots():
