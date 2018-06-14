@@ -287,7 +287,10 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
         # the dependent modules are wrapped here
         # in a separate logic heirarchy.
         if not do_strf:
-            chans = rec['stim'].chans
+            if rec['stim'] is not None:
+                chans = rec['stim'].chans
+            else:
+                chans = None
             if 'weight_channels' in fname:
 
                 if 'weight_channels.basic' in fname:
