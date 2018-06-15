@@ -44,9 +44,13 @@ class KeywordRegistry():
         self.keywords[kw_head] = Keyword(kw_head, parse)
 
     def kw_head(self, kw_string):
+        # if the full kw_string is in the registry as-is, then it's a
+        # backwards-compatibility alias and overrides the normal kw head rule.
+        if kw_string in self.keywords:
+            return kw_string
         # look for '-' first. if not present, use first alpha-only string
         # as head instead.
-        h = kw_string.split('-')
+        h = kw_string.split('.')
         if len(h) == 1:
             # no hypen, do regex for first all-alpha string
             alpha = re.compile('^[a-zA-Z]*')

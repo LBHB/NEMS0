@@ -464,13 +464,10 @@ def fit_iter_init(modelspecs, est, IsReload=False, **context):
 
 
 def fit_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
-              shrinkage=0, IsReload=False, **context):
+              metric='nmse', IsReload=False, **context):
     ''' A basic fit that optimizes every input modelspec. '''
     if not IsReload:
-        if shrinkage:
-            metric = lambda d: metrics.nmse_shrink(d, 'pred', 'resp')
-        else:
-            metric = lambda d: metrics.nmse(d, 'pred', 'resp')
+        metric = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
 
         fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
         if type(est) is list:
@@ -566,11 +563,14 @@ def fit_module_sets(modelspecs, est, max_iter=1000, IsReload=False,
 
 def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
                     module_sets=None, invert=False, tolerances=[1e-4],
-                    fitter='scipy_minimize', fit_kwargs={}, **context):
+                    metric='nmse', fitter='scipy_minimize', fit_kwargs={},
+                    **context):
     if fitter == 'scipy_minimize':
         fitfun = scipy_minimize
     elif fitter == 'coordinate_descent':
         fitfun = coordinate_descent
+
+    metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
 
     if not IsReload:
         if type(est) is list:
@@ -584,7 +584,7 @@ def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
                         d, m, fit_kwargs=fit_kwargs, fitter=fitfun,
                         module_sets=module_sets, invert=False,
                         tolerances=tolerances, tol_iter=tol_iter,
-                        fit_iter=fit_iter
+                        fit_iter=fit_iter, metric=metric_fn
                         )
             modelspecs = modelspecs_out
         else:
@@ -593,7 +593,8 @@ def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
                             est, modelspec, fit_kwargs=fit_kwargs,
                             fitter=fitfun, module_sets=module_sets,
                             invert=invert, tolerances=tolerances,
-                            tol_iter=tol_iter, fit_iter=fit_iter)[0]
+                            tol_iter=tol_iter, fit_iter=fit_iter,
+                            metric=metric_fn)[0]
                     for modelspec in modelspecs
                     ]
     return {'modelspecs': modelspecs}
