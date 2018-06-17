@@ -10,22 +10,49 @@ log = logging.getLogger(__name__)
 
 
 def basic(fitkey):
-    # prefit strf
+    '''
+    TODO: expand this doc
+
+    Format:
+        basic.<fitter>.<jackknifing>.<metric>.<misc>
+    Example string:
+        basic.cd.nf10.shr.mi1000
+    Translation:
+        Use fit_basic with coordinate_descent, nfold fitting with 10 folds,
+        with nmse_shrinkage as the metric and 1000 maximum iterations
+    '''
+
+    xfspec = []
     if fitkey == 'basic':
         # set up reasonable defaults
-        xfspec = []  # TODO
+        pass  # TODO
     else:
         options = _extract_options(fitkey)
-        metric, nfold, fitter = _parse_fit(options)
+        metric, nfold, fitter, state = _parse_fit(options)
         max_iter = _parse_basic(options)
-        xfspec = [['nems.xforms.fit_basic_init', {}],
-                  ['nems.xforms.fit_basic',
-                   {'metric': metric, 'max_iter': max_iter}],
-                  ['nems.xforms.predict',    {}]]
+        if nfold:
+            log.info("n-fold fitting...")
+            xfspec.append(['nems.xforms.mask_for_jackknife',
+                           {'njacks': nfold, 'epoch_name': 'REFERENCE'}])
+            if state:
+                xfspec.append(['nems.xforms.fit_state_init',
+                               {'metric': metric}])
+            xfspec.extend([['nems.xforms.fit_nfold_shrinkage',
+                            {'fitter': fitter}]
+                           ['nems.xforms.predict',    {}]])
+        else:
+            if state:
+                xfspec.append(['nems.xforms.fit_state_init',
+                               {'metric': metric}])
+            else:
+                xfspec.append(['nems.xforms.fit_basic_init',
+                               {'metric': metric}])
+            xfspec.extend([['nems.xforms.fit_basic',
+                            {'metric': metric, 'max_iter': max_iter,
+                             'fitter': fitter}],
+                           ['nems.xforms.predict', {}]])
+
     return xfspec
-
-
-fit01 = basic  # add fit01 as alias for basic
 
 
 def iter(fitkey):
@@ -33,19 +60,18 @@ def iter(fitkey):
         # set up reasonable defaults
         xfspec = []  # TODO
     else:
-        metric, nfold, fitter = _parse_fit(fitkey)
+        # TODO: Support nfold and state fits for fit_iteratively?
+        metric, nfold, fitter, state = _parse_fit(fitkey)
         tolerances, module_sets, fit_iter, tol_iter = _parse_iter(fitkey)
 
-        xfspec = [['nems.xforms.fit_iter_init', {}],
+        xfspec = [['nems.xforms.fit_basic_init', {'tolerance': 1e-4}],
                   ['nems.xforms.fit_iteratively',
                    {'module_sets': module_sets, 'fitter': fitter,
                     'tolerances': tolerances, 'tol_iter': tol_iter,
                     'fit_iter': fit_iter, 'metric': metric}],
                   ['nems.xforms.predict', {}]]
+
     return xfspec
-
-
-'''basic.cd.shr.nf.ti100.fi50.T05 etc.'''
 
 
 def _extract_options(fitkey):
@@ -60,6 +86,7 @@ def _parse_fit(options):
     metric = 'nmse'
     nfold = 0
     fitter = scipy_minimize
+    state = False
 
     # override defaults where appropriate
     for op, i in enumerate(options):
@@ -71,6 +98,8 @@ def _parse_fit(options):
             nfold = int(re.match(nf, op)[1])
         elif op == 'cd':
             fitter = coordinate_descent
+        elif op == 's':
+            state = True
 
     return metric, nfold, fitter
 
@@ -101,19 +130,13 @@ def _parse_iter(options):
         elif op.startswith('fi'):
             fit_iter = int(op[2:])
         elif op.startswith('T'):
-            power = int(op[1:])*-1
-            tol = 10**(power)
-            tolerances.append(tol)
+            powers = [int(i) for i in op[1:].split(',')]
+            tolerances.extend([10**(-1*p) for p in powers])
         elif op.startswith('S'):
-            indices = [int(i) for i in op[1:].split('x')]
+            indices = [int(i) for i in op[1:].split(',')]
             module_sets.append(indices)
-        else:
-            log.warning(
-                    "Unrecognized segment in fititer keyword: %s\n"
-                    "Correct syntax is:\n"
-                    "fititer<fitter>-S<i>x<j>...-T<tolpower>...ti<tol_iter>"
-                    "-fi<fit_iter>", op
-                    )
+        else:mr
+            pass
 
     if not tolerances:
         tolerances = None
@@ -124,7 +147,7 @@ def _parse_iter(options):
 
 
 # TODO: Redo this for new setup after deciding if still needed
-#       (might only need fit_iter)
+#       (might only need _parse_iter)
 
 
 def _parse_fitsubs(fit_keyword):
