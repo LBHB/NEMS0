@@ -6,45 +6,74 @@ Our proposed naming convention is to use whatever the modelspec is being
 turned into as the name for the mapper function.
 """
 
+from copy import deepcopy
+
 import numpy as np
 
 from nems.fitters.util import phi_to_vector, vector_to_phi
 
 
-def simple_vector(initial_modelspec):
+def to_bounds_array(value, phi, which):
+    if which is 'lower':
+        default_value = -np.inf
+        i = 0
+
+    elif which is 'upper':
+        default_value = np.inf
+        i = 1
+
+    value = value[i]
+
+    if isinstance(value, list):
+        value = np.array(value)
+
+    if value is None:
+        return np.full_like(phi, default_value, dtype=np.float)
+
+    if isinstance(value, np.ndarray):
+        if value.shape != phi.shape:
+            raise ValueError('Bounds wrong shape')
+        return value
+
+    return np.full_like(phi, value, dtype=np.float)
+
+
+def simple_vector(modelspec, subset=None):
     """
-    Interconverts phi to or from a list of dictionaries to a single
-    flattened vector.
-    """
+    Given modelspec, provides functions for converting `phi` to/from a vector
 
-    # If you wanted to make a random selection of the parameters,
-    # you would do it here, so that the packer and unpacker were both
-    # aware of the random subset.
+    Parameters
+    ----------
+    modelspec : list of dictionaries
+        Modelspec definition to manipulate
+    subset : {None, list of integers}
+        If none, pack/unpack entire modelspec otherwise pack/unpack `phi` only
+        for specified subset.
 
-    def packer(modelspec):
-        ''' Converts a modelspec to a vector. '''
-        phi = [m.get('phi') for m in modelspec]
-        vec = phi_to_vector(phi)
-        return vec
+    Returns
+    -------
+    packer : function
+        Function that takes a modelspec and returns 1D array, `phi`, that can be
+        used by scipy fitters.
+    unpacker : function
+        Function that takes a 1D array and unpacks it into the original
+        modelspec. A modelspec is returned, but this will be the same instance
+        as the modelspec provided to `simple_vector` (i.e., it modifies the
+        modelspec in-place).
+    bounds : function
+        Function that takes a modelspec and returns a tuple of lower, upper
+        vectors that represent the upper and lower bounds of phi.
 
-    def unpacker(vec):
-        ''' Converts a vector back into a modelspec. '''
-        phi_template = [m.get('phi') for m in initial_modelspec]
-        phi = vector_to_phi(vec, phi_template)
-        tmp_modelspec = initial_modelspec
-        for i, p in enumerate(phi):
-            tmp_modelspec[i]['phi'] = p
-        return tmp_modelspec
+    Note
+    ----
+    For efficiency reasons, this modifies the modelspec in place (it takes about
+    1ms to unpack if we return a new copy, only 25usec if we modify in-place).
+    For the `unpacker`, the return value is the same modelspec as the one passed
+    into the function (with phi adjusted accordingly).
 
-    return packer, unpacker
+    The bounds function expects bounds to be defined in the modelspec along the
+    lines of:
 
-
-def bounds_vector(modelspec):
-    '''
-    Converts module bounds from a list of dictionaries to a flattened
-    vector.
-
-    Bounds are expected to be defined in the modelspec along the lines of:
         {'fn': '...',
          'phi': {'one': 'value', 'two': 'some other value', 'three': 'test'
                  'four': [0, 0, 0, 0], 'five': [1, 1, 1]
@@ -67,52 +96,55 @@ def bounds_vector(modelspec):
         ([[0,0,0],[0,0,0]], [[2,2,2],[2,2,2]]),
         ([0,0,0,0,0,0], [2,2,2,2,2,2]),
         (0, 2)
+
     Would all set equivalent bounds for a 2x3 parameter.
-    '''
+    """
+    if subset is None:
+        # Set subset to the full model if not provided
+        subset = np.arange(len(modelspec))
 
-    phi = [m.get('phi', {}) for m in modelspec]
-    phi_vector = phi_to_vector(phi)
-    bounds = []
+    # Create a phi_template only once
+    modelspec_subset = [m for i, m in enumerate(modelspec) if i in subset]
+    phi_template = [m.get('phi', {}) for m in modelspec_subset]
 
-    for i, p in enumerate(phi):
-        b = modelspec[i].get('bounds', None)
-        for k, v in p.items():
-            if np.isscalar(v):
-                if b is None:
-                    # (None, None) is interpreted as no bounds by fitters
-                    bounds.append((None, None))
-                else:
-                    bounds.append(b.get(k, (None, None)))
-            else:
-                flattened = np.asanyarray(v).ravel()
-                if b is None:
-                    bounds.extend([(None, None)]*flattened.size)
-                else:
-                    this_bound = b.get(k, (None, None))
-                    if this_bound[0] is None or np.isscalar(this_bound[0]):
-                        lowers = [this_bound[0]]*flattened.size
-                    else:
-                        if np.array(this_bound[0]).shape != np.array(v).shape:
-                            raise ValueError("Shape of bounds array and "
-                                             "phi array does not match for "
-                                             "module %d" % i)
-                        lowers = [x for x in
-                                  np.asanyarray(this_bound[0]).ravel()]
-                    if this_bound[1] is None or np.isscalar(this_bound[1]):
-                        uppers = [this_bound[1]]*flattened.size
-                    else:
-                        if np.array(this_bound[1]).shape != np.array(v).shape:
-                            raise ValueError("Shape of bounds array and "
-                                             "phi array does not match for "
-                                             "module %d" % i)
-                        uppers = [y for y in
-                                  np.asanyarray(this_bound[1]).ravel()]
-                    bounds.extend(zip(lowers, uppers))
-    n = len(bounds)
-    m = len(phi_vector)
-    if n != m:
-        raise ValueError("Length of bounds vector: %d\n"
-                         "Does not match length of phi vector: %d.\n" %
-                         (n, m))
+    def packer(modelspec):
+        ''' Converts a modelspec to a vector. '''
+        nonlocal modelspec_subset
 
-    return bounds
+        phi = [m.get('phi', {}) for m in modelspec_subset]
+        return phi_to_vector(phi)
+
+    def unpacker(vec):
+        ''' Converts a vector back into a modelspec. '''
+        nonlocal phi_template
+        nonlocal modelspec
+        nonlocal modelspec_subset
+
+        phi = vector_to_phi(vec, phi_template)
+        for i, p in enumerate(phi):
+            modelspec_subset[i]['phi'] = p
+
+        return modelspec
+
+    def bounds(modelspec):
+        nonlocal modelspec_subset
+
+        lower = []
+        upper = []
+        for m in modelspec_subset:
+            module_bounds = m.get('bounds', {})
+            module_lb = {}
+            module_ub = {}
+            for name, phi in m.get('phi', {}).items():
+                bounds = module_bounds.get(name, (None, None))
+                module_lb[name] = to_bounds_array(bounds, phi, 'lower')
+                module_ub[name] = to_bounds_array(bounds, phi, 'upper')
+
+            lower.append(module_lb)
+            upper.append(module_ub)
+
+        lower = phi_to_vector(lower)
+        upper = phi_to_vector(upper)
+        return lower, upper
+
+    return packer, unpacker, bounds
