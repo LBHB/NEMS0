@@ -13,6 +13,31 @@ import numpy as np
 from nems.fitters.util import phi_to_vector, vector_to_phi
 
 
+def to_bounds_array(value, phi, which):
+    if which is 'lower':
+        default_value = -np.inf
+        i = 0
+
+    elif which is 'upper':
+        default_value = np.inf
+        i = 1
+
+    value = value[i]
+
+    if isinstance(value, list):
+        value = np.array(value)
+
+    if value is None:
+        return np.full_like(phi, default_value, dtype=np.float)
+
+    if isinstance(value, np.ndarray):
+        if value.shape != phi.shape:
+            raise ValueError('Bounds wrong shape')
+        return value
+
+    return np.full_like(phi, value, dtype=np.float)
+
+
 def simple_vector(modelspec, subset=None):
     """
     Given modelspec, provides functions for converting `phi` to/from a vector
@@ -28,13 +53,16 @@ def simple_vector(modelspec, subset=None):
     Returns
     -------
     packer : function
-        Function with no arguments returning a 1D array, `phi`, that can be used
-        by scipy fitters.
+        Function that takes a modelspec and returns 1D array, `phi`, that can be
+        used by scipy fitters.
     unpacker : function
         Function that takes a 1D array and unpacks it into the original
         modelspec. A modelspec is returned, but this will be the same instance
         as the modelspec provided to `simple_vector` (i.e., it modifies the
         modelspec in-place).
+    bounds : function
+        Function that takes a modelspec and returns a tuple of lower, upper
+        vectors that represent the upper and lower bounds of phi.
 
     Note
     ----
@@ -42,6 +70,34 @@ def simple_vector(modelspec, subset=None):
     1ms to unpack if we return a new copy, only 25usec if we modify in-place).
     For the `unpacker`, the return value is the same modelspec as the one passed
     into the function (with phi adjusted accordingly).
+
+    The bounds function expects bounds to be defined in the modelspec along the
+    lines of:
+
+        {'fn': '...',
+         'phi': {'one': 'value', 'two': 'some other value', 'three': 'test'
+                 'four': [0, 0, 0, 0], 'five': [1, 1, 1]
+                 'six': [[1, 2, 3],[4, 5, 6]]},
+         'bounds': {'one': (-1.0, 1.0), 'two': (0.0, None),
+                    'three': (None, None),
+                    'four': (None, [0.0, 0.1, 0.2, 0.3]),
+                    'five': ([1,2,3], [4,5,6])
+                    'six': ([[0,0,0],[1,1,1]], [[2,2,2],[3,3,3]]}}
+
+    Note that each bound is a tuple of the form (lower_bound, upper_bound),
+    and a value of None is equivalent to negative or positive infinity.
+    The key specifying each bound must also correspond to a key in that
+    module's phi dictionary, though there does not need to be a bound
+    specified for every entry in phi. Bounds for array-like phis may
+    also be defined as a tuple of arrays. The arrays can either be in the
+    same shape as the parameter or flattened. Scalar or None bounds for
+    array parameters will be broadcast to the size of the array.
+    For example:
+        ([[0,0,0],[0,0,0]], [[2,2,2],[2,2,2]]),
+        ([0,0,0,0,0,0], [2,2,2,2,2,2]),
+        (0, 2)
+
+    Would all set equivalent bounds for a 2x3 parameter.
     """
     if subset is None:
         # Set subset to the full model if not provided
@@ -70,82 +126,25 @@ def simple_vector(modelspec, subset=None):
 
         return modelspec
 
-    return packer, unpacker
+    def bounds(modelspec):
+        nonlocal modelspec_subset
 
+        lower = []
+        upper = []
+        for m in modelspec_subset:
+            module_bounds = m.get('bounds', {})
+            module_lb = {}
+            module_ub = {}
+            for name, phi in m['phi'].items():
+                bounds = module_bounds.get(name, (None, None))
+                module_lb[name] = to_bounds_array(bounds, phi, 'lower')
+                module_ub[name] = to_bounds_array(bounds, phi, 'upper')
 
-def bounds_vector(modelspec):
-    '''
-    Converts module bounds from a list of dictionaries to a flattened
-    vector.
+            lower.append(module_lb)
+            upper.append(module_ub)
 
-    Bounds are expected to be defined in the modelspec along the lines of:
-        {'fn': '...',
-         'phi': {'one': 'value', 'two': 'some other value', 'three': 'test'
-                 'four': [0, 0, 0, 0], 'five': [1, 1, 1]
-                 'six': [[1, 2, 3],[4, 5, 6]]},
-         'bounds': {'one': (-1.0, 1.0), 'two': (0.0, None),
-                    'three': (None, None),
-                    'four': (None, [0.0, 0.1, 0.2, 0.3]),
-                    'five': ([1,2,3], [4,5,6])
-                    'six': ([[0,0,0],[1,1,1]], [[2,2,2],[3,3,3]]}}
+        lower = phi_to_vector(lower)
+        upper = phi_to_vector(upper)
+        return lower, upper
 
-    Note that each bound is a tuple of the form (lower_bound, upper_bound),
-    and a value of None is equivalent to negative or positive infinity.
-    The key specifying each bound must also correspond to a key in that
-    module's phi dictionary, though there does not need to be a bound
-    specified for every entry in phi. Bounds for array-like phis may
-    also be defined as a tuple of arrays. The arrays can either be in the
-    same shape as the parameter or flattened. Scalar or None bounds for
-    array parameters will be broadcast to the size of the array.
-    For example:
-        ([[0,0,0],[0,0,0]], [[2,2,2],[2,2,2]]),
-        ([0,0,0,0,0,0], [2,2,2,2,2,2]),
-        (0, 2)
-    Would all set equivalent bounds for a 2x3 parameter.
-    '''
-
-    phi = [m.get('phi') for m in modelspec]
-    phi_vector = phi_to_vector(phi)
-    bounds = []
-    for i, p in enumerate(phi):
-        b = modelspec[i].get('bounds', None)
-        for k, v in p.items():
-            if np.isscalar(v):
-                if b is None:
-                    # (None, None) is interpreted as no bounds by fitters
-                    bounds.append((None, None))
-                else:
-                    bounds.append(b.get(k, (None, None)))
-            else:
-                flattened = np.asanyarray(v).ravel()
-                if b is None:
-                    bounds.extend([(None, None)]*flattened.size)
-                else:
-                    this_bound = b.get(k, (None, None))
-                    if this_bound[0] is None or np.isscalar(this_bound[0]):
-                        lowers = [this_bound[0]]*flattened.size
-                    else:
-                        if np.array(this_bound[0]).shape != np.array(v).shape:
-                            raise ValueError("Shape of bounds array and "
-                                             "phi array does not match for "
-                                             "module %d" % i)
-                        lowers = [x for x in
-                                  np.asanyarray(this_bound[0]).ravel()]
-                    if this_bound[1] is None or np.isscalar(this_bound[1]):
-                        uppers = [this_bound[1]]*flattened.size
-                    else:
-                        if np.array(this_bound[1]).shape != np.array(v).shape:
-                            raise ValueError("Shape of bounds array and "
-                                             "phi array does not match for "
-                                             "module %d" % i)
-                        uppers = [y for y in
-                                  np.asanyarray(this_bound[1]).ravel()]
-                    bounds.extend(zip(lowers, uppers))
-    n = len(bounds)
-    m = len(phi_vector)
-    if n != m:
-        raise ValueError("Length of bounds vector: %d\n"
-                         "Does not match length of phi vector: %d.\n" %
-                         (n, m))
-
-    return bounds
+    return packer, unpacker, bounds
