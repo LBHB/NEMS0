@@ -6,35 +6,69 @@ Our proposed naming convention is to use whatever the modelspec is being
 turned into as the name for the mapper function.
 """
 
+from copy import deepcopy
+
 import numpy as np
 
 from nems.fitters.util import phi_to_vector, vector_to_phi
 
 
-def simple_vector(initial_modelspec):
+def simple_vector(modelspec, subset=None):
     """
-    Interconverts phi to or from a list of dictionaries to a single
-    flattened vector.
-    """
+    Given modelspec, provides functions for converting `phi` to/from a vector
 
-    # If you wanted to make a random selection of the parameters,
-    # you would do it here, so that the packer and unpacker were both
-    # aware of the random subset.
+    Parameters
+    ----------
+    modelspec : list of dictionaries
+        Modelspec definition to manipulate
+    subset : {None, list of integers}
+        If none, pack/unpack entire modelspec otherwise pack/unpack `phi` only
+        for specified subset.
+
+    Returns
+    -------
+    packer : function
+        Function with no arguments returning a 1D array, `phi`, that can be used
+        by scipy fitters.
+    unpacker : function
+        Function that takes a 1D array and unpacks it into the original
+        modelspec. A modelspec is returned, but this will be the same instance
+        as the modelspec provided to `simple_vector` (i.e., it modifies the
+        modelspec in-place).
+
+    Note
+    ----
+    For efficiency reasons, this modifies the modelspec in place (it takes about
+    1ms to unpack if we return a new copy, only 25usec if we modify in-place).
+    For the `unpacker`, the return value is the same modelspec as the one passed
+    into the function (with phi adjusted accordingly).
+    """
+    if subset is None:
+        # Set subset to the full model if not provided
+        subset = np.arange(len(modelspec))
+
+    # Create a phi_template only once
+    modelspec_subset = [m for i, m in enumerate(modelspec) if i in subset]
+    phi_template = [m['phi'] for m in modelspec_subset]
 
     def packer(modelspec):
         ''' Converts a modelspec to a vector. '''
-        phi = [m.get('phi') for m in modelspec]
-        vec = phi_to_vector(phi)
-        return vec
+        nonlocal modelspec_subset
+
+        phi = [m['phi'] for m in modelspec_subset]
+        return phi_to_vector(phi)
 
     def unpacker(vec):
         ''' Converts a vector back into a modelspec. '''
-        phi_template = [m.get('phi') for m in initial_modelspec]
+        nonlocal phi_template
+        nonlocal modelspec
+        nonlocal modelspec_subset
+
         phi = vector_to_phi(vec, phi_template)
-        tmp_modelspec = initial_modelspec
         for i, p in enumerate(phi):
-            tmp_modelspec[i]['phi'] = p
-        return tmp_modelspec
+            modelspec_subset[i]['phi'] = p
+
+        return modelspec
 
     return packer, unpacker
 
