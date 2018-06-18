@@ -158,10 +158,11 @@ def test_scalar_bounds(bounds_modelspec):
     assert np.all(np.equal(ub, ub_expected))
 
 
-def test_partial_definition(modelspec):
-    modelspec[0]['bounds'] = {
+def test_partial_definition(bounds_modelspec):
+    packer, unpacker, bounds = simple_vector(bounds_modelspec)
+    bounds_modelspec[0]['bounds'] = {
         'mean': (None, 10)
     }
     # Don't need to assert anything here, just shouldn't get an error
     # for leaving 'sd' bounds undefined.
-    x = bounds_vector([modelspec[0]])
+    x = bounds(bounds_modelspec)
