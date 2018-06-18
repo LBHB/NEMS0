@@ -277,7 +277,7 @@ def generate_loader_xfspec(loader, recording_uri):
 def generate_fitter_xfspec(fitkey, fitkey_kwargs=None):
 
     xfspec = []
-    pfolds = 5
+    pfolds = 10
 
     # parse the fit spec: Use gradient descent on whole data set(Fast)
     if fitkey in ["fit01", "basic"]:
