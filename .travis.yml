@@ -27,6 +27,7 @@ before_install:
   - conda create -n condaenv --yes numpy scipy matplotlib pandas requests h5py pytest
   - . $HOME/miniconda/etc/profile.d/conda.sh
   - conda activate condaenv
+  - pip install pytest-benchmark
   - python --version
 
 install:
