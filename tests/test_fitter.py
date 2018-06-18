@@ -11,7 +11,7 @@ def test_simple_vector_subset(simple_modelspec_with_phi):
     assert len(phi) == 38
 
     subset = [0, 2]
-    packer, unpacker = simple_vector(simple_modelspec_with_phi, subset)
+    packer, unpacker, _ = simple_vector(simple_modelspec_with_phi, subset)
     phi = packer(simple_modelspec_with_phi)
     assert len(phi) == 8
 

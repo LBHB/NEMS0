@@ -25,6 +25,7 @@ before_install:
   - export PATH=$HOME/miniconda/bin:$PATH
   - conda update --yes -n base conda
   - conda create -n condaenv --yes numpy scipy matplotlib pandas requests h5py pytest
+  - pip install pytest-benchmark
   - . $HOME/miniconda/etc/profile.d/conda.sh
   - conda activate condaenv
   - python --version
