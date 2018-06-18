@@ -7,182 +7,84 @@ def _one_zz(zerocount=1):
     return np.concatenate((np.ones(1), np.zeros(zerocount)))
 
 
-def _wc_helper(prefix, kw):
-    regexp = '^{prefix}(\d{{1,}})x(\d{{1,}})$'.format(prefix=prefix)
-    pattern = re.compile(regexp)
-    parsed = re.match(pattern, kw)
+def wc(kw):
+    '''
+    Parses the default modulespec for basic and gaussian channel weighting.
+
+    Parameter
+    ---------
+    kw : string
+        A string of the form: wc.{n_inputs}x{n_outputs}.option1.option2...
+    '''
+    options = kw.split('.')
+    if len(options) < 2:
+        # n_inputs x n_outputs is a required option, so len should always
+        # be at least 2 (including the leading wc)
+        raise ValueError('Invalid keyword: {}. Weight channels expects '
+                         'wc.{n_inputs}x{n_outputs} at minimum.'
+                         .format(kw))
+
+    in_out_pattern = re.compile(r'^(\d{1,})x(\d{1,})$')
+    parsed = re.match(in_out_pattern, options[1])
     n_inputs = int(parsed[1])
     n_outputs = int(parsed[2])
 
-    return n_inputs, n_outputs
+    # This is the default for wc, but options might overwrite it.
+    fn = 'nems.modules.weight_channels.basic'
+    p_coefficients = {'mean': np.zeros((n_outputs, n_inputs))+0.01,
+                      'sd': np.ones((n_outputs, n_inputs))}
+    prior = {'coefficients': ('Normal', p_coefficients)}
+    normalize = False
+    coefs = None
 
+    for op in options[2:]:  # will be empty if only wc and {in}x{out}
+        if op == 'c':
 
-def wc(kw):
-    '''
-    Parses the default modulespec for basic channel weighting.
+            if n_outputs == 1:
+                p_coefficients = {
+                    'mean': np.ones((n_outputs, n_inputs))/n_outputs,
+                    'sd': np.ones((n_outputs, n_inputs)),
+                }
+            else:
+                p_coefficients = {
+                    'mean': np.eye(n_outputs, n_inputs),
+                    'sd': np.ones((n_outputs, n_inputs)),
+                }
+                p_coefficients['mean'][(n_outputs-1):, :] = 1 / n_inputs
 
-    Parameter
-    ---------
-    kw : string
-        A string of the form: wc{n_inputs}x{n_outputs}
-    '''
-    n_inputs, n_outputs = _wc_helper('wc', kw)
+        elif op == 'g':
 
-    p_coefficients = {
-        'mean': np.zeros((n_outputs, n_inputs))+0.01,
-        'sd': np.ones((n_outputs, n_inputs)),
-    }
+            # Generate evenly-spaced filter centers for the starting points
+            fn = 'nems.modules.weight_channels.gaussian'
+            coefs = 'nems.modules.weight_channels.gaussian_coefficients'
+            mean = np.arange(n_outputs + 1)/(n_outputs + 1)
+            mean = mean[1:]
+            sd = np.full_like(mean, 1/n_outputs)
+
+            mean_prior_coefficients = {
+                'mean': mean,
+                'sd': np.ones_like(mean),
+            }
+            sd_prior_coefficients = {'sd': sd}
+            prior = {'mean': ('Normal', mean_prior_coefficients),
+                     'sd': ('HalfNormal', sd_prior_coefficients)}
+
+        elif op == 'n':
+            normalize = True
 
     template = {
-        'fn': 'nems.modules.weight_channels.basic',
+        'fn': fn,
         'fn_kwargs': {'i': 'pred', 'o': 'pred'},
-        'prior': {
-            'coefficients': ('Normal', p_coefficients),
-        }
+        'prior': prior
     }
 
-    return template
+    if normalize:
+        template['norm'] = {'type': 'minmax', 'recalc': 0,
+                            'd': np.zeros([n_outputs, 1]),
+                            'g': np.ones([n_outputs, 1])}
 
-
-def wcc(kw):
-    '''
-    Parses the default modulespec for basic channel weighting.
-    Designed for n_outputs >= n_inputs
-
-    Parameter
-    ---------
-    kw : string
-        A string of the form: wcc{n_inputs}x{n_outputs}
-    '''
-    n_inputs, n_outputs = _wc_helper('wcc', kw)
-
-    if n_outputs == 1:
-        p_coefficients = {
-            'mean': np.ones((n_outputs, n_inputs))/n_outputs,
-            'sd': np.ones((n_outputs, n_inputs)),
-        }
-    else:
-        p_coefficients = {
-            'mean': np.eye(n_outputs, n_inputs),
-            'sd': np.ones((n_outputs, n_inputs)),
-        }
-        p_coefficients['mean'][(n_outputs-1):, :] = 1 / n_inputs
-
-    template = {
-        'fn': 'nems.modules.weight_channels.basic',
-        'fn_kwargs': {'i': 'pred', 'o': 'pred'},
-        'prior': {
-            'coefficients': ('Normal', p_coefficients),
-        }
-    }
-
-    return template
-
-
-def wccn(kw):
-    '''
-    Parses the default modulespec for basic channel weighting.
-    Designed for n_outputs >= n_inputs
-
-    Parameter
-    ---------
-    kw : string
-        A string of the form: wccn{n_inputs}x{n_outputs}
-    '''
-    n_inputs, n_outputs = _wc_helper('wccn', kw)
-
-    if n_outputs == 1:
-        p_coefficients = {
-            'mean': np.ones((n_outputs, n_inputs))/n_outputs,
-            'sd': np.ones((n_outputs, n_inputs)),
-        }
-    else:
-        p_coefficients = {
-            'mean': np.eye(n_outputs, n_inputs),
-            'sd': np.ones((n_outputs, n_inputs)),
-        }
-
-    template = {
-        'fn': 'nems.modules.weight_channels.basic',
-        'fn_kwargs': {'i': 'pred', 'o': 'pred'},
-        'norm': {'type': 'minmax', 'recalc': 0, 'd': np.zeros([n_outputs, 1]),
-                 'g': np.ones([n_outputs, 1])},
-        'prior': {
-            'coefficients': ('Normal', p_coefficients),
-        }
-    }
-
-    return template
-
-
-def wcg(kw):
-    '''
-    Parses the default modulespec for gaussian channel weighting.
-
-    Parameter
-    ---------
-    kw : string
-        A string of the form: wcg{n_inputs}x{n_outputs}
-    '''
-    n_inputs, n_outputs = _wc_helper('wcg', kw)
-
-    # Generate evenly-spaced filter centers for the starting points
-    mean = np.arange(n_outputs + 1)/(n_outputs + 1)
-    mean = mean[1:]
-    sd = np.full_like(mean, 1/n_outputs)
-
-    mean_prior_coefficients = {
-        'mean': mean,
-        'sd': np.ones_like(mean),
-    }
-    sd_prior_coefficients = {'sd': sd}
-
-    template = {
-        'fn': 'nems.modules.weight_channels.gaussian',
-        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_chan_in': n_inputs},
-        'fn_coefficients': 'nems.modules.weight_channels.gaussian_coefficients',
-        'prior': {
-            'mean': ('Normal', mean_prior_coefficients),
-            'sd': ('HalfNormal', sd_prior_coefficients),
-        },
-    }
-
-    return template
-
-
-def wcgn(kw):
-    '''
-    Parses the default modulespec for gaussian channel weighting.
-
-    Parameter
-    ---------
-    kw : string
-        A string of the form: wcgn{n_inputs}x{n_outputs}
-    '''
-    n_inputs, n_outputs = _wc_helper('wcgn', kw)
-
-    # Generate evenly-spaced filter centers for the starting points
-    mean = np.arange(n_outputs + 1)/(n_outputs + 1)
-    mean = mean[1:]
-    sd = np.full_like(mean, 1/n_outputs)
-
-    mean_prior_coefficients = {
-        'mean': mean,
-        'sd': np.ones_like(mean),
-    }
-    sd_prior_coefficients = {'sd': sd}
-
-    template = {
-        'fn': 'nems.modules.weight_channels.gaussian',
-        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_chan_in': n_inputs},
-        'fn_coefficients': 'nems.modules.weight_channels.gaussian_coefficients',
-        'norm': {'type': 'minmax', 'recalc': 0, 'd': np.zeros([n_outputs, 1]),
-                 'g': np.ones([n_outputs, 1])},
-        'prior': {
-            'mean': ('Normal', mean_prior_coefficients),
-            'sd': ('HalfNormal', sd_prior_coefficients),
-        },
-    }
+    if coefs is not None:
+        template['fn_coefficients'] = coefs
 
     return template
 
@@ -194,9 +96,9 @@ def fir(kw):
     Parameters
     ----------
     kw : str
-        A string of the form: fir{n_outputs}x{n_coefs}.
+        A string of the form: fir.{n_outputs}x{n_coefs}.
     '''
-    pattern = re.compile(r'^fir(\d{1,})x(\d{1,})x?(\d{1,})?$')
+    pattern = re.compile(r'^fir\.(\d{1,})x(\d{1,})x?(\d{1,})?$')
     parsed = re.match(pattern, kw)
     n_outputs = int(parsed[1])
     n_coefs = int(parsed[2])
@@ -237,9 +139,9 @@ def fir(kw):
 
 def lvl(kw):
     ''' TODO: this doc
-    format: r'^lvl(\d{1,})$'
+    format: r'^lvl\.(\d{1,})$'
     '''
-    pattern = re.compile(r'^lvl(\d{1,})$')
+    pattern = re.compile(r'^lvl\.(\d{1,})$')
     parsed = re.match(pattern, kw)
     n_shifts = int(parsed[1])
 
@@ -255,9 +157,9 @@ def lvl(kw):
 
 def stp(kw):
     ''' TODO: this doc
-    format: r'^stp([z,n]{0,})(\d{1,})$'
+    format: r'^stp\.([z,n]{0,})(\d{1,})$'
     '''
-    pattern = re.compile(r'^stp([z,n,b]{0,})(\d{1,})$')
+    pattern = re.compile(r'^stp\.([z,n,b]{0,})\.(\d{1,})$')
     parsed = re.match(pattern, kw)
     options = parsed[1]
     n_synapse = int(parsed[2])
@@ -300,9 +202,9 @@ def stp(kw):
 
 def dexp(kw):
     ''' TODO: this doc
-    format: r'^dexp(\d{1,})$'
+    format: r'^dexp\.(\d{1,})$'
     '''
-    pattern = re.compile(r'^dexp(\d{1,})$')
+    pattern = re.compile(r'^dexp\.(\d{1,})$')
     parsed = re.match(pattern, kw)
     n_dims = int(parsed[1])
 
@@ -330,9 +232,9 @@ def dexp(kw):
 
 def qsig(kw):
     ''' TODO: this doc
-    format: r'^qsig(\d{1,})$'
+    format: r'^qsig\.(\d{1,})$'
     '''
-    pattern = re.compile(r'^qsig(\d{1,})$')
+    pattern = re.compile(r'^qsig\.(\d{1,})$')
     parsed = re.match(pattern, kw)
     n_dims = int(parsed[1])
 
@@ -379,9 +281,9 @@ def logsig(kw):
 
 def tanh(kw):
     ''' TODO: this doc
-    format: r'^tanh(\d{1,})$'
+    format: r'^tanh\.(\d{1,})$'
     '''
-    pattern = re.compile(r'^tanh(\d{1,})$')
+    pattern = re.compile(r'^tanh\.(\d{1,})$')
     parsed = re.match(pattern, kw)
     n_dims = int(parsed[1])
 
@@ -411,9 +313,9 @@ def tanh(kw):
 
 def dlog(kw):
     ''' TODO this doc
-    format: r'^dlog(n?)(\d{0,})$'
+    format: r'^dlog(\.n?)\.(\d{0,})$'
     '''
-    pattern = re.compile(r'^dlog(n?)(\d{0,})$')
+    pattern = re.compile(r'^dlog(\.n?).(\d{0,})$')
     parsed = re.match(pattern, kw)
     norm = parsed[1]
     chans = parsed[2]
@@ -439,9 +341,9 @@ def dlog(kw):
 
 def stategain(kw):
     ''' TODO: this doc
-    format: r'^stategain(\d{1,})$'
+    format: r'^stategain\.(\d{1,})$'
     '''
-    pattern = re.compile(r'^stategain(\d{1,})$')
+    pattern = re.compile(r'^stategain\.(\d{1,})$')
     parsed = re.match(pattern, kw)
     n_vars = int(parsed[1])
 
@@ -466,9 +368,9 @@ def stategain(kw):
 
 def rep(kw):
     ''' TODO: this doc
-    format: r'^rep(\d{1,})$'
+    format: r'^rep\.(\d{1,})$'
     '''
-    pattern = re.compile(r'^rep(\d{1,})$')
+    pattern = re.compile(r'^rep\.(\d{1,})$')
     parsed = re.match(pattern, kw)
     n_reps = int(parsed[1])
 

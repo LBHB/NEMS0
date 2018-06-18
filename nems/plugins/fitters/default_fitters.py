@@ -37,9 +37,9 @@ def basic(fitkey):
             if state:
                 xfspec.append(['nems.xforms.fit_state_init',
                                {'metric': metric}])
-            xfspec.extend([['nems.xforms.fit_nfold_shrinkage',
-                            {'fitter': fitter}]
-                           ['nems.xforms.predict',    {}]])
+            xfspec.extend([['nems.xforms.fit_nfold',
+                            {'fitter': fitter, 'metric': metric}]
+                           ['nems.xforms.predict', {}]])
         else:
             if state:
                 xfspec.append(['nems.xforms.fit_state_init',
@@ -101,7 +101,7 @@ def _parse_fit(options):
         elif op == 's':
             state = True
 
-    return metric, nfold, fitter
+    return metric, nfold, fitter, state
 
 
 def _parse_basic(options):
@@ -135,7 +135,7 @@ def _parse_iter(options):
         elif op.startswith('S'):
             indices = [int(i) for i in op[1:].split(',')]
             module_sets.append(indices)
-        else:mr
+        else:
             pass
 
     if not tolerances:
