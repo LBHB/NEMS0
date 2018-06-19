@@ -645,14 +645,6 @@ class SignalBase:
         raise NotImplementedError
 
     def extract_channels(self, chans):
-        '''
-        Returns a new signal object containing only the specified
-        channel indices.
-        '''
-        array = self.as_continuous()
-        # s is shorthand for slice. Return a 2D array.
-        s = [self.chans.index(c) for c in chans]
-        return self._modified_copy(array[s], chans=chans)
         raise NotImplementedError
 
     def extract_epoch(self, epoch, allow_empty=True,
