@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import logging as log
 from nems.distributions.distribution import Distribution
 import nems.keywords
@@ -52,19 +54,11 @@ def _get_module_prior(module, default_priors=default_priors):
         return None
 
     # Instantiate the Distribution objects if needed.
-    for arg_name in prior:
-        if issubclass(type(prior[arg_name]), Distribution):
-            # Skip this; it is already instantiated
-            continue
-        # TODO: this is resulting in error some times, due to
-        #       the following code being called on a Normal distribution
-        #       object. So the if(issubclass...) condition isn't catching
-        #       some or all of the distribution objects.
-        dist_type, dist_params = prior[arg_name]
-        dist_class = getattr(nems.distributions.api, dist_type)
-        dist = dist_class(**dist_params)
-        # log.debug(arg_name, dist_type, dist_params, dist)
-        prior[arg_name] = dist
+    for key, value in prior.items():
+        if not isinstance(value, Distribution):
+            dist_type, dist_params = value
+            dist_class = getattr(nems.distributions.api, dist_type)
+            prior[key] = dist_class(**dist_params)
 
     return prior
 
@@ -96,7 +90,7 @@ def _set_phi_in_module(module, prior_to_phi_fn):
     Returns a module identical to the one provided, but with phi
     initalized using the priors.
     '''
-    new_module = module.copy()
+    new_module = deepcopy(module)
     prior = _get_module_prior(module)
     if not prior:
         if 'phi' in new_module:
@@ -155,3 +149,16 @@ def set_percentile_phi(modelspec, percentile):
     '''
     prior_to_phi_fn = lambda prior: _to_phi(prior, 'percentile', percentile)
     return _set_phi_in_modelspec(modelspec, prior_to_phi_fn)
+
+
+def set_percentile_bounds(modelspec, lower_percentile, upper_percentile):
+    modelspec = deepcopy(modelspec)
+    for modulespec in modelspec:
+        prior = _get_module_prior(modulespec)
+        bounds = {}
+        for k, v in prior.items():
+            lb = v.percentile(lower_percentile)
+            ub = v.percentile(upper_percentile)
+            bounds[k] = lb, ub
+        modulespec['bounds'] = bounds
+    return modelspec

@@ -1,9 +1,22 @@
+from functools import wraps
 import re
+import warnings
+
 import numpy as np
 import pandas as pd
 
 import logging
 log = logging.getLogger(__name__)
+
+def check_result(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        result = f(*args, **kwargs)
+        if result.size == 0:
+            mesg = 'Result is empty'
+            warnings.warn(RuntimeWarning(mesg))
+        return result
+    return wrapper
 
 
 def remove_overlap(a):
@@ -70,6 +83,7 @@ def epoch_union(a, b):
     return merge_epoch(epoch)
 
 
+@check_result
 def epoch_difference(a, b):
     '''
     Compute the difference of the epochs. All regions in a which overlap with b
@@ -178,13 +192,30 @@ def epoch_difference(a, b):
 
     # Add all remaining epochs from a
     difference.extend(a[::-1])
-    result = np.array(difference)
-    if result.size == 0:
-        raise RuntimeWarning("Epochs did not intersect, resulting array"
-                             "is empty.")
+    return np.array(difference)
+
+
+def epoch_intersection_full(a, b):
+    """
+    returns all epoch times a that are fully spanned by epoch
+    times in b
+    """
+    a = a.copy().tolist()
+    a.sort()
+    b = b.copy().tolist()
+    b.sort()
+    intersection = []
+    for lb, ub in a:
+        for lb_b, ub_b in b:
+            if lb >= lb_b and ub <= ub_b:
+                intersection.append([lb, ub])
+                break
+
+    result = np.array(intersection)
     return result
 
 
+@check_result
 def epoch_intersection(a, b):
     '''
     Compute the intersection of the epochs. Only regions in a which overlap with
@@ -304,12 +335,7 @@ def epoch_intersection(a, b):
             m = 'Unhandled epoch boundary condition. Contact the developers.'
             raise SystemError(m)
 
-    # Add all remaining epochs from a
-    #intersection.extend(a[::-1])
-    result = np.array(intersection, dtype=np.int32)
-    if result.size == 0:
-        log.warning("Epochs did not intersect, resulting array"
-                    " is empty.")
+    result = np.array(intersection)
     return result
 
 
@@ -470,7 +496,7 @@ def find_common_epochs(epochs, epoch_name, d=12):
     epoch_name : str
         Name of epoch to use
     d : int
-        Number of decimal places to round start and end to. This is im portant
+        Number of decimal places to round start and end to. This is important
         when comparing start and end times of different epochs due to
         floating-point errors.
 
@@ -504,3 +530,79 @@ def find_common_epochs(epochs, epoch_name, d=12):
                               columns=['name', 'start', 'end'])
     new_epochs.sort_values(['start', 'end'], inplace=True)
     return new_epochs
+
+
+def group_epochs_by_parent(epochs, epoch_name_regex):
+    '''
+    Iterate through subgroups of the epoches contained by a parent epoch
+
+    Parameters
+    ----------
+    epochs : dataframe with 'name', 'start', 'end'
+        Epochs to filter through
+    epoch_name_regex : str
+        Regular expression that will be used to identify parent epochs to
+        iterate through.
+
+    Returns
+    -------
+    Iterator yielding a tuple of (parent epoch name, dataframe containing subset
+    of epochs contained by parent epoch).
+
+    Example
+    '''
+
+    m = epochs.name.str.match(epoch_name_regex)
+    for name, start, end in epochs.loc[m, ['name', 'start', 'end']].values:
+        m_lb = epochs['start'] >= start
+        m_ub = epochs['end'] <= end
+        m = m_lb & m_ub
+        yield (name, epochs.loc[m])
+
+
+def add_epoch(df, regex_a, regex_b, new_name=None, operation='intersection'):
+    '''
+    Add a new epoch based on an operation of two epoch sets, A and B
+
+    Parameters
+    ----------
+    df : dataframe
+        Epoch dataframe with three columns (name, start, end)
+    regex_a : string
+        Regular expression to match against for A
+    regex_b : string
+        Regular expression to match against for B
+    new_name : {None, string}
+        Name to assign to result of operation. If None, name is the
+        concatenation of regex_a and regex_b.
+    operation : {'intersection', 'difference', 'contained'}
+        Operation to perform. See docstring for epoch_{operation} for details.
+    '''
+    if new_name is None:
+        new_name = '{}_{}'.format(regex_a, regex_b)
+
+    mask_a = df['name'].str.contains(regex_a)
+    mask_b = df['name'].str.contains(regex_b)
+    a = df.loc[mask_a, ['start', 'end']].values
+    b = df.loc[mask_b, ['start', 'end']].values
+
+    if operation == 'intersection':
+        c = epoch_intersection(a, b)
+    elif operation == 'difference':
+        c = epoch_difference(a, b)
+    elif operation == 'contained':
+        c = epoch_contained(a, b)
+    else:
+        raise ValueError('Unsupported operation {}'.format(operation))
+
+    if len(c) == 0:
+        return df.copy()
+
+    new_epochs = pd.DataFrame({
+        'name': new_name,
+        'start': c[:, 0],
+        'end': c[:, 1],
+    })
+    result = pd.concat((df, new_epochs))
+    result.sort_values(['start', 'end', 'name'], inplace=True)
+    return result[['name', 'start', 'end']]
