@@ -47,7 +47,7 @@ def basic(fitkey):
                 xfspec.append(['nems.xforms.fit_state_init',
                                {'metric': metric}])
             xfspec.extend([['nems.xforms.fit_nfold',
-                            {'fitter': fitter, 'metric': metric}]
+                            {'fitter': fitter, 'metric': metric}],
                            ['nems.xforms.predict', {}]])
         else:
             if state:
@@ -109,8 +109,9 @@ def iter(fitkey):
         xfspec = []  # TODO
     else:
         # TODO: Support nfold and state fits for fit_iteratively?
-        metric, nfold, fitter, state = _parse_fit(fitkey)
-        tolerances, module_sets, fit_iter, tol_iter = _parse_iter(fitkey)
+        options = _extract_options(fitkey)
+        metric, nfold, fitter, state = _parse_fit(options)
+        tolerances, module_sets, fit_iter, tol_iter = _parse_iter(options)
 
         xfspec = [['nems.xforms.fit_basic_init', {'tolerance': 1e-4}],
                   ['nems.xforms.fit_iteratively',
@@ -137,12 +138,12 @@ def _parse_fit(options):
     state = False
 
     # override defaults where appropriate
-    for op, i in enumerate(options):
+    for op in options:
         # check for shrinkage
         if op == 'shr':
             metric = 'nmse_shrink'
         elif 'nf' in op:
-            nf = re.compile(r'^nf{\d{0,}$')
+            nf = re.compile(r'^nf(\d{1,})$')
             nfold = int(re.match(nf, op)[1])
         elif op == 'cd':
             fitter = coordinate_descent
