@@ -40,28 +40,28 @@ def fit_model_xforms(recording_uri, modelname, autoPlot=True):
              .format(recording_uri, modelname))
 
     # parse modelname and assemble xfspecs for loader and fitter
-    kws = modelname.split("_")
-    loadkey = kws[0]
-    fitkey = kws[-1]
+    loaders, modules, fitters = modelname.split("_")
 
     loader_lib = KeywordRegistry(recording_uri)
     loader_lib.register_module(default_loaders)
     loader_lib.register_plugins(get_setting('XF_LOADER_PLUGINS'))
-    loader_xfspec = loader_lib[loadkey]
+    loader_xfspec = []
+    for loadkey in loaders.split('-'):
+        loader_xfspec.extend(loader_lib[loadkey])
 
     fitter_lib = KeywordRegistry()
     fitter_lib.register_module(default_fitters)
     fitter_lib.register_plugins(get_setting('XF_FITTER_PLUGINS'))
-    fitter_xfspec = fitter_lib[fitkey]
+    fitter_xfspec = []
+    for fitkey in fitters.split('-'):
+        fitter_xfspec = fitter_lib[fitkey]
 
     keyword_lib = KeywordRegistry()
     keyword_lib.register_module(default_keywords)
     keyword_lib.register_plugins(get_setting('XF_LOADER_PLUGINS'))
 
-    modelspecname = "_".join(kws[1:-1])
-
     meta = {'modelname': modelname, 'loader': loadkey, 'fitkey': fitkey,
-            'modelspecname': modelspecname}
+            'modelspecname': modules}
 
     # TODO: These should be added to meta by nems_db after ctx is returned.
     #       'username': 'nems', 'labgroup': 'lbhb', 'public': 1,
@@ -77,7 +77,7 @@ def fit_model_xforms(recording_uri, modelname, autoPlot=True):
 
     # 2) generate a modelspec
     xfspec.append(['nems.xforms.init_from_keywords',
-                   {'keywordstring': modelspecname, 'meta': meta,
+                   {'keywordstring': modules, 'meta': meta,
                     'registry': keyword_lib}])
 
     # 3) fit the data

@@ -15,7 +15,7 @@ def split_keywords(keyword_string):
     '''
     Return a list of keywords resulting from splitting keyword_string.
     '''
-    return keyword_string.split('_')
+    return keyword_string.split('-')
 
 
 def split_to_api_and_fn(mystring):
