@@ -644,7 +644,7 @@ class SignalBase:
     def split_at_time(self, fraction):
         raise NotImplementedError
 
-    def extract_channels(cls, signals):
+    def extract_channels(self, chans):
         raise NotImplementedError
 
     def extract_epoch(self, epoch, allow_empty=True,
