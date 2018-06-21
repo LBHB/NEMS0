@@ -29,6 +29,9 @@ def basic(fitkey):
     nfN : Perform nfold fitting with N folds, where N is any positive integer.
     st : Expect a model based on state variables.
     miN : Set maximum iterations to N, where N is any positive integer.
+    tN : Set tolerance to 10**-N, where N is any positive integer.
+    npr : Skip the default prefitting routine for non-state models.
+
     '''
 
     xfspec = []
@@ -37,29 +40,32 @@ def basic(fitkey):
         pass  # TODO
     else:
         options = _extract_options(fitkey)
-        metric, nfold, fitter, state = _parse_fit(options)
-        max_iter = _parse_basic(options)
+        metric, nfold, fitter, state, epoch = _parse_fit(options)
+        max_iter, tolerance, prefit = _parse_basic(options)
         if nfold:
             log.info("n-fold fitting...")
             xfspec.append(['nems.xforms.mask_for_jackknife',
-                           {'njacks': nfold, 'epoch_name': 'REFERENCE'}])
+                           {'njacks': nfold, 'epoch_name': epoch}])
             if state:
                 xfspec.append(['nems.xforms.fit_state_init',
                                {'metric': metric}])
             xfspec.extend([['nems.xforms.fit_nfold',
-                            {'fitter': fitter, 'metric': metric}],
-                           ['nems.xforms.predict', {}]])
+                            {'fitter': fitter, 'metric': metric,
+                             'tolerance': tolerance}]])
         else:
             if state:
                 xfspec.append(['nems.xforms.fit_state_init',
                                {'metric': metric}])
             else:
-                xfspec.append(['nems.xforms.fit_basic_init',
-                               {'metric': metric}])
+                if prefit:
+                    xfspec.append(['nems.xforms.fit_basic_init',
+                                   {'metric': metric}])
             xfspec.extend([['nems.xforms.fit_basic',
                             {'metric': metric, 'max_iter': max_iter,
-                             'fitter': fitter}],
-                           ['nems.xforms.predict', {}]])
+                             'fitter': fitter, 'tolerance': tolerance}]])
+
+        # Always have predict at end regardless of options
+        xfspec.append(['nems.xforms.predict', {}])
 
     return xfspec
 
@@ -109,8 +115,9 @@ def iter(fitkey):
         xfspec = []  # TODO
     else:
         # TODO: Support nfold and state fits for fit_iteratively?
+        #       And epoch to go with state.
         options = _extract_options(fitkey)
-        metric, nfold, fitter, state = _parse_fit(options)
+        metric, nfold, fitter, state, epoch = _parse_fit(options)
         tolerances, module_sets, fit_iter, tol_iter = _parse_iter(options)
 
         xfspec = [['nems.xforms.fit_basic_init', {'tolerance': 1e-4}],
@@ -136,34 +143,47 @@ def _parse_fit(options):
     nfold = 0
     fitter = scipy_minimize
     state = False
+    epoch = 'REFERENCE'
+    # TODO: Find a better solution for default epoch - REFERENCE is
+    #       lbhb-specific, but don't want to have to put epREFERENCE in every
+    #       model name.
 
     # override defaults where appropriate
     for op in options:
         # check for shrinkage
         if op == 'shr':
             metric = 'nmse_shrink'
-        elif 'nf' in op:
-            nf = re.compile(r'^nf(\d{1,})$')
-            nfold = int(re.match(nf, op)[1])
+        elif op.startswith('nf'):
+            pattern = re.compile(r'^nf(\d{1,})$')
+            nfold = int(re.match(pattern, op)[1])
         elif op == 'cd':
             fitter = coordinate_descent
         elif op == 'st':
             state = True
+        elif op.startswith('ep'):
+            pattern = re.compile(r'^ep(\w{1,})$')
+            epoch = re.match(pattern, op)[1]
 
-    return metric, nfold, fitter, state
+    return metric, nfold, fitter, state, epoch
 
 
 def _parse_basic(options):
     '''Options specific to basic.'''
     max_iter = 1000
+    tolerance = 1e-7
+    prefit = True  # TODO: Still need this option, or always want prefit?
     for op in options:
         if op.startswith('mi'):
             pattern = re.compile(r'^mi(\d{1,})')
             max_iter = int(re.match(pattern, op)[1])
-        else:
-            pass  # TODO
+        elif op.startswith('t'):
+            pattern = re.compile(r'^t(\d{1,})')
+            power = int(re.match(pattern, op)[1])*(-1)
+            tolerance = 10**power
+        elif op == 'npr':
+            prefit = False
 
-    return max_iter
+    return max_iter, tolerance, prefit
 
 
 def _parse_iter(options):

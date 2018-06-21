@@ -1,5 +1,6 @@
 import re
-from os import listdir
+import os
+import sys
 import importlib as imp
 import logging
 log = logging.getLogger(__name__)
@@ -63,7 +64,7 @@ class KeywordRegistry():
         kw_head = self.kw_head(kw_string)
         return self.keywords[kw_head]
 
-    def register_plugin(self, pkg):
+    def register_plugin(self, d):
         '''
         Adds all callable() variables from all modules contained within
         the specified package directory as eponymous keywords.
@@ -71,19 +72,27 @@ class KeywordRegistry():
 
         Parameters
         ----------
-        pkg : str
+        d : str
             A path to a directory containing one or more modules that
             define keyword functions.
         '''
-        package = imp.import_module(pkg)
-        try:
-            d = package.__path__._path[0]
-        except AttributeError:
-            d = package.__path__[0]
-        modules = [
-                imp.import_module(pkg + '.' + f[:-3]) for f in listdir(d)
-                if f.endswith('.py')
-                ]
+        if d.endswith('.py'):
+            package, mod = os.path.split(d)
+            sys.path.append(package)
+            package_name = os.path.split(package)[-1]
+            module_name = mod[:-3]
+            print('package name was: %s' % package_name)
+            print('module_name was: %s' % module_name)
+            modules = [imp.import_module(module_name, package=package_name)]
+        else:
+            sys.path.append(d)
+            if d.endswith('/'):
+                d = d[:-1]
+            package_name = os.path.split(d)[-1]
+            modules = [
+                    imp.import_module(f[:-3], package=package_name)
+                    for f in os.listdir(d) if f.endswith('.py')
+                    ]
         for m in modules:
             for a in dir(m):
                 if self._validate_function(m, a):
@@ -99,6 +108,8 @@ class KeywordRegistry():
         instead of a path for a directory.
         Default nems keywords are added via this method.
         '''
+        if not module:
+            return
         for a in dir(module):
             if self._validate_function(module, a):
                 self.keywords[a] = Keyword(a, getattr(module, a))
