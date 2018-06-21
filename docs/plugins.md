@@ -26,12 +26,15 @@ Let's say you don't like how the modulespec keyword 'wc' works.
 Maybe you need to be able to pass it more options, or maybe you
 want to test out some new priors. To do this:
 
-# 1.
-Create a module where you want the new verison of the function to live.
-`touch /my/custom/code/new_fir.py`
+* Create a module where you want the new verison of the function to live.
 
-# 2.
-Define the function just like any other! But note that *all* functions
+```
+touch /my/custom/code/new_fir.py
+```
+
+* Define the function just like any other!
+
+But note that *all* functions
 in the module will be registered by default, unless they are preceeded
 with one or more underscores or are in all-caps
 (to exclude private and global variables, respectively).
@@ -56,7 +59,9 @@ Note that this is also an easy way to point keywords to a different
 implementation of the underlying module by simply changing the
 'fn' entry of the returned modulespec.
 
-# 3.
+
+* Tell nems.config where to find the module
+
 In nems/configs/settings.py (you may need to create settings.py if you
 haven't run NEMS yet on a new install), add the path to the new module
 to the list for the appropriate plugins variable (or you may need to
@@ -72,5 +77,4 @@ modules containing other plugins definitions):
 KEYWORD_PLUGINS = ['~/jacob/nems_keywords/']
 ```
 
-# 4.
-You're done!
+* You're done!
