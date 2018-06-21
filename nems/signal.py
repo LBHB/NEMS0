@@ -1862,6 +1862,11 @@ class TiledSignal(SignalBase):
                                 epochs=self.epochs, meta=self.meta)
         signal = zsig.replace_epochs(self._data)
 
+        # replace nans with zeros. Assume that the signal was valid but zero
+        s = signal._data.copy()
+        s[np.isnan(signal._data)] = 0
+        signal = signal._modified_copy(s)
+
         return signal
 
     def save(self, dirpath, fmt='%.18e'):
