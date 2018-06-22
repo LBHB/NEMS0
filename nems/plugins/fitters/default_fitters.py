@@ -35,37 +35,34 @@ def basic(fitkey):
     '''
 
     xfspec = []
-    if fitkey == 'basic':
-        # set up reasonable defaults
-        pass  # TODO
-    else:
-        options = _extract_options(fitkey)
-        metric, nfold, fitter, state, epoch = _parse_fit(options)
-        max_iter, tolerance, prefit = _parse_basic(options)
-        if nfold:
-            log.info("n-fold fitting...")
-            xfspec.append(['nems.xforms.mask_for_jackknife',
-                           {'njacks': nfold, 'epoch_name': epoch}])
-            if state:
-                xfspec.append(['nems.xforms.fit_state_init',
-                               {'metric': metric}])
-            xfspec.extend([['nems.xforms.fit_nfold',
-                            {'fitter': fitter, 'metric': metric,
-                             'tolerance': tolerance}]])
-        else:
-            if state:
-                xfspec.append(['nems.xforms.fit_state_init',
-                               {'metric': metric}])
-            else:
-                if prefit:
-                    xfspec.append(['nems.xforms.fit_basic_init',
-                                   {'metric': metric}])
-            xfspec.extend([['nems.xforms.fit_basic',
-                            {'metric': metric, 'max_iter': max_iter,
-                             'fitter': fitter, 'tolerance': tolerance}]])
 
-        # Always have predict at end regardless of options
-        xfspec.append(['nems.xforms.predict', {}])
+    options = _extract_options(fitkey)
+    metric, nfold, fitter, state, epoch = _parse_fit(options)
+    max_iter, tolerance, prefit = _parse_basic(options)
+    if nfold:
+        log.info("n-fold fitting...")
+        xfspec.append(['nems.xforms.mask_for_jackknife',
+                       {'njacks': nfold, 'epoch_name': epoch}])
+        if state:
+            xfspec.append(['nems.xforms.fit_state_init',
+                           {'metric': metric}])
+        xfspec.extend([['nems.xforms.fit_nfold',
+                        {'fitter': fitter, 'metric': metric,
+                         'tolerance': tolerance}]])
+    else:
+        if state:
+            xfspec.append(['nems.xforms.fit_state_init',
+                           {'metric': metric}])
+        else:
+            if prefit:
+                xfspec.append(['nems.xforms.fit_basic_init',
+                               {'metric': metric}])
+        xfspec.extend([['nems.xforms.fit_basic',
+                        {'metric': metric, 'max_iter': max_iter,
+                         'fitter': fitter, 'tolerance': tolerance}]])
+
+    # Always have predict at end regardless of options
+    xfspec.append(['nems.xforms.predict', {}])
 
     return xfspec
 
@@ -110,29 +107,29 @@ def iter(fitkey):
     analysis type, WIP.
     '''
 
-    if fitkey == 'iter':
-        # set up reasonable defaults
-        xfspec = []  # TODO
-    else:
-        # TODO: Support nfold and state fits for fit_iteratively?
-        #       And epoch to go with state.
-        options = _extract_options(fitkey)
-        metric, nfold, fitter, state, epoch = _parse_fit(options)
-        tolerances, module_sets, fit_iter, tol_iter = _parse_iter(options)
+    # TODO: Support nfold and state fits for fit_iteratively?
+    #       And epoch to go with state.
+    options = _extract_options(fitkey)
+    metric, nfold, fitter, state, epoch = _parse_fit(options)
+    tolerances, module_sets, fit_iter, tol_iter = _parse_iter(options)
 
-        xfspec = [['nems.xforms.fit_basic_init', {'tolerance': 1e-4}],
-                  ['nems.xforms.fit_iteratively',
-                   {'module_sets': module_sets, 'fitter': fitter,
-                    'tolerances': tolerances, 'tol_iter': tol_iter,
-                    'fit_iter': fit_iter, 'metric': metric}],
-                  ['nems.xforms.predict', {}]]
+    xfspec = [['nems.xforms.fit_basic_init', {'tolerance': 1e-4}],
+              ['nems.xforms.fit_iteratively',
+               {'module_sets': module_sets, 'fitter': fitter,
+                'tolerances': tolerances, 'tol_iter': tol_iter,
+                'fit_iter': fit_iter, 'metric': metric}],
+              ['nems.xforms.predict', {}]]
 
     return xfspec
 
 
 def _extract_options(fitkey):
-    chunks = fitkey.split('.')
-    options = chunks[1:]
+    if fitkey == 'basic' or fitkey == 'iter':
+        # empty options (i.e. just use defualts)
+        options = []
+    else:
+        chunks = fitkey.split('.')
+        options = chunks[1:]
     return options
 
 

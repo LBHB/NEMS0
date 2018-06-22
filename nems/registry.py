@@ -81,8 +81,6 @@ class KeywordRegistry():
             sys.path.append(package)
             package_name = os.path.split(package)[-1]
             module_name = mod[:-3]
-            print('package name was: %s' % package_name)
-            print('module_name was: %s' % module_name)
             modules = [imp.import_module(module_name, package=package_name)]
         else:
             sys.path.append(d)

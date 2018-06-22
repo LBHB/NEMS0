@@ -11,8 +11,11 @@ from nems.plugins.fitters import default_fitters
 log = logging.getLogger(__name__)
 
 
-def fit_model_xforms(recording_uri, modelname, autoPlot=True):
+def generate_xforms_spec(recording_uri, modelname, autoPlot=True):
     """
+    TODO: Update this doc
+
+    OUTDATED
     Fits a single NEMS model
     eg, 'ozgf100ch18_wc18x1_lvl1_fir15x1_dexp1_fit01'
     generates modelspec with 'wc18x1_lvl1_fir1x15_dexp1'
@@ -92,9 +95,12 @@ def fit_model_xforms(recording_uri, modelname, autoPlot=True):
         log.info('Generating summary plot...')
         xfspec.append(['nems.xforms.plot_summary', {}])
 
+    return xfspec
+
+
+def fit_xfspec(xfspec):
     # Now that the xfspec is assembled, run through it
     # in order to get the fitted modelspec, evaluated recording, etc.
     # (all packaged up in the ctx dictionary).
     ctx, log_xf = xforms.evaluate(xfspec)
-
     return ctx
