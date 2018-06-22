@@ -64,14 +64,14 @@ def wc(kw):
     in_out_pattern = re.compile(r'^(\d{1,})x(\d{1,})$')
     try:
         parsed = re.match(in_out_pattern, options[1])
-        n_inputs = int(parsed[1])
-        n_outputs = int(parsed[2])
+        n_inputs = int(parsed.group(1))
+        n_outputs = int(parsed.group(2))
     except (TypeError, IndexError):
         # n_inputs x n_outputs should always follow wc.
         # TODO: Ideally would like the order to not matter like with other
         #       options but this seemed like a sensible solution for now
         #       since the information is mandatory.
-        raise ValueError("Got TypeError or IndexError when attempting to parse"
+        raise ValueError("Got TypeError or IndexError when attempting to parse "
                          "wc keyword.\nMake sure <in>x<out> is provided "
                          "as the first option after 'wc', e.g.: 'wc.2x15'"
                          "\nkeyword given: %s" % kw)
@@ -159,9 +159,9 @@ def fir(kw):
     pattern = re.compile(r'^fir\.(\d{1,})x(\d{1,})x?(\d{1,})?$')
     parsed = re.match(pattern, kw)
     try:
-        n_outputs = int(parsed[1])
-        n_coefs = int(parsed[2])
-        n_banks = parsed[3]  # will be None if not given in keyword string
+        n_outputs = int(parsed.group(1))
+        n_coefs = int(parsed.group(2))
+        n_banks = parsed.group(3)  # None if not given in keyword string
     except TypeError:
         raise ValueError("Got a TypeError when parsing fir keyword. Make sure "
                          "keyword has the form: \n"
@@ -217,7 +217,7 @@ def lvl(kw):
     pattern = re.compile(r'^lvl\.(\d{1,})$')
     parsed = re.match(pattern, kw)
     try:
-        n_shifts = int(parsed[1])
+        n_shifts = int(parsed.group(1))
     except TypeError:
         raise ValueError("Got a TypeError when parsing lvl keyword, "
                          "make sure keyword has the form: \n"
@@ -318,7 +318,7 @@ def dexp(kw):
     pattern = re.compile(r'^dexp\.(\d{1,})$')
     parsed = re.match(pattern, kw)
     try:
-        n_dims = int(parsed[1])
+        n_dims = int(parsed.group(1))
     except TypeError:
         raise ValueError("Got TypeError while parsing dexp keyword,\n"
                          "make sure keyword is of the form: \n"
@@ -361,7 +361,7 @@ def qsig(kw):
     '''
     pattern = re.compile(r'^qsig\.(\d{1,})$')
     parsed = re.match(pattern, kw)
-    n_dims = int(parsed[1])
+    n_dims = int(parsed.group(1))
 
     zeros = np.zeros([n_dims, 1]) if n_dims > 1 else np.array([0])
     base_mean = zeros + 0.1
@@ -435,7 +435,7 @@ def tanh(kw):
     pattern = re.compile(r'^tanh\.(\d{1,})$')
     parsed = re.match(pattern, kw)
     try:
-        n_dims = int(parsed[1])
+        n_dims = int(parsed.group(1))
     except TypeError:
         raise ValueError("Got TypeError while parsing tanh keyword,\n"
                          "make sure keyword is of the form: \n"
@@ -489,7 +489,7 @@ def dlog(kw):
     '''
     pattern = re.compile(r'^dlog(\.n\d{1,})?$')
     parsed = re.match(pattern, kw)
-    norm = parsed[1]
+    norm = parsed.group(1)
     if norm is not None:
         chans = int(norm[2:])  # skip leading .n
     else:
@@ -526,7 +526,7 @@ def stategain(kw):
     pattern = re.compile(r'^stategain\.(\d{1,})$')
     parsed = re.match(pattern, kw)
     try:
-        n_vars = int(parsed[1])
+        n_vars = int(parsed.group(1))
     except TypeError:
         raise ValueError("Got TypeError when parsing stategain keyword.\n"
                          "Make sure keyword is of the form: \n"
@@ -568,7 +568,7 @@ def rep(kw):
     pattern = re.compile(r'^rep\.(\d{1,})$')
     parsed = re.match(pattern, kw)
     try:
-        n_reps = int(parsed[1])
+        n_reps = int(parsed.group(1))
     except TypeError:
         raise ValueError("Got TypeError while parsing rep keyword. \n"
                          "Make sure keyword is of the form: \n"
