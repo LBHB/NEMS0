@@ -137,6 +137,18 @@ class KeywordRegistry():
     def __next__(self):
         return self.keywords.__next__()
 
+    def to_json(self):
+        d = {k: v.to_string() for k, v in self.keywords.items()}
+        d['_KWR_ARGS'] = self.args
+        return d
+
+    @classmethod
+    def from_json(d):
+        r = KeywordRegistry(*d['_KWR_ARGS'])
+        d.pop(['_KWR_ARGS'])
+        r.keywords = {k: getattr(v, k) for k, v in d.items()}
+        return r
+
 
 class Keyword():
     '''
@@ -148,3 +160,6 @@ class Keyword():
     def __init__(self, kw_head, parse):
         self.key = kw_head
         self.parse = parse
+
+    def to_string(self):
+        return self.parse.__module__

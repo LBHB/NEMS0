@@ -431,7 +431,7 @@ def fit_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
               **context):
     ''' A basic fit that optimizes every input modelspec. '''
     if not IsReload:
-        metric = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
+        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
         fitter_fn = getattr(nems.fitters.api, fitter)
 
         fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
@@ -445,14 +445,14 @@ def fit_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
                 log.info("Fitting JK {}/{}".format(i, njacks))
                 modelspecs_out += nems.analysis.api.fit_basic(
                         d, m, fit_kwargs=fit_kwargs,
-                        metric=metric,
+                        metric=metric_fn,
                         fitter=fitter_fn)
             modelspecs = modelspecs_out
         else:
             # standard single shot
             modelspecs = [nems.analysis.api.fit_basic(
                     est, modelspec, fit_kwargs=fit_kwargs,
-                    metric=metric,
+                    metric=metric_fn,
                     fitter=fitter_fn)[0]
                 for modelspec in modelspecs]
     return {'modelspecs': modelspecs}

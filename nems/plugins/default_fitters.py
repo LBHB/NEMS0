@@ -1,8 +1,6 @@
 import logging
 import re
 
-from nems.fitters.fitter import coordinate_descent, scipy_minimize
-
 log = logging.getLogger(__name__)
 
 # TODO: Create and expand documentation.
@@ -138,7 +136,7 @@ def _parse_fit(options):
     # declare default settings
     metric = 'nmse'
     nfold = 0
-    fitter = scipy_minimize
+    fitter = 'scipy_minimize'
     state = False
     epoch = 'REFERENCE'
     # TODO: Find a better solution for default epoch - REFERENCE is
@@ -154,7 +152,7 @@ def _parse_fit(options):
             pattern = re.compile(r'^nf(\d{1,})$')
             nfold = int(re.match(pattern, op)[1])
         elif op == 'cd':
-            fitter = coordinate_descent
+            fitter = 'coordinate_descent'
         elif op == 'st':
             state = True
         elif op.startswith('ep'):
@@ -226,11 +224,11 @@ def _parse_fitsubs(fit_keyword):
 
     fit = chunks[0]
     if fit.endswith('01'):
-        fitter = scipy_minimize
+        fitter = 'scipy_minimize'
     elif fit.endswith('02'):
-        fitter = coordinate_descent
+        fitter = 'coordinate_descent'
     else:
-        fitter = coordinate_descent
+        fitter = 'coordinate_descent'
         log.warn("Unrecognized or unspecified fit algorithm for fitsubs: %s\n"
                  "Using default instead: %s", fit[7:], fitter)
 

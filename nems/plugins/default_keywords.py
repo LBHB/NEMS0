@@ -83,6 +83,7 @@ def wc(kw):
 
     # This is the default for wc, but options might overwrite it.
     fn = 'nems.modules.weight_channels.basic'
+    fn_kwargs = {'i': 'pred', 'o': 'pred'}
     p_coefficients = {'mean': np.zeros((n_outputs, n_inputs))+0.01,
                       'sd': np.ones((n_outputs, n_inputs))}
     prior = {'coefficients': ('Normal', p_coefficients)}
@@ -110,6 +111,7 @@ def wc(kw):
 
             # Generate evenly-spaced filter centers for the starting points
             fn = 'nems.modules.weight_channels.gaussian'
+            fn_kwargs = {'i': 'pred', 'o': 'pred', 'n_chan_in': n_inputs}
             coefs = 'nems.modules.weight_channels.gaussian_coefficients'
             mean = np.arange(n_outputs + 1)/(n_outputs + 1)
             mean = mean[1:]
@@ -128,7 +130,7 @@ def wc(kw):
 
     template = {
         'fn': fn,
-        'fn_kwargs': {'i': 'pred', 'o': 'pred'},
+        'fn_kwargs': fn_kwargs,
         'prior': prior
     }
 

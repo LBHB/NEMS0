@@ -9,6 +9,7 @@ import base64
 
 from requests.exceptions import ConnectionError
 from nems.distributions.distribution import Distribution
+from nems.registry import KeywordRegistry
 
 log = logging.getLogger(__name__)
 
@@ -68,13 +69,17 @@ class NumpyEncoder(jsonlib.JSONEncoder):
                         shape=obj.shape,
                         encoding='list')
 
+        if isinstance(obj, KeywordRegistry):
+            return obj.to_json()
+
         # Let the base class default method raise the TypeError
         return jsonlib.JSONEncoder.default(self, obj)
 
 
 def json_numpy_obj_hook(dct):
     """
-    Decodes a previously encoded numpy ndarray with proper shape and dtype.
+    Decodes a previously encoded numpy ndarray with proper shape and dtype,
+    or an encoded KeywordRegistry.
 
     :param dct: (dict) json encoded ndarray
     :return: (ndarray) if input was an encoded ndarray
@@ -83,6 +88,7 @@ def json_numpy_obj_hook(dct):
         # data = base64.b64decode(dct['__ndarray__'])
         data = dct['__ndarray__']
         return np.asarray(data, dct['dtype']).reshape(dct['shape'])
+
     special_keys = ['level', 'coefficients', 'amplitude', 'kappa',
                     'base', 'shift', 'mean', 'sd', 'u', 'tau', 'offset']
 
@@ -91,7 +97,17 @@ def json_numpy_obj_hook(dct):
         for k in dct:
             dct[k] = np.asarray(dct[k])
 
+    if '_KWR_ARGS' in dct:
+        return KeywordRegistry.from_json(dct)
+
     return dct
+
+
+def json_registry_obj_hook(dct):
+    '''
+    Decodes a previously json-encoded KeywordRegistry
+    '''
+    pass
 
 
 def local_uri(uri):

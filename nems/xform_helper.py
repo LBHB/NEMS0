@@ -4,9 +4,9 @@ import importlib as imp
 import nems.xforms as xforms
 from nems import get_setting
 from nems.registry import KeywordRegistry
-from nems.plugins.keywords import default_keywords
-from nems.plugins.loaders import default_loaders
-from nems.plugins.fitters import default_fitters
+from nems.plugins import default_keywords
+from nems.plugins import default_loaders
+from nems.plugins import default_fitters
 
 log = logging.getLogger(__name__)
 

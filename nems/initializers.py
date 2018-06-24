@@ -4,7 +4,7 @@ import copy
 import numpy as np
 
 from nems.registry import KeywordRegistry
-from nems.plugins.keywords import default_keywords
+from nems.plugins import default_keywords
 from nems.utils import split_keywords, find_module
 from nems.analysis.api import fit_basic
 from nems.fitters.api import scipy_minimize
