@@ -4,7 +4,7 @@ import scipy
 
 from .timeseries import timeseries_from_signals, timeseries_from_vectors
 
-def state_vars_timeseries(rec, modelspec, ax=None):
+def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
 
     if ax is not None:
         plt.sca(ax)
@@ -22,8 +22,8 @@ def state_vars_timeseries(rec, modelspec, ax=None):
     #t = np.arange(len(r1))/pred.fs*5
     t = np.arange(len(r1))/pred.fs
 
-    plt.plot(t, r1, linewidth=1)
-    plt.plot(t, p1, linewidth=1)
+    plt.plot(t, r1, linewidth=1, color='black')
+    plt.plot(t, p1, linewidth=1, color='red')
     mmax = np.nanmax(p1) * 0.8
 
     if 'state' in rec.signals.keys():
@@ -73,7 +73,7 @@ def state_var_psth(rec, psth_name='resp', var_name='pupil', ax=None):
 
 
 def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
-                              state_sig='pupil', ax=None):
+                              state_sig='pupil', ax=None, colors=None):
     """
     Plot PSTH averaged across all occurences of epoch, grouped by
     above- and below-average values of a state signal (state_sig)
@@ -88,7 +88,7 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
     d = rec[psth_name].get_epoch_bounds('PreStimSilence')
     PreStimSilence = np.mean(np.diff(d)) - 0.5/fs
     d = rec[psth_name].get_epoch_bounds('PostStimSilence')
-    PostStimSilence = np.mean(np.diff(d)) - 0.5/fs
+    PostStimSilence = np.min(np.diff(d)) - 0.5/fs
 
     full_psth = rec[psth_name]
     folded_psth = full_psth.extract_epoch(epoch)
@@ -140,14 +140,18 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
             legend = ('< Mean', '>= Mean')
 
         timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
-                                legend=legend, time_offset=PreStimSilence)
+                                legend=legend, time_offset=PreStimSilence,
+                                colors=colors)
         timeseries_from_vectors([low2, high2], fs=fs, title=title, ax=ax,
-                                linestyle='--', time_offset=PreStimSilence)
+                                linestyle='--', time_offset=PreStimSilence,
+                                colors=colors)
     else:
         timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
-                                time_offset=PreStimSilence)
+                                time_offset=PreStimSilence,
+                                colors=colors)
         timeseries_from_vectors([low2, high2], fs=fs, title=title, ax=ax,
-                                linestyle='--', time_offset=PreStimSilence)
+                                linestyle='--', time_offset=PreStimSilence,
+                                colors=colors)
     ylim = ax.get_ylim()
     xlim = ax.get_xlim()
     ax.plot(np.array([0, 0]), ylim, 'k--')

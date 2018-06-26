@@ -10,7 +10,7 @@ import nems.modules.stp as stp
 
 def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
                     linestyle='-', linewidth=1,
-                    ax=None, title=None):
+                    ax=None, title=None, colors=None):
     '''
     Plots a simple timeseries with one line for each pair of
     time and value vectors.
@@ -30,8 +30,13 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
     else:
         ax = plt.gca()
 
+    cc = 0
+    opt = {}
     for t, v in zip(times, values):
-        plt.plot(t, v, linestyle=linestyle, linewidth=linewidth)
+        if colors is not None:
+            opt = {'color': colors[cc]}
+        plt.plot(t, v, linestyle=linestyle, linewidth=linewidth, **opt)
+        cc += 1
 
     plt.margins(x=0)
     plt.xlabel(xlabel)
@@ -45,7 +50,8 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
 
 def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
                             linestyle='-', linewidth=1, legend=None,
-                            ax=None, title=None, time_offset=0):
+                            ax=None, title=None, time_offset=0,
+                            colors=None):
     """TODO: doc"""
     times = []
     values = []
@@ -58,7 +64,7 @@ def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
     plot_timeseries(times - time_offset, values, xlabel, ylabel,
                     legend=legend,
                     linestyle=linestyle, linewidth=linewidth,
-                    ax=ax, title=title)
+                    ax=ax, title=title, colors=colors)
 
 
 def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
