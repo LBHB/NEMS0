@@ -58,10 +58,10 @@ def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
     for v in vectors:
         values.append(v)
         if fs is None:
-            times.append(np.arange(0, len(v)))
+            times.append(np.arange(0, len(v)) - time_offset)
         else:
-            times.append(np.arange(0, len(v))/fs)
-    plot_timeseries(times - time_offset, values, xlabel, ylabel,
+            times.append(np.arange(0, len(v))/fs - time_offset)
+    plot_timeseries(times, values, xlabel, ylabel,
                     legend=legend,
                     linestyle=linestyle, linewidth=linewidth,
                     ax=ax, title=title, colors=colors)

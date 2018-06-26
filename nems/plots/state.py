@@ -8,7 +8,6 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
 
     if ax is not None:
         plt.sca(ax)
-
     pred = rec['pred']
     resp = rec['resp']
 
@@ -22,8 +21,8 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
     #t = np.arange(len(r1))/pred.fs*5
     t = np.arange(len(r1))/pred.fs
 
-    plt.plot(t, r1, linewidth=1, color='black')
-    plt.plot(t, p1, linewidth=1, color='red')
+    plt.plot(t, r1, linewidth=1, color='gray')
+    plt.plot(t, p1, linewidth=1, color='black')
     mmax = np.nanmax(p1) * 0.8
 
     if 'state' in rec.signals.keys():
@@ -43,13 +42,15 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
 
         num_vars = rec['state'].shape[0]
         ts = rec['state'].as_continuous().copy()
+        if state_colors is None:
+            state_colors = [None] * num_vars
 
         for i in range(1, num_vars):
             d = ts[[i], :].T
             d = d[nnidx]
-            #d = scipy.signal.decimate(d[nnidx], q=5, axis=0)
+            # d = scipy.signal.decimate(d[nnidx], q=5, axis=0)
             d = d / np.nanmax(d) * mmax - (0.1 + i) * mmax
-            plt.plot(t, d, linewidth=1)
+            plt.plot(t, d, linewidth=1, color=state_colors[i-1])
         ax = plt.gca()
         # plt.text(0.5, 0.9, s, transform=ax.transAxes,
         #         horizontalalignment='center')
