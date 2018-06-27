@@ -71,11 +71,12 @@ def fit_basic(data, modelspec,
     # normalization. does nothing if normalization is not being used.
     ms.fit_mode_on(modelspec)
 
-    # Create the mapper object that translates to and from modelspecs.
-    # It has two methods that, when defined as mathematical functions, are:
+    # Create the mapper functions that translates to and from modelspecs.
+    # It has three functions that, when defined as mathematical functions, are:
     #    .pack(modelspec) -> fitspace_point
     #    .unpack(fitspace_point) -> modelspec
-    packer, unpacker = mapper(modelspec)
+    #    .bounds(modelspec) -> fitspace_bounds
+    packer, unpacker, pack_bounds = mapper(modelspec)
 
     # A function to evaluate the modelspec on the data
     evaluator = nems.modelspec.evaluate
@@ -93,7 +94,7 @@ def fit_basic(data, modelspec,
     # get initial sigma value representing some point in the fit space,
     # and corresponding bounds for each value
     sigma = packer(modelspec)
-    bounds = nems.fitters.mappers.bounds_vector(modelspec)
+    bounds = pack_bounds(modelspec)
 
     # Results should be a list of modelspecs
     # (might only be one in list, but still should be packaged as a list)

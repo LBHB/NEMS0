@@ -340,6 +340,8 @@ class SignalBase:
             mask = self.epochs['name'] == epoch
             bounds = self.epochs.loc[mask, ['start', 'end']].values
             bounds = np.round(bounds.astype(float) * self.fs) / self.fs
+        else:
+            bounds = epoch
 
         if boundary_mode is None:
             raise NotImplementedError
@@ -642,7 +644,7 @@ class SignalBase:
     def split_at_time(self, fraction):
         raise NotImplementedError
 
-    def extract_channels(cls, signals):
+    def extract_channels(self, chans):
         raise NotImplementedError
 
     def extract_epoch(self, epoch, allow_empty=True,
@@ -946,9 +948,13 @@ class RasterizedSignal(SignalBase):
         Epochs tagged with the same name may have various lengths. Shorter
         epochs will be padded with NaN.
         '''
-        epoch_indices = self.get_epoch_indices(epoch,
-                                               boundary_mode=boundary_mode,
-                                               fix_overlap=fix_overlap)
+
+        if type(epoch) is str:
+            epoch_indices = self.get_epoch_indices(epoch,
+                                                   boundary_mode=boundary_mode,
+                                                   fix_overlap=fix_overlap)
+        else:
+            epoch_indices = epoch
 
         if epoch_indices.size == 0:
             if allow_empty:
@@ -1855,6 +1861,11 @@ class TiledSignal(SignalBase):
                                 recording=self.recording, chans=self.chans,
                                 epochs=self.epochs, meta=self.meta)
         signal = zsig.replace_epochs(self._data)
+
+        # replace nans with zeros. Assume that the signal was valid but zero
+        s = signal._data.copy()
+        s[np.isnan(signal._data)] = 0
+        signal = signal._modified_copy(s)
 
         return signal
 

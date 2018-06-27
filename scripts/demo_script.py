@@ -143,11 +143,11 @@ logging.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
 logging.info('Generating summary plot...')
 
 # Generate a summary plot
-fig = nplt.quickplot({'val': val, 'modelspecs': modelspecs})
-#fig.show()
+context = {'val': val, 'modelspecs': modelspecs, 'est': est, 'rec': rec}
+fig = nplt.quickplot(context)
 
 # Optional: Save your figure
-#fname = nplt.save_figure(fig, modelspecs=modelspecs, save_dir=modelspecs_dir)
+# fname = nplt.save_figure(fig, modelspecs=modelspecs, save_dir=modelspecs_dir)
 
 
 # ----------------------------------------------------------------------------

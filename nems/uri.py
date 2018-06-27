@@ -275,7 +275,7 @@ DEMO_NAMES = [
         ]
 
 
-def get_demo_recordings(directory, unpack=False):
+def get_demo_recordings(directory=None, unpack=False):
     '''
     Saves all sample recordings in the LBHB public s3 bucket to
     nems/recordings/, or to the specified directory. By default,
@@ -286,6 +286,11 @@ def get_demo_recordings(directory, unpack=False):
     names = DEMO_NAMES
     prefix = 'https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/'
     uris = [(prefix + n) for n in names]
+
+    if directory is None:
+        nems_dir = os.path.abspath(os.path.dirname(__file__) + '/..')
+        directory = nems_dir + '/recordings'
+
     if unpack:
         recs = [recording.load(uri) for uri in uris]
         for rec in recs:

@@ -141,12 +141,12 @@ def test_split_at_time(signal):
     assert r.as_continuous().shape == (3, 38)
 
 
-def test_jackknife_by_epoch(signal):   
+def test_jackknife_by_epoch(signal):
     signal.epochs = signal.trial_epochs_from_occurrences(occurrences=50)
     s1 = signal.jackknife_by_epoch(10, 0, 'trial', tiled=False, invert=True)
-    
+
     epoch_indices = signal.get_epoch_bounds('trial')
-    subset_sig = signal.select_times(epoch_indices[:10]) 
+    subset_sig = signal.select_times(epoch_indices[:10])
     jack1 = subset_sig.jackknife_by_epoch(10, 0, 'trial', tiled=False, invert=False)
     assert s1.as_continuous().shape == (3, 200)  # shape shouldn't change
     assert(1770.0 == np.nansum(s1.as_continuous()[:]))
@@ -191,8 +191,8 @@ def test_add_epoch(signal):
 
 def test_merge_selections(signal):
     signals = []
-    for i in range(10):
-        jk = signal.jackknife_by_time(10, i, invert=True)
+    for i in range(5):
+        jk = signal.jackknife_by_time(5, i, invert=True)
         signals.append(jk)
 
     merged = merge_selections(signals)
@@ -238,7 +238,7 @@ def test_extract_channels(signal):
 def test_string_syntax_valid(signal):
     assert(_string_syntax_valid('this_is_fine'))
     assert(_string_syntax_valid('THIS_IS_FINE_TOO'))
-    assert(not _string_syntax_valid('But this is not ok'))
+    assert(not _string_syntax_valid('#But this is not ok'))
 
 
 def test_jackknifes_by_epoch(signal):

@@ -60,7 +60,10 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
                 # delta = 1/taui[i] - td * (1/taui[i] - ui[i] * tstim[i, tt - 1])
                 # then a=1/taui[i] and ustim=1/taui[i] - ui[i] * tstim[i,:]
                 delta = a - td * ustim[tt - 1]
-                td = td + delta
+                if td + delta > 0:
+                    td = td + delta
+                else:
+                    td = 0
                 # td = np.max([td, 0])
                 stim_out[i, tt] *= td
         else:

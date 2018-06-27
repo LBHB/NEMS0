@@ -66,11 +66,6 @@ def generate_xforms_spec(recording_uri, modelname, autoPlot=True):
     meta = {'modelname': modelname, 'loader': loadkey, 'fitkey': fitkey,
             'modelspecname': modules}
 
-    # TODO: These should be added to meta by nems_db after ctx is returned.
-    #       'username': 'nems', 'labgroup': 'lbhb', 'public': 1,
-    #       'githash': os.environ.get('CODEHASH', ''),
-    #       'recording': loader}
-
     # Generate the xfspec, which defines the sequence of events
     # to run through (like a packaged-up script)
     xfspec = []
