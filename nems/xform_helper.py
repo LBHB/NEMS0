@@ -11,7 +11,7 @@ from nems.plugins import default_fitters
 log = logging.getLogger(__name__)
 
 
-def generate_xforms_spec(recording_uri, modelname, autoPlot=True):
+def generate_xforms_spec(recording_uri, modelname, meta={}, autoPlot=True):
     """
     TODO: Update this doc
 
@@ -62,9 +62,6 @@ def generate_xforms_spec(recording_uri, modelname, autoPlot=True):
     keyword_lib = KeywordRegistry()
     keyword_lib.register_module(default_keywords)
     keyword_lib.register_plugins(get_setting('XF_LOADER_PLUGINS'))
-
-    meta = {'modelname': modelname, 'loader': loadkey, 'fitkey': fitkey,
-            'modelspecname': modules}
 
     # Generate the xfspec, which defines the sequence of events
     # to run through (like a packaged-up script)

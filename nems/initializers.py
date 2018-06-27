@@ -5,7 +5,7 @@ import numpy as np
 
 from nems.registry import KeywordRegistry
 from nems.plugins import default_keywords
-from nems.utils import split_keywords, find_module
+from nems.utils import find_module
 from nems.analysis.api import fit_basic
 from nems.fitters.api import scipy_minimize
 import nems.priors as priors
@@ -25,7 +25,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}):
     '''
     if registry is None:
         registry = default_kws
-    keywords = split_keywords(keyword_string)
+    keywords = keyword_string.split('-')
 
     # Lookup the modelspec fragments in the registry
     modelspec = []
