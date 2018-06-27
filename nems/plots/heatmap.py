@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import nems.modelspec as ms
 
+from nems.plots.timeseries import plot_timeseries
+
 log = logging.getLogger(__name__)
 
 
@@ -147,3 +149,35 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
     if chans is not None:
         for i, c in enumerate(chans):
             plt.text(0, i + nchans + 1, c, verticalalignment='center')
+
+
+def strf_timeseries(modelspec, ax=None, clim=None, show_factorized=True,
+                    show_fir_only=True,
+                    title=None, fs=1, chans=None):
+    """
+    chans: list
+       if not None, label each row of the strf with the corresponding
+       channel name
+    """
+
+    wcc = _get_wc_coefficients(modelspec)
+    firc = _get_fir_coefficients(modelspec)
+    if wcc is None and firc is None:
+        log.warn('Unable to generate STRF.')
+        return
+    elif show_fir_only or (wcc is None):
+        strf = np.array(firc)
+    elif wcc is not None and firc is None:
+        strf = np.array(wcc).T
+    else:
+        wc_coefs = np.array(wcc).T
+        fir_coefs = np.array(firc)
+        if wc_coefs.shape[1] == fir_coefs.shape[0]:
+            strf = wc_coefs @ fir_coefs
+        else:
+            strf = fir_coefs
+
+    times=np.arange(strf.shape[1])/fs
+    plot_timeseries([times], [strf.T], xlabel='Time lag', ylabel='Gain',
+                    legend=chans, linestyle='-', linewidth=1,
+                    ax=ax, title=title)

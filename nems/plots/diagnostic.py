@@ -14,7 +14,9 @@ import nems.metrics.api as nm
 from nems.plots.scatter import plot_scatter
 from nems.plots.spectrogram import (plot_spectrogram, spectrogram_from_signal,
                           spectrogram_from_epoch)
-from nems.plots.timeseries import timeseries_from_signals, timeseries_from_epoch
+from nems.plots.timeseries import (timeseries_from_signals,
+                                   timeseries_from_epoch,
+                                   plot_timeseries)
 from nems.plots.heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap
 from nems.plots.histogram import pred_error_hist
 from nems.plots.state import (state_vars_timeseries, state_var_psth_from_epoch,
@@ -75,11 +77,19 @@ def diagnostic(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     # use ctx['est'], ctx['rec'], etc.
     rec = ctx[default][r_idx]
     modelspec = ctx['modelspecs'][m_idx]
-    if not epoch:
-        if rec['resp'].count_epoch('REFERENCE'):
-            epoch = 'REFERENCE'
-        else:
-            epoch = 'TRIAL'
+    if (epoch is not None) and rec.get_epoch_indices(epoch).shape[0]:
+        pass
+    elif rec.get_epoch_indices('REFERENCE').shape[0]:
+        log.info('quickplot for REFERENCE epochs')
+        epoch = 'REFERENCE'
+    elif rec.get_epoch_indices('TARGET').shape[0]:
+        log.info('quickplot for TARGET epochs')
+        epoch = 'TARGET'
+    elif rec.get_epoch_indices('TRIAL').shape[0]:
+        log.info('quickplot for TRIAL epochs')
+        epoch = 'TRIAL'
+    else:
+        raise ValueError('No epochs matching ' + epoch)
 
     extracted = rec['resp'].extract_epoch(epoch)
     finite_trial = [np.sum(np.isfinite(x)) > 0 for x in extracted]
@@ -92,6 +102,7 @@ def diagnostic(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     else:
         occurrence=occurrences[occurrence]
 
+    ctx_copy = copy.deepcopy(ctx)
     plot_fns = _get_plot_fns(ctx, default=default, occurrence=occurrence,
                              epoch=epoch, m_idx=m_idx)
 
@@ -144,16 +155,6 @@ def diagnostic(ctx, default='val', epoch=None, occurrence=None, figsize=None,
 
     ### Special plots that go *BEFORE* iterated modules
 
-    # Stimulus Spectrogram
-    # TODO: This is a bit screwy for state_gain model, do we want
-
-#    fn_spectro = partial(
-#            spectrogram_from_epoch, rec['stim'], epoch,
-#            occurrence=occurrence, title='Stimulus Spectrogram'
-#            )
-#    _plot_axes([1], [fn_spectro], 0)
-#
-
     ### Iterated module plots (defined in _get_plot_fns)
     for i, (fns, col_spans) in enumerate(plot_fns):
         # +1 because we did spectrogram above. Adjust as necessary.
@@ -164,27 +165,12 @@ def diagnostic(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     ### Special plots that go *AFTER* iterated modules
 
     # Pred v Resp Timeseries
+    rec = ms.evaluate(rec, modelspec)
     sigs = [rec['resp'], rec['pred']]
     title = 'Final Prediction vs Response, {} #{}'.format(epoch, occurrence)
     timeseries = partial(timeseries_from_epoch, sigs, epoch, title=title,
                          occurrences=occurrence)
     _plot_axes(1, timeseries, -1)
-#
-#    # Pred v Resp Scatter Smoothed
-#    r_test = modelspec[0]['meta']['r_test']
-#    r_fit = modelspec[0]['meta']['r_fit']
-#    pred = rec['pred']
-#    resp = rec['resp']
-#    text = 'r_test: {0:.3f}\nr_fit: {1:.3f}'.format(r_test, r_fit)
-#    smoothed = partial(
-#            plot_scatter, pred, resp, text=text, smoothing_bins=100,
-#            title='Smoothed, bins={}'.format(100), force_square=False
-#            )
-#    not_smoothed = partial(
-#            plot_scatter, pred, resp, text=text, smoothing_bins=False,
-#            title='Unsmoothed', force_square=False,
-#            )
-#    _plot_axes([1, 1], [smoothed, not_smoothed], -1)
 
     # TODO: Pred Error histogram too? Or was that not useful?
 
@@ -235,9 +221,12 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                 i += 1
         if i:
             channels = 0
-            fn = before_and_after_psth(rec, modelspec, idx, sig_name='pred',
+            fn = output_psth(rec, modelspec, idx, sig_name='pred',
                                        epoch=epoch, occurrences=occurrence,
                                        channels=channels, mod_name=fname)
+            #fn = before_and_after_psth(rec, modelspec, idx, sig_name='pred',
+            #                           epoch=epoch, occurrences=occurrence,
+            #                           channels=channels, mod_name=fname)
             plot = (fn, 1)
             plot_fns.append(plot)
 
@@ -287,6 +276,24 @@ def before_and_after_psth(rec, modelspec, idx, sig_name='pred',
     fn = partial(timeseries_from_epoch, signals, epoch,
                  occurrences=occurrences, channels=channels, xlabel='Time',
                  ylabel='Value', title=mod_name)
+    return fn
+
+
+def output_psth(rec, modelspec, idx, sig_name='pred',
+                epoch='TRIAL', occurrences=0, channels=0,
+                mod_name='Unknown'):
+
+    before_sig, after_sig = before_and_after_signal(rec, modelspec, idx,
+                                                    sig_name)
+    extracted = after_sig.extract_epoch(epoch)
+    value_vector = extracted[occurrences].T
+
+    legend = after_sig.chans
+    time_vector = np.arange(0, len(value_vector)) / after_sig.fs
+    fn = partial(plot_timeseries, [time_vector], [value_vector],
+                 xlabel='Time', ylabel='Value', legend=legend,
+                 title=mod_name)
+
     return fn
 
 

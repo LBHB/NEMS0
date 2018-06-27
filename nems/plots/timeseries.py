@@ -10,7 +10,7 @@ import nems.modules.stp as stp
 
 def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
                     linestyle='-', linewidth=1,
-                    ax=None, title=None):
+                    ax=None, title=None, colors=None):
     '''
     Plots a simple timeseries with one line for each pair of
     time and value vectors.
@@ -27,13 +27,21 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
     '''
     if ax is not None:
         plt.sca(ax)
+    else:
+        ax = plt.gca()
 
+    cc = 0
+    opt = {}
     for t, v in zip(times, values):
-        plt.plot(t, v, linestyle=linestyle, linewidth=linewidth)
+        if colors is not None:
+            opt = {'color': colors[cc]}
+        plt.plot(t, v, linestyle=linestyle, linewidth=linewidth, **opt)
+        cc += 1
 
     plt.margins(x=0)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
+    ax.set_xlim([np.min(times), np.max(times)])
     if legend:
         plt.legend(legend)
     if title:
@@ -42,20 +50,21 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
 
 def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
                             linestyle='-', linewidth=1, legend=None,
-                            ax=None, title=None, time_offset=0):
+                            ax=None, title=None, time_offset=0,
+                            colors=None):
     """TODO: doc"""
     times = []
     values = []
     for v in vectors:
         values.append(v)
         if fs is None:
-            times.append(np.arange(0, len(v)))
+            times.append(np.arange(0, len(v)) - time_offset)
         else:
-            times.append(np.arange(0, len(v))/fs)
-    plot_timeseries(times - time_offset, values, xlabel, ylabel,
+            times.append(np.arange(0, len(v))/fs - time_offset)
+    plot_timeseries(times, values, xlabel, ylabel,
                     legend=legend,
                     linestyle=linestyle, linewidth=linewidth,
-                    ax=ax, title=title)
+                    ax=ax, title=title, colors=colors)
 
 
 def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
@@ -109,6 +118,38 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
                     ax=ax, title=title)
 
 
+def stp_magnitude(tau, u, fs=100):
+    """ compute effect of stp (tau,u) on a dummy signal and computer effect magnitude
+    """
+    c = len(tau)
+    seg = np.int(fs * 0.05)
+    A=0.5
+    pred = np.concatenate([np.zeros([c, seg * 2]), np.ones([c, seg * 4]) * A,
+                           np.zeros([c, seg * 4]), np.ones([c, seg]) * A,
+                           np.zeros([c, seg]), np.ones([c, seg]) * A,
+                           np.zeros([c, seg]), np.ones([c, seg]) * A,
+                           np.zeros([c, seg * 2])], axis=1)
+
+    kwargs = {
+        'data': pred,
+        'name': 'pred',
+        'recording': 'rec',
+        'chans': ['chan' + str(n) for n in range(c)],
+        'fs': fs,
+        'meta': {},
+    }
+    pred = signal.RasterizedSignal(**kwargs)
+    r = recording.Recording({'pred': pred})
+
+    r = stp.short_term_plasticity(r, 'pred', 'pred_out', u=u, tau=tau)
+    pred_out = r[0]
+
+    stp_mag = (np.sum(pred.as_continuous()-pred_out.as_continuous(),axis=1) /
+               np.sum(pred.as_continuous()))
+
+    return (stp_mag, pred, pred_out)
+
+
 def before_and_after_stp(modelspec, sig_name='pred', ax=None, title=None,
                          channels=0, xlabel='Time', ylabel='Value', fs=100):
     '''
@@ -132,32 +173,9 @@ def before_and_after_stp(modelspec, sig_name='pred', ax=None, title=None,
     for m in modelspec:
         if 'stp' in m['fn']:
             break
-    c = len(m['phi']['tau'])
-    seg = np.int(fs * 0.05)
-    A=0.5
-    pred = np.concatenate([np.zeros([c, seg * 2]), np.ones([c, seg * 4]) * A,
-                           np.zeros([c, seg * 4]), np.ones([c, seg]) * A,
-                           np.zeros([c, seg]), np.ones([c, seg]) * A,
-                           np.zeros([c, seg]), np.ones([c, seg]) * A,
-                           np.zeros([c, seg * 2])], axis=1)
 
-    kwargs = {
-        'data': pred,
-        'name': 'pred',
-        'recording': 'rec',
-        'chans': ['chan' + str(n) for n in range(c)],
-        'fs': fs,
-        'meta': {},
-    }
-    pred = signal.RasterizedSignal(**kwargs)
-    r = recording.Recording({'pred': pred})
-
-    u = m['phi']['u']
-    tau = m['phi']['tau']
-
-    r = stp.short_term_plasticity(r, 'pred', 'pred_out', u=u, tau=tau)
-    pred_out = r[0]
-
+    stp_mag, pred, pred_out = stp_magnitude(m['phi']['tau'], m['phi']['u'], fs)
+    c=len(m['phi']['tau'])
     pred.name = 'before'
     pred_out.name = 'after'
     signals = [pred]

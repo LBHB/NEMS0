@@ -105,13 +105,13 @@ def simple_vector(modelspec, subset=None):
 
     # Create a phi_template only once
     modelspec_subset = [m for i, m in enumerate(modelspec) if i in subset]
-    phi_template = [m['phi'] for m in modelspec_subset]
+    phi_template = [m.get('phi', {}) for m in modelspec_subset]
 
     def packer(modelspec):
         ''' Converts a modelspec to a vector. '''
         nonlocal modelspec_subset
 
-        phi = [m['phi'] for m in modelspec_subset]
+        phi = [m.get('phi', {}) for m in modelspec_subset]
         return phi_to_vector(phi)
 
     def unpacker(vec):
@@ -135,7 +135,7 @@ def simple_vector(modelspec, subset=None):
             module_bounds = m.get('bounds', {})
             module_lb = {}
             module_ub = {}
-            for name, phi in m['phi'].items():
+            for name, phi in m.get('phi', {}).items():
                 bounds = module_bounds.get(name, (None, None))
                 module_lb[name] = to_bounds_array(bounds, phi, 'lower')
                 module_ub[name] = to_bounds_array(bounds, phi, 'upper')
