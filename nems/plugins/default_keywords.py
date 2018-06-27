@@ -158,7 +158,7 @@ def fir(kw):
     -------
     None, but x{n_banks} is optional.
     '''
-    pattern = re.compile(r'^fir\.(\d{1,})x(\d{1,})x?(\d{1,})?$')
+    pattern = re.compile(r'^fir\.?(\d{1,})x(\d{1,})x?(\d{1,})?$')
     parsed = re.match(pattern, kw)
     try:
         n_outputs = int(parsed.group(1))
@@ -216,7 +216,7 @@ def lvl(kw):
     -------
     None
     '''
-    pattern = re.compile(r'^lvl\.(\d{1,})$')
+    pattern = re.compile(r'^lvl\.?(\d{1,})$')
     parsed = re.match(pattern, kw)
     try:
         n_shifts = int(parsed.group(1))
@@ -243,7 +243,7 @@ def stp(kw):
     Parameters
     ----------
     kw : str
-        Expected format: r'^stp\.([z,n]{0,})(\d{1,})$'
+        Expected format: r'^stp\.?(\d{1,})\.?([z,b,n]*)$'
 
     Options
     -------
@@ -251,14 +251,16 @@ def stp(kw):
     b : Set bounds on 'tau' to be greater than or equal to 0
     n : Apply normalization
     '''
-    options = kw.split('.')
+    pattern = re.compile(r'^stp\.?(\d{1,})\.?([z,b,n,\.]*)$')
+    parsed = re.match(pattern, kw)
     try:
-        n_synapse = int(options[1])  # [0] should be 'stp'
+        n_synapse = int(parsed.group(1))
     except (TypeError, IndexError):
         raise ValueError("Got TypeError or IndexError while parsing stp "
                          "keyword,\nmake sure keyword is of the form: \n"
                          "stp.{n_synapse}.option1.option2...\n"
                          "keyword given: %s" % kw)
+    options = parsed.group(2).split('.')
 
     # Default values, may be overwritten by options
     u_mean = [0.01]*n_synapse
@@ -266,7 +268,7 @@ def stp(kw):
     normalize = False
     bounds = False
 
-    for op in options[2:]:
+    for op in options:
         if op == 'z':
             u_mean = [0.02]*n_synapse
             tau_mean = [0.05]*n_synapse
@@ -311,13 +313,13 @@ def dexp(kw):
     Parameters
     ----------
     kw : str
-        Expected format: r'^dexp\.(\d{1,})$'
+        Expected format: r'^dexp\.?(\d{1,})$'
 
     Options
     -------
     None
     '''
-    pattern = re.compile(r'^dexp\.(\d{1,})$')
+    pattern = re.compile(r'^dexp\.?(\d{1,})$')
     parsed = re.match(pattern, kw)
     try:
         n_dims = int(parsed.group(1))
@@ -355,13 +357,13 @@ def qsig(kw):
     Parameters
     ----------
     kw : str
-        Expected format: r'^qsig\.(\d{1,})$'
+        Expected format: r'^qsig\.?(\d{1,})$'
 
     Options
     -------
     None
     '''
-    pattern = re.compile(r'^qsig\.(\d{1,})$')
+    pattern = re.compile(r'^qsig\.?(\d{1,})$')
     parsed = re.match(pattern, kw)
     n_dims = int(parsed.group(1))
 
@@ -428,13 +430,13 @@ def tanh(kw):
     Parameters
     ----------
     kw : str
-        Expected format: r'^tanh\.(\d{1,})$'
+        Expected format: r'^tanh\.?(\d{1,})$'
 
     Options
     -------
     None
     '''
-    pattern = re.compile(r'^tanh\.(\d{1,})$')
+    pattern = re.compile(r'^tanh\.?(\d{1,})$')
     parsed = re.match(pattern, kw)
     try:
         n_dims = int(parsed.group(1))
@@ -489,13 +491,16 @@ def dlog(kw):
     normalization is used - otherwise, only 'dlog' is required since the
     number of channels would be redundant information.
     '''
-    pattern = re.compile(r'^dlog(\.n\d{1,})?$')
+    pattern = re.compile(r'^dlog(\.?n\d{1,})?\.?([f, \.]*)$')
     parsed = re.match(pattern, kw)
     norm = parsed.group(1)
+    options = parsed.group(2).split('.')
     if norm is not None:
-        chans = int(norm[2:])  # skip leading .n
+        chans = int(norm.strip('.')[1:])  # skip leading .n
     else:
         chans = 0
+
+    offset = ('f' in options)
 
     template = {
         'fn': 'nems.modules.nonlinearity.dlog',
@@ -509,6 +514,9 @@ def dlog(kw):
         g = np.ones([chans, 1])
         template['norm'] = {'type': 'minmax', 'recalc': 0, 'd': d, 'g': g}
 
+    if offset:
+        template['fn_kwargs']['offset'] = -1
+
     return template
 
 
@@ -519,13 +527,13 @@ def stategain(kw):
     Parameters
     ----------
     kw : str
-        Expected format: r'^stategain\.(\d{1,})$'
+        Expected format: r'^stategain\.?(\d{1,})$'
 
     Options
     -------
     None
     '''
-    pattern = re.compile(r'^stategain\.(\d{1,})$')
+    pattern = re.compile(r'^stategain\.?(\d{1,})$')
     parsed = re.match(pattern, kw)
     try:
         n_vars = int(parsed.group(1))
@@ -561,13 +569,13 @@ def rep(kw):
     Parameters
     ----------
     kw : str
-        Expected format: r'^rep\.(\d{1,})$'
+        Expected format: r'^rep\.?(\d{1,})$'
 
     Options
     -------
     None
     '''
-    pattern = re.compile(r'^rep\.(\d{1,})$')
+    pattern = re.compile(r'^rep\.?(\d{1,})$')
     parsed = re.match(pattern, kw)
     try:
         n_reps = int(parsed.group(1))

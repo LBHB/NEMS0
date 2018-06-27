@@ -520,7 +520,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         # print(state_sig_list[-1])
         # print(state_sig_list[-1].shape)
 
-    state = RasterizedSignal.concatenate_channels(state_sig_list)
+    state = signal.RasterizedSignal.concatenate_channels(state_sig_list)
     state.name = new_signalname
 
     # scale all signals to range from 0 - 1

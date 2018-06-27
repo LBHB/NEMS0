@@ -39,8 +39,12 @@ def basic(fitkey):
     max_iter, tolerance, prefit = _parse_basic(options)
     if nfold:
         log.info("n-fold fitting...")
-        xfspec.append(['nems.xforms.mask_for_jackknife',
-                       {'njacks': nfold, 'epoch_name': epoch}])
+        jk_kwargs = {'metric': metric, 'tolerance': tolerance}
+        if isinstance(nfold, int):
+            # if nfold is just True instead of an integer, use
+            # default number specified in xforms function
+            jk_kwargs['njacks'] = nfold
+        xfspec.append(['nems.xforms.mask_for_jackknife', jk_kwargs])
         if state:
             xfspec.append(['nems.xforms.fit_state_init',
                            {'metric': metric}])
@@ -149,15 +153,19 @@ def _parse_fit(options):
         if op == 'shr':
             metric = 'nmse_shrink'
         elif op.startswith('nf'):
-            pattern = re.compile(r'^nf(\d{1,})$')
-            nfold = int(re.match(pattern, op)[1])
+            pattern = re.compile(r'^nf(\d{0,})$')
+            nfold = re.match(pattern, op).group(1)
+            if nfold:
+                nfold = int(nfold)
+            else:
+                nfold = True  # Use nfold but defer to default number
         elif op == 'cd':
             fitter = 'coordinate_descent'
         elif op == 'st':
             state = True
         elif op.startswith('ep'):
             pattern = re.compile(r'^ep(\w{1,})$')
-            epoch = re.match(pattern, op)[1]
+            epoch = re.match(pattern, op).group(1)
 
     return metric, nfold, fitter, state, epoch
 
@@ -170,10 +178,10 @@ def _parse_basic(options):
     for op in options:
         if op.startswith('mi'):
             pattern = re.compile(r'^mi(\d{1,})')
-            max_iter = int(re.match(pattern, op)[1])
+            max_iter = int(re.match(pattern, op).group(1))
         elif op.startswith('t'):
             pattern = re.compile(r'^t(\d{1,})')
-            power = int(re.match(pattern, op)[1])*(-1)
+            power = int(re.match(pattern, op).group(1))*(-1)
             tolerance = 10**power
         elif op == 'npr':
             prefit = False

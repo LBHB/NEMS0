@@ -91,10 +91,7 @@ class KeywordRegistry():
                     imp.import_module(f[:-3], package=package_name)
                     for f in os.listdir(d) if f.endswith('.py')
                     ]
-        for m in modules:
-            for a in dir(m):
-                if self._validate_function(m, a):
-                    self.keywords[a] = Keyword(a, getattr(m, a))
+        self.register_modules(modules)
 
     def register_plugins(self, pkgs):
         '''Invokes self.register_plugin for each package listed in pkgs.'''
@@ -109,14 +106,14 @@ class KeywordRegistry():
         if not module:
             return
         for a in dir(module):
-            if self._validate_function(module, a):
+            if self._validate(module, a):
                 self.keywords[a] = Keyword(a, getattr(module, a))
 
     def register_modules(self, modules):
         '''Invokes self.register_module for each module listed in modules.'''
         [self.register_module(m) for m in modules]
 
-    def _validate_function(self, m, a):
+    def _validate(self, m, a):
         '''
         Ignore private functions, all-caps global variables,
         and anything that isn't callable.
