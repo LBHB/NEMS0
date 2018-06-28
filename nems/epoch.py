@@ -216,7 +216,7 @@ def epoch_intersection_full(a, b):
 
 
 @check_result
-def epoch_intersection(a, b):
+def epoch_intersection(a, b, precision=6):
     '''
     Compute the intersection of the epochs. Only regions in a which overlap with
     b will be kept.
@@ -229,6 +229,8 @@ def epoch_intersection(a, b):
     b : 2D array of (N x 2)
         The first column is the start time and second column is the end time. N
         is the number of occurances of b.
+    precision : int
+        Number of decimal places to use for equality test.
 
     Returns
     -------
@@ -244,6 +246,8 @@ def epoch_intersection(a, b):
     '''
     # Convert to a list and then sort in reversed order such that pop() walks
     # through the occurences from earliest in time to latest in time.
+    a = np.around(a, precision)
+    b = np.around(b, precision)
     a = a.tolist()
     a.sort(reverse=True)
     b = b.tolist()
