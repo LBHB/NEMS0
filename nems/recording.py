@@ -748,7 +748,11 @@ class Recording:
         else:
             mask = base_signal.generate_epoch_mask(epoch)
 
-        mask_sig = base_signal._modified_copy(mask)
+        try:
+            mask_sig = base_signal._modified_copy(mask)
+        except AttributeError:
+            # Only rasterized signals support _modified_copy
+            mask_sig = base_signal.rasterize()._modified_copy(mask)
         mask_sig.name = 'mask'
 
         rec.add_signal(mask_sig)
@@ -843,7 +847,7 @@ class Recording:
 
         rec = copy.deepcopy(self)
         sig = rec['mask']
-        
+
         if np.sum(~sig._data) == 0:
             return rec
 

@@ -1,4 +1,4 @@
-'''
+f'''
 Default shorthands, or 'keywords,' for generating NEMS modelspecs on a
 per-module basis.
 

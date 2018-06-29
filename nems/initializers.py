@@ -30,10 +30,10 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}):
     # Lookup the modelspec fragments in the registry
     modelspec = []
     for kw in keywords:
-        if kw.startswith("firNx") and (rec is not None):
+        if kw.startswith("fir.Nx") and (rec is not None):
             N = rec['stim'].nchans
             kw_old = kw
-            kw = kw.replace("firN", "fir{}".format(N))
+            kw = kw.replace("fir.N", "fir.{}".format(N))
             log.info("Dynamically subbing kw %s with %s", kw_old, kw)
         if registry.kw_head(kw) not in registry:
             raise ValueError("unknown keyword: {}".format(kw))
@@ -190,7 +190,11 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
 
         if ('levelshift' in m['fn']) and (m.get('phi') is None):
             m = priors.set_mean_phi([m])[0]
-            mean_resp = np.nanmean(rec['resp'].as_continuous())
+            try:
+                mean_resp = np.nanmean(rec['resp'].as_continuous())
+            except NotImplementedError:
+                # as_continous only available for RasterizedSignal
+                mean_resp = np.nanmean(rec['resp'].rasterize().as_continuous())
             log.info('Mod %d (%s) fixing level to response mean %.3f',
                      i, m['fn'], mean_resp)
             m['phi']['level'][:] = mean_resp
