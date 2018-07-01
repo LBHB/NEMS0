@@ -113,8 +113,7 @@ def _module_set_loop(subset, data, modelspec, cost_function, fitter,
 
         log.debug("Modelspec after freeze: %s", modelspec)
 
-        packer, unpacker = mapper(modelspec)
-        bounds = nems.fitters.mappers.bounds_vector(modelspec)
+        packer, unpacker, pack_bounds = mapper(modelspec)
 
         # cost_function.counter = 0
         cost_function.error = None
@@ -123,6 +122,7 @@ def _module_set_loop(subset, data, modelspec, cost_function, fitter,
                           data=data, segmentor=segmentor, evaluator=evaluator,
                           metric=metric)
         sigma = packer(modelspec)
+        bounds = pack_bounds(modelspec)
 
         improved_sigma = fitter(sigma, cost_fn, bounds=bounds, **fit_kwargs)
         improved_modelspec = unpacker(improved_sigma)

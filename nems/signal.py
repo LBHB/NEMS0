@@ -1856,7 +1856,7 @@ class TiledSignal(SignalBase):
 
         if safety_checks:
             if 'none' != normalization:
-                raise ValueError ('normalization not supported for TiledSignal')
+                raise ValueError('normalization not supported for TiledSignal')
 
     def rasterize(self, fs=None):
         '''
