@@ -29,6 +29,7 @@ def basic(fitkey):
     miN : Set maximum iterations to N, where N is any positive integer.
     tN : Set tolerance to 10**-N, where N is any positive integer.
     npr : Skip the default prefitting routine for non-state models.
+    m : Use split_for_jackknife instead of mask_for_jackknife
 
     '''
 
@@ -36,7 +37,7 @@ def basic(fitkey):
 
     options = _extract_options(fitkey)
     metric, nfold, fitter, state, epoch = _parse_fit(options)
-    max_iter, tolerance, prefit = _parse_basic(options)
+    max_iter, tolerance, prefit, do_split = _parse_basic(options)
     if nfold:
         log.info("n-fold fitting...")
         jk_kwargs = {'metric': metric, 'tolerance': tolerance}
@@ -44,7 +45,12 @@ def basic(fitkey):
             # if nfold is just True instead of an integer, use
             # default number specified in xforms function
             jk_kwargs['njacks'] = nfold
-        xfspec.append(['nems.xforms.mask_for_jackknife', jk_kwargs])
+
+        if do_split:
+            xfspec.append(['nems.xforms.split_for_jackknife', jk_kwargs])
+        else:
+            xfspec.append(['nems.xforms.mask_for_jackknife', jk_kwargs])
+
         if state:
             xfspec.append(['nems.xforms.fit_state_init',
                            {'metric': metric}])
@@ -175,6 +181,7 @@ def _parse_basic(options):
     max_iter = 1000
     tolerance = 1e-7
     prefit = True  # TODO: Still need this option, or always want prefit?
+    do_split = False
     for op in options:
         if op.startswith('mi'):
             pattern = re.compile(r'^mi(\d{1,})')
@@ -185,8 +192,10 @@ def _parse_basic(options):
             tolerance = 10**power
         elif op == 'npr':
             prefit = False
+        elif op == 'm':
+            do_split = True
 
-    return max_iter, tolerance, prefit
+    return max_iter, tolerance, prefit, do_split
 
 
 def _parse_iter(options):

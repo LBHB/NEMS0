@@ -1,9 +1,9 @@
 import pytest
 
 from nems.registry import KeywordRegistry
-from nems.plugins.loaders import default_loaders
-from nems.plugins.keywords import default_keywords
-from nems.plugins.fitters import default_fitters
+from nems.plugins import default_loaders
+from nems.plugins import default_keywords
+from nems.plugins import default_fitters
 
 
 @pytest.fixture
@@ -42,7 +42,7 @@ def test_model_registry(model_registry):
     # missing required options (like inputs x outputs for wc)
     errors = ['wc', 'stp', 'fir', 'lvl', 'dexp']
     for e in errors:
-        with pytest.raises(ValueError):
+        with pytest.raises((AttributeError, ValueError)):
             model_registry[e]
 
     # These ones should all work. Not an exhaustive list, but should be
@@ -62,3 +62,10 @@ def test_fitter_registry(fitter_registry):
              'iter.st', 'iter.cd.nf10.shr.st.T3,5,7.S0,1.S1,2.ti50.fi20']
     for t in tests:
         x = fitter_registry[t]
+
+
+def test_jsonify(model_registry):
+    json = model_registry.to_json()
+    unjson = KeywordRegistry.from_json(json)
+    unjson.keywords == model_registry.keywords
+    return json, unjson
