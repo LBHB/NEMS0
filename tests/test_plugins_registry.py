@@ -42,7 +42,7 @@ def test_model_registry(model_registry):
     # missing required options (like inputs x outputs for wc)
     errors = ['wc', 'stp', 'fir', 'lvl', 'dexp']
     for e in errors:
-        with pytest.raises(ValueError):
+        with pytest.raises((AttributeError, ValueError)):
             model_registry[e]
 
     # These ones should all work. Not an exhaustive list, but should be
