@@ -1,9 +1,9 @@
 import pytest
 
 from nems.registry import KeywordRegistry
-from nems.plugins.loaders import default_loaders
-from nems.plugins.keywords import default_keywords
-from nems.plugins.fitters import default_fitters
+from nems.plugins import default_loaders
+from nems.plugins import default_keywords
+from nems.plugins import default_fitters
 
 
 @pytest.fixture
