@@ -198,6 +198,23 @@ def mask_all_but_correct_references(rec):
     return newrec
 
 
+def mask_keep_passive(rec):
+    """
+    Mask out all times that don't fall in PASSIVE_EXPERIMENT epochs.
+
+    TODO: Migrate to nems_lbhb and/or make a more generic version
+    """
+
+    newrec = rec.copy()
+    newrec['resp'] = newrec['resp'].rasterize()
+    if 'stim' in newrec.signals.keys():
+        newrec['stim'] = newrec['stim'].rasterize()
+
+    newrec = newrec.and_mask(['PASSIVE_EXPERIMENT'])
+
+    return newrec
+
+
 def mask_all_but_targets(rec):
     """
     Specialized function for removing incorrect trials from data
@@ -470,6 +487,22 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
                 'TRIAL', pupil_ev)
         newrec['pupil_bs'] = newrec["pupil"].replace_epoch(
                 'TRIAL', pupil_bs)
+
+    if ('each_passive' in state_signals):
+        file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
+        pset = []
+        for f in file_epochs:
+            epoch_indices = ep.epoch_intersection(
+                    resp.get_epoch_indices(f),
+                    resp.get_epoch_indices('PASSIVE_EXPERIMENT'))
+            if epoch_indices.size:
+                pset.append(f)
+                newrec[f] = resp.epoch_to_signal(f)
+        state_signals.remove('each_passive')
+        state_signals.extend(pset)
+        if 'each_passive' in permute_signals:
+            permute_signals.remove('each_passive')
+            permute_signals.extend(pset)
 
     # generate task state signals
     fpre = (resp.epochs['name'] == "PRE_PASSIVE")

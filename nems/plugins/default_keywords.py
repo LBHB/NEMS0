@@ -1,4 +1,4 @@
-f'''
+'''
 Default shorthands, or 'keywords,' for generating NEMS modelspecs on a
 per-module basis.
 
@@ -169,11 +169,17 @@ def fir(kw):
                          "keyword has the form: \n"
                          "fir.{n_outputs}x{n_coefs}x{n_banks} (banks optional)"
                          "\nkeyword given: %s" % kw)
-
-    p_coefficients = {
-        'mean': np.zeros((n_outputs, n_coefs)),
-        'sd': np.ones((n_outputs, n_coefs)),
-    }
+    if n_banks is None:
+        p_coefficients = {
+            'mean': np.zeros((n_outputs, n_coefs)),
+            'sd': np.ones((n_outputs, n_coefs)),
+        }
+    else:
+        n_banks = int(n_banks)
+        p_coefficients = {
+            'mean': np.zeros((n_outputs * n_banks, n_coefs)),
+            'sd': np.ones((n_outputs * n_banks, n_coefs)),
+        }
 
     if n_coefs > 2:
         # p_coefficients['mean'][:, 1] = 1
@@ -194,7 +200,7 @@ def fir(kw):
         template = {
             'fn': 'nems.modules.fir.filter_bank',
             'fn_kwargs': {'i': 'pred', 'o': 'pred',
-                          'bank_count': int(n_banks)},
+                          'bank_count': n_banks},
             'prior': {
                 'coefficients': ('Normal', p_coefficients),
             }

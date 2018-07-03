@@ -8,6 +8,7 @@ import pandas as pd
 import logging
 log = logging.getLogger(__name__)
 
+
 def check_result(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
