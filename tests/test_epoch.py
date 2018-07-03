@@ -69,6 +69,36 @@ def test_intersection(epoch_a, epoch_b):
     assert np.all(result == expected)
 
 
+def test_intersection_bug():
+    # Copied from real data
+    a = np.array([
+        [57.7, 61.4],
+        [61.4, 66.6],
+        [66.6, 70.9],
+        [70.9, 75.80000000000001],
+        [75.8, 81.0],
+    ])
+
+    b = np.array([
+        [57.7000000000001, 61.4000000000001],
+        [61.4000000000001, 66.6000000000001],
+        [66.6000000000001, 70.9],
+        [75.8000000000001, 81.0000000000001],
+        [81.0000000000001, 85.6000000000001],
+    ])
+
+    expected = np.array([
+        [57.7, 61.4],
+        [61.4, 66.6],
+        [66.6, 70.9],
+        [75.8, 81.0],
+    ])
+
+    result = epoch_intersection(a, b)
+    print(result)
+    assert np.all(result == expected)
+
+
 def test_intersection_float(epoch_a, epoch_b):
     expected = np.array([
         [ 60,  70],
