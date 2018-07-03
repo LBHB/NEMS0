@@ -373,8 +373,16 @@ def init_logsig(rec, modelspec):
 
     modelspec[logsig_idx]['prior'] = {
             'base': base, 'amplitude': amplitude, 'shift': shift,
-            'kappa': kappa
+            'kappa': kappa,
             }
+
+    modelspec[logsig_idx]['bounds'] = {
+            'base': (1e-15, None),
+            'amplitude': (1e-15, None),
+            'shift': (None, None),
+            'kappa': (1e-15, None),
+            }
+
     log.info("logistic_sigmoid priors initialized to: "
              "base: %s\namplitude: %s\nshift: %s\nkappa: %s\n",
              *modelspec[logsig_idx]['prior'].values())
