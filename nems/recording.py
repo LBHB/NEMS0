@@ -1174,3 +1174,74 @@ def jackknife_inverse_merge(rec_list):
             new_sigs[sn]=merge_selections(sig_list)
 
     return Recording(signals=new_sigs)
+
+
+# TODO: Might be a better place for this, but moved it from nems.uri
+#       for now because it was causing circular import issues since
+#       the unpack option depends on code in this module.
+
+
+DEMO_NAMES = [
+        'TAR010c-18-1.tgz', 'eno052d-a1.tgz', 'BRT026c-02-1.tgz', 'resp2.tgz',
+        ]
+
+
+def get_demo_recordings(directory=None, unpack=False):
+    '''
+    Saves all sample recordings in the LBHB public s3 bucket to
+    nems/recordings/, or to the specified directory. By default,
+    the recordings will be kept in a compressed format; however,
+    specifying unpack=True will instead save them uncompressed
+    in a subdirectory.
+    '''
+    names = DEMO_NAMES
+    prefix = 'https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/'
+    uris = [(prefix + n) for n in names]
+
+    if directory is None:
+        nems_dir = os.path.abspath(os.path.dirname(__file__) + '/..')
+        directory = nems_dir + '/recordings'
+
+    if unpack:
+        recs = [Recording.load(uri) for uri in uris]
+        for rec in recs:
+            log.info("Saving file at {} in {}".format(rec.uri, directory))
+            rec.save_dir(directory)
+    else:
+        """
+        https://stackoverflow.com/questions/16694907/
+        how-to-download-large-file-in-python-with-requests-py
+        """
+        for uri in uris:
+            file = uri.split('/')[-1]
+            local = os.path.join(directory, file)
+            if os.path.isfile(local):
+                log.debug("Local file {} already exists, skipping."
+                          .format(local))
+            else:
+                log.info("Saving file at {} to {}".format(uri, local))
+                r = requests.get(uri, stream=True)
+                # TODO: clean this up, copied from recordings code.
+                #       All of these content-types have showed up *so far*
+                allowed_headers = [
+                        'application/gzip', 'application/x-gzip',
+                        'application/x-compressed', 'application/x-tgz',
+                        'application/x-tar', 'application/x-compressed-tar',
+                        ]
+                if not (r.status_code == 200
+                        and r.headers['content-type'] in allowed_headers):
+                    log.info('got response: {}, {}'
+                             .format(r.headers, r.status_code))
+                    raise Exception('Error loading from uri: {}'.format(uri))
+
+                try:
+                    with open(local, 'wb') as f:
+                        for chunk in r.iter_content(chunk_size=1024):
+                            if chunk:
+                                f.write(chunk)
+                except PermissionError as e:
+                    log.warn("Couldn't write in directory: \n{}\n"
+                             "due to permission issues. Make sure the "
+                             "parent directory grants write permission."
+                             .format(directory))
+                    log.exception(e)

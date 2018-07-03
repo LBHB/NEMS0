@@ -13,7 +13,8 @@ import nems.modelspec as ms
 import nems.metrics.api as metrics
 
 log = logging.getLogger(__name__)
-default_kws = KeywordRegistry().register_module(default_keywords)
+default_kws = KeywordRegistry()
+default_kws.register_module(default_keywords)
 
 
 def from_keywords(keyword_string, registry=None, rec=None, meta={}):
