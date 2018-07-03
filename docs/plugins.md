@@ -50,8 +50,12 @@ Alternatively, if you want to use your own code but don't want to
 overwrite the core version (for a side-by-side comparison, for example),
 you can call your new function whatever you want - just use that new
 keyword when defining your modelname.
+
+Important: when naming new keywords, DO NOT USE UNDERSCORES as these
+will be parsed incorrectly by the xforms pipeline. Most existing
+keywords use all lowercase letters.
 ```
-def my_new_wc(kw):
+def mywc(kw):
 	return {'fn': ...}
 ```
 

@@ -32,6 +32,9 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
                        step_min=1e-5, tolerance=1e-5, max_iter=100,
                        bounds=None, **kwargs):
 
+    if bounds is not None:
+        bounds = list(zip(*bounds))
+
     stepinfo, update_stepinfo = tc.create_stepinfo()
     stop_fit = lambda : (tc.error_non_decreasing(stepinfo, tolerance)
                          or tc.max_iterations_reached(stepinfo, max_iter)
@@ -42,7 +45,7 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
     step_errors = np.empty([n_parameters, 2])
     log.info("CD intializing: step_size=%.2f, tolerance=%e",
              step_size, tolerance)
-    this_steps=0
+    this_steps = 0
     while not stop_fit():
         for i in range(0, n_parameters):
             if bounds is None:
@@ -98,6 +101,7 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
 
     log.info("Final error: %.06f (step size %.06f)\n",
              stepinfo['err'], step_size)
+
     return sigma
 
 
