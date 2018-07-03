@@ -8,7 +8,17 @@ def _logistic_sigmoid(x, base, amplitude, shift, kappa):
     return base + amplitude * 1 / (1 + exp(-kappa * (x - shift)))
 
 
-def logistic_sigmoid(rec, i, o, base, amplitude, shift, kappa):
+def logistic_sigmoid(rec, i, o, c, base, amplitude, shift, kappa, base_mod,
+                     amp_mod, shift_mod, kappa_mod):
+    contrast_pred = rec[c]
+    for th0, th1 in zip([base, amplitude, shift, kappa],
+                        [base_mod, amp_mod, shift_mod, kappa_mod]):
+        if th1 == 0:
+            # Save time if static
+            pass
+        else:
+            th0 = (contrast_pred*th1 + th0)
+
     fn = lambda x : _logistic_sigmoid(x, base, amplitude, shift, kappa)
     return [rec[i].transform(fn, o)]
 

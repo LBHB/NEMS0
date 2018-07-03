@@ -1,9 +1,7 @@
-import warnings
 import copy
 
 import numpy as np
 import pandas as pd
-from scipy.signal import convolve2d
 
 import nems.epoch as ep
 import nems.signal as signal
@@ -605,46 +603,3 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
             raise ValueError('modelspecs must be len 1 or njacks')
 
     return est, val, modelspecs_out
-
-
-def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
-                         bins=None):
-    '''
-    Creates a new signal whose values represent the degree of variability
-    in each channel of the source signal. Each value is based on the
-    previous values within a range specified by either <ms> or <bins>.
-    Only supports RasterizedSignal.
-    '''
-
-    rec = rec.copy()
-
-    source_signal = rec[source_name]
-    if not isinstance(source_signal, signal.RasterizedSignal):
-        try:
-            source_signal = source_signal.rasterize()
-        except AttributeError:
-            raise TypeError("signal with key {} was not a RasterizedSignal"
-                            " and could not be converted to one."
-                            .format(source_name))
-
-    array = source_signal.as_continuous().copy()
-
-    if ms:
-        history = int((ms/1000)*source_signal.fs)
-    elif bins:
-        history = int(bins)
-    else:
-        raise ValueError("Either ms or bins parameter must be specified "
-                         "and nonzero.")
-    # TODO: Alternatively, base history length on some feature of signal?
-    #       Like average length of some epoch ex 'TRIAL'
-
-    array[np.isnan(array)] = 0
-    filt = np.concatenate((np.zeros([1, history+1]),
-                           np.ones([1, history])), axis=1)
-    contrast = convolve2d(array, filt, mode='same')
-
-    contrast_sig = source_signal._modified_copy(contrast)
-    rec[name] = contrast_sig
-
-    return rec

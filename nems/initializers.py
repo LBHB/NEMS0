@@ -377,10 +377,10 @@ def init_logsig(rec, modelspec):
             }
 
     modelspec[logsig_idx]['bounds'] = {
-            'base': (1e-15, None),
-            'amplitude': (1e-15, None),
-            'shift': (None, None),
-            'kappa': (1e-15, None),
+            'base': (1e-15, None), 'base_mod': (0, 0),
+            'amplitude': (1e-15, None), 'amplitude_mod': (0, 0),
+            'shift': (None, None), 'shift_mod': (0, 0),
+            'kappa': (1e-15, None), 'kappa_mod': (0, 0),
             }
 
     log.info("logistic_sigmoid priors initialized to: "

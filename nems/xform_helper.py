@@ -84,7 +84,7 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, autoPlot=True):
 
     # 5) generate plots
     if autoPlot:
-        log.info('Generating summary plot...')
+        log.info('Adding summary plot to xfspec...')
         xfspec.append(['nems.xforms.plot_summary', {}])
 
     return xfspec
