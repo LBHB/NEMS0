@@ -62,3 +62,10 @@ def test_fitter_registry(fitter_registry):
              'iter.st', 'iter.cd.nf10.shr.st.T3,5,7.S0,1.S1,2.ti50.fi20']
     for t in tests:
         x = fitter_registry[t]
+
+
+def test_jsonify(model_registry):
+    json = model_registry.to_json()
+    unjson = KeywordRegistry.from_json(json)
+    unjson.keywords == model_registry.keywords
+    return json, unjson

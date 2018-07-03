@@ -140,10 +140,11 @@ class KeywordRegistry():
         return d
 
     @classmethod
-    def from_json(d):
+    def from_json(self, d):
         r = KeywordRegistry(*d['_KWR_ARGS'])
-        d.pop(['_KWR_ARGS'])
-        r.keywords = {k: getattr(v, k) for k, v in d.items()}
+        d.pop('_KWR_ARGS')
+        r.keywords = {k: getattr(imp.import_module(v), k)
+                      for k, v in d.items()}
         return r
 
 
