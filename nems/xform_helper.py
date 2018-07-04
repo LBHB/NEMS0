@@ -61,7 +61,7 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, autoPlot=True):
 
     keyword_lib = KeywordRegistry()
     keyword_lib.register_module(default_keywords)
-    keyword_lib.register_plugins(get_setting('XF_LOADER_PLUGINS'))
+    keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
     # Generate the xfspec, which defines the sequence of events
     # to run through (like a packaged-up script)
