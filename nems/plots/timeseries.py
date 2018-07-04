@@ -45,7 +45,7 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
     if legend:
         plt.legend(legend)
     if title:
-        plt.title(title)
+        plt.title(title, fontsize=8)
 
 
 def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,

@@ -51,11 +51,16 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
             # d = scipy.signal.decimate(d[nnidx], q=5, axis=0)
             d = d / np.nanmax(d) * mmax - (0.1 + i) * mmax
             plt.plot(t, d, linewidth=1, color=state_colors[i-1])
+
+            tstr = "{} (d={:.3f},g={:.3f})".format(
+                        rec['state'].chans[i], m['phi']['d'][i],
+                        m['phi']['g'][i])
+            plt.text(t[0], (-i+0.1)*mmax, tstr)
         ax = plt.gca()
         # plt.text(0.5, 0.9, s, transform=ax.transAxes,
         #         horizontalalignment='center')
-        if s:
-            plt.title(s)
+        # if s:
+        #    plt.title(s, fontsize=8)
     plt.xlabel('time (s)')
     plt.axis('tight')
 
