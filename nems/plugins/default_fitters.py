@@ -202,8 +202,8 @@ def _parse_iter(options):
     '''Options specific to iter.'''
     tolerances = []
     module_sets = []
-    fit_iter = None
-    tol_iter = None
+    fit_iter = 10
+    tol_iter = 50
 
     for op in options:
         if op.startswith('ti'):

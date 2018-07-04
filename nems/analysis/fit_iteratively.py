@@ -146,8 +146,8 @@ def fit_iteratively(
         mapper=nems.fitters.mappers.simple_vector,
         metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp'),
         metaname='fit_basic', fit_kwargs={},
-        module_sets=None, invert=False, tolerances=None, tol_iter=100,
-        fit_iter=20,
+        module_sets=None, invert=False, tolerances=None, tol_iter=50,
+        fit_iter=10,
         ):
     '''
     Required Arguments:
