@@ -1152,19 +1152,24 @@ def jackknife_inverse_merge(rec_list):
         #for sn in ['pred', 'mask', 'stim', 'psth']:
         for sn in sig_list:
             if sn in sig_list:
-                _data = np.zeros(rec_list[0][sn].shape, dtype=rec_list[0][sn]._data.dtype)
-                if not(rec_list[0][sn]._data.dtype == bool):
+                r = rec_list[0][sn]
+                if type(r._data) is np.ndarray:
+                    _data = np.zeros(r.shape, dtype=r._data.dtype)
+                    if not(_data.dtype == bool):
+                        _data[:] = np.nan
+                else:
+                    _data = np.zeros(r.shape)
                     _data[:] = np.nan
 
                 # print(sn)
                 # print(np.sum(np.isfinite(_data)))
                 for r in rec_list:
                     m = r['mask'].as_continuous()[0, :]
-                    _data[:, m] = r[sn].as_continuous()[:, m]
+                    _data[:, m] = r[sn].rasterize().as_continuous()[:, m]
                     # if sn=='pred':
                     #    print(np.sum(m))
                     #    print(np.sum(np.isfinite(_data)))
-                new_sigs[sn] = r[sn]._modified_copy(_data)
+                new_sigs[sn] = r[sn].rasterize()._modified_copy(_data)
                 # print(np.sum(np.isfinite(new_sigs[sn].as_continuous())))
     else:
         new_sigs = {}
