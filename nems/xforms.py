@@ -301,10 +301,10 @@ def mask_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
 
 
 def init_from_keywords(keywordstring, meta={}, IsReload=False,
-                       registry=None, **context):
+                       registry=None, rec=None, **context):
     if not IsReload:
         modelspec = init.from_keywords(keyword_string=keywordstring,
-                                       registry=registry, meta=meta)
+                                       meta=meta, registry=registry, rec=rec)
 
         return {'modelspecs': [modelspec]}
     else:

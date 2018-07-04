@@ -29,19 +29,20 @@ Within each keyword, there are an arbitrary number of
 options separated by periods.
 
 Within each option, there may be commas to separate
-arguments where appropriate (between indicies, for example).
+arguments where appropriate (between indices, for example).
 
 An example modelname containing all of these characters might be:
 ```
 ozgf.fs100.ch18_wc.18x1.g-fir.1x18-dexp.1_iter.cd.ti50.fi20.T3,5,7.S0,1
 ```
 Which would be translated as:
-*Load a recording (uri specified elsewhere) with sampling rate 100hz
+
+* Load a recording (uri specified elsewhere) with sampling rate 100hz
  and 18 spectral channels, and average over stimulus repetitions.
-*Apply gaussian channel weighting.
-*Apply a basic FIR filter.
-*Apply double exponential output nonlinearity.
-*Use fit_iteratively with coordinate descent to fit the model. Use
+* Apply gaussian channel weighting.
+* Apply a basic FIR filter.
+* Apply double exponential output nonlinearity.
+* Use fit_iteratively with coordinate descent to fit the model. Use
  tolerance levels 10^-3, then 10^-5, then 10^-7 with 50 iterations
  per tolerance level and 20 iterations per fit loop. Only apply
  fitting to modules 0 and 1.

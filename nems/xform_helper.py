@@ -43,20 +43,20 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, autoPlot=True):
              .format(recording_uri, modelname))
 
     # parse modelname and assemble xfspecs for loader and fitter
-    loaders, modules, fitters = modelname.split("_")
+    load_keywords, model_keywords, fit_keywords = modelname.split("_")
 
     loader_lib = KeywordRegistry(recording_uri)
     loader_lib.register_module(default_loaders)
     loader_lib.register_plugins(get_setting('XF_LOADER_PLUGINS'))
     loader_xfspec = []
-    for loadkey in loaders.split('-'):
+    for loadkey in load_keywords.split('-'):
         loader_xfspec.extend(loader_lib[loadkey])
 
     fitter_lib = KeywordRegistry()
     fitter_lib.register_module(default_fitters)
     fitter_lib.register_plugins(get_setting('XF_FITTER_PLUGINS'))
     fitter_xfspec = []
-    for fitkey in fitters.split('-'):
+    for fitkey in fit_keywords.split('-'):
         fitter_xfspec = fitter_lib[fitkey]
 
     keyword_lib = KeywordRegistry()
@@ -72,7 +72,7 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, autoPlot=True):
 
     # 2) generate a modelspec
     xfspec.append(['nems.xforms.init_from_keywords',
-                   {'keywordstring': modules, 'meta': meta,
+                   {'keywordstring': model_keywords, 'meta': meta,
                     'registry': keyword_lib}])
 
     # 3) fit the data

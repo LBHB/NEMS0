@@ -51,11 +51,16 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
             # d = scipy.signal.decimate(d[nnidx], q=5, axis=0)
             d = d / np.nanmax(d) * mmax - (0.1 + i) * mmax
             plt.plot(t, d, linewidth=1, color=state_colors[i-1])
+
+            tstr = "{} (d={:.3f},g={:.3f})".format(
+                        rec['state'].chans[i], m['phi']['d'][i],
+                        m['phi']['g'][i])
+            plt.text(t[0], (-i+0.1)*mmax, tstr)
         ax = plt.gca()
         # plt.text(0.5, 0.9, s, transform=ax.transAxes,
         #         horizontalalignment='center')
-        if s:
-            plt.title(s)
+        # if s:
+        #    plt.title(s, fontsize=8)
     plt.xlabel('time (s)')
     plt.axis('tight')
 
@@ -89,7 +94,10 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
     d = rec[psth_name].get_epoch_bounds('PreStimSilence')
     PreStimSilence = np.mean(np.diff(d)) - 0.5/fs
     d = rec[psth_name].get_epoch_bounds('PostStimSilence')
-    PostStimSilence = np.min(np.diff(d)) - 0.5/fs
+    if d.size > 0:
+        PostStimSilence = np.min(np.diff(d)) - 0.5/fs
+    else:
+        PostStimSilence = 0
 
     full_psth = rec[psth_name]
     folded_psth = full_psth.extract_epoch(epoch)
@@ -118,20 +126,26 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
 
     # compute the mean state across all occurrences
     mean = np.nanmean(m)
+    gtidx = (m >= mean)
+    ltidx = np.logical_not(gtidx)
 
     # low = response on epochs when state less than mean
-    if np.sum(m < mean):
-        low = np.nanmean(folded_psth[m < mean, :, :], axis=0).T
-        low2 = np.nanmean(folded_psth2[m < mean, :, :], axis=0).T
+    if np.sum(ltidx):
+        low = np.nanmean(folded_psth[ltidx, :, :], axis=0).T
+        low2 = np.nanmean(folded_psth2[ltidx, :, :], axis=0).T
     else:
         low = np.ones(folded_psth[0, :, :].shape).T * np.nan
         low2 = np.ones(folded_psth2[0, :, :].shape).T * np.nan
 
-    # high = response on epochs when state less than mean
-    title = state_sig
-    high = np.nanmean(folded_psth[m >= mean, :, :], axis=0).T
-    high2 = np.nanmean(folded_psth2[m >= mean, :, :], axis=0).T
+    # high = response on epochs when state greater than or equal to mean
+    if np.sum(gtidx):
+        high = np.nanmean(folded_psth[gtidx, :, :], axis=0).T
+        high2 = np.nanmean(folded_psth2[gtidx, :, :], axis=0).T
+    else:
+        high = np.ones(folded_psth[0, :, :].shape).T * np.nan
+        high2 = np.ones(folded_psth2[0, :, :].shape).T * np.nan
 
+    title = state_sig
     hv = np.nanmean(m[m >= mean])
     if np.sum(m < mean) > 0:
         lv = np.nanmean(m[m < mean])

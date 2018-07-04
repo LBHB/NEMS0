@@ -13,7 +13,8 @@ import nems.modelspec as ms
 import nems.metrics.api as metrics
 
 log = logging.getLogger(__name__)
-default_kws = KeywordRegistry().register_module(default_keywords)
+default_kws = KeywordRegistry()
+default_kws.register_module(default_keywords)
 
 
 def from_keywords(keyword_string, registry=None, rec=None, meta={}):
@@ -34,9 +35,17 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}):
             N = rec['stim'].nchans
             kw_old = kw
             kw = kw.replace("fir.N", "fir.{}".format(N))
-            log.info("Dynamically subbing kw %s with %s", kw_old, kw)
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+        elif kw.startswith("stategain.N") and (rec is not None):
+            N = rec['state'].nchans
+            kw_old = kw
+            kw = kw.replace("stategain.N", "stategain.{}".format(N))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+        else:
+            log.info('kw: %s', kw)
         if registry.kw_head(kw) not in registry:
             raise ValueError("unknown keyword: {}".format(kw))
+
         d = copy.deepcopy(registry[kw])
         d['id'] = kw
         modelspec.append(d)
