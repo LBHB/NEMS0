@@ -1,6 +1,7 @@
 import re
 import os
 import sys
+import inspect
 import importlib as imp
 import logging
 log = logging.getLogger(__name__)
@@ -135,7 +136,7 @@ class KeywordRegistry():
         return self.keywords.__next__()
 
     def to_json(self):
-        d = {k: v.to_string() for k, v in self.keywords.items()}
+        d = {k: v.file_string() for k, v in self.keywords.items()}
         d['_KWR_ARGS'] = self.args
         return d
 
@@ -143,8 +144,10 @@ class KeywordRegistry():
     def from_json(self, d):
         r = KeywordRegistry(*d['_KWR_ARGS'])
         d.pop('_KWR_ARGS')
-        r.keywords = {k: getattr(imp.import_module(v), k)
-                      for k, v in d.items()}
+#        r.keywords = {k: getattr(imp.import_module(v), k)
+#                      for k, v in d.items()}
+        plugins = set([v for k, v in d.items()])
+        r.register_plugins(plugins)
         return r
 
 
@@ -159,5 +162,5 @@ class Keyword():
         self.key = kw_head
         self.parse = parse
 
-    def to_string(self):
-        return self.parse.__module__
+    def file_string(self):
+        return inspect.getmodule(self.parse).__file__
