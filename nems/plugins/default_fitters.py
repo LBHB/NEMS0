@@ -124,12 +124,14 @@ def iter(fitkey):
     metric, nfold, fitter, state, epoch, prefit = _parse_fit(options)
     tolerances, module_sets, fit_iter, tol_iter = _parse_iter(options)
 
-    xfspec = [['nems.xforms.fit_basic_init', {'tolerance': 1e-4}],
-              ['nems.xforms.fit_iteratively',
-               {'module_sets': module_sets, 'fitter': fitter,
-                'tolerances': tolerances, 'tol_iter': tol_iter,
-                'fit_iter': fit_iter, 'metric': metric}],
-              ['nems.xforms.predict', {}]]
+    xfspec = []
+    if prefit:
+        xfspec.append(['nems.xforms.fit_basic_init', {'tolerance': 1e-4}])
+    xfspec.extend([['nems.xforms.fit_iteratively',
+                    {'module_sets': module_sets, 'fitter': fitter,
+                     'tolerances': tolerances, 'tol_iter': tol_iter,
+                     'fit_iter': fit_iter, 'metric': metric}],
+                   ['nems.xforms.predict', {}]])
 
     return xfspec
 
