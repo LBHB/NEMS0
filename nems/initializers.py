@@ -11,10 +11,12 @@ from nems.fitters.api import scipy_minimize
 import nems.priors as priors
 import nems.modelspec as ms
 import nems.metrics.api as metrics
+from nems import get_setting
 
 log = logging.getLogger(__name__)
 default_kws = KeywordRegistry()
 default_kws.register_module(default_keywords)
+default_kws.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
 
 def from_keywords(keyword_string, registry=None, rec=None, meta={}):
