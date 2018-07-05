@@ -379,10 +379,13 @@ def init_logsig(rec, modelspec):
     amplitude = ('Exponential', {'beta': 2*resp_range})
     shift = ('Normal', {'mean': mean_stim, 'sd': stim_range})
     kappa = ('Exponential', {'beta': stim_range/stim.shape[1]})
+    force_zero = ('Normal', {'mean': 0.0, 'sd': 0.0})
 
     modelspec[logsig_idx]['prior'] = {
             'base': base, 'amplitude': amplitude, 'shift': shift,
-            'kappa': kappa,
+            'kappa': kappa, 'base_mod': force_zero,
+            'amplitude_mod': force_zero, 'shift_mod': force_zero,
+            'kappa_mod': force_zero
             }
 
     modelspec[logsig_idx]['bounds'] = {
@@ -391,9 +394,5 @@ def init_logsig(rec, modelspec):
             'shift': (None, None), 'shift_mod': (0, 0),
             'kappa': (1e-15, None), 'kappa_mod': (0, 0),
             }
-
-    log.info("logistic_sigmoid priors initialized to: "
-             "base: %s\namplitude: %s\nshift: %s\nkappa: %s\n",
-             *modelspec[logsig_idx]['prior'].values())
 
     return modelspec
