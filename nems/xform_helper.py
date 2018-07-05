@@ -57,7 +57,7 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, autoPlot=True):
     fitter_lib.register_plugins(get_setting('XF_FITTER_PLUGINS'))
     fitter_xfspec = []
     for fitkey in fit_keywords.split('-'):
-        fitter_xfspec = fitter_lib[fitkey]
+        fitter_xfspec.extend(fitter_lib[fitkey])
 
     keyword_lib = KeywordRegistry()
     keyword_lib.register_module(default_keywords)
