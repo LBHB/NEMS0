@@ -26,9 +26,10 @@ def basic(fitkey):
     shr : Use nmse_shrink as the performance metric (default is nmse)
     nfN : Perform nfold fitting with N folds, where N is any positive integer.
     st : Expect a model based on state variables.
+    ep : Epoch to use for xforms functions.
+    npr : Skip the default prefitting routine for non-state models.
     miN : Set maximum iterations to N, where N is any positive integer.
     tN : Set tolerance to 10**-N, where N is any positive integer.
-    npr : Skip the default prefitting routine for non-state models.
     m : Use split_for_jackknife instead of mask_for_jackknife
 
     '''
@@ -36,8 +37,8 @@ def basic(fitkey):
     xfspec = []
 
     options = _extract_options(fitkey)
-    metric, nfold, fitter, state, epoch = _parse_fit(options)
-    max_iter, tolerance, prefit, do_split = _parse_basic(options)
+    metric, nfold, fitter, state, epoch, prefit = _parse_fit(options)
+    max_iter, tolerance, do_split = _parse_basic(options)
     if nfold:
         log.info("n-fold fitting...")
         jk_kwargs = {'metric': metric, 'tolerance': tolerance}
@@ -100,6 +101,8 @@ def iter(fitkey):
     shr : Use nmse_shrink as the performance metric (default is nmse)
     nfN : Perform nfold fitting with N folds, where N is any positive integer.
     st : Expect a model based on state variables.
+    ep : Epoch to use for xform functions.
+    npr : Skip the default prefitting routine for non-state models.
     TN,N,... : Use tolerance levels 10**-N for each N given, where N is
                any positive integer.
     SN,N,... : Fit model indices N, N... for each N given,
@@ -118,7 +121,7 @@ def iter(fitkey):
     # TODO: Support nfold and state fits for fit_iteratively?
     #       And epoch to go with state.
     options = _extract_options(fitkey)
-    metric, nfold, fitter, state, epoch = _parse_fit(options)
+    metric, nfold, fitter, state, epoch, prefit = _parse_fit(options)
     tolerances, module_sets, fit_iter, tol_iter = _parse_iter(options)
 
     xfspec = [['nems.xforms.fit_basic_init', {'tolerance': 1e-4}],
@@ -149,6 +152,7 @@ def _parse_fit(options):
     fitter = 'scipy_minimize'
     state = False
     epoch = 'REFERENCE'
+    prefit = True
     # TODO: Find a better solution for default epoch - REFERENCE is
     #       lbhb-specific, but don't want to have to put epREFERENCE in every
     #       model name.
@@ -172,15 +176,16 @@ def _parse_fit(options):
         elif op.startswith('ep'):
             pattern = re.compile(r'^ep(\w{1,})$')
             epoch = re.match(pattern, op).group(1)
+        elif op == 'npr':
+            prefit = False
 
-    return metric, nfold, fitter, state, epoch
+    return metric, nfold, fitter, state, epoch, prefit
 
 
 def _parse_basic(options):
     '''Options specific to basic.'''
     max_iter = 1000
     tolerance = 1e-7
-    prefit = True  # TODO: Still need this option, or always want prefit?
     do_split = False
     for op in options:
         if op.startswith('mi'):
@@ -190,12 +195,10 @@ def _parse_basic(options):
             pattern = re.compile(r'^t(\d{1,})')
             power = int(re.match(pattern, op).group(1))*(-1)
             tolerance = 10**power
-        elif op == 'npr':
-            prefit = False
         elif op == 'm':
             do_split = True
 
-    return max_iter, tolerance, prefit, do_split
+    return max_iter, tolerance, do_split
 
 
 def _parse_iter(options):
