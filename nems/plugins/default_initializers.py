@@ -7,13 +7,13 @@ log = logging.getLogger(__name__)
 def init(kw):
     ops = kw.split('.')[1:]
     st = False
-    tolerance = 1e-4
+    tolerance = 10**-5.5
 
     for op in ops:
         if op == 'st':
             st = True
         elif op.startswith('t'):
-            tolpower = int(op[1:])*(-1)
+            tolpower = float(op[1:])*(-1)
             tolerance = 10**tolpower
 
     if st:

@@ -58,7 +58,8 @@ def basic(fitkey):
     max_iter, tolerance, fitter = _parse_basic(options)
     xfspec = [['nems.xforms.fit_basic',
                {'max_iter': max_iter,
-                'fitter': fitter, 'tolerance': tolerance}]]
+                'fitter': fitter, 'tolerance': tolerance}],
+              ['nems.xforms.predict', {}]]
 
     return xfspec
 
@@ -103,7 +104,8 @@ def iter(fitkey):
     xfspec = [['nems.xforms.fit_iteratively',
                {'module_sets': module_sets, 'fitter': fitter,
                 'tolerances': tolerances, 'tol_iter': tol_iter,
-                'fit_iter': fit_iter}]]
+                'fit_iter': fit_iter}],
+              ['nems.xforms.predict', {}]]
 
     return xfspec
 
