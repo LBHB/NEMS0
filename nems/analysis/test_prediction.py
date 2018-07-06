@@ -52,6 +52,7 @@ def standard_correlation(est, val, modelspecs, rec=None):
 
     modelspecs[0][0]['meta']['r_test'] = r_test
     modelspecs[0][0]['meta']['se_test'] = se_test
+    modelspecs[0][0]['meta']['r_floor'] = np.mean(r_floor)
     modelspecs[0][0]['meta']['mse_test'] = np.mean(mse_test)
     modelspecs[0][0]['meta']['ll_test'] = np.mean(ll_test)
 
