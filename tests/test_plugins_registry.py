@@ -8,7 +8,7 @@ from nems.plugins import default_fitters
 
 @pytest.fixture
 def loader_registry():
-    loaders = KeywordRegistry('dummy_recording_uri')
+    loaders = KeywordRegistry(recording_uri='dummy_recording_uri')
     loaders.register_module(default_loaders)
     return loaders
 

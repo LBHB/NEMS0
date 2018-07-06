@@ -43,21 +43,15 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, autoPlot=True):
              .format(recording_uri, modelname))
 
     # parse modelname and assemble xfspecs for loader and fitter
+
+    # TODO: naming scheme change: pre_modules, modules, post_modules?
+    #       or something along those lines... since they aren't really
+    #       just loaders and fitters
     load_keywords, model_keywords, fit_keywords = modelname.split("_")
 
-    loader_lib = KeywordRegistry(recording_uri)
-    loader_lib.register_module(default_loaders)
-    loader_lib.register_plugins(get_setting('XF_LOADER_PLUGINS'))
-    loader_xfspec = []
-    for loadkey in load_keywords.split('-'):
-        loader_xfspec.extend(loader_lib[loadkey])
-
-    fitter_lib = KeywordRegistry()
-    fitter_lib.register_module(default_fitters)
-    fitter_lib.register_plugins(get_setting('XF_FITTER_PLUGINS'))
-    fitter_xfspec = []
-    for fitkey in fit_keywords.split('-'):
-        fitter_xfspec = fitter_lib[fitkey]
+    xforms_lib = KeywordRegistry(recording_uri=recording_uri)
+    xforms_lib.register_modules(default_loaders, default_fitters)
+    xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
 
     keyword_lib = KeywordRegistry()
     keyword_lib.register_module(default_keywords)
@@ -68,14 +62,14 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, autoPlot=True):
     xfspec = []
 
     # 1) Load the data
-    xfspec.extend(loader_xfspec)
+    xfspec.extend(_parse_kw_string(load_keywords, xforms_lib))
 
     # 2) generate a modelspec
     xfspec.append(['nems.xforms.init_from_keywords',
                    {'keywordstring': model_keywords, 'meta': meta,
                     'registry': keyword_lib}])
     # 3) fit the data
-    xfspec.extend(fitter_xfspec)
+    xfspec.extend(_parse_kw_string(fit_keywords, xforms_lib))
 
     # 4) add some performance statistics
     xfspec.append(['nems.analysis.api.standard_correlation', {},
@@ -95,3 +89,15 @@ def fit_xfspec(xfspec):
     # (all packaged up in the ctx dictionary).
     ctx, log_xf = xforms.evaluate(xfspec)
     return ctx
+
+
+def _parse_kw_string(kw_string, registry):
+    xfspec = []
+    for kw in kw_string.split('-'):
+        try:
+            xfspec.extend(registry[kw])
+        except KeyError:
+            log.info("No keyword found for: %s , skipping ...")
+            pass
+
+    return xfspec
