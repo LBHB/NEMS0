@@ -70,7 +70,7 @@ def get_setting(setting):
     try:
         # s is something other than a string
         s = ast.literal_eval(s)
-    except SyntaxError or ValueError:
-        # setting is just a string
+    except (SyntaxError, ValueError):
+        # setting is just a string or empty list
         pass
     return s

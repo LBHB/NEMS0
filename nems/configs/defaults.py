@@ -47,17 +47,13 @@ NEMS_LOG_CONSOLE_LEVEL = 'DEBUG'
 ################################################################################
 # Plugins Registries
 ################################################################################
-# Keyword Plugins, updates nems.keywords.defaults
+# Keyword Plugins, updates nems.plugins.default_keywords
 # ex: KEYWORD_PLUGINS = ['/path/to/keywords/', '/second/path/']
 KEYWORD_PLUGINS = []
 
-# Xforms Loader Plugins
+# Xforms Plugins, updates nems.plugins.default_loaders, default_fitters, etc.
 # ex: XF_LOADER_PLUGINS = ['/path/to/my/plugins/loaders/', '/second/path/']
-XF_LOADER_PLUGINS = []
-
-# Xforms Fitter Plugins
-# ex: XF_FITTER_PLUGINS = ['/path/to/my/plugins/fitters/', '/second/path/']
-XF_FITTER_PLUGINS = []
+XFORMS_PLUGINS = []
 
 
 ################################################################################

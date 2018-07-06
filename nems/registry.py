@@ -32,13 +32,15 @@ class KeywordRegistry():
     directories or modules of keyword definitions.
     '''
 
-    def __init__(self, *args):
+    def __init__(self, **kwargs):
         self.keywords = {}
-        self.args = args
+        self.kwargs = kwargs
 
     def __getitem__(self, kw_string):
         kw = self.lookup(kw_string)
-        return kw.parse(kw_string, *self.args)
+        accepted_args = inspect.getargspec(kw.parse)[0]
+        kwargs = {k: v for k, v in self.kwargs.items() if k in accepted_args}
+        return kw.parse(kw_string, **kwargs)
 
     def __setitem__(self, kw_head, parse):
         # TODO: Warning either here or in register_module / register_plugins
@@ -135,7 +137,7 @@ class KeywordRegistry():
 
     def to_json(self):
         d = {k: v.file_string() for k, v in self.keywords.items()}
-        d['_KWR_ARGS'] = self.args
+        d['_KWR_ARGS'] = self.kwargs
         return d
 
     @classmethod
