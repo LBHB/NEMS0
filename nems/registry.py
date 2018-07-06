@@ -80,16 +80,14 @@ class KeywordRegistry():
         if d.endswith('.py'):
             package, mod = os.path.split(d)
             sys.path.append(package)
-            package_name = os.path.split(package)[-1]
             module_name = mod[:-3]
-            modules = [imp.import_module(module_name, package=package_name)]
+            modules = [imp.import_module(module_name)]#, package=package_name)]
         else:
             sys.path.append(d)
             if d.endswith('/'):
                 d = d[:-1]
-            package_name = os.path.split(d)[-1]
             modules = [
-                    imp.import_module(f[:-3], package=package_name)
+                    imp.import_module(f[:-3])
                     for f in os.listdir(d) if f.endswith('.py')
                     ]
         self.register_modules(modules)
