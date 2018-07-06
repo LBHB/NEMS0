@@ -1,4 +1,4 @@
-def load(loadkey, recording_uri):
+def ld(loadkey, recording_uri):
     '''Default loader xfspec. Loads the recording, does nothing else.'''
     recordings = [recording_uri]
     options = loadkey.split('.')[1:]
