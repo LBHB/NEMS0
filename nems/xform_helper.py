@@ -50,7 +50,7 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, autoPlot=True):
     load_keywords, model_keywords, fit_keywords = modelname.split("_")
 
     xforms_lib = KeywordRegistry(recording_uri=recording_uri)
-    xforms_lib.register_modules(default_loaders, default_fitters)
+    xforms_lib.register_modules([default_loaders, default_fitters])
     xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
 
     keyword_lib = KeywordRegistry()
