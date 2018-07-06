@@ -32,13 +32,15 @@ class KeywordRegistry():
     directories or modules of keyword definitions.
     '''
 
-    def __init__(self, *args):
+    def __init__(self, **kwargs):
         self.keywords = {}
-        self.args = args
+        self.kwargs = kwargs
 
     def __getitem__(self, kw_string):
         kw = self.lookup(kw_string)
-        return kw.parse(kw_string, *self.args)
+        accepted_args = inspect.getargspec(kw.parse)[0]
+        kwargs = {k: v for k, v in self.kwargs.items() if k in accepted_args}
+        return kw.parse(kw_string, **kwargs)
 
     def __setitem__(self, kw_head, parse):
         # TODO: Warning either here or in register_module / register_plugins
@@ -80,16 +82,14 @@ class KeywordRegistry():
         if d.endswith('.py'):
             package, mod = os.path.split(d)
             sys.path.append(package)
-            package_name = os.path.split(package)[-1]
             module_name = mod[:-3]
-            modules = [imp.import_module(module_name, package=package_name)]
+            modules = [imp.import_module(module_name)]#, package=package_name)]
         else:
             sys.path.append(d)
             if d.endswith('/'):
                 d = d[:-1]
-            package_name = os.path.split(d)[-1]
             modules = [
-                    imp.import_module(f[:-3], package=package_name)
+                    imp.import_module(f[:-3])
                     for f in os.listdir(d) if f.endswith('.py')
                     ]
         self.register_modules(modules)
@@ -137,7 +137,7 @@ class KeywordRegistry():
 
     def to_json(self):
         d = {k: v.file_string() for k, v in self.keywords.items()}
-        d['_KWR_ARGS'] = self.args
+        d['_KWR_ARGS'] = self.kwargs
         return d
 
     @classmethod

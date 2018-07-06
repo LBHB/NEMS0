@@ -34,7 +34,7 @@ logging.info('Loading data...')
 
 # Method #1: Load the data from a local directory
 # download demo data if necessary:
-nems.uri.get_demo_recordings(signals_dir)
+recording.get_demo_recordings(signals_dir)
 
 # load into a recording object
 rec = recording.load_recording(signals_dir + "/TAR010c-18-1.tgz")
@@ -75,10 +75,10 @@ logging.info('Initializing modelspec(s)...')
 
 # Method #1: create from "shorthand" keyword string
 # very simple linear model
-modelspec_name='wcg18x1_fir1x15_lvl1_dexp1'
+modelspec_name='wc.18x2.g-fir.2x15-lvl.1'
 
 # Method #1b: constrain spectral tuning to be gaussian, add static output NL
-#modelspec_name='wcg18x2_fir2x15_lvl1_dexp1'
+#modelspec_name='wc.18x2.g-fir.2x15-lvl.1-dexp.1'
 
 modelspec = nems.initializers.from_keywords(modelspec_name)
 

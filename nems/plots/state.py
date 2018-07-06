@@ -105,8 +105,12 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
         full_psth2 = rec[psth_name2]
         folded_psth2 = full_psth2.extract_epoch(epoch)
 
-    full_var = rec['state'].loc[state_sig]
-    folded_var = full_var.extract_epoch(epoch)
+    if state_sig == "each_passive":
+        raise ValueError("each_passive state not supported")
+        # extract high (=1) epochs from each passive state
+    else:
+        full_var = rec['state'].loc[state_sig]
+        folded_var = full_var.extract_epoch(epoch)
 
     # remove masked out occurences if mask signal exists
     if 'mask' in rec.signals.keys():

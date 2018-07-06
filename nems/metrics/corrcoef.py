@@ -50,6 +50,66 @@ def corrcoef(result, pred_name='pred', resp_name='resp'):
         return cc[0, 1]
 
 
+def j_corrcoef(result, pred_name='pred', resp_name='resp', njacks=10):
+    '''
+    Jackknifed estimate of mean and SE on correlation coefficient
+
+    Parameters
+    ----------
+    result : A Recording object
+        Generally the output of `model.evaluate(phi, data)`
+    pred_name : string
+        Name of prediction in the result recording
+    resp_name : string
+        Name of response in the result recording
+
+    Returns
+    -------
+    cc : float
+        Correlation coefficient between the prediction and response.
+    ee : float
+        Standard error on cc, calculated by jackknife (Efron & Tibshirani 1986)
+
+    Example
+    -------
+    >>> result = model.evaluate(data, phi)
+    >>> cc,ee = j_corrcoef(result, 'pred', 'resp', njacks=10)
+
+    Note
+    ----
+    This function is written to be compatible with both numeric (i.e., Numpy)
+    and symbolic (i.e., Theano, TensorFlow) computation. Please do not edit
+    unless you know what you're doing. (@bburan TODO: Is this still true?)
+    '''
+    pred = result[pred_name].as_continuous()
+    resp = result[resp_name].as_continuous()
+
+    if pred.shape[0] > 1:
+        raise ValueError("multi-channel signals not supported yet.")
+
+    ff = np.isfinite(pred) & np.isfinite(resp)
+
+    if (np.sum(ff) == 0) or (np.sum(pred[ff]) == 0) or (np.sum(resp[ff]) == 0):
+        return 0
+    else:
+        pred = pred[ff]
+        resp = resp[ff]
+        chunksize = int(np.ceil(len(pred) / njacks / 10))
+        chunkcount = int(np.ceil(len(pred) / chunksize / njacks))
+        idx = np.zeros((chunkcount,njacks,chunksize))
+        for jj in range(njacks):
+            idx[:,jj,:] = jj
+        idx = np.reshape(idx,[-1])[:len(pred)]
+        jc = np.zeros(njacks)
+        for jj in range(njacks):
+            ff = (idx!=jj)
+            jc[jj] = np.corrcoef(pred[ff], resp[ff])[0, 1]
+
+        cc = np.mean(jc)
+        ee = np.std(jc) * np.sqrt(njacks-1)
+        return cc, ee
+
+
 def r_floor(result, pred_name='pred', resp_name='resp'):
     '''
     corr coef floor based on shuffled responses
