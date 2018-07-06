@@ -428,7 +428,7 @@ def fit_state_init(modelspecs, est, IsReload=False, metric='nmse', **context):
 
 def fit_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
               metric='nmse', IsReload=False, fitter='scipy_minimize',
-              **context):
+              jackknifed_fit=False, **context):
     ''' A basic fit that optimizes every input modelspec. '''
     if not IsReload:
         metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
