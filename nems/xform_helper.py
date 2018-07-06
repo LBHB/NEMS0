@@ -4,9 +4,8 @@ import importlib as imp
 import nems.xforms as xforms
 from nems import get_setting
 from nems.registry import KeywordRegistry
-from nems.plugins import default_keywords
-from nems.plugins import default_loaders
-from nems.plugins import default_fitters
+from nems.plugins import (default_keywords, default_loaders, default_fitters,
+                          default_initializers)
 
 log = logging.getLogger(__name__)
 
@@ -50,7 +49,8 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, autoPlot=True):
     load_keywords, model_keywords, fit_keywords = modelname.split("_")
 
     xforms_lib = KeywordRegistry(recording_uri=recording_uri)
-    xforms_lib.register_modules([default_loaders, default_fitters])
+    xforms_lib.register_modules([default_loaders, default_fitters,
+                                 default_initializers])
     xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
 
     keyword_lib = KeywordRegistry()

@@ -145,7 +145,7 @@ def fit_iteratively(
         segmentor=nems.segmentors.use_all_data,
         mapper=nems.fitters.mappers.simple_vector,
         metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp'),
-        metaname='fit_basic', fit_kwargs={},
+        metaname='fit_iteratively', fit_kwargs={},
         module_sets=None, invert=False, tolerances=None, tol_iter=100,
         fit_iter=20,
         ):

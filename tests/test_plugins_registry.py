@@ -28,13 +28,15 @@ def fitter_registry():
 
 
 def test_loader_registry(loader_registry):
-    # Default loader has no options since it just loads the recording.
-    # So all of these should be fine and should return equivalent xfspecs.
-    one = loader_registry['load']
-    two = loader_registry['load.']
-    three = loader_registry['load.whatever']
-
+    # All of these should be fine and should return equivalent xfspecs.
+    one = loader_registry['ld']
+    two = loader_registry['ld.']
+    three = loader_registry['ld.whatever']
     assert one == two == three
+
+    # But .n should add normalization
+    four = loader_registry['ld.n']
+    assert one != four
 
 
 def test_model_registry(model_registry):
