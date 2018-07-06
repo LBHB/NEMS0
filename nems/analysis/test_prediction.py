@@ -25,12 +25,21 @@ def generate_prediction(est,val,modelspecs):
 def standard_correlation(est, val, modelspecs, rec=None):
 
     # Compute scores for validation data
-    r_test = [nmet.corrcoef(p, 'pred', 'resp') for p in val]
+    if len(val) == 1:
+        r_test, se_test = nmet.j_corrcoef(val[0], 'pred', 'resp')
+        r_fit, se_fit = nmet.j_corrcoef(est[0], 'pred', 'resp')
+    else:
+        r = [nmet.corrcoef(p, 'pred', 'resp') for p in val]
+        r_test = np.mean(r)
+        se_test = np.std(r) / np.sqrt(len(val))
+        r = [nmet.corrcoef(p, 'pred', 'resp') for p in est]
+        r_fit = np.mean(r)
+        se_fit = np.std(r) / np.sqrt(len(val))
+
     mse_test = [nmet.nmse(p, 'pred', 'resp') for p in val]
     ll_test = [nmet.likelihood_poisson(p, 'pred', 'resp') for p in val]
 
     # Repeat for est data.
-    r_fit = [nmet.corrcoef(p, 'pred', 'resp') for p in est]
     r_floor = [nmet.r_floor(p, 'pred', 'resp') for p in val]
     if rec is not None:
         #print('running r_ceiling')
@@ -41,12 +50,13 @@ def standard_correlation(est, val, modelspecs, rec=None):
     mse_fit = [nmet.nmse(p, 'pred', 'resp') for p in val]
     ll_fit = [nmet.likelihood_poisson(p, 'pred', 'resp') for p in est]
 
-    modelspecs[0][0]['meta']['r_test'] = np.mean(r_test)
+    modelspecs[0][0]['meta']['r_test'] = r_test
+    modelspecs[0][0]['meta']['se_test'] = se_test
     modelspecs[0][0]['meta']['mse_test'] = np.mean(mse_test)
     modelspecs[0][0]['meta']['ll_test'] = np.mean(ll_test)
 
-    modelspecs[0][0]['meta']['r_fit'] = np.mean(r_fit)
-    modelspecs[0][0]['meta']['r_floor'] = np.mean(r_floor)
+    modelspecs[0][0]['meta']['r_fit'] = r_fit
+    modelspecs[0][0]['meta']['se_fit'] = se_fit
     if rec is not None:
         modelspecs[0][0]['meta']['r_ceiling'] = np.mean(r_ceiling)
     modelspecs[0][0]['meta']['mse_fit'] = np.mean(mse_fit)
@@ -55,17 +65,17 @@ def standard_correlation(est, val, modelspecs, rec=None):
     return modelspecs
 
 def standard_correlation_by_epochs(est,val,modelspecs,epochs_list, rec=None):
-    
+
     #Does the same thing as standard_correlation, excpet with subsets of data
     #defined by epochs_list
-    
+
     #To use this, first add epochs to define subsets of data.
     #Then, pass epochs_list as a list of subsets to test.
     #For example, ['A', 'B', ['A', 'B']] will measure correlations separately
-    # for all epochs marked 'A', all epochs marked 'B', and all epochs marked 
+    # for all epochs marked 'A', all epochs marked 'B', and all epochs marked
     # 'A'or 'B'
-    
-    
+
+
     for epochs in epochs_list:
         # Create a label for this subset. If epochs is a list, join elements with "+"
         epoch_list_str="+".join([str(x) for x in epochs])

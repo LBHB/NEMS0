@@ -74,6 +74,7 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, autoPlot=True):
     xfspec.append(['nems.xforms.init_from_keywords',
                    {'keywordstring': model_keywords, 'meta': meta,
                     'registry': keyword_lib}])
+
     # 3) fit the data
     xfspec.extend(fitter_xfspec)
 
