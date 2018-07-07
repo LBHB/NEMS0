@@ -130,9 +130,9 @@ def _parse_basic(options):
             pattern = re.compile(r'^mi(\d{1,})')
             max_iter = int(re.match(pattern, op).group(1))
         elif op.startswith('t'):
-            pattern = re.compile(r'^t(\d{1,})')
-            power = int(re.match(pattern, op).group(1))*(-1)
-            tolerance = 10**power
+            num = op.replace('d', '.')
+            tolpower = float(num[1:])*(-1)
+            tolerance = 10**tolpower
         elif op == 'cd':
             fitter = 'coordinate_descent'
 
@@ -153,7 +153,8 @@ def _parse_iter(options):
         elif op.startswith('fi'):
             fit_iter = int(op[2:])
         elif op.startswith('T'):
-            powers = [int(i) for i in op[1:].split(',')]
+            nums = op.replace('d', '.')
+            powers = [float(i) for i in nums[1:].split(',')]
             tolerances.extend([10**(-1*p) for p in powers])
         elif op.startswith('S'):
             indices = [int(i) for i in op[1:].split(',')]

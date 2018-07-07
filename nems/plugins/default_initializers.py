@@ -13,7 +13,9 @@ def init(kw):
         if op == 'st':
             st = True
         elif op.startswith('t'):
-            tolpower = float(op[1:])*(-1)
+            # 'd' stands in for '.' in floating points
+            num = op.replace(',', '.')
+            tolpower = float(num[1:])*(-1)
             tolerance = 10**tolpower
 
     if st:
