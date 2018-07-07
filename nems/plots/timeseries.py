@@ -83,7 +83,8 @@ def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
         time_vector = np.arange(0, len(value_vector)) / s.fs
         times.append(time_vector)
         values.append(value_vector)
-        legend.append(s.name+' '+s.chans[c])
+        if s.chans is not None:
+            legend.append(s.name+' '+s.chans[c])
 
     plot_timeseries(times, values, xlabel, ylabel, legend=legend,
                     linestyle=linestyle, linewidth=linewidth,

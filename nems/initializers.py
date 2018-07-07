@@ -140,6 +140,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
             break
 
         elif 'logistic_sigmoid' in m['fn']:
+            log.info("initializing priors and bounds for logsig ...\n")
             modelspec = init_logsig(est, modelspec)
             break
 

@@ -5,19 +5,23 @@ from numpy import exp
 
 def _logistic_sigmoid(x, base, amplitude, shift, kappa):
     ''' This "logistic" function only has a single negative exponent '''
-    return base + amplitude * 1 / (1 + exp(-kappa * (x - shift)))
+    return base + amplitude/(1 + exp(-(x-shift)/kappa))
 
 
 def logistic_sigmoid(rec, i, o, c, base, amplitude, shift, kappa, base_mod,
                      amplitude_mod, shift_mod, kappa_mod):
-    contrast = rec[c].as_continuous()
-    for th0, th1 in zip([base, amplitude, shift, kappa],
-                        [base_mod, amplitude_mod, shift_mod, kappa_mod]):
-        if (th1 == 0) or (np.isnan(th1)):
-            # Save time if static
-            pass
-        else:
-            th0 = (contrast*th1 + th0)
+    try:
+        contrast = rec[c].as_continuous()
+        for th0, th1 in zip([base, amplitude, shift, kappa],
+                            [base_mod, amplitude_mod, shift_mod, kappa_mod]):
+            if (th1 == 0) or (np.isnan(th1)):
+                # Save time if static
+                pass
+            else:
+                th0 = (contrast*th1 + th0)
+    except AttributeError:
+        # Recording doesn't have a contrast signal, just do static logsig
+        pass
 
     fn = lambda x: _logistic_sigmoid(x, base, amplitude, shift, kappa)
     return [rec[i].transform(fn, o)]
