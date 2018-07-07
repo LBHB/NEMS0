@@ -101,16 +101,6 @@ def _module_set_loop(subset, data, modelspec, cost_function, fitter,
         mods = [m['fn'] for i, m in enumerate(modelspec) if i in subset]
         log.info("%s\n", mods)
 
-        # remove hold_outs from modelspec
-        #frozen_phi = []
-        #for i, m in enumerate(modelspec):
-        #    if i not in subset:
-        #        frozen_phi.append(m['phi'])
-        #        m['fn_kwargs'].update(m['phi'])
-        #        m['phi'] = {}
-        #    else:
-        #        frozen_phi.append(None)
-
         log.debug("Modelspec after freeze: %s", modelspec)
 
         packer, unpacker, pack_bounds = mapper(modelspec, subset=subset)
@@ -126,12 +116,6 @@ def _module_set_loop(subset, data, modelspec, cost_function, fitter,
 
         improved_sigma = fitter(sigma, cost_fn, bounds=bounds, **fit_kwargs)
         improved_modelspec = unpacker(improved_sigma)
-
-        #for i, m in enumerate(improved_modelspec):
-        #    if i not in subset:
-        #        m['phi'] = frozen_phi[i]
-        #        for k in frozen_phi[i]:
-        #            m['fn_kwargs'].pop(k)
 
         log.debug("Modelspec after unfreeze: %s", improved_modelspec)
 

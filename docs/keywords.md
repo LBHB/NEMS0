@@ -31,21 +31,27 @@ options separated by periods.
 Within each option, there may be commas to separate
 arguments where appropriate (between indices, for example).
 
+Within an option that can contain floating point parameters,
+a 'd' will be interpreted as a decimal.
+For example, the tolerance set T3,5d5,7 would be translated
+as [3.0, 5.5, 7.0].
+
 An example modelname containing all of these characters might be:
 ```
-ozgf.fs100.ch18_wc.18x1.g-fir.1x18-dexp.1_iter.cd.ti50.fi20.T3,5,7.S0,1
+ld.n_wc.18x1.g-fir.1x18-dexp.1_init.t5d5.t5-iter.cd.ti50.fi20.T3,5,7.S0,1
 ```
 Which would be translated as:
 
-* Load a recording (uri specified elsewhere) with sampling rate 100hz
- and 18 spectral channels, and average over stimulus repetitions.
+* Load a recording (uri specified elsewhere) and apply normalization.
 * Apply gaussian channel weighting.
 * Apply a basic FIR filter.
 * Apply double exponential output nonlinearity.
+* Use fit_basic_init to initialize phi for the model, with a tolerance
+ level of 10^-5.5.
 * Use fit_iteratively with coordinate descent to fit the model. Use
  tolerance levels 10^-3, then 10^-5, then 10^-7 with 50 iterations
  per tolerance level and 20 iterations per fit loop. Only apply
  fitting to modules 0 and 1.
 
 For a full description of how individual keywords are parsed, refer to
-their definition within nems.plugins.default_<loaders, keywords, fitters>
+their definition within the modules in nems.plugins.

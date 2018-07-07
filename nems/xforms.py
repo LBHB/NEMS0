@@ -428,26 +428,18 @@ def fit_state_init(modelspecs, est, IsReload=False, metric='nmse', **context):
 
 def fit_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
               metric='nmse', IsReload=False, fitter='scipy_minimize',
-              **context):
+              jackknifed_fit=False, **context):
     ''' A basic fit that optimizes every input modelspec. '''
     if not IsReload:
         metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
         fitter_fn = getattr(nems.fitters.api, fitter)
-
         fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
-        if type(est) is list:
-            # jackknife!
-            modelspecs_out = []
-            njacks = len(modelspecs)
-            i = 0
-            for m, d in zip(modelspecs, est):
-                i += 1
-                log.info("Fitting JK {}/{}".format(i, njacks))
-                modelspecs_out += nems.analysis.api.fit_basic(
-                        d, m, fit_kwargs=fit_kwargs,
-                        metric=metric_fn,
-                        fitter=fitter_fn)
-            modelspecs = modelspecs_out
+
+        if jackknifed_fit:
+            return fit_nfold(modelspecs, est, tolerance=tolerance,
+                             metric=metric, fitter=fitter,
+                             fit_kwargs=fit_kwargs, analysis='fit_basic',
+                             **context)
         else:
             # standard single shot
             modelspecs = [nems.analysis.api.fit_basic(
@@ -491,26 +483,19 @@ def fit_module_sets(modelspecs, est, max_iter=1000, IsReload=False,
 def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
                     module_sets=None, invert=False, tolerances=[1e-4],
                     metric='nmse', fitter='scipy_minimize', fit_kwargs={},
-                    **context):
+                    jackknifed_fit=False, **context):
 
     fitter_fn = getattr(nems.fitters.api, fitter)
     metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
 
     if not IsReload:
-        if type(est) is list:
-            modelspecs_out = []
-            njacks = len(modelspecs)
-            i = 0
-            for m, d in zip(modelspecs, est):
-                i += 1
-                log.info("Fitting JK %d/%d", i, njacks)
-                modelspecs_out += nems.analysis.api.fit_iteratively(
-                        d, m, fit_kwargs=fit_kwargs, fitter=fitter_fn,
-                        module_sets=module_sets, invert=False,
-                        tolerances=tolerances, tol_iter=tol_iter,
-                        fit_iter=fit_iter, metric=metric_fn
-                        )
-            modelspecs = modelspecs_out
+        if jackknifed_fit:
+            return fit_nfold(modelspecs, est, tol_iter=tol_iter,
+                             fit_iter=fit_iter, module_sets=module_sets,
+                             tolerances=tolerances, metric=metric,
+                             fitter=fitter, fit_kwargs=fit_kwargs,
+                             analysis='fit_iteratively', **context)
+
         else:
             modelspecs = [
                     nems.analysis.api.fit_iteratively(
@@ -575,7 +560,8 @@ def fit_jackknifes(modelspecs, est, njacks,
 
 def fit_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
               IsReload=False, metric='nmse', fitter='scipy_minimize',
-              **context):
+              analysis='fit_basic', tolerances=None, module_sets=None,
+              tol_iter=100, fit_iter=20, **context):
     ''' fitting n fold, one from each entry in est '''
     if not IsReload:
         metric = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
@@ -585,7 +571,10 @@ def fit_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
             fit_kwargs['step_size'] = 0.05
         modelspecs = nems.analysis.api.fit_nfold(
                 est, modelspecs, fitter=fitter_fn,
-                fit_kwargs=fit_kwargs)
+                fit_kwargs=fit_kwargs, analysis=analysis,
+                tolerances=tolerances, module_sets=module_sets,
+                tol_iter=tol_iter, fit_iter=fit_iter)
+
     return {'modelspecs': modelspecs}
 
 
@@ -652,6 +641,19 @@ def fill_in_default_metadata(rec, modelspecs, IsReload=False, **context):
                                        socket.gethostname())
     return {'modelspecs': modelspecs}
 
+
+def use_metric(metric='nmse_shrink', IsReload=False, **context):
+    if not IsReload:
+        return {'metric': metric}
+    else:
+        return {}
+
+
+def jackknifed_fit(IsReload=False, **context):
+    if not IsReload:
+        return {'jackknifed_fit': True}
+    else:
+        return {}
 
 # TODO: Perturb around the modelspec to get confidence intervals
 
