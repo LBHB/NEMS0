@@ -642,7 +642,7 @@ def fill_in_default_metadata(rec, modelspecs, IsReload=False, **context):
     return {'modelspecs': modelspecs}
 
 
-def use_metric(metric='nmse_shrinkage', IsReload=False, **context):
+def use_metric(metric='nmse_shrink', IsReload=False, **context):
     if not IsReload:
         return {'metric': metric}
     else:
