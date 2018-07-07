@@ -16,11 +16,11 @@ def mt(fitkey):
     '''
     ops = fitkey.split('.')[1:]
     if 'shr' in ops:
-        metric = 'nmse_shrinkage'
+        metric = 'nmse_shrink'
     else:
         # Redundant for now since shr is the only option, but will likely
         # add more later.
-        metric = 'nmse_shrinkage'
+        metric = 'nmse_shrink'
     return [['nems.xforms.use_metric', {'metric': metric}]]
 
 
