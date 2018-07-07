@@ -39,6 +39,8 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
                     s = None
             else:
                 s = None
+                g = None
+                d = None
 
         num_vars = rec['state'].shape[0]
         ts = rec['state'].as_continuous().copy()
@@ -52,9 +54,13 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
             d = d / np.nanmax(d) * mmax - (0.1 + i) * mmax
             plt.plot(t, d, linewidth=1, color=state_colors[i-1])
 
-            tstr = "{} (d={:.3f},g={:.3f})".format(
-                        rec['state'].chans[i], m['phi']['d'][i],
-                        m['phi']['g'][i])
+            if g is not None:
+               tstr = "{} (d={:.3f},g={:.3f})".format(
+                           rec['state'].chans[i], m['phi']['d'][i],
+                           m['phi']['g'][i])
+            else:
+               tstr = "{}".format(rec['state'].chans[i])
+
             plt.text(t[0], (-i+0.1)*mmax, tstr)
         ax = plt.gca()
         # plt.text(0.5, 0.9, s, transform=ax.transAxes,
