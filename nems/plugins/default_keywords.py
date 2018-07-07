@@ -511,8 +511,7 @@ def dlog(kw):
     template = {
         'fn': 'nems.modules.nonlinearity.dlog',
         'fn_kwargs': {'i': 'pred',
-                      'o': 'pred'},
-        'prior': {'offset': ('Normal', {'mean': [0], 'sd': [2]})}
+                      'o': 'pred'}
     }
 
     if chans:
@@ -522,6 +521,8 @@ def dlog(kw):
 
     if offset:
         template['fn_kwargs']['offset'] = -1
+    else:
+        template['prior'] = {'offset': ('Normal', {'mean': [0], 'sd': [2]})}
 
     return template
 
