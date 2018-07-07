@@ -105,8 +105,8 @@ def j_corrcoef(result, pred_name='pred', resp_name='resp', njacks=10):
             ff = (idx!=jj)
             jc[jj] = np.corrcoef(pred[ff], resp[ff])[0, 1]
 
-        cc = np.mean(jc)
-        ee = np.std(jc) * np.sqrt(njacks-1)
+        cc = np.nanmean(jc)
+        ee = np.nanstd(jc) * np.sqrt(njacks-1)
         return cc, ee
 
 

@@ -85,6 +85,7 @@ def json_numpy_obj_hook(dct):
     :param dct: (dict) json encoded ndarray
     :return: (ndarray) if input was an encoded ndarray
     """
+
     if isinstance(dct, dict) and '__ndarray__' in dct:
         # data = base64.b64decode(dct['__ndarray__'])
         data = dct['__ndarray__']
@@ -96,7 +97,8 @@ def json_numpy_obj_hook(dct):
     if isinstance(dct, dict) and any(k in special_keys for k in dct):
         # print("json_numpy_obj_hook: {0} type {1}".format(dct,type(dct)))
         for k in dct:
-            dct[k] = np.asarray(dct[k])
+            if type(dct[k]) is list:
+                dct[k] = np.asarray(dct[k])
 
     if '_KWR_ARGS' in dct:
         return KeywordRegistry.from_json(dct)
