@@ -50,7 +50,7 @@ def corrcoef(result, pred_name='pred', resp_name='resp'):
         return cc[0, 1]
 
 
-def j_corrcoef(result, pred_name='pred', resp_name='resp', njacks=10):
+def j_corrcoef(result, pred_name='pred', resp_name='resp', njacks=20):
     '''
     Jackknifed estimate of mean and SE on correlation coefficient
 
