@@ -3,38 +3,57 @@ import logging
 import copy
 import numpy as np
 
-from nems.utils import (split_keywords, find_module)
-from nems import keywords
+from nems.registry import KeywordRegistry
+from nems.plugins import default_keywords
+from nems.utils import find_module
 from nems.analysis.api import fit_basic
 from nems.fitters.api import scipy_minimize
 import nems.priors as priors
 import nems.modelspec as ms
 import nems.metrics.api as metrics
+from nems import get_setting
 
 log = logging.getLogger(__name__)
+default_kws = KeywordRegistry()
+default_kws.register_module(default_keywords)
+default_kws.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
 
-def from_keywords(keyword_string, registry=keywords.defaults,
-                  rec=None, meta={}):
+def from_keywords(keyword_string, registry=None, rec=None, meta={}):
     '''
     Returns a modelspec created by splitting keyword_string on underscores
     and replacing each keyword with what is found in the nems.keywords.defaults
     registry. You may provide your own keyword registry using the
     registry={...} argument.
     '''
-    keywords = split_keywords(keyword_string)
+    if registry is None:
+        registry = default_kws
+    keywords = keyword_string.split('-')
 
     # Lookup the modelspec fragments in the registry
     modelspec = []
     for kw in keywords:
-        if kw.startswith("firNx") and (rec is not None):
+        if kw.startswith("fir.Nx") and (rec is not None):
             N = rec['stim'].nchans
             kw_old = kw
-            kw = kw.replace("firN", "fir{}".format(N))
-            log.info("Dynamically subbing kw %s with %s", kw_old, kw)
+            kw = kw.replace("fir.N", "fir.{}".format(N))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+        elif kw.startswith("stategain.N") and (rec is not None):
+            N = rec['state'].nchans
+            kw_old = kw
+            kw = kw.replace("stategain.N", "stategain.{}".format(N))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+        elif kw.endswith(".S") and (rec is not None):
+            S = rec['state'].nchans
+            kw_old = kw
+            kw = kw.replace(".S", ".{}".format(S))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        if kw not in registry:
+        else:
+            log.info('kw: %s', kw)
+        if registry.kw_head(kw) not in registry:
             raise ValueError("unknown keyword: {}".format(kw))
+
         d = copy.deepcopy(registry[kw])
         d['id'] = kw
         modelspec.append(d)
@@ -64,11 +83,13 @@ def from_keywords(keyword_string, registry=keywords.defaults,
     return modelspec
 
 
-def from_keywords_as_list(keyword_string, registry=keywords.defaults, meta={}):
+def from_keywords_as_list(keyword_string, registry=None, meta={}):
     '''
     wrapper for from_keywords that returns modelspec as a modelspecs list,
     ie, [modelspec]
     '''
+    if registry is None:
+        registry = default_kws
     return [from_keywords(keyword_string, registry, meta)]
 
 
@@ -89,7 +110,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
     TODO -- make sure this works generally or create alternatives
 
     '''
-    fit_kwargs={'tolerance': tolerance, 'max_iter': max_iter}
+    fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
 
     # fit without STP module first (if there is one)
     modelspec = prefit_to_target(est, modelspec, fit_basic,
@@ -186,7 +207,11 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
 
         if ('levelshift' in m['fn']) and (m.get('phi') is None):
             m = priors.set_mean_phi([m])[0]
-            mean_resp = np.nanmean(rec['resp'].as_continuous())
+            try:
+                mean_resp = np.nanmean(rec['resp'].as_continuous())
+            except NotImplementedError:
+                # as_continous only available for RasterizedSignal
+                mean_resp = np.nanmean(rec['resp'].rasterize().as_continuous())
             log.info('Mod %d (%s) fixing level to response mean %.3f',
                      i, m['fn'], mean_resp)
             m['phi']['level'][:] = mean_resp
@@ -258,7 +283,6 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
     else:
         tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
                                        metric=metric, fit_kwargs=fit_kwargs)[0]
-
 
     # reassemble the full modelspec with updated phi values from tmodelspec
     for i in fit_idx:
@@ -373,5 +397,3 @@ def init_logsig(rec, modelspec):
              *modelspec[logsig_idx]['prior'].values())
 
     return modelspec
-
-

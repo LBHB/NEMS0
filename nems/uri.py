@@ -9,6 +9,8 @@ import base64
 
 from requests.exceptions import ConnectionError
 from nems.distributions.distribution import Distribution
+from nems.registry import KeywordRegistry
+
 
 log = logging.getLogger(__name__)
 
@@ -68,28 +70,38 @@ class NumpyEncoder(jsonlib.JSONEncoder):
                         shape=obj.shape,
                         encoding='list')
 
+        if isinstance(obj, KeywordRegistry):
+            return obj.to_json()
+
         # Let the base class default method raise the TypeError
         return jsonlib.JSONEncoder.default(self, obj)
 
 
 def json_numpy_obj_hook(dct):
     """
-    Decodes a previously encoded numpy ndarray with proper shape and dtype.
+    Decodes a previously encoded numpy ndarray with proper shape and dtype,
+    or an encoded KeywordRegistry.
 
     :param dct: (dict) json encoded ndarray
     :return: (ndarray) if input was an encoded ndarray
     """
+
     if isinstance(dct, dict) and '__ndarray__' in dct:
         # data = base64.b64decode(dct['__ndarray__'])
         data = dct['__ndarray__']
         return np.asarray(data, dct['dtype']).reshape(dct['shape'])
+
     special_keys = ['level', 'coefficients', 'amplitude', 'kappa',
                     'base', 'shift', 'mean', 'sd', 'u', 'tau', 'offset']
 
     if isinstance(dct, dict) and any(k in special_keys for k in dct):
         # print("json_numpy_obj_hook: {0} type {1}".format(dct,type(dct)))
         for k in dct:
-            dct[k] = np.asarray(dct[k])
+            if type(dct[k]) is list:
+                dct[k] = np.asarray(dct[k])
+
+    if '_KWR_ARGS' in dct:
+        return KeywordRegistry.from_json(dct)
 
     return dct
 
@@ -252,68 +264,3 @@ def list_targz_in_nginx_dir(uri):
             uris.append(os.path.join(uri, file))
 
     return uris
-
-
-DEMO_NAMES = [
-        'TAR010c-18-1.tgz', 'eno052d-a1.tgz', 'BRT026c-02-1.tgz', 'resp2.tgz',
-        ]
-
-
-def get_demo_recordings(directory=None, unpack=False):
-    '''
-    Saves all sample recordings in the LBHB public s3 bucket to
-    nems/recordings/, or to the specified directory. By default,
-    the recordings will be kept in a compressed format; however,
-    specifying unpack=True will instead save them uncompressed
-    in a subdirectory.
-    '''
-    names = DEMO_NAMES
-    prefix = 'https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/'
-    uris = [(prefix + n) for n in names]
-
-    if directory is None:
-        nems_dir = os.path.abspath(os.path.dirname(__file__) + '/..')
-        directory = nems_dir + '/recordings'
-
-    if unpack:
-        recs = [recording.load(uri) for uri in uris]
-        for rec in recs:
-            log.info("Saving file at {} in {}".format(rec.uri, directory))
-            rec.save_dir(directory)
-    else:
-        """
-        https://stackoverflow.com/questions/16694907/
-        how-to-download-large-file-in-python-with-requests-py
-        """
-        for uri in uris:
-            file = uri.split('/')[-1]
-            local = os.path.join(directory, file)
-            if os.path.isfile(local):
-                log.debug("Local file {} already exists, skipping.".format(local))
-            else:
-                log.info("Saving file at {} to {}".format(uri, local))
-                r = requests.get(uri, stream=True)
-                # TODO: clean this up, copied from recordings code.
-                #       All of these content-types have showed up *so far*
-                if not (r.status_code == 200 and
-                        (r.headers['content-type'] == 'application/gzip' or
-                         r.headers['content-type'] == 'application/x-gzip' or
-                         r.headers['content-type'] == 'application/x-compressed' or
-                         r.headers['content-type'] == 'application/x-compressed-tar' or
-                         r.headers['content-type'] == 'application/x-tar' or
-                         r.headers['content-type'] == 'application/x-tgz')):
-                    log.info('got response: {}, {}'
-                             .format(r.headers, r.status_code))
-                    raise Exception('Error loading from uri: {}'.format(uri))
-
-                try:
-                    with open(local, 'wb') as f:
-                        for chunk in r.iter_content(chunk_size=1024):
-                            if chunk:
-                                f.write(chunk)
-                except PermissionError as e:
-                    log.warn("Couldn't write in directory: \n{}\n"
-                             "due to permission issues. Make sure the "
-                             "parent directory grants write permission."
-                             .format(directory))
-                    log.exception(e)

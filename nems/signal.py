@@ -1638,6 +1638,21 @@ class PointProcess(SignalBase):
                                 recording=self.recording, chans=cellids,
                                 epochs=self.epochs, meta=self.meta)
 
+    def as_continuous(self):
+        return self.rasterize()._data
+
+    def transform(self, fn, newname=None):
+        '''
+        Rasterize this signal then apply fn and return the result as
+        a new signal.
+        '''
+        x = self.rasterize()
+        y = fn(x._data)
+        newsig = x._modified_copy(y)
+        if newname:
+            newsig.name = newname
+        return newsig
+
     def save(self, dirpath, fmt='%.18e'):
         '''
         Save this signal to a HDF5 file + JSON sidecar.
@@ -1841,7 +1856,7 @@ class TiledSignal(SignalBase):
 
         if safety_checks:
             if 'none' != normalization:
-                raise ValueError ('normalization not supported for TiledSignal')
+                raise ValueError('normalization not supported for TiledSignal')
 
     def rasterize(self, fs=None):
         '''
@@ -1868,6 +1883,21 @@ class TiledSignal(SignalBase):
         signal = signal._modified_copy(s)
 
         return signal
+
+    def as_continuous(self):
+        return self.rasterize()._data
+
+    def transform(self, fn, newname=None):
+        '''
+        Rasterize this signal then apply fn and return the result as
+        a new signal.
+        '''
+        x = self.rasterize()
+        y = fn(x._data)
+        newsig = x._modified_copy(y)
+        if newname:
+            newsig.name = newname
+        return newsig
 
     def save(self, dirpath, fmt='%.18e'):
         '''

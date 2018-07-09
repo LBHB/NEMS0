@@ -1,10 +1,12 @@
 import warnings
-import numpy as np
-import nems.epoch as ep
-import pandas as pd
-from nems.signal import RasterizedSignal
 import copy
+
+import numpy as np
+import pandas as pd
 from scipy.signal import convolve2d
+
+import nems.epoch as ep
+import nems.signal as signal
 
 import logging
 log = logging.getLogger(__name__)
@@ -196,6 +198,23 @@ def mask_all_but_correct_references(rec):
     return newrec
 
 
+def mask_keep_passive(rec):
+    """
+    Mask out all times that don't fall in PASSIVE_EXPERIMENT epochs.
+
+    TODO: Migrate to nems_lbhb and/or make a more generic version
+    """
+
+    newrec = rec.copy()
+    newrec['resp'] = newrec['resp'].rasterize()
+    if 'stim' in newrec.signals.keys():
+        newrec['stim'] = newrec['stim'].rasterize()
+
+    newrec = newrec.and_mask(['PASSIVE_EXPERIMENT'])
+
+    return newrec
+
+
 def mask_all_but_targets(rec):
     """
     Specialized function for removing incorrect trials from data
@@ -212,6 +231,7 @@ def mask_all_but_targets(rec):
     newrec = newrec.or_mask(['TARGET'])
 
     return newrec
+
 
 def nan_invalid_segments(rec):
     """
@@ -237,13 +257,14 @@ def nan_invalid_segments(rec):
     # Only takes the first of any conflicts (don't think I actually need this)
     epoch_indices = ep.remove_overlap(epoch_indices)
 
-    epoch_indices2=epoch_indices[0:1,:]
-    for i in range(1,epoch_indices.shape[0]):
-        if epoch_indices[i,0]==epoch_indices2[-1,1]:
-            epoch_indices2[-1,1]=epoch_indices[i,0]
+    epoch_indices2 = epoch_indices[0:1, :]
+    for i in range(1, epoch_indices.shape[0]):
+        if epoch_indices[i, 0] == epoch_indices2[-1, 1]:
+            epoch_indices2[-1, 1] = epoch_indices[i, 0]
         else:
-            epoch_indices2=np.concatenate((epoch_indices2,epoch_indices[i:(i+1),:]),
-                                          axis=0)
+            epoch_indices2 = np.concatenate(
+                    (epoch_indices2, epoch_indices[i: (i+1), :]), axis=0
+                    )
 
     # add adjusted signals to the recording
     newrec = rec.nan_times(epoch_indices2)
@@ -308,7 +329,8 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     # compute spont rate during valid (non-masked) trials
     prestimsilence = resp.extract_epoch('PreStimSilence')
     if 'mask' in rec.signals.keys():
-        prestimmask = np.tile(rec['mask'].extract_epoch('PreStimSilence'), [1, nCells, 1])
+        prestimmask = np.tile(rec['mask'].extract_epoch('PreStimSilence'),
+                              [1, nCells, 1])
         prestimsilence[prestimmask == False] = np.nan
 
     if len(prestimsilence.shape) == 3:
@@ -410,7 +432,7 @@ def generate_psth_from_est_for_both_est_and_val(est, val,
     return est, val
 
 
-def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals, epoch_regex = '^STIM_'):
+def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals, epoch_regex='^STIM_'):
     '''
     call generate_psth_from_est_for_both_est_and_val for each e,v
     pair in ests,vals
@@ -466,6 +488,22 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         newrec['pupil_bs'] = newrec["pupil"].replace_epoch(
                 'TRIAL', pupil_bs)
 
+    if ('each_passive' in state_signals):
+        file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
+        pset = []
+        for f in file_epochs:
+            epoch_indices = ep.epoch_intersection(
+                    resp.get_epoch_indices(f),
+                    resp.get_epoch_indices('PASSIVE_EXPERIMENT'))
+            if epoch_indices.size:
+                pset.append(f)
+                newrec[f] = resp.epoch_to_signal(f)
+        state_signals.remove('each_passive')
+        state_signals.extend(pset)
+        if 'each_passive' in permute_signals:
+            permute_signals.remove('each_passive')
+            permute_signals.extend(pset)
+
     # generate task state signals
     fpre = (resp.epochs['name'] == "PRE_PASSIVE")
     fpost = (resp.epochs['name'] == "POST_PASSIVE")
@@ -515,7 +553,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         # print(state_sig_list[-1])
         # print(state_sig_list[-1].shape)
 
-    state = RasterizedSignal.concatenate_channels(state_sig_list)
+    state = signal.RasterizedSignal.concatenate_channels(state_sig_list)
     state.name = new_signalname
 
     # scale all signals to range from 0 - 1
@@ -614,8 +652,7 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     rec = rec.copy()
 
     source_signal = rec[source_name]
-
-    if not isinstance(source_signal, RasterizedSignal):
+    if not isinstance(source_signal, signal.RasterizedSignal):
         try:
             source_signal = source_signal.rasterize()
         except AttributeError:

@@ -102,19 +102,18 @@ def _module_set_loop(subset, data, modelspec, cost_function, fitter,
         log.info("%s\n", mods)
 
         # remove hold_outs from modelspec
-        frozen_phi = []
-        for i, m in enumerate(modelspec):
-            if i not in subset:
-                frozen_phi.append(m['phi'])
-                m['fn_kwargs'].update(m['phi'])
-                m['phi'] = {}
-            else:
-                frozen_phi.append(None)
+        #frozen_phi = []
+        #for i, m in enumerate(modelspec):
+        #    if i not in subset:
+        #        frozen_phi.append(m['phi'])
+        #        m['fn_kwargs'].update(m['phi'])
+        #        m['phi'] = {}
+        #    else:
+        #        frozen_phi.append(None)
 
         log.debug("Modelspec after freeze: %s", modelspec)
 
-        packer, unpacker = mapper(modelspec)
-        bounds = nems.fitters.mappers.bounds_vector(modelspec)
+        packer, unpacker, pack_bounds = mapper(modelspec, subset=subset)
 
         # cost_function.counter = 0
         cost_function.error = None
@@ -123,15 +122,16 @@ def _module_set_loop(subset, data, modelspec, cost_function, fitter,
                           data=data, segmentor=segmentor, evaluator=evaluator,
                           metric=metric)
         sigma = packer(modelspec)
+        bounds = pack_bounds(modelspec)
 
         improved_sigma = fitter(sigma, cost_fn, bounds=bounds, **fit_kwargs)
         improved_modelspec = unpacker(improved_sigma)
 
-        for i, m in enumerate(improved_modelspec):
-            if i not in subset:
-                m['phi'] = frozen_phi[i]
-                for k in frozen_phi[i]:
-                    m['fn_kwargs'].pop(k)
+        #for i, m in enumerate(improved_modelspec):
+        #    if i not in subset:
+        #        m['phi'] = frozen_phi[i]
+        #        for k in frozen_phi[i]:
+        #            m['fn_kwargs'].pop(k)
 
         log.debug("Modelspec after unfreeze: %s", improved_modelspec)
 
@@ -145,7 +145,7 @@ def fit_iteratively(
         segmentor=nems.segmentors.use_all_data,
         mapper=nems.fitters.mappers.simple_vector,
         metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp'),
-        metaname='fit_basic', fit_kwargs={},
+        metaname='fit_iteratively', fit_kwargs={},
         module_sets=None, invert=False, tolerances=None, tol_iter=100,
         fit_iter=20,
         ):

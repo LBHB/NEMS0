@@ -4,6 +4,7 @@ import numpy as np
 import logging
 log = logging.getLogger(__name__)
 
+
 def iso8601_datestring():
     '''
     Returns a string containing the present date as a string.
@@ -11,11 +12,9 @@ def iso8601_datestring():
     return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
 
 
-def split_keywords(keyword_string):
-    '''
-    Return a list of keywords resulting from splitting keyword_string.
-    '''
-    return keyword_string.split('_')
+def one_zz(zerocount=1):
+    """ vector of 1 followed by zerocount 0s """
+    return np.concatenate((np.ones(1), np.zeros(zerocount)))
 
 
 def split_to_api_and_fn(mystring):
@@ -89,3 +88,4 @@ def find_module(name, modelspec, find_all_matches=False):
                   target_module, target_i)
 
     return target_i
+

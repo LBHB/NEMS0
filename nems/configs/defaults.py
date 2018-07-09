@@ -45,6 +45,18 @@ NEMS_LOG_CONSOLE_LEVEL = 'DEBUG'
 
 
 ################################################################################
+# Plugins Registries
+################################################################################
+# Keyword Plugins, updates nems.plugins.default_keywords
+# ex: KEYWORD_PLUGINS = ['/path/to/keywords/', '/second/path/']
+KEYWORD_PLUGINS = []
+
+# Xforms Plugins, updates nems.plugins.default_loaders, default_fitters, etc.
+# ex: XF_LOADER_PLUGINS = ['/path/to/my/plugins/loaders/', '/second/path/']
+XFORMS_PLUGINS = []
+
+
+################################################################################
 # Post config
 ################################################################################
 def configure_logging(filename=None):

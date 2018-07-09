@@ -112,17 +112,16 @@ ENV/
 **/database_info.txt
 **/nems_path.txt
 
-**/nems_config/*
-!**/nems_config/__init__.py
-!**/nems_config/defaults.py
-!**/nems_config/default_db.db
-
 **/nems_analysis/static/gen/*
 **/nems_sample*
 nems.log*
 **/nems_logs/*
 !**/nems_logs/__init__.py
 **/modelspecs/*
+
+nems/configs/*
+!nems/configs/__init__.py
+!nems/configs/defaults.py
 
 ### Emacs ###
 # -*- mode: gitignore; -*-
