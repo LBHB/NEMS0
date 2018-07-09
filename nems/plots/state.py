@@ -101,7 +101,12 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
     PreStimSilence = np.mean(np.diff(d)) - 0.5/fs
     d = rec[psth_name].get_epoch_bounds('PostStimSilence')
     if d.size > 0:
-        PostStimSilence = np.min(np.diff(d)) - 0.5/fs
+        dd = np.diff(d)
+        dd = dd[dd>0]
+    else:
+        dd = np.array([])
+    if dd.size > 0:
+        PostStimSilence = np.min(dd) - 0.5/fs
     else:
         PostStimSilence = 0
 
@@ -180,7 +185,8 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
     ylim = ax.get_ylim()
     xlim = ax.get_xlim()
     ax.plot(np.array([0, 0]), ylim, 'k--')
-    ax.plot(np.array([0, 0])+(xlim[1]-PostStimSilence), ylim, 'k--')
+
+    ax.plot(np.array([xlim[1], xlim[1]])-PostStimSilence, ylim, 'k--')
 
     if state_sig == 'baseline':
         ax.set_xlabel(epoch)
