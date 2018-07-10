@@ -1,7 +1,12 @@
+import warnings
 import copy
 
 import numpy as np
 import pandas as pd
+
+import nems.epoch as ep
+import nems.signal as signal
+from scipy.signal import convolve2d
 
 import nems.epoch as ep
 import nems.signal as signal

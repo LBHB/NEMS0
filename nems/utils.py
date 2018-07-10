@@ -12,6 +12,11 @@ def iso8601_datestring():
     return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
 
 
+def one_zz(zerocount=1):
+    """ vector of 1 followed by zerocount 0s """
+    return np.concatenate((np.ones(1), np.zeros(zerocount)))
+
+
 def split_to_api_and_fn(mystring):
     '''
     Returns (api, fn_name) given a string that would be used to import

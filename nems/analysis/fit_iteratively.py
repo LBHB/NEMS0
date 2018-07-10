@@ -101,8 +101,6 @@ def _module_set_loop(subset, data, modelspec, cost_function, fitter,
         mods = [m['fn'] for i, m in enumerate(modelspec) if i in subset]
         log.info("%s\n", mods)
 
-        log.debug("Modelspec after freeze: %s", modelspec)
-
         packer, unpacker, pack_bounds = mapper(modelspec, subset=subset)
 
         # cost_function.counter = 0
@@ -116,8 +114,6 @@ def _module_set_loop(subset, data, modelspec, cost_function, fitter,
 
         improved_sigma = fitter(sigma, cost_fn, bounds=bounds, **fit_kwargs)
         improved_modelspec = unpacker(improved_sigma)
-
-        log.debug("Modelspec after unfreeze: %s", improved_modelspec)
 
         return improved_modelspec
 

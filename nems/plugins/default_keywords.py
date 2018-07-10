@@ -1,3 +1,4 @@
+
 '''
 Default shorthands, or 'keywords,' for generating NEMS modelspecs on a
 per-module basis.
@@ -127,6 +128,14 @@ def wc(kw):
 
         elif op == 'n':
             normalize = True
+
+    if 'o' in options:
+        fn = 'nems.modules.weight_channels.basic_with_offset'
+        o_coefficients = {
+            'mean': np.zeros((n_outputs, 1)),
+            'sd': np.ones((n_outputs, 1))
+        }
+        prior['offset'] = ('Normal', o_coefficients)
 
     template = {
         'fn': fn,

@@ -39,6 +39,8 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
                     s = None
             else:
                 s = None
+                g = None
+                d = None
 
         num_vars = rec['state'].shape[0]
         ts = rec['state'].as_continuous().copy()
@@ -55,6 +57,14 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
             tstr = "{} (d={:.3f},g={:.3f})".format(
                         rec['state'].chans[i], m['phi']['d'][i],
                         m['phi']['g'][i])
+
+            if g is not None:
+               tstr = "{} (d={:.3f},g={:.3f})".format(
+                           rec['state'].chans[i], m['phi']['d'][i],
+                           m['phi']['g'][i])
+            else:
+               tstr = "{}".format(rec['state'].chans[i])
+
             plt.text(t[0], (-i+0.1)*mmax, tstr)
         ax = plt.gca()
         # plt.text(0.5, 0.9, s, transform=ax.transAxes,
@@ -96,6 +106,12 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
     d = rec[psth_name].get_epoch_bounds('PostStimSilence')
     if d.size > 0:
         PostStimSilence = np.min(np.diff(d)) - 0.5/fs
+        dd = np.diff(d)
+        dd = dd[dd>0]
+    else:
+        dd = np.array([])
+    if dd.size > 0:
+        PostStimSilence = np.min(dd) - 0.5/fs
     else:
         PostStimSilence = 0
 
@@ -174,7 +190,8 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
     ylim = ax.get_ylim()
     xlim = ax.get_xlim()
     ax.plot(np.array([0, 0]), ylim, 'k--')
-    ax.plot(np.array([0, 0])+(xlim[1]-PostStimSilence), ylim, 'k--')
+
+    ax.plot(np.array([xlim[1], xlim[1]])-PostStimSilence, ylim, 'k--')
 
     if state_sig == 'baseline':
         ax.set_xlabel(epoch)
@@ -195,5 +212,3 @@ def state_gain_plot(modelspec, ax=None, clim=None, title=None):
     plt.legend(('baseline', 'gain'))
     if title:
         plt.title(title)
-
-
