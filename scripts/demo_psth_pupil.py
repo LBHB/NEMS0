@@ -31,6 +31,9 @@ nems_dir = os.path.abspath(os.path.dirname(recording.__file__) + '/..')
 signals_dir = nems_dir + '/recordings'
 modelspecs_dir = nems_dir + '/modelspecs'
 
+cellid = "TAR010c-06-1"
+recording_uri = os.path.join(signals_dir, cellid + ".tgz")
+
 # ----------------------------------------------------------------------------
 # DATA LOADING
 
@@ -39,18 +42,46 @@ logging.info('Loading data...')
 
 # Method #1: Load the data from a local directory
 # download demo data if necessary:
-nems.uri.get_demo_recordings(signals_dir)
-rec = recording.load_recording(os.path.join(signals_dir, 'eno052d-a1.tgz'))
+recording.get_demo_recordings(signals_dir)
+rec = recording.load_recording(recording_uri)
 
 # Method #2: Load the data from baphy using the (incomplete, TODO) HTTP API:
 #URL = "http://potoroo:3004/baphy/271/bbl086b-11-1?rasterfs=200"
 #rec = Recording.load_url(URL)
 
+
+# ----------------------------------------------------------------------------
+# INSPECT THE DATA
+
+# list stimulus events
+resp = rec['resp'].rasterize()
+epochs = resp.epochs
+epoch_regex="^STIM_"
+epochs_list = ep.epoch_names_matching(epochs, epoch_regex)
+print(epochs[epochs['name'].isin(epochs_list)])
+
+raster = resp.extract_epoch(epochs_list[0])[:,0,:]
+t = np.arange(raster.shape[1]) /resp.fs
+plt.figure()
+plt.subplot(2,1,1)
+plt.imshow(raster, interpolation='none', aspect='auto',
+           extent=[t[0], t[-1], raster.shape[0], 0])
+
+plt.subplot(2,1,2)
+plt.plot(t, np.nanmean(raster, axis=0))
+
+# mask out data from incorrect trials
+rec = preproc.mask_all_but_correct_references(rec)
+
+# calculate a PSTH response for each stimulus, save to a new signal 'psth'
+epoch_regex="^STIM_"
+rec = preproc.generate_psth_from_resp(rec, epoch_regex, smooth_resp=False)
+
 # create a new signal that will be used to modulate the output of the linear
 # predicted response
 logging.info('Generating state signal...')
-
-rec = preproc.make_state_signal(rec, ['pupil'], [''], 'state')
+#rec = preproc.make_state_signal(rec, ['active','pupil_bs','pupil_ev'], [''], 'state')
+rec = preproc.make_state_signal(rec, ['active','pupil'], [''], 'state')
 
 # ----------------------------------------------------------------------------
 # INITIALIZE MODELSPEC
@@ -58,10 +89,11 @@ rec = preproc.make_state_signal(rec, ['pupil'], [''], 'state')
 # GOAL: Define the model that you wish to test
 
 logging.info('Initializing modelspec...')
-
+modelspec = 'stategain.S'
+meta = {'cellid': cellid, 'modelname': modelspec}
 # Method #1: create from "shorthand" keyword string
 #modelspec = nems.initializers.from_keywords('wcg18x1_fir15x1_lvl1_dexp1')
-modelspec = nems.initializers.from_keywords('stategain2')
+modelspec = nems.initializers.from_keywords(modelspec, rec=rec, meta=meta)
 #modelspecs=[copy.deepcopy(modelspec) for x in range(nfolds)]
 modelspecs=[modelspec]
 
@@ -82,7 +114,7 @@ ests, vals, m = preproc.split_est_val_for_jackknife(rec, modelspecs=None,
                                                     njacks=nfolds)
 
 # generate PSTH prediction for each set
-ests, vals = preproc.generate_psth_from_est_for_both_est_and_val_nfold(ests, vals)
+# ests, vals = preproc.generate_psth_from_est_for_both_est_and_val_nfold(ests, vals)
 
 
 # ----------------------------------------------------------------------------
