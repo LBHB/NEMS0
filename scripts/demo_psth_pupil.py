@@ -49,26 +49,14 @@ rec = recording.load_recording(recording_uri)
 #URL = "http://potoroo:3004/baphy/271/bbl086b-11-1?rasterfs=200"
 #rec = Recording.load_url(URL)
 
-
 # ----------------------------------------------------------------------------
-# INSPECT THE DATA
+# PREPROCESSING
 
-# list stimulus events
-resp = rec['resp'].rasterize()
-epochs = resp.epochs
-epoch_regex="^STIM_"
-epochs_list = ep.epoch_names_matching(epochs, epoch_regex)
-print(epochs[epochs['name'].isin(epochs_list)])
-
-raster = resp.extract_epoch(epochs_list[0])[:,0,:]
-t = np.arange(raster.shape[1]) /resp.fs
-plt.figure()
-plt.subplot(2,1,1)
-plt.imshow(raster, interpolation='none', aspect='auto',
-           extent=[t[0], t[-1], raster.shape[0], 0])
-
-plt.subplot(2,1,2)
-plt.plot(t, np.nanmean(raster, axis=0))
+# create a new signal that will be used to modulate the output of the linear
+# predicted response
+logging.info('Generating state signal...')
+#rec = preproc.make_state_signal(rec, ['active','pupil_bs','pupil_ev'], [''], 'state')
+rec = preproc.make_state_signal(rec, ['active','pupil'], [''], 'state')
 
 # mask out data from incorrect trials
 rec = preproc.mask_all_but_correct_references(rec)
@@ -77,11 +65,35 @@ rec = preproc.mask_all_but_correct_references(rec)
 epoch_regex="^STIM_"
 rec = preproc.generate_psth_from_resp(rec, epoch_regex, smooth_resp=False)
 
-# create a new signal that will be used to modulate the output of the linear
-# predicted response
-logging.info('Generating state signal...')
-#rec = preproc.make_state_signal(rec, ['active','pupil_bs','pupil_ev'], [''], 'state')
-rec = preproc.make_state_signal(rec, ['active','pupil'], [''], 'state')
+# ----------------------------------------------------------------------------
+# INSPECT THE DATA
+
+resp = rec['resp'].rasterize()
+epochs = resp.epochs
+epoch_regex="^STIM_"
+epoch_list = ep.epoch_names_matching(epochs, epoch_regex)
+
+# list all stimulus events
+print(epochs[epochs['name'].isin(epoch_list)])
+
+# list all events of a single stimulus
+e = epoch_list[0]
+print(epochs[epochs['name'] == e])
+
+# extract raster of all these events on correct or passive trials
+# use rec['mask'] to remove all incorrect trial data
+raster = resp.extract_epoch(e, mask=rec['mask'])[:,0,:]
+t = np.arange(raster.shape[1]) /resp.fs
+
+plt.figure()
+plt.subplot(2,1,1)
+plt.imshow(raster, interpolation='none', aspect='auto',
+           extent=[t[0], t[-1], raster.shape[0], 0])
+plt.title('Raster for {}'.format(epoch_list[0]))
+
+plt.subplot(2,1,2)
+plt.plot(t, np.nanmean(raster, axis=0))
+plt.title('PSTH for {}'.format(epoch_list[0]))
 
 # ----------------------------------------------------------------------------
 # INITIALIZE MODELSPEC
@@ -89,32 +101,27 @@ rec = preproc.make_state_signal(rec, ['active','pupil'], [''], 'state')
 # GOAL: Define the model that you wish to test
 
 logging.info('Initializing modelspec...')
-modelspec = 'stategain.S'
-meta = {'cellid': cellid, 'modelname': modelspec}
+modelname = 'stategain.S'
+meta = {'cellid': cellid, 'modelname': modelname}
+
 # Method #1: create from "shorthand" keyword string
-#modelspec = nems.initializers.from_keywords('wcg18x1_fir15x1_lvl1_dexp1')
-modelspec = nems.initializers.from_keywords(modelspec, rec=rec, meta=meta)
-#modelspecs=[copy.deepcopy(modelspec) for x in range(nfolds)]
-modelspecs=[modelspec]
+modelspec = nems.initializers.from_keywords(modelname, rec=rec, meta=meta)
+
+modelspecs = [modelspec]
 
 # ----------------------------------------------------------------------------
 # DATA WITHHOLDING
 
 # GOAL: Split your data into estimation and validation sets so that you can
 #       know when your model exhibits overfitting.
-
-
-logging.info('Withholding validation set data...')
+logging.info('Generating jackknife datasets for n-fold cross-validation...')
 
 # create all jackknife sets. the single recording, rec, is now turned into
-# lists of recordings for estimation (est) and validation (val). Size of 
+# lists of recordings for estimation (est) and validation (val). Size of
 # signals in each set are the same, but the excluded segments are set to nan.
-nfolds=10
-ests, vals, m = preproc.split_est_val_for_jackknife(rec, modelspecs=None,
-                                                    njacks=nfolds)
-
-# generate PSTH prediction for each set
-# ests, vals = preproc.generate_psth_from_est_for_both_est_and_val_nfold(ests, vals)
+nfolds = 10
+ests, vals, m = preproc.mask_est_val_for_jackknife(rec, modelspecs=None,
+                                                   njacks=nfolds)
 
 
 # ----------------------------------------------------------------------------
@@ -126,7 +133,7 @@ ests, vals, m = preproc.split_est_val_for_jackknife(rec, modelspecs=None,
 
 logging.info('Fitting modelspec(s)...')
 
-modelspecs = nems.analysis.api.fit_nfold(ests, modelspecs, 
+modelspecs = nems.analysis.api.fit_nfold(ests, modelspecs,
                                          fitter=scipy_minimize)
 
 # above is shorthand for:

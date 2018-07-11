@@ -14,20 +14,26 @@ Created on Fri May 11 14:52:14 2018
 
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
-from nems.recording import load_recording
+from nems.recording import load_recording, get_demo_recordings
 import nems.plots.api as nplt
 import nems.epoch as ep
 
-# site = "TAR010c"
+#site = "TAR010c"
 # site = "BRT033b"
 site = "bbl099g"
 
 # use this line to load recording from server.
-uri = 'http://hearingbrain.org/tmp/'+site+'.tgz'
+#uri = 'http://hearingbrain.org/tmp/'+site+'.tgz'
 
 # alternatively download the file, save and load from local file:
+filename=site+'.NAT.fs200.tgz'
+recording_path=get_demo_recordings(name=filename)
+
 # uri = '/path/to/recording/' + site + '.tgz'
+uri = os.path.join(recording_path, filename)
+
 
 rec = load_recording(uri)
 
