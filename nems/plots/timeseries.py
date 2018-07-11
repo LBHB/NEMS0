@@ -190,7 +190,7 @@ def before_and_after_stp(modelspec, sig_name='pred', ax=None, title=None,
                             title=title)
 
 
-def before_and_after(rec, modelspec, sig_name, ax=None, title=None,
+def before_and_after(rec, modelspec, sig_name, ax=None, title=None, idx=0,
                      channels=0, xlabel='Time', ylabel='Value'):
     '''
     Plots a timeseries of specified signal just before and just after

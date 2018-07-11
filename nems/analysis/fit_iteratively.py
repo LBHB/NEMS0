@@ -6,7 +6,7 @@ import copy
 import numpy as np
 
 from nems.fitters.api import coordinate_descent
-from nems.analysis.fit_basic import fit_basic, basic_cost
+from nems.analysis.cost_functions import basic_cost
 import nems.fitters.mappers
 import nems.metrics.api
 import nems.modelspec as ms

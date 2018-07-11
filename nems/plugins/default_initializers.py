@@ -24,6 +24,8 @@ def init(kw):
         return [['nems.xforms.fit_basic_init', {'tolerance': tolerance}]]
 
 
+# TOOD: Maybe these should go in fitters instead?
+#       Not really initializers, but really fitters either.
 def jk(kw):
     ops = kw.split('.')[1:]
     jk_kwargs = {}
@@ -46,3 +48,14 @@ def jk(kw):
     xfspec.append(['nems.xforms.jackknifed_fit', {}])
 
     return xfspec
+
+
+def rand(kw):
+    ops = kw.split('.')[1:]
+    nt_kwargs = {}
+
+    for op in ops:
+        if op.startswith('nt'):
+            nt_kwargs['ntimes'] = int(op[2:])
+
+    return [['nems.xforms.random_sample_fit', nt_kwargs]]

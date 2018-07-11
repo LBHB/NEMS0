@@ -26,9 +26,22 @@ def mt(fitkey):
 
 def pred(fitkey):
     '''
-    Evaluate model prediction.
+    Evaluate model prediction. Added by default in xform_helper.
     '''
     return [['nems.xforms.predict', {}]]
+
+
+def stats(fitkey):
+    '''
+    Add summary statistics to modelspec(s). Added by default in xform_helper.
+    '''
+    options = fitkey.split('.')[1:]
+    fn = 'standard_correlation'
+    for op in options:
+        if op == 'pm':
+            fn = 'correlation_per_model'
+
+    return [['nems.xforms.add_summary_statistics', {'fn': fn}]]
 
 
 def basic(fitkey):
@@ -58,8 +71,7 @@ def basic(fitkey):
     max_iter, tolerance, fitter = _parse_basic(options)
     xfspec = [['nems.xforms.fit_basic',
                {'max_iter': max_iter,
-                'fitter': fitter, 'tolerance': tolerance}],
-              ['nems.xforms.predict', {}]]
+                'fitter': fitter, 'tolerance': tolerance}]]
 
     return xfspec
 
@@ -104,8 +116,7 @@ def iter(fitkey):
     xfspec = [['nems.xforms.fit_iteratively',
                {'module_sets': module_sets, 'fitter': fitter,
                 'tolerances': tolerances, 'tol_iter': tol_iter,
-                'fit_iter': fit_iter}],
-              ['nems.xforms.predict', {}]]
+                'fit_iter': fit_iter}]]
 
     return xfspec
 

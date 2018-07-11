@@ -369,10 +369,7 @@ def init_logsig(rec, modelspec):
 
     stim = rec['stim'].as_continuous()
     resp = rec['resp'].as_continuous()
-    # TODO: Maybe need a more sophisticated calculation for this?
-    #       Paper isn't very clear on how they calculate "X-bar" and "Y-bar"
-    #       They also mention that their stim-resp data is split up into 20
-    #       bins, maybe averaged across trials or something?
+
     mean_stim = np.nanmean(stim)
     min_stim = np.nanmin(stim)
     max_stim = np.nanmax(stim)
@@ -388,7 +385,7 @@ def init_logsig(rec, modelspec):
     amplitude = ('Exponential', {'beta': 2*resp_range})
     shift = ('Normal', {'mean': mean_stim, 'sd': stim_range})
     kappa = ('Exponential', {'beta': stim_range/stim.shape[1]})
-    force_zero = ('Normal', {'mean': 0.0, 'sd': 0.0})
+    force_zero = ('Uniform', {'lower': 0.0, 'upper': 0.0})
 
     modelspec[logsig_idx]['prior'] = {
             'base': base, 'amplitude': amplitude, 'shift': shift,
@@ -398,10 +395,10 @@ def init_logsig(rec, modelspec):
             }
 
     modelspec[logsig_idx]['bounds'] = {
-            'base': (1e-15, None), 'base_mod': (0, 0),
-            'amplitude': (1e-15, None), 'amplitude_mod': (0, 0),
-            'shift': (None, None), 'shift_mod': (0, 0),
-            'kappa': (1e-15, None), 'kappa_mod': (0, 0),
+            'base': (1e-15, None), 'base_mod': (0.0, 0.0),
+            'amplitude': (1e-15, None), 'amplitude_mod': (0.0, 0.0),
+            'shift': (None, None), 'shift_mod': (0.0, 0.0),
+            'kappa': (1e-15, None), 'kappa_mod': (0.0, 0.0),
             }
 
     return modelspec

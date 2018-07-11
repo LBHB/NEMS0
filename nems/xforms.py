@@ -15,7 +15,7 @@ import nems.preprocessing as preproc
 import nems.priors as priors
 from nems.uri import save_resource, load_resource
 from nems.utils import iso8601_datestring, find_module
-from nems.fitters.api import scipy_minimize, coordinate_descent
+from nems.fitters.api import scipy_minimize
 from nems.recording import load_recording
 
 import numpy as np
@@ -142,7 +142,12 @@ def evaluate(xformspec, context={}, start=0, stop=None):
 # Stuff below this line are useful resuable components.
 # See xforms_test.py for how to use it.
 
-# loader
+
+###############################################################################
+##################       LOADERS / MODELSPEC STUFF    #########################
+###############################################################################
+
+
 def load_recordings(recording_uri_list, normalize=False, **context):
     '''
     Load one or more recordings into memory given a list of URIs.
@@ -159,7 +164,69 @@ def load_recordings(recording_uri_list, normalize=False, **context):
     return {'rec': rec}
 
 
-# preprocessing
+def init_from_keywords(keywordstring, meta={}, IsReload=False,
+                       registry=None, rec=None, **context):
+    if not IsReload:
+        modelspec = init.from_keywords(keyword_string=keywordstring,
+                                       meta=meta, registry=registry, rec=rec)
+
+        return {'modelspecs': [modelspec]}
+    else:
+        return {}
+
+
+def load_modelspecs(modelspecs, uris,
+                    IsReload=False, **context):
+    '''
+    i.e. Load a modelspec from a specific place. This is not
+    the same as reloading a model for later inspection; it would be more
+    appropriate when doing something complicated with several different
+    models.
+    '''
+    if not IsReload:
+        modelspecs = [load_resource(uri) for uri in uris]
+    return {'modelspecs': modelspecs}
+
+
+def set_random_phi(modelspecs, IsReload=False, **context):
+    ''' Starts all modelspecs at random phi sampled from the priors. '''
+    if not IsReload:
+        modelspecs = [priors.set_random_phi(m) for m in modelspecs]
+    return {'modelspecs': modelspecs}
+
+
+def fill_in_default_metadata(rec, modelspecs, IsReload=False, **context):
+    '''
+    Sets any uninitialized metadata to defaults that should help us
+    find it in nems_db again. (fitter, recording, date, etc)
+    '''
+    if not IsReload:
+        # Add metadata to help you reload this state later
+        for modelspec in modelspecs:
+            meta = get_modelspec_metadata(modelspec)
+            if 'fitter' not in meta:
+                set_modelspec_metadata(modelspec, 'fitter', 'None')
+            if 'fit_time' not in meta:
+                set_modelspec_metadata(modelspec, 'fitter', 'None')
+            if 'recording' not in meta:
+                recname = rec.name if rec else 'None'
+                set_modelspec_metadata(modelspec, 'recording', recname)
+            if 'recording_uri' not in meta:
+                uri = rec.uri if rec and rec.uri else 'None'
+                set_modelspec_metadata(modelspec, 'recording_uri', uri)
+            if 'date' not in meta:
+                set_modelspec_metadata(modelspec, 'date', iso8601_datestring())
+            if 'hostname' not in meta:
+                set_modelspec_metadata(modelspec, 'hostname',
+                                       socket.gethostname())
+    return {'modelspecs': modelspecs}
+
+
+###############################################################################
+#########################     PREPROCESSORS     ###############################
+###############################################################################
+
+
 def add_average_sig(rec, signal_to_average, new_signalname, epoch_regex,
                     **context):
     rec = preproc.add_average_sig(rec,
@@ -300,35 +367,9 @@ def mask_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
         return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
 
-def init_from_keywords(keywordstring, meta={}, IsReload=False,
-                       registry=None, rec=None, **context):
-    if not IsReload:
-        modelspec = init.from_keywords(keyword_string=keywordstring,
-                                       meta=meta, registry=registry, rec=rec)
-
-        return {'modelspecs': [modelspec]}
-    else:
-        return {}
-
-
-def load_modelspecs(modelspecs, uris,
-                    IsReload=False, **context):
-    '''
-    i.e. Load a modelspec from a specific place. This is not
-    the same as reloading a model for later inspection; it would be more
-    appropriate when doing something complicated with several different
-    models.
-    '''
-    if not IsReload:
-        modelspecs = [load_resource(uri) for uri in uris]
-    return {'modelspecs': modelspecs}
-
-
-def set_random_phi(modelspecs, IsReload=False, **context):
-    ''' Starts all modelspecs at random phi sampled from the priors. '''
-    if not IsReload:
-        modelspecs = [priors.set_random_phi(m) for m in modelspecs]
-    return {'modelspecs': modelspecs}
+###############################################################################
+######################        INITIALIZERS         ############################
+###############################################################################
 
 
 def fit_basic_init(modelspecs, est, IsReload=False, metric='nmse',
@@ -426,9 +467,15 @@ def fit_state_init(modelspecs, est, IsReload=False, metric='nmse', **context):
     return {'modelspecs': modelspecs}
 
 
+###############################################################################
+########################       FITTERS / ANALYSES      ########################
+###############################################################################
+
+
 def fit_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
               metric='nmse', IsReload=False, fitter='scipy_minimize',
-              jackknifed_fit=False, **context):
+              jackknifed_fit=False, random_sample_fit=False,
+              n_random_samples=0, **context):
     ''' A basic fit that optimizes every input modelspec. '''
     if not IsReload:
         metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
@@ -440,50 +487,33 @@ def fit_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
                              metric=metric, fitter=fitter,
                              fit_kwargs=fit_kwargs, analysis='fit_basic',
                              **context)
+
+        elif random_sample_fit:
+            basic_kwargs = {'metric': metric_fn, 'fitter': fitter_fn,
+                            'fit_kwargs': fit_kwargs}
+            return fit_n_times_from_random_starts(
+                        modelspecs, est, ntimes=n_random_samples,
+                        analysis='fit_basic', basic_kwargs=basic_kwargs
+                        )
+
         else:
             # standard single shot
-            modelspecs = [nems.analysis.api.fit_basic(
-                    est, modelspec, fit_kwargs=fit_kwargs,
-                    metric=metric_fn,
-                    fitter=fitter_fn)[0]
-                for modelspec in modelspecs]
-    return {'modelspecs': modelspecs}
-
-
-def fit_module_sets(modelspecs, est, max_iter=1000, IsReload=False,
-                    module_sets=None, invert=False, tolerance=1e-4,
-                    fitter=scipy_minimize, fit_kwargs={}, **context):
-
-    if not IsReload:
-        if type(est) is list:
-            modelspecs_out = []
-            njacks = len(modelspecs)
-            i = 0
-            for m, d in zip(modelspecs, est):
-                i += 1
-                log.info("Fitting JK %d/%d", i, njacks)
-                modelspecs_out += nems.analysis.api.fit_module_sets(
-                        d, m, fit_kwargs=fit_kwargs, fitter=fitter,
-                        module_sets=module_sets, invert=False,
-                        tolerance=tolerance, max_iter=max_iter,
-                        )
-            modelspecs = modelspecs_out
-        else:
             modelspecs = [
-                    nems.analysis.api.fit_module_sets(
-                            est, modelspec, fit_kwargs=fit_kwargs,
-                            fitter=fitter, module_sets=module_sets,
-                            invert=invert, tolerance=tolerance,
-                            max_iter=max_iter)[0]
+                    nems.analysis.api.fit_basic(est, modelspec,
+                                                fit_kwargs=fit_kwargs,
+                                                metric=metric_fn,
+                                                fitter=fitter_fn)[0]
                     for modelspec in modelspecs
                     ]
+
     return {'modelspecs': modelspecs}
 
 
 def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
                     module_sets=None, invert=False, tolerances=[1e-4],
                     metric='nmse', fitter='scipy_minimize', fit_kwargs={},
-                    jackknifed_fit=False, **context):
+                    jackknifed_fit=False, random_sample_fit=False,
+                    n_random_samples=0, **context):
 
     fitter_fn = getattr(nems.fitters.api, fitter)
     metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
@@ -496,6 +526,16 @@ def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
                              fitter=fitter, fit_kwargs=fit_kwargs,
                              analysis='fit_iteratively', **context)
 
+        elif random_sample_fit:
+            iter_kwargs = {'tol_iter': tol_iter, 'fit_iter': fit_iter,
+                           'invert': invert, 'tolerances': tolerances,
+                           'module_sets': module_sets, 'metric': metric_fn,
+                           'fitter': fitter_fn, 'fit_kwargs': fit_kwargs}
+            return fit_n_times_from_random_starts(
+                        modelspecs, est, ntimes=n_random_samples,
+                        analysis='fit_iteratively', iter_kwargs=iter_kwargs,
+                        )
+
         else:
             modelspecs = [
                     nems.analysis.api.fit_iteratively(
@@ -506,55 +546,7 @@ def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
                             metric=metric_fn)[0]
                     for modelspec in modelspecs
                     ]
-    return {'modelspecs': modelspecs}
 
-
-def fit_n_times_from_random_starts(modelspecs, est, ntimes,
-                                   IsReload=False, **context):
-    ''' Self explanatory. '''
-    if not IsReload:
-        if len(modelspecs) > 1:
-            raise ValueError('I only work on 1 modelspec')
-        modelspecs = [nems.analysis.api.fit_from_priors(est,
-                                                        modelspec,
-                                                        ntimes=ntimes)
-                      for modelspec in modelspecs]
-    return {'modelspecs': modelspecs}
-
-
-def fit_random_subsets(modelspecs, est, nsplits,
-                       IsReload=False, **context):
-    ''' Randomly sample parts of the data? Wait, HOW DOES THIS WORK? TODO?'''
-    if not IsReload:
-        if len(modelspecs) > 1:
-            raise ValueError('I only work on 1 modelspec')
-        modelspecs = nems.analysis.api.fit_random_subsets(est,
-                                                          modelspecs[0],
-                                                          nsplits=nsplits)
-    return {'modelspecs': modelspecs}
-
-
-def fit_equal_subsets(modelspecs, est, nsplits,
-                      IsReload=False, **context):
-    ''' Divide the data into nsplits equal pieces and fit each one.'''
-    if not IsReload:
-        if len(modelspecs) > 1:
-            raise ValueError('I only work on 1 modelspec')
-        modelspecs = nems.analysis.api.fit_subsets(est,
-                                                   modelspecs[0],
-                                                   nsplits=nsplits)
-    return {'modelspecs': modelspecs}
-
-
-def fit_jackknifes(modelspecs, est, njacks,
-                   IsReload=False, **context):
-    ''' Jackknife the data, fit on those, and make predictions from those.'''
-    if not IsReload:
-        if len(modelspecs) > 1:
-            raise ValueError('I only work on 1 modelspec')
-        modelspecs = nems.analysis.api.fit_jackknifes(est,
-                                                      modelspecs[0],
-                                                      njacks=njacks)
     return {'modelspecs': modelspecs}
 
 
@@ -578,6 +570,26 @@ def fit_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
     return {'modelspecs': modelspecs}
 
 
+def fit_n_times_from_random_starts(modelspecs, est, ntimes,
+                                   analysis='fit_basic', basic_kwargs={},
+                                   IsReload=False, **context):
+    ''' Self explanatory. '''
+    if not IsReload:
+        if len(modelspecs) > 1:
+            raise NotImplementedError('I only work on 1 modelspec')
+        modelspecs = nems.analysis.api.fit_from_priors(
+                est, modelspecs[0], ntimes=ntimes, analysis=analysis,
+                basic_kwargs=basic_kwargs
+                )
+
+    return {'modelspecs': modelspecs}
+
+
+###############################################################################
+########################         SAVE / SUMMARY        ########################
+###############################################################################
+
+
 def save_recordings(modelspecs, est, val, **context):
     # TODO: Save the recordings somehow?
     return {'modelspecs': modelspecs}
@@ -592,12 +604,16 @@ def predict(modelspecs, est, val, **context):
     return {'val': val, 'est': est}
 
 
-def add_summary_statistics(est, val, modelspecs, rec=None, **context):
-    # modelspecs = metrics.add_summary_statistics(est, val, modelspecs, rec)
-    # TODO: Add statistics to metadata of every modelspec
-
-    modelspecs = nems.analysis.api.standard_correlation(
-            est, val, modelspecs, rec=rec)
+def add_summary_statistics(est, val, modelspecs, fn='standard_correlation',
+                           rec=None, **context):
+    '''
+    standard_correlation: average all correlation metrics and add
+                          to first modelspec only.
+    correlation_per_model: evaluate correlation metrics separately for each
+                           modelspec and save results in each modelspec.
+    '''
+    corr_fn = getattr(nems.analysis.api, fn)
+    modelspecs = corr_fn(est, val, modelspecs, rec=None)
 
     return {'modelspecs': modelspecs}
 
@@ -615,31 +631,9 @@ def plot_summary(modelspecs, val, figures=None, IsReload=False, **context):
     return {'figures': figures}
 
 
-def fill_in_default_metadata(rec, modelspecs, IsReload=False, **context):
-    '''
-    Sets any uninitialized metadata to defaults that should help us
-    find it in nems_db again. (fitter, recording, date, etc)
-    '''
-    if not IsReload:
-        # Add metadata to help you reload this state later
-        for modelspec in modelspecs:
-            meta = get_modelspec_metadata(modelspec)
-            if 'fitter' not in meta:
-                set_modelspec_metadata(modelspec, 'fitter', 'None')
-            if 'fit_time' not in meta:
-                set_modelspec_metadata(modelspec, 'fitter', 'None')
-            if 'recording' not in meta:
-                recname = rec.name if rec else 'None'
-                set_modelspec_metadata(modelspec, 'recording', recname)
-            if 'recording_uri' not in meta:
-                uri = rec.uri if rec and rec.uri else 'None'
-                set_modelspec_metadata(modelspec, 'recording_uri', uri)
-            if 'date' not in meta:
-                set_modelspec_metadata(modelspec, 'date', iso8601_datestring())
-            if 'hostname' not in meta:
-                set_modelspec_metadata(modelspec, 'hostname',
-                                       socket.gethostname())
-    return {'modelspecs': modelspecs}
+###############################################################################
+########################            FLAGS              ########################
+###############################################################################
 
 
 def use_metric(metric='nmse_shrink', IsReload=False, **context):
@@ -652,6 +646,13 @@ def use_metric(metric='nmse_shrink', IsReload=False, **context):
 def jackknifed_fit(IsReload=False, **context):
     if not IsReload:
         return {'jackknifed_fit': True}
+    else:
+        return {}
+
+
+def random_sample_fit(ntimes=10, IsReload=False, **context):
+    if not IsReload:
+        return {'random_sample_fit': True, 'n_random_samples': ntimes}
     else:
         return {}
 
@@ -669,6 +670,11 @@ def jackknifed_fit(IsReload=False, **context):
 # TODO: Use 10-fold cross-validated evaluation
 # fitter = partial(nems.cross_validator.cross_validate_wrapper, gradient_descent, 10)
 # modelspecs = nems.analysis.fit_cv(est, modelspec, folds=10)
+
+
+###############################################################################
+##################        XFORMS UTILITIES             ########################
+###############################################################################
 
 
 def tree_path(recording, modelspecs, xfspec):
@@ -737,3 +743,62 @@ def load_analysis(filepath, eval_model=True):
         ctx, log_xf = evaluate(xfspec, ctx)
 
     return xfspec, ctx
+
+
+###############################################################################
+########################          UNUSED?        ##############################
+###############################################################################
+
+
+def fit_random_subsets(modelspecs, est, nsplits,
+                       IsReload=False, **context):
+    ''' Randomly sample parts of the data? Wait, HOW DOES THIS WORK? TODO?'''
+    if not IsReload:
+        if len(modelspecs) > 1:
+            raise ValueError('I only work on 1 modelspec')
+        modelspecs = nems.analysis.api.fit_random_subsets(est,
+                                                          modelspecs[0],
+                                                          nsplits=nsplits)
+    return {'modelspecs': modelspecs}
+
+
+def fit_equal_subsets(modelspecs, est, nsplits,
+                      IsReload=False, **context):
+    ''' Divide the data into nsplits equal pieces and fit each one.'''
+    if not IsReload:
+        if len(modelspecs) > 1:
+            raise ValueError('I only work on 1 modelspec')
+        modelspecs = nems.analysis.api.fit_subsets(est,
+                                                   modelspecs[0],
+                                                   nsplits=nsplits)
+    return {'modelspecs': modelspecs}
+
+
+def fit_jackknifes(modelspecs, est, njacks,
+                   IsReload=False, **context):
+    ''' Jackknife the data, fit on those, and make predictions from those.'''
+    if not IsReload:
+        if len(modelspecs) > 1:
+            raise ValueError('I only work on 1 modelspec')
+        modelspecs = nems.analysis.api.fit_jackknifes(est,
+                                                      modelspecs[0],
+                                                      njacks=njacks)
+    return {'modelspecs': modelspecs}
+
+
+def fit_module_sets(modelspecs, est, max_iter=1000, IsReload=False,
+                    module_sets=None, invert=False, tolerance=1e-4,
+                    fitter=scipy_minimize, fit_kwargs={}, **context):
+
+    if not IsReload:
+        if len(modelspecs) > 1:
+            raise NotImplementedError("Not supported for multiple modelspecs")
+        modelspecs = [
+                nems.analysis.api.fit_module_sets(
+                        est, modelspec, fit_kwargs=fit_kwargs,
+                        fitter=fitter, module_sets=module_sets,
+                        invert=invert, tolerance=tolerance,
+                        max_iter=max_iter)[0]
+                for modelspec in modelspecs
+                ]
+    return {'modelspecs': modelspecs}
