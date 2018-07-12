@@ -63,8 +63,8 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
     m1 = m1[0:1, keepidx]
     m2 = m2[0:1, keepidx]
 
-    for i in range(sig2.nchans):
-        if sig1.nchans > 1:
+    for i in range(m2.shape[0]):
+        if m1.shape[0] > 1:
             x = m1[[i], :]
         else:
             x = m1[[0], :]

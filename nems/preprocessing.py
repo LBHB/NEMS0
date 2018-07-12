@@ -566,6 +566,19 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     return newrec
 
 
+def signal_select_channels(rec, sig_name="resp", chans=None):
+
+    newrec = rec.copy()
+    if chans is None:
+        return newrec
+
+    s = newrec[sig_name].rasterize()
+    s = s.extract_channels(chans)
+    newrec[sig_name] = s
+
+    return newrec
+
+
 def split_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
                                 njacks=10, IsReload=False, **context):
     """

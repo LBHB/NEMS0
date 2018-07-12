@@ -209,16 +209,20 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
                              occurrences=occurrence)
         _plot_axes(1, timeseries, -2)
 
-    # Pred v Resp Scatter Smoothed
-    r_test = modelspec[0]['meta']['r_test']
-    r_fit = modelspec[0]['meta']['r_fit']
-
     # re-evaluate in case rec left in strange state
     rec = ms.evaluate(rec, modelspec)
     pred = rec['pred']
     resp = rec['resp']
 
-    text = 'r_test: {0:.3f}\nr_fit: {1:.3f}'.format(r_test, r_fit)
+    # Pred v Resp Scatter Smoothed
+    r_test = modelspec[0]['meta']['r_test']
+    r_fit = modelspec[0]['meta']['r_fit']
+    if len(r_test) == 1:
+        text = 'r_test: {0:.3f}\nr_fit: {1:.3f}'.format(r_test, r_fit)
+    else:
+        text = 'r_test: {}\nr_fit: {}'.format(
+                str(np.round(r_test,3)), str(np.round(r_fit,3)))
+
     smoothed = partial(
             plot_scatter, pred, resp, text=text, smoothing_bins=100,
             title='Smoothed, bins={}'.format(100), force_square=False
