@@ -24,10 +24,16 @@ def generate_prediction(est,val,modelspecs):
 
 def standard_correlation(est, val, modelspecs, rec=None):
 
-    # Compute scores for validation data
+    # Compute scores for validation dat
+    r_ceiling = 0
     if len(val) == 1:
         r_test, se_test = nmet.j_corrcoef(val[0], 'pred', 'resp')
         r_fit, se_fit = nmet.j_corrcoef(est[0], 'pred', 'resp')
+        r_floor = nmet.r_floor(val[0], 'pred', 'resp')
+        if rec is not None:
+            # print('running r_ceiling')
+            r_ceiling = nmet.r_ceiling(val[0], rec, 'pred', 'resp')
+
     else:
         r = [nmet.corrcoef(p, 'pred', 'resp') for p in val]
         r_test = np.mean(r)
@@ -35,31 +41,26 @@ def standard_correlation(est, val, modelspecs, rec=None):
         r = [nmet.corrcoef(p, 'pred', 'resp') for p in est]
         r_fit = np.mean(r)
         se_fit = np.std(r) / np.sqrt(len(val))
+        r_floor = [nmet.r_floor(p, 'pred', 'resp') for p in val]
+
+        # TODO compute r_ceiling for multiple val sets
+        r_ceiling = 0
 
     mse_test = [nmet.nmse(p, 'pred', 'resp') for p in val]
     ll_test = [nmet.likelihood_poisson(p, 'pred', 'resp') for p in val]
 
-    # Repeat for est data.
-    r_floor = [nmet.r_floor(p, 'pred', 'resp') for p in val]
-    if rec is not None:
-        #print('running r_ceiling')
-        r_ceiling = [nmet.r_ceiling(p, rec, 'pred', 'resp') for p in val]
-    else:
-        #log.info('skipping r_ceiling')
-        pass
     mse_fit = [nmet.nmse(p, 'pred', 'resp') for p in val]
     ll_fit = [nmet.likelihood_poisson(p, 'pred', 'resp') for p in est]
 
     modelspecs[0][0]['meta']['r_test'] = r_test
     modelspecs[0][0]['meta']['se_test'] = se_test
-    modelspecs[0][0]['meta']['r_floor'] = np.mean(r_floor)
+    modelspecs[0][0]['meta']['r_floor'] = r_floor
     modelspecs[0][0]['meta']['mse_test'] = np.mean(mse_test)
     modelspecs[0][0]['meta']['ll_test'] = np.mean(ll_test)
 
     modelspecs[0][0]['meta']['r_fit'] = r_fit
     modelspecs[0][0]['meta']['se_fit'] = se_fit
-    if rec is not None:
-        modelspecs[0][0]['meta']['r_ceiling'] = np.mean(r_ceiling)
+    modelspecs[0][0]['meta']['r_ceiling'] = r_ceiling
     modelspecs[0][0]['meta']['mse_fit'] = np.mean(mse_fit)
     modelspecs[0][0]['meta']['ll_fit'] = np.mean(ll_fit)
 

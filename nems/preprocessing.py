@@ -485,8 +485,10 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
 
         newrec['pupil_ev'] = newrec["pupil"].replace_epoch(
                 'TRIAL', pupil_ev)
+        newrec['pupil_ev'].chans=['pupil_ev']
         newrec['pupil_bs'] = newrec["pupil"].replace_epoch(
                 'TRIAL', pupil_bs)
+        newrec['pupil_bs'].chans=['pupil_bs']
 
     if ('each_passive' in state_signals):
         file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
@@ -560,6 +562,19 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     # state = state.normalize(normalization='minmax')
 
     newrec.add_signal(state)
+
+    return newrec
+
+
+def signal_select_channels(rec, sig_name="resp", chans=None):
+
+    newrec = rec.copy()
+    if chans is None:
+        return newrec
+
+    s = newrec[sig_name].rasterize()
+    s = s.extract_channels(chans)
+    newrec[sig_name] = s
 
     return newrec
 

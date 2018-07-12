@@ -519,7 +519,7 @@ class SignalBase:
             epochs.append(ti)
         return pd.concat(epochs, ignore_index=True)
 
-    def average_epoch(self, epoch):
+    def average_epoch(self, epoch, mask=None):
         '''
         Returns the average of the epoch.
 
@@ -531,16 +531,20 @@ class SignalBase:
             (in seconds) and the second column indicates the end time
             (in seconds) to extract.
 
+        mask: {None, signal}
+            if provided, onlye extract epochs overlapping periods where
+            mask.as_continuous()==True in all time bins
+
         Returns
         -------
         mean_epoch : 2D array
             Two dimensinonal array of shape C, T where C is the number of
             channels, and T is the maximum length of the epoch in samples.
         '''
-        epoch_data = self.extract_epoch(epoch)
+        epoch_data = self.extract_epoch(epoch, mask=mask)
         return np.nanmean(epoch_data, axis=0)
 
-    def extract_epochs(self, epoch_names, overlapping_epoch=None):
+    def extract_epochs(self, epoch_names, overlapping_epoch=None, mask=None):
         '''
         Returns a dictionary of the data matching each element in epoch_names.
 
@@ -560,6 +564,10 @@ class SignalBase:
             if not None, only extracts epochs that overlap with occurrences
             of overlapping epoch
 
+        mask: {None, signal}
+            if provided, onlye extract epochs overlapping periods where
+            mask.as_continuous()==True in all time bins
+
         Returns
         -------
         epoch_datasets : dict
@@ -574,7 +582,8 @@ class SignalBase:
             epoch_names = epoch_names_matching(self.epochs, epoch_regex)
 
         return {name: self.extract_epoch(name, allow_empty=True,
-                                         overlapping_epoch=overlapping_epoch)
+                                         overlapping_epoch=overlapping_epoch,
+                                         mask=mask)
                 for name in epoch_names}
 
     def generate_epoch_mask(self, epoch=True):
@@ -648,7 +657,7 @@ class SignalBase:
         raise NotImplementedError
 
     def extract_epoch(self, epoch, allow_empty=True,
-                      overlapping_epoch=None):
+                      overlapping_epoch=None, mask=None):
         raise NotImplementedError
 
     @staticmethod
@@ -697,18 +706,28 @@ class SignalBase:
         '''
         raise NotImplementedError
 
-    def as_matrix(self, epoch_names, overlapping_epoch=None):
+    def as_matrix(self, epoch_names, overlapping_epoch=None, mask=None):
         """
-        epoch_names: regex or list of epochs
-        overlapping_epoch: require those epochs to overlap with epoch(s)
-           matching this name.
-        eg, epoch_names="^STIM_", overlapping_epoch="PASSIVE_EXPERIMENT"
+        Inputs:
+            epoch_names: regex or list of epochs
+            overlapping_epoch: require those epochs to overlap with epoch(s)
+                matching this name.
+                eg, epoch_names="^STIM_", overlapping_epoch="PASSIVE_EXPERIMENT"
+                (DEPRECATED?)
+            mask: {None, signal}
+                if provided, onlye extract epochs overlapping periods where
+                mask.as_continuous()==True in all time bins
+
+        Returns:
+            d: np.array, stim X reps X channels X time
+
 
         TODO: add channel selection option?
         """
 
         # create dictionary of extracted epochs
-        folded_signal = self.extract_epochs(epoch_names, overlapping_epoch)
+        folded_signal = self.extract_epochs(
+                epoch_names, overlapping_epoch=overlapping_epoch, mask=mask)
         if type(epoch_names) is list:
             keys = epoch_names
         else:
@@ -921,7 +940,7 @@ class RasterizedSignal(SignalBase):
 
     def extract_epoch(self, epoch, boundary_mode='exclude',
                       fix_overlap='first', allow_empty=False,
-                      overlapping_epoch=None):
+                      overlapping_epoch=None, mask=None):
         '''
         Extracts all occurances of epoch from the signal.
 
@@ -935,6 +954,15 @@ class RasterizedSignal(SignalBase):
 
             allow_empty: if true, returns empty matrix if no valid epoch
             matches. otherwise, throw error when this happens
+
+        boundary_mode, fix_overlap: parameters passed through to
+            get_epoch_indices
+
+        allow_empty: {False, boolean}
+
+        mask: {None, signal}
+            if provided, onlye extract epochs overlapping periods where
+            mask.as_continuous()==True in all time bins
 
         Returns
         -------
@@ -979,6 +1007,17 @@ class RasterizedSignal(SignalBase):
             # print(samples)
             # print([lb, ub])
             epoch_data[i, ..., :samples] = data[..., lb:ub]
+
+        if mask is not None:
+            # remove instances of the epoch that do not fall in the mask
+            m_data = mask.as_continuous()
+            keepidx = []
+            for i, (lb, ub) in enumerate(epoch_indices):
+                samples = ub-lb
+                if np.all(m_data[0, lb:ub]):
+                    keepidx.append(i)
+            keepidx = np.array(keepidx)
+            epoch_data = epoch_data[keepidx]
 
         return epoch_data
 
@@ -1053,7 +1092,8 @@ class RasterizedSignal(SignalBase):
         '''
         Returns a tuple of estimation and validation data splits: (est, val).
         Arguments should be lists of epochs that define the estimation and
-        validation sets. Both est and val will have non-matching data NaN'd out.
+        validation sets. Both est and val will have non-matching data NaN'd
+        out.
         '''
         est = self.select_epochs(epochs_for_est)
         val = self.select_epochs(epochs_for_val)
