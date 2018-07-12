@@ -1598,7 +1598,17 @@ class PointProcess(SignalBase):
         if safety_checks:
             if 'none' != normalization:
                 raise ValueError ('normalization not supported for PointProcess signals')
-
+                
+    
+    def _modified_copy(self, data, **kwargs):
+        """
+        For internal use when making various immutable copies of this signal.
+        """
+        attributes = self._get_attributes()
+        attributes.update(kwargs)
+        return PointProcess(data=data, safety_checks=False, **attributes)
+    
+    
     def rasterize(self, fs=None):
         """
         convert list of spike times to a raster of spike rate, with duration
@@ -1820,8 +1830,19 @@ class PointProcess(SignalBase):
             epochs=epochs,
             safety_checks=False
         )
+        
 
-
+    def extract_channels(self, chans):
+        '''
+        Returns a new signal object containing only the specified
+        channel indices.
+        '''
+        # s is shorthand for slice. Return a 2D array.
+        s = {c: self._data[c] for c in chans}
+        
+        return self._modified_copy(s, chans=chans)
+        
+        
 class TiledSignal(SignalBase):
     '''
     Expects data to be a dictionary of the form:
