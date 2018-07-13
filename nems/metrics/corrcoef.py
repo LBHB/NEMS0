@@ -81,34 +81,40 @@ def j_corrcoef(result, pred_name='pred', resp_name='resp', njacks=20):
     and symbolic (i.e., Theano, TensorFlow) computation. Please do not edit
     unless you know what you're doing. (@bburan TODO: Is this still true?)
     '''
-    pred = result[pred_name].as_continuous()
-    resp = result[resp_name].as_continuous()
 
-    if pred.shape[0] > 1:
-        raise ValueError("multi-channel signals not supported yet.")
+    predmat = result[pred_name].as_continuous()
+    respmat = result[resp_name].as_continuous()
 
-    ff = np.isfinite(pred) & np.isfinite(resp)
+    channel_count = predmat.shape[0]
+    cc = np.zeros(channel_count)
+    ee = np.zeros(channel_count)
 
-    if (np.sum(ff) == 0) or (np.sum(pred[ff]) == 0) or (np.sum(resp[ff]) == 0):
-        return 0
-    else:
-        pred = pred[ff]
-        resp = resp[ff]
-        chunksize = int(np.ceil(len(pred) / njacks / 10))
-        chunkcount = int(np.ceil(len(pred) / chunksize / njacks))
-        idx = np.zeros((chunkcount,njacks,chunksize))
-        for jj in range(njacks):
-            idx[:,jj,:] = jj
-        idx = np.reshape(idx,[-1])[:len(pred)]
-        jc = np.zeros(njacks)
-        for jj in range(njacks):
-            ff = (idx!=jj)
-            jc[jj] = np.corrcoef(pred[ff], resp[ff])[0, 1]
+    for i in range(channel_count):
+        pred = predmat[i, :]
+        resp = respmat[i, :]
+        ff = np.isfinite(pred) & np.isfinite(resp)
 
-        cc = np.nanmean(jc)
-        ee = np.nanstd(jc) * np.sqrt(njacks-1)
+        if (np.sum(ff) == 0) or (np.sum(pred[ff]) == 0) or (np.sum(resp[ff]) == 0):
+            cc[i] = 0
+            ee[i] = 0
+        else:
+            pred = pred[ff]
+            resp = resp[ff]
+            chunksize = int(np.ceil(len(pred) / njacks / 10))
+            chunkcount = int(np.ceil(len(pred) / chunksize / njacks))
+            idx = np.zeros((chunkcount, njacks, chunksize))
+            for jj in range(njacks):
+                idx[:, jj, :] = jj
+            idx = np.reshape(idx, [-1])[:len(pred)]
+            jc = np.zeros(njacks)
+            for jj in range(njacks):
+                ff = (idx != jj)
+                jc[jj] = np.corrcoef(pred[ff], resp[ff])[0, 1]
 
-        return cc, ee
+            cc[i] = np.nanmean(jc)
+            ee[i] = np.nanstd(jc) * np.sqrt(njacks-1)
+
+    return cc, ee
 
 
 def r_floor(result, pred_name='pred', resp_name='resp'):
@@ -116,35 +122,38 @@ def r_floor(result, pred_name='pred', resp_name='resp'):
     corr coef floor based on shuffled responses
     '''
     # if running validation test, also measure r_floor
-    X1 = result[pred_name].as_continuous()
-    X2 = result[resp_name].as_continuous()
+    X1mat = result[pred_name].as_continuous()
+    X2mat = result[resp_name].as_continuous()
+    channel_count = X2mat.shape[0]
+    r_floor = np.zeros(channel_count)
 
-    if X1.shape[0] > 1:
-        raise ValueError("multi-channel signals not supported yet.")
+    for i in range(channel_count):
+        X1 = X1mat[i, :]
+        X2 = X2mat[i, :]
 
-    # remove all nans from pred and resp
-    ff = np.isfinite(X1) & np.isfinite(X2)
-    X1=X1[ff]
-    X2=X2[ff]
+        # remove all nans from pred and resp
+        ff = np.isfinite(X1) & np.isfinite(X2)
+        X1=X1[ff]
+        X2=X2[ff]
 
-    # figure out how many samples to use in each shuffle
-    if len(X1)>500:
-        n=500
-    else:
-        n=len(X1)
+        # figure out how many samples to use in each shuffle
+        if len(X1)>500:
+            n=500
+        else:
+            n=len(X1)
 
-    # compute cc for 1000 shuffles
-    rf = np.zeros([1000, 1])
-    for rr in range(0, len(rf)):
-        n1 = (np.random.rand(n) * len(X1)).astype(int)
-        n2 = (np.random.rand(n) * len(X2)).astype(int)
-        rf[rr] = np.corrcoef(X1[n1], X2[n2])[0, 1]
+        # compute cc for 1000 shuffles
+        rf = np.zeros([1000, 1])
+        for rr in range(0, len(rf)):
+            n1 = (np.random.rand(n) * len(X1)).astype(int)
+            n2 = (np.random.rand(n) * len(X2)).astype(int)
+            rf[rr] = np.corrcoef(X1[n1], X2[n2])[0, 1]
 
-    rf = np.sort(rf[np.isfinite(rf)], 0)
-    if len(rf):
-        r_floor = rf[np.int(len(rf) * 0.95)]
-    else:
-        r_floor = 0
+        rf = np.sort(rf[np.isfinite(rf)], 0)
+        if len(rf):
+            r_floor[i] = rf[np.int(len(rf) * 0.95)]
+        else:
+            r_floor[i] = 0
 
     return r_floor
 
@@ -220,6 +229,10 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
     Compute noise-corrected correlation coefficient based on single-trial
     correlations in the actual response.
     """
+    if fullrec[resp_name].shape[0] > 1:
+        log.info('multi-channel data not supported in r_ceiling. returning 0')
+        return 0
+
     epoch_regex = '^STIM_'
     epochs_to_extract = ep.epoch_names_matching(result[resp_name].epochs,
                                                 epoch_regex)

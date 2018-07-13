@@ -1185,13 +1185,13 @@ def jackknife_inverse_merge(rec_list):
 #       for now because it was causing circular import issues since
 #       the unpack option depends on code in this module.
 
-
 DEMO_NAMES = [
-        'TAR010c-18-1.tgz', 'eno052d-a1.tgz', 'BRT026c-02-1.tgz', 'resp2.tgz',
+        'TAR010c-18-1.tgz', 'eno052d-a1.tgz',
+        'BRT026c-02-1.tgz', 'resp2.tgz',
+        'TAR010c-06-1.tgz',
         ]
 
-
-def get_demo_recordings(directory=None, unpack=False):
+def get_demo_recordings(directory=None, name=None, unpack=False):
     '''
     Saves all sample recordings in the LBHB public s3 bucket to
     nems/recordings/, or to the specified directory. By default,
@@ -1199,7 +1199,11 @@ def get_demo_recordings(directory=None, unpack=False):
     specifying unpack=True will instead save them uncompressed
     in a subdirectory.
     '''
-    names = DEMO_NAMES
+    if name is None:
+        names = DEMO_NAMES
+    else:
+        names = [name]
+
     prefix = 'https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/'
     uris = [(prefix + n) for n in names]
 
@@ -1250,3 +1254,4 @@ def get_demo_recordings(directory=None, unpack=False):
                              "parent directory grants write permission."
                              .format(directory))
                     log.exception(e)
+    return directory
