@@ -428,8 +428,7 @@ def logsig(kw):
     template = {
         'fn': 'nems.modules.nonlinearity.logistic_sigmoid',
         'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      'c': 'ctpred'},
+                      'o': 'pred'},
         'prior': {'base': ('Exponential', {'beta': [0.1]}),
                   'amplitude': ('Exponential', {'beta': [2.0]}),
                   'shift': ('Normal', {'mean': [1.0], 'sd': [1.0]}),

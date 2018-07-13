@@ -377,16 +377,10 @@ def init_logsig(rec, modelspec):
     resp = rec['resp'].as_continuous()
 
     mean_pred = np.nanmean(pred)
-    #min_pred = np.nanmin(pred)
-    #max_pred = np.nanmax(pred)
     min_pred = np.nanmean(pred)-np.nanstd(pred)*3
     max_pred = np.nanmean(pred)+np.nanstd(pred)*3
     pred_range = max_pred - min_pred
-    #min_resp = np.nanmin(resp)
-    #max_resp = np.nanmax(resp)
-    min_resp = np.nanmean(resp)-np.nanstd(resp)*3
-    if min_resp<0:
-        min_resp = 0
+    min_resp = max(np.nanmean(resp)-np.nanstd(resp)*3, 0)  # must be >= 0
 
     max_resp = np.nanmean(resp)+np.nanstd(resp)*3
     resp_range = max_resp - min_resp
@@ -398,29 +392,14 @@ def init_logsig(rec, modelspec):
     amplitude0 = resp_range
     shift0 = mean_pred
     kappa0 = pred_range
-    log.info("Initial   base,amplitude,shift,kappa=({},{},{},{})".format(
-                base0,amplitude0,shift0,kappa0))
+    log.info("Initial   base,amplitude,shift,kappa=({}, {}, {}, {})"
+             .format(base0, amplitude0, shift0, kappa0))
 
     base = ('Exponential', {'beta': base0})
     amplitude = ('Exponential', {'beta': amplitude0})
     shift = ('Normal', {'mean': shift0, 'sd': pred_range})
     kappa = ('Exponential', {'beta': kappa0})
 
-#    force_zero = ('Uniform', {'lower': 0.0, 'upper': 0.0})
-#
-#    modelspec[logsig_idx]['prior'] = {
-#            'base': base, 'amplitude': amplitude, 'shift': shift,
-#            'kappa': kappa, 'base_mod': force_zero,
-#            'amplitude_mod': force_zero, 'shift_mod': force_zero,
-#            'kappa_mod': force_zero
-#            }
-#
-#    modelspec[logsig_idx]['bounds'] = {
-#            'base': (1e-15, None), 'base_mod': (0.0, 0.0),
-#            'amplitude': (1e-15, None), 'amplitude_mod': (0.0, 0.0),
-#            'shift': (None, None), 'shift_mod': (0.0, 0.0),
-#            'kappa': (1e-15, None), 'kappa_mod': (0.0, 0.0),
-#            }
     modelspec[logsig_idx]['prior'] = {
             'base': base, 'amplitude': amplitude, 'shift': shift,
             'kappa': kappa}

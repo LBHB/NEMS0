@@ -84,7 +84,7 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, autoPred=True,
     # 5) add some performance statistics (optional)
     if autoStats:
         if not _xform_exists(xfspec, 'nems.xforms.add_summary_statistics'):
-            xfspec.append(['nems.xforms.add_summary_statistics'])
+            xfspec.append(['nems.xforms.add_summary_statistics', {}])
 
     # 6) generate plots (optional)
     if autoPlot:
