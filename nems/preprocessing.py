@@ -476,8 +476,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         temprec = create_pupil_size_mask(temprec, method='derivative')
         cd_signal = temprec['pupil']._modified_copy(temprec['mask'].as_continuous())
         cd_signal.name='pupil_cd'
-        cd_signal.chans = ['pupil_cd']
-        newrec = newrec.add_signal(cd_signal)
+        newrec.add_signal(cd_signal)
         newrec['pupil_cd'].chans = ['pupil_cd']
         
     if 'pupil_cd_x_pupil' in state_signals:
@@ -487,8 +486,8 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         cd_x_pup -= np.nanmean(cd_x_pup)
         cd_x_pup /= np.nanstd(cd_x_pup)
         cd_signal = temprec['pupil']._modified_copy(cd_x_pup)
-        cd_signal.name = 'pupil_cd'
-        newrec = newrec.add_signal(cd_signal)
+        cd_signal.name = 'pupil_cd_x_pupil'
+        newrec.add_signal(cd_signal)
         newrec['pupil_cd_x_pupil'].chans = ['pupil_cd_x_pupil']
         
     if ('pupil_ev' in state_signals) or ('pupil_bs' in state_signals):
