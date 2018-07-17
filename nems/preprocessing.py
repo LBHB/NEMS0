@@ -469,7 +469,24 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         p -= np.nanmean(p)
         p /= np.nanstd(p)
         newrec["pupil"] = newrec["pupil"]._modified_copy(p)
-
+        
+    if 'pupil_cd' in state_signals:
+        # divides refs into pupil constricting/dilating
+        temprec = newrec.copy()
+        temprec = create_pupil_size_mask(temprec, method='derivative')
+        cd_signal = temprec['pupil']._modified_copy(temprec['mask'].as_continuous())
+        cd_signal.name='pupil_cd'
+        newrec = newrec.add_signal(cd_signal)
+    if 'pupil_cd_x_pupil' in state_signals:
+        temprec = newrec.copy()
+        temprec = create_pupil_size_mask(temprec, method='derivative')
+        cd_x_pup = temprec['mask'].as_continuous()*temprec['pupil'].as_continuous()
+        cd_x_pup -= np.nanmean(cd_x_pup)
+        cd_x_pup /= np.nanstd(cd_x_pup)
+        cd_signal = temprec['pupil']._modified_copy(cd_x_pup)
+        cd_signal.name='pupil_cd'
+        newrec = newrec.add_signal(cd_signal)
+        
     if ('pupil_ev' in state_signals) or ('pupil_bs' in state_signals):
         # generate separate pupil baseline and evoked signals
 
@@ -696,3 +713,83 @@ def make_contrast_signal(rec, name='contrast', source_name='stim', ms=500,
     rec[name] = contrast_sig
 
     return rec
+
+
+def create_pupil_size_mask(rec, epoch='REFERENCE', method='median', invert=False):
+    """
+    Returns new recording with current mask "and'd " with pupil mask. Can either use
+    method = derivative (dilating vs. constricting per REF) or method =
+    median/mean where absolute pupil size is used to split up the data.
+    
+    TODO: think more about how to implement pupil derivative method. Right now,
+    just based on if the final time point is larger than the initial time point
+    for each given REF  --  CRH 7/6/2018
+    """
+    
+    r = rec.copy()
+    r = r.apply_mask()
+    newrec = rec.copy()
+    folded_pupil = r['pupil'].extract_epoch(epoch)
+
+    if method == 'median' or method == 'mean':
+        if method == 'mean':
+            divider = np.nanmean(np.nanmean(folded_pupil, -1).squeeze())
+        if method == 'median':
+            divider = np.median(np.nanmean(folded_pupil, -1).squeeze())
+
+        pupil = np.tile(np.nanmean(newrec['pupil'].extract_epoch('REFERENCE'), -1),
+                        (1, 1, folded_pupil.shape[-1])).transpose(1, 0, 2)
+
+        new_pupil_sig = newrec['pupil'].replace_epochs({'REFERENCE': pupil})
+
+        mask = np.zeros(new_pupil_sig.as_continuous().shape[1]).astype(np.bool)
+        nan_mask = ~np.isnan(new_pupil_sig.as_continuous()).squeeze()
+
+        if invert:
+            for i, p in enumerate(new_pupil_sig.as_continuous().squeeze()):
+                if p < divider and nan_mask[i]:
+                    mask[i] = True
+        else:
+            for i, p in enumerate(new_pupil_sig.as_continuous().squeeze()):
+                if p >= divider and nan_mask[i]:
+                    mask[i] = True
+
+        mask = np.multiply(newrec['mask'].as_continuous().squeeze(), mask)
+
+        mask_sig = newrec['mask']._modified_copy(mask[np.newaxis, :])
+
+        newrec.add_signal(mask_sig)
+
+    elif method == 'derivative':
+        fs = newrec['pupil'].fs
+        l = int(fs*0.5)  # av over half of sec
+        full_folded_p = newrec['pupil'].extract_epoch(epoch).squeeze()
+        m = []
+        for i in range(0, full_folded_p.shape[0]):
+            # sd = np.nanstd(full_folded_p[i, :])
+            s = np.mean(full_folded_p[i, 0:l])
+            e = np.mean(full_folded_p[i, -l:])
+            if invert is True:
+                if (s) < e:
+                    m.append(False)
+                else:
+                    m.append(True)
+            else:
+                if (s) < e:
+                    m.append(True)
+                else:
+                    m.append(False)
+
+        m = np.array(m)[:, np.newaxis]
+        mask = np.tile(m, (1, 1, full_folded_p.shape[-1])).transpose(1, 0, 2)
+        mask = newrec['pupil'].replace_epochs({epoch: mask})
+        nan_mask = np.isnan(mask.as_continuous())
+        mask_array = mask.as_continuous().copy()
+        mask_array[nan_mask] = False
+        mask = np.multiply(newrec['mask'].as_continuous().squeeze(), mask_array.squeeze()).astype(np.bool)
+
+        mask_sig = newrec['mask']._modified_copy(mask[np.newaxis, :])
+
+        newrec.add_signal(mask_sig)
+
+    return newrec
