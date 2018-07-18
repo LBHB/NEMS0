@@ -44,6 +44,26 @@ def stats(fitkey):
     return [['nems.xforms.add_summary_statistics', {'fn': fn}]]
 
 
+def best(fitkey):
+    '''
+    Collapse modelspecs to singleton list with only the "best" modelspec.
+    '''
+    options = fitkey.split('.')[1:]
+    metakey = 'r_test'
+
+    # TODO: need to update syntax so that a separate option for every
+    #       meta field isn't necessary (currently can't handle underscores)
+    #       Would be easy to parse here but underscore would still mess up the
+    #       modelname split in xform_helper
+    for op in options:
+        if op == 'rtest':
+            fitkey = 'r_test'
+        elif op == 'rfit':
+            fitkey = 'r_fit'
+
+    return [['nems.xforms.only_best_modelspec', {'metakey': metakey}]]
+
+
 def basic(fitkey):
     '''
     Perform a fit_basic analysis on a model.

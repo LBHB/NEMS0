@@ -8,16 +8,29 @@ import nems.recording as recording
 
 
 def generate_prediction(est, val, modelspecs):
-
+    list_val = False
     if type(val) is list:
         # ie, if jackknifing
-        new_est = [ms.evaluate(d, m) for m, d in zip(modelspecs, est)]
-        new_val = [ms.evaluate(d, m) for m, d in zip(modelspecs, val)]
-        new_val = [recording.jackknife_inverse_merge(new_val)]
+        list_val = True
     else:
         # Evaluate estimation and validation data
-        new_est = [ms.evaluate(est, m) for m in modelspecs]
-        new_val = [ms.evaluate(val, m) for m in modelspecs]
+
+        # Since ms.evaluate only does a shallow copy of rec, successive
+        # evaluations of one rec on many modelspecs just results in a list of
+        # different pointers to the same recording. So need to force copies of
+        # est/val before evaluating.
+        if len(modelspecs) == 1:
+            # no copies needed for 1 modelspec
+            est = [est]
+            val = [val]
+        else:
+            est = [est.copy() for i, _ in enumerate(modelspecs)]
+            val = [val.copy() for i, _ in enumerate(modelspecs)]
+
+    new_est = [ms.evaluate(d, m) for m, d in zip(modelspecs, est)]
+    new_val = [ms.evaluate(d, m) for m, d in zip(modelspecs, val)]
+    if list_val:
+        new_val = [recording.jackknife_inverse_merge(new_val)]
 
     return new_est, new_val
 

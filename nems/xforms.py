@@ -222,6 +222,23 @@ def fill_in_default_metadata(rec, modelspecs, IsReload=False, **context):
     return {'modelspecs': modelspecs}
 
 
+def only_best_modelspec(modelspecs, metakey='r_test', IsReload=False,
+                        **context):
+    '''
+    Collapses a list of modelspecs so that it only contains the modelspec
+    with the highest given meta metric.
+    '''
+    if not IsReload:
+        # TODO: Not the fastest way to do this but probably doesn't matter
+        #       since it's only done once per fit.
+
+        # TODO: Make this allow for variable number of top specs by
+        #       updating ms function to sort then pick top n
+        return {'modelspecs': ms.get_best_modelspec(modelspecs, metakey)}
+    else:
+        return {}
+
+
 ###############################################################################
 #########################     PREPROCESSORS     ###############################
 ###############################################################################
@@ -475,7 +492,7 @@ def fit_state_init(modelspecs, est, IsReload=False, metric='nmse', **context):
 def fit_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
               metric='nmse', IsReload=False, fitter='scipy_minimize',
               jackknifed_fit=False, random_sample_fit=False,
-              n_random_samples=0, **context):
+              n_random_samples=0, random_fit_subset=None, **context):
     ''' A basic fit that optimizes every input modelspec. '''
     if not IsReload:
         metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
@@ -493,6 +510,7 @@ def fit_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
                             'fit_kwargs': fit_kwargs}
             return fit_n_times_from_random_starts(
                         modelspecs, est, ntimes=n_random_samples,
+                        subset=random_fit_subset,
                         analysis='fit_basic', basic_kwargs=basic_kwargs
                         )
 
@@ -513,7 +531,7 @@ def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
                     module_sets=None, invert=False, tolerances=[1e-4],
                     metric='nmse', fitter='scipy_minimize', fit_kwargs={},
                     jackknifed_fit=False, random_sample_fit=False,
-                    n_random_samples=0, **context):
+                    n_random_samples=0, random_fit_subset=None, **context):
 
     fitter_fn = getattr(nems.fitters.api, fitter)
     metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
@@ -533,6 +551,7 @@ def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
                            'fitter': fitter_fn, 'fit_kwargs': fit_kwargs}
             return fit_n_times_from_random_starts(
                         modelspecs, est, ntimes=n_random_samples,
+                        subset=random_fit_subset,
                         analysis='fit_iteratively', iter_kwargs=iter_kwargs,
                         )
 
@@ -570,7 +589,7 @@ def fit_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
     return {'modelspecs': modelspecs}
 
 
-def fit_n_times_from_random_starts(modelspecs, est, ntimes,
+def fit_n_times_from_random_starts(modelspecs, est, ntimes, subset,
                                    analysis='fit_basic', basic_kwargs={},
                                    IsReload=False, **context):
     ''' Self explanatory. '''
@@ -578,8 +597,8 @@ def fit_n_times_from_random_starts(modelspecs, est, ntimes,
         if len(modelspecs) > 1:
             raise NotImplementedError('I only work on 1 modelspec')
         modelspecs = nems.analysis.api.fit_from_priors(
-                est, modelspecs[0], ntimes=ntimes, analysis=analysis,
-                basic_kwargs=basic_kwargs
+                est, modelspecs[0], ntimes=ntimes, subset=subset,
+                analysis=analysis, basic_kwargs=basic_kwargs
                 )
 
     return {'modelspecs': modelspecs}
@@ -650,9 +669,10 @@ def jackknifed_fit(IsReload=False, **context):
         return {}
 
 
-def random_sample_fit(ntimes=10, IsReload=False, **context):
+def random_sample_fit(ntimes=10, subset=None, IsReload=False, **context):
     if not IsReload:
-        return {'random_sample_fit': True, 'n_random_samples': ntimes}
+        return {'random_sample_fit': True, 'n_random_samples': ntimes,
+                'random_fit_subset': subset}
     else:
         return {}
 
