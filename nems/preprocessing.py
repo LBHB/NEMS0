@@ -520,6 +520,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         pupil_trial = newrec["pupil"].extract_epoch('TRIAL')
 
         pupil_bs = np.zeros(pupil_trial.shape)
+        pupil_ev = np.zeros(pupil_trial.shape)
         for ii in range(pupil_trial.shape[0]):
             pupil_bs[ii, :, :] = np.mean(
                     pupil_trial[ii, :, :spont_bins])
