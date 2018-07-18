@@ -510,6 +510,30 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
                 'TRIAL', pupil_bs)
         newrec['pupil_bs'].chans=['pupil_bs']
 
+    if 'pupil_der' in state_signals:
+        # generate pupil derivative state variable (basically mean change on a 
+        # per trial basis - just substract mean at end of trial from mean in 
+        # prestimsilence
+        
+        prestimsilence = newrec["pupil"].extract_epoch('PreStimSilence')
+        spont_bins = prestimsilence.shape[2]
+        pupil_trial = newrec["pupil"].extract_epoch('TRIAL')
+
+        pupil_bs = np.zeros(pupil_trial.shape)
+        for ii in range(pupil_trial.shape[0]):
+            pupil_bs[ii, :, :] = np.mean(
+                    pupil_trial[ii, :, :spont_bins])
+            pupil_ev[ii, :, :] = np.mean(
+                    pupil_trial[ii, :, -spont_bins:])
+        pupil_der = pupil_ev - pupil_bs
+        newrec['pupil_der'] = newrec["pupil"].replace_epoch(
+                'TRIAL', pupil_der)
+        newrec['pupil_der'].chans = ['pupil_der']
+        p = newrec['pupil'].as_continuous()
+        d = newrec['pupil_der'].as_continuous()
+        newrec['p_x_pd'] = newrec["pupil"]._modified_copy(p * d)     
+        newrec['p_x_pd'].chans = ['p_x_pd']
+        
     if ('each_passive' in state_signals):
         file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
         pset = []
