@@ -524,7 +524,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         for ii in range(pupil_trial.shape[0]):
             pupil_bs[ii, :, :] = np.mean(
                     pupil_trial[ii, :, :spont_bins])
-            pupil_ev[ii, :, :] = np.mean(
+            pupil_ev[ii, :, :] = np.nanmean(
                     pupil_trial[ii, :, -spont_bins:])
         pupil_der = pupil_ev - pupil_bs
         newrec['pupil_der'] = newrec["pupil"].replace_epoch(
