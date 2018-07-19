@@ -103,6 +103,9 @@ def json_numpy_obj_hook(dct):
     if '_KWR_ARGS' in dct:
         return KeywordRegistry.from_json(dct)
 
+    if '_KWR_ARGS' in dct:
+        return KeywordRegistry.from_json(dct)
+
     return dct
 
 

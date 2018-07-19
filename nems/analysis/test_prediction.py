@@ -7,17 +7,30 @@ import nems.metrics.api as nmet
 import nems.recording as recording
 
 
-def generate_prediction(est,val,modelspecs):
-
+def generate_prediction(est, val, modelspecs):
+    list_val = False
     if type(val) is list:
         # ie, if jackknifing
-        new_est = [ms.evaluate(d, m) for m,d in zip(modelspecs,est)]
-        new_val = [ms.evaluate(d, m) for m,d in zip(modelspecs,val)]
-        new_val = [recording.jackknife_inverse_merge(new_val)]
+        list_val = True
     else:
         # Evaluate estimation and validation data
-        new_est = [ms.evaluate(est, m) for m in modelspecs]
-        new_val = [ms.evaluate(val, m) for m in modelspecs]
+
+        # Since ms.evaluate only does a shallow copy of rec, successive
+        # evaluations of one rec on many modelspecs just results in a list of
+        # different pointers to the same recording. So need to force copies of
+        # est/val before evaluating.
+        if len(modelspecs) == 1:
+            # no copies needed for 1 modelspec
+            est = [est]
+            val = [val]
+        else:
+            est = [est.copy() for i, _ in enumerate(modelspecs)]
+            val = [val.copy() for i, _ in enumerate(modelspecs)]
+
+    new_est = [ms.evaluate(d, m) for m, d in zip(modelspecs, est)]
+    new_val = [ms.evaluate(d, m) for m, d in zip(modelspecs, val)]
+    if list_val:
+        new_val = [recording.jackknife_inverse_merge(new_val)]
 
     return new_est, new_val
 
@@ -65,6 +78,50 @@ def standard_correlation(est, val, modelspecs, rec=None):
     modelspecs[0][0]['meta']['ll_fit'] = np.mean(ll_fit)
 
     return modelspecs
+
+
+def correlation_per_model(est, val, modelspecs, rec=None):
+    '''
+    Expects the lengths of est, val, and modelspecs to match since est[i]
+    should have been evaluated on the fitted modelspecs[i], etc.
+    Similar to standard_correlation, but saves correlation information
+    to every first-module 'meta' entry instead of saving an average
+    to only the first modelspec
+    '''
+    if not len(est) == len(val) == len(modelspecs):
+        raise ValueError("est, val, and modelspecs should all be lists"
+                         " of equal length. got: %d, %d, %d respectively.",
+                         len(est), len(val), len(modelspecs))
+
+    modelspecs = copy.deepcopy(modelspecs)
+
+    r_tests = [nmet.corrcoef(v, 'pred', 'resp') for v in val]
+    #se_tests = [np.std(r)/np.sqrt(len(v)) for r, v in zip(r_tests, val)]
+    mse_tests = [nmet.nmse(v, 'pred', 'resp') for v in val]
+    ll_tests = [nmet.likelihood_poisson(v, 'pred', 'resp') for v in val]
+
+    r_fits = [nmet.corrcoef(e, 'pred', 'resp') for e in est]
+    #se_fits = [np.std(r)/np.sqrt(len(v)) for r, v in zip(r_fits, val)]
+    mse_fits = [nmet.nmse(e, 'pred', 'resp') for e in est]
+    ll_fits = [nmet.likelihood_poisson(e, 'pred', 'resp') for e in est]
+
+    r_floors = [nmet.r_floor(v, 'pred', 'resp') for v in val]
+    if rec is None:
+        r_ceilings = [None]*len(r_floors)
+    else:
+        r_ceilings = [nmet.r_ceiling(v, rec, 'pred', 'resp') for v in val]
+
+    for i, m in enumerate(modelspecs):
+        m[0]['meta'].update({
+                'r_test': r_tests[i], #'se_test': se_tests[i],
+                'mse_test': mse_tests[i], 'll_test': ll_tests[i],
+                'r_fit': r_fits[i], #'se_fit': se_fits[i],
+                'mse_fit': mse_fits[i], 'll_fit': ll_fits[i],
+                'r_floor': r_floors[i], 'r_ceiling': r_ceilings[i],
+                })
+
+    return modelspecs
+
 
 def standard_correlation_by_epochs(est,val,modelspecs,epochs_list, rec=None):
 
@@ -119,6 +176,7 @@ def standard_correlation_by_epochs(est,val,modelspecs,epochs_list, rec=None):
         modelspecs[0][0]['meta'][epoch_list_str]['ll_fit'] = np.mean(ll_fit)
 
     return modelspecs
+
 
 def generate_prediction_sets(est, val, modelspecs):
     if type(val) is list:

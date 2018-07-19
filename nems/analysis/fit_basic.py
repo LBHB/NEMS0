@@ -2,15 +2,15 @@ import copy
 import logging
 import time
 from functools import partial
-from nems.fitters.api import coordinate_descent, scipy_minimize
+
+from nems.analysis.cost_functions import basic_cost
+from nems.fitters.api import scipy_minimize
 import nems.priors
 import nems.fitters.mappers
 import nems.modelspec as ms
 import nems.metrics.api as metrics
 import nems.segmentors
 import nems.utils
-
-import numpy as np
 
 log = logging.getLogger(__name__)
 
@@ -115,32 +115,6 @@ def fit_basic(data, modelspec,
     return results
 
 
-def basic_cost(sigma, unpacker, modelspec, data, segmentor,
-               evaluator, metric):
-    '''Standard cost function for use by fit_basic and other analyses.'''
-    updated_spec = unpacker(sigma)
-    # The segmentor takes a subset of the data for fitting each step
-    # Intended use is for CV or random selection of chunks of the data
-    # For fit_basic the 'segmentor' just passes it all through.
-    data_subset = segmentor(data)
-    updated_data_subset = evaluator(data_subset, updated_spec)
-    error = metric(updated_data_subset)
-    log.debug("inside cost function, current error: %.06f", error)
-    log.debug("current sigma: %s", sigma)
-
-    if hasattr(basic_cost, 'counter'):
-        basic_cost.counter += 1
-        if basic_cost.counter % 500 == 0:
-            log.info('Eval #%d. E=%.06f', basic_cost.counter, error)
-            # log.debug("current sigma: %s", sigma)
-            nems.utils.progress_fun()
-
-    if hasattr(basic_cost, 'error'):
-        basic_cost.error = error
-
-    return error
-
-
 def fit_random_subsets(data, modelspec, nsplits=1, rebuild_every=10000):
     '''
     Randomly picks a small fraction of the data to fit on.
@@ -157,9 +131,8 @@ def fit_random_subsets(data, modelspec, nsplits=1, rebuild_every=10000):
 
 
 def fit_state_nfold(data_list, modelspecs, generate_psth=False,
-              fitter=scipy_minimize,
-              metric=None,
-              fit_kwargs={'options': {'tolerance': 1e-7, 'max_iter': 1000}}):
+                    fitter=scipy_minimize, metric=None,
+                    fit_kwargs={}):
     '''
     Generic state-dependent-stream model fitter
     Takes njacks jackknifes, where each jackknife has some small
@@ -225,21 +198,5 @@ def fit_subsets(data, modelspec, nsplits=10):
         split = data.jackknife_by_time(nsplits, i, invert=True, excise=True)
         models += fit_basic(split, modelspec, fitter=scipy_minimize,
                             metaname='fit_subset')
-
-    return models
-
-
-def fit_from_priors(data, modelspec, ntimes=10):
-    '''
-    Fit ntimes times, starting from random points sampled from the prior.
-
-    TODO : Test, add more parameters
-    '''
-    models = []
-    for i in range(ntimes):
-        log.info("Fitting from random start: {}/{}".format(i+1, ntimes))
-        ms = nems.priors.set_random_phi(copy.deepcopy(modelspec))
-        models += fit_basic(data, ms, fitter=scipy_minimize,
-                            metaname='fit_from_priors')
 
     return models

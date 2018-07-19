@@ -318,6 +318,42 @@ def summary_stats(modelspecs, mod_key='fn', meta_include=[]):
     return with_stats
 
 
+def get_best_modelspec(modelspecs, metakey='r_test', comparison='greatest'):
+    '''
+    Examines the first-module meta information within each modelspec in a list,
+    and returns a singleton list containing the modelspec with the greatest
+    value for the specified metakey by default (or the least value optionally).
+    '''
+    idx = None
+    best = None
+    for i, m in enumerate(modelspecs):
+        if metakey in m[0]['meta']:
+            metaval = m[0]['meta'][metakey]
+            if comparison == 'greatest':
+                if best is None:
+                    best = metaval
+                    idx = i
+                else:
+                    if metaval > best:
+                        best = metaval
+                        idx = i
+
+            elif comparison == 'least':
+                if best is None:
+                    best = metaval
+                    idx = i
+                else:
+                    if metaval < best:
+                        best = metaval
+                        idx = i
+
+            else:
+                raise NotImplementedError("Only supports 'greatest' or 'least'"
+                                          "as arguments for comparison")
+
+    return [modelspecs[idx]]
+
+
 def try_scalar(x):
     """Try to convert x to scalar, in case of ValueError just return x."""
     # TODO: Maybe move this to an appropriate utilities module?

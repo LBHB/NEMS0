@@ -5,11 +5,12 @@ from numpy import exp
 
 def _logistic_sigmoid(x, base, amplitude, shift, kappa):
     ''' This "logistic" function only has a single negative exponent '''
-    return base + amplitude * 1 / (1 + exp(-kappa * (x - shift)))
+    return base + amplitude/(1 + exp(-(x-shift)/kappa))
 
 
 def logistic_sigmoid(rec, i, o, base, amplitude, shift, kappa):
-    fn = lambda x : _logistic_sigmoid(x, base, amplitude, shift, kappa)
+
+    fn = lambda x: _logistic_sigmoid(x, base, amplitude, shift, kappa)
     return [rec[i].transform(fn, o)]
 
 
