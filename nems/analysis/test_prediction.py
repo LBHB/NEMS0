@@ -28,7 +28,12 @@ def standard_correlation(est, val, modelspecs, rec=None):
     r_ceiling = 0
     if len(val) == 1:
         r_test, se_test = nmet.j_corrcoef(val[0], 'pred', 'resp')
-        r_fit, se_fit = nmet.j_corrcoef(est[0], 'pred', 'resp')
+        if len(est)>1:
+            r = [nmet.corrcoef(p, 'pred', 'resp') for p in est]
+            r_fit = np.mean(r)
+            se_fit = np.std(r) / np.sqrt(len(est))
+        else:
+            r_fit, se_fit = nmet.j_corrcoef(est[0], 'pred', 'resp')
         r_floor = nmet.r_floor(val[0], 'pred', 'resp')
         if rec is not None:
             # print('running r_ceiling')
