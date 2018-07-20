@@ -55,7 +55,7 @@ def progress_fun():
     pass
 
 
-def find_module(name, modelspec, find_all_matches=False):
+def find_module(query, modelspec, find_all_matches=False, key='fn'):
     """
     name : string
     modelspec : NEMS modelspec (list of dictionaries)
@@ -72,9 +72,8 @@ def find_module(name, modelspec, find_all_matches=False):
         target_i = []
     else:
         target_i = None
-    target_module = name
     for i, m in enumerate(modelspec):
-        if target_module in m['fn']:
+        if query in m[key]:
             if find_all_matches:
                 target_i.append(i)
             else:
@@ -82,10 +81,9 @@ def find_module(name, modelspec, find_all_matches=False):
                 break
 
     if not target_i:
-        log.debug("target_module: %s not found in modelspec.", target_module)
+        log.debug("target_module: %s not found in modelspec.", query)
     else:
         log.debug("target_module: %s found at modelspec[%d]",
-                  target_module, target_i)
+                  query, target_i)
 
     return target_i
-

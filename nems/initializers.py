@@ -140,7 +140,14 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
             break
 
         elif 'logistic_sigmoid' in m['fn']:
+            log.info("initializing priors and bounds for logsig ...\n")
             modelspec = init_logsig(est, modelspec)
+            modelspec = prefit_mod_subset(
+                    est, modelspec, fit_basic,
+                    fit_set=['logistic_sigmoid'],
+                    fitter=scipy_minimize,
+                    metric=metric,
+                    fit_kwargs=fit_kwargs)
             break
 
 #                modelspecs = [prefit_to_target(
@@ -366,34 +373,42 @@ def init_logsig(rec, modelspec):
         log.warning("No logsig module was found, can't initialize.")
         return modelspec
 
-    stim = rec['stim'].as_continuous()
+    pred = rec['pred'].as_continuous()
     resp = rec['resp'].as_continuous()
-    # TODO: Maybe need a more sophisticated calculation for this?
-    #       Paper isn't very clear on how they calculate "X-bar" and "Y-bar"
-    #       They also mention that their stim-resp data is split up into 20
-    #       bins, maybe averaged across trials or something?
-    mean_stim = np.nanmean(stim)
-    min_stim = np.nanmin(stim)
-    max_stim = np.nanmax(stim)
-    stim_range = max_stim - min_stim
-    min_resp = np.nanmin(resp)
-    max_resp = np.nanmax(resp)
+
+    mean_pred = np.nanmean(pred)
+    min_pred = np.nanmean(pred)-np.nanstd(pred)*3
+    max_pred = np.nanmean(pred)+np.nanstd(pred)*3
+    pred_range = max_pred - min_pred
+    min_resp = max(np.nanmean(resp)-np.nanstd(resp)*3, 0)  # must be >= 0
+
+    max_resp = np.nanmean(resp)+np.nanstd(resp)*3
     resp_range = max_resp - min_resp
 
     # Rather than setting a hard value for initial phi,
     # set the prior distributions and let the fitter/analysis
     # decide how to use it.
-    base = ('Exponential', {'beta': min_resp + 0.05*(resp_range)})
-    amplitude = ('Exponential', {'beta': 2*resp_range})
-    shift = ('Normal', {'mean': mean_stim, 'sd': stim_range})
-    kappa = ('Exponential', {'beta': stim_range/stim.shape[1]})
+    base0 = min_resp + 0.05*(resp_range)
+    amplitude0 = resp_range
+    shift0 = mean_pred
+    kappa0 = pred_range
+    log.info("Initial   base,amplitude,shift,kappa=({}, {}, {}, {})"
+             .format(base0, amplitude0, shift0, kappa0))
+
+    base = ('Exponential', {'beta': base0})
+    amplitude = ('Exponential', {'beta': amplitude0})
+    shift = ('Normal', {'mean': shift0, 'sd': pred_range})
+    kappa = ('Exponential', {'beta': kappa0})
 
     modelspec[logsig_idx]['prior'] = {
             'base': base, 'amplitude': amplitude, 'shift': shift,
-            'kappa': kappa
+            'kappa': kappa}
+
+    modelspec[logsig_idx]['bounds'] = {
+            'base': (1e-15, None),
+            'amplitude': (1e-15, None),
+            'shift': (None, None),
+            'kappa': (1e-15, None)
             }
-    log.info("logistic_sigmoid priors initialized to: "
-             "base: %s\namplitude: %s\nshift: %s\nkappa: %s\n",
-             *modelspec[logsig_idx]['prior'].values())
 
     return modelspec

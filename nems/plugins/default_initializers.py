@@ -14,7 +14,7 @@ def init(kw):
             st = True
         elif op.startswith('t'):
             # 'd' stands in for '.' in floating points
-            num = op.replace(',', '.')
+            num = op.replace('d', '.')
             tolpower = float(num[1:])*(-1)
             tolerance = 10**tolpower
 
@@ -24,6 +24,8 @@ def init(kw):
         return [['nems.xforms.fit_basic_init', {'tolerance': tolerance}]]
 
 
+# TOOD: Maybe these should go in fitters instead?
+#       Not really initializers, but really fitters either.
 def jk(kw):
     ops = kw.split('.')[1:]
     jk_kwargs = {}
@@ -46,3 +48,16 @@ def jk(kw):
     xfspec.append(['nems.xforms.jackknifed_fit', {}])
 
     return xfspec
+
+
+def rand(kw):
+    ops = kw.split('.')[1:]
+    nt_kwargs = {}
+
+    for op in ops:
+        if op.startswith('nt'):
+            nt_kwargs['ntimes'] = int(op[2:])
+        elif op.startswith('S'):
+            nt_kwargs['subset'] = [int(i) for i in op[1:].split(',')]
+
+    return [['nems.xforms.random_sample_fit', nt_kwargs]]

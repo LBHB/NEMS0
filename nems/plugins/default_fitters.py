@@ -26,9 +26,42 @@ def mt(fitkey):
 
 def pred(fitkey):
     '''
-    Evaluate model prediction.
+    Evaluate model prediction. Added by default in xform_helper.
     '''
     return [['nems.xforms.predict', {}]]
+
+
+def stats(fitkey):
+    '''
+    Add summary statistics to modelspec(s). Added by default in xform_helper.
+    '''
+    options = fitkey.split('.')[1:]
+    fn = 'standard_correlation'
+    for op in options:
+        if op == 'pm':
+            fn = 'correlation_per_model'
+
+    return [['nems.xforms.add_summary_statistics', {'fn': fn}]]
+
+
+def best(fitkey):
+    '''
+    Collapse modelspecs to singleton list with only the "best" modelspec.
+    '''
+    options = fitkey.split('.')[1:]
+    metakey = 'r_test'
+
+    # TODO: need to update syntax so that a separate option for every
+    #       meta field isn't necessary (currently can't handle underscores)
+    #       Would be easy to parse here but underscore would still mess up the
+    #       modelname split in xform_helper
+    for op in options:
+        if op == 'rtest':
+            fitkey = 'r_test'
+        elif op == 'rfit':
+            fitkey = 'r_fit'
+
+    return [['nems.xforms.only_best_modelspec', {'metakey': metakey}]]
 
 
 def basic(fitkey):
@@ -58,8 +91,7 @@ def basic(fitkey):
     max_iter, tolerance, fitter = _parse_basic(options)
     xfspec = [['nems.xforms.fit_basic',
                {'max_iter': max_iter,
-                'fitter': fitter, 'tolerance': tolerance}],
-              ['nems.xforms.predict', {}]]
+                'fitter': fitter, 'tolerance': tolerance}]]
 
     return xfspec
 
@@ -104,8 +136,7 @@ def iter(fitkey):
     xfspec = [['nems.xforms.fit_iteratively',
                {'module_sets': module_sets, 'fitter': fitter,
                 'tolerances': tolerances, 'tol_iter': tol_iter,
-                'fit_iter': fit_iter}],
-              ['nems.xforms.predict', {}]]
+                'fit_iter': fit_iter}]]
 
     return xfspec
 

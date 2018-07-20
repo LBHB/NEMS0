@@ -3,10 +3,10 @@ import copy
 
 import numpy as np
 import pandas as pd
-from scipy.signal import convolve2d, spectrogram
 
 import nems.epoch as ep
 import nems.signal as signal
+from scipy.signal import convolve2d, spectrogram
 
 import logging
 log = logging.getLogger(__name__)

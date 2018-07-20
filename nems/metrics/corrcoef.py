@@ -81,6 +81,7 @@ def j_corrcoef(result, pred_name='pred', resp_name='resp', njacks=20):
     and symbolic (i.e., Theano, TensorFlow) computation. Please do not edit
     unless you know what you're doing. (@bburan TODO: Is this still true?)
     '''
+
     predmat = result[pred_name].as_continuous()
     respmat = result[resp_name].as_continuous()
 

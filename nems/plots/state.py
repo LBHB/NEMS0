@@ -54,6 +54,10 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
             d = d / np.nanmax(d) * mmax - (0.1 + i) * mmax
             plt.plot(t, d, linewidth=1, color=state_colors[i-1])
 
+            tstr = "{} (d={:.3f},g={:.3f})".format(
+                        rec['state'].chans[i], m['phi']['d'][i],
+                        m['phi']['g'][i])
+
             if g is not None:
                tstr = "{} (d={:.3f},g={:.3f})".format(
                            rec['state'].chans[i], m['phi']['d'][i],
@@ -101,6 +105,7 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
     PreStimSilence = np.mean(np.diff(d)) - 0.5/fs
     d = rec[psth_name].get_epoch_bounds('PostStimSilence')
     if d.size > 0:
+        PostStimSilence = np.min(np.diff(d)) - 0.5/fs
         dd = np.diff(d)
         dd = dd[dd>0]
     else:
@@ -207,5 +212,3 @@ def state_gain_plot(modelspec, ax=None, clim=None, title=None):
     plt.legend(('baseline', 'gain'))
     if title:
         plt.title(title)
-
-

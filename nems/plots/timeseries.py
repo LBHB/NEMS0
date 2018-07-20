@@ -83,7 +83,8 @@ def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
         time_vector = np.arange(0, len(value_vector)) / s.fs
         times.append(time_vector)
         values.append(value_vector)
-        legend.append(s.name+' '+s.chans[c])
+        if s.chans is not None:
+            legend.append(s.name+' '+s.chans[c])
 
     plot_timeseries(times, values, xlabel, ylabel, legend=legend,
                     linestyle=linestyle, linewidth=linewidth,
@@ -189,7 +190,7 @@ def before_and_after_stp(modelspec, sig_name='pred', ax=None, title=None,
                             title=title)
 
 
-def before_and_after(rec, modelspec, sig_name, ax=None, title=None,
+def before_and_after(rec, modelspec, sig_name, ax=None, title=None, idx=0,
                      channels=0, xlabel='Time', ylabel='Value'):
     '''
     Plots a timeseries of specified signal just before and just after

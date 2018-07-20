@@ -23,9 +23,7 @@ def load_config():
             utime(settings_path, None)
         log.info("No settings.py found in configs directory,"
                  " generating blank file ... ")
-        # equivalent to?
-        # from nems.configs import settings
-        settings = {}
+        from nems.configs import settings
 
     for s in config.__dir__():
         if s.startswith('__') or not (s == s.upper()):

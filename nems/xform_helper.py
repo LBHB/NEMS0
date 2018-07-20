@@ -10,7 +10,8 @@ from nems.plugins import (default_keywords, default_loaders, default_fitters,
 log = logging.getLogger(__name__)
 
 
-def generate_xforms_spec(recording_uri, modelname, meta={}, autoPlot=True):
+def generate_xforms_spec(recording_uri, modelname, meta={}, autoPred=True,
+                         autoStats=True, autoPlot=True):
     """
     TODO: Update this doc
 
@@ -72,14 +73,24 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, autoPlot=True):
     # 3) fit the data
     xfspec.extend(_parse_kw_string(fit_keywords, xforms_lib))
 
-    # 4) add some performance statistics
-    xfspec.append(['nems.analysis.api.standard_correlation', {},
-                   ['est', 'val', 'modelspecs', 'rec'], ['modelspecs']])
+    # TODO: need to make this smarter about how to handle the ordering
+    #       of pred/stats when only stats is overridden.
 
-    # 5) generate plots
+    # 4) generate a prediction (optional)
+    if autoPred:
+        if not _xform_exists(xfspec, 'nems.xforms.predict'):
+            xfspec.append(['nems.xforms.predict', {}])
+
+    # 5) add some performance statistics (optional)
+    if autoStats:
+        if not _xform_exists(xfspec, 'nems.xforms.add_summary_statistics'):
+            xfspec.append(['nems.xforms.add_summary_statistics', {}])
+
+    # 6) generate plots (optional)
     if autoPlot:
-        log.info('Generating summary plot...')
-        xfspec.append(['nems.xforms.plot_summary', {}])
+        if not _xform_exists(xfspec, 'nems.xforms.plot_summary'):
+            log.info('Adding summary plot to xfspec...')
+            xfspec.append(['nems.xforms.plot_summary', {}])
 
     return xfspec
 
@@ -102,3 +113,9 @@ def _parse_kw_string(kw_string, registry):
             pass
 
     return xfspec
+
+
+def _xform_exists(xfspec, xform_fn):
+    for xf in xfspec:
+        if xf[0] == xform_fn:
+            return True
