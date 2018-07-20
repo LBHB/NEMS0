@@ -12,6 +12,7 @@ def generate_prediction(est,val,modelspecs):
     if type(val) is list:
         # ie, if jackknifing
         new_est = [ms.evaluate(d, m) for m,d in zip(modelspecs,est)]
+        new_est = [recording.jackknife_inverse_merge(new_est)]
         new_val = [ms.evaluate(d, m) for m,d in zip(modelspecs,val)]
         new_val = [recording.jackknife_inverse_merge(new_val)]
     else:
