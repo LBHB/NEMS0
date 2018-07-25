@@ -1,11 +1,13 @@
 import logging
 import re
 
+from nems.utils import escaped_split
+
 log = logging.getLogger(__name__)
 
 
 def init(kw):
-    ops = kw.split('.')[1:]
+    ops = escaped_split(kw, '.')[1:]
     st = False
     tolerance = 10**-5.5
 
@@ -13,8 +15,9 @@ def init(kw):
         if op == 'st':
             st = True
         elif op.startswith('t'):
-            # 'd' stands in for '.' in floating points
-            num = op.replace('d', '.')
+            # Should use \ to escape going forward, but keep d-sub in
+            # for backwards compatibility.
+            num = op.replace('d', '.').replace('\\', '')
             tolpower = float(num[1:])*(-1)
             tolerance = 10**tolpower
 

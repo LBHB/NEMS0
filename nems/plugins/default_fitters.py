@@ -1,6 +1,8 @@
 import logging
 import re
 
+from nems.utils import escaped_split
+
 log = logging.getLogger(__name__)
 
 # TODO: Create and expand documentation.
@@ -48,20 +50,21 @@ def best(fitkey):
     '''
     Collapse modelspecs to singleton list with only the "best" modelspec.
     '''
-    options = fitkey.split('.')[1:]
+    options = escaped_split(fitkey, '.')[1:]
     metakey = 'r_test'
+    comparison = 'greatest'
 
-    # TODO: need to update syntax so that a separate option for every
-    #       meta field isn't necessary (currently can't handle underscores)
-    #       Would be easy to parse here but underscore would still mess up the
-    #       modelname split in xform_helper
     for op in options:
-        if op == 'rtest':
-            fitkey = 'r_test'
-        elif op == 'rfit':
-            fitkey = 'r_fit'
+        if op == '<':
+            comparison = 'least'
+        elif op == '>':
+            comparison = 'greatest'
+        else:
+            # Assume it's the name of a metakey, and remove any escapes
+            metakey = op.replace('\\', '')
 
-    return [['nems.xforms.only_best_modelspec', {'metakey': metakey}]]
+    return [['nems.xforms.only_best_modelspec', {'metakey': metakey,
+                                                 'comparison': comparison}]]
 
 
 def basic(fitkey):
@@ -146,7 +149,7 @@ def _extract_options(fitkey):
         # empty options (i.e. just use defualts)
         options = []
     else:
-        chunks = fitkey.split('.')
+        chunks = escaped_split(fitkey, '.')
         options = chunks[1:]
     return options
 
@@ -161,7 +164,9 @@ def _parse_basic(options):
             pattern = re.compile(r'^mi(\d{1,})')
             max_iter = int(re.match(pattern, op).group(1))
         elif op.startswith('t'):
-            num = op.replace('d', '.')
+            # Should use \ to escape going forward, but keep d-sub in
+            # for backwards compatibility.
+            num = op.replace('d', '.').replace('\\', '')
             tolpower = float(num[1:])*(-1)
             tolerance = 10**tolpower
         elif op == 'cd':
@@ -184,7 +189,9 @@ def _parse_iter(options):
         elif op.startswith('fi'):
             fit_iter = int(op[2:])
         elif op.startswith('T'):
-            nums = op.replace('d', '.')
+            # Should use \ to escape going forward, but keep d-sub in
+            # for backwards compatibility.
+            nums = op.replace('d', '.').replace('\\', '')
             powers = [float(i) for i in nums[1:].split(',')]
             tolerances.extend([10**(-1*p) for p in powers])
         elif op.startswith('S'):

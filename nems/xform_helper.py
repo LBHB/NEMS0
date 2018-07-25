@@ -3,6 +3,7 @@ import importlib as imp
 
 import nems.xforms as xforms
 from nems import get_setting
+from nems.utils import escaped_split
 from nems.registry import KeywordRegistry
 from nems.plugins import (default_keywords, default_loaders, default_fitters,
                           default_initializers)
@@ -10,8 +11,9 @@ from nems.plugins import (default_keywords, default_loaders, default_fitters,
 log = logging.getLogger(__name__)
 
 
-def generate_xforms_spec(recording_uri, modelname, meta={}, autoPred=True,
-                         autoStats=True, autoPlot=True):
+def generate_xforms_spec(recording_uri, modelname, meta={}, xforms_kwargs={},
+                         kw_kwargs={}, autoPred=True, autoStats=True,
+                         autoPlot=True):
     """
     TODO: Update this doc
 
@@ -49,12 +51,12 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, autoPred=True,
     #       just loaders and fitters
     load_keywords, model_keywords, fit_keywords = modelname.split("_")
 
-    xforms_lib = KeywordRegistry(recording_uri=recording_uri)
+    xforms_lib = KeywordRegistry(recording_uri=recording_uri, **xforms_kwargs)
     xforms_lib.register_modules([default_loaders, default_fitters,
                                  default_initializers])
     xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
 
-    keyword_lib = KeywordRegistry()
+    keyword_lib = KeywordRegistry(**kw_kwargs)
     keyword_lib.register_module(default_keywords)
     keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
@@ -75,6 +77,8 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, autoPred=True,
 
     # TODO: need to make this smarter about how to handle the ordering
     #       of pred/stats when only stats is overridden.
+    #       For now just have to manually include pred if you want to
+    #       do your own stats or plot xform (like using stats.pm)
 
     # 4) generate a prediction (optional)
     if autoPred:
@@ -105,7 +109,7 @@ def fit_xfspec(xfspec):
 
 def _parse_kw_string(kw_string, registry):
     xfspec = []
-    for kw in kw_string.split('-'):
+    for kw in escaped_split(kw_string, '-'):
         try:
             xfspec.extend(registry[kw])
         except KeyError:
