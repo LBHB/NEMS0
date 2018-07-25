@@ -354,7 +354,7 @@ def get_best_modelspec(modelspecs, metakey='r_test', comparison='greatest'):
     return [modelspecs[idx]]
 
 
-def sort_modelspecs(modelspecs, metakey='r_test', order='ascending'):
+def sort_modelspecs(modelspecs, metakey='r_test', order='descending'):
     '''
     Sorts modelspecs in order of the given metakey, which should be in
     the first-module meta entry of each modelspec.
@@ -364,7 +364,7 @@ def sort_modelspecs(modelspecs, metakey='r_test', order='ascending'):
     if order.lower() in ['ascending', 'asc', 'a']:
         return sort
     elif order.lower() in ['descending', 'desc', 'd']:
-        return reversed(sort)
+        return list(reversed(sort))
     else:
         raise ValueError("Not a recognized sorting order: %s" % order)
 

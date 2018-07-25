@@ -67,6 +67,28 @@ def best(fitkey):
                                                  'comparison': comparison}]]
 
 
+def sort(fitkey):
+    '''
+    Sorts modelspecs by specified meta entry in either descending or
+    ascending order.
+    '''
+    ops = escaped_split(fitkey, '.')[1:]
+    metakey = 'r_test'
+    order = 'descending'
+
+    for op in ops:
+        if op in ['a', 'asc', 'ascending']:
+            order = op
+        elif op in ['d', 'desc', 'descending']:
+            order = op
+        else:
+            # Assume it's the name of a metakey, and remove any escapes
+            metakey = op.replace('\\', '')
+
+    return [['nems.xforms.sort_modelspecs', {'metakey': metakey,
+                                             'order': order}]]
+
+
 def basic(fitkey):
     '''
     Perform a fit_basic analysis on a model.
