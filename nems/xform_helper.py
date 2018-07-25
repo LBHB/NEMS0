@@ -49,7 +49,7 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, xforms_kwargs={},
     # TODO: naming scheme change: pre_modules, modules, post_modules?
     #       or something along those lines... since they aren't really
     #       just loaders and fitters
-    load_keywords, model_keywords, fit_keywords = modelname.split("_")
+    load_keywords, model_keywords, fit_keywords = escaped_split(modelname, '_')
 
     xforms_lib = KeywordRegistry(recording_uri=recording_uri, **xforms_kwargs)
     xforms_lib.register_modules([default_loaders, default_fitters,
