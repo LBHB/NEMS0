@@ -87,3 +87,36 @@ def find_module(query, modelspec, find_all_matches=False, key='fn'):
                   query, target_i)
 
     return target_i
+
+
+def escaped_split(string, delimiter):
+    '''
+    Allows escaping of characters when splitting a string to a list,
+    useful for some arguments in keyword strings that need to use
+    underscores, decimals, hyphens, or other characters parsed by
+    the keyword system.
+    '''
+    x = 'EXTREMELYUNLIKELYTOEVERENCOUNTERTHISEXACTSTRINGANYWHEREELSE'
+    match = "\%s" % delimiter
+    temp = string.replace(match, x)
+    temp_split = temp.split(delimiter)
+    final_split = [s.replace(x, match) for s in temp_split]
+
+    return final_split
+
+
+def escaped_join(list, delimiter):
+    '''
+    Allows escaping of characters when joining a list of strings,
+    useful for some arguments in keyword strings that need to use
+    underscores, decimals, hyphens, or other characters parsed by
+    the keyword system.
+    '''
+    x = 'EXTREMELYUNLIKELYTOEVERENCOUNTERTHISEXACTSTRINGANYWHEREELSE'
+    match = "\%s" % delimiter
+    temp = [s.replace(match, x) for s in list]
+    temp_join = delimiter.join(temp)
+    final_join = temp_join.replace(x, match)
+
+    return final_join
+

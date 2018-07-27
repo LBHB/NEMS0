@@ -222,8 +222,8 @@ def fill_in_default_metadata(rec, modelspecs, IsReload=False, **context):
     return {'modelspecs': modelspecs}
 
 
-def only_best_modelspec(modelspecs, metakey='r_test', IsReload=False,
-                        **context):
+def only_best_modelspec(modelspecs, metakey='r_test', comparison='greatest',
+                        IsReload=False, **context):
     '''
     Collapses a list of modelspecs so that it only contains the modelspec
     with the highest given meta metric.
@@ -234,7 +234,8 @@ def only_best_modelspec(modelspecs, metakey='r_test', IsReload=False,
 
         # TODO: Make this allow for variable number of top specs by
         #       updating ms function to sort then pick top n
-        return {'modelspecs': ms.get_best_modelspec(modelspecs, metakey)}
+        return {'modelspecs': ms.get_best_modelspec(modelspecs, metakey,
+                                                    comparison)}
     else:
         return {}
 
