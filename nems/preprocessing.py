@@ -104,13 +104,16 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
 
     offset = 0
     new_epochs = []
+    fs = recording[list(recording.signals.keys())[0]].fs
+    d = int(np.ceil(np.log10(fs))+1)
     for epoch_name in epoch_names:
-        common_epochs = ep.find_common_epochs(epochs, epoch_name)
+        common_epochs = ep.find_common_epochs(epochs, epoch_name, d=d)
         query = 'name == "{}"'.format(epoch_name)
         end = common_epochs.query(query).iloc[0]['end']
         common_epochs[['start', 'end']] += offset
         offset += end
         new_epochs.append(common_epochs)
+
     new_epochs = pd.concat(new_epochs, ignore_index=True)
 
     averaged_recording = recording.copy()
