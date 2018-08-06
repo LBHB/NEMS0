@@ -39,7 +39,15 @@ def standard_correlation(est, val, modelspecs, rec=None):
 
     # Compute scores for validation dat
     r_ceiling = 0
-    if len(val) == 1:
+    if type(val) is not list:
+        r_test, se_test = nmet.j_corrcoef(val, 'pred', 'resp')
+        r_fit, se_fit = nmet.j_corrcoef(est, 'pred', 'resp')
+        r_floor = nmet.r_floor(val, 'pred', 'resp')
+        if rec is not None:
+            # print('running r_ceiling')
+            r_ceiling = nmet.r_ceiling(val, rec, 'pred', 'resp')
+
+    elif len(val) == 1:
         r_test, se_test = nmet.j_corrcoef(val[0], 'pred', 'resp')
         r_fit, se_fit = nmet.j_corrcoef(est[0], 'pred', 'resp')
         r_floor = nmet.r_floor(val[0], 'pred', 'resp')

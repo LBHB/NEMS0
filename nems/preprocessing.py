@@ -104,13 +104,16 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
 
     offset = 0
     new_epochs = []
+    fs = recording[list(recording.signals.keys())[0]].fs
+    d = int(np.ceil(np.log10(fs))+1)
     for epoch_name in epoch_names:
-        common_epochs = ep.find_common_epochs(epochs, epoch_name)
+        common_epochs = ep.find_common_epochs(epochs, epoch_name, d=d)
         query = 'name == "{}"'.format(epoch_name)
         end = common_epochs.query(query).iloc[0]['end']
         common_epochs[['start', 'end']] += offset
         offset += end
         new_epochs.append(common_epochs)
+
     new_epochs = pd.concat(new_epochs, ignore_index=True)
 
     averaged_recording = recording.copy()
@@ -126,7 +129,11 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
 
         # Average over all occurrences of each epoch
         for epoch_name, epoch in epoch_data.items():
-            epoch_data[epoch_name] = np.nanmean(epoch, axis=0)
+            # TODO: fix empty matrix error. do epochs align properly?
+            if np.sum(np.isfinite(epoch)):
+                epoch_data[epoch_name] = np.nanmean(epoch, axis=0)
+            else:
+                epoch_data[epoch_name] = epoch[0,...]
         data = [epoch_data[epoch_name] for epoch_name in epoch_names]
         data = np.concatenate(data, axis=-1)
         if data.shape[-1] != round(signal.fs * offset):

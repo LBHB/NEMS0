@@ -1296,7 +1296,7 @@ class RasterizedSignal(SignalBase):
             if not base.fs == signal.fs:
                 raise ValueError('Cannot append signal with different fs')
             if not base.ntimes == signal.ntimes:
-                raise ValueError('Cannot append signal with different channels')
+                raise ValueError('Cannot concatenate signal with different number of samples')
 
         data = np.concatenate([s.as_continuous() for s in signals], axis=0)
 
@@ -1638,8 +1638,8 @@ class PointProcess(SignalBase):
         if safety_checks:
             if 'none' != normalization:
                 raise ValueError ('normalization not supported for PointProcess signals')
-                
-    
+
+
     def _modified_copy(self, data, **kwargs):
         """
         For internal use when making various immutable copies of this signal.
@@ -1647,8 +1647,8 @@ class PointProcess(SignalBase):
         attributes = self._get_attributes()
         attributes.update(kwargs)
         return PointProcess(data=data, safety_checks=False, **attributes)
-    
-    
+
+
     def rasterize(self, fs=None):
         """
         convert list of spike times to a raster of spike rate, with duration
@@ -1870,7 +1870,7 @@ class PointProcess(SignalBase):
             epochs=epochs,
             safety_checks=False
         )
-        
+
 
     def extract_channels(self, chans):
         '''
@@ -1879,10 +1879,10 @@ class PointProcess(SignalBase):
         '''
         # s is shorthand for slice. Return a 2D array.
         s = {c: self._data[c] for c in chans}
-        
+
         return self._modified_copy(s, chans=chans)
-        
-        
+
+
 class TiledSignal(SignalBase):
     '''
     Expects data to be a dictionary of the form:

@@ -20,7 +20,7 @@ def basic_cost(sigma, unpacker, modelspec, data, segmentor,
 
     if hasattr(basic_cost, 'counter'):
         basic_cost.counter += 1
-        if basic_cost.counter % 500 == 0:
+        if basic_cost.counter % 100 == 0:
             log.info('Eval #%d. E=%.06f', basic_cost.counter, error)
             # log.debug("current sigma: %s", sigma)
             nems.utils.progress_fun()

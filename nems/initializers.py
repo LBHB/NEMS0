@@ -49,6 +49,25 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}):
             kw = kw.replace(".S", ".{}".format(S))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
+        elif kw.endswith(".N") and (rec is not None):
+            N = rec['stim'].nchans
+            kw_old = kw
+            kw = kw.replace(".N", ".{}".format(N))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+
+        elif kw.endswith(".R") and (rec is not None):
+            R = rec['resp'].nchans
+            kw_old = kw
+            kw = kw.replace(".R", ".{}".format(R))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+
+        elif kw.endswith("xR") and (rec is not None):
+            R = rec['resp'].nchans
+            kw_old = kw
+            kw = kw.replace("xR", "x{}".format(R))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+
+
         else:
             log.info('kw: %s', kw)
         if registry.kw_head(kw) not in registry:
@@ -215,12 +234,13 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
         if ('levelshift' in m['fn']) and (m.get('phi') is None):
             m = priors.set_mean_phi([m])[0]
             try:
-                mean_resp = np.nanmean(rec['resp'].as_continuous())
+                mean_resp = np.nanmean(rec['resp'].as_continuous(), axis=1, keepdims=True)
             except NotImplementedError:
                 # as_continous only available for RasterizedSignal
-                mean_resp = np.nanmean(rec['resp'].rasterize().as_continuous())
+                mean_resp = np.nanmean(rec['resp'].rasterize().as_continuous(), axis=1, keepdims=True)
             log.info('Mod %d (%s) fixing level to response mean %.3f',
-                     i, m['fn'], mean_resp)
+                     i, m['fn'], mean_resp[0])
+            log.info('resp has %d channels', len(mean_resp))
             m['phi']['level'][:] = mean_resp
 
         if (i < target_i) or ('merge_channels' in m['fn']):
@@ -321,7 +341,8 @@ def init_dexp(rec, modelspec):
     rec = ms.evaluate(rec, fit_portion)
     ms.fit_mode_off(fit_portion)
 
-    pchans = rec['pred'].shape[0]
+    in_signal = modelspec[target_i]['fn_kwargs']['i']
+    pchans = rec[in_signal].shape[0]
     amp = np.zeros([pchans, 1])
     base = np.zeros([pchans, 1])
     kappa = np.zeros([pchans, 1])
@@ -329,7 +350,9 @@ def init_dexp(rec, modelspec):
 
     for i in range(pchans):
         resp = rec['resp'].as_continuous()
-        pred = rec['pred'].as_continuous()[i:(i+1), :]
+        pred = rec[in_signal].as_continuous()[i:(i+1), :]
+        if resp.shape[0] == pchans:
+            resp = resp[i:(i+1), :]
 
         keepidx = np.isfinite(resp) * np.isfinite(pred)
         resp = resp[keepidx]

@@ -113,7 +113,7 @@ def _parse_kw_string(kw_string, registry):
         try:
             xfspec.extend(registry[kw])
         except KeyError:
-            log.info("No keyword found for: %s , skipping ..." % kw_string)
+            log.info("No keyword found for: %s , skipping ...", kw)
             pass
 
     return xfspec

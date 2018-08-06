@@ -438,7 +438,10 @@ class Recording:
             (e, v) = fn(s)
             est[e.name] = e
             val[v.name] = v
-        return (Recording(signals=est), Recording(signals=val))
+        est = Recording(signals=est)
+        val = Recording(signals=val)
+
+        return (est,val)
 
     def split_at_time(self, fraction):
         '''
