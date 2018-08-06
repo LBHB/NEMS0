@@ -354,6 +354,21 @@ def get_best_modelspec(modelspecs, metakey='r_test', comparison='greatest'):
     return [modelspecs[idx]]
 
 
+def sort_modelspecs(modelspecs, metakey='r_test', order='descending'):
+    '''
+    Sorts modelspecs in order of the given metakey, which should be in
+    the first-module meta entry of each modelspec.
+    '''
+    find_meta = lambda m: m[0]['meta'][metakey]
+    sort = sorted(modelspecs, key=find_meta)
+    if order.lower() in ['ascending', 'asc', 'a']:
+        return sort
+    elif order.lower() in ['descending', 'desc', 'd']:
+        return list(reversed(sort))
+    else:
+        raise ValueError("Not a recognized sorting order: %s" % order)
+
+
 def try_scalar(x):
     """Try to convert x to scalar, in case of ValueError just return x."""
     # TODO: Maybe move this to an appropriate utilities module?

@@ -25,8 +25,8 @@ def fit_from_priors(data, modelspec, ntimes=10, analysis='fit_basic',
         cp = copy.deepcopy(modelspec)
         sub = [m for i, m in enumerate(cp) if i in subset]
         rand = nems.priors.set_random_phi(sub)
-        merged_ms = [cp[i] if i not in subset else m
-                     for i, m in enumerate(rand)]
+        merged_ms = [m if i not in subset else rand.pop(0)
+                     for m in cp]
 
         if analysis == 'fit_basic':
             models.append(fit_basic(data, merged_ms,
