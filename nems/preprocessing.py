@@ -129,7 +129,11 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
 
         # Average over all occurrences of each epoch
         for epoch_name, epoch in epoch_data.items():
-            epoch_data[epoch_name] = np.nanmean(epoch, axis=0)
+            # TODO: fix empty matrix error. do epochs align properly?
+            if np.sum(np.isfinite(epoch)):
+                epoch_data[epoch_name] = np.nanmean(epoch, axis=0)
+            else:
+                epoch_data[epoch_name] = epoch[0,...]
         data = [epoch_data[epoch_name] for epoch_name in epoch_names]
         data = np.concatenate(data, axis=-1)
         if data.shape[-1] != round(signal.fs * offset):

@@ -322,12 +322,25 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
 
 def split_by_occurrence_counts(rec, **context):
     est, val = rec.split_using_epoch_occurrence_counts(epoch_regex='^STIM_')
+
     return {'est': est, 'val': val}
 
 
 def average_away_stim_occurrences(est, val, **context):
     est = preproc.average_away_epoch_occurrences(est, epoch_regex='^STIM_')
     val = preproc.average_away_epoch_occurrences(val, epoch_regex='^STIM_')
+
+    # mask out nan periods
+#    d=np.isfinite(est['resp'].as_continuous()[[0],:])
+#    log.info('found %d non-nans in est', np.sum(d))
+#    est=est.create_mask()
+#    est['mask']=est['mask']._modified_copy(d)
+#
+#    d=np.isfinite(val['resp'].as_continuous()[[0],:])
+#    log.info('found %d non-nans  in val', np.sum(d))
+#    val=val.create_mask()
+#    val['mask']=val['mask']._modified_copy(d)
+
     return {'est': est, 'val': val}
 
 
