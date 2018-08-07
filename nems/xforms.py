@@ -252,6 +252,17 @@ def only_best_modelspec(modelspecs, metakey='r_test', comparison='greatest',
         return {}
 
 
+def sort_modelspecs(modelspecs, metakey='r_test', order='descending',
+                    IsReload=False, **context):
+    '''
+    Sorts modelspecs according to the specified metakey and order.
+    '''
+    if not IsReload:
+        return {'modelspecs': ms.sort_modelspecs(modelspecs, metakey, order)}
+    else:
+        return {}
+
+
 ###############################################################################
 #########################     PREPROCESSORS     ###############################
 ###############################################################################
@@ -622,6 +633,7 @@ def fit_n_times_from_random_starts(modelspecs, est, ntimes, subset,
     if not IsReload:
         if len(modelspecs) > 1:
             raise NotImplementedError('I only work on 1 modelspec')
+
         modelspecs = nems.analysis.api.fit_from_priors(
                 est, modelspecs[0], ntimes=ntimes, subset=subset,
                 analysis=analysis, basic_kwargs=basic_kwargs
