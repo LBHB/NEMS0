@@ -14,10 +14,13 @@ def gaussian_coefficients(mean, sd, n_chan_in, **kwargs):
     '''
     x = np.arange(n_chan_in)/n_chan_in
     mean = np.asanyarray(mean)[..., np.newaxis]
+    # hard bounds, not necessary or useful even?
+    # mean[mean < 0] = 0
+    # mean[mean > 1] = 1
     sd = np.asanyarray(sd)[..., np.newaxis]
     coefficients = 1/(sd*(2*np.pi)**0.5) * np.exp(-0.5*((x-mean)/sd)**2)
-    csum=np.sum(coefficients, axis=1, keepdims=True)
-    csum[csum==0]=1
+    csum = np.sum(coefficients, axis=1, keepdims=True)
+    csum[csum == 0] = 1
     coefficients /= csum
     return coefficients
 

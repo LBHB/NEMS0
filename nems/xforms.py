@@ -148,7 +148,7 @@ def evaluate(xformspec, context={}, start=0, stop=None):
 ###############################################################################
 
 
-def load_recordings(recording_uri_list, normalize=False, **context):
+def load_recordings(recording_uri_list, normalize=False, cellid=None, **context):
     '''
     Load one or more recordings into memory given a list of URIs.
     '''
@@ -161,6 +161,18 @@ def load_recordings(recording_uri_list, normalize=False, **context):
         log.info('Normalizing stim')
         rec['stim'] = rec['stim'].rasterize().normalize('minmax')
 
+    # if cellid is provided, use it to select channel or subset of channels
+    # from resp signal.
+    if cellid is None:
+        pass
+    elif type(cellid) is list:
+        log.info('Extracting channels %s', cellid)
+        rec['resp'] = rec['resp'].extract_channels(cellid)
+    elif cellid in rec['resp'].chans:
+        log.info('Extracting channel %s', cellid)
+        rec['resp'] = rec['resp'].extract_channels([cellid])
+    else:
+        log.info('No cellid match, keeping all resp channels')
     return {'rec': rec}
 
 

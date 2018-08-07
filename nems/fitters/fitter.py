@@ -140,6 +140,8 @@ def scipy_minimize(sigma, cost_fn, tolerance=None, max_iter=None,
     elif max_iter is None and 'maxiter' not in options:
         options['maxiter'] = 1000
 
+    log.info("Starting sigma: %s\n", sigma)
+
     # convert to format requried by scipy
     bounds = list(zip(*bounds))
     result = scp.optimize.minimize(cost_fn, sigma, method=method,
