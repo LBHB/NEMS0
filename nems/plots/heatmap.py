@@ -49,29 +49,36 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
         plt.title(title)
 
 
-def _get_wc_coefficients(modelspec):
-    # TODO: what about modelspecs with multiple weight_channesl?
+def _get_wc_coefficients(modelspec, idx=0):
+    i = 0
     for m in modelspec:
         if 'weight_channels' in m['fn']:
             if 'fn_coefficients' in m.keys():
-                fn = ms._lookup_fn_at(m['fn_coefficients'])
-                kwargs = {**m['fn_kwargs'], **m['phi']}  # Merges dicts
-                return fn(**kwargs)
+                if i == idx:
+                    fn = ms._lookup_fn_at(m['fn_coefficients'])
+                    kwargs = {**m['fn_kwargs'], **m['phi']}  # Merges dicts
+                    return fn(**kwargs)
+                else:
+                    i += 1
             else:
                 return m['phi']['coefficients']
     return None
 
 
-def _get_fir_coefficients(modelspec):
-    # TODO: what about modelspecs with multiple fir filters?
+def _get_fir_coefficients(modelspec, idx=0):
+    i = 0
     for m in modelspec:
         if 'fir' in m['fn']:
-            return m['phi']['coefficients']
+            if i == idx:
+                return m['phi']['coefficients']
+            else:
+                i += 1
     return None
 
 
-def weight_channels_heatmap(modelspec, ax=None, clim=None, title=None, chans=None):
-    coefficients = _get_wc_coefficients(modelspec)
+def weight_channels_heatmap(modelspec, ax=None, clim=None, title=None,
+                            chans=None, wc_idx=0):
+    coefficients = _get_wc_coefficients(modelspec, idx=wc_idx)
     plot_heatmap(coefficients, xlabel='Channel In', ylabel='Channel Out',
                  ax=ax, clim=clim, title=title)
     if chans is not None:
@@ -79,8 +86,9 @@ def weight_channels_heatmap(modelspec, ax=None, clim=None, title=None, chans=Non
             plt.text(i, 0, c)
 
 
-def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None):
-    coefficients = _get_fir_coefficients(modelspec)
+def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None,
+                fir_idx=0):
+    coefficients = _get_fir_coefficients(modelspec, idx=fir_idx)
     plot_heatmap(coefficients, xlabel='Time Bin', ylabel='Channel In',
                  ax=ax, clim=clim, title=title)
     if chans is not None:
@@ -89,14 +97,14 @@ def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None):
 
 
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
-                 title=None, fs=None, chans=None):
+                 title=None, fs=None, chans=None, wc_idx=0, fir_idx=0):
     """
     chans: list
        if not None, label each row of the strf with the corresponding
        channel name
     """
-    wcc = _get_wc_coefficients(modelspec)
-    firc = _get_fir_coefficients(modelspec)
+    wcc = _get_wc_coefficients(modelspec, idx=wc_idx)
+    firc = _get_fir_coefficients(modelspec, idx=fir_idx)
     if wcc is None and firc is None:
         log.warn('Unable to generate STRF.')
         return

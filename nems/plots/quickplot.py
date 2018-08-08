@@ -424,6 +424,13 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
             # plot_fns.extend([plot1, plot2])
             plot_fns.append(plot1)
 
+        elif 'dynamic_sigmoid' in fname:
+            chans = rec['contrast'].chans
+            fn = partial(strf_heatmap, modelspec, title='Contrast STRF',
+                         chans=chans, wc_idx=1, fir_idx=1)
+            plot = (fn, 1)
+            plot_fns.append(plot)
+
     return plot_fns
 
 
