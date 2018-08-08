@@ -34,7 +34,7 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
 
     # convert tau units from sec to bins
     taui = np.absolute(tau) * fs
-    taui[taui < 3] = 3
+    taui[taui < 1] = 1
 
     # TODO : enable crosstalk
     if crosstalk:
