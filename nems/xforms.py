@@ -817,8 +817,8 @@ def get_module(ctx, val, key='index', mspec_idx=0, find_all_matches=False):
     if key in ['index', 'idx', 'i']:
         return mspec[val]
     else:
-        return find_module(val, mspec, find_all_matches=find_all_matches,
-                           key=key)
+        i = find_module(val, mspec, find_all_matches=find_all_matches, key=key)
+        return mspec[i]
 
 
 def plot_heatmap(ctx, signal_name, cutoff=None, rec_key='val', rec_idx=0,
