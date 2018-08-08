@@ -87,6 +87,7 @@ def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None):
         for i, c in enumerate(chans):
             plt.text(-0.4, i, c, verticalalignment='center')
 
+
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
                  title=None, fs=None, chans=None):
     """
