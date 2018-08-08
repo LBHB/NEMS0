@@ -4,6 +4,9 @@ import copy
 import socket
 import logging
 
+import matplotlib.pyplot as plt
+import numpy as np
+
 import nems.analysis.api
 import nems.initializers as init
 import nems.metrics.api as metrics
@@ -17,8 +20,6 @@ from nems.uri import save_resource, load_resource
 from nems.utils import iso8601_datestring, find_module
 from nems.fitters.api import scipy_minimize
 from nems.recording import load_recording
-
-import numpy as np
 
 log = logging.getLogger(__name__)
 xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
@@ -789,6 +790,64 @@ def load_analysis(filepath, eval_model=True):
         ctx, log_xf = evaluate(xfspec, ctx)
 
     return xfspec, ctx
+
+
+###############################################################################
+##################        CONTEXT UTILITIES             #######################
+###############################################################################
+
+
+def evaluate_context(ctx, rec_key='val', rec_idx=0, mspec_idx=0, start=None,
+                     stop=None):
+    rec = ctx[rec_key][0]
+    mspec = ctx['modelspecs'][mspec_idx]
+    return ms.evaluate(rec, mspec, start=start, stop=stop)
+
+
+def get_meta(ctx, mspec_idx=0, mod_idx=0):
+    return ctx['modelspecs'][mspec_idx][mod_idx]['meta']
+
+
+def get_modelspec(ctx, mspec_idx=0):
+    return ctx['modelspecs'][mspec_idx]
+
+
+def get_module(ctx, val, key='index', mspec_idx=0, find_all_matches=False):
+    mspec = ctx['modelspecs'][mspec_idx]
+    if key in ['index', 'idx', 'i']:
+        return mspec[val]
+    else:
+        i = find_module(val, mspec, find_all_matches=find_all_matches, key=key)
+        return mspec[i]
+
+
+def plot_heatmap(ctx, signal_name, cutoff=None, rec_key='val', rec_idx=0,
+                 mspec_idx=0, start=None, stop=None):
+
+    array = get_signal_as_array(ctx, signal_name, cutoff, rec_key, rec_idx,
+                                mspec_idx, start, stop)
+    plt.imshow(array, aspect='auto')
+
+
+def plot_timeseries(ctx, signal_name, cutoff=None, rec_key='val', rec_idx=0,
+                    mspec_idx=0, start=None, stop=None):
+
+    array = get_signal_as_array(ctx, signal_name, cutoff, rec_key, rec_idx,
+                                mspec_idx, start, stop)
+    plt.plot(array.T)
+
+
+def get_signal_as_array(ctx, signal_name, cutoff=None, rec_key='val',
+                        rec_idx=0, mspec_idx=0, start=None, stop=None):
+
+    rec = evaluate_context(ctx, rec_key=rec_key, rec_idx=rec_idx,
+                           mspec_idx=mspec_idx, start=start, stop=stop)
+
+    array = rec[signal_name].as_continuous()
+    if cutoff is not None:
+        array = array[:, :cutoff]
+
+    return array
 
 
 ###############################################################################

@@ -23,7 +23,13 @@ def load_config():
             utime(settings_path, None)
         log.info("No settings.py found in configs directory,"
                  " generating blank file ... ")
-        from nems.configs import settings
+        try:
+            from nems.configs import settings
+        except ImportError:
+            # if it still doesn't work, file wasn't created correctly
+            # (known issue on MacOS), so just leave settings as a blank object
+            log.info("Could not create settings.py in configs directory ...")
+            settings = object()
 
     for s in config.__dir__():
         if s.startswith('__') or not (s == s.upper()):
