@@ -275,15 +275,29 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
 
     # identify any excluded modules and take them out of temp modelspec
     # that will be fit here
-    fit_idx = []
-    tmodelspec = []
-    for i, m in enumerate(modelspec):
-        m = copy.deepcopy(m)
-        for fn in fit_set:
-            if fn in m['fn']:
-                fit_idx.append(i)
-                log.info('Found module %d (%s) for subset prefit', i, fn)
-        tmodelspec.append(m)
+#    fit_idx = []
+#    tmodelspec = []
+#    for i, m in enumerate(modelspec):
+#        m = copy.deepcopy(m)
+#        for fn in fit_set:
+#            if fn in m['fn']:
+#                fit_idx.append(i)
+#                log.info('Found module %d (%s) for subset prefit', i, fn)
+#        tmodelspec.append(m)
+
+    if type(fit_set[0]) is int:
+        fit_idx = fit_set
+    else:
+        fit_idx = []
+        for i, m in enumerate(modelspec):
+            for fn in fit_set:
+                if fn in m['fn']:
+                    fit_idx.append(i)
+                    log.info('Found module %d (%s) for subset prefit', i, fn)
+
+    tmodelspec = copy.deepcopy(modelspec)
+
+
 
     if len(fit_idx) == 0:
         log.info('No modules matching fit_set for subset prefit')
