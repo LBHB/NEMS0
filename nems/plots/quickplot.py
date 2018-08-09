@@ -299,18 +299,19 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
             if 'weight_channels' in fname:
 
                 if 'weight_channels.basic' in fname:
-                    fn = partial(weight_channels_heatmap, modelspec, chans=chans)
+                    fn = partial(weight_channels_heatmap, modelspec, chans=chans, wc_idx=wc_idx)
                     plot = (fn, 1)
                     plot_fns.append(plot)
 
                 elif 'weight_channels.gaussian' in fname:
-                    fn = partial(weight_channels_heatmap, modelspec, chans=chans)
+                    fn = partial(weight_channels_heatmap, modelspec, chans=chans, wc_idx=wc_idx)
                     plot = (fn, 1)
                     plot_fns.append(plot)
                     print('wc {}'.format(idx))
                 else:
                     # Don't plot anything
                     pass
+                wc_idx += 1
 
             elif 'fir' in fname:
 
@@ -335,11 +336,16 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                 plot_fns.append(plot)
                 strf_done = True
                 continue
+
             elif ('weight_channels' in fname) and strf_done:
                 # second weight channels, eg for population model
-                fn = partial(weight_channels_heatmap, modelspec, chans=chans)
+                fn = partial(weight_channels_heatmap, modelspec, chans=chans, wc_idx=wc_idx)
                 plot = (fn, 1)
                 plot_fns.append(plot)
+                wc_idx+=1
+
+            elif ('weight_channels' in fname):
+                wc_idx+=1
 
 
         if 'levelshift' in fname:

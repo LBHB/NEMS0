@@ -4,6 +4,7 @@ import numpy as np
 import nems.modelspec as ms
 
 from nems.plots.timeseries import plot_timeseries
+from nems.utils import find_module
 
 log = logging.getLogger(__name__)
 
@@ -79,8 +80,12 @@ def _get_fir_coefficients(modelspec, idx=0):
 def weight_channels_heatmap(modelspec, ax=None, clim=None, title=None,
                             chans=None, wc_idx=0):
     coefficients = _get_wc_coefficients(modelspec, idx=wc_idx)
-    plot_heatmap(coefficients, xlabel='Channel In', ylabel='Channel Out',
-                 ax=ax, clim=clim, title=title)
+    if coefficients.shape[0]>coefficients.shape[1]:
+        plot_heatmap(coefficients.T, xlabel='Channel Out', ylabel='Channel In',
+                     ax=ax, clim=clim, title=title)
+    else:
+        plot_heatmap(coefficients, xlabel='Channel In', ylabel='Channel Out',
+                     ax=ax, clim=clim, title=title)
     if chans is not None:
         for i, c in enumerate(chans):
             plt.text(i, 0, c)
@@ -105,6 +110,8 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
     """
     wcc = _get_wc_coefficients(modelspec, idx=wc_idx)
     firc = _get_fir_coefficients(modelspec, idx=fir_idx)
+    fir_mod = find_module('fir', modelspec, find_all_matches=True)[fir_idx]
+
     if wcc is None and firc is None:
         log.warn('Unable to generate STRF.')
         return
@@ -113,6 +120,26 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
         show_factorized = False
     elif wcc is not None and firc is None:
         strf = np.array(wcc).T
+        show_factorized = False
+    elif 'filter_bank' in modelspec[fir_mod]['fn']:
+        wc_coefs = np.array(wcc).T
+        fir_coefs = np.array(firc)
+
+        bank_count = modelspec[fir_mod]['fn_kwargs']['bank_count']
+        chan_count = wcc.shape[0]
+        bank_chans = int(chan_count / bank_count)
+        strfs = [wc_coefs[:, (bank_chans*i):(bank_chans*(i+1))] @
+                          fir_coefs[(bank_chans*i):(bank_chans*(i+1)), :]
+                          for i in range(bank_count)]
+        for i in range(bank_count):
+            m = np.max(np.abs(strfs[i]))
+            if m:
+                strfs[i] = strfs[i] / m
+            if i > 0:
+                gap = np.full([strfs[i].shape[0], 1], np.nan)
+                strfs[i] = np.concatenate((gap, strfs[i]/np.max(np.abs(strfs[i]))), axis=1)
+
+        strf = np.concatenate(strfs,axis=1)
         show_factorized = False
     else:
         wc_coefs = np.array(wcc).T
