@@ -391,10 +391,20 @@ def init_logsig(rec, modelspec):
     # preserve input modelspec
     modelspec = copy.deepcopy(modelspec)
 
-    logsig_idx = find_module('logistic_sigmoid', modelspec)
-    if logsig_idx is None:
-        log.warning("No logsig module was found, can't initialize.")
+    target_i = find_module('double_exponential', modelspec)
+    if target_i is None:
+        log.warning("No dexp module was found, can't initialize.")
         return modelspec
+
+    if target_i == len(modelspec):
+        fit_portion = modelspec
+    else:
+        fit_portion = modelspec[:target_i]
+
+    # generate prediction from module preceeding dexp
+    ms.fit_mode_on(fit_portion)
+    rec = ms.evaluate(rec, fit_portion)
+    ms.fit_mode_off(fit_portion)
 
     pred = rec['pred'].as_continuous()
     resp = rec['resp'].as_continuous()
@@ -423,11 +433,11 @@ def init_logsig(rec, modelspec):
     shift = ('Normal', {'mean': shift0, 'sd': pred_range})
     kappa = ('Exponential', {'beta': kappa0})
 
-    modelspec[logsig_idx]['prior'] = {
+    modelspec[target_i]['prior'] = {
             'base': base, 'amplitude': amplitude, 'shift': shift,
             'kappa': kappa}
 
-    modelspec[logsig_idx]['bounds'] = {
+    modelspec[target_i]['bounds'] = {
             'base': (1e-15, None),
             'amplitude': (1e-15, None),
             'shift': (None, None),
