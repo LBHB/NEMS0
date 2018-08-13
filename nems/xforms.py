@@ -826,6 +826,7 @@ def plot_heatmap(ctx, signal_name, cutoff=None, rec_key='val', rec_idx=0,
 
     array = get_signal_as_array(ctx, signal_name, cutoff, rec_key, rec_idx,
                                 mspec_idx, start, stop)
+    array = array[:, ~np.all(np.isnan(array), axis=0)]
     plt.imshow(array, aspect='auto')
 
 
@@ -845,7 +846,13 @@ def get_signal_as_array(ctx, signal_name, cutoff=None, rec_key='val',
 
     array = rec[signal_name].as_continuous()
     if cutoff is not None:
-        array = array[:, :cutoff]
+        if isinstance(cutoff, int):
+            array = array[:, :cutoff]
+        elif isinstance(cutoff, tuple):
+            array = array[:, cutoff[0]:cutoff[1]]
+        else:
+            raise ValueError("cutoff must be an integer (:cutoff)"
+                             "or a tuple (cutoff[0]:cutoff[1])")
 
     return array
 
