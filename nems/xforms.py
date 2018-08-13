@@ -422,6 +422,28 @@ def mask_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
         return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
 
+def jack_subset(est, val, modelspecs=None, IsReload=False,
+                keep_only=1, **context):
+
+    if keep_only == 1:
+        est = est[0]
+        val = val[0]
+        est['resp']=est['resp'].rasterize()
+        val['resp']=val['resp'].rasterize()
+        est['stim']=est['stim'].rasterize()
+        val['stim']=val['stim'].rasterize()
+    else:
+        est = est[:keep_only]
+        val = val[:keep_only]
+    if modelspecs is not None:
+        modelspecs_out = modelspecs[:keep_only]
+
+    if IsReload:
+        return {'est': est, 'val': val}
+    else:
+        return {'est': est, 'val': val, 'modelspecs': modelspecs_out}
+
+
 ###############################################################################
 ######################        INITIALIZERS         ############################
 ###############################################################################
