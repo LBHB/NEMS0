@@ -213,7 +213,8 @@ def strf_timeseries(modelspec, ax=None, clim=None, show_factorized=True,
         else:
             strf = fir_coefs
 
-    times=np.arange(strf.shape[1])/fs
+    times = np.arange(strf.shape[1])/fs
     plot_timeseries([times], [strf.T], xlabel='Time lag', ylabel='Gain',
                     legend=chans, linestyle='-', linewidth=1,
                     ax=ax, title=title)
+    plt.plot(times[[0, len(times)-1]], np.array([0, 0]), linewidth=0.5, color='gray')

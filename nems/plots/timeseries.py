@@ -125,7 +125,7 @@ def stp_magnitude(tau, u, fs=100):
     c = len(tau)
     seg = np.int(fs * 0.05)
     A=0.5
-    pred = np.concatenate([np.zeros([c, seg * 2]), np.ones([c, seg * 4]) * A,
+    pred = np.concatenate([np.zeros([c, seg * 2]), np.ones([c, seg * 4]) * A/2,
                            np.zeros([c, seg * 4]), np.ones([c, seg]) * A,
                            np.zeros([c, seg]), np.ones([c, seg]) * A,
                            np.zeros([c, seg]), np.ones([c, seg]) * A,
@@ -176,14 +176,16 @@ def before_and_after_stp(modelspec, sig_name='pred', ax=None, title=None,
             break
 
     stp_mag, pred, pred_out = stp_magnitude(m['phi']['tau'], m['phi']['u'], fs)
-    c=len(m['phi']['tau'])
+    c = len(m['phi']['tau'])
     pred.name = 'before'
     pred_out.name = 'after'
-    signals = [pred]
-    channels = [0]
+    signals = []
+    channels = []
     for i in range(c):
         signals.append(pred_out)
         channels.append(i)
+    signals.append(pred)
+    channels.append(0)
 
     timeseries_from_signals(signals, channels=channels,
                             xlabel=xlabel, ylabel=ylabel, ax=ax,

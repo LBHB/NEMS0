@@ -39,7 +39,12 @@ def basic(rec, i, o, coefficients):
         equal to the number of channels in the input array
         (e.g., `x.shape[-3] == coefficients.shape[-1]`).
     '''
-    fn = lambda x: coefficients @ x
+    c = coefficients.copy()
+    sc = np.sum(c ** 2)
+    if sc > 0:
+        c /= sc
+
+    fn = lambda x: c @ x
     return [rec[i].transform(fn, o)]
 
 
@@ -54,7 +59,12 @@ def basic_with_offset(rec, i, o, coefficients, offset):
         equal to the number of channels in the input array
         (e.g., `x.shape[-3] == coefficients.shape[-1]`).
     '''
-    fn = lambda x: coefficients @ x + offset
+    c = coefficients.copy()
+    sc = np.sum(c ** 2)
+    if sc > 0:
+        c /= sc
+
+    fn = lambda x: c @ x + offset
     return [rec[i].transform(fn, o)]
 
 
