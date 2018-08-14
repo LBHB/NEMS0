@@ -427,6 +427,13 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
             plot = (fn, 1)
             plot_fns.append(plot)
 
+            fn = partial(
+                    spectrogram_from_epoch, rec['contrast'], epoch,
+                    occurrence=occurrence, title='Contrast Input'
+                    )
+            plot = (fn, 1)
+            plot_fns.insert(0, plot)
+
     return plot_fns
 
 
