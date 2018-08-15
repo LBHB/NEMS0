@@ -693,7 +693,7 @@ def add_summary_statistics(est, val, modelspecs, fn='standard_correlation',
                            modelspec and save results in each modelspec.
     '''
     corr_fn = getattr(nems.analysis.api, fn)
-    modelspecs = corr_fn(est, val, modelspecs, rec=None)
+    modelspecs = corr_fn(est, val, modelspecs, rec=rec)
 
     return {'modelspecs': modelspecs}
 

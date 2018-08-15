@@ -4,7 +4,7 @@ modules/state.py
 functions for applying state-related transformations
 """
 
-#import numpy as np
+import numpy as np
 
 def state_dc_gain(rec, i, o, s, g, d):
     '''
@@ -17,7 +17,7 @@ def state_dc_gain(rec, i, o, s, g, d):
     d - dc to offset by
     '''
 
-    fn = lambda x: g @ rec[s]._data * x + d @ rec[s]._data
+    fn = lambda x: np.matmul(g, rec[s]._data) * x + np.matmul(d, rec[s]._data)
 
     return [rec[i].transform(fn, o)]
 

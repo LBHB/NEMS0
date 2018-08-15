@@ -53,6 +53,7 @@ def wc(kw):
     c : Used when n_outputs is greater than n_inputs (overwrites g)
     g : For gaussian coefficients (overwrites c)
     n : To apply normalization
+    o : include offset paramater, a constant ("bias") added to each output
 
     Note that the options are parsed in the order that they are passed
     and some overwrite each other, which means the last option takes
@@ -84,7 +85,7 @@ def wc(kw):
 
     # This is the default for wc, but options might overwrite it.
     fn = 'nems.modules.weight_channels.basic'
-    fn_kwargs = {'i': 'pred', 'o': 'pred'}
+    fn_kwargs = {'i': 'pred', 'o': 'pred', 'normalize_coefs': False}
     p_coefficients = {'mean': np.zeros((n_outputs, n_inputs))+0.01,
                       'sd': np.ones((n_outputs, n_inputs))}
     prior = {'coefficients': ('Normal', p_coefficients)}
@@ -112,7 +113,8 @@ def wc(kw):
 
             # Generate evenly-spaced filter centers for the starting points
             fn = 'nems.modules.weight_channels.gaussian'
-            fn_kwargs = {'i': 'pred', 'o': 'pred', 'n_chan_in': n_inputs}
+            fn_kwargs = {'i': 'pred', 'o': 'pred', 'n_chan_in': n_inputs,
+                         'normalize_coefs': False}
             coefs = 'nems.modules.weight_channels.gaussian_coefficients'
             mean = np.arange(n_outputs + 1)/(n_outputs + 1)
             mean = mean[1:]
@@ -129,6 +131,9 @@ def wc(kw):
         elif op == 'n':
             normalize = True
 
+    if 'n' in options:
+        fn_kwargs['normalize_coefs'] = True
+
     if 'o' in options:
         fn = 'nems.modules.weight_channels.basic_with_offset'
         o_coefficients = {
@@ -143,10 +148,10 @@ def wc(kw):
         'prior': prior
     }
 
-    if normalize:
-        template['norm'] = {'type': 'minmax', 'recalc': 0,
-                            'd': np.zeros([n_outputs, 1]),
-                            'g': np.ones([n_outputs, 1])}
+#    if normalize:
+#        template['norm'] = {'type': 'minmax', 'recalc': 0,
+#                            'd': np.zeros([n_outputs, 1]),
+#                            'g': np.ones([n_outputs, 1])}
 
     if coefs is not None:
         template['fn_coefficients'] = coefs
@@ -543,26 +548,34 @@ def stategain(kw):
     Parameters
     ----------
     kw : str
-        Expected format: r'^stategain\.?(\d{1,})$'
+        Expected format: r'^stategain\.?(\d{1,})x(\d{1,})$'
+        e.g., "stategain.SxR" :
+            S : number of state channels (required)
+            R : number of channels to modulate (default = 1)
 
     Options
     -------
     None
     '''
-    pattern = re.compile(r'^stategain\.?(\d{1,})$')
+    pattern = re.compile(r'^stategain\.?(\d{1,})x(\d{1,})$')
     parsed = re.match(pattern, kw)
     try:
         n_vars = int(parsed.group(1))
+        if len(parsed.groups())>1:
+            n_chans = int(parsed.group(2))
+        else:
+            n_chans = 1
     except TypeError:
         raise ValueError("Got TypeError when parsing stategain keyword.\n"
                          "Make sure keyword is of the form: \n"
                          "stategain.{n_variables} \n"
                          "keyword given: %s" % kw)
 
-    zeros = np.zeros(n_vars)
-    ones = np.ones(n_vars)
-    g_mean = _one_zz(n_vars-1)
-    g_sd = ones
+    zeros = np.zeros([n_chans, n_vars])
+    ones = np.ones([n_chans, n_vars])
+    g_mean = zeros.copy()
+    g_mean[:, 0] = 1
+    g_sd = ones.copy()
     d_mean = zeros
     d_sd = ones
 

@@ -28,7 +28,7 @@ def gaussian_coefficients(mean, sd, n_chan_in, **kwargs):
 #-------------------------------------------------------------------------------
 # Module functions
 #-------------------------------------------------------------------------------
-def basic(rec, i, o, coefficients):
+def basic(rec, i, o, coefficients, normalize_coefs=False):
     '''
     Parameters
     ----------
@@ -39,16 +39,19 @@ def basic(rec, i, o, coefficients):
         equal to the number of channels in the input array
         (e.g., `x.shape[-3] == coefficients.shape[-1]`).
     '''
-    c = coefficients.copy()
-    sc = np.sum(c ** 2)
-    if sc > 0:
-        c /= sc
+    if normalize_coefs:
+        c = coefficients.copy()
+        sc = np.sum(c ** 2)
+        if sc > 0:
+            c /= sc
+    else:
+        c = coefficients
 
     fn = lambda x: c @ x
     return [rec[i].transform(fn, o)]
 
 
-def basic_with_offset(rec, i, o, coefficients, offset):
+def basic_with_offset(rec, i, o, coefficients, offset, normalize_coefs=False):
     '''
     Parameters
     ----------
@@ -59,16 +62,20 @@ def basic_with_offset(rec, i, o, coefficients, offset):
         equal to the number of channels in the input array
         (e.g., `x.shape[-3] == coefficients.shape[-1]`).
     '''
-    c = coefficients.copy()
-    sc = np.sum(c ** 2)
-    if sc > 0:
-        c /= sc
+
+    if normalize_coefs:
+        c = coefficients.copy()
+        sc = np.sum(c ** 2)
+        if sc > 0:
+            c /= sc
+    else:
+        c = coefficients
 
     fn = lambda x: c @ x + offset
     return [rec[i].transform(fn, o)]
 
 
-def gaussian(rec, i, o, n_chan_in, mean, sd):
+def gaussian(rec, i, o, n_chan_in, mean, sd, **kw_args):
     '''
     Parameters
     ----------
