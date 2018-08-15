@@ -62,7 +62,10 @@ def _get_wc_coefficients(modelspec, idx=0):
                 else:
                     i += 1
             else:
-                return m['phi']['coefficients']
+                if i == idx:
+                    return m['phi']['coefficients']
+                else:
+                    i += 1
     return None
 
 
