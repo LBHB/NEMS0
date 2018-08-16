@@ -10,12 +10,16 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
         plt.sca(ax)
     pred = rec['pred']
     resp = rec['resp']
+    fs = resp.fs
 
-    r1 = resp.as_continuous().copy().T
-    p1 = pred.as_continuous().copy().T
+    channel = 0
+
+    r1 = resp.as_continuous()[channel,:].T
+    p1 = pred.as_continuous()[channel,:].T
     nnidx = np.isfinite(p1)
-    r1=r1[nnidx]
-    p1=p1[nnidx]
+    r1 = r1[nnidx] * fs
+    p1 = p1[nnidx] * fs
+
     #r1 = scipy.signal.decimate(r1[nnidx], q=5, axis=0)
     #p1 = scipy.signal.decimate(p1[nnidx], q=5, axis=0)
     #t = np.arange(len(r1))/pred.fs*5
@@ -26,6 +30,9 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
     mmax = np.nanmax(p1) * 0.8
 
     if 'state' in rec.signals.keys():
+        s = None
+        g = None
+        d = None
         for m in modelspec:
             if 'state_dc_gain' in m['fn']:
                 g = np.array(m['phi']['g'])
@@ -37,33 +44,29 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
                     s += " g={} d={} ".format(g_string, d_string)
                 else:
                     s = None
-            else:
-                s = None
-                g = None
-                d = None
 
         num_vars = rec['state'].shape[0]
         ts = rec['state'].as_continuous().copy()
         if state_colors is None:
             state_colors = [None] * num_vars
-
+        print(nnidx.shape)
+        print(ts.shape)
         for i in range(1, num_vars):
-            d = ts[[i], :].T
-            d = d[nnidx]
+            st = ts[i, :].T
+            st = st[nnidx]
             # d = scipy.signal.decimate(d[nnidx], q=5, axis=0)
-            d = d / np.nanmax(d) * mmax - (0.1 + i) * mmax
-            plt.plot(t, d, linewidth=1, color=state_colors[i-1])
-
-            tstr = "{} (d={:.3f},g={:.3f})".format(
-                        rec['state'].chans[i], m['phi']['d'][i],
-                        m['phi']['g'][i])
+            st = st / np.nanmax(st) * mmax - (0.1 + i) * mmax
+            plt.plot(t, st, linewidth=1, color=state_colors[i-1])
 
             if g is not None:
-               tstr = "{} (d={:.3f},g={:.3f})".format(
-                           rec['state'].chans[i], m['phi']['d'][i],
-                           m['phi']['g'][i])
+                if g.ndim == 1:
+                    tstr = "{} (d={:.3f},g={:.3f})".format(
+                            rec['state'].chans[i], d[i], g[i])
+                else:
+                    tstr = "{} (d={:.3f},g={:.3f})".format(
+                            rec['state'].chans[i], d[0, i], g[0, i])
             else:
-               tstr = "{}".format(rec['state'].chans[i])
+                tstr = "{}".format(rec['state'].chans[i])
 
             plt.text(t[0], (-i+0.1)*mmax, tstr)
         ax = plt.gca()
@@ -79,7 +82,8 @@ def state_var_psth(rec, psth_name='resp', var_name='pupil', ax=None):
     if ax is not None:
         plt.sca(ax)
 
-    psth = rec[psth_name]._data
+    channel = 0
+    psth = rec[psth_name]._data[:, channel, :]
     fs = rec[psth_name].fs
     var = rec['state'].loc[var_name]._data
     mean = np.nanmean(var)
@@ -116,10 +120,11 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
         PostStimSilence = 0
 
     full_psth = rec[psth_name]
-    folded_psth = full_psth.extract_epoch(epoch)
+    channel = 0
+    folded_psth = full_psth.extract_epoch(epoch)[:, [channel], :] * fs
     if psth_name2 is not None:
         full_psth2 = rec[psth_name2]
-        folded_psth2 = full_psth2.extract_epoch(epoch)
+        folded_psth2 = full_psth2.extract_epoch(epoch)[:, [channel], :] * fs
 
     if state_sig == "each_passive":
         raise ValueError("each_passive state not supported")

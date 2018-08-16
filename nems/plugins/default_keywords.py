@@ -116,9 +116,9 @@ def wc(kw):
             fn_kwargs = {'i': 'pred', 'o': 'pred', 'n_chan_in': n_inputs,
                          'normalize_coefs': False}
             coefs = 'nems.modules.weight_channels.gaussian_coefficients'
-            mean = np.arange(n_outputs + 1)/(n_outputs + 1)
+            mean = np.arange(n_outputs+1)/(n_outputs*2+2) + 0.25
             mean = mean[1:]
-            sd = np.full_like(mean, 0.5)
+            sd = np.full_like(mean, 0.4)
 
             mean_prior_coefficients = {
                 'mean': mean,

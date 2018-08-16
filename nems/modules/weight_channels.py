@@ -41,9 +41,9 @@ def basic(rec, i, o, coefficients, normalize_coefs=False):
     '''
     if normalize_coefs:
         c = coefficients.copy()
-        sc = np.sum(c ** 2)
-        if sc > 0:
-            c /= sc
+        sc = np.sum(c ** 2, axis=1, keepdims=True)
+        sc[sc==0] = 1
+        c /= sc
     else:
         c = coefficients
 
