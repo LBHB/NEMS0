@@ -64,6 +64,81 @@ def nmse(result, pred_name='pred', resp_name='resp'):
     return mse / respstd
 
 
+def j_nmse(result, pred_name='pred', resp_name='resp', njacks=20):
+    '''
+    Jackknifed estimate of mean and SE on normalized MSE
+
+    Parameters
+    ----------
+    result : A Recording object
+        Generally the output of `model.evaluate(phi, data)`
+    pred_name : string
+        Name of prediction in the result recording
+    resp_name : string
+        Name of response in the result recording
+
+    Returns
+    -------
+    mse : float
+        Correlation coefficient between the prediction and response.
+    se_mse : float
+        Standard error on nmse, calculated by jackknife (Efron &
+        Tibshirani 1986)
+
+    Example
+    -------
+    >>> result = model.evaluate(data, phi)
+    >>> mse,se_mse = j_nmse(result, 'pred', 'resp', njacks=10)
+
+    Note
+    ----
+    This function is written to be compatible with both numeric (i.e., Numpy)
+    and symbolic (i.e., Theano, TensorFlow) computation. Please do not edit
+    unless you know what you're doing. (@bburan TODO: Is this still true?)
+    '''
+
+    predmat = result[pred_name].as_continuous()
+    respmat = result[resp_name].as_continuous()
+
+    channel_count = predmat.shape[0]
+    mse = np.zeros(channel_count)
+    se_mse = np.zeros(channel_count)
+
+    for i in range(channel_count):
+        pred = predmat[i, :]
+        resp = respmat[i, :]
+        ff = np.isfinite(pred) & np.isfinite(resp)
+
+        if (np.sum(ff) == 0) or (np.sum(pred[ff]) == 0) or (np.sum(resp[ff]) == 0):
+            mse[i] = 1
+            se_mse[i] = 0
+        else:
+            pred = pred[ff]
+            resp = resp[ff]
+            chunksize = int(np.ceil(len(pred) / njacks / 10))
+            chunkcount = int(np.ceil(len(pred) / chunksize / njacks))
+            idx = np.zeros((chunkcount, njacks, chunksize))
+            for jj in range(njacks):
+                idx[:, jj, :] = jj
+            idx = np.reshape(idx, [-1])[:len(pred)]
+            jc = np.zeros(njacks)
+            for jj in range(njacks):
+                ff = (idx != jj)
+
+                X1 = pred[ff]
+                X2 = resp[ff]
+
+                respstd = np.nanstd(X2)
+                squared_errors = (X1-X2)**2
+                E = np.sqrt(np.nanmean(squared_errors))
+                jc[jj] = E / respstd
+
+            mse[i] = np.nanmean(jc)
+            se_mse[i] = np.nanstd(jc) * np.sqrt(njacks-1)
+
+    return mse, se_mse
+
+
 def nmse_shrink(result, pred_name='pred', resp_name='resp', shrink=0.1):
     '''
     Same as MSE, but normalized by the std of the resp.

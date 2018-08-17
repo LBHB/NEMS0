@@ -28,13 +28,13 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
     # TODO: move bounds to fitter? slow
 
     # limits, assumes input (X) range is approximately -1 to +1
-    ui = u
-    ui[ui > 2] = 2
+    ui = u.copy()
+    ui[ui > 1] = 1
     ui[ui < -0.5] = -0.5
 
     # convert tau units from sec to bins
-    taui = np.absolute(tau) * fs
-    taui[taui < 3] = 3
+    taui = np.absolute(tau.copy()) * fs
+    taui[taui < 1] = 1
 
     # TODO : enable crosstalk
     if crosstalk:

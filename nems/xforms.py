@@ -149,7 +149,7 @@ def evaluate(xformspec, context={}, start=0, stop=None):
 ###############################################################################
 
 
-def load_recordings(recording_uri_list, normalize=False, **context):
+def load_recordings(recording_uri_list, normalize=False, cellid=None, **context):
     '''
     Load one or more recordings into memory given a list of URIs.
     '''
@@ -162,6 +162,18 @@ def load_recordings(recording_uri_list, normalize=False, **context):
         log.info('Normalizing stim')
         rec['stim'] = rec['stim'].rasterize().normalize('minmax')
 
+    # if cellid is provided, use it to select channel or subset of channels
+    # from resp signal.
+    if cellid is None:
+        pass
+    elif type(cellid) is list:
+        log.info('Extracting channels %s', cellid)
+        rec['resp'] = rec['resp'].extract_channels(cellid)
+    elif cellid in rec['resp'].chans:
+        log.info('Extracting channel %s', cellid)
+        rec['resp'] = rec['resp'].extract_channels([cellid])
+    else:
+        log.info('No cellid match, keeping all resp channels')
     return {'rec': rec}
 
 
@@ -408,6 +420,28 @@ def mask_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
         return {'est': est_out, 'val': val_out}
     else:
         return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
+
+
+def jack_subset(est, val, modelspecs=None, IsReload=False,
+                keep_only=1, **context):
+
+    if keep_only == 1:
+        est = est[0]
+        val = val[0]
+        est['resp']=est['resp'].rasterize()
+        val['resp']=val['resp'].rasterize()
+        est['stim']=est['stim'].rasterize()
+        val['stim']=val['stim'].rasterize()
+    else:
+        est = est[:keep_only]
+        val = val[:keep_only]
+    if modelspecs is not None:
+        modelspecs_out = modelspecs[:keep_only]
+
+    if IsReload:
+        return {'est': est, 'val': val}
+    else:
+        return {'est': est, 'val': val, 'modelspecs': modelspecs_out}
 
 
 ###############################################################################
@@ -659,7 +693,7 @@ def add_summary_statistics(est, val, modelspecs, fn='standard_correlation',
                            modelspec and save results in each modelspec.
     '''
     corr_fn = getattr(nems.analysis.api, fn)
-    modelspecs = corr_fn(est, val, modelspecs, rec=None)
+    modelspecs = corr_fn(est, val, modelspecs, rec=rec)
 
     return {'modelspecs': modelspecs}
 

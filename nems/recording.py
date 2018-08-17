@@ -734,7 +734,12 @@ class Recording:
 
     def create_mask(self, epoch=None, base_signal=None):
         '''
-        Initialize mask signal to False for all times
+        inputs:
+            epoch: {None, boolean, string}
+             if None, defaults to False
+             if False, initialize mask signal to False for all times
+             if True, initialize mask signal to False for all times
+             if string, mask is True for epochs with .name==string
 
         TODO: remove unnecessary deepcopys from this and subsequent functions
         TODO: add epochs, base signal parameters
@@ -881,7 +886,8 @@ class Recording:
         if times[-1,1]==times[-1,0]:
             times = times[:-1,:]
 
-        newrec = rec.select_times(np.array(np.array(times.tolist())))
+        newrec = rec.select_times(times)
+
         return newrec
 
 ## I/O functions

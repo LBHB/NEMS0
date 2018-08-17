@@ -29,10 +29,13 @@ def init(kw):
 
 # TOOD: Maybe these should go in fitters instead?
 #       Not really initializers, but really fitters either.
+# move to same place as sev? -- SVD
+
 def jk(kw):
     ops = kw.split('.')[1:]
     jk_kwargs = {}
     do_split = False
+    keep_only = 0
     log.info("setting up n-fold fitting...")
 
     for op in ops:
@@ -43,12 +46,23 @@ def jk(kw):
         elif op.startswith('ep'):
             pattern = re.compile(r'^ep(\w{1,})$')
             jk_kwargs['epoch_name'] = re.match(pattern, op).group(1)
+        elif op.startswith('o'):
+            if len(op)>1:
+                keep_only = int(op[1:])
+            else:
+                keep_only = 1
 
     if do_split:
         xfspec = [['nems.xforms.split_for_jackknife', jk_kwargs]]
     else:
         xfspec = [['nems.xforms.mask_for_jackknife', jk_kwargs]]
-    xfspec.append(['nems.xforms.jackknifed_fit', {}])
+    if keep_only == 1:
+        xfspec.append(['nems.xforms.jack_subset', {'keep_only': keep_only}])
+    elif keep_only > 1:
+        xfspec.append(['nems.xforms.jack_subset', {'keep_only': keep_only}])
+        xfspec.append(['nems.xforms.jackknifed_fit', {}])
+    else:
+        xfspec.append(['nems.xforms.jackknifed_fit', {}])
 
     return xfspec
 

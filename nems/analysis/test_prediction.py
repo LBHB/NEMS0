@@ -47,6 +47,9 @@ def standard_correlation(est, val, modelspecs, rec=None):
             # print('running r_ceiling')
             r_ceiling = nmet.r_ceiling(val, rec, 'pred', 'resp')
 
+        mse_test = nmet.j_nmse(val, 'pred', 'resp')
+        mse_fit = nmet.j_nmse(est, 'pred', 'resp')
+
     elif len(val) == 1:
         r_test, se_test = nmet.j_corrcoef(val[0], 'pred', 'resp')
         r_fit, se_fit = nmet.j_corrcoef(est[0], 'pred', 'resp')
@@ -55,7 +58,12 @@ def standard_correlation(est, val, modelspecs, rec=None):
             # print('running r_ceiling')
             r_ceiling = nmet.r_ceiling(val[0], rec, 'pred', 'resp')
 
+        mse_test, se_mse_test = nmet.j_nmse(val[0], 'pred', 'resp')
+        mse_fit, se_mse_fit = nmet.j_nmse(est[0], 'pred', 'resp')
+
     else:
+        # unclear if this ever excutes since jackknifed val sets are
+        # typically already merged
         r = [nmet.corrcoef(p, 'pred', 'resp') for p in val]
         r_test = np.mean(r)
         se_test = np.std(r) / np.sqrt(len(val))
@@ -67,22 +75,29 @@ def standard_correlation(est, val, modelspecs, rec=None):
         # TODO compute r_ceiling for multiple val sets
         r_ceiling = 0
 
-    mse_test = [nmet.nmse(p, 'pred', 'resp') for p in val]
-    ll_test = [nmet.likelihood_poisson(p, 'pred', 'resp') for p in val]
+        mse_test = [nmet.nmse(p, 'pred', 'resp') for p in val]
+        mse_fit = [nmet.nmse(p, 'pred', 'resp') for p in est]
 
-    mse_fit = [nmet.nmse(p, 'pred', 'resp') for p in val]
+        se_mse_test = np.std(mse_test) / np.sqrt(len(val))
+        se_mse_fit = np.std(mse_fit) / np.sqrt(len(est))
+        mse_test = np.mean(mse_test)
+        mse_fit = np.mean(mse_fit)
+
+    ll_test = [nmet.likelihood_poisson(p, 'pred', 'resp') for p in val]
     ll_fit = [nmet.likelihood_poisson(p, 'pred', 'resp') for p in est]
 
     modelspecs[0][0]['meta']['r_test'] = r_test
     modelspecs[0][0]['meta']['se_test'] = se_test
     modelspecs[0][0]['meta']['r_floor'] = r_floor
-    modelspecs[0][0]['meta']['mse_test'] = np.mean(mse_test)
+    modelspecs[0][0]['meta']['mse_test'] = mse_test
+    modelspecs[0][0]['meta']['se_mse_test'] = se_mse_test
     modelspecs[0][0]['meta']['ll_test'] = np.mean(ll_test)
 
     modelspecs[0][0]['meta']['r_fit'] = r_fit
     modelspecs[0][0]['meta']['se_fit'] = se_fit
     modelspecs[0][0]['meta']['r_ceiling'] = r_ceiling
-    modelspecs[0][0]['meta']['mse_fit'] = np.mean(mse_fit)
+    modelspecs[0][0]['meta']['mse_fit'] = mse_fit
+    modelspecs[0][0]['meta']['se_mse_fit'] = se_mse_fit
     modelspecs[0][0]['meta']['ll_fit'] = np.mean(ll_fit)
 
     return modelspecs

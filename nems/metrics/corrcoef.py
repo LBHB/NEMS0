@@ -196,7 +196,7 @@ def _r_single(X, N=100):
         #         rac(nn)=xcov(resp(tt,1),resp(tt,2),0,'coeff');
         #     end
         # end
-        print('r_ceiling invalid')
+        #print('r_ceiling invalid')
         return 0.05
     else:
 
