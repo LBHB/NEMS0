@@ -41,13 +41,13 @@ def basic(rec, i, o, coefficients, normalize_coefs=False):
     '''
     if normalize_coefs:
         c = coefficients.copy()
-        sc = np.sum(c ** 2, axis=1, keepdims=True)
-        sc[sc==0] = 1
+        sc = np.sum(np.abs(c), axis=1, keepdims=True)
+        sc[sc == 0] = 1
         c /= sc
+        fn = lambda x: c @ x
     else:
-        c = coefficients
+        fn = lambda x: coefficients @ x
 
-    fn = lambda x: c @ x
     return [rec[i].transform(fn, o)]
 
 
@@ -65,9 +65,9 @@ def basic_with_offset(rec, i, o, coefficients, offset, normalize_coefs=False):
 
     if normalize_coefs:
         c = coefficients.copy()
-        sc = np.sum(c ** 2)
-        if sc > 0:
-            c /= sc
+        sc = np.sum(np.abs(c), axis=1, keepdims=True)
+        sc[sc == 0] = 1
+        c /= sc
     else:
         c = coefficients
 

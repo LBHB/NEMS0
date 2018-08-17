@@ -63,7 +63,8 @@ log = logging.getLogger(__name__)
 
 
 def diagnostic(ctx, default='val', epoch=None, occurrence=None, figsize=None,
-              height_mult=3.0, width_mult=1.0, m_idx=0, r_idx=0):
+              height_mult=3.0, width_mult=1.0, m_idx=0, r_idx=0,
+              pre_dur=None, dur=None):
     """Expects an *evaluated* context dictionary ('ctx') returned by xforms."""
     # TODO: Or do we want 'est' by default?
     #       Could also just
@@ -104,7 +105,8 @@ def diagnostic(ctx, default='val', epoch=None, occurrence=None, figsize=None,
 
     ctx_copy = copy.deepcopy(ctx)
     plot_fns = _get_plot_fns(ctx, default=default, occurrence=occurrence,
-                             epoch=epoch, m_idx=m_idx)
+                             epoch=epoch, m_idx=m_idx, pre_dur=pre_dur,
+                             dur=dur)
 
     # Need to know how many total plots for outer gridspec (n).
     # +3 is to account for module-independent plots at end
@@ -169,7 +171,8 @@ def diagnostic(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     sigs = [rec['resp'], rec['pred']]
     title = 'Final Prediction vs Response, {} #{}'.format(epoch, occurrence)
     timeseries = partial(timeseries_from_epoch, sigs, epoch, title=title,
-                         occurrences=occurrence)
+                         occurrences=occurrence, pre_dur=pre_dur,
+                         dur=dur)
     _plot_axes(1, timeseries, -1)
 
     # TODO: Pred Error histogram too? Or was that not useful?
@@ -202,7 +205,7 @@ def diagnostic(ctx, default='val', epoch=None, occurrence=None, figsize=None,
 
 
 def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
-                  r_idx=0):
+                  r_idx=0, pre_dur=None, dur=None):
     rec = ctx[default][r_idx]
     modelspec = ctx['modelspecs'][m_idx]
 
@@ -222,11 +225,9 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
         if i:
             channels = 0
             fn = output_psth(rec, modelspec, idx, sig_name='pred',
-                                       epoch=epoch, occurrences=occurrence,
-                                       channels=channels, mod_name=fname)
-            #fn = before_and_after_psth(rec, modelspec, idx, sig_name='pred',
-            #                           epoch=epoch, occurrences=occurrence,
-            #                           channels=channels, mod_name=fname)
+                             epoch=epoch, occurrences=occurrence,
+                             channels=channels, mod_name=fname,
+                             pre_dur=pre_dur, dur=dur)
             plot = (fn, 1)
             plot_fns.append(plot)
 
@@ -258,7 +259,6 @@ def before_and_after_signal(rec, modelspec, idx, sig_name='pred'):
 
     before_sig.name = 'before'
 
-    # now evaluate next module step
     after = ms.evaluate(before.copy(), modelspec, start=idx, stop=idx+1)
     after_sig = copy.deepcopy(after[sig_name])
     after_sig.name = 'after'
@@ -281,16 +281,45 @@ def before_and_after_psth(rec, modelspec, idx, sig_name='pred',
 
 def output_psth(rec, modelspec, idx, sig_name='pred',
                 epoch='TRIAL', occurrences=0, channels=0,
-                mod_name='Unknown'):
+                mod_name='Unknown', pre_dur=None, dur=None):
 
     before_sig, after_sig = before_and_after_signal(rec, modelspec, idx,
                                                     sig_name)
     extracted = after_sig.extract_epoch(epoch)
     value_vector = extracted[occurrences].T
 
-    legend = after_sig.chans
-    time_vector = np.arange(0, len(value_vector)) / after_sig.fs
-    fn = partial(plot_timeseries, [time_vector], [value_vector],
+    d = rec['resp'].get_epoch_bounds('PreStimSilence')
+    if len(d):
+        PreStimSilence = np.mean(np.diff(d))
+    else:
+        PreStimSilence = 0
+    if pre_dur is None:
+        pre_dur = PreStimSilence
+
+    # now evaluate next module step
+    if 'fir.basic' in modelspec[idx]['fn']:
+        ms2 = copy.deepcopy(modelspec)
+        ms2[idx]['fn'] = 'nems.modules.fir.filter_bank'
+        chan_count = ms2[idx]['phi']['coefficients'].shape[0]
+        ms2[idx]['fn_kwargs']['bank_count'] = chan_count
+        before2, after2 = before_and_after_signal(rec, ms2, idx, sig_name)
+        extracted2 = after2.extract_epoch(epoch)
+        value_vector2 = extracted2[occurrences].T
+        log.info(value_vector2.shape)
+        log.info(value_vector.shape)
+        value_vector = np.concatenate([value_vector2, value_vector], axis=1)
+        legend = None
+    else:
+        legend = after_sig.chans
+
+    time_vector = np.arange(0, len(value_vector)) / after_sig.fs - \
+            PreStimSilence
+    good_bins = (time_vector >= -PreStimSilence)
+    if dur is not None:
+        good_bins[time_vector > dur] = False
+
+    fn = partial(plot_timeseries, [time_vector[good_bins]],
+                 [value_vector[good_bins, :]],
                  xlabel='Time', ylabel='Value', legend=legend,
                  title=mod_name)
 

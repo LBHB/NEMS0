@@ -94,12 +94,21 @@ def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
 def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
                           xlabel='Time', ylabel='Value',
                           linestyle='-', linewidth=1,
-                          ax=None, title=None):
+                          ax=None, title=None, pre_dur=None, dur=None,
+                          PreStimSilence=None):
     """TODO: doc"""
     if occurrences is None:
         return
     occurrences = pad_to_signals(signals, occurrences)
     channels = pad_to_signals(signals, channels)
+    if PreStimSilence is None:
+        d = signals[0].get_epoch_bounds('PreStimSilence')
+        if len(d):
+            PreStimSilence = np.mean(np.diff(d))
+        else:
+            PreStimSilence = 0
+    if pre_dur is None:
+        pre_dur = PreStimSilence
 
     legend = [s.name for s in signals]
     times = []
@@ -111,9 +120,16 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
         value_vector = extracted[o][c]
         # Convert bins to time (relative to start of epoch)
         # TODO: want this to be absolute time relative to start of data?
-        time_vector = np.arange(0, len(value_vector)) / s.fs
-        times.append(time_vector)
-        values.append(value_vector)
+        time_vector = np.arange(0, len(value_vector)) / s.fs - PreStimSilence
+
+        # limit time range if specified
+        good_bins = (time_vector >= -PreStimSilence)
+        if dur is not None:
+            good_bins[time_vector > dur] = False
+
+        times.append(time_vector[good_bins])
+        values.append(value_vector[good_bins])
+
     plot_timeseries(times, values, xlabel, ylabel, legend=legend,
                     linestyle=linestyle, linewidth=linewidth,
                     ax=ax, title=title)
