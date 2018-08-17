@@ -51,7 +51,7 @@ def test_model_registry(model_registry):
     # a representative sample.
     fine = ['wc.2x15', 'wc.2x15.g.n', 'dlog', 'dlog.n18', 'fir.15x2',
             'fir.15x2x4', 'stp.2', 'stp.2.z.n.b', 'dexp.2', 'lvl.1',
-            'qsig.5', 'logsig', 'tanh.4', 'stategain.2', 'rep.4', 'mrg']
+            'qsig.5', 'logsig', 'tanh.4', 'stategain.2x4', 'rep.4', 'mrg']
     for f in fine:
         x = model_registry[f]
 
