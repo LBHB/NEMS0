@@ -908,7 +908,7 @@ class Recording:
 #                e.append(s_indices[i+1])
 #                i+=2
 
-        times = (np.vstack((np.array(s), np.array(e)))/sig.fs).T
+        times = (np.vstack((s, e))/sig.fs).T
         if times[-1,1]==times[-1,0]:
             times = times[:-1,:]
         log.info('masking')
