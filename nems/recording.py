@@ -870,12 +870,20 @@ class Recording:
         if np.sum(sig._data == False) == 0:
             return rec
 
-        s, = np.nonzero(np.diff(rec['mask']._data[0,:]) > 0)
-        e, = np.nonzero(np.diff(rec['mask']._data[0,:]) < 0)
-        s += 1
-        e += 1
+        # alternative with nonzero rather than argwhere
+        #s, = np.nonzero(np.diff(rec['mask']._data[0,:]) > 0)
+        #e, = np.nonzero(np.diff(rec['mask']._data[0,:]) < 0)
+        #s += 1
+        #e += 1
+        st = np.argwhere(np.diff(rec['mask']._data[0,:]) > 0)[:,0] + 1
+        #e = np.argwhere(np.diff(rec['mask']._data[0,:]) < 0)[:,0] + 1
         if rec['mask']._data[0,0]:
-            s = np.concatenate((np.array([0]), s))
+            #s = np.concatenate((np.array([0]), s))
+            s = np.concatenate((np.array([0]), st[::2]))
+            e = st[1::2]
+        else:
+            s = st[::2]
+            e = st[1::2]
         if rec['mask']._data[0,-1]:
             e = np.concatenate((e, np.array([rec['mask'].shape[1]])))
 
@@ -910,7 +918,7 @@ class Recording:
 #                e.append(s_indices[i+1])
 #                i+=2
 
-        times = (np.vstack((np.array(s), np.array(e)))/sig.fs).T
+        times = (np.vstack((s, e))/sig.fs).T
         if times[-1,1]==times[-1,0]:
             times = times[:-1,:]
         log.info('masking')
