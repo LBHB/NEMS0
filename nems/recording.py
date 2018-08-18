@@ -438,8 +438,13 @@ class Recording:
             (e, v) = fn(s)
             est[e.name] = e
             val[v.name] = v
+
         est = Recording(signals=est)
         val = Recording(signals=val)
+
+        log.info('creating masks for partitioned est,val signals')
+        est = est.create_mask(np.isfinite(est['resp'].as_continuous()[0,:]))
+        val = val.create_mask(np.isfinite(val['resp'].as_continuous()[0,:]))
 
         return (est,val)
 
@@ -735,10 +740,11 @@ class Recording:
     def create_mask(self, epoch=None, base_signal=None):
         '''
         inputs:
-            epoch: {None, boolean, string}
+            epoch: {None, boolean, ndarray, string}
              if None, defaults to False
              if False, initialize mask signal to False for all times
              if True, initialize mask signal to False for all times
+             if ndarray, True where ndarray is true, False elsewhere
              if string, mask is True for epochs with .name==string
 
         TODO: remove unnecessary deepcopys from this and subsequent functions
@@ -753,6 +759,11 @@ class Recording:
 
         if epoch is None:
             mask = np.zeros([1, base_signal.ntimes], dtype=np.bool)
+        elif type(epoch) is np.ndarray:
+            mask = np.zeros([1, base_signal.ntimes], dtype=np.bool)
+            #print(mask.shape)
+            #print(epoch.shape)
+            mask[0, epoch] = True
         else:
             mask = base_signal.generate_epoch_mask(epoch)
 
@@ -856,36 +867,52 @@ class Recording:
         rec = copy.deepcopy(self)
         sig = rec['mask']
 
-        if np.sum(~sig._data) == 0:
+        if np.sum(sig._data == False) == 0:
             return rec
 
-        s_indices = np.argwhere(np.diff(rec['mask']._data.squeeze())).squeeze()+1
-        last_ind = len(s_indices)-1
+        s = np.argwhere(np.diff(rec['mask']._data[0,:]) > 0)[:,0] + 1
+        e = np.argwhere(np.diff(rec['mask']._data[0,:]) < 0)[:,0] + 1
+        if rec['mask']._data[0,0]:
+            s = np.concatenate((np.array([0]), s))
+        if rec['mask']._data[0,-1]:
+            e = np.concatenate((e, np.array([rec['mask'].shape[1]])))
 
-        s = []
-        e = []
+#        s_indices = np.argwhere(np.diff(rec['mask']._data.squeeze())).squeeze()+1
+#        if type(s_indices) is np.int64:
+#            s_indices = np.array([s_indices])
+#
+#        last_ind = s_indices.size - 1
+#
+#        s = []
+#        e = []
+#
+#        i = 0
+#        while i <= last_ind:
+#            if i == 0:
+#                if rec['mask']._data.squeeze()[0] == True:
+#                    # print('hello')
+#                    s.append(0)
+#                    e.append(s_indices[i])
+#                    i+=1
+#                elif (i==last_ind) and (rec['mask']._data.squeeze()[0] == False):
+#                    # print('hello')
+#                    s.append(s_indices[i])
+#                    e.append(rec['mask'].shape[1])
+#                    i+=1
+#                else:
+#                    s.append(s_indices[i])
+#                    e.append(s_indices[i+1])
+#                    i+=2
+#            else:
+#                s.append(s_indices[i])
+#                e.append(s_indices[i+1])
+#                i+=2
 
-        i = 0
-        while i < last_ind:
-            if i == 0:
-                if rec['mask']._data.squeeze()[0] == True:
-                    # print('hello')
-                    s.append(0)
-                    e.append(s_indices[i])
-                    i+=1
-                else:
-                    s.append(s_indices[i])
-                    e.append(s_indices[i+1])
-                    i+=2
-            else:
-                s.append(s_indices[i])
-                e.append(s_indices[i+1])
-                i+=2
-
-        times = (np.vstack((np.array(s), np.array(e)))/sig.fs).T
+        times = (np.vstack((s, e))/sig.fs).T
         if times[-1,1]==times[-1,0]:
             times = times[:-1,:]
-
+        log.info('masking')
+        log.info(times)
         newrec = rec.select_times(times)
 
         return newrec

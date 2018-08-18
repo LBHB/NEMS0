@@ -30,11 +30,11 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
     # limits, assumes input (X) range is approximately -1 to +1
     ui = u.copy()
     ui[ui > 1] = 1
-    ui[ui < -0.5] = -0.5
+    ui[ui < -0.4] = -0.4
 
     # convert tau units from sec to bins
     taui = np.absolute(tau.copy()) * fs
-    taui[taui < 1] = 1
+    taui[taui < 2] = 2
 
     # TODO : enable crosstalk
     if crosstalk:

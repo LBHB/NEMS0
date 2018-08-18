@@ -118,7 +118,7 @@ def wc(kw):
             coefs = 'nems.modules.weight_channels.gaussian_coefficients'
             mean = np.arange(n_outputs+1)/(n_outputs*2+2) + 0.25
             mean = mean[1:]
-            sd = np.full_like(mean, 0.4)
+            sd = np.full_like(mean, 0.5)
 
             mean_prior_coefficients = {
                 'mean': mean,
@@ -284,7 +284,7 @@ def stp(kw):
 
     # Default values, may be overwritten by options
     u_mean = [0.01]*n_synapse
-    tau_mean = [0.04]*n_synapse
+    tau_mean = [0.05]*n_synapse
     normalize = False
     bounds = False
 
