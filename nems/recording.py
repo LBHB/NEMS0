@@ -870,57 +870,15 @@ class Recording:
         if np.sum(sig._data == False) == 0:
             return rec
 
-        # alternative with nonzero rather than argwhere
-        #s, = np.nonzero(np.diff(rec['mask']._data[0,:]) > 0)
-        #e, = np.nonzero(np.diff(rec['mask']._data[0,:]) < 0)
-        #s += 1
-        #e += 1
-        st = np.argwhere(np.diff(rec['mask']._data[0,:]) > 0)[:,0] + 1
-        #e = np.argwhere(np.diff(rec['mask']._data[0,:]) < 0)[:,0] + 1
-        if rec['mask']._data[0,0]:
-            #s = np.concatenate((np.array([0]), s))
-            s = np.concatenate((np.array([0]), st[::2]))
-            e = st[1::2]
-        else:
-            s = st[::2]
-            e = st[1::2]
-        if rec['mask']._data[0,-1]:
-            e = np.concatenate((e, np.array([rec['mask'].shape[1]])))
-
-#        s_indices = np.argwhere(np.diff(rec['mask']._data.squeeze())).squeeze()+1
-#        if type(s_indices) is np.int64:
-#            s_indices = np.array([s_indices])
-#
-#        last_ind = s_indices.size - 1
-#
-#        s = []
-#        e = []
-#
-#        i = 0
-#        while i <= last_ind:
-#            if i == 0:
-#                if rec['mask']._data.squeeze()[0] == True:
-#                    # print('hello')
-#                    s.append(0)
-#                    e.append(s_indices[i])
-#                    i+=1
-#                elif (i==last_ind) and (rec['mask']._data.squeeze()[0] == False):
-#                    # print('hello')
-#                    s.append(s_indices[i])
-#                    e.append(rec['mask'].shape[1])
-#                    i+=1
-#                else:
-#                    s.append(s_indices[i])
-#                    e.append(s_indices[i+1])
-#                    i+=2
-#            else:
-#                s.append(s_indices[i])
-#                e.append(s_indices[i+1])
-#                i+=2
+        m = rec['mask']._data[0,:]
+        z = np.array([0])
+        m = np.concatenate((z,m,z))
+        s, = np.nonzero(np.diff(m) > 0)
+        e, = np.nonzero(np.diff(m) < 0)
 
         times = (np.vstack((s, e))/sig.fs).T
-        if times[-1,1]==times[-1,0]:
-            times = times[:-1,:]
+        #if times[-1,1]==times[-1,0]:
+        #    times = times[:-1,:]
         log.info('masking')
         log.info(times)
         newrec = rec.select_times(times)
