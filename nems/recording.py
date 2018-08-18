@@ -870,10 +870,15 @@ class Recording:
         if np.sum(sig._data == False) == 0:
             return rec
 
-        s = np.argwhere(np.diff(rec['mask']._data[0,:]) > 0)[:,0] + 1
-        e = np.argwhere(np.diff(rec['mask']._data[0,:]) < 0)[:,0] + 1
+        st = np.argwhere(np.diff(rec['mask']._data[0,:]) > 0)[:,0] + 1
+        #e = np.argwhere(np.diff(rec['mask']._data[0,:]) < 0)[:,0] + 1
         if rec['mask']._data[0,0]:
-            s = np.concatenate((np.array([0]), s))
+            #s = np.concatenate((np.array([0]), s))
+            s = np.concatenate((np.array([0]), st[::2]))
+            e = st[1::2]
+        else:
+            s = st[::2]
+            e = st[1::2]
         if rec['mask']._data[0,-1]:
             e = np.concatenate((e, np.array([rec['mask'].shape[1]])))
 
