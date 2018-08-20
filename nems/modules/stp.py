@@ -29,12 +29,19 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
 
     # limits, assumes input (X) range is approximately -1 to +1
     ui = u.copy()
-    ui[ui > 1] = 1
-    ui[ui < -0.4] = -0.4
-
+    #ui[ui > 1] = 1
+    #ui[ui < -0.4] = -0.4
     # convert tau units from sec to bins
     taui = np.absolute(tau.copy()) * fs
-    taui[taui < 2] = 2
+    taui[taui < 1] = 1
+
+    # avoid ringing if combination of strong depression and
+    # rapid recovery is too large
+    rat = ui**2 / taui
+    ui[rat>0.1] = np.sqrt(0.1 * taui[rat>0.1])
+    #taui[rat>0.08] = (ui[rat>0.08]**2) / 0.08
+
+    #print("rat: %s" % (ui**2 / taui))
 
     # TODO : enable crosstalk
     if crosstalk:

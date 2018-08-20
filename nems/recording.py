@@ -864,23 +864,24 @@ class Recording:
         if 'mask' not in self.signals.keys():
             raise ValueError('Need to create a mask signal first')
 
-        rec = copy.deepcopy(self)
+        rec = self.copy()
         sig = rec['mask']
 
         if np.sum(sig._data == False) == 0:
+            # mask is all true, passthrough
             return rec
 
-        m = rec['mask']._data[0,:]
+        m = rec['mask']._data[0, :].copy()
         z = np.array([0])
-        m = np.concatenate((z,m,z))
+        m = np.concatenate((z, m, z))
         s, = np.nonzero(np.diff(m) > 0)
         e, = np.nonzero(np.diff(m) < 0)
 
         times = (np.vstack((s, e))/sig.fs).T
-        #if times[-1,1]==times[-1,0]:
+        # if times[-1,1]==times[-1,0]:
         #    times = times[:-1,:]
-        log.info('masking')
-        log.info(times)
+        # log.info('masking')
+        # log.info(times)
         newrec = rec.select_times(times)
 
         return newrec
