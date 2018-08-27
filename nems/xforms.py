@@ -344,15 +344,15 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     return {'rec': rec}
 
 
-def split_by_occurrence_counts(rec, **context):
-    est, val = rec.split_using_epoch_occurrence_counts(epoch_regex='^STIM_')
+def split_by_occurrence_counts(rec, epoch_regex='^STIM_', **context):
+    est, val = rec.split_using_epoch_occurrence_counts(epoch_regex=epoch_regex)
 
     return {'est': est, 'val': val}
 
 
-def average_away_stim_occurrences(est, val, **context):
-    est = preproc.average_away_epoch_occurrences(est, epoch_regex='^STIM_')
-    val = preproc.average_away_epoch_occurrences(val, epoch_regex='^STIM_')
+def average_away_stim_occurrences(est, val, epoch_regex='^STIM_', **context):
+    est = preproc.average_away_epoch_occurrences(est, epoch_regex=epoch_regex)
+    val = preproc.average_away_epoch_occurrences(val, epoch_regex=epoch_regex)
 
     # mask out nan periods
 #    d=np.isfinite(est['resp'].as_continuous()[[0],:])
@@ -368,9 +368,17 @@ def average_away_stim_occurrences(est, val, **context):
     return {'est': est, 'val': val}
 
 
-def average_away_stim_occurrences_rec(rec, **context):
-    rec = preproc.average_away_epoch_occurrences(rec, epoch_regex='^STIM_')
+def average_away_stim_occurrences_rec(rec, epoch_regex='^STIM_', **context):
+    rec = preproc.average_away_epoch_occurrences(rec, epoch_regex=epoch_regex)
     return {'rec': rec}
+
+
+def split_val_and_average_reps(rec, epoch_regex='^STIM_', **context):
+    est, val = rec.split_using_epoch_occurrence_counts(epoch_regex=epoch_regex)
+    est = preproc.average_away_epoch_occurrences(est, epoch_regex=epoch_regex)
+    val = preproc.average_away_epoch_occurrences(val, epoch_regex=epoch_regex)
+    
+    return {'est': est, 'val': val}
 
 
 def split_at_time(rec, fraction, **context):
