@@ -52,6 +52,10 @@ def _get_module_prior(module, default_priors=default_priors):
     else:
         return None
 
+    return _tuples_to_distributions(prior)
+
+
+def _tuples_to_distributions(prior):
     # Instantiate the Distribution objects if needed.
     for key, value in prior.items():
         if not isinstance(value, Distribution):

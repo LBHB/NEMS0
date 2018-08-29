@@ -149,6 +149,11 @@ def _lookup_fn_at(fn_path):
         myfn(data)
         ...
     '''
+    
+    # default is nems.xforms.<fn_path>
+    if not '.' in fn_path:
+        fn_path = 'nems.xforms.' + fn_path
+        
     if fn_path in lookup_table:
         fn = lookup_table[fn_path]
     else:

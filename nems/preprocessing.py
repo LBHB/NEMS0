@@ -554,16 +554,17 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     state_sig_list = [ones_sig]
     # rint(state_sig_list[-1].shape)
 
-    for x in state_signals:
+    for i, x in enumerate(state_signals):
         if x in permute_signals:
-            # TODO support for signals_permute
-            # raise ValueError("permute_signals not yet supported")
-            state_sig_list += [newrec[x].shuffle_time()]
+            # kludge: fix random seed to index of state signal in list
+            # this avoids using the same seed for each shuffled signal
+            # but also makes shuffling reproducible
+            state_sig_list += [newrec[x].shuffle_time(rand_seed=i)]
         else:
             state_sig_list += [newrec[x]]
-        # print(x)
-        # print(state_sig_list[-1])
-        # print(state_sig_list[-1].shape)
+#    print(x)
+#    print(state_sig_list[-1])
+#    print(state_sig_list[-1].shape)
 
     state = signal.RasterizedSignal.concatenate_channels(state_sig_list)
     state.name = new_signalname

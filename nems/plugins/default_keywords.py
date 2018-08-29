@@ -559,6 +559,10 @@ def stategain(kw):
     '''
     pattern = re.compile(r'^stategain\.?(\d{1,})x(\d{1,})$')
     parsed = re.match(pattern, kw)
+    if parsed is None:
+        # backward compatible parsing if R not specified
+        pattern = re.compile(r'^stategain\.?(\d{1,})$')
+        parsed = re.match(pattern, kw)
     try:
         n_vars = int(parsed.group(1))
         if len(parsed.groups())>1:

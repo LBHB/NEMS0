@@ -1506,7 +1506,7 @@ class RasterizedSignal(SignalBase):
             newsig.name = newname
         return newsig
 
-    def shuffle_time(self):
+    def shuffle_time(self, rand_seed=None):
         '''
         Applies this signal's 2d .as_continuous() matrix representation to
         function fn, which must be a pure (curried) function of one argument.
@@ -1521,7 +1521,15 @@ class RasterizedSignal(SignalBase):
         arr = np.arange(x.shape[1])
         arr0 = arr[np.isfinite(x[0, :])]
         arr = arr0.copy()
-        np.random.shuffle(arr)
+
+        if rand_seed is not None:
+            save_state = np.random.get_state()
+            np.random.seed(rand_seed)
+            np.random.shuffle(arr)
+            np.random.set_state(save_state)
+        else:
+            np.random.shuffle(arr)
+
         x[:, arr0] = x[:, arr]
         newsig = self._modified_copy(x)
         newsig.name = newsig.name + '_shuf'
