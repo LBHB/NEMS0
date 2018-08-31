@@ -2,6 +2,7 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import nems.modelspec as ms
+from scipy.ndimage import zoom
 
 from nems.plots.timeseries import plot_timeseries
 from nems.utils import find_module
@@ -10,7 +11,8 @@ log = logging.getLogger(__name__)
 
 
 def plot_heatmap(array, xlabel='Time', ylabel='Channel',
-                 ax=None, cmap=None, clim=None, skip=0, title=None, fs=None):
+                 ax=None, cmap=None, clim=None, skip=0, title=None, fs=None,
+                 interpolation='none'):
     '''
     A wrapper for matplotlib's plt.imshow() to ensure consistent formatting.
     '''
@@ -31,7 +33,7 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
 
     plt.imshow(array, aspect='auto', origin='lower',
                cmap=plt.get_cmap('jet'), clim=clim,
-               interpolation='none', extent=extent)
+               interpolation=interpolation, extent=extent)
 
     # Force integer tick labels, skipping gaps
     #y, x = array.shape
@@ -105,11 +107,15 @@ def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None,
 
 
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
-                 title=None, fs=None, chans=None, wc_idx=0, fir_idx=0):
+                 title=None, fs=None, chans=None, wc_idx=0, fir_idx=0,
+                 interpolation='none'):
     """
     chans: list
        if not None, label each row of the strf with the corresponding
        channel name
+    interpolation: string, tuple
+       if string, passed on as parameter to imshow
+       if tuple, ndimage "zoom" by a factor of (x,y) on each dimension
     """
     wcc = _get_wc_coefficients(modelspec, idx=wc_idx)
     firc = _get_fir_coefficients(modelspec, idx=fir_idx)
@@ -159,6 +165,17 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
     else:
         cscale = np.max(np.abs(clim))
 
+    if type(interpolation) is str:
+        if interpolation=='none':
+            pass
+        else:
+            show_factorized = False
+    else:
+        s = strf.shape
+        strf = zoom(strf, interpolation)
+        fs = fs * interpolation[1]
+        interpolation='none'
+
     if show_factorized:
         # Never rescale the STRF or CLIM!
         # The STRF should be the final word and respect input colormap and clim
@@ -184,7 +201,8 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
         skip = 0
 
     plot_heatmap(everything, xlabel='Lag (s)',
-                 ylabel='Channel In', ax=ax, skip=skip, title=title, fs=fs)
+                 ylabel='Channel In', ax=ax, skip=skip, title=title, fs=fs,
+                 interpolation=interpolation)
     if chans is not None:
         for i, c in enumerate(chans):
             plt.text(0, i + nchans + 1, c, verticalalignment='center')

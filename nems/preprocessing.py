@@ -464,13 +464,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     newrec = rec.copy()
     resp = newrec['resp'].rasterize()
 
-    # Much faster; TODO: Test if throws warnings
-    x = np.ones([1, resp.shape[1]])
-    ones_sig = resp._modified_copy(x)
-    ones_sig.name = "baseline"
-    ones_sig.chans = ["baseline"]
-
-    # DEPRECATED, NOW THAT NORMALIZATION IS IMPLEMENTED
+    # normalize mean/std of pupil trace if being used
     if ('pupil' in state_signals) or ('pupil_ev' in state_signals) or \
        ('pupil_bs' in state_signals):
         # normalize min-max
@@ -551,26 +545,41 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         newrec["p_x_a"] = newrec["pupil"]._modified_copy(p * a)
         newrec["p_x_a"].chans = ["p_x_a"]
 
-    state_sig_list = [ones_sig]
-    # rint(state_sig_list[-1].shape)
-
     for i, x in enumerate(state_signals):
         if x in permute_signals:
             # kludge: fix random seed to index of state signal in list
             # this avoids using the same seed for each shuffled signal
             # but also makes shuffling reproducible
-            state_sig_list += [newrec[x].shuffle_time(rand_seed=i)]
+            newrec = concatenate_state_channel(
+                    newrec, newrec[x].shuffle_time(rand_seed=i),
+                    state_signal_name=new_signalname)
         else:
-            state_sig_list += [newrec[x]]
-#    print(x)
-#    print(state_sig_list[-1])
-#    print(state_sig_list[-1].shape)
+            newrec = concatenate_state_channel(
+                    newrec, newrec[x], state_signal_name=new_signalname)
+
+    return newrec
+
+
+def concatenate_state_channel(rec, sig, state_signal_name='state'):
+
+    newrec = rec.copy()
+
+    if state_signal_name not in rec.signals.keys():
+        # create an initial state signal of all ones for baseline
+        x = np.ones([1, sig.shape[1]])
+        ones_sig = sig._modified_copy(x)
+        ones_sig.name = "baseline"
+        ones_sig.chans = ["baseline"]
+
+        state_sig_list = [ones_sig]
+    else:
+        # start with existing state signal
+        state_sig_list = [rec[state_signal_name]]
+
+    state_sig_list.append(sig)
 
     state = signal.RasterizedSignal.concatenate_channels(state_sig_list)
-    state.name = new_signalname
-
-    # scale all signals to range from 0 - 1
-    # state = state.normalize(normalization='minmax')
+    state.name = state_signal_name
 
     newrec.add_signal(state)
 

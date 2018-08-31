@@ -121,6 +121,30 @@ def escaped_join(list, delimiter):
     return final_join
 
 
+def get_channel_number(sig, channel=None):
+    """
+    find number of channel in signal sig that matches channel name or number
+      specified in channel. default return 0
+    """
+    if channel is None:
+        chanidx = 0
+    elif type(channel) is str:
+        try:
+            chanidx = sig.chans.index(channel)
+        except ValueError:
+            raise ValueError('channel name not in list')
+
+    elif type(channel) is int:
+        chanidx = channel
+    else:
+        raise ValueError('channel not integer or string')
+
+    if chanidx >= sig.shape[0]:
+        raise ValueError('channel number not valid')
+
+    return chanidx
+
+
 def smooth(x,window_len=11,window='hanning'):
     """smooth the data using a window with requested size.
 

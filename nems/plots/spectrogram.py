@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
 
-def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0):
+def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
+                     cmap=None):
 
     if not ax:
         ax = plt.gca()
@@ -17,7 +18,7 @@ def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0):
 
     extent = [times[0], times[-1], 1, array.shape[0]]
     ax.imshow(array, origin='lower', interpolation='none',
-              aspect='auto', extent=extent)
+              aspect='auto', extent=extent, cmap=cmap)
     ax.margins(x=0)
 
     # Override x-tic labels to display as real time
