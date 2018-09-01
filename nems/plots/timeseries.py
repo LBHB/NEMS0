@@ -7,6 +7,15 @@ import nems.signal as signal
 import nems.recording as recording
 import nems.modules.stp as stp
 
+def ax_remove_box(ax=None):
+    """
+    remove right and top lines from plot border
+    """
+    if ax is None:
+        ax = plt.gca()
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
 
 def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
                     linestyle='-', linewidth=1,
@@ -46,6 +55,8 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
         plt.legend(legend)
     if title:
         plt.title(title, fontsize=8)
+
+    ax_remove_box(ax)
 
 
 def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
