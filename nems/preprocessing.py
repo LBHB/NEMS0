@@ -7,6 +7,8 @@ import pandas as pd
 import nems.epoch as ep
 import nems.signal as signal
 from scipy.signal import convolve2d
+from scipy import interpolate
+import scipy.signal as ss
 
 import nems.epoch as ep
 import nems.signal as signal
@@ -479,7 +481,36 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         p -= np.nanmean(p)
         p /= np.nanstd(p)
         newrec["pupil"] = newrec["pupil"]._modified_copy(p)
-
+        
+    if ('pupil_psd') in state_signals:
+        pup = newrec['pupil'].as_continuous().copy()
+        fs = newrec['pupil'].fs
+        # get spectrogram of pupil
+        nperseg = int(60*fs)
+        noverlap = nperseg-1
+        f, time, Sxx = ss.spectrogram(pup.squeeze(), fs=fs, nperseg=nperseg, 
+                                      noverlap=noverlap)
+        max_chan = 4 #(np.abs(f - 0.1)).argmin()
+        # Keep only first five channels of spectrogram
+        #f = interpolate.interp1d(np.arange(0, Sxx.shape[1]), Sxx[:max_chan, :], axis=1)
+        #newspec = f(np.linspace(0, Sxx.shape[-1]-1, pup.shape[-1]))
+        pad1=np.ones((max_chan,int(nperseg/2)))*Sxx[:max_chan,[0]]
+        pad2=np.ones((max_chan,int(nperseg/2-1)))*Sxx[:max_chan,[-1]]
+        newspec = np.concatenate((pad1,Sxx[:max_chan, :],pad2), axis=1)
+        
+        # = np.concatenate((Sxx[:max_chan, :], np.tile(Sxx[:max_chan,-1][:, np.newaxis], [1, noverlap])), axis=1)
+        newspec -= np.nanmean(newspec, axis=1, keepdims=True)
+        newspec /= np.nanstd(newspec, axis=1, keepdims=True)
+        
+        spec_signal = newrec['pupil']._modified_copy(newspec)
+        spec_signal.name = 'pupil_psd'
+        chan_names = []
+        for chan in range(0, newspec.shape[0]):
+            chan_names.append('puppsd{0}'.format(chan))
+        spec_signal.chans = chan_names
+        
+        newrec.add_signal(spec_signal)
+        
     if ('pupil_ev' in state_signals) or ('pupil_bs' in state_signals):
         # generate separate pupil baseline and evoked signals
 
