@@ -147,6 +147,7 @@ class NemsCanvas(MyMplCanvas):
         t = np.linspace(p.start_time, p.stop_time, d.shape[1])
 
         self.axes.plot(t, d.T)
+        self.axes.set_title(self.signal)
         self.draw()
 
 
@@ -161,7 +162,11 @@ class ApplicationWindow(QMainWindow):
     stop_time = 10
     time_slider = None
 
-    def __init__(self, recording, signals=['stim','resp']):
+    plot_width = 5
+    plot_height = 4
+    plot_dpi = 100
+
+    def __init__(self, recording, signals=['stim', 'resp']):
         qw.QMainWindow.__init__(self)
 
         self.recording=recording
@@ -173,6 +178,8 @@ class ApplicationWindow(QMainWindow):
         self.file_menu = qw.QMenu('&File', self)
         self.file_menu.addAction('&Quit', self.fileQuit,
                                  qc.Qt.CTRL + qc.Qt.Key_Q)
+        self.file_menu.addAction('Add Signal', self.add_signal)
+        self.file_menu.addAction('Remove Signal', self.remove_signal)
         self.menuBar().addMenu(self.file_menu)
 
         self.help_menu = qw.QMenu('&Help', self)
@@ -182,24 +189,23 @@ class ApplicationWindow(QMainWindow):
         self.help_menu.addAction('&About', self.about)
 
         self.main_widget = qw.QWidget(self)
-        outer_layout = qw.QVBoxLayout()
+        self.outer_layout = qw.QVBoxLayout()
 
 
         # mpl panels
-        self.plot_list = [NemsCanvas(recording, s, self, self.main_widget,
-                                     width=5, height=4, dpi=100)
-                          for s in signals]
-        plot_layout = qw.QVBoxLayout()
-        [plot_layout.addWidget(p) for p in self.plot_list]
+        self.plot_list = [self._default_plot_instance(s) for s in signals]
+        self.plot_layout = qw.QVBoxLayout()
+        self.plot_layout.setSpacing(25)
+        [self.plot_layout.addWidget(p) for p in self.plot_list]
 
         # Slider for plot view windows
         self._update_max_time()
         self.time_slider = qw.QScrollBar(orientation=1)
         self.time_slider.setRange(0, self.max_time-self.display_duration)
         self.time_slider.valueChanged.connect(self.scroll_all)
-        plot_layout.addWidget(self.time_slider)
+        self.plot_layout.addWidget(self.time_slider)
 
-        outer_layout.addLayout(plot_layout)
+        self.outer_layout.addLayout(self.plot_layout)
 
 
         # Set zoom / display range for plot views
@@ -218,7 +224,7 @@ class ApplicationWindow(QMainWindow):
 
         range_layout = qw.QHBoxLayout()
         [range_layout.addWidget(w) for w in [self.display_range, plus, minus]]
-        outer_layout.addLayout(range_layout)
+        self.outer_layout.addLayout(range_layout)
 
 
         # control buttons
@@ -226,18 +232,20 @@ class ApplicationWindow(QMainWindow):
         qbtn.clicked.connect(self.close)
 
         qbtn2 = qw.QPushButton('Test', self)
-        qbtn2.clicked.connect(self.scroll_all)
+        qbtn2.clicked.connect(self.print_signals)
 
         control_layout = qw.QHBoxLayout()
         control_layout.addWidget(qbtn)
         control_layout.addWidget(qbtn2)
-        outer_layout.addLayout(control_layout)
+        self.outer_layout.addLayout(control_layout)
 
-        self.main_widget.setLayout(outer_layout)
+        self.main_widget.setLayout(self.outer_layout)
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
 
         self.statusBar().showMessage("All hail matplotlib and NEMS!", 2000)
+
+    # Plot Window adjusters
 
     def scroll_all(self):
         self.start_time = self.time_slider.value()
@@ -278,6 +286,57 @@ class ApplicationWindow(QMainWindow):
         self.time_slider.setRange(0, self.max_time-self.display_duration)
         self.scroll_all()
 
+    # Add / Remove plots
+
+    def print_signals(self):
+        '''
+        For testing/development, verify plot_list, layout and signals
+        match up.
+        '''
+        for s in self.signals:
+            print("signal: %s" % s)
+        for p in self.plot_list:
+            print("plot: %s" % p.signal)
+
+    def add_signal(self):
+        n = len(self.plot_list)
+        valid_signals = [s for s in self.recording.signals
+                         if s not in self.signals]
+        idx, ok = qw.QInputDialog.getInt(self, "Which plot position?", "Index",
+                                         n, 0, n, 1)
+        s, ok = qw.QInputDialog.getItem(self, "Name of the signal to plot?",
+                                        "Signals:", valid_signals, 0, False)
+        if not ok:
+            return
+
+        self.signals.insert(idx, s)
+        self.plot_list.insert(idx, self._default_plot_instance(s))
+        if idx in [-1, len(self.plot_list)]:
+            layout_idx = idx-1
+        else:
+            layout_idx = idx
+        self.plot_layout.insertWidget(layout_idx, self.plot_list[idx])
+        self.main_widget.update()
+        self.scroll_all()
+
+    def remove_signal(self):
+        s, ok = qw.QInputDialog.getItem(self, "Name of the signal to remove?",
+                                        "Signals:", self.signals, 0, False)
+        if not ok:
+            return
+
+        idx = self.signals.index(s)
+        self.signals.pop(idx)
+        self.plot_list.pop(idx)
+        self.plot_layout.itemAt(idx).widget().deleteLater()
+        self.main_widget.update()
+        self.scroll_all()
+
+    def _default_plot_instance(self, s):
+        return NemsCanvas(self.recording, s, self, self.main_widget,
+                          width=self.plot_width, height=self.plot_height,
+                          dpi=self.plot_dpi)
+
     def fileQuit(self):
         self.close()
 
@@ -315,7 +374,7 @@ cellid='TAR010c-21-4'
 #    #sys.exit(qApp.exec_())
 #    app.exec_()
 
-aw = ApplicationWindow(recording=ctx['val'][0], signals=['stim','resp', 'pred'])
+aw = ApplicationWindow(recording=ctx['val'][0], signals=['stim','resp'])
 aw.setWindowTitle("NEMS data browser")
 aw.show()
 aw.scroll_all()
