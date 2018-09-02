@@ -114,32 +114,39 @@ class MyDynamicMplCanvas(MyMplCanvas):
         self.draw()
 
 
-class nems_canvas(MyMplCanvas):
+class NemsCanvas(MyMplCanvas):
     """A canvas that updates itself every second with a new plot."""
 
-    recording = None
-    signal = []
-    start_time = 0
-    stop_time = 10
-
-    def __init__(self, recording=None, signal='stim', *args, **kwargs):
+    def __init__(self, recording=None, signal='stim', parent=None,
+                 *args, **kwargs):
         MyMplCanvas.__init__(self, *args, **kwargs)
         self.recording = recording
         self.signal = signal
+        self.parent = parent
+
+        sig_array = self.recording[self.signal].as_continuous()
+        # Chop off end of array (where it's all nan'd out after processing)
+        # TODO: Make this smarter incase there are intermediate nans?
+        no_nans = sig_array[:, ~np.all(np.isnan(sig_array), axis=0)]
+        self.max_time = no_nans.shape[-1] / self.recording[self.signal].fs
 
     def compute_initial_figure(self):
         pass
 
     def update_figure(self):
+        p = self.parent
         print('updating signal ' + self.signal)
-        print('{} - {} '.format(self.start_time, self.stop_time))
+        print('{} - {} '.format(p.start_time, p.stop_time))
+
         fs = self.recording[self.signal].fs
-        start_bin = int(self.start_time * fs)
-        stop_bin = int(self.stop_time * fs)
+        start_bin = int(p.start_time * fs)
+        stop_bin = int(p.stop_time * fs)
+        print("start_bin: %d, stop_bin: %d" % (start_bin, stop_bin))
 
-        d = self.recording[self.signal].as_continuous()[:,start_bin:stop_bin]
+        d = self.recording[self.signal].as_continuous()[:, start_bin:stop_bin]
+        t = np.linspace(p.start_time, p.stop_time, d.shape[1])
+        print("length of d: %d" % d.shape[1])
 
-        t = np.linspace(self.start_time, self.stop_time, d.shape[1])
         self.axes.plot(t, d.T)
         self.draw()
 
@@ -180,8 +187,8 @@ class ApplicationWindow(QMainWindow):
         layout = QGridLayout()
         self.plot_list = []
         for i in range(len(signals)):
-            self.plot_list.append(nems_canvas(recording,
-                                 signals[i], self.main_widget,
+            self.plot_list.append(NemsCanvas(recording,
+                                 signals[i], self, self.main_widget,
                                  width=5, height=4, dpi=100))
             layout.addWidget(self.plot_list[i], i, 0, 1, 2)
 
@@ -190,11 +197,12 @@ class ApplicationWindow(QMainWindow):
         qbtn.clicked.connect(self.close)
 
         qbtn2 = QPushButton('Test', self)
-        qbtn2.clicked.connect(self.test)
+        qbtn2.clicked.connect(self.scroll_all)
 
+        self._update_max_time()
         self.time_slider = QScrollBar(orientation = 1)
-        self.time_slider.setMaximum(100)
-        self.time_slider.valueChanged.connect(self.test)
+        self.time_slider.setRange(0, self.max_time-self.time_to_display)
+        self.time_slider.valueChanged.connect(self.scroll_all)
 
         layout.addWidget(self.time_slider, len(signals), 0, 1, 2);
 
@@ -208,14 +216,22 @@ class ApplicationWindow(QMainWindow):
 
         self.statusBar().showMessage("All hail matplotlib and NEMS!", 2000)
 
-    def test(self):
+    def scroll_all(self):
         self.start_time = self.time_slider.value()
         self.stop_time = self.start_time + self.time_to_display
 
-        for p in self.plot_list:
-            p.start_time=self.start_time
-            p.stop_time=self.stop_time
-            p.update_figure()
+        # don't go past the latest time of the biggest plot
+        # (should all have the same max most of the time)
+        self._update_max_time()
+        if self.stop_time >= self.max_time:
+            self.stop_time = self.max_time
+            self.start_time = max(0, self.max_time - self.time_to_display)
+
+        [p.update_figure() for p in self.plot_list]
+
+    def _update_max_time(self):
+        self.max_time = max([p.max_time for p in self.plot_list])
+        print("max time: %d" % self.max_time)
 
     def fileQuit(self):
         self.close()
@@ -257,6 +273,6 @@ cellid='TAR010c-21-4'
 aw = ApplicationWindow(recording=ctx['val'][0], signals=['stim','resp', 'pred'])
 aw.setWindowTitle("NEMS data browser")
 aw.show()
-aw.test()
+aw.scroll_all()
 
 aw.raise_()
