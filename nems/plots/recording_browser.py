@@ -44,6 +44,7 @@ import nems_db.xform_wrappers as nw
 import nems.xforms as xforms
 import nems.plots.api as nplt
 from nems.recording import Recording
+import nems.signal
 
 
 class RecordingPlotWrapper():
@@ -144,14 +145,25 @@ class NemsCanvas(MyMplCanvas):
         stop_bin = int(p.stop_time * fs)
 
         d = self.recording[self.signal].as_continuous()[:, start_bin:stop_bin]
-        t = np.linspace(p.start_time, p.stop_time, d.shape[1])
+        point = isinstance(self.recording[self.signal],
+                           nems.signal.PointProcess)
+        tiled = isinstance(self.recording[self.signal],
+                           nems.signal.TiledSignal)
+        if point:
+            self.axes.imshow(d, aspect='auto', cmap='Greys',
+                             interpolation='nearest')
+            self.axes.get_yaxis().set_visible(False)
+        elif tiled:
+            self.axes.imshow(d, aspect='auto')
+        else:
+            t = np.linspace(p.start_time, p.stop_time, d.shape[1])
+            self.axes.plot(t, d.T)
 
-        self.axes.plot(t, d.T)
         self.axes.set_title(self.signal)
         self.draw()
 
 
-class ApplicationWindow(QMainWindow):
+class ApplicationWindow(qw.QMainWindow):
 
     recording=None
     signals = []
@@ -337,6 +349,12 @@ class ApplicationWindow(QMainWindow):
                           width=self.plot_width, height=self.plot_height,
                           dpi=self.plot_dpi)
 
+    def resp_as_spikes(self):
+        pass
+
+    def resp_as_psth(self):
+        pass
+
     def fileQuit(self):
         self.close()
 
@@ -362,8 +380,9 @@ class ApplicationWindow(QMainWindow):
 batch=289
 modelname="ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15-lvl.1-dexp.1_init-basic"
 cellid='TAR010c-21-4'
-#xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname,
-#                                              eval_model=True)
+xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname, eval_model=False,
+                                    only=0)
+rec = ctx['rec']
 
 #if __name__ == '__main__':
 #    app = QApplication(sys.argv)
@@ -374,7 +393,7 @@ cellid='TAR010c-21-4'
 #    #sys.exit(qApp.exec_())
 #    app.exec_()
 
-aw = ApplicationWindow(recording=ctx['val'][0], signals=['stim','resp'])
+aw = ApplicationWindow(recording=rec, signals=['stim','resp'])
 aw.setWindowTitle("NEMS data browser")
 aw.show()
 aw.scroll_all()
