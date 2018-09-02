@@ -1526,6 +1526,7 @@ class RasterizedSignal(SignalBase):
             save_state = np.random.get_state()
             np.random.seed(rand_seed)
             np.random.shuffle(arr)
+            #arr=np.roll(arr, int(np.random.rand()*1000))
             np.random.set_state(save_state)
         else:
             np.random.shuffle(arr)
