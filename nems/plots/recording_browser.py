@@ -29,8 +29,12 @@ matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from PyQt5 import QtCore
-from PyQt5.QtWidgets import QApplication, QMainWindow, QMenu, QVBoxLayout, QSizePolicy, QMessageBox, QWidget, QGridLayout, QPushButton, QScrollBar
+import PyQt5.QtCore as qc
+import PyQt5.QtGui as qg
+import PyQt5.QtWidgets as qw
+#from PyQt5.QtWidgets import (QApplication, QMainWindow, QMenu, QVBoxLayout,
+#                             QSizePolicy, QMessageBox, QWidget, QGridLayout,
+#                             QPushButton, QScrollBar)
 from numpy import arange, sin, pi
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -78,9 +82,8 @@ class MyMplCanvas(FigureCanvas):
         FigureCanvas.__init__(self, fig)
         self.setParent(parent)
 
-        FigureCanvas.setSizePolicy(self,
-                QSizePolicy.Expanding,
-                QSizePolicy.Expanding)
+        FigureCanvas.setSizePolicy(self, qw.QSizePolicy.Expanding,
+                                   qw.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
 
     def compute_initial_figure(self):
@@ -99,7 +102,7 @@ class MyDynamicMplCanvas(MyMplCanvas):
     """A canvas that updates itself every second with a new plot."""
     def __init__(self, *args, **kwargs):
         MyMplCanvas.__init__(self, *args, **kwargs)
-        timer = QtCore.QTimer(self)
+        timer = qc.QTimer(self)
         timer.timeout.connect(self.update_figure)
         timer.start(1000)
 
@@ -135,17 +138,13 @@ class NemsCanvas(MyMplCanvas):
 
     def update_figure(self):
         p = self.parent
-        print('updating signal ' + self.signal)
-        print('{} - {} '.format(p.start_time, p.stop_time))
 
         fs = self.recording[self.signal].fs
         start_bin = int(p.start_time * fs)
         stop_bin = int(p.stop_time * fs)
-        print("start_bin: %d, stop_bin: %d" % (start_bin, stop_bin))
 
         d = self.recording[self.signal].as_continuous()[:, start_bin:stop_bin]
         t = np.linspace(p.start_time, p.stop_time, d.shape[1])
-        print("length of d: %d" % d.shape[1])
 
         self.axes.plot(t, d.T)
         self.draw()
@@ -157,60 +156,84 @@ class ApplicationWindow(QMainWindow):
     signals = []
     plot_list = []
     start_time = 0
-    time_to_display = 10
+    display_duration = 10.0
+    minimum_duration = 0.001
     stop_time = 10
     time_slider = None
 
     def __init__(self, recording, signals=['stim','resp']):
-        QMainWindow.__init__(self)
+        qw.QMainWindow.__init__(self)
 
         self.recording=recording
         self.signals=signals
 
-        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        self.setAttribute(qc.Qt.WA_DeleteOnClose)
         self.setWindowTitle("application main window")
 
-        self.file_menu = QMenu('&File', self)
+        self.file_menu = qw.QMenu('&File', self)
         self.file_menu.addAction('&Quit', self.fileQuit,
-                QtCore.Qt.CTRL + QtCore.Qt.Key_Q)
+                                 qc.Qt.CTRL + qc.Qt.Key_Q)
         self.menuBar().addMenu(self.file_menu)
 
-        self.help_menu = QMenu('&Help', self)
+        self.help_menu = qw.QMenu('&Help', self)
         self.menuBar().addSeparator()
         self.menuBar().addMenu(self.help_menu)
 
         self.help_menu.addAction('&About', self.about)
 
-        self.main_widget = QWidget(self)
+        self.main_widget = qw.QWidget(self)
+        outer_layout = qw.QVBoxLayout()
+
 
         # mpl panels
-        layout = QGridLayout()
-        self.plot_list = []
-        for i in range(len(signals)):
-            self.plot_list.append(NemsCanvas(recording,
-                                 signals[i], self, self.main_widget,
-                                 width=5, height=4, dpi=100))
-            layout.addWidget(self.plot_list[i], i, 0, 1, 2)
+        self.plot_list = [NemsCanvas(recording, s, self, self.main_widget,
+                                     width=5, height=4, dpi=100)
+                          for s in signals]
+        plot_layout = qw.QVBoxLayout()
+        [plot_layout.addWidget(p) for p in self.plot_list]
+
+        # Slider for plot view windows
+        self._update_max_time()
+        self.time_slider = qw.QScrollBar(orientation=1)
+        self.time_slider.setRange(0, self.max_time-self.display_duration)
+        self.time_slider.valueChanged.connect(self.scroll_all)
+        plot_layout.addWidget(self.time_slider)
+
+        outer_layout.addLayout(plot_layout)
+
+
+        # Set zoom / display range for plot views
+        self.display_range = qw.QLineEdit()
+        self.display_range.setValidator(
+                qg.QDoubleValidator(self.minimum_duration, 10000.0, 4)
+                )
+        self.display_range.textChanged.connect(self.set_display_range)
+        self.display_range.setText(str(self.display_duration))
+
+        # Increment / Decrement zoom
+        plus = qw.QPushButton('Zoom Out')
+        plus.clicked.connect(self.increment_display_range)
+        minus = qw.QPushButton('Zoom In')
+        minus.clicked.connect(self.decrement_display_range)
+
+        range_layout = qw.QHBoxLayout()
+        [range_layout.addWidget(w) for w in [self.display_range, plus, minus]]
+        outer_layout.addLayout(range_layout)
+
 
         # control buttons
-        qbtn = QPushButton('Quit', self)
+        qbtn = qw.QPushButton('Quit', self)
         qbtn.clicked.connect(self.close)
 
-        qbtn2 = QPushButton('Test', self)
+        qbtn2 = qw.QPushButton('Test', self)
         qbtn2.clicked.connect(self.scroll_all)
 
-        self._update_max_time()
-        self.time_slider = QScrollBar(orientation = 1)
-        self.time_slider.setRange(0, self.max_time-self.time_to_display)
-        self.time_slider.valueChanged.connect(self.scroll_all)
+        control_layout = qw.QHBoxLayout()
+        control_layout.addWidget(qbtn)
+        control_layout.addWidget(qbtn2)
+        outer_layout.addLayout(control_layout)
 
-        layout.addWidget(self.time_slider, len(signals), 0, 1, 2);
-
-        layout.addWidget(qbtn, len(signals)+1, 0);
-        layout.addWidget(qbtn2, len(signals)+1, 1);
-
-        self.main_widget.setLayout(layout);
-
+        self.main_widget.setLayout(outer_layout)
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
 
@@ -218,20 +241,42 @@ class ApplicationWindow(QMainWindow):
 
     def scroll_all(self):
         self.start_time = self.time_slider.value()
-        self.stop_time = self.start_time + self.time_to_display
+        self.stop_time = self.start_time + self.display_duration
 
         # don't go past the latest time of the biggest plot
         # (should all have the same max most of the time)
         self._update_max_time()
         if self.stop_time >= self.max_time:
             self.stop_time = self.max_time
-            self.start_time = max(0, self.max_time - self.time_to_display)
+            self.start_time = max(0, self.max_time - self.display_duration)
 
         [p.update_figure() for p in self.plot_list]
 
     def _update_max_time(self):
         self.max_time = max([p.max_time for p in self.plot_list])
-        print("max time: %d" % self.max_time)
+
+    def set_display_range(self):
+        duration = float(self.display_range.text())
+        if not duration:
+            print("Duration not set to a valid value. Please enter a"
+                  "a number > 0")
+            return
+        self.display_duration = duration
+        self._update_range()
+
+    def increment_display_range(self):
+        self.display_duration += 1
+        self.display_range.setText(str(self.display_duration))
+        self._update_range()
+
+    def decrement_display_range(self):
+        self.display_duration -= 1
+        self.display_range.setText(str(self.display_duration))
+        self._update_range()
+
+    def _update_range(self):
+        self.time_slider.setRange(0, self.max_time-self.display_duration)
+        self.scroll_all()
 
     def fileQuit(self):
         self.close()
@@ -240,7 +285,7 @@ class ApplicationWindow(QMainWindow):
         self.fileQuit()
 
     def about(self):
-        QMessageBox.about(self, "About",
+        qw.QMessageBox.about(self, "About",
   """embedding_in_qt5.py example
   Copyright 2015 BoxControL
 
