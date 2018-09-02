@@ -32,9 +32,7 @@ import numpy as np
 import PyQt5.QtCore as qc
 import PyQt5.QtGui as qg
 import PyQt5.QtWidgets as qw
-#from PyQt5.QtWidgets import (QApplication, QMainWindow, QMenu, QVBoxLayout,
-#                             QSizePolicy, QMessageBox, QWidget, QGridLayout,
-#                             QPushButton, QScrollBar)
+
 from numpy import arange, sin, pi
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -48,7 +46,7 @@ import nems.signal
 
 
 class RecordingPlotWrapper():
-
+    # TODO: Not using this anymore?
     def __init__(self, recording):
 
         test_signals=['stim','resp','pred']
@@ -145,10 +143,11 @@ class NemsCanvas(MyMplCanvas):
         stop_bin = int(p.stop_time * fs)
 
         d = self.recording[self.signal].as_continuous()[:, start_bin:stop_bin]
-        point = isinstance(self.recording[self.signal],
-                           nems.signal.PointProcess)
-        tiled = isinstance(self.recording[self.signal],
+        point = (isinstance(self.recording[self.signal],
+                            nems.signal.PointProcess))
+        tiled = (isinstance(self.recording[self.signal],
                            nems.signal.TiledSignal)
+                 or 'stim' in self.recording[self.signal].name)
         if point:
             self.axes.imshow(d, aspect='auto', cmap='Greys',
                              interpolation='nearest')
@@ -190,8 +189,10 @@ class ApplicationWindow(qw.QMainWindow):
         self.file_menu = qw.QMenu('&File', self)
         self.file_menu.addAction('&Quit', self.fileQuit,
                                  qc.Qt.CTRL + qc.Qt.Key_Q)
-        self.file_menu.addAction('Add Signal', self.add_signal)
-        self.file_menu.addAction('Remove Signal', self.remove_signal)
+        self.file_menu.addAction('Add Signal', self.add_signal,
+                                 qc.Qt.CTRL + qc.Qt.Key_A)
+        self.file_menu.addAction('Remove Signal', self.remove_signal,
+                                 qc.Qt.CTRL + qc.Qt.Key_R)
         self.menuBar().addMenu(self.file_menu)
 
         self.help_menu = qw.QMenu('&Help', self)
@@ -380,9 +381,10 @@ class ApplicationWindow(qw.QMainWindow):
 batch=289
 modelname="ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15-lvl.1-dexp.1_init-basic"
 cellid='TAR010c-21-4'
-xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname, eval_model=False,
-                                    only=0)
-rec = ctx['rec']
+#xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname, eval_model=True,
+#                                    only=0)
+#rec = ctx['val'][0]
+#rec = ctx['rec']
 
 #if __name__ == '__main__':
 #    app = QApplication(sys.argv)
