@@ -23,6 +23,9 @@ Created on Fri Aug 31 09:25:00 2018
 import sys
 import random
 import copy
+import types
+import traceback
+from functools import wraps
 
 import matplotlib
 matplotlib.use("Qt5Agg")
@@ -65,6 +68,24 @@ class RecordingPlotWrapper():
         d = recording[signal].as_continuous()[:,start_bin:stopbin]
 
         return d
+
+
+def show_exceptions(*args):
+    if len(args) == 0 or isinstance(args[0], types.FunctionType):
+        args = []
+
+    @qc.pyqtSlot(*args)
+    def slotdecorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                func(*args)
+            except:
+                print("\n*** Uncaught Exception in PyQt slot ***")
+                traceback.print_exc()
+        return wrapper
+
+    return slotdecorator
 
 
 class MyMplCanvas(FigureCanvas):
@@ -161,6 +182,14 @@ class NemsCanvas(MyMplCanvas):
         self.axes.set_title(self.signal)
         self.draw()
 
+        if point or tiled:
+            tick_labels = self.axes.get_xticklabels()
+            new_labels = [round((int(t.get_text())+start_bin)/fs)
+                          if t.get_text() else ''
+                          for t in tick_labels]
+            self.axes.set_xticklabels(new_labels)
+            self.draw()
+
 
 class ApplicationWindow(qw.QMainWindow):
 
@@ -177,14 +206,16 @@ class ApplicationWindow(qw.QMainWindow):
     plot_height = 4
     plot_dpi = 100
 
-    def __init__(self, recording, signals=['stim', 'resp']):
+    def __init__(self, recording, signals=['stim', 'resp'], cellid=None,
+                 modelname=None):
         qw.QMainWindow.__init__(self)
 
         self.recording=recording
         self.signals=signals
+        self.cellid=cellid
+        self.modelname=modelname
 
         self.setAttribute(qc.Qt.WA_DeleteOnClose)
-        self.setWindowTitle("application main window")
 
         self.file_menu = qw.QMenu('&File', self)
         self.file_menu.addAction('&Quit', self.fileQuit,
@@ -193,6 +224,8 @@ class ApplicationWindow(qw.QMainWindow):
                                  qc.Qt.CTRL + qc.Qt.Key_A)
         self.file_menu.addAction('Remove Signal', self.remove_signal,
                                  qc.Qt.CTRL + qc.Qt.Key_R)
+        self.file_menu.addAction('Screenshot', self.save_screenshot,
+                                 qc.Qt.CTRL + qc.Qt.Key_S)
         self.menuBar().addMenu(self.file_menu)
 
         self.help_menu = qw.QMenu('&Help', self)
@@ -203,6 +236,13 @@ class ApplicationWindow(qw.QMainWindow):
 
         self.main_widget = qw.QWidget(self)
         self.outer_layout = qw.QVBoxLayout()
+        header = ''
+        if modelname is not None:
+            header += 'Model: %s\n' % modelname
+        if cellid is not None:
+            header += 'Cellid: %s' % cellid
+        self.setWindowTitle("application main window")
+        self.outer_layout.addWidget(qw.QLabel(header))
 
 
         # mpl panels
@@ -260,6 +300,7 @@ class ApplicationWindow(qw.QMainWindow):
 
     # Plot Window adjusters
 
+    #@show_exceptions('bool')
     def scroll_all(self):
         self.start_time = self.time_slider.value()
         self.stop_time = self.start_time + self.display_duration
@@ -276,6 +317,7 @@ class ApplicationWindow(qw.QMainWindow):
     def _update_max_time(self):
         self.max_time = max([p.max_time for p in self.plot_list])
 
+    #@show_exceptions('bool')
     def set_display_range(self):
         duration = float(self.display_range.text())
         if not duration:
@@ -285,11 +327,13 @@ class ApplicationWindow(qw.QMainWindow):
         self.display_duration = duration
         self._update_range()
 
+    #@show_exceptions('bool')
     def increment_display_range(self):
         self.display_duration += 1
         self.display_range.setText(str(self.display_duration))
         self._update_range()
 
+    #@show_exceptions('bool')
     def decrement_display_range(self):
         self.display_duration -= 1
         self.display_range.setText(str(self.display_duration))
@@ -301,6 +345,7 @@ class ApplicationWindow(qw.QMainWindow):
 
     # Add / Remove plots
 
+    #@show_exceptions('bool')
     def print_signals(self):
         '''
         For testing/development, verify plot_list, layout and signals
@@ -311,12 +356,15 @@ class ApplicationWindow(qw.QMainWindow):
         for p in self.plot_list:
             print("plot: %s" % p.signal)
 
+    #@show_exceptions('bool')
     def add_signal(self):
         n = len(self.plot_list)
         valid_signals = [s for s in self.recording.signals
                          if s not in self.signals]
         idx, ok = qw.QInputDialog.getInt(self, "Which plot position?", "Index",
                                          n, 0, n, 1)
+        if not ok:
+            return
         s, ok = qw.QInputDialog.getItem(self, "Name of the signal to plot?",
                                         "Signals:", valid_signals, 0, False)
         if not ok:
@@ -332,6 +380,7 @@ class ApplicationWindow(qw.QMainWindow):
         self.main_widget.update()
         self.scroll_all()
 
+    #@show_exceptions('bool')
     def remove_signal(self):
         s, ok = qw.QInputDialog.getItem(self, "Name of the signal to remove?",
                                         "Signals:", self.signals, 0, False)
@@ -345,6 +394,7 @@ class ApplicationWindow(qw.QMainWindow):
         self.main_widget.update()
         self.scroll_all()
 
+    #@show_exceptions('bool')
     def _default_plot_instance(self, s):
         return NemsCanvas(self.recording, s, self, self.main_widget,
                           width=self.plot_width, height=self.plot_height,
@@ -355,6 +405,22 @@ class ApplicationWindow(qw.QMainWindow):
 
     def resp_as_psth(self):
         pass
+
+    @show_exceptions('bool')
+    def save_screenshot(self):
+        raise ValueError("Screenshots not working quite yet...")
+        file, ok = qw.QFileDialog.getSaveFileName(
+                self, "Filepath to save screenshot?",
+                filter="PNG(*.png);; JPEG(*.jpg)"
+                )
+        if not ok:
+            return
+
+        screenshot = qw.QApplication.primaryScreen().grabWindow(0)
+        if file[-3:] == 'png':
+            screenshot.save(file, 'png')
+        elif file[-3:] == 'jpg':
+            screenshot.save(file, 'jpg')
 
     def fileQuit(self):
         self.close()
@@ -378,26 +444,35 @@ class ApplicationWindow(qw.QMainWindow):
   )
 
 
-batch=289
-modelname="ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15-lvl.1-dexp.1_init-basic"
-cellid='TAR010c-21-4'
-#xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname, eval_model=True,
-#                                    only=0)
-#rec = ctx['val'][0]
-#rec = ctx['rec']
+def browse_recording(rec, signals=['stim', 'resp'], cellid=None,
+                     modelname=None):
+    aw = ApplicationWindow(recording=rec, signals=['stim','resp'],
+                           cellid=cellid, modelname=modelname)
+    _window_startup(aw)
 
-#if __name__ == '__main__':
-#    app = QApplication(sys.argv)
-#
-#    aw = ApplicationWindow()
-#    aw.setWindowTitle("PyQt5 Matplot Example")
-#    aw.show()
-#    #sys.exit(qApp.exec_())
-#    app.exec_()
 
-aw = ApplicationWindow(recording=rec, signals=['stim','resp'])
-aw.setWindowTitle("NEMS data browser")
-aw.show()
-aw.scroll_all()
+def browse_context(ctx, rec='val', signals=['stim', 'resp'], rec_idx=0):
+    rec = ctx[rec]
+    if isinstance(rec, list):
+        rec = rec[rec_idx]
+    meta = ctx['modelspecs'][0][0]['meta']
+    cellid = meta.get('cellid', None)
+    modelname = meta.get('modelname', None)
 
-aw.raise_()
+    browse_recording(rec, signals, cellid, modelname)
+
+def _window_startup(aw):
+    aw.setWindowTitle("NEMS data browser")
+    aw.show()
+    aw.scroll_all()
+
+    aw.raise_()
+
+
+batch = 289
+modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15-lvl.1-dexp.1_init-basic"
+cellid = 'TAR010c-21-4'
+xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname, eval_model=True,
+                                    only=0)
+
+browse_context(ctx, rec='val', signals=['stim', 'resp'], rec_idx=0)
