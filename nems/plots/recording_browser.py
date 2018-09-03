@@ -26,6 +26,7 @@ import copy
 import types
 import traceback
 from functools import wraps
+import pandas as pd
 
 import matplotlib
 matplotlib.use("Qt5Agg")
@@ -444,6 +445,89 @@ class ApplicationWindow(qw.QMainWindow):
   )
 
 
+class PandasModel(qc.QAbstractTableModel): 
+    def __init__(self, df = pd.DataFrame(), parent=None): 
+        qc.QAbstractTableModel.__init__(self, parent=parent)
+        self._df = df
+
+    def headerData(self, section, orientation, role=qc.Qt.DisplayRole):
+        if role != qc.Qt.DisplayRole:
+            return qc.QVariant()
+
+        if orientation == qc.Qt.Horizontal:
+            try:
+                return self._df.columns.tolist()[section]
+            except (IndexError, ):
+                return qc.QVariant()
+        elif orientation == qc.Qt.Vertical:
+            try:
+                # return self.df.index.tolist()
+                return self._df.index.tolist()[section]
+            except (IndexError, ):
+                return qc.QVariant()
+
+    def data(self, index, role=qc.Qt.DisplayRole):
+        if role != qc.Qt.DisplayRole:
+            return qc.QVariant()
+
+        if not index.isValid():
+            return qc.QVariant()
+
+        return qc.QVariant(str(self._df.ix[index.row(), index.column()]))
+
+    def setData(self, index, value, role):
+        row = self._df.index[index.row()]
+        col = self._df.columns[index.column()]
+        if hasattr(value, 'toPyObject'):
+            # PyQt4 gets a QVariant
+            value = value.toPyObject()
+        else:
+            # PySide gets an unicode
+            dtype = self._df[col].dtype
+            if dtype != object:
+                value = None if value == '' else dtype.type(value)
+        self._df.set_value(row, col, value)
+        return True
+
+    def rowCount(self, parent=qc.QModelIndex()): 
+        return len(self._df.index)
+
+    def columnCount(self, parent=qc.QModelIndex()): 
+        return len(self._df.columns)
+
+    def sort(self, column, order):
+        colname = self._df.columns.tolist()[column]
+        self.layoutAboutToBeChanged.emit()
+        self._df.sort_values(colname, ascending= order == qc.Qt.AscendingOrder, inplace=True)
+        self._df.reset_index(inplace=True, drop=True)
+        self.layoutChanged.emit()
+
+
+def pandas_table_test():
+    
+    data = {'a': [1, 2, 3], 'b': ['dog','cat','ferret']}
+    df = pd.DataFrame.from_dict(data)
+    w = qw.QWidget()
+    
+    hLayout = qw.QHBoxLayout()
+    pathLE = qw.QLineEdit(w)
+    hLayout.addWidget(pathLE)
+    loadBtn = qw.QPushButton("Select File", w)
+    hLayout.addWidget(loadBtn)
+
+    vLayout = qw.QVBoxLayout(w)    
+    vLayout.addLayout(hLayout)
+    
+    pandasTv = qw.QTableView()
+    model = PandasModel(df)
+    pandasTv.setModel(model)
+    vLayout.addWidget(pandasTv)
+
+    w.show()
+    w.raise_()
+    return w
+    
+
 def browse_recording(rec, signals=['stim', 'resp'], cellid=None,
                      modelname=None):
     aw = ApplicationWindow(recording=rec, signals=['stim','resp'],
@@ -469,10 +553,11 @@ def _window_startup(aw):
     aw.raise_()
 
 
-batch = 289
-modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15-lvl.1-dexp.1_init-basic"
-cellid = 'TAR010c-21-4'
-xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname, eval_model=True,
-                                    only=0)
 
-browse_context(ctx, rec='val', signals=['stim', 'resp'], rec_idx=0)
+#batch = 289
+#modelname = "ozgf.fs100.ch18-ld-sev_dlog-wc.18x2.g-fir.2x15-lvl.1-dexp.1_init-basic"
+#cellid = 'TAR010c-21-4'
+#xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname, eval_model=True,
+#                                    only=0)
+#
+#browse_context(ctx, rec='val', signals=['stim', 'resp'], rec_idx=0)
