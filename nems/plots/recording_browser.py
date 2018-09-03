@@ -503,18 +503,28 @@ class PandasModel(qc.QAbstractTableModel):
         self.layoutChanged.emit()
 
 
+
 def pandas_table_test():
     
     data = {'a': [1, 2, 3], 'b': ['dog','cat','ferret']}
     df = pd.DataFrame.from_dict(data)
     w = qw.QWidget()
+
+    def loadFile(self):
+        fileName, _ = qw.QFileDialog.getOpenFileName(w, "Open File", "", "CSV Files (*.csv)");
+        pathLE.setText(fileName)
+        df = pd.read_csv(fileName)
+        model = PandasModel(df)
+        pandasTv.setModel(model)
+
     
     hLayout = qw.QHBoxLayout()
     pathLE = qw.QLineEdit(w)
     hLayout.addWidget(pathLE)
     loadBtn = qw.QPushButton("Select File", w)
     hLayout.addWidget(loadBtn)
-
+    loadBtn.clicked.connect(loadFile)
+    
     vLayout = qw.QVBoxLayout(w)    
     vLayout.addLayout(hLayout)
     
