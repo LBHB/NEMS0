@@ -41,8 +41,8 @@ from numpy import arange, sin, pi
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
-import nems_db.db as nd
-import nems_db.xform_wrappers as nw
+#import nems_db.db as nd
+#import nems_db.xform_wrappers as nw
 import nems.xforms as xforms
 import nems.plots.api as nplt
 from nems.recording import Recording
@@ -147,7 +147,7 @@ class NemsCanvas(MyMplCanvas):
         self.recording = recording
         self.signal = signal
         self.parent = parent
-
+        print("creating canvas: {}".format(signal))
         sig_array = self.recording[self.signal].as_continuous()
         # Chop off end of array (where it's all nan'd out after processing)
         # TODO: Make this smarter incase there are intermediate nans?
@@ -172,7 +172,7 @@ class NemsCanvas(MyMplCanvas):
                  or 'stim' in self.recording[self.signal].name)
         if point:
             self.axes.imshow(d, aspect='auto', cmap='Greys',
-                             interpolation='nearest')
+                             interpolation='nearest', origin='lower')
             self.axes.get_yaxis().set_visible(False)
         elif tiled:
             self.axes.imshow(d, aspect='auto')
@@ -185,7 +185,8 @@ class NemsCanvas(MyMplCanvas):
 
         if point or tiled:
             tick_labels = self.axes.get_xticklabels()
-            new_labels = [round((int(t.get_text())+start_bin)/fs)
+
+            new_labels = [round((t.get_position()[0]+start_bin)/fs)
                           if t.get_text() else ''
                           for t in tick_labels]
             self.axes.set_xticklabels(new_labels)
@@ -247,6 +248,7 @@ class ApplicationWindow(qw.QMainWindow):
 
 
         # mpl panels
+        signals = [value for value in signals if value in recording.signals]
         self.plot_list = [self._default_plot_instance(s) for s in signals]
         self.plot_layout = qw.QVBoxLayout()
         self.plot_layout.setSpacing(25)
@@ -445,8 +447,8 @@ class ApplicationWindow(qw.QMainWindow):
   )
 
 
-class PandasModel(qc.QAbstractTableModel): 
-    def __init__(self, df = pd.DataFrame(), parent=None): 
+class PandasModel(qc.QAbstractTableModel):
+    def __init__(self, df = pd.DataFrame(), parent=None):
         qc.QAbstractTableModel.__init__(self, parent=parent)
         self._df = df
 
@@ -489,10 +491,10 @@ class PandasModel(qc.QAbstractTableModel):
         self._df.set_value(row, col, value)
         return True
 
-    def rowCount(self, parent=qc.QModelIndex()): 
+    def rowCount(self, parent=qc.QModelIndex()):
         return len(self._df.index)
 
-    def columnCount(self, parent=qc.QModelIndex()): 
+    def columnCount(self, parent=qc.QModelIndex()):
         return len(self._df.columns)
 
     def sort(self, column, order):
@@ -505,7 +507,7 @@ class PandasModel(qc.QAbstractTableModel):
 
 
 def pandas_table_test():
-    
+
     data = {'a': [1, 2, 3], 'b': ['dog','cat','ferret']}
     df = pd.DataFrame.from_dict(data)
     w = qw.QWidget()
@@ -517,17 +519,17 @@ def pandas_table_test():
         model = PandasModel(df)
         pandasTv.setModel(model)
 
-    
+
     hLayout = qw.QHBoxLayout()
     pathLE = qw.QLineEdit(w)
     hLayout.addWidget(pathLE)
     loadBtn = qw.QPushButton("Select File", w)
     hLayout.addWidget(loadBtn)
     loadBtn.clicked.connect(loadFile)
-    
-    vLayout = qw.QVBoxLayout(w)    
+
+    vLayout = qw.QVBoxLayout(w)
     vLayout.addLayout(hLayout)
-    
+
     pandasTv = qw.QTableView()
     model = PandasModel(df)
     pandasTv.setModel(model)
@@ -536,13 +538,15 @@ def pandas_table_test():
     w.show()
     w.raise_()
     return w
-    
+
 
 def browse_recording(rec, signals=['stim', 'resp'], cellid=None,
                      modelname=None):
-    aw = ApplicationWindow(recording=rec, signals=['stim','resp'],
+    aw = ApplicationWindow(recording=rec, signals=signals,
                            cellid=cellid, modelname=modelname)
     _window_startup(aw)
+
+    return aw
 
 
 def browse_context(ctx, rec='val', signals=['stim', 'resp'], rec_idx=0):
@@ -553,7 +557,10 @@ def browse_context(ctx, rec='val', signals=['stim', 'resp'], rec_idx=0):
     cellid = meta.get('cellid', None)
     modelname = meta.get('modelname', None)
 
-    browse_recording(rec, signals, cellid, modelname)
+    aw = browse_recording(rec, signals, cellid, modelname)
+
+    return aw
+
 
 def _window_startup(aw):
     aw.setWindowTitle("NEMS data browser")
@@ -562,6 +569,7 @@ def _window_startup(aw):
 
     aw.raise_()
 
+    return aw
 
 
 #batch = 289
