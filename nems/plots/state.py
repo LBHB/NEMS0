@@ -2,9 +2,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 
-from .timeseries import timeseries_from_signals, timeseries_from_vectors
+from .timeseries import (timeseries_from_signals, timeseries_from_vectors,
+                         ax_remove_box)
 
-def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
+from nems.utils import get_channel_number
+
+
+
+def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
+                          decimate_by=1, channel=None):
 
     if ax is not None:
         plt.sca(ax)
@@ -12,18 +18,20 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
     resp = rec['resp']
     fs = resp.fs
 
-    channel = 0
+    chanidx = get_channel_number(resp, channel)
 
-    r1 = resp.as_continuous()[channel,:].T
-    p1 = pred.as_continuous()[channel,:].T
+    r1 = resp.as_continuous()[chanidx, :].T * fs
+    p1 = pred.as_continuous()[chanidx, :].T * fs
     nnidx = np.isfinite(p1)
-    r1 = r1[nnidx] * fs
-    p1 = p1[nnidx] * fs
+    r1 = r1[nnidx]
+    p1 = p1[nnidx]
 
-    #r1 = scipy.signal.decimate(r1[nnidx], q=5, axis=0)
-    #p1 = scipy.signal.decimate(p1[nnidx], q=5, axis=0)
-    #t = np.arange(len(r1))/pred.fs*5
-    t = np.arange(len(r1))/pred.fs
+    if decimate_by > 1:
+        r1 = scipy.signal.decimate(r1, q=decimate_by, axis=0)
+        p1 = scipy.signal.decimate(p1, q=decimate_by, axis=0)
+        fs /= decimate_by
+
+    t = np.arange(len(r1)) / fs
 
     plt.plot(t, r1, linewidth=1, color='gray')
     plt.plot(t, p1, linewidth=1, color='black')
@@ -53,8 +61,11 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
         print(ts.shape)
         for i in range(1, num_vars):
             st = ts[i, :].T
-            st = st[nnidx]
-            # d = scipy.signal.decimate(d[nnidx], q=5, axis=0)
+            if decimate_by>1:
+                st = scipy.signal.decimate(st[nnidx], q=decimate_by, axis=0)
+            else:
+                st = st[nnidx]
+
             st = st / np.nanmax(st) * mmax - (0.1 + i) * mmax
             plt.plot(t, st, linewidth=1, color=state_colors[i-1])
 
@@ -77,13 +88,17 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None):
     plt.xlabel('time (s)')
     plt.axis('tight')
 
+    ax_remove_box(ax)
 
-def state_var_psth(rec, psth_name='resp', var_name='pupil', ax=None):
+
+def state_var_psth(rec, psth_name='resp', var_name='pupil', ax=None,
+                   channel=None):
     if ax is not None:
         plt.sca(ax)
 
-    channel = 0
-    psth = rec[psth_name]._data[:, channel, :]
+    chanidx = get_channel_number(rec[psth_name], channel)
+
+    psth = rec[psth_name]._data[:, chanidx, :]
     fs = rec[psth_name].fs
     var = rec['state'].loc[var_name]._data
     mean = np.nanmean(var)
@@ -93,7 +108,8 @@ def state_var_psth(rec, psth_name='resp', var_name='pupil', ax=None):
 
 
 def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
-                              state_sig='pupil', ax=None, colors=None):
+                              state_sig='pupil', ax=None, colors=None,
+                              channel=None, decimate_by=1):
     """
     Plot PSTH averaged across all occurences of epoch, grouped by
     above- and below-average values of a state signal (state_sig)
@@ -103,6 +119,8 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
     if ax is not None:
         plt.sca(ax)
 
+    chanidx = get_channel_number(rec[psth_name], channel)
+
     fs = rec[psth_name].fs
 
     d = rec[psth_name].get_epoch_bounds('PreStimSilence')
@@ -111,7 +129,7 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
     if d.size > 0:
         PostStimSilence = np.min(np.diff(d)) - 0.5/fs
         dd = np.diff(d)
-        dd = dd[dd>0]
+        dd = dd[dd > 0]
     else:
         dd = np.array([])
     if dd.size > 0:
@@ -121,10 +139,10 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
 
     full_psth = rec[psth_name]
     channel = 0
-    folded_psth = full_psth.extract_epoch(epoch)[:, [channel], :] * fs
+    folded_psth = full_psth.extract_epoch(epoch)[:, [chanidx], :] * fs
     if psth_name2 is not None:
         full_psth2 = rec[psth_name2]
-        folded_psth2 = full_psth2.extract_epoch(epoch)[:, [channel], :] * fs
+        folded_psth2 = full_psth2.extract_epoch(epoch)[:, [chanidx], :] * fs
 
     if state_sig == "each_passive":
         raise ValueError("each_passive state not supported")
@@ -145,6 +163,12 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
         # print(folded_var.shape)
         # print(folded_mask.shape)
         # print(np.sum(np.isfinite(folded_mask)))
+
+    if decimate_by > 1:
+        folded_psth = scipy.signal.decimate(folded_psth, q=decimate_by, axis=2)
+        folded_psth2 = scipy.signal.decimate(folded_psth2, q=decimate_by, axis=2)
+        fs /= decimate_by
+
 
     # compute the mean state for each occurrence
     m = np.nanmean(folded_var[:, 0, :], axis=1)
@@ -181,17 +205,17 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
 
         timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
                                 legend=legend, time_offset=PreStimSilence,
-                                colors=colors)
+                                colors=colors, ylabel="sp/sec")
         timeseries_from_vectors([low2, high2], fs=fs, title=title, ax=ax,
                                 linestyle='--', time_offset=PreStimSilence,
-                                colors=colors)
+                                colors=colors, ylabel="sp/sec")
     else:
         timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
                                 time_offset=PreStimSilence,
-                                colors=colors)
+                                colors=colors, ylabel="sp/sec")
         timeseries_from_vectors([low2, high2], fs=fs, title=title, ax=ax,
                                 linestyle='--', time_offset=PreStimSilence,
-                                colors=colors)
+                                colors=colors, ylabel="sp/sec")
     ylim = ax.get_ylim()
     xlim = ax.get_xlim()
     ax.plot(np.array([0, 0]), ylim, 'k--')

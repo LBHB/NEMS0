@@ -377,7 +377,7 @@ def split_val_and_average_reps(rec, epoch_regex='^STIM_', **context):
     est, val = rec.split_using_epoch_occurrence_counts(epoch_regex=epoch_regex)
     est = preproc.average_away_epoch_occurrences(est, epoch_regex=epoch_regex)
     val = preproc.average_away_epoch_occurrences(val, epoch_regex=epoch_regex)
-    
+
     return {'est': est, 'val': val}
 
 
@@ -813,7 +813,7 @@ def save_analysis(destination,
     return {'savepath': base_uri}
 
 
-def load_analysis(filepath, eval_model=True):
+def load_analysis(filepath, eval_model=True, only=None):
     """
     load xforms and modelspec(s) from a specified directory
     """
@@ -830,6 +830,10 @@ def load_analysis(filepath, eval_model=True):
 
     if eval_model:
         ctx, log_xf = evaluate(xfspec, ctx)
+    elif only is not None:
+        # Useful for just loading the recording without doing
+        # any subsequent evaluation.
+        ctx, log_xf = evaluate([xfspec[only]], ctx)
 
     return xfspec, ctx
 

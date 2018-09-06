@@ -1,17 +1,16 @@
 import warnings
 import copy
+import logging
 
 import numpy as np
 import pandas as pd
-
-import nems.epoch as ep
-import nems.signal as signal
 from scipy.signal import convolve2d
+from scipy import interpolate
+import scipy.signal as ss
 
 import nems.epoch as ep
-import nems.signal as signal
+import nems.signal
 
-import logging
 log = logging.getLogger(__name__)
 
 
@@ -141,6 +140,12 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
 
         averaged_signal = signal._modified_copy(data, epochs=new_epochs)
         averaged_recording.add_signal(averaged_signal)
+#        # TODO: Eventually need a smarter check for this incase it's named
+#        #       something else. Basically just want to preserve spike data.
+#        if signal.name == 'resp':
+#            spikes = signal.copy()
+#            spikes.name = signal.name + ' spikes'
+#            averaged_recording.add_signal(spikes)
 
     return averaged_recording
 
@@ -464,13 +469,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     newrec = rec.copy()
     resp = newrec['resp'].rasterize()
 
-    # Much faster; TODO: Test if throws warnings
-    x = np.ones([1, resp.shape[1]])
-    ones_sig = resp._modified_copy(x)
-    ones_sig.name = "baseline"
-    ones_sig.chans = ["baseline"]
-
-    # DEPRECATED, NOW THAT NORMALIZATION IS IMPLEMENTED
+    # normalize mean/std of pupil trace if being used
     if ('pupil' in state_signals) or ('pupil_ev' in state_signals) or \
        ('pupil_bs' in state_signals):
         # normalize min-max
@@ -479,6 +478,35 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         p -= np.nanmean(p)
         p /= np.nanstd(p)
         newrec["pupil"] = newrec["pupil"]._modified_copy(p)
+
+    if ('pupil_psd') in state_signals:
+        pup = newrec['pupil'].as_continuous().copy()
+        fs = newrec['pupil'].fs
+        # get spectrogram of pupil
+        nperseg = int(60*fs)
+        noverlap = nperseg-1
+        f, time, Sxx = ss.spectrogram(pup.squeeze(), fs=fs, nperseg=nperseg,
+                                      noverlap=noverlap)
+        max_chan = 4 #(np.abs(f - 0.1)).argmin()
+        # Keep only first five channels of spectrogram
+        #f = interpolate.interp1d(np.arange(0, Sxx.shape[1]), Sxx[:max_chan, :], axis=1)
+        #newspec = f(np.linspace(0, Sxx.shape[-1]-1, pup.shape[-1]))
+        pad1=np.ones((max_chan,int(nperseg/2)))*Sxx[:max_chan,[0]]
+        pad2=np.ones((max_chan,int(nperseg/2-1)))*Sxx[:max_chan,[-1]]
+        newspec = np.concatenate((pad1,Sxx[:max_chan, :],pad2), axis=1)
+
+        # = np.concatenate((Sxx[:max_chan, :], np.tile(Sxx[:max_chan,-1][:, np.newaxis], [1, noverlap])), axis=1)
+        newspec -= np.nanmean(newspec, axis=1, keepdims=True)
+        newspec /= np.nanstd(newspec, axis=1, keepdims=True)
+
+        spec_signal = newrec['pupil']._modified_copy(newspec)
+        spec_signal.name = 'pupil_psd'
+        chan_names = []
+        for chan in range(0, newspec.shape[0]):
+            chan_names.append('puppsd{0}'.format(chan))
+        spec_signal.chans = chan_names
+
+        newrec.add_signal(spec_signal)
 
     if ('pupil_ev' in state_signals) or ('pupil_bs' in state_signals):
         # generate separate pupil baseline and evoked signals
@@ -551,26 +579,41 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         newrec["p_x_a"] = newrec["pupil"]._modified_copy(p * a)
         newrec["p_x_a"].chans = ["p_x_a"]
 
-    state_sig_list = [ones_sig]
-    # rint(state_sig_list[-1].shape)
-
     for i, x in enumerate(state_signals):
         if x in permute_signals:
             # kludge: fix random seed to index of state signal in list
             # this avoids using the same seed for each shuffled signal
             # but also makes shuffling reproducible
-            state_sig_list += [newrec[x].shuffle_time(rand_seed=i)]
+            newrec = concatenate_state_channel(
+                    newrec, newrec[x].shuffle_time(rand_seed=i),
+                    state_signal_name=new_signalname)
         else:
-            state_sig_list += [newrec[x]]
-#    print(x)
-#    print(state_sig_list[-1])
-#    print(state_sig_list[-1].shape)
+            newrec = concatenate_state_channel(
+                    newrec, newrec[x], state_signal_name=new_signalname)
 
-    state = signal.RasterizedSignal.concatenate_channels(state_sig_list)
-    state.name = new_signalname
+    return newrec
 
-    # scale all signals to range from 0 - 1
-    # state = state.normalize(normalization='minmax')
+
+def concatenate_state_channel(rec, sig, state_signal_name='state'):
+
+    newrec = rec.copy()
+
+    if state_signal_name not in rec.signals.keys():
+        # create an initial state signal of all ones for baseline
+        x = np.ones([1, sig.shape[1]])
+        ones_sig = sig._modified_copy(x)
+        ones_sig.name = "baseline"
+        ones_sig.chans = ["baseline"]
+
+        state_sig_list = [ones_sig]
+    else:
+        # start with existing state signal
+        state_sig_list = [rec[state_signal_name]]
+
+    state_sig_list.append(sig)
+
+    state = nems.signal.RasterizedSignal.concatenate_channels(state_sig_list)
+    state.name = state_signal_name
 
     newrec.add_signal(state)
 

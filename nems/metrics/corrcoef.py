@@ -160,14 +160,11 @@ def r_floor(result, pred_name='pred', resp_name='resp'):
 
 def _r_single(X, N=100):
     """
-    Assume X is trials X time raster
+    Assume X is trials X time raster (channel removed)
 
     test data from SPN recording
-    X=rec['resp'].extract_epoch('STIM_BNB+si464+si1889')
+    X=rec['resp'].extract_epoch('STIM_BNB+si464+si1889')[:, chanidx, :]
     """
-
-    if X.shape[1] > 1:
-        raise ValueError("multi-channel signals not supported yet.")
 
     repcount = X.shape[0]
     if repcount <= 1:
@@ -183,7 +180,8 @@ def _r_single(X, N=100):
     if paircount < N:
         N = paircount
 
-    if N == 1:
+    if N == 0:
+        # TODO:
         # only two repeats, break up data in time to get a better
         # estimate of single-trial correlations
         # raise ValueError("2 repeats condition not supported yet.")
@@ -196,15 +194,15 @@ def _r_single(X, N=100):
         #         rac(nn)=xcov(resp(tt,1),resp(tt,2),0,'coeff');
         #     end
         # end
-        #print('r_ceiling invalid')
+        # print('r_ceiling invalid')
         return 0.05
     else:
 
         rac = np.zeros(N)
         sidx = np.argsort(np.random.rand(paircount))
         for nn in range(N):
-            X1 = X[pairs[sidx[nn]][0], 0, :]
-            X2 = X[pairs[sidx[nn]][1], 0, :]
+            X1 = X[pairs[sidx[nn]][0], :]
+            X2 = X[pairs[sidx[nn]][1], :]
 
             # remove all nans from pred and resp
             ff = np.isfinite(X1) & np.isfinite(X2)
@@ -218,20 +216,36 @@ def _r_single(X, N=100):
     # hard limit on single-trial correlation to prevent explosion
     # TODO: better logic for this
     rac = np.mean(rac)
-    if rac < 0.05:
-        rac = 0.05
+    if rac < 0.01:
+        rac = 0.01
 
     return rac
 
 
 def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
     """
+    parameter:
+        result : recording
+            validation data containing resp_name and pred_name signals
+        fullrec : orginal recording that isn't averaged across reps
+        N : int
+            number of random single trial pairs to test
+
+    returns:
+        rnorm: nparray
+           corrected ceiling measure for each response channel (ie,
+           there should be support for multiple neural channels)
+
     Compute noise-corrected correlation coefficient based on single-trial
-    correlations in the actual response.
+    correlations in the actual response. Based on method in
+    Hsu and Theusnissen (2004) Network.
+
+    SVD revised 2018-08-30 to hopefully make more stable. Instead of computing
+    average single-trial corr from separate per-stimulus measurements, now
+    concatenates one rep of each validation stimulus into a long vector for
+    calculating a corr coeff across all stimuli. Still repeats this for a
+    bunch of pairs to get a good estimate of correlation between single trials
     """
-    if fullrec[resp_name].shape[0] > 1:
-        log.info('multi-channel data not supported in r_ceiling. returning 0')
-        return 0
 
     epoch_regex = '^STIM_'
     epochs_to_extract = ep.epoch_names_matching(result[resp_name].epochs,
@@ -243,8 +257,58 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
     folded_pred = result[pred_name].extract_epochs(epochs_to_extract)
 
     resp = fullrec[resp_name].rasterize()
-    rnorm_c = 0
-    n = 0
+
+    chancount = fullrec[resp_name].shape[0]
+
+    rnorm = np.zeros(chancount)
+    for chanidx in range(chancount):
+        Xall = []
+        p = []
+        reps = []
+        preps = []
+        for k, d in folded_resp.items():
+            if np.sum(np.isfinite(d)) > 0:
+
+                Xall.append(resp.extract_epoch(k)[:, chanidx, :])
+                p.append(folded_pred[k][:, chanidx, :])
+                reps.append(Xall[-1].shape[0])
+                preps.append(p[-1].shape[0])
+
+        if Xall == []:
+            return 0
+
+        minreps = np.min(reps)
+        X = [x[:minreps, :] for x in Xall]
+        X = np.concatenate(X, axis=1)
+
+        minpreps = np.min(preps)
+        p = [p0[:minpreps, :] for p0 in p]
+        p = np.concatenate(p, axis=1)
+
+        rac = _r_single(X, N)
+
+        repcount = X.shape[0]
+        rs = np.zeros(repcount)
+        for nn in range(repcount):
+            X1 = X[nn, :]
+            X2 = p[0, :]
+
+            # remove all nans from pred and resp
+            ff = np.isfinite(X1) & np.isfinite(X2)
+            X1 = X1[ff]
+            X2 = X2[ff]
+
+            if (np.sum(X1) > 0) and (np.sum(X2) > 0):
+                rs[nn] = np.corrcoef(X1, X2)[0, 1]
+            else:
+                rs[nn] = 0
+
+        rnorm[chanidx] = np.mean(rs)/np.sqrt(rac)
+
+    return rnorm
+"""
+    rs_all = np.array([])
+    rac_all = np.array([])
 
     for k, d in folded_resp.items():
         if np.sum(np.isfinite(d)) > 0:
@@ -274,25 +338,49 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
                     else:
                         rs[nn] = 0
 
-                rs = np.mean(rs)
+                rs_all = np.concatenate((rs_all, rs))
+                rac_all = np.concatenate((rac_all, rac * np.ones(rs.shape)))
+            # print("{0} shape: {1},{2}".format(k,X.shape[0],X.shape[2]))
+            # print(rac)
 
-                rnorm_c += (rs / np.sqrt(rac)) * X1.shape[-1]
-                n += X1.shape[-1]
+            if rac > 0:
+                p = folded_pred[k]
 
-                # print(rnorm_c)
-                # print(n)
+                repcount = X.shape[0]
+                rs = np.zeros(repcount)
+                for nn in range(repcount):
+                    X1 = X[nn, 0, :]
+                    X2 = p[0, 0, :]
+
+                    # remove all nans from pred and resp
+                    ff = np.isfinite(X1) & np.isfinite(X2)
+                    X1 = X1[ff]
+                    X2 = X2[ff]
+
+                    if (np.sum(X1) > 0) and (np.sum(X2) > 0):
+                        rs[nn] = np.corrcoef(X1, X2)[0, 1]
+                    else:
+                        rs[nn] = 0
+
+                rs_all = np.concatenate((rs_all, rs))
+                rac_all = np.concatenate((rac_all, rac * np.ones(rs.shape)))
+    rs_all = np.concatenate((rs_all, rs))
+    rac_all = np.concatenate((rac_all, rac * np.ones(rs.shape)))
+
+    # print(rs_all)
+    # print(rac_all)
 
     # weighted average based on number of samples in each epoch
-    if n > 0:
-        rnorm = rnorm_c / n
+    if rs_all.size > 0:
+        rnorm = np.mean(rs_all)/np.mean(np.sqrt(rac_all))
+        rnorm = np.mean(rs_all / np.sqrt(rac_all))
     else:
-        rnorm = rnorm_c
-
-    return rnorm
+        rnorm = 0
+"""
 
 
 def r_ceiling_test(result, fullrec, pred_name='pred',
-              resp_name='resp', N=100):
+                   resp_name='resp', N=100):
 
     """
     Compute noise-corrected correlation coefficient based on single-trial
