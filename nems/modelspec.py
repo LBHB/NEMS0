@@ -54,6 +54,10 @@ def get_modelspec_longname(modelspec):
     fitter_name = meta.get('fitkey', meta.get('fitter', 'unknown_fitter'))
     date = nems.utils.iso8601_datestring()
     guess = '.'.join([recording_name, keyword_string, fitter_name, date])
+
+    guess = re.sub('[:]', '', guess)
+    guess = re.sub('[,]', '', guess)
+
     return guess
 
 
@@ -149,11 +153,11 @@ def _lookup_fn_at(fn_path):
         myfn(data)
         ...
     '''
-    
+
     # default is nems.xforms.<fn_path>
     if not '.' in fn_path:
         fn_path = 'nems.xforms.' + fn_path
-        
+
     if fn_path in lookup_table:
         fn = lookup_table[fn_path]
     else:

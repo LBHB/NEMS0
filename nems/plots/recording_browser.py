@@ -94,6 +94,12 @@ class MyMplCanvas(FigureCanvas):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
         fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
+
+        # tweak size of axes in window
+        pos1 = self.axes.get_position() # get the original position
+        pos2 = [0.075, 0.1, 0.9, 0.8]
+        self.axes.set_position(pos2) # set a new position
+
         # We want the axes cleared every time plot() is called
         self.axes.hold(False)
 
@@ -160,11 +166,23 @@ class NemsCanvas(MyMplCanvas):
     def update_figure(self):
         p = self.parent
 
+        c_count = self.recording[self.signal].shape[0]
         fs = self.recording[self.signal].fs
         start_bin = int(p.start_time * fs)
         stop_bin = int(p.stop_time * fs)
 
-        d = self.recording[self.signal].as_continuous()[:, start_bin:stop_bin]
+        # skip some channels, get names
+        channel_names=self.recording[self.signal].chans
+        skip_channels = ['baseline']
+        if channel_names is not None:
+            keep = np.array([(n not in skip_channels) for n in channel_names])
+            channel_names = [channel_names[i] for i in range(c_count) if keep[i]]
+        else:
+            keep = np.ones(c_count, dtype=bool)
+            channel_names = None
+
+        d = self.recording[self.signal].as_continuous()[keep, start_bin:stop_bin]
+
         point = (isinstance(self.recording[self.signal],
                             nems.signal.PointProcess))
         tiled = (isinstance(self.recording[self.signal],
@@ -179,6 +197,8 @@ class NemsCanvas(MyMplCanvas):
         else:
             t = np.linspace(p.start_time, p.stop_time, d.shape[1])
             self.axes.plot(t, d.T)
+            if (channel_names is not None) and len(channel_names)>1:
+                self.axes.legend(channel_names, frameon=False)
 
         self.axes.set_ylabel(self.signal)
         self.axes.autoscale(enable=True, axis='x', tight=True)
@@ -188,9 +208,10 @@ class NemsCanvas(MyMplCanvas):
         if point or tiled:
             tick_labels = self.axes.get_xticklabels()
 
-            new_labels = [round((t.get_position()[0]+start_bin)/fs)
-                          if t.get_text() else ''
-                          for t in tick_labels]
+            #new_labels = [round((t.get_position()[0]+start_bin)/fs)
+            #              if t.get_text() else ''
+            #              for t in tick_labels]
+            new_labels = ['']*len(tick_labels)
             self.axes.set_xticklabels(new_labels)
             self.draw()
 
@@ -427,7 +448,7 @@ class ApplicationWindow(qw.QMainWindow):
 
     def closeEvent(self):
         print('closing recording browser')
-        
+
     def fileQuit(self):
         self.close()
 
@@ -436,10 +457,10 @@ class ApplicationWindow(qw.QMainWindow):
 
     def about(self):
         qw.QMessageBox.about(self, "About",
-  """NEMS recording browser 
-  
+  """NEMS recording browser
+
   Implemented based on embedding_in_qt5.py example (Copyright 2015 BoxControL)
-  and 
+  and
   http://matplotlib.org/examples/user_interfaces/embedding_in_qt4.html
   """
   )

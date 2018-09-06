@@ -6,6 +6,7 @@ from scipy.ndimage import zoom
 
 from nems.plots.timeseries import plot_timeseries
 from nems.utils import find_module
+from nems.modules.fir import pz_coefficients, fir_dexp_coefficients
 
 log = logging.getLogger(__name__)
 
@@ -75,7 +76,18 @@ def _get_fir_coefficients(modelspec, idx=0):
     i = 0
     for m in modelspec:
         if 'fir' in m['fn']:
-            if i == idx:
+            if 'pole_zero' in m['fn']:
+                c = pz_coefficients(poles=m['phi']['poles'],
+                                    zeros=m['phi']['zeros'],
+                                    delays=m['phi']['delays'],
+                    gains=m['phi']['gains'],
+                    n_coefs=m['fn_kwargs']['n_coefs'], fs=100)
+                return c
+            elif 'dexp' in m['fn']:
+                c = fir_dexp_coefficients(phi=m['phi']['phi'],
+                                    n_coefs=m['fn_kwargs']['n_coefs'])
+                return c
+            elif i == idx:
                 return m['phi']['coefficients']
             else:
                 i += 1

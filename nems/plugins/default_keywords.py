@@ -88,6 +88,11 @@ def wc(kw):
     fn_kwargs = {'i': 'pred', 'o': 'pred', 'normalize_coefs': False}
     p_coefficients = {'mean': np.zeros((n_outputs, n_inputs))+0.01,
                       'sd': np.ones((n_outputs, n_inputs))}
+    # add some variety across channels to help get the fitter started
+    for i in range(n_outputs):
+        x0 = int(i/n_outputs*n_inputs)
+        x1 = int((i+1)/n_outputs*n_inputs)
+        p_coefficients['mean'][i, x0:x1] = 0.02
     prior = {'coefficients': ('Normal', p_coefficients)}
     normalize = False
     coefs = None
@@ -219,6 +224,129 @@ def fir(kw):
                 'coefficients': ('Normal', p_coefficients),
             }
         }
+
+    return template
+
+
+def pz(kw):
+    '''
+    Generate and register default modulespec for pole-zero filters
+
+    Parameters
+    ----------
+    kw : str
+        A string of the form: fir.{n_outputs}x{n_coefs}x{n_banks}
+
+    Options
+    -------
+    None, but x{n_banks} is optional.
+    '''
+    options = kw.split('.')
+    pattern = re.compile(r'^(\d{1,})x(\d{1,})x?(\d{1,})?$')
+    parsed = re.match(pattern, options[1])
+    try:
+        n_outputs = int(parsed.group(1))
+        n_coefs = int(parsed.group(2))
+        n_banks = parsed.group(3)  # None if not given in keyword string
+    except TypeError:
+        raise ValueError("Got a TypeError when parsing fir keyword. Make sure "
+                         "keyword has the form: \n"
+                         "pz.{n_outputs}x{n_coefs}x{n_banks} (banks optional)"
+                         "\nkeyword given: %s" % kw)
+    if n_banks is None:
+        n_banks = 1
+    else:
+        n_banks = int(n_banks)
+    if n_banks > 1:
+        raise ValueError("nbanks > 1 not yet supported for pz")
+
+    npoles = 1
+    nzeros = 1
+
+    for op in options[2:]:
+        if op.startswith('p'):
+            npoles = int(op[1:])
+
+        elif op.startswith('z'):
+            nzeros = int(op[1:])
+    pole_set = np.array([[0.2, 0.4, 0.8, 0.8]])
+    p_poles = {
+        'mean': np.repeat(pole_set[:,:npoles], n_outputs, axis=0),
+        'sd': np.ones((n_outputs, npoles))*.1,
+    }
+    p_zeros = {
+        'mean': np.zeros((n_outputs, nzeros))+.1,
+        'sd': np.ones((n_outputs, nzeros))*.1,
+    }
+    p_delays = {
+        'mean': np.zeros((n_outputs, 1))+1,
+        'sd': np.ones((n_outputs, 1))*.1,
+    }
+    p_gains = {
+        'mean': np.zeros((n_outputs, 1))+.1,
+        'sd': np.ones((n_outputs, 1))*.1,
+    }
+
+    template = {
+        'fn': 'nems.modules.fir.pole_zero',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs},
+        'prior': {
+            'poles': ('Normal', p_poles),
+            'zeros': ('Normal', p_zeros),
+            'gains': ('Normal', p_gains),
+            'delays': ('Normal', p_delays),
+        }
+    }
+
+    return template
+
+
+def fird(kw):
+    '''
+    Generate and register default modulespec for fir_dexp filters
+
+    Parameters
+    ----------
+    kw : str
+        A string of the form: fir.{n_outputs}x{n_coefs}x{n_banks}
+
+    Options
+    -------
+    None, but x{n_banks} is optional.
+    '''
+    options = kw.split('.')
+    pattern = re.compile(r'^(\d{1,})x(\d{1,})x?(\d{1,})?$')
+    parsed = re.match(pattern, options[1])
+    try:
+        n_outputs = int(parsed.group(1))
+        n_coefs = int(parsed.group(2))
+        n_banks = parsed.group(3)  # None if not given in keyword string
+    except TypeError:
+        raise ValueError("Got a TypeError when parsing fir keyword. Make sure "
+                         "keyword has the form: \n"
+                         "pz.{n_outputs}x{n_coefs}x{n_banks} (banks optional)"
+                         "\nkeyword given: %s" % kw)
+    if n_banks is None:
+        n_banks = 1
+    else:
+        n_banks = int(n_banks)
+    if n_banks > 1:
+        raise ValueError("nbanks > 1 not yet supported for pz")
+
+    #phi_set = np.array([[1, 2, 1, 3, 2, -0.25]])
+    phi_set = np.array([[1, 0.3, 1, 3, 0.3, -0.75]])
+    p_phi = {
+        'mean': np.repeat(phi_set, n_outputs, axis=0),
+        'sd': np.ones((n_outputs, 6))*.1,
+    }
+
+    template = {
+        'fn': 'nems.modules.fir.fir_dexp',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs},
+        'prior': {
+            'phi': ('Normal', p_phi),
+        }
+    }
 
     return template
 
