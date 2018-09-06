@@ -47,7 +47,7 @@ import nems.xforms as xforms
 import nems.plots.api as nplt
 from nems.recording import Recording
 import nems.signal
-
+from nems.plots.utils import ax_remove_box
 
 class RecordingPlotWrapper():
     # TODO: Not using this anymore?
@@ -175,12 +175,14 @@ class NemsCanvas(MyMplCanvas):
                              interpolation='nearest', origin='lower')
             self.axes.get_yaxis().set_visible(False)
         elif tiled:
-            self.axes.imshow(d, aspect='auto')
+            self.axes.imshow(d, aspect='auto', origin='lower')
         else:
             t = np.linspace(p.start_time, p.stop_time, d.shape[1])
             self.axes.plot(t, d.T)
 
-        self.axes.set_title(self.signal)
+        self.axes.set_ylabel(self.signal)
+        self.axes.autoscale(enable=True, axis='x', tight=True)
+        ax_remove_box(self.axes)
         self.draw()
 
         if point or tiled:
@@ -298,11 +300,9 @@ class ApplicationWindow(qw.QMainWindow):
         self.main_widget.setLayout(self.outer_layout)
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
-
-        self.statusBar().showMessage("All hail matplotlib and NEMS!", 2000)
+        self.statusBar().showMessage("Welcome to the NEMS recording browser", 2000)
 
     # Plot Window adjusters
-
     #@show_exceptions('bool')
     def scroll_all(self):
         self.start_time = self.time_slider.value()
@@ -425,6 +425,9 @@ class ApplicationWindow(qw.QMainWindow):
         elif file[-3:] == 'jpg':
             screenshot.save(file, 'jpg')
 
+    def closeEvent(self):
+        print('closing recording browser')
+        
     def fileQuit(self):
         self.close()
 
@@ -433,17 +436,12 @@ class ApplicationWindow(qw.QMainWindow):
 
     def about(self):
         qw.QMessageBox.about(self, "About",
-  """embedding_in_qt5.py example
-  Copyright 2015 BoxControL
-
-  This program is a simple example of a Qt5 application embedding matplotlib
-  canvases. It is base on example from matplolib documentation, and initially was
-  developed from Florent Rougon and Darren Dale.
-
+  """NEMS recording browser 
+  
+  Implemented based on embedding_in_qt5.py example (Copyright 2015 BoxControL)
+  and 
   http://matplotlib.org/examples/user_interfaces/embedding_in_qt4.html
-
-  It may be used and modified with no restriction; raw copies as well as
-  modified versions may be distributed without limitation."""
+  """
   )
 
 
