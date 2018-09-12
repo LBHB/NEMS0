@@ -187,11 +187,10 @@ class SignalBase:
         self.norm_baseline = norm_baseline
         self.norm_gain = norm_gain
 
-        if self.epochs is not None:
+        if epochs is not None:
             max_epoch_time = self.epochs["end"].max()
         else:
             max_epoch_time = 0
-
         if isinstance(data, dict):
             # max_event_times = [max(et) for et in self._data.values()]
             max_event_times = [0]
@@ -199,10 +198,13 @@ class SignalBase:
             max_event_times = [data.shape[1] / fs]
         max_time = max(max_epoch_time, *max_event_times)
         self.ntimes = np.int(np.ceil(fs*max_time))
-
+        
         if segments is None:
             segments = np.array([[0, self.ntimes]])
         self.segments = segments
+
+        if epochs is None:
+            self.add_epoch("SIGNAL",np.array([[0, self.ntimes/self.fs]]))
 
         if safety_checks:
             self._run_safety_checks()

@@ -1191,7 +1191,7 @@ def jackknife_inverse_merge(rec_list):
 #       the unpack option depends on code in this module.
 
 DEMO_NAMES = [
-        'TAR010c-18-1.tgz', 'eno052d-a1.tgz',
+        'TAR010c-18-1.pkl', 'TAR010c-18-1.tgz', 'eno052d-a1.tgz',
         'BRT026c-02-1.tgz', 'resp2.tgz',
         'TAR010c-06-1.tgz',
         ]
@@ -1241,6 +1241,7 @@ def get_demo_recordings(directory=None, name=None, unpack=False):
                         'application/gzip', 'application/x-gzip',
                         'application/x-compressed', 'application/x-tgz',
                         'application/x-tar', 'application/x-compressed-tar',
+                        'binary/octet-stream'
                         ]
                 if not (r.status_code == 200
                         and r.headers['content-type'] in allowed_headers):
