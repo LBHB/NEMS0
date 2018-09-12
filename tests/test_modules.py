@@ -1,4 +1,4 @@
-import pytest
+#import pytest
 import numpy as np
 
 import nems.recording as recording
@@ -88,3 +88,11 @@ def test_firbank():
     y2 = fir.per_channel(x2, coefficients, bank_count)
 
     np.testing.assert_array_equal(y2, y)
+
+
+def test_fir_dexp():
+
+    phi = np.array([[1, 0.3, 1, 3, 0.3, -0.75]])
+    n_coefs=20
+
+    fir.fir_dexp_coefficients(phi, n_coefs=n_coefs)

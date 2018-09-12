@@ -6,28 +6,27 @@ NEMS is the Neural Encoding Model System. It is helpful for fitting a mathematic
 ## Installation
 
 ```
-git clone https://github.com/lbhb/nems
+git clone https://github.com/lbhb/NEMS
 
-# Please make sure that the nems repo is in your path. This works for linux:
-echo "export PYTHONPATH=\"\$PYTHONPATH:`pwd`/nems\"" >> ~/.bashrc
-source ~/.bashrc
 ```
 
+Then add the NEMS library via pip (where "NEMS" is the installation directory):
+```
+pip install -e NEMS
+```
 We have found that Python 3 distributions compiled with the Intel MKL libraries are about twice as fast as the default Python implementations that come installed on many linux machines. Please see our basic [conda installation instructions](docs/conda.md) if you would like to set up a python environment like the way that we do.
 
 NOTE: Regardless of which Python distribution you choose to use, NEMS is designed to use Python 3. Backwards compatibility with Python 2 is untested and unsupported.
 
-Finally, if for some reason they are not installed already, you will also need to use pip to install several libraries that NEMS uses:
+Alternatively (not recommended), you may install all the depdencies on your own, e.g.,
 
 ```
 pip install requests numpy scipy matplotlib pandas
 ```
-
-Alternatively, you may use pip to automatically install all libraries specified as required by NEMS.
-
+Then add NEMS to your python path. Eg, in Linux:
 ```
-# Where 'NEMS' refers to the name of the directory containing the installation
-pip install -e NEMS
+echo "export PYTHONPATH=\"\$PYTHONPATH:`pwd`/NEMS\"" >> ~/.bashrc
+source ~/.bashrc
 ```
 
 ## Your First Model Fit
@@ -35,24 +34,13 @@ pip install -e NEMS
 You may test if everything is working by telling NEMS to download some sample auditory stimulus-response data, use a simple linear-nonlinear model (which should taking about 2 minutes to fit), and then save the results locally:
 
 ```
-cd nems/scripts
-INPUT_URI=https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/TAR010c-18-1.tgz
-MODELKEYWORDS="wc18x1_lvl1_fir1x15_dexp1"
-DESTINATION=~/nems_results/
-python fit_model.py $INPUT_URI $MODELKEYWORDS $DESTINATION
+cd NEMS/scripts
+ipython
+
+[0]: run demo_script.py
 ```
 
-Now you should go in `~/nems_results` and find the subdirectory where the plot PNG files, modelspecs, and other files were saved. As I hope you can see, the `$INPUT_URI` and `$DESTINATION` variables may either be local paths, or HTTP URLs. For example, you might want to download that file for later, offline use in model fitting:
-
-```
-wget https://s3-us-west-2.amazonaws.com/nemspublic/sample_data/TAR010c-18-1.tgz -P /tmp
-INPUT_URI=/tmp/TAR010c-18-1.tgz
-MODELKEYWORDS="wc18x1_lvl1_fir1x15_dexp1"
-DESTINATION=~/nems_results/
-python fit_model.py $INPUT_URI $MODELKEYWORDS $DESTINATION
-```
-
-In our laboratory, we have a [NEMS_DB](http://github.com/lbhb/nems_db) server that we save our fit models to, so the INPUT_URI is usually an URL like `http://ourserver.edu/recordings/...` and the destinations are an URL like `http://ourserver.edu/results`. If you will be saving, searching, and sharing lots of model fits with other people in your lab, you may want to consider installing NEMS_DB as well.
+Open `demo_script.py` in an editor to work through each step of the fit.
 
 
 ## Table of Contents ##

@@ -1,7 +1,10 @@
 import logging
 import ast
+import os
+
 log = logging.getLogger(__name__)
 
+NEMS_PATH = os.path.abspath(os.path.dirname(__file__) + '/..')
 
 def load_config():
     # Load the default settings

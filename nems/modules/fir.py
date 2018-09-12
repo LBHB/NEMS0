@@ -2,7 +2,7 @@ from itertools import chain, repeat
 
 import numpy as np
 import scipy.signal
-
+from scipy import interpolate
 
 def get_zi(b, x):
     # This is the approach NARF uses. If the initial value of x[0] is 1,
@@ -93,6 +93,92 @@ def basic(rec, i='pred', o='pred', coefficients=[]):
     output :
         nems signal in 'o' will be 1 x time singal (single channel)
     """
+
+    fn = lambda x: per_channel(x, coefficients)
+    return [rec[i].transform(fn, o)]
+
+
+def pz_coefficients(poles=None, zeros=None, delays=None,
+                    gains=None, n_coefs=10, fs=100):
+    """
+    helper funciton to generate coefficient matrix.
+    """
+    n_filters = len(gains)
+    coefficients = np.zeros((n_filters, n_coefs))
+    fs2 = 5*fs
+    for j in range(n_filters):
+        t = np.arange(0, n_coefs*5+1) / fs2
+        h = scipy.signal.ZerosPolesGain(zeros[j], poles[j], gains[j], dt=1/fs2)
+        tout, ir = scipy.signal.dimpulse(h, t=t)
+        f = interpolate.interp1d(tout, ir[0][:,0], bounds_error=False,
+                                 fill_value=0)
+
+        tnew = np.arange(0,n_coefs)/fs - delays[j,0]/fs
+        coefficients[j,:] = f(tnew)
+
+    return coefficients
+
+
+def pole_zero(rec, i='pred', o='pred', poles=None, zeros=None, delays=None,
+              gains=None, n_coefs=10):
+    """
+    apply pole_zero -defined filter
+    generate impulse response and then call as if basic fir filter
+
+    input :
+        nems signal named in 'i'. must have dimensionality matched to size
+        of coefficients matrix.
+    output :
+        nems signal in 'o' will be 1 x time singal (single channel)
+    """
+
+    coefficients = pz_coefficients(poles=poles, zeros=zeros, delays=delays,
+                                   gains=gains, n_coefs=n_coefs, fs=rec[i].fs)
+
+    fn = lambda x: per_channel(x, coefficients)
+    return [rec[i].transform(fn, o)]
+
+def fir_dexp_coefficients(phi=None, n_coefs=20):
+    """
+    helper funciton to generate dexp coefficient matrix.
+    """
+    N_chans, N_parms = phi.shape
+
+    if N_parms != 6:
+        raise ValueError('FIR_DEXP needs exactly 6 parameters per channel')
+
+    lat1=phi[:,0]
+    tau1=np.abs(phi[:,1])
+    A1=phi[:,2]
+    lat2=phi[:,3]
+    tau2=np.abs(phi[:,4])
+    A2=phi[:,5]
+
+    coefs = np.zeros((N_chans, n_coefs))
+
+    t = np.arange(0,n_coefs)
+    for c in range(N_chans):
+        coefs[c,:]=A1[c]*(np.exp(-tau1[c]*(t-lat1[c])) -
+                          np.exp(-tau1[c]*5*(t-lat1[c]))) * (t-lat1[c]>0) + \
+                   A2[c]*(np.exp(-tau2[c]*(t-lat2[c])) -
+                          np.exp(-tau2[c]*5*(t-lat2[c]))) * (t-lat2[c]>0)
+
+    return coefs
+
+
+def fir_dexp(rec, i='pred', o='pred', phi=None, n_coefs=10):
+    """
+    apply pole_zero -defined filter
+    generate impulse response and then call as if basic fir filter
+
+    input :
+        nems signal named in 'i'. must have dimensionality matched to size
+        of coefficients matrix.
+    output :
+        nems signal in 'o' will be 1 x time singal (single channel)
+    """
+
+    coefficients = fir_dexp_coefficients(phi, n_coefs)
 
     fn = lambda x: per_channel(x, coefficients)
     return [rec[i].transform(fn, o)]
