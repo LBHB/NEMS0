@@ -172,7 +172,10 @@ class NemsCanvas(MyMplCanvas):
         stop_bin = int(p.stop_time * fs)
 
         # skip some channels, get names
-        channel_names=self.recording[self.signal].chans[:c_count]
+        if self.recording[self.signal].chans is not None:
+            channel_names=self.recording[self.signal].chans[:c_count]
+        else:
+            channel_names=[''] * c_count
         skip_channels = ['baseline']
         if channel_names is not None:
             keep = np.array([(n not in skip_channels) for n in channel_names])
