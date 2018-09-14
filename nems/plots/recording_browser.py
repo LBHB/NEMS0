@@ -202,9 +202,9 @@ class NemsCanvas(MyMplCanvas):
             self.axes.plot(t, d.T)
             if (channel_names is not None) and len(channel_names)>1:
                 self.axes.legend(channel_names, frameon=False)
-
+            self.axes.set_xlim([t[0],t[-1]])
         self.axes.set_ylabel(self.signal)
-        self.axes.autoscale(enable=True, axis='x', tight=True)
+        #self.axes.autoscale(enable=True, axis='x', tight=True)
         ax_remove_box(self.axes)
         self.draw()
 
@@ -217,6 +217,53 @@ class NemsCanvas(MyMplCanvas):
             new_labels = ['']*len(tick_labels)
             self.axes.set_xticklabels(new_labels)
             self.draw()
+
+
+class EpochCanvas(MyMplCanvas):
+    """A canvas that updates itself every second with a new plot."""
+
+    def __init__(self, recording=None, signal='stim', parent=None,
+                 *args, **kwargs):
+        MyMplCanvas.__init__(self, *args, **kwargs)
+        self.recording = recording
+        self.signal = signal
+        self.parent = parent
+        print("creating epoch canvas: {}".format(signal))
+        self.max_time = 0
+
+    def compute_initial_figure(self):
+        pass
+
+    def update_figure(self):
+        p = self.parent
+
+        epochs = self.recording.epochs
+
+        valid_epochs = epochs[(epochs['start'] >= p.start_time) &
+                              (epochs['end'] < p.stop_time)]
+
+        i = 0
+        for index, e in valid_epochs.iterrows():
+            x = np.array([e['start'],e['end']])
+            y = np.array([i, i])
+            self.axes.plot(x, y, 'k-')
+            self.axes.text(x[0], y[0], e['name'], va='bottom')
+            i += 1
+            self.axes.hold(True)
+
+        self.axes.set_xlim([p.start_time, p.stop_time])
+        self.axes.set_ylim([-0.5, i+0.5])
+        self.axes.set_ylabel('epochs')
+        #self.axes.autoscale(enable=True, axis='x', tight=True)
+        ax_remove_box(self.axes)
+        self.axes.hold(False)
+        self.draw()
+
+        tick_labels = self.axes.get_xticklabels()
+
+        new_labels = ['']*len(tick_labels)
+        self.axes.set_xticklabels(new_labels)
+        self.draw()
 
 
 class ApplicationWindow(qw.QMainWindow):
@@ -276,6 +323,10 @@ class ApplicationWindow(qw.QMainWindow):
         # mpl panels
         signals = [value for value in signals if value in recording.signals]
         self.plot_list = [self._default_plot_instance(s) for s in signals]
+        epoch_canvas = EpochCanvas(self.recording, 'resp', self, self.main_widget,
+                          width=self.plot_width, height=self.plot_height,
+                          dpi=self.plot_dpi)
+        self.plot_list = [epoch_canvas] + self.plot_list
         self.plot_layout = qw.QVBoxLayout()
         self.plot_layout.setSpacing(25)
         [self.plot_layout.addWidget(p) for p in self.plot_list]

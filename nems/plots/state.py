@@ -35,6 +35,7 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
 
     plt.plot(t, r1, linewidth=1, color='gray')
     plt.plot(t, p1, linewidth=1, color='black')
+    print(p1.shape)
     mmax = np.nanmax(p1) * 0.8
 
     if 'state' in rec.signals.keys():

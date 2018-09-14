@@ -195,6 +195,7 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     # Pred v Resp Timeseries
     if ((find_module('merge_channels', modelspec) is not None) or
        (find_module('state_dc_gain', modelspec) is not None) or
+       (find_module('state_weight', modelspec) is not None) or
        (find_module('state_dexp', modelspec) is not None)):
 
         fns = state_vars_psths(rec, epoch, psth_name='resp',
@@ -423,7 +424,8 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
 
             plot_fns.append(plot1)
 
-        elif ('state.state_dc_gain' in fname) or ('state_dexp' in fname):
+        elif (('state.state_dc_gain' in fname) or ('state_dexp' in fname) or
+              ('state.state_weight' in fname)):
             fn1 = partial(state_vars_timeseries, rec, modelspec)
             plot1 = (fn1, 1)
 
