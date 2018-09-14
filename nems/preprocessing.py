@@ -194,7 +194,7 @@ def remove_invalid_segments(rec):
     return newrec
 
 
-def mask_all_but_correct_references(rec):
+def mask_all_but_correct_references(rec, balance_rep_count=False):
     """
     Specialized function for removing incorrect trials from data
     collected using baphy during behavior.
@@ -207,8 +207,34 @@ def mask_all_but_correct_references(rec):
     if 'stim' in newrec.signals.keys():
         newrec['stim'] = newrec['stim'].rasterize()
 
-    newrec = newrec.or_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
-    newrec = newrec.and_mask(['REFERENCE'])
+    if balance_rep_count:
+        resp = newrec['resp']
+        epoch_regex = "^STIM_"
+        epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
+        p=resp.get_epoch_indices("PASSIVE_EXPERIMENT")
+        a=resp.get_epoch_indices("HIT_TRIAL")
+
+        epoch_list=[]
+        for s in epochs_to_extract:
+            e = resp.get_epoch_indices(s)
+            pe = ep.epoch_intersection(e, p)
+            ae = ep.epoch_intersection(e, a)
+            if len(pe)>len(ae):
+                epoch_list.extend(ae)
+                subset=np.round(np.linspace(0,len(pe),len(ae)+1)).astype(int)
+                for i in subset[:-1]:
+                    epoch_list.append(pe[i])
+            else:
+                subset=np.round(np.linspace(0,len(ae),len(pe)+1)).astype(int)
+                for i in subset[:-1]:
+                    epoch_list.append(ae[i])
+                epoch_list.extend(pe)
+
+        newrec = newrec.create_mask(epoch_list)
+
+    else:
+        newrec = newrec.or_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
+        newrec = newrec.and_mask(['REFERENCE'])
 
     return newrec
 
@@ -338,16 +364,11 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
 
     if rec['mask'] exists, uses rec['mask'] == True to determine valid epochs
     '''
+    newrec = rec.copy()
+    resp = newrec['resp'].rasterize()
 
-    resp = rec['resp'].rasterize()
-    nCells = len(resp.chans)
     # compute spont rate during valid (non-masked) trials
-    prestimsilence = resp.extract_epoch('PreStimSilence')
-    if 'mask' in rec.signals.keys():
-        prestimmask = np.tile(rec['mask'].extract_epoch('PreStimSilence'),
-                              [1, nCells, 1])
-        prestimsilence[prestimmask == False] = np.nan
-
+    prestimsilence = resp.extract_epoch('PreStimSilence', mask=newrec['mask'])
     if len(prestimsilence.shape) == 3:
         spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
     else:
@@ -360,13 +381,8 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
 
     # compute PSTH response during valid trials
     epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
-    folded_matrices = resp.extract_epochs(epochs_to_extract)
-    if 'mask' in rec.signals.keys():
-        log.info('masking out invalid time bins before PSTH calc')
-        folded_mask = rec['mask'].extract_epochs(epochs_to_extract)
-        for k, m in folded_mask.items():
-            m = np.tile(m, [1, nCells, 1])
-            folded_matrices[k][m == False] = np.nan
+    folded_matrices = resp.extract_epochs(epochs_to_extract,
+                                          mask=newrec['mask'])
 
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()
@@ -385,6 +401,7 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
                                                  axis=2, keepdims=True)
 
         per_stim_psth[k] = np.nanmean(v, axis=0) - spont_rate[:, np.newaxis]
+        folded_matrices[k] = v
 
     # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
     #   replacing all epochs in the signal with their average (psth)
@@ -392,14 +409,14 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     respavg.name = 'psth'
 
     # add signal to the recording
-    rec.add_signal(respavg)
+    newrec.add_signal(respavg)
 
     if smooth_resp:
         log.info('Replacing resp with smoothed resp')
-        resp = resp.replace_epochs(folded_matrices)
-        rec.add_signal(resp)
+        resp = resp.replace_epochs(folded_matrices, mask=newrec['mask'])
+        newrec.add_signal(resp)
 
-    return rec
+    return newrec
 
 
 def generate_psth_from_est_for_both_est_and_val(est, val,
@@ -411,8 +428,8 @@ def generate_psth_from_est_for_both_est_and_val(est, val,
     subtract spont rate based on pre-stim silence for ALL estimation data.
     '''
 
-    resp_est = est['resp']
-    resp_val = val['resp']
+    resp_est = est['resp'].rasterize()
+    resp_val = val['resp'].rasterize()
 
     # compute PSTH response and spont rate during those valid trials
     prestimsilence = resp_est.extract_epoch('PreStimSilence')
@@ -422,7 +439,8 @@ def generate_psth_from_est_for_both_est_and_val(est, val,
         spont_rate = np.nanmean(prestimsilence)
 
     epochs_to_extract = ep.epoch_names_matching(resp_est.epochs, epoch_regex)
-    folded_matrices = resp_est.extract_epochs(epochs_to_extract)
+    folded_matrices = resp_est.extract_epochs(epochs_to_extract,
+                                              mask=est['mask'])
 
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()
@@ -545,34 +563,76 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
             permute_signals.extend(pset)
 
     # generate task state signals
-    fpre = (resp.epochs['name'] == "PRE_PASSIVE")
-    fpost = (resp.epochs['name'] == "POST_PASSIVE")
-    INCLUDE_PRE_POST = (np.sum(fpre) > 0) & (np.sum(fpost) > 0)
-    if INCLUDE_PRE_POST:
-        # only include pre-passive if post-passive also exists
-        # otherwise the regression gets screwed up
-        newrec['pre_passive'] = resp.epoch_to_signal('PRE_PASSIVE')
-    else:
-        # place-holder, all zeros
-        newrec['pre_passive'] = resp.epoch_to_signal('XXX')
-        newrec['pre_passive'].chans = ['PRE_PASSIVE']
+    if 'pas' in state_signals:
+        fpre = (resp.epochs['name'] == "PRE_PASSIVE")
+        fpost = (resp.epochs['name'] == "POST_PASSIVE")
+        INCLUDE_PRE_POST = (np.sum(fpre) > 0) & (np.sum(fpost) > 0)
+        if INCLUDE_PRE_POST:
+            # only include pre-passive if post-passive also exists
+            # otherwise the regression gets screwed up
+            newrec['pre_passive'] = resp.epoch_to_signal('PRE_PASSIVE')
+        else:
+            # place-holder, all zeros
+            newrec['pre_passive'] = resp.epoch_to_signal('XXX')
+            newrec['pre_passive'].chans = ['PRE_PASSIVE']
+    if 'puretone_trials' in state_signals:
+        newrec['puretone_trials'] = resp.epoch_to_signal('PURETONE_BEHAVIOR')
+        newrec['puretone_trials'].chans = ['puretone_trials']
+    if 'easy_trials' in state_signals:
+        newrec['easy_trials'] = resp.epoch_to_signal('EASY_BEHAVIOR')
+        newrec['easy_trials'].chans = ['easy_trials']
+    if 'hard_trials' in state_signals:
+        newrec['hard_trials'] = resp.epoch_to_signal('HARD_BEHAVIOR')
+        newrec['hard_trials'].chans = ['hard_trials']
+    if ('active' in state_signals) or ('far' in state_signals):
+        newrec['active'] = resp.epoch_to_signal('ACTIVE_EXPERIMENT')
+        newrec['active'].chans = ['active']
+    if ('ttp' in state_signals) or ('far' in state_signals) or \
+       ('hit' in state_signals):
+        newrec['hit_trials'] = resp.epoch_to_signal('HIT_TRIAL')
+        newrec['miss_trials'] = resp.epoch_to_signal('MISS_TRIAL')
+        newrec['fa_trials'] = resp.epoch_to_signal('FA_TRIAL')
 
-    newrec['hit_trials'] = resp.epoch_to_signal('HIT_TRIAL')
-    newrec['miss_trials'] = resp.epoch_to_signal('MISS_TRIAL')
-    newrec['fa_trials'] = resp.epoch_to_signal('FA_TRIAL')
-    newrec['puretone_trials'] = resp.epoch_to_signal('PURETONE_BEHAVIOR')
-    newrec['puretone_trials'].chans = ['puretone_trials']
-    newrec['easy_trials'] = resp.epoch_to_signal('EASY_BEHAVIOR')
-    newrec['easy_trials'].chans = ['easy_trials']
-    newrec['hard_trials'] = resp.epoch_to_signal('HARD_BEHAVIOR')
-    newrec['hard_trials'].chans = ['hard_trials']
-    newrec['active'] = resp.epoch_to_signal('ACTIVE_EXPERIMENT')
-    newrec['active'].chans = ['active']
+
+    sm_len = 180 * newrec['resp'].fs
+    if 'far' in state_signals:
+        a = newrec['active'].as_continuous()
+        fa = newrec['fa_trials'].as_continuous().astype(float)
+        #c = np.concatenate((np.zeros((1,sm_len)), np.ones((1,sm_len+1))),
+        #                   axis=1)
+        c = np.ones((1,sm_len))/sm_len
+
+        fa = convolve2d(fa, c, mode='same')
+        #fa[a] -= 0.25 # np.nanmean(fa[a])
+        fa[np.logical_not(a)] = 0
+
+        s = newrec['fa_trials']._modified_copy(fa)
+        s.chans = ['far']
+        s.name='far'
+        newrec.add_signal(s)
+
+    if 'hit' in state_signals:
+        a = newrec['active'].as_continuous()
+        hr = newrec['hit_trials'].as_continuous().astype(float)
+        ms = newrec['miss_trials'].as_continuous().astype(float)
+        ht = hr-ms
+
+        c = np.ones((1,sm_len))/sm_len
+
+        ht = convolve2d(ht, c, mode='same')
+        #ht[a] -= 0.1  # np.nanmean(ht[a])
+        ht[np.logical_not(a)] = 0
+
+        s = newrec['hit_trials']._modified_copy(ht)
+        s.chans = ['hit']
+        s.name='hit'
+        newrec.add_signal(s)
+
     if 'lick' in state_signals:
         newrec['lick'] = resp.epoch_to_signal('LICK')
 
     # pupil interactions
-    if ('pupil' in state_signals):
+    if ('p_x_a' in state_signals):
         # normalize min-max
         p = newrec["pupil"].as_continuous()
         a = newrec["active"].as_continuous()
@@ -585,7 +645,8 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
             # this avoids using the same seed for each shuffled signal
             # but also makes shuffling reproducible
             newrec = concatenate_state_channel(
-                    newrec, newrec[x].shuffle_time(rand_seed=i),
+                    newrec, newrec[x].shuffle_time(rand_seed=i,
+                                  mask=newrec['mask']),
                     state_signal_name=new_signalname)
         else:
             newrec = concatenate_state_channel(

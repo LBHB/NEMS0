@@ -723,6 +723,62 @@ def stategain(kw):
     return template
 
 
+def sw(kw):
+    '''
+    Generate and register modulespec for the state.state_weight module.
+
+    Parameters
+    ----------
+    kw : str
+        Expected format: r'^sw\.?(\d{1,})x(\d{1,})$'
+        e.g., "stategain.SxR" :
+            S : number of state channels (required)
+            R : number of channels to modulate (default = 2)
+
+    TODO: support for more than one output channel? (filterbank)
+
+    Options
+    -------
+    None
+    '''
+    pattern = re.compile(r'^sw\.?(\d{1,})x(\d{1,})$')
+    parsed = re.match(pattern, kw)
+    if parsed is None:
+        # backward compatible parsing if R not specified
+        pattern = re.compile(r'^sw\.?(\d{1,})$')
+        parsed = re.match(pattern, kw)
+    try:
+        n_vars = int(parsed.group(1))
+        if len(parsed.groups())>1:
+            n_chans = int(parsed.group(2))
+        else:
+            n_chans = 1
+    except TypeError:
+        raise ValueError("Got TypeError when parsing stategain keyword.\n"
+                         "Make sure keyword is of the form: \n"
+                         "sw.{n_variables} \n"
+                         "keyword given: %s" % kw)
+
+    zeros = np.zeros([n_chans, n_vars])
+    ones = np.ones([n_chans, n_vars])
+    g_mean = zeros.copy()
+    g_mean[:, 0] = 0.5
+    g_sd = ones.copy()
+    d_mean = np.zeros([1, n_vars])
+    d_sd = np.ones([1, n_vars])
+
+    template = {
+        'fn': 'nems.modules.state.state_weight',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      's': 'state'},
+        'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
+                  'd': ('Normal', {'mean': d_mean, 'sd': d_sd})}
+        }
+
+    return template
+
+
 def rep(kw):
     '''
     Generate and register modulespec for replicate_channels module.

@@ -288,12 +288,12 @@ def remove_all_but_correct_references(rec, **context):
     return {'rec': rec}
 
 
-def mask_all_but_correct_references(rec, **context):
+def mask_all_but_correct_references(rec, balance_rep_count=False, **context):
     '''
     find REFERENCE epochs spanned by either PASSIVE_EXPERIMENT or
     HIT_TRIAL epochs. mask out all other segments from signals in rec
     '''
-    rec = preproc.mask_all_but_correct_references(rec)
+    rec = preproc.mask_all_but_correct_references(rec, balance_rep_count=balance_rep_count)
 
     return {'rec': rec}
 

@@ -284,27 +284,28 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
         minpreps = np.min(preps)
         p = [p0[:minpreps, :] for p0 in p]
         p = np.concatenate(p, axis=1)
+        if minreps > 1:
+            rac = _r_single(X, N)
 
-        rac = _r_single(X, N)
+            repcount = X.shape[0]
+            rs = np.zeros(repcount)
+            for nn in range(repcount):
+                X1 = X[nn, :]
+                X2 = p[0, :]
 
-        repcount = X.shape[0]
-        rs = np.zeros(repcount)
-        for nn in range(repcount):
-            X1 = X[nn, :]
-            X2 = p[0, :]
+                # remove all nans from pred and resp
+                ff = np.isfinite(X1) & np.isfinite(X2)
+                X1 = X1[ff]
+                X2 = X2[ff]
 
-            # remove all nans from pred and resp
-            ff = np.isfinite(X1) & np.isfinite(X2)
-            X1 = X1[ff]
-            X2 = X2[ff]
+                if (np.sum(X1) > 0) and (np.sum(X2) > 0):
+                    rs[nn] = np.corrcoef(X1, X2)[0, 1]
+                else:
+                    rs[nn] = 0
 
-            if (np.sum(X1) > 0) and (np.sum(X2) > 0):
-                rs[nn] = np.corrcoef(X1, X2)[0, 1]
-            else:
-                rs[nn] = 0
-
-        rnorm[chanidx] = np.mean(rs)/np.sqrt(rac)
-
+            rnorm[chanidx] = np.mean(rs)/np.sqrt(rac)
+        else:
+            rnorm[chanidx] = 0
     return rnorm
 """
     rs_all = np.array([])
