@@ -79,7 +79,6 @@ class KeywordRegistry():
             A path to a directory containing one or more modules that
             define keyword functions.
         '''
-        print(d)
         if d.endswith('.py'):
             package, mod = os.path.split(d)
             sys.path.append(package)

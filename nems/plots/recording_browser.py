@@ -172,7 +172,7 @@ class NemsCanvas(MyMplCanvas):
         stop_bin = int(p.stop_time * fs)
 
         # skip some channels, get names
-        channel_names=self.recording[self.signal].chans
+        channel_names=self.recording[self.signal].chans[:c_count]
         skip_channels = ['baseline']
         if channel_names is not None:
             keep = np.array([(n not in skip_channels) for n in channel_names])
@@ -274,7 +274,7 @@ class ApplicationWindow(qw.QMainWindow):
     stop_time = 10
     time_slider = None
 
-    plot_width = 5
+    plot_width = 6
     plot_height = 4
     plot_dpi = 100
 
