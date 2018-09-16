@@ -1,5 +1,6 @@
 import os
 import nems.uri
+from nems.recording import get_demo_recordings
 
 # NOTE to LBHB team:
 #    If additional sample data is added in the future, just
@@ -26,7 +27,9 @@ def main():
         help='Recordings compressed by default, set --unpack to decompress'
         )
     args = parser.parse_args()
-    nems.uri.get_demo_recordings(args.directory, args.unpack)
+    directory = args.directory if args.directory else None
+    unpack = args.unpack if args.unpack else None
+    get_demo_recordings(directory, unpack)
 
 
 if __name__ == '__main__':
