@@ -29,6 +29,10 @@ def generate_prediction(est, val, modelspecs):
 
     new_est = [ms.evaluate(d, m) for m, d in zip(modelspecs, est)]
     new_val = [ms.evaluate(d, m) for m, d in zip(modelspecs, val)]
+    
+    if find_modules('state',modelspecs[0]) is not None:
+        print("TODO generate per-state var prediction in val")
+    
     if list_val:
         new_val = [recording.jackknife_inverse_merge(new_val)]
 

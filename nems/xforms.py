@@ -702,6 +702,10 @@ def add_summary_statistics(est, val, modelspecs, fn='standard_correlation',
     '''
     corr_fn = getattr(nems.analysis.api, fn)
     modelspecs = corr_fn(est, val, modelspecs, rec=rec)
+        
+    if find_modules('state',modelspecs[0]) is not None:
+        #modelspecs = state_mod_index()
+        print("TODO: compute state mod index")
 
     return {'modelspecs': modelspecs}
 

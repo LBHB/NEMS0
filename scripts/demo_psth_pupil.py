@@ -21,6 +21,7 @@ import nems.utils
 import nems.uri
 from nems import recording
 from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
+from nems.metrics.state import single_state_mod_index
 
 # ----------------------------------------------------------------------------
 # CONFIGURATION
@@ -164,8 +165,10 @@ ests, vals = nems.analysis.api.generate_prediction(ests, vals, modelspecs)
 modelspecs = nems.analysis.api.standard_correlation(ests, vals, modelspecs)
 
 logging.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
-        modelspecs[0][0]['meta']['r_fit'],
-        modelspecs[0][0]['meta']['r_test']))
+        modelspecs[0][0]['meta']['r_fit'][0],
+        modelspecs[0][0]['meta']['r_test'][0]))
+
+print(single_state_mod_index(vals[0], modelspecs[0], state_chan="pupil"))
 
 # ----------------------------------------------------------------------------
 # GENERATE PLOTS
