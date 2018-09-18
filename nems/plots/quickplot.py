@@ -441,19 +441,20 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
             plot_fns.append(plot1)
 
         elif 'dynamic_sigmoid' in fname:
-            if rec['contrast'].shape[0] > 1:
-                chans = rec['contrast'].chans
-                fn = partial(strf_heatmap, modelspec, title='Contrast STRF',
-                             chans=chans, wc_idx=1, fir_idx=1)
-                plot = (fn, 1)
-                plot_fns.append(plot)
+            #if rec['contrast'].shape[0] > 1:
+            fn = partial(strf_heatmap, modelspec, title='Contrast STRF',
+                         chans=None, wc_idx=1, fir_idx=1)
+            plot = (fn, 1)
+            plot_fns.append(plot)
 
-                fn = partial(
-                        spectrogram_from_epoch, rec['contrast'], epoch,
-                        occurrence=occurrence, title='Contrast Input'
-                        )
-                plot = (fn, 1)
-                plot_fns.insert(0, plot)
+            extent = False if rec['contrast'].shape[0] == 1 else True
+            fn = partial(
+                    spectrogram_from_epoch, rec['contrast'], epoch,
+                    occurrence=occurrence, title='Contrast Input',
+                    extent=extent
+                    )
+            plot = (fn, 1)
+            plot_fns.insert(0, plot)
 
     return plot_fns
 
