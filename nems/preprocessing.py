@@ -236,6 +236,24 @@ def mask_all_but_correct_references(rec, balance_rep_count=False):
         newrec = newrec.or_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
         newrec = newrec.and_mask(['REFERENCE'])
 
+    if 'state' in newrec.signals:
+        b_states = ['far', 'hit', 'lick',
+                    'puretone_trials', 'easy_trials', 'hard_trials']
+        trec = newrec.copy()
+        trec = trec.and_mask(['ACTIVE_EXPERIMENT'])
+        st = trec['state'].as_continuous().copy()
+        mask = trec['mask'].as_continuous()[0, :]
+        for s in trec['state'].chans:
+            if s in b_states:
+                i = trec['state'].chans.index(s)
+                m = np.nanmean(st[i, mask])
+                sd = np.nanstd(st[i, mask])
+                # print("{} {}: m={}, std={}".format(s, i, m, sd))
+                # print(np.sum(mask))
+                st[i, mask] -= m
+                st[i, mask] /= sd
+        newrec['state'] = newrec['state']._modified_copy(st)
+
     return newrec
 
 
@@ -593,7 +611,6 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         newrec['miss_trials'] = resp.epoch_to_signal('MISS_TRIAL')
         newrec['fa_trials'] = resp.epoch_to_signal('FA_TRIAL')
 
-
     sm_len = 180 * newrec['resp'].fs
     if 'far' in state_signals:
         a = newrec['active'].as_continuous()
@@ -603,7 +620,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         c = np.ones((1,sm_len))/sm_len
 
         fa = convolve2d(fa, c, mode='same')
-        #fa[a] -= 0.25 # np.nanmean(fa[a])
+        fa[a] -= 0.25 # np.nanmean(fa[a])
         fa[np.logical_not(a)] = 0
 
         s = newrec['fa_trials']._modified_copy(fa)
@@ -620,7 +637,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         c = np.ones((1,sm_len))/sm_len
 
         ht = convolve2d(ht, c, mode='same')
-        #ht[a] -= 0.1  # np.nanmean(ht[a])
+        ht[a] -= 0.1  # np.nanmean(ht[a])
         ht[np.logical_not(a)] = 0
 
         s = newrec['hit_trials']._modified_copy(ht)

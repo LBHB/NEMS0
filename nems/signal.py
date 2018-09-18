@@ -198,7 +198,7 @@ class SignalBase:
             max_event_times = [data.shape[1] / fs]
         max_time = max(max_epoch_time, *max_event_times)
         self.ntimes = np.int(np.ceil(fs*max_time))
-        
+
         if segments is None:
             segments = np.array([[0, self.ntimes]])
         self.segments = segments
@@ -770,9 +770,19 @@ class SignalBase:
             keys = list(folded_signal.keys())
             keys.sort()
 
-        reps = [folded_signal[k].shape[0] for k in keys]
-        chans = [folded_signal[k].shape[1] for k in keys]
-        lens = [folded_signal[k].shape[2] for k in keys]
+        reps = []
+        chans = []
+        lens = []
+        for k in keys:
+            if k in folded_signal.keys():
+                reps.append(folded_signal[k].shape[0])
+                chans.append(folded_signal[k].shape[1])
+                lens.append(folded_signal[k].shape[2])
+            else:
+                reps.append(0)
+                chans.append(0)
+                lens.append(0)
+
         max_rep = np.max(np.array(reps))
         max_chan = np.max(np.array(chans))
         max_len = np.max(np.array(lens))
@@ -780,7 +790,8 @@ class SignalBase:
         d[:] = np.nan
 
         for i, k in enumerate(keys):
-            d[i,:reps[i],:chans[i],:lens[i]]=folded_signal[k]
+            if k in folded_signal.keys():
+                d[i,:reps[i],:chans[i],:lens[i]]=folded_signal[k]
 
         return d
 
@@ -1632,12 +1643,17 @@ class RasterizedSignal(SignalBase):
         """
         return self
 
-    def as_continuous(self):
+    def as_continuous(self, mask=None):
         '''
         For SignalBase, return a signal _data variable. -- NOT COPIED!
 
+        but if mask signal provided, do return a copy, with only masked
+        portion
         '''
-        return self._data
+        if mask is None:
+            return self._data
+        else:
+            return self._data[:, mask.as_continuous()[0, :]]
 
 
 class PointProcess(SignalBase):
