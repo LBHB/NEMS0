@@ -19,7 +19,7 @@ def state_mod_index(rec, epoch='REFERENCE', psth_name='resp',
                                     state_sig=state_sig,
                                     state_chan=s)
                     for s in state_chan]
-        return mod_list
+        return np.array(mod_list)
 
     full_psth = rec[psth_name]
     folded_psth = full_psth.extract_epoch(epoch)
@@ -80,6 +80,6 @@ def single_state_mod_index(rec, modelspec, epoch='REFERENCE', psth_name='pred',
 
     newrec = ms.evaluate(rec, modelspec)
 
-    return state_mod_index(newrec, epoch=epoch, psth_name=psth_name,
-                           state_sig=state_sig, state_chan=state_chan)
+    return np.array(state_mod_index(newrec, epoch=epoch, psth_name=psth_name,
+                           state_sig=state_sig, state_chan=state_chan))
 

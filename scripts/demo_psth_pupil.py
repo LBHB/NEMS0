@@ -164,11 +164,16 @@ ests, vals = nems.analysis.api.generate_prediction(ests, vals, modelspecs)
 # evaluate prediction accuracy
 modelspecs = nems.analysis.api.standard_correlation(ests, vals, modelspecs)
 
+s = nems.metrics.api.state_mod_index(vals[0], epoch='REFERENCE', 
+                                      psth_name='pred',
+                                      state_sig='state', state_chan=[])
+modelspecs[0][0]['meta']['state_mod'] = s
+
 logging.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
         modelspecs[0][0]['meta']['r_fit'][0],
         modelspecs[0][0]['meta']['r_test'][0]))
 
-print(single_state_mod_index(vals[0], modelspecs[0], state_chan="pupil"))
+print(single_state_mod_index(vals[0], modelspecs[0], state_chan="active"))
 
 # ----------------------------------------------------------------------------
 # GENERATE PLOTS
