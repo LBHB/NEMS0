@@ -702,10 +702,10 @@ def add_summary_statistics(est, val, modelspecs, fn='standard_correlation',
     '''
     corr_fn = getattr(nems.analysis.api, fn)
     modelspecs = corr_fn(est, val, modelspecs, rec=rec)
-        
+
     if find_module('state', modelspecs[0]) is not None:
         s = metrics.state_mod_index(val[0], epoch='REFERENCE', psth_name='pred',
-                            state_sig='state', state_chan=[])
+                            state_sig='state_raw', state_chan=[])
         modelspecs[0][0]['meta']['state_mod'] = s
 
     return {'modelspecs': modelspecs}

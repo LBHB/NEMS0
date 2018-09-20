@@ -7,8 +7,8 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def state_mod_index(rec, epoch='REFERENCE', psth_name='resp',
-                    state_sig='state', state_chan='pupil'):
+def state_mod_index(rec, epoch='REFERENCE', psth_name='pred',
+                    state_sig='state_raw', state_chan='pupil'):
 
     if type(state_chan) is list:
         if len(state_chan) == 0:

@@ -10,18 +10,20 @@ import numpy as np
 import copy
 import tempfile
 import shutil
+import json
 
 from nems.uri import local_uri, http_uri, targz_uri
 import nems.epoch as ep
 from nems.signal import SignalBase, RasterizedSignal, merge_selections, \
                         list_signals, load_signal, load_signal_from_streams
+from nems.utils import recording_filename_hash
 
 log = logging.getLogger(__name__)
 
 
 class Recording:
 
-    def __init__(self, signals):
+    def __init__(self, signals, meta={}, name=None):
         '''
         Signals argument should be a dictionary of signal objects.
         '''
@@ -33,16 +35,19 @@ class Recording:
             raise ValueError('A recording must contain at least 1 signal')
         if not len(set(recordings)) == 1:
             raise ValueError('Not all signals are from the same recording.')
-
-        self.name = recordings[0]
+        if name is None:
+            self.name = recordings[0]
+        else:
+            self.name = name
         self.uri = None  # This will be lost on copying
+        self.meta = meta
 
     def copy(self):
         '''
         Returns a copy of this recording.
         '''
         signals = self.signals.copy()
-        other = Recording(signals)
+        other = Recording(signals, meta=self.meta.copy())
         for k, v in vars(self).items():
             if k == 'signals':
                 continue
@@ -81,6 +86,8 @@ class Recording:
     @staticmethod
     def load(uri):
         '''
+        DEPRECATED??? REPLACED by regular functions?
+
         Loads from a local .tar.gz file, a local directory, from s3,
         or from an HTTP URL containing a .tar.gz file. Examples:
 
@@ -119,6 +126,7 @@ class Recording:
         '''
         Loads all the signals (CSV/JSON pairs) found in DIRECTORY or
         .tar.gz file, and returns a Recording object containing all of them.
+        DEPRECATED???
         '''
         if os.path.isdir(directory_or_targz):
             files = list_signals(directory_or_targz)
@@ -132,6 +140,10 @@ class Recording:
 
     @staticmethod
     def load_targz(targz):
+        '''
+        Loads the recording object from a tar.gz file.
+        DEPRECATED???
+        '''
         if os.path.exists(targz):
             with open(targz, 'rb') as stream:
                 return load_recording_from_targz_stream(stream)
@@ -143,6 +155,7 @@ class Recording:
     def load_url(url):
         '''
         Loads the recording object from a URL. File must be tar.gz format.
+        DEPRECATED???
         '''
         r = requests.get(url, stream=True)
         if not (r.status_code == 200 and
@@ -163,6 +176,7 @@ class Recording:
     def load_from_arrays(arrays, rec_name, fs, sig_names=None,
                          signal_kwargs={}):
         '''
+        DEPRECATED???
         Generates a recording object, and the signal objects it contains,
         from a list of array-like structures of the form channels x time
         (see signal.py for more details about how arrays are represented
@@ -263,7 +277,7 @@ class Recording:
         # Combine into recording and return
         return Recording(signals)
 
-    def save(self, uri, uncompressed=False):
+    def save(self, uri='', uncompressed=False):
         '''
         Saves this recording to a URI as a compressed .tar.gz file.
         Returns the URI of what was saved, or None if there was a problem.
@@ -292,28 +306,34 @@ class Recording:
         # Save it to AWS (TODO, Not Implemented, Needs credentials)
         rec.save('s3://nems.amazonaws.com/somebucket/')
         '''
-        guessed_filename = self.name + '.tar.gz'
+
+        guessed_filename = recording_filename_hash(
+                self.name, self.meta,  uri_path=uri, uncompressed=uncompressed)
+
         # Set the URI metadata since we are writing to a URI now
         if not self.uri:
             self.uri = uri
         if local_uri(uri):
             uri = local_uri(uri)
-            print(uri)
+            log.info("Saving recording to : %s", uri)
             if targz_uri(uri):
                 return self.save_targz(uri)
             elif uncompressed:
                 return self.save_dir(uri)
             else:
-                #print(uri + '/' + guessed_filename)
-                return self.save_targz(uri + '/' + guessed_filename)
+                # print(uri + '/' + guessed_filename)
+                uri = uri + os.sep + guessed_filename
+                return self.save_targz(uri)
         elif http_uri(uri):
             uri = http_uri(uri)
             if targz_uri(uri):
                 return self.save_url(uri)
             elif uri[-1] == '/':
-                return self.save_url(uri + guessed_filename)
+                uri = uri + guessed_filename
+                return self.save_url(uri)
             else:
-                return self.save_url(uri + '/' + guessed_filename)
+                uri = uri + os.sep + guessed_filename
+                return self.save_url(uri)
         elif uri[0:6] == 's3://':
             raise NotImplementedError
         else:
@@ -324,9 +344,10 @@ class Recording:
         Saves all the signals (CSV/JSON pairs) in this recording into
         DIRECTORY in a new directory named the same as this recording.
         '''
-        if os.path.isdir(directory):
-            directory = os.path.join(directory, self.name)
-        elif os.path.exits(directory):
+        # SVD moved recname adding to save
+        #if os.path.isdir(directory):
+        #    directory = os.path.join(directory, self.name)
+        if os.path.exists(directory):
             m = 'File named {} exists; unable to create dir'.format(directory)
             raise ValueError(m)
         else:
@@ -335,6 +356,12 @@ class Recording:
             os.makedirs(directory, exist_ok=True)
         for s in self.signals.values():
             s.save(directory)
+
+        # Save meta dictionary to json file. Works?
+        metafilepath = directory + os.sep + self.name + '.meta.json'
+        md_fh = open(metafilepath, 'w')
+        self._save_metadata(md_fh)
+
         return directory
 
     def save_targz(self, uri):
@@ -368,7 +395,20 @@ class Recording:
         f = io.BytesIO()  # Create a buffer
         tar = tarfile.open(fileobj=f, mode='w:gz')
         # tar = tarfile.open('/home/ivar/poopy.tar.gz', mode='w:gz')
-        # With the tar buffer open, write all signal files
+        # With the tar buffer open, write meta data, then all signal files
+
+        # save meta
+        metafilebase = self.name + '.meta.json'
+        md_fh = io.StringIO()
+        self._save_metadata(md_fh)
+        stream = io.BytesIO(md_fh.getvalue().encode())
+        info = tarfile.TarInfo(os.path.join(self.name, metafilebase))
+        info.uname = 'nems'  # User name
+        info.gname = 'users'  # Group name
+        info.mtime = time.time()
+        info.size = stream.getbuffer().nbytes
+        tar.addfile(info, stream)
+
         for s in self.signals.values():
             d = s.as_file_streams()  # Dict mapping filenames to streams
             for filename, stringstream in d.items():
@@ -382,6 +422,7 @@ class Recording:
                 info.mtime = time.time()
                 info.size = stream.getbuffer().nbytes
                 tar.addfile(info, stream)
+
         tar.close()
         f.seek(0)
         return f
@@ -404,6 +445,14 @@ class Recording:
                                                             uri)
             log.warn(m)
             return None
+
+    def _save_metadata(self, md_fh, fmt='%.18e'):
+        '''
+        Save this signal to a CSV file + JSON sidecar. If desired,
+        you may use optional parameter fmt (for example, fmt='%1.3e')
+        to alter the precision of the floating point matrices.
+        '''
+        json.dump(self.meta, md_fh)
 
     def get_signal(self, signal_name):
         '''
@@ -903,7 +952,7 @@ def load_recording_from_targz_stream(tgz_stream):
     For hdf5 files, copy to temporary directory and load with hdf5 utility
     '''
     tpath=None
-
+    meta = {}
     streams = {}  # For holding file streams as we unpack
     with tarfile.open(fileobj=tgz_stream, mode='r:gz') as t:
         for member in t.getmembers():
@@ -912,7 +961,11 @@ def load_recording_from_targz_stream(tgz_stream):
             basename = os.path.basename(member.name)
             # Now put it in a subdict so we can find it again
             signame = str(basename.split('.')[0:2])
-            if basename.endswith('epoch.csv'):
+            if basename.endswith('meta.json'):
+                f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
+                meta = json.load(f)
+                f = None
+            elif basename.endswith('epoch.csv'):
                 keyname = 'epoch_stream'
                 f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
 
@@ -937,19 +990,21 @@ def load_recording_from_targz_stream(tgz_stream):
             else:
                 m = 'Unexpected file found in tar.gz: {} (size={})'.format(member.name, member.size)
                 raise ValueError(m)
-            # Ensure that we can doubly nest the streams dict
-            if signame not in streams:
-                streams[signame] = {}
-            # Read out a stringIO object for each file now while it's open
-            #f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
-            streams[signame][keyname] = f
+
+            if f is not None:
+                # Ensure that we can doubly nest the streams dict
+                if signame not in streams:
+                    streams[signame] = {}
+                # Read out a stringIO object for each file now while it's open
+                #f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
+                streams[signame][keyname] = f
 
     # Now that the streams are organized, convert them into signals
     # log.debug({k: streams[k].keys() for k in streams})
     signals = [load_signal_from_streams(**sg) for sg in streams.values()]
     signals_dict = {s.name: s for s in signals}
 
-    rec = Recording(signals=signals_dict)
+    rec = Recording(signals=signals_dict, meta=meta)
 
     if tpath:
         shutil.rmtree(tpath) # clean up if tpath is not None
@@ -1183,7 +1238,7 @@ def jackknife_inverse_merge(rec_list):
             #new_sigs[sn]=sig_list[0].jackknife_inverse_merge(sig_list)
             new_sigs[sn]=merge_selections(sig_list)
 
-    return Recording(signals=new_sigs)
+    return Recording(signals=new_sigs, meta=rec_list[0].meta.copy())
 
 
 # TODO: Might be a better place for this, but moved it from nems.uri

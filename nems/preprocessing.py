@@ -206,9 +206,10 @@ def mask_all_but_correct_references(rec, balance_rep_count=False):
     newrec['resp'] = newrec['resp'].rasterize()
     if 'stim' in newrec.signals.keys():
         newrec['stim'] = newrec['stim'].rasterize()
+    resp = newrec['resp']
 
     if balance_rep_count:
-        resp = newrec['resp']
+
         epoch_regex = "^STIM_"
         epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
         p=resp.get_epoch_indices("PASSIVE_EXPERIMENT")
@@ -236,12 +237,31 @@ def mask_all_but_correct_references(rec, balance_rep_count=False):
         newrec = newrec.or_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
         newrec = newrec.and_mask(['REFERENCE'])
 
+    # figure out if some actives should be masked out
+    t = ep.epoch_names_matching(resp.epochs, "^TAR_")
+    tm = [tt[:-2] for tt in t]  # trim last digits
+    active_epochs = resp.get_epoch_indices("ACTIVE_EXPERIMENT")
+    if len(set(tm)) > 1 and len(active_epochs) > 1:
+        print('Multiple targets: ', tm)
+        files = ep.epoch_names_matching(resp.epochs, "^FILE_")
+        keep_files = files
+        e = active_epochs[1]
+        for i,f in enumerate(files):
+            fi = resp.get_epoch_indices(f)
+            if any(ep.epoch_contains([e], fi, 'both')):
+                keep_files = files[:i]
+
+        print('Print keeping files: ', keep_files)
+        newrec = newrec.and_mask(keep_files)
+
+
     if 'state' in newrec.signals:
         b_states = ['far', 'hit', 'lick',
                     'puretone_trials', 'easy_trials', 'hard_trials']
         trec = newrec.copy()
         trec = trec.and_mask(['ACTIVE_EXPERIMENT'])
         st = trec['state'].as_continuous().copy()
+        str = trec['state_raw'].as_continuous().copy()
         mask = trec['mask'].as_continuous()[0, :]
         for s in trec['state'].chans:
             if s in b_states:
@@ -252,7 +272,10 @@ def mask_all_but_correct_references(rec, balance_rep_count=False):
                 # print(np.sum(mask))
                 st[i, mask] -= m
                 st[i, mask] /= sd
+                str[i, mask] -= m
+                str[i, mask] /= sd
         newrec['state'] = newrec['state']._modified_copy(st)
+        newrec['state_raw'] = newrec['state_raw']._modified_copy(str)
 
     return newrec
 
@@ -668,6 +691,10 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         else:
             newrec = concatenate_state_channel(
                     newrec, newrec[x], state_signal_name=new_signalname)
+
+        newrec = concatenate_state_channel(
+                newrec, newrec[x], state_signal_name=new_signalname+"_raw")
+
 
     return newrec
 

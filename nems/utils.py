@@ -1,5 +1,8 @@
 import time
 import numpy as np
+import hashlib
+import json
+import os
 
 import logging
 log = logging.getLogger(__name__)
@@ -10,6 +13,31 @@ def iso8601_datestring():
     Returns a string containing the present date as a string.
     '''
     return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
+
+
+def recording_filename_hash(name, meta, uri_path='', uncompressed=False):
+    """
+    name: string
+    meta: dictionary (string keys only?)
+
+    hashing function to generate recording filenames
+    JSON encode neta, then append to name
+    """
+    meta_hash=hashlib.sha1(json.dumps(meta).encode('utf-8')).hexdigest()
+
+    if uncompressed:
+        guessed_filename = name + "_" + meta_hash + os.sep
+    else:
+        guessed_filename = name + "_" + meta_hash + '.tar.gz'
+
+    batch = meta.get('batch',None)
+    if batch is not None:
+        guessed_filename = os.path.join(str(batch), guessed_filename)
+
+    if uri_path is not None and uri_path != '':
+        guessed_filename = os.path.join(uri_path, guessed_filename)
+
+    return guessed_filename
 
 
 def one_zz(zerocount=1):
