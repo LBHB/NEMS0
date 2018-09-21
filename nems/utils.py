@@ -17,20 +17,28 @@ def iso8601_datestring():
 
 def recording_filename_hash(name, meta, uri_path='', uncompressed=False):
     """
-    name: string
-    meta: dictionary (string keys only?)
+    name : string
+    meta : dictionary (string keys only?)
+    uri_path : base path
+    uncompressed : boolean
+        if True, return .tgz file
+        if False, return path to folder
+
+    returns
+       guessed_filename : string
+        <uri_path>/<batch>/<name>_<meta hash>.tgz
 
     hashing function to generate recording filenames
-    JSON encode neta, then append to name
+    JSON encode meta, then append hash to name
     """
-    meta_hash=hashlib.sha1(json.dumps(meta).encode('utf-8')).hexdigest()
+    meta_hash = hashlib.sha1(json.dumps(meta, sort_keys=True).encode('utf-8')).hexdigest()
 
     if uncompressed:
         guessed_filename = name + "_" + meta_hash + os.sep
     else:
-        guessed_filename = name + "_" + meta_hash + '.tar.gz'
+        guessed_filename = name + "_" + meta_hash + '.tgz'
 
-    batch = meta.get('batch',None)
+    batch = meta.get('batch', None)
     if batch is not None:
         guessed_filename = os.path.join(str(batch), guessed_filename)
 

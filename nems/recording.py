@@ -88,20 +88,20 @@ class Recording:
         '''
         DEPRECATED??? REPLACED by regular functions?
 
-        Loads from a local .tar.gz file, a local directory, from s3,
-        or from an HTTP URL containing a .tar.gz file. Examples:
+        Loads from a local .tgz file, a local directory, from s3,
+        or from an HTTP URL containing a .tgz file. Examples:
 
         # Load all signals in the gus016c-a2 directory
         rec = Recording.load('/home/myuser/gus016c-a2')
         rec = Recording.load('file:///home/myuser/gus016c-a2')
 
         # Load the local tar gz directory.
-        rec = Recording.load('file:///home/myuser/gus016c-a2.tar.gz')
+        rec = Recording.load('file:///home/myuser/gus016c-a2.tgz')
 
-        # Load a tar.gz file served from a flat filesystem
-        rec = Recording.load('http://potoroo/recordings/gus016c-a2.tar.gz')
+        # Load a tgz file served from a flat filesystem
+        rec = Recording.load('http://potoroo/recordings/gus016c-a2.tgz')
 
-        # Load a tar.gz file created by the nems-baphy interafce
+        # Load a tgz file created by the nems-baphy interafce
         rec = Recording.load('http://potoroo/baphy/271/gus016c-a2')
 
         # Load from S3:
@@ -125,7 +125,7 @@ class Recording:
     def load_dir(directory_or_targz):
         '''
         Loads all the signals (CSV/JSON pairs) found in DIRECTORY or
-        .tar.gz file, and returns a Recording object containing all of them.
+        .tgz file, and returns a Recording object containing all of them.
         DEPRECATED???
         '''
         if os.path.isdir(directory_or_targz):
@@ -141,20 +141,20 @@ class Recording:
     @staticmethod
     def load_targz(targz):
         '''
-        Loads the recording object from a tar.gz file.
+        Loads the recording object from a tgz file.
         DEPRECATED???
         '''
         if os.path.exists(targz):
             with open(targz, 'rb') as stream:
                 return load_recording_from_targz_stream(stream)
         else:
-            m = 'Not a .tar.gz file: {}'.format(targz)
+            m = 'Not a .tgz file: {}'.format(targz)
             raise ValueError(m)
 
     @staticmethod
     def load_url(url):
         '''
-        Loads the recording object from a URL. File must be tar.gz format.
+        Loads the recording object from a URL. File must be tgz format.
         DEPRECATED???
         '''
         r = requests.get(url, stream=True)
@@ -279,7 +279,7 @@ class Recording:
 
     def save(self, uri='', uncompressed=False):
         '''
-        Saves this recording to a URI as a compressed .tar.gz file.
+        Saves this recording to a URI as a compressed .tgz file.
         Returns the URI of what was saved, or None if there was a problem.
 
         Optional argument 'uncompressed' may be used to force the save
@@ -292,16 +292,16 @@ class Recording:
         rec.save('/home/username/recordings/')
 
         # Save it to a local file, with a specific name
-        rec.save('/home/username/recordings/my_recording.tar.gz')
+        rec.save('/home/username/recordings/my_recording.tgz')
 
         # Same, but with an explicit file:// prefix
-        rec.save('file:///home/username/recordings/my_recording.tar.gz')
+        rec.save('file:///home/username/recordings/my_recording.tgz')
 
         # Save it to the nems_db running on potoroo, use automatic filename
         rec.save('http://potoroo/recordings/')
 
         # Save it to the nems_db running on potoroo, specific filename
-        rec.save('http://potoroo/recordings/my_recording.tar.gz')
+        rec.save('http://potoroo/recordings/my_recording.tgz')
 
         # Save it to AWS (TODO, Not Implemented, Needs credentials)
         rec.save('s3://nems.amazonaws.com/somebucket/')
@@ -367,7 +367,7 @@ class Recording:
     def save_targz(self, uri):
         '''
         Saves all the signals (CSV/JSON pairs) in this recording
-        as a .tar.gz file at a local URI.
+        as a .tgz file at a local URI.
         '''
         directory = os.path.dirname(uri)
         if not os.path.isdir(directory):
@@ -381,20 +381,20 @@ class Recording:
 
     def as_targz(self):
         '''
-        Returns a BytesIO containing all the rec's signals as a .tar.gz stream.
+        Returns a BytesIO containing all the rec's signals as a .tgz stream.
         You may either send this over HTTP or save it to a file. No temporary
-        files are created in the creation of this .tar.gz stream.
+        files are created in the creation of this .tgz stream.
 
         Example of saving an in-memory recording to disk:
             rec = Recording(...)
-            with open('/some/path/test.tar.gz', 'wb') as fh:
+            with open('/some/path/test.tgz', 'wb') as fh:
                 tgz = rec.as_targz()
                 fh.write(tgz.read())
                 tgz.close()  # Don't forget to close it!
         '''
         f = io.BytesIO()  # Create a buffer
         tar = tarfile.open(fileobj=f, mode='w:gz')
-        # tar = tarfile.open('/home/ivar/poopy.tar.gz', mode='w:gz')
+        # tar = tarfile.open('/home/ivar/poopy.tgz', mode='w:gz')
         # With the tar buffer open, write meta data, then all signal files
 
         # save meta
@@ -941,13 +941,13 @@ def load_recording_from_targz(targz):
         with open(targz, 'rb') as stream:
             return load_recording_from_targz_stream(stream)
     else:
-        m = 'Not a .tar.gz file: {}'.format(targz)
+        m = 'Not a .tgz file: {}'.format(targz)
         raise ValueError(m)
 
 
 def load_recording_from_targz_stream(tgz_stream):
     '''
-    Loads the recording object from the given .tar.gz stream, which
+    Loads the recording object from the given .tgz stream, which
     is expected to be a io.BytesIO object.
     For hdf5 files, copy to temporary directory and load with hdf5 utility
     '''
@@ -988,7 +988,7 @@ def load_recording_from_targz_stream(tgz_stream):
                 f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
 
             else:
-                m = 'Unexpected file found in tar.gz: {} (size={})'.format(member.name, member.size)
+                m = 'Unexpected file found in tgz: {} (size={})'.format(member.name, member.size)
                 raise ValueError(m)
 
             if f is not None:
@@ -1013,20 +1013,20 @@ def load_recording_from_targz_stream(tgz_stream):
 
 def load_recording(uri):
     '''
-    Loads from a local .tar.gz file, a local directory, from s3,
-    or from an HTTP URL containing a .tar.gz file. Examples:
+    Loads from a local .tgz file, a local directory, from s3,
+    or from an HTTP URL containing a .tgz file. Examples:
 
     # Load all signals in the gus016c-a2 directory
     rec = Recording.load('/home/myuser/gus016c-a2')
     rec = Recording.load('file:///home/myuser/gus016c-a2')
 
     # Load the local tar gz directory.
-    rec = Recording.load('file:///home/myuser/gus016c-a2.tar.gz')
+    rec = Recording.load('file:///home/myuser/gus016c-a2.tgz')
 
-    # Load a tar.gz file served from a flat filesystem
-    rec = Recording.load('http://potoroo/recordings/gus016c-a2.tar.gz')
+    # Load a tgz file served from a flat filesystem
+    rec = Recording.load('http://potoroo/recordings/gus016c-a2.tgz')
 
-    # Load a tar.gz file created by the nems-baphy interafce
+    # Load a tgz file created by the nems-baphy interafce
     rec = Recording.load('http://potoroo/baphy/271/gus016c-a2')
 
     # Load from S3:
@@ -1052,7 +1052,7 @@ def load_recording(uri):
 def load_recording_from_dir(directory_or_targz):
     '''
     Loads all the signals (CSV/JSON pairs) found in DIRECTORY or
-    .tar.gz file, and returns a Recording object containing all of them.
+    .tgz file, and returns a Recording object containing all of them.
     '''
     if os.path.isdir(directory_or_targz):
         files = list_signals(directory_or_targz)
@@ -1066,7 +1066,7 @@ def load_recording_from_dir(directory_or_targz):
 
 def load_recording_from_url(url):
     '''
-    Loads the recording object from a URL. File must be tar.gz format.
+    Loads the recording object from a URL. File must be tgz format.
     '''
     r = requests.get(url, stream=True)
     if not (r.status_code == 200 and
