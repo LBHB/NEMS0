@@ -129,13 +129,14 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
     TODO -- make sure this works generally or create alternatives
 
     '''
+
     fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
 
     # fit without STP module first (if there is one)
     modelspec = prefit_to_target(est, modelspec, fit_basic,
                                  target_module='levelshift',
                                  extra_exclude=['stp'],
-                                 fitter=scipy_minimize,
+                                 fitter=fitter,
                                  metric=metric,
                                  fit_kwargs=fit_kwargs)
 
@@ -176,7 +177,6 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
 #                        fitter=scipy_minimize,
 #                        fit_kwargs={'tolerance': 1e-6, 'max_iter': 500})
 #                        for modelspec in modelspecs]
-
 
     return modelspec
 
@@ -405,9 +405,9 @@ def init_logsig(rec, modelspec):
     # preserve input modelspec
     modelspec = copy.deepcopy(modelspec)
 
-    target_i = find_module('double_exponential', modelspec)
+    target_i = find_module('logistic_sigmoid', modelspec)
     if target_i is None:
-        log.warning("No dexp module was found, can't initialize.")
+        log.warning("No logsig module was found, can't initialize.")
         return modelspec
 
     if target_i == len(modelspec):
@@ -447,9 +447,9 @@ def init_logsig(rec, modelspec):
     shift = ('Normal', {'mean': shift0, 'sd': pred_range})
     kappa = ('Exponential', {'beta': kappa0})
 
-    modelspec[target_i]['prior'] = {
+    modelspec[target_i]['prior'].update({
             'base': base, 'amplitude': amplitude, 'shift': shift,
-            'kappa': kappa}
+            'kappa': kappa})
 
     modelspec[target_i]['bounds'] = {
             'base': (1e-15, None),
