@@ -51,6 +51,57 @@ def state_mod_index(rec, epoch='REFERENCE', psth_name='pred',
     return mod
 
 
+def j_state_mod_index(rec, epoch='REFERENCE', psth_name='pred',
+                    state_sig='state_raw', state_chan='pupil', njacks=20):
+    """
+    Break into njacks jackknife sets and compute state_mod_index for each. 
+    Use new mask on each jackknife to pass into state_mod_index
+    """    
+
+    channel_count = len(rec['resp'].chans)
+    
+    if (type(state_chan) == list) & (len(state_chan) == 0):
+        state_chans = len(rec[state_sig].chans)
+    else:
+        state_chans = 1
+        
+    mi = np.zeros((channel_count, state_chans))
+    ee = np.zeros((channel_count, state_chans))
+
+    for i in range(channel_count):
+        psth_mat = rec[psth_name].as_continuous()
+        ff = rec['mask'].as_continuous()
+
+        if (np.sum(ff) == 0) or (np.sum(psth_mat[ff]) == 0):
+            mi[i] = 0
+            ee[i] = 0
+        else:
+            length = rec.apply_mask()['resp'].as_continuous().shape[-1]
+            chunksize = int(np.ceil(length / njacks / 10))
+            chunkcount = int(np.ceil(length / chunksize / njacks))
+            idx = np.zeros((chunkcount, njacks, chunksize))
+            for jj in range(njacks):
+                idx[:, jj, :] = jj
+            idx = np.reshape(idx, [-1])[:length]
+        
+            j_mi = np.zeros((njacks, state_chans))
+            
+            for jj in range(njacks):
+                ff = (idx != jj)
+                new_mask = rec.apply_mask()['mask']._modified_copy(ff[np.newaxis, :])
+                new_rec = rec.apply_mask().copy()
+                new_rec.add_signal(new_mask)
+                new_rec = new_rec.apply_mask()
+ 
+                j_mi[jj, :] = state_mod_index(new_rec, epoch, psth_name, state_sig,
+                                           state_chan)
+
+            mi[i, :] = np.nanmean(j_mi, axis=0)
+            ee[i, :] = np.nanstd(j_mi, axis=0) * np.sqrt(njacks-1)
+
+    return mi, ee
+
+
 def single_state_mod_index(rec, modelspec, epoch='REFERENCE', psth_name='pred',
                            state_sig='state', state_chan='pupil'):
 
