@@ -259,10 +259,15 @@ class EpochCanvas(MyMplCanvas):
 
         valid_epochs = epochs[(epochs['start'] >= p.start_time) &
                               (epochs['end'] < p.stop_time)]
+        if valid_epochs.size == 0:
+            print('no valid epochs')
+            return
+            valid_epochs = valid_epochs.append([{'name': 'EXPT', 'start': p.start_time, 'end': p.stop_time}])
 
         # On each refresh, keep the same keys but reform the lists of indices.
         self.epoch_groups = {k: [] for k in self.epoch_groups}
-        for i, n, s, e in valid_epochs.itertuples():
+        for i, s, e, n in valid_epochs.itertuples():
+            print(n)
             prefix = n.split('_')[0]
             if prefix in self.epoch_groups:
                 self.epoch_groups[prefix].append(i)
@@ -271,6 +276,7 @@ class EpochCanvas(MyMplCanvas):
 
 #        colors = ['Blue', 'Green', 'Yellow', 'Red']
 #        k = 0
+        i = 0
         for i, g in enumerate(self.epoch_groups):
 #            c = colors[k]
 #            k += 1

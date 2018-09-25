@@ -706,7 +706,11 @@ def add_summary_statistics(est, val, modelspecs, fn='standard_correlation',
     if find_module('state', modelspecs[0]) is not None:
         s = metrics.state_mod_index(val[0], epoch='REFERENCE', psth_name='pred',
                             state_sig='state_raw', state_chan=[])
+        j_s, ee = metrics.j_state_mod_index(val[0], epoch='REFERENCE', psth_name='pred',
+                            state_sig='state_raw', state_chan=[], njacks=10)
         modelspecs[0][0]['meta']['state_mod'] = s
+        modelspecs[0][0]['meta']['j_state_mod'] = j_s
+        modelspecs[0][0]['meta']['se_state_mod'] = ee
 
     return {'modelspecs': modelspecs}
 

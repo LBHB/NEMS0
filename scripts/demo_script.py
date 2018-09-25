@@ -131,12 +131,13 @@ log.info('Generating summary plot...')
 # Generate a summary plot
 context = {'val': val, 'modelspecs': modelspecs, 'est': est}
 fig = nplt.quickplot(context)
+fig.show()
 
 # Optional: uncomment to save your figure
 # fname = nplt.save_figure(fig, modelspecs=modelspecs, save_dir=modelspecs_dir)
 
 # browse the validation data
-browse_recording(val[0], signals=['stim', 'pred', 'resp'], cellid=cellid)
+aw = browse_recording(val[0], signals=['stim', 'pred', 'resp'], cellid=cellid)
 
 
 # ----------------------------------------------------------------------------

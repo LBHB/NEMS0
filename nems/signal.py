@@ -498,6 +498,9 @@ class SignalBase:
         '''
         df = pd.DataFrame(epoch, columns=['start', 'end'])
         df['name'] = epoch_name
+
+        # important to match standard column order in case epochs is empty. Some code requires this order??
+        #df = df[['name', 'start', 'end']]
         if self.epochs is not None:
             self.epochs = self.epochs.append(df, ignore_index=True)
         else:
