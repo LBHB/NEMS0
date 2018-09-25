@@ -194,7 +194,8 @@ def remove_invalid_segments(rec):
     return newrec
 
 
-def mask_all_but_correct_references(rec, balance_rep_count=False):
+def mask_all_but_correct_references(rec, balance_rep_count=False,
+                                    keep_incorrect=False):
     """
     Specialized function for removing incorrect trials from data
     collected using baphy during behavior.
@@ -233,8 +234,11 @@ def mask_all_but_correct_references(rec, balance_rep_count=False):
 
         newrec = newrec.create_mask(epoch_list)
 
+    elif keep_incorrect:
+        newrec = newrec.and_mask(['REFERENCE'])
+
     else:
-        newrec = newrec.or_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
+        newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
         newrec = newrec.and_mask(['REFERENCE'])
 
     # figure out if some actives should be masked out
@@ -253,7 +257,6 @@ def mask_all_but_correct_references(rec, balance_rep_count=False):
 
         print('Print keeping files: ', keep_files)
         newrec = newrec.and_mask(keep_files)
-
 
     if 'state' in newrec.signals:
         b_states = ['far', 'hit', 'lick',
@@ -602,6 +605,28 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         if 'each_passive' in permute_signals:
             permute_signals.remove('each_passive')
             permute_signals.extend(pset)
+
+    if ('each_file' in state_signals):
+        file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
+        pset = []
+        found_passive1 = False
+        for f in file_epochs:
+            epoch_indices = ep.epoch_intersection(
+                    resp.get_epoch_indices(f),
+                    resp.get_epoch_indices('PASSIVE_EXPERIMENT'))
+            if epoch_indices.size and not(found_passive1):
+                found_passive1 = True
+            else:
+                pset.append(f)
+                newrec[f] = resp.epoch_to_signal(f)
+        state_signals.remove('each_file')
+        state_signals.extend(pset)
+        if 'each_file' in permute_signals:
+            permute_signals.remove('each_file')
+            permute_signals.extend(pset)
+
+
+
 
     # generate task state signals
     if 'pas' in state_signals:

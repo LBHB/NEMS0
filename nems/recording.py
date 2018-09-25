@@ -870,7 +870,6 @@ class Recording:
         list of epoch names can be either list of epoch names or simply an array
         of index segments to mask
 
-
         Make mask == True for all epochs (or index segments) in list of epoch
         names where current mask is also true.
 
