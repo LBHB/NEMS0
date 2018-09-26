@@ -353,7 +353,7 @@ def make_mod_signal(rec, signal='resp'):
     mod_index
     """
     new_rec = rec.copy()
-    psth = new_rec['psth']
+    psth = new_rec['psth_sp']
     resp = new_rec[signal]
     mod_data = resp.as_continuous() - psth.as_continuous()
     mod = psth._modified_copy(mod_data)
