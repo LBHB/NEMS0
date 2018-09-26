@@ -56,7 +56,7 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred',
     return low, high
 
 
-def state_mod_index(rec, epoch='REFERENCE', psth_name='pred',
+def state_mod_index(rec, epoch='REFERENCE', psth_name='pred', divisor=None,
                     state_sig='state_raw', state_chan='pupil'):
     """
     compute modulation index (MI) by splitting trials with state_chan into
@@ -79,13 +79,21 @@ def state_mod_index(rec, epoch='REFERENCE', psth_name='pred',
 
     low, high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
                                 state_sig=state_sig, state_chan=state_chan)
-
-    mod = np.sum(high - low) / np.sum(high + low)
+    
+    if divisor is not None:
+        low_denom, high_denom = state_mod_split(rec, epoch=epoch, 
+                                                psth_name=divisor,
+                                                state_sig=state_sig,
+                                                state_chan=state_chan)
+        mod = np.sum(high-low) / np.sum(high_denom + low_denom)
+        
+    else:            
+        mod = np.sum(high - low) / np.sum(high + low)
 
     return mod
 
 
-def j_state_mod_index(rec, epoch='REFERENCE', psth_name='pred',
+def j_state_mod_index(rec, epoch='REFERENCE', psth_name='pred', divisor=None,
                       state_sig='state_raw', state_chan='pupil', njacks=20):
     """
     Break into njacks jackknife sets and compute state_mod_index for each.
@@ -127,8 +135,9 @@ def j_state_mod_index(rec, epoch='REFERENCE', psth_name='pred',
                 new_rec.add_signal(new_mask)
                 new_rec = new_rec.apply_mask()
 
-                j_mi[jj, :] = state_mod_index(new_rec, epoch, psth_name,
-                    state_sig, state_chan)
+                j_mi[jj, :] = state_mod_index(new_rec, epoch=epoch,
+                    psth_name=psth_name, divisor=divisor, state_sig=state_sig,
+                    state_chan=state_chan)
 
             mi[i, :] = np.nanmean(j_mi, axis=0)
             ee[i, :] = np.nanstd(j_mi, axis=0) * np.sqrt(njacks-1)
