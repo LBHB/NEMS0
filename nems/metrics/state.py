@@ -112,10 +112,9 @@ def j_state_mod_index(rec, epoch='REFERENCE', psth_name='pred', divisor=None,
     ee = np.zeros((channel_count, state_chans))
 
     for i in range(channel_count):
-        psth_mat = rec[psth_name].as_continuous()
         ff = rec['mask'].as_continuous()
 
-        if (np.sum(ff) == 0) or (np.sum(psth_mat[ff]) == 0):
+        if (np.sum(ff) == 0):
             mi[i] = 0
             ee[i] = 0
         else:
