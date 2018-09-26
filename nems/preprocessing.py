@@ -446,15 +446,19 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
                                                  axis=2, keepdims=True)
 
         per_stim_psth[k] = np.nanmean(v, axis=0) - spont_rate[:, np.newaxis]
+        per_stim_psth_spont[k] = np.nanmean(v, axis=0)
         folded_matrices[k] = v
 
     # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
     #   replacing all epochs in the signal with their average (psth)
     respavg = resp.replace_epochs(per_stim_psth)
+    respavg_with_spont = resp.replace_epochs(per_stim_psth_spont)
     respavg.name = 'psth'
+    respavg_with_spont.name = 'psth_sp'
 
     # add signal to the recording
     newrec.add_signal(respavg)
+    newrec.add_signal(respavg_with_spont)
 
     if smooth_resp:
         log.info('Replacing resp with smoothed resp')
