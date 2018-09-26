@@ -7,19 +7,10 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def state_mod_index(rec, epoch='REFERENCE', psth_name='pred',
+def state_mod_split(rec, epoch='REFERENCE', psth_name='pred',
                     state_sig='state_raw', state_chan='pupil'):
-
-    if type(state_chan) is list:
-        if len(state_chan) == 0:
-            state_chan = rec[state_sig].chans
-
-        mod_list = [state_mod_index(rec, epoch=epoch,
-                                    psth_name=psth_name,
-                                    state_sig=state_sig,
-                                    state_chan=s)
-                    for s in state_chan]
-        return np.array(mod_list)
+    if 'mask' in rec.signals.keys():
+        rec = rec.apply_mask()
 
     full_psth = rec[psth_name]
     folded_psth = full_psth.extract_epoch(epoch)
@@ -35,16 +26,59 @@ def state_mod_index(rec, epoch='REFERENCE', psth_name='pred',
     # compute the mean state across all occurrences
     mean = np.nanmean(m)
     gtidx = (m >= mean) & g
-    ltidx = np.logical_not(gtidx) & g
+    if state_chan.startswith('FILE'):
+        #log.info('state_chan: %s', state_chan)
 
-    if (np.sum(ltidx) == 0) or (np.sum(gtidx) == 0):
-        return np.nan
+        m0 = np.zeros_like(m)
+        for s in rec[state_sig].chans:
+            if s.startswith('FILE') and s != state_chan:
+                full_var = rec[state_sig].loc[s]
+                folded_var = np.squeeze(full_var.extract_epoch(epoch))
+                g = (np.sum(np.isfinite(folded_var), axis=1) > 0)
+                m0[g] += np.nanmean(folded_var[g, :], axis=1)
+
+        ltidx = np.logical_not(gtidx) & np.logical_not(m0) & g
+    else:
+        ltidx = np.logical_not(gtidx) & g
 
     # low = response on epochs when state less than mean
-    low = np.nanmean(folded_psth[ltidx, :, :], axis=0).T
+    if (np.sum(ltidx) == 0):
+        low = np.zeros_like(folded_psth[0, :, :].T) * np.nan
+    else:
+        low = np.nanmean(folded_psth[ltidx, :, :], axis=0).T
 
     # high = response on epochs when state greater than or equal to mean
-    high = np.nanmean(folded_psth[gtidx, :, :], axis=0).T
+    if (np.sum(gtidx) == 0):
+        high = np.zeros_like(folded_psth[0, :, :].T) * np.nan
+    else:
+        high = np.nanmean(folded_psth[gtidx, :, :], axis=0).T
+
+    return low, high
+
+
+def state_mod_index(rec, epoch='REFERENCE', psth_name='pred',
+                    state_sig='state_raw', state_chan='pupil'):
+    """
+    compute modulation index (MI) by splitting trials with state_chan into
+    high and low groups (> or < median) and measuring the normalized diff
+    between the two PSTHs:
+       mod = (high-low) / (high+low)
+    high and low PSTHs computed with state_mod_split
+    """
+
+    if type(state_chan) is list:
+        if len(state_chan) == 0:
+            state_chan = rec[state_sig].chans
+
+        mod_list = [state_mod_index(rec, epoch=epoch,
+                                    psth_name=psth_name,
+                                    state_sig=state_sig,
+                                    state_chan=s)
+                    for s in state_chan]
+        return np.array(mod_list)
+
+    low, high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
+                                state_sig=state_sig, state_chan=state_chan)
 
     mod = np.sum(high - low) / np.sum(high + low)
 
@@ -52,19 +86,19 @@ def state_mod_index(rec, epoch='REFERENCE', psth_name='pred',
 
 
 def j_state_mod_index(rec, epoch='REFERENCE', psth_name='pred',
-                    state_sig='state_raw', state_chan='pupil', njacks=20):
+                      state_sig='state_raw', state_chan='pupil', njacks=20):
     """
-    Break into njacks jackknife sets and compute state_mod_index for each. 
+    Break into njacks jackknife sets and compute state_mod_index for each.
     Use new mask on each jackknife to pass into state_mod_index
-    """    
+    """
 
     channel_count = len(rec['resp'].chans)
-    
+
     if (type(state_chan) == list) & (len(state_chan) == 0):
         state_chans = len(rec[state_sig].chans)
     else:
         state_chans = 1
-        
+
     mi = np.zeros((channel_count, state_chans))
     ee = np.zeros((channel_count, state_chans))
 
@@ -83,18 +117,18 @@ def j_state_mod_index(rec, epoch='REFERENCE', psth_name='pred',
             for jj in range(njacks):
                 idx[:, jj, :] = jj
             idx = np.reshape(idx, [-1])[:length]
-        
+
             j_mi = np.zeros((njacks, state_chans))
-            
+
             for jj in range(njacks):
                 ff = (idx != jj)
                 new_mask = rec.apply_mask()['mask']._modified_copy(ff[np.newaxis, :])
                 new_rec = rec.apply_mask().copy()
                 new_rec.add_signal(new_mask)
                 new_rec = new_rec.apply_mask()
- 
-                j_mi[jj, :] = state_mod_index(new_rec, epoch, psth_name, state_sig,
-                                           state_chan)
+
+                j_mi[jj, :] = state_mod_index(new_rec, epoch, psth_name,
+                    state_sig, state_chan)
 
             mi[i, :] = np.nanmean(j_mi, axis=0)
             ee[i, :] = np.nanstd(j_mi, axis=0) * np.sqrt(njacks-1)

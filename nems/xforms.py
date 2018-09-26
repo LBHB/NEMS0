@@ -288,12 +288,15 @@ def remove_all_but_correct_references(rec, **context):
     return {'rec': rec}
 
 
-def mask_all_but_correct_references(rec, balance_rep_count=False, **context):
+def mask_all_but_correct_references(rec, balance_rep_count=False,
+                                    include_incorrect=False, **context):
     '''
     find REFERENCE epochs spanned by either PASSIVE_EXPERIMENT or
     HIT_TRIAL epochs. mask out all other segments from signals in rec
     '''
-    rec = preproc.mask_all_but_correct_references(rec, balance_rep_count=balance_rep_count)
+    rec = preproc.mask_all_but_correct_references(
+            rec, balance_rep_count=balance_rep_count,
+            include_incorrect=include_incorrect)
 
     return {'rec': rec}
 
@@ -711,6 +714,7 @@ def add_summary_statistics(est, val, modelspecs, fn='standard_correlation',
         modelspecs[0][0]['meta']['state_mod'] = s
         modelspecs[0][0]['meta']['j_state_mod'] = j_s
         modelspecs[0][0]['meta']['se_state_mod'] = ee
+        modelspecs[0][0]['meta']['state_chans'] = val[0]['state'].chans
 
     return {'modelspecs': modelspecs}
 

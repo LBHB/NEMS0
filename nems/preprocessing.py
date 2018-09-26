@@ -195,7 +195,7 @@ def remove_invalid_segments(rec):
 
 
 def mask_all_but_correct_references(rec, balance_rep_count=False,
-                                    keep_incorrect=False):
+                                    include_incorrect=False):
     """
     Specialized function for removing incorrect trials from data
     collected using baphy during behavior.
@@ -234,7 +234,8 @@ def mask_all_but_correct_references(rec, balance_rep_count=False,
 
         newrec = newrec.create_mask(epoch_list)
 
-    elif keep_incorrect:
+    elif include_incorrect:
+        log.info('INCLUDING ALL TRIALS (CORRECT AND INCORRECT)')
         newrec = newrec.and_mask(['REFERENCE'])
 
     else:
@@ -242,21 +243,21 @@ def mask_all_but_correct_references(rec, balance_rep_count=False,
         newrec = newrec.and_mask(['REFERENCE'])
 
     # figure out if some actives should be masked out
-    t = ep.epoch_names_matching(resp.epochs, "^TAR_")
-    tm = [tt[:-2] for tt in t]  # trim last digits
-    active_epochs = resp.get_epoch_indices("ACTIVE_EXPERIMENT")
-    if len(set(tm)) > 1 and len(active_epochs) > 1:
-        print('Multiple targets: ', tm)
-        files = ep.epoch_names_matching(resp.epochs, "^FILE_")
-        keep_files = files
-        e = active_epochs[1]
-        for i,f in enumerate(files):
-            fi = resp.get_epoch_indices(f)
-            if any(ep.epoch_contains([e], fi, 'both')):
-                keep_files = files[:i]
-
-        print('Print keeping files: ', keep_files)
-        newrec = newrec.and_mask(keep_files)
+#    t = ep.epoch_names_matching(resp.epochs, "^TAR_")
+#    tm = [tt[:-2] for tt in t]  # trim last digits
+#    active_epochs = resp.get_epoch_indices("ACTIVE_EXPERIMENT")
+#    if len(set(tm)) > 1 and len(active_epochs) > 1:
+#        print('Multiple targets: ', tm)
+#        files = ep.epoch_names_matching(resp.epochs, "^FILE_")
+#        keep_files = files
+#        e = active_epochs[1]
+#        for i,f in enumerate(files):
+#            fi = resp.get_epoch_indices(f)
+#            if any(ep.epoch_contains([e], fi, 'both')):
+#                keep_files = files[:i]
+#
+#        print('Print keeping files: ', keep_files)
+#        newrec = newrec.and_mask(keep_files)
 
     if 'state' in newrec.signals:
         b_states = ['far', 'hit', 'lick',
@@ -624,9 +625,6 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         if 'each_file' in permute_signals:
             permute_signals.remove('each_file')
             permute_signals.extend(pset)
-
-
-
 
     # generate task state signals
     if 'pas' in state_signals:
