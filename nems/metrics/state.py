@@ -72,6 +72,7 @@ def state_mod_index(rec, epoch='REFERENCE', psth_name='pred', divisor=None,
 
         mod_list = [state_mod_index(rec, epoch=epoch,
                                     psth_name=psth_name,
+                                    divisor=divisor,
                                     state_sig=state_sig,
                                     state_chan=s)
                     for s in state_chan]
