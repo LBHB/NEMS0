@@ -431,6 +431,7 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
 
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()
+    per_stim_psth_spont = dict()
     for k, v in folded_matrices.items():
         if smooth_resp:
             # replace each epoch (pre, during, post) with average
