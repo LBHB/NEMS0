@@ -347,6 +347,23 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     return {'rec': rec}
 
 
+def make_mod_signal(rec, signal='resp'):
+    """
+    Make new signal called mod that can be used for calculating an unbiased
+    mod_index
+    """
+    new_rec = rec.copy()
+    psth = new_rec['psth']
+    resp = new_rec[signal]
+    mod_data = resp.as_continuous() - psth.as_continuous()
+    mod_data += abs(np.nanmin(mod_data))  # offset such that min = 0
+    mod = psth._modified_copy(mod_data)
+    mod.name = 'mod'
+    new_rec.add_signal(mod)
+
+    return new_rec
+
+
 def split_by_occurrence_counts(rec, epoch_regex='^STIM_', **context):
     est, val = rec.split_using_epoch_occurrence_counts(epoch_regex=epoch_regex)
 
@@ -715,6 +732,27 @@ def add_summary_statistics(est, val, modelspecs, fn='standard_correlation',
         modelspecs[0][0]['meta']['j_state_mod'] = j_s
         modelspecs[0][0]['meta']['se_state_mod'] = ee
         modelspecs[0][0]['meta']['state_chans'] = val[0]['state'].chans
+
+        # Charlie testing diff ways to calculate mod index
+
+        # try using resp
+        s = metrics.state_mod_index(val[0], epoch='REFERENCE', psth_name='resp',
+                            state_sig='state_raw', state_chan=[])
+        j_s, ee = metrics.j_state_mod_index(val[0], epoch='REFERENCE', psth_name='resp',
+                            state_sig='state_raw', state_chan=[], njacks=10)
+        modelspecs[0][0]['meta']['state_mod_r'] = s
+        modelspecs[0][0]['meta']['j_state_mod_r'] = j_s
+        modelspecs[0][0]['meta']['se_state_mod_r'] = ee
+
+        # try using the "mod" signal (if it exists) which is calculated
+        if 'mod' in modelspecs[0][0]['meta']['modelname']:
+            s = metrics.state_mod_index(val[0], epoch='REFERENCE', psth_name='mod',
+                            state_sig='state_raw', state_chan=[])
+            j_s, ee = metrics.j_state_mod_index(val[0], epoch='REFERENCE', psth_name='mod',
+                                state_sig='state_raw', state_chan=[], njacks=10)
+            modelspecs[0][0]['meta']['state_mod_m'] = s
+            modelspecs[0][0]['meta']['j_state_mod_m'] = j_s
+            modelspecs[0][0]['meta']['se_state_mod_m'] = ee
 
     return {'modelspecs': modelspecs}
 
