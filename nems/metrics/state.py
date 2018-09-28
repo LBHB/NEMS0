@@ -1,22 +1,27 @@
 import copy
 import numpy as np
 import nems.modelspec as ms
-from nems.utils import find_module
+from nems.utils import find_module, get_channel_number
 import logging
 
 log = logging.getLogger(__name__)
 
 
-def state_mod_split(rec, epoch='REFERENCE', psth_name='pred',
+def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
                     state_sig='state_raw', state_chan='pupil'):
     if 'mask' in rec.signals.keys():
         rec = rec.apply_mask()
 
-    full_psth = rec[psth_name]
-    folded_psth = full_psth.extract_epoch(epoch)
+    fs = rec[psth_name].fs
+
+    # will default to 0 if None
+    chanidx = get_channel_number(rec[psth_name], channel)
+    c = rec[psth_name].chans[chanidx]
+    full_psth = rec[psth_name].loc[c]
+    folded_psth = full_psth.extract_epoch(epoch) * fs
 
     full_var = rec[state_sig].loc[state_chan]
-    folded_var = np.squeeze(full_var.extract_epoch(epoch))
+    folded_var = np.squeeze(full_var.extract_epoch(epoch)) * fs
 
     # compute the mean state for each occurrence
     g = (np.sum(np.isfinite(folded_var), axis=1) > 0)

@@ -561,7 +561,7 @@ def state_vars_psths(rec, epoch, psth_name='resp', occurrence=0):
     state_var_list = rec['state'].chans
     psth_list = [
             partial(state_var_psth_from_epoch, rec, epoch, psth_name=psth_name,
-                    state_sig=var)
+                    state_sig='state_raw', state_chan=var)
             for var in state_var_list
             ]
     return psth_list
