@@ -16,9 +16,10 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
 
     # will default to 0 if None
     chanidx = get_channel_number(rec[psth_name], channel)
-    c = rec[psth_name].chans[chanidx]
-    full_psth = rec[psth_name].loc[c]
-    folded_psth = full_psth.extract_epoch(epoch) * fs
+    #c = rec[psth_name].chans[chanidx]
+    #full_psth = rec[psth_name].loc[c]
+    full_psth = rec[psth_name]
+    folded_psth = full_psth.extract_epoch(epoch)[:, [chanidx], :] * fs
 
     full_var = rec[state_sig].loc[state_chan]
     folded_var = np.squeeze(full_var.extract_epoch(epoch)) * fs
@@ -85,15 +86,15 @@ def state_mod_index(rec, epoch='REFERENCE', psth_name='pred', divisor=None,
 
     low, high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
                                 state_sig=state_sig, state_chan=state_chan)
-    
+
     if divisor is not None:
-        low_denom, high_denom = state_mod_split(rec, epoch=epoch, 
+        low_denom, high_denom = state_mod_split(rec, epoch=epoch,
                                                 psth_name=divisor,
                                                 state_sig=state_sig,
                                                 state_chan=state_chan)
         mod = np.sum(high-low) / np.sum(high_denom + low_denom)
-        
-    else:            
+
+    else:
         mod = np.sum(high - low) / np.sum(high + low)
 
     return mod

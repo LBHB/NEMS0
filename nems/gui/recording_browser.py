@@ -266,7 +266,10 @@ class EpochCanvas(MyMplCanvas):
 
         # On each refresh, keep the same keys but reform the lists of indices.
         self.epoch_groups = {k: [] for k in self.epoch_groups}
-        for i, s, e, n in valid_epochs.itertuples():
+        for i, r in valid_epochs.iterrows():
+            s=r['start']
+            e=r['end']
+            n=r['name']
             print(n)
             prefix = n.split('_')[0]
             if prefix in self.epoch_groups:

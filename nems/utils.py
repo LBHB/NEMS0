@@ -164,6 +164,8 @@ def get_channel_number(sig, channel=None):
     """
     if channel is None:
         chanidx = 0
+    elif sig.chans is None:
+        chanidx = 0
     elif type(channel) is str:
         try:
             chanidx = sig.chans.index(channel)
