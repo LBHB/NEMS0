@@ -353,10 +353,9 @@ def make_mod_signal(rec, signal='resp'):
     mod_index
     """
     new_rec = rec.copy()
-    psth = new_rec['psth']
+    psth = new_rec['psth_sp']
     resp = new_rec[signal]
     mod_data = resp.as_continuous() - psth.as_continuous()
-    mod_data += abs(np.nanmin(mod_data))  # offset such that min = 0
     mod = psth._modified_copy(mod_data)
     mod.name = 'mod'
     new_rec.add_signal(mod)
@@ -746,10 +745,13 @@ def add_summary_statistics(est, val, modelspecs, fn='standard_correlation',
 
         # try using the "mod" signal (if it exists) which is calculated
         if 'mod' in modelspecs[0][0]['meta']['modelname']:
-            s = metrics.state_mod_index(val[0], epoch='REFERENCE', psth_name='mod',
-                            state_sig='state_raw', state_chan=[])
-            j_s, ee = metrics.j_state_mod_index(val[0], epoch='REFERENCE', psth_name='mod',
-                                state_sig='state_raw', state_chan=[], njacks=10)
+            s = metrics.state_mod_index(val[0], epoch='REFERENCE',
+                                            psth_name='mod', divisor='resp',
+                                            state_sig='state_raw', state_chan=[])
+            j_s, ee = metrics.j_state_mod_index(val[0], epoch='REFERENCE', 
+                                            psth_name='mod', divisor='resp',
+                                            state_sig='state_raw', state_chan=[],
+                                            njacks=10)
             modelspecs[0][0]['meta']['state_mod_m'] = s
             modelspecs[0][0]['meta']['j_state_mod_m'] = j_s
             modelspecs[0][0]['meta']['se_state_mod_m'] = ee
