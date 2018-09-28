@@ -174,6 +174,15 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None, **context)
         rec['resp'] = rec['resp'].extract_channels([cellid])
     else:
         log.info('No cellid match, keeping all resp channels')
+    
+    # Quick fix - will take care of this on the baphy loading side in the future.
+    if 'pupil' in rec.signals.keys() and np.any(np.isnan(rec['pupil'].as_continuous())):
+                log.info('Padding {0} with the last non-nan value'.format('pupil'))
+                inds = ~np.isfinite(rec['pupil'].as_continuous())
+                arr = copy.deepcopy(rec['pupil'].as_continuous())
+                arr[inds] = arr[~inds][-1]
+                rec['pupil'] = rec['pupil']._modified_copy(arr)
+                
     return {'rec': rec}
 
 
