@@ -6,6 +6,7 @@ from .timeseries import (timeseries_from_signals, timeseries_from_vectors,
                          ax_remove_box)
 
 from nems.utils import get_channel_number
+from nems.metrics.state import state_mod_split
 
 
 
@@ -67,7 +68,7 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
             else:
                 st = st[nnidx]
 
-            st = st / np.nanmax(st) * mmax - (0.1 + i) * mmax
+            st = st / np.nanmax(st) * mmax - 1.25 * i * mmax
             plt.plot(t, st, linewidth=1, color=state_colors[i-1])
 
             if g is not None:
@@ -80,7 +81,7 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
             else:
                 tstr = "{}".format(rec['state'].chans[i])
 
-            plt.text(t[0], (-i+0.1)*mmax, tstr)
+            plt.text(t[0], -i*mmax*1.25, tstr, fontsize=6)
         ax = plt.gca()
         # plt.text(0.5, 0.9, s, transform=ax.transAxes,
         #         horizontalalignment='center')
@@ -109,8 +110,8 @@ def state_var_psth(rec, psth_name='resp', var_name='pupil', ax=None,
 
 
 def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
-                              state_sig='pupil', ax=None, colors=None,
-                              channel=None, decimate_by=1):
+                              state_sig='state_raw', state_chan='pupil', ax=None,
+                              colors=None, channel=None, decimate_by=1):
     """
     Plot PSTH averaged across all occurences of epoch, grouped by
     above- and below-average values of a state signal (state_sig)
@@ -119,8 +120,6 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
     # TODO: Does using epochs make sense for these?
     if ax is not None:
         plt.sca(ax)
-
-    chanidx = get_channel_number(rec[psth_name], channel)
 
     fs = rec[psth_name].fs
 
@@ -138,8 +137,26 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
     else:
         PostStimSilence = 0
 
+    low, high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
+                                channel=channel, state_sig=state_sig,
+                                state_chan=state_chan)
+    if psth_name2 is not None:
+        low2, high2 = state_mod_split(rec, epoch=epoch, psth_name=psth_name2,
+                                      channel=channel, state_sig=state_sig,
+                                      state_chan=state_chan)
+
+    if decimate_by > 1:
+        low = scipy.signal.decimate(low, q=decimate_by, axis=1)
+        high = scipy.signal.decimate(high, q=decimate_by, axis=1)
+        if psth_name2 is not None:
+            low2 = scipy.signal.decimate(low2, q=decimate_by, axis=1)
+            high2 = scipy.signal.decimate(high2, q=decimate_by, axis=1)
+        fs /= decimate_by
+
+    """
+    chanidx = get_channel_number(rec[psth_name], channel)
+
     full_psth = rec[psth_name]
-    channel = 0
     folded_psth = full_psth.extract_epoch(epoch)[:, [chanidx], :] * fs
     if psth_name2 is not None:
         full_psth2 = rec[psth_name2]
@@ -164,13 +181,9 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
         # print(folded_var.shape)
         # print(folded_mask.shape)
         # print(np.sum(np.isfinite(folded_mask)))
+    """
 
-    if decimate_by > 1:
-        folded_psth = scipy.signal.decimate(folded_psth, q=decimate_by, axis=2)
-        folded_psth2 = scipy.signal.decimate(folded_psth2, q=decimate_by, axis=2)
-        fs /= decimate_by
-
-
+    """
     # compute the mean state for each occurrence
     m = np.nanmean(folded_var[:, 0, :], axis=1)
 
@@ -194,8 +207,7 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
     else:
         high = np.ones(folded_psth[0, :, :].shape).T * np.nan
         high2 = np.ones(folded_psth2[0, :, :].shape).T * np.nan
-
-    title = state_sig
+    title = state_chan
     hv = np.nanmean(m[m >= mean])
     if np.sum(m < mean) > 0:
         lv = np.nanmean(m[m < mean])
@@ -217,13 +229,29 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
         timeseries_from_vectors([low2, high2], fs=fs, title=title, ax=ax,
                                 linestyle='--', time_offset=PreStimSilence,
                                 colors=colors, ylabel="sp/sec")
+    """
+
+    title = state_chan
+    if state_chan == 'baseline':
+        legend = None
+    else:
+        legend = ('Lo', 'Hi')
+
+    timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
+                            legend=legend, time_offset=PreStimSilence,
+                            colors=colors, ylabel="sp/sec")
+
+    if psth_name2 is not None:
+        timeseries_from_vectors([low2, high2], fs=fs, title=title, ax=ax,
+                                linestyle='--', time_offset=PreStimSilence,
+                                colors=colors, ylabel="sp/sec")
+
     ylim = ax.get_ylim()
     xlim = ax.get_xlim()
     ax.plot(np.array([0, 0]), ylim, 'k--')
-
     ax.plot(np.array([xlim[1], xlim[1]])-PostStimSilence, ylim, 'k--')
 
-    if state_sig == 'baseline':
+    if state_chan == 'baseline':
         ax.set_xlabel(epoch)
 
 
