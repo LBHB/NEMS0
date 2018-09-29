@@ -766,7 +766,7 @@ class Recording:
     def select_epoch():
         raise NotImplementedError    # TODO
 
-    def select_times(self, times, padding=0):
+    def select_times(self, times, padding=0, reset_epochs=False):
 
         if padding != 0:
             raise NotImplementedError    # TODO
@@ -774,6 +774,9 @@ class Recording:
         k = list(self.signals.keys())
         newsigs = {n: s.select_times(times) for n, s in self.signals.items()}
 
+        if reset_epochs:
+            newsigs = {n: s.reset_segmented_epochs() for n, s in newsigs.items()}
+            del newsigs['mask']
         return Recording(newsigs)
 
     def nan_times(self, times, padding=0):
@@ -793,7 +796,8 @@ class Recording:
              if None, defaults to False
              if False, initialize mask signal to False for all times
              if True, initialize mask signal to False for all times
-             if ndarray, True where ndarray is true, False elsewhere
+             if Tx1 ndarray, True where ndarray is true, False elsewhere
+             if Nx2 ndarray, True in N epoch times
              if string, mask is True for epochs with .name==string
 
         TODO: remove unnecessary deepcopys from this and subsequent functions
@@ -808,6 +812,10 @@ class Recording:
 
         if epoch is None:
             mask = np.zeros([1, base_signal.ntimes], dtype=np.bool)
+        elif (type(epoch) is np.ndarray) and (epoch.shape[1]==2):
+            mask = np.zeros([1, base_signal.ntimes], dtype=np.bool)
+            for e in epoch:
+                mask[0, e[0]:e[1]] = True
         elif type(epoch) is np.ndarray:
             mask = np.zeros([1, base_signal.ntimes], dtype=np.bool)
             #print(mask.shape)
@@ -904,7 +912,7 @@ class Recording:
 
         return rec
 
-    def apply_mask(self):
+    def apply_mask(self, reset_epochs=False):
         '''
         Used to excise data based on boolean called mask. Returns new recording
         with only data specified mask. To make mask, see "create_epoch_mask"
@@ -930,7 +938,7 @@ class Recording:
         #    times = times[:-1,:]
         # log.info('masking')
         # log.info(times)
-        newrec = rec.select_times(times)
+        newrec = rec.select_times(times, reset_epochs=reset_epochs)
 
         return newrec
 
