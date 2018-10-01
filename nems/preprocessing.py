@@ -599,13 +599,19 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     if ('each_passive' in state_signals):
         file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
         pset = []
+        found_passive1 = False
         for f in file_epochs:
+            # test if passive expt
             epoch_indices = ep.epoch_intersection(
                     resp.get_epoch_indices(f),
                     resp.get_epoch_indices('PASSIVE_EXPERIMENT'))
             if epoch_indices.size:
-                pset.append(f)
-                newrec[f] = resp.epoch_to_signal(f)
+                if not(found_passive1):
+                    # skip first passive
+                    found_passive1 = True
+                else:
+                    pset.append(f)
+                    newrec[f] = resp.epoch_to_signal(f)
         state_signals.remove('each_passive')
         state_signals.extend(pset)
         if 'each_passive' in permute_signals:
@@ -617,10 +623,12 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         pset = []
         found_passive1 = False
         for f in file_epochs:
+            # test if passive expt
             epoch_indices = ep.epoch_intersection(
                     resp.get_epoch_indices(f),
                     resp.get_epoch_indices('PASSIVE_EXPERIMENT'))
             if epoch_indices.size and not(found_passive1):
+                # skip first passive
                 found_passive1 = True
             else:
                 pset.append(f)
@@ -656,8 +664,8 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     if ('active' in state_signals) or ('far' in state_signals):
         newrec['active'] = resp.epoch_to_signal('ACTIVE_EXPERIMENT')
         newrec['active'].chans = ['active']
-    if ('ttp' in state_signals) or ('far' in state_signals) or \
-       ('hit' in state_signals):
+    if (('hit_trials' in state_signals) or ('miss_trials' in state_signals) or
+        ('far' in state_signals) or ('hit' in state_signals)):
         newrec['hit_trials'] = resp.epoch_to_signal('HIT_TRIAL')
         newrec['miss_trials'] = resp.epoch_to_signal('MISS_TRIAL')
         newrec['fa_trials'] = resp.epoch_to_signal('FA_TRIAL')

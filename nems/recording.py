@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 
 class Recording:
 
-    def __init__(self, signals, meta={}, name=None):
+    def __init__(self, signals, meta=None, name=None):
         '''
         Signals argument should be a dictionary of signal objects.
         '''
@@ -39,8 +39,13 @@ class Recording:
             self.name = recordings[0]
         else:
             self.name = name
+
         self.uri = None  # This will be lost on copying
-        self.meta = meta
+
+        if meta is not None:
+            self.meta = meta
+        else:
+            self.meta = {}
 
     def copy(self):
         '''
@@ -777,7 +782,7 @@ class Recording:
         if reset_epochs:
             newsigs = {n: s.reset_segmented_epochs() for n, s in newsigs.items()}
             del newsigs['mask']
-        return Recording(newsigs)
+        return Recording(newsigs, meta=self.meta)
 
     def nan_times(self, times, padding=0):
 
