@@ -118,28 +118,28 @@ def j_state_mod_index(rec, epoch='REFERENCE', psth_name='pred', divisor=None,
     ee = np.zeros((channel_count, state_chans))
 
     for i in range(channel_count):
-        ff = rec['mask'].as_continuous()
+        epochs = rec[state_sig].get_epoch_indices(epoch, mask=rec['mask'])
+        length = len(epochs)
 
-        if (np.sum(ff) == 0):
+        if (length == 0):
             mi[i] = 0
             ee[i] = 0
         else:
-            length = rec.apply_mask()['resp'].as_continuous().shape[-1]
-            chunksize = int(np.ceil(length / njacks / 10))
-            chunkcount = int(np.ceil(length / chunksize / njacks))
-            idx = np.zeros((chunkcount, njacks, chunksize))
+            chunkcount = int(np.ceil(length / njacks))
+            idx = np.zeros((chunkcount, njacks))
             for jj in range(njacks):
-                idx[:, jj, :] = jj
+                idx[:, jj] = jj
             idx = np.reshape(idx, [-1])[:length]
 
             j_mi = np.zeros((njacks, state_chans))
 
             for jj in range(njacks):
                 ff = (idx != jj)
-                new_mask = rec.apply_mask()['mask']._modified_copy(ff[np.newaxis, :])
-                new_rec = rec.apply_mask().copy()
-                new_rec.add_signal(new_mask)
-                new_rec = new_rec.apply_mask()
+                new_rec = rec.create_mask(epochs[ff])
+                #new_mask = rec.apply_mask()['mask']._modified_copy(ff[np.newaxis, :])
+                #new_rec = rec.apply_mask().copy()
+                #new_rec.add_signal(new_mask)
+                #new_rec = new_rec.apply_mask()
 
                 j_mi[jj, :] = state_mod_index(new_rec, epoch=epoch,
                     psth_name=psth_name, divisor=divisor, state_sig=state_sig,

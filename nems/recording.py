@@ -817,7 +817,7 @@ class Recording:
 
         if epoch is None:
             mask = np.zeros([1, base_signal.ntimes], dtype=np.bool)
-        elif (type(epoch) is np.ndarray) and (epoch.shape[1]==2):
+        elif (type(epoch) is np.ndarray) and (epoch.ndim==2):
             mask = np.zeros([1, base_signal.ntimes], dtype=np.bool)
             for e in epoch:
                 mask[0, e[0]:e[1]] = True
