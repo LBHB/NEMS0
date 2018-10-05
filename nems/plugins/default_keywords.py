@@ -723,6 +723,65 @@ def stategain(kw):
     return template
 
 
+def stateseg(kw):
+    '''
+    Generate and register modulespec for the state_segmented module.
+
+    Parameters
+    ----------
+    kw : str
+        Expected format: r'^stateseg\.?(\d{1,})x(\d{1,})$'
+        e.g., "stateseg.SxR" :
+            S : number of state channels (required)
+            R : number of channels to modulate (default = 1)
+
+    Options
+    -------
+    None
+
+    TODO: set initial conditions for segmented linear model
+
+    '''
+    # parse the keyword
+    pattern = re.compile(r'^stateseg\.?(\d{1,})x(\d{1,})$')
+    parsed = re.match(pattern, kw)
+    if parsed is None:
+        # backward compatible parsing if R not specified
+        pattern = re.compile(r'^stateseg\.?(\d{1,})$')
+        parsed = re.match(pattern, kw)
+    try:
+        n_vars = int(parsed.group(1))
+        if len(parsed.groups())>1:
+            n_chans = int(parsed.group(2))
+        else:
+            n_chans = 1
+    except TypeError:
+        raise ValueError("Got TypeError when parsing stateseg keyword.\n"
+                         "Make sure keyword is of the form: \n"
+                         "stategain.{n_variables} \n"
+                         "keyword given: %s" % kw)
+
+    # specify initial conditions
+    zeros = np.zeros([n_chans, n_vars])
+    ones = np.ones([n_chans, n_vars])
+    g_mean = zeros.copy()
+    g_mean[:, 0] = 1
+    g_sd = ones.copy()
+    d_mean = zeros
+    d_sd = ones
+
+    template = {
+        'fn': 'nems.modules.state.state_segmented',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      's': 'state'},
+        'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
+                  'd': ('Normal', {'mean': d_mean, 'sd': d_sd})}
+        }
+
+    return template
+
+
 def sw(kw):
     '''
     Generate and register modulespec for the state.state_weight module.
