@@ -58,7 +58,8 @@ class KeywordRegistry():
         if len(h) == 1:
             # no hypen, do regex for first all-alpha string
             alpha = re.compile('^[a-zA-Z]*')
-            kw_head = re.match(alpha, kw_string)[0]
+            #print(kw_string)
+            kw_head = re.match(alpha, kw_string).group(0)
         else:
             kw_head = h[0]
         return kw_head

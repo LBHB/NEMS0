@@ -168,6 +168,14 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
                     fitter=scipy_minimize,
                     metric=metric,
                     fit_kwargs=fit_kwargs)
+#            for i, m in enumerate(modelspec):
+#                if ('phi' not in m.keys()) and ('prior' in m.keys()):
+#                    log.debug('Phi not found for module, using mean of prior: %s',
+#                              m)
+#                    old_prior = m['prior'].copy()
+#                    m = priors.set_mean_phi([m])[0]  # Inits phi for 1 module
+#                    modelspec[i] = m
+#                    modelspec[i]['prior'] = old_prior
             break
 
 #                modelspecs = [prefit_to_target(
@@ -424,8 +432,12 @@ def init_logsig(rec, modelspec):
     resp = rec['resp'].as_continuous()
 
     mean_pred = np.nanmean(pred)
-    min_pred = np.nanmean(pred)-np.nanstd(pred)*3
-    max_pred = np.nanmean(pred)+np.nanstd(pred)*3
+    min_pred = np.nanmean(pred) - np.nanstd(pred)*3
+    max_pred = np.nanmean(pred) + np.nanstd(pred)*3
+    if min_pred < 0:
+        min_pred = 0
+        mean_pred = (min_pred+max_pred)/2
+
     pred_range = max_pred - min_pred
     min_resp = max(np.nanmean(resp)-np.nanstd(resp)*3, 0)  # must be >= 0
 
@@ -438,7 +450,7 @@ def init_logsig(rec, modelspec):
     base0 = min_resp + 0.05*(resp_range)
     amplitude0 = resp_range
     shift0 = mean_pred
-    kappa0 = pred_range
+    kappa0 = pred_range/10
     log.info("Initial   base,amplitude,shift,kappa=({}, {}, {}, {})"
              .format(base0, amplitude0, shift0, kappa0))
 
