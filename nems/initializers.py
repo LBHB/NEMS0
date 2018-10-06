@@ -440,7 +440,6 @@ def init_logsig(rec, modelspec):
 
     pred_range = max_pred - min_pred
     min_resp = max(np.nanmean(resp)-np.nanstd(resp)*3, 0)  # must be >= 0
-
     max_resp = np.nanmean(resp)+np.nanstd(resp)*3
     resp_range = max_resp - min_resp
 
@@ -450,7 +449,7 @@ def init_logsig(rec, modelspec):
     base0 = min_resp + 0.05*(resp_range)
     amplitude0 = resp_range
     shift0 = mean_pred
-    kappa0 = pred_range/10
+    kappa0 = pred_range
     log.info("Initial   base,amplitude,shift,kappa=({}, {}, {}, {})"
              .format(base0, amplitude0, shift0, kappa0))
 
