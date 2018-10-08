@@ -236,3 +236,14 @@ def smooth(x,window_len=11,window='hanning'):
 
     y=np.convolve(w/w.sum(),s,mode='valid')
     return y
+
+
+def ax_remove_box(ax=None):
+    """
+    remove right and top lines from plot border
+    """
+    if ax is None:
+        ax = plt.gca()
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
