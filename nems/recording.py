@@ -689,45 +689,52 @@ class Recording:
             rec = self.copy()
 
         m_data = rec['mask'].as_continuous().copy()
-
                 
         if tiled != True:
             raise NotImplemented
-
+        
+        # Figure out the length of the non-nan data
         times = m_data.sum()  
+        
+        # Full length of jackknife window
         window_len = int((times/njacks))
+        
+        # Length of a val chunk within a jackknife window
         val_length = int(((window_len/times) * window_len))
         
+        # The mask, either true/false will only be applied on the val_chunks
         template_inds = np.arange(0, val_length)
+        
+        # Shift the beginning of this chunk based on which jack_idx
         shift = int(jack_idx*val_length)
         template_inds += shift
+        
+        # Find all locations where the current mask is True
         mask_true = np.argwhere(m_data==True)[:,1]
-        print('njack: {0}'.format(jack_idx))
+
+        # If invert, set all mask to False. Only val chunks will be set to True
         if invert == True:
             m_data[0, mask_true] = False
-            for i in range(0, njacks):
-                if (jack_idx==(njacks-1)):
-                    ti = template_inds+int((i*window_len)) 
-                    e = int((i+1)*window_len)
-                    print(i)
-                    print(ti[0])
-                    print(e)
-                    args = mask_true[ti[0]:e]
-                    if (i == njacks-1):
-                        args = mask_true[ti[0]:times]
-                else:
-                    print(i)
-                    ti = template_inds+int((i*window_len))
-                    print(ti[0])
-                    print(ti[-1])
-                    np.append(ti, ti[-1]+1)
-                    args = mask_true[ti]
+        
+        # Look over all jackknife windows and update the mask accordingly
+        for i in range(0, njacks):
+            if (jack_idx==(njacks-1)):
+                ti = template_inds+int((i*window_len)) 
+                e = int((i+1)*window_len)
+                args = mask_true[ti[0]:e]
+                if (i == njacks-1):
+                    args = mask_true[ti[0]:times]
+            else:
+                ti = template_inds+int((i*window_len))
+                np.append(ti, ti[-1]+1)
+                args = mask_true[ti]
+        
+            if invert == True:
                 m_data[0, args] = True 
-        else:
-            for i in range(0, njacks):
-                args = mask_true[template_inds+int(i*window_len)]
-                m_data[0, args] = False    
+            else:
+                m_data[0, args] = False
     
+        # pass modified mask back into the 'mask' signal and add to the rec
         rec['mask'] = rec['mask']._modified_copy(m_data)
 
         return rec    
