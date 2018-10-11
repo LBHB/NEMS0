@@ -674,6 +674,64 @@ class Recording:
 
         return rec
 
+    def jackknife_mask_by_time(self, njacks, jack_idx, tiled=True, 
+                               invert=False):
+        '''
+        To function in place of jackknife_mask_by_epoch for cases where you wish
+        to fit all data evenly, including that which is not contained in an epoch
+        mask.
+        '''
+        # create mask if one doesn't exist yet and initialize mask to be all 
+        # True
+        if 'mask' not in self.signals.keys():
+            rec = self.create_mask(True)
+        else:
+            rec = self.copy()
+
+        m_data = rec['mask'].as_continuous().copy()
+
+                
+        if tiled != True:
+            raise NotImplemented
+
+        times = m_data.sum()  
+        window_len = int((times/njacks))
+        val_length = int(((window_len/times) * window_len))
+        
+        template_inds = np.arange(0, val_length)
+        shift = int(jack_idx*val_length)
+        template_inds += shift
+        mask_true = np.argwhere(m_data==True)[:,1]
+        print('njack: {0}'.format(jack_idx))
+        if invert == True:
+            m_data[0, mask_true] = False
+            for i in range(0, njacks):
+                if (jack_idx==(njacks-1)):
+                    ti = template_inds+int((i*window_len)) 
+                    e = int((i+1)*window_len)
+                    print(i)
+                    print(ti[0])
+                    print(e)
+                    args = mask_true[ti[0]:e]
+                    if (i == njacks-1):
+                        args = mask_true[ti[0]:times]
+                else:
+                    print(i)
+                    ti = template_inds+int((i*window_len))
+                    print(ti[0])
+                    print(ti[-1])
+                    np.append(ti, ti[-1]+1)
+                    args = mask_true[ti]
+                m_data[0, args] = True 
+        else:
+            for i in range(0, njacks):
+                args = mask_true[template_inds+int(i*window_len)]
+                m_data[0, args] = False    
+    
+        rec['mask'] = rec['mask']._modified_copy(m_data)
+
+        return rec    
+
     def jackknife_by_epoch(self, njacks, jack_idx, epoch_name,
                            tiled=True,invert=False,
                            only_signals=None, excise=False):
