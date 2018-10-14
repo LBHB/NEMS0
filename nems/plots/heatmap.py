@@ -120,7 +120,7 @@ def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None,
 
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
                  title=None, fs=None, chans=None, wc_idx=0, fir_idx=0,
-                 interpolation='none'):
+                 interpolation='none', absolute_value=False):
     """
     chans: list
        if not None, label each row of the strf with the corresponding
@@ -211,6 +211,9 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
     else:
         everything = strf
         skip = 0
+
+    if absolute_value:
+        everything = np.abs(everything)
 
     plot_heatmap(everything, xlabel='Lag (s)',
                  ylabel='Channel In', ax=ax, skip=skip, title=title, fs=fs,
