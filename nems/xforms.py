@@ -174,7 +174,7 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None, **context)
         rec['resp'] = rec['resp'].extract_channels([cellid])
     else:
         log.info('No cellid match, keeping all resp channels')
-    
+
     # Quick fix - will take care of this on the baphy loading side in the future.
     if 'pupil' in rec.signals.keys() and np.any(np.isnan(rec['pupil'].as_continuous())):
                 log.info('Padding {0} with the last non-nan value'.format('pupil'))
@@ -182,7 +182,7 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None, **context)
                 arr = copy.deepcopy(rec['pupil'].as_continuous())
                 arr[inds] = arr[~inds][-1]
                 rec['pupil'] = rec['pupil']._modified_copy(arr)
-                
+
     return {'rec': rec}
 
 
@@ -757,7 +757,7 @@ def add_summary_statistics(est, val, modelspecs, fn='standard_correlation',
             s = metrics.state_mod_index(val[0], epoch='REFERENCE',
                                             psth_name='mod', divisor='resp',
                                             state_sig='state_raw', state_chan=[])
-            j_s, ee = metrics.j_state_mod_index(val[0], epoch='REFERENCE', 
+            j_s, ee = metrics.j_state_mod_index(val[0], epoch='REFERENCE',
                                             psth_name='mod', divisor='resp',
                                             state_sig='state_raw', state_chan=[],
                                             njacks=10)

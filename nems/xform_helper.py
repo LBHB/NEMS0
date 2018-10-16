@@ -11,7 +11,7 @@ from nems.plugins import (default_keywords, default_loaders, default_fitters,
 log = logging.getLogger(__name__)
 
 
-def generate_xforms_spec(recording_uri, modelname, meta={}, xforms_kwargs={},
+def generate_xforms_spec(recording_uri=None, modelname=None, meta={}, xforms_kwargs={},
                          kw_kwargs={}, autoPred=True, autoStats=True,
                          autoPlot=True):
     """
@@ -50,8 +50,11 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, xforms_kwargs={},
     #       or something along those lines... since they aren't really
     #       just loaders and fitters
     load_keywords, model_keywords, fit_keywords = escaped_split(modelname, '_')
+    if recording_uri is not None:
+        xforms_lib = KeywordRegistry(recording_uri=recording_uri, **xforms_kwargs)
+    else:
+        xforms_lib = KeywordRegistry(**xforms_kwargs)
 
-    xforms_lib = KeywordRegistry(recording_uri=recording_uri, **xforms_kwargs)
     xforms_lib.register_modules([default_loaders, default_fitters,
                                  default_initializers])
     xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
