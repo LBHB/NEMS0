@@ -347,11 +347,13 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                 continue
 
             elif ('weight_channels' in fname) and strf_done:
-                # second weight channels, eg for population model
-                fn = partial(weight_channels_heatmap, modelspec, chans=chans, wc_idx=wc_idx)
-                plot = (fn, 1)
-                plot_fns.append(plot)
-                wc_idx+=1
+                if ('ct' not in m['id']):
+                    # second weight channels, eg for population model
+                    fn = partial(weight_channels_heatmap, modelspec, chans=chans,
+                                 wc_idx=wc_idx)
+                    plot = (fn, 1)
+                    plot_fns.append(plot)
+                    wc_idx+=1
 
             elif ('weight_channels' in fname):
                 wc_idx+=1
@@ -442,8 +444,16 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
 
         elif 'dynamic_sigmoid' in fname:
             #if rec['contrast'].shape[0] > 1:
-            fn = partial(strf_heatmap, modelspec, title='Contrast STRF',
-                         chans=None, wc_idx=1, fir_idx=1)
+            def contrast_strf(modelspec, chans, ax):
+                try:
+                    strf_heatmap(modelspec, title='Contrast STRF', chans=chans,
+                                 wc_idx=1, fir_idx=1, ax=ax)
+                except IndexError:
+                    strf_heatmap(modelspec, title='Contrast STRF (Fixed A.V.)',
+                                 chans=chans, wc_idx=0, fir_idx=0,
+                                 absolute_value=True, ax=ax)
+
+            fn = partial(contrast_strf, modelspec, chans=None)
             plot = (fn, 1)
             plot_fns.append(plot)
 

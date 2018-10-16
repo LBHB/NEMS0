@@ -76,6 +76,9 @@ def jk(kw):
                 keep_only = int(op[1:])
             else:
                 keep_only = 1
+        elif op.startswith('bt'):
+            # jackknife by time
+            jk_kwargs['by_time'] = True
 
     if do_split:
         xfspec = [['nems.xforms.split_for_jackknife', jk_kwargs]]

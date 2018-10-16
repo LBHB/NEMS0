@@ -446,12 +446,18 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
 
 
 def mask_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
-                       njacks=10, IsReload=False, **context):
-
-    est_out, val_out, modelspecs_out = \
-        preproc.mask_est_val_for_jackknife(rec, modelspecs=modelspecs,
-                                           epoch_name=epoch_name,
-                                           njacks=njacks, IsReload=IsReload)
+                       by_time=False, njacks=10, IsReload=False, **context):
+    
+    if by_time != True:
+        est_out, val_out, modelspecs_out = \
+            preproc.mask_est_val_for_jackknife(rec, modelspecs=modelspecs,
+                                               epoch_name=epoch_name,
+                                               njacks=njacks, IsReload=IsReload)
+    else:
+        est_out, val_out, modelspecs_out = \
+            preproc.mask_est_val_for_jackknife_by_time(rec, modelspecs=modelspecs,
+                                               njacks=njacks, IsReload=IsReload)
+            
     if IsReload:
         return {'est': est_out, 'val': val_out}
     else:
@@ -726,8 +732,9 @@ def add_summary_statistics(est, val, modelspecs, fn='standard_correlation',
     standard_correlation: average all correlation metrics and add
                           to first modelspec only.
     correlation_per_model: evaluate correlation metrics separately for each
-                           modelspec and save results in each modelspec.
+                           modelspec and save results in each modelspec
     '''
+
     corr_fn = getattr(nems.analysis.api, fn)
     modelspecs = corr_fn(est, val, modelspecs, rec=rec)
 

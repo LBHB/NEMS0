@@ -674,6 +674,71 @@ class Recording:
 
         return rec
 
+    def jackknife_mask_by_time(self, njacks, jack_idx, tiled=True, 
+                               invert=False):
+        '''
+        To function in place of jackknife_mask_by_epoch for cases where you wish
+        to fit all data evenly, including that which is not contained in an epoch
+        mask.
+        '''
+        # create mask if one doesn't exist yet and initialize mask to be all 
+        # True
+        if 'mask' not in self.signals.keys():
+            rec = self.create_mask(True)
+        else:
+            rec = self.copy()
+
+        m_data = rec['mask'].as_continuous().copy()
+                
+        if tiled != True:
+            raise NotImplemented
+        
+        # Figure out the length of the non-nan data
+        times = m_data.sum()  
+        
+        # Full length of jackknife window
+        window_len = int((times/njacks))
+        
+        # Length of a val chunk within a jackknife window
+        val_length = int(((window_len/times) * window_len))
+        
+        # The mask, either true/false will only be applied on the val_chunks
+        template_inds = np.arange(0, val_length)
+        
+        # Shift the beginning of this chunk based on which jack_idx
+        shift = int(jack_idx*val_length)
+        template_inds += shift
+        
+        # Find all locations where the current mask is True
+        mask_true = np.argwhere(m_data==True)[:,1]
+
+        # If invert, set all mask to False. Only val chunks will be set to True
+        if invert == True:
+            m_data[0, mask_true] = False
+        
+        # Look over all jackknife windows and update the mask accordingly
+        for i in range(0, njacks):
+            if (jack_idx==(njacks-1)):
+                ti = template_inds+int((i*window_len)) 
+                e = int((i+1)*window_len)
+                args = mask_true[ti[0]:e]
+                if (i == njacks-1):
+                    args = mask_true[ti[0]:times]
+            else:
+                ti = template_inds+int((i*window_len))
+                np.append(ti, ti[-1]+1)
+                args = mask_true[ti]
+        
+            if invert == True:
+                m_data[0, args] = True 
+            else:
+                m_data[0, args] = False
+    
+        # pass modified mask back into the 'mask' signal and add to the rec
+        rec['mask'] = rec['mask']._modified_copy(m_data)
+
+        return rec    
+
     def jackknife_by_epoch(self, njacks, jack_idx, epoch_name,
                            tiled=True,invert=False,
                            only_signals=None, excise=False):

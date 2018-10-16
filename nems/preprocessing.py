@@ -413,7 +413,12 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     resp = newrec['resp'].rasterize()
 
     # compute spont rate during valid (non-masked) trials
-    prestimsilence = resp.extract_epoch('PreStimSilence', mask=newrec['mask'])
+    if 'mask' in newrec.signals.keys():
+        prestimsilence = resp.extract_epoch('PreStimSilence', 
+                                            mask=newrec['mask'])
+    else:
+        prestimsilence = resp.extract_epoch('PreStimSilence')
+        
     if len(prestimsilence.shape) == 3:
         spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
     else:
@@ -425,9 +430,20 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     postbins = idx[0][1] - idx[0][0]
 
     # compute PSTH response during valid trials
-    epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
-    folded_matrices = resp.extract_epochs(epochs_to_extract,
-                                          mask=newrec['mask'])
+    if type(epoch_regex) == list:
+        epochs_to_extract = []
+        for rx in epoch_regex:
+            eps = ep.epoch_names_matching(resp.epochs, rx)
+            epochs_to_extract += eps
+    
+    elif type(epoch_regex) == str:
+        epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
+    
+    if 'mask' in newrec.signals.keys():
+        folded_matrices = resp.extract_epochs(epochs_to_extract,
+                                              mask=newrec['mask'])
+    else:
+        folded_matrices = resp.extract_epochs(epochs_to_extract)
 
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()
@@ -456,8 +472,27 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     respavg_with_spont = resp.replace_epochs(per_stim_psth_spont)
     respavg.name = 'psth'
     respavg_with_spont.name = 'psth_sp'
+    
+    # Fill in a all non-masked periods with 0 (presumably, these are spont 
+    # periods not contained within stimulus epochs), or spont rate (for the signal
+    # containing spont rate)
+    respavg_data = respavg.as_continuous().copy()
+    respavg_spont_data = respavg.as_continuous().copy()
+    
+    if 'mask' in newrec.signals.keys():
+        mask_data = newrec['mask']._data
+    else:
+        mask_data = np.ones(respavg_data.shape).astype(np.bool)
+        
+    spont_periods = ((np.isnan(respavg_data)) & (mask_data==True))    
+    
+    respavg_data[:, spont_periods[0,:]] = 0
+    respavg_spont_data[:, spont_periods[0,:]] = spont_rate[:, np.newaxis]
+    
+    respavg = respavg._modified_copy(respavg_data)
+    respavg_with_spont = respavg_with_spont._modified_copy(respavg_spont_data)
 
-    # add signal to the recording
+    # add the new signals to the recording
     newrec.add_signal(respavg)
     newrec.add_signal(respavg_with_spont)
 
@@ -834,6 +869,36 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
         est += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
                                             tiled=True)]
         val += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
+                                            tiled=True, invert=True)]
+
+    modelspecs_out = []
+    if (not IsReload) and (modelspecs is not None):
+        if len(modelspecs) == 1:
+            modelspecs_out = [copy.deepcopy(modelspecs[0])
+                              for i in range(njacks)]
+        elif len(modelspecs) == njacks:
+            # assume modelspecs already generated for njacks
+            modelspecs_out = modelspecs
+        else:
+            raise ValueError('modelspecs must be len 1 or njacks')
+
+    return est, val, modelspecs_out
+
+
+def mask_est_val_for_jackknife_by_time(rec, modelspecs=None,
+                               njacks=10, IsReload=False, **context):
+    """
+    take a single recording (est) and define njacks est/val sets using a
+    jackknife logic. returns lists est_out and val_out of corresponding
+    jackknife subsamples. removed timepoints are replaced with nan
+    """
+    est = []
+    val = []    
+
+    for i in range(njacks):
+        est += [rec.jackknife_mask_by_time(njacks, i,
+                                            tiled=True)]
+        val += [rec.jackknife_mask_by_time(njacks, i,
                                             tiled=True, invert=True)]
 
     modelspecs_out = []
