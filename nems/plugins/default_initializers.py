@@ -10,6 +10,7 @@ def init(kw):
     ops = escaped_split(kw, '.')[1:]
     st = False
     tolerance = 10**-5.5
+    norm_fir = False
 
     for op in ops:
         if op == 'st':
@@ -20,11 +21,14 @@ def init(kw):
             num = op.replace('d', '.').replace('\\', '')
             tolpower = float(num[1:])*(-1)
             tolerance = 10**tolpower
+        elif op == 'L2f':
+            norm_fir = True
 
     if st:
         return [['nems.xforms.fit_state_init', {'tolerance': tolerance}]]
     else:
-        return [['nems.xforms.fit_basic_init', {'tolerance': tolerance}]]
+        return [['nems.xforms.fit_basic_init', {'tolerance': tolerance,
+                                                'norm_fir': norm_fir}]]
 
 
 # TOOD: Maybe these should go in fitters instead?

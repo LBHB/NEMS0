@@ -113,7 +113,7 @@ def from_keywords_as_list(keyword_string, registry=None, meta={}):
 
 
 def prefit_LN(est, modelspec, analysis_function=fit_basic,
-              fitter=scipy_minimize, metric=None,
+              fitter=scipy_minimize, metric=None, norm_fir=False,
               tolerance=10**-5.5, max_iter=700):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
@@ -131,6 +131,11 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
     '''
 
     fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
+
+    # Instead of using FIR prior, initialize to random coefficients then
+    # divide by L2 norm to force sum of squares = 1
+    if norm_fir:
+        modelspec = fir_L2_norm(modelspec)
 
     # fit without STP module first (if there is one)
     modelspec = prefit_to_target(est, modelspec, fit_basic,
@@ -468,5 +473,18 @@ def init_logsig(rec, modelspec):
             'shift': (None, None),
             'kappa': (1e-15, None)
             }
+
+    return modelspec
+
+
+def fir_L2_norm(modelspec):
+    modelspec = copy.deepcopy(modelspec)
+    fir_idx = find_module('fir', modelspec)
+    prior = priors._tuples_to_distributions(modelspec[fir_idx]['prior'])
+    random_coeffs = np.random.rand(*prior['coefficients'].mean().shape)
+    normed = random_coeffs / np.linalg.norm(random_coeffs)
+    # Assumes fir phi hasn't been initialized yet and that coefficients
+    # is the only parameter to set. MAY NOT BE TRUE FOR SOME MODELS.
+    modelspec[fir_idx]['phi'] = {'coefficients': normed}
 
     return modelspec

@@ -447,7 +447,7 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
 
 def mask_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
                        by_time=False, njacks=10, IsReload=False, **context):
-    
+
     if by_time != True:
         est_out, val_out, modelspecs_out = \
             preproc.mask_est_val_for_jackknife(rec, modelspecs=modelspecs,
@@ -457,7 +457,7 @@ def mask_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
         est_out, val_out, modelspecs_out = \
             preproc.mask_est_val_for_jackknife_by_time(rec, modelspecs=modelspecs,
                                                njacks=njacks, IsReload=IsReload)
-            
+
     if IsReload:
         return {'est': est_out, 'val': val_out}
     else:
@@ -492,7 +492,7 @@ def jack_subset(est, val, modelspecs=None, IsReload=False,
 
 
 def fit_basic_init(modelspecs, est, IsReload=False, metric='nmse',
-                   tolerance=10**-5.5, **context):
+                   tolerance=10**-5.5, norm_fir=False, **context):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
     local minima.
@@ -508,7 +508,7 @@ def fit_basic_init(modelspecs, est, IsReload=False, metric='nmse',
                 est, modelspecs[0],
                 analysis_function=nems.analysis.api.fit_basic,
                 fitter=scipy_minimize, metric=metric_fn,
-                tolerance=tolerance, max_iter=700)]
+                tolerance=tolerance, max_iter=700, norm_fir=norm_fir)]
 
     return {'modelspecs': modelspecs}
 
