@@ -384,6 +384,39 @@ def lvl(kw):
     return template
 
 
+def scl(kw):
+    '''
+    Generate and register default modulespec for the scale module.
+
+    Parameters
+    ----------
+    kw : str
+        Expected format: r'^scl\.(\d{1,})$'
+
+    Options
+    -------
+    None
+    '''
+    pattern = re.compile(r'^scl\.?(\d{1,})$')
+    parsed = re.match(pattern, kw)
+    try:
+        n_scales = int(parsed.group(1))
+    except TypeError:
+        raise ValueError("Got a TypeError when parsing lvl keyword, "
+                         "make sure keyword has the form: \n"
+                         "scl.{n_scales}.\n"
+                         "keyword given: %s" % kw)
+
+    template = {
+        'fn': 'nems.modules.scale.scale',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred'},
+        'prior': {'a': ('Normal', {'mean': np.ones([n_scales, 1]),
+                                   'sd': np.ones([n_scales, 1])})}
+        }
+
+    return template
+
+
 def stp(kw):
     '''
     Generate and register modulespec for short_term_plasticity module.

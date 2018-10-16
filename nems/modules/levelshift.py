@@ -1,6 +1,3 @@
-import numpy as np
-
-
 def levelshift(rec, i, o, level):
     '''
     Parameters
