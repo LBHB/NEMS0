@@ -18,6 +18,9 @@ import nems.uri
 import nems.recording as recording
 from nems.signal import RasterizedSignal
 from nems.fitters.api import scipy_minimize
+from nems.plots.recording_browser import browse_recording, browse_context
+
+log = logging.getLogger(__name__)
 
 log = logging.getLogger(__name__)
 
@@ -138,6 +141,7 @@ fig.show()
 
 # browse the validation data
 aw = browse_recording(val[0], signals=['stim', 'pred', 'resp'], cellid=cellid)
+
 
 
 # ----------------------------------------------------------------------------

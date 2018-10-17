@@ -198,7 +198,7 @@ class SignalBase:
             max_event_times = [data.shape[1] / fs]
         max_time = max(max_epoch_time, *max_event_times)
         self.ntimes = np.int(np.ceil(fs*max_time))
-
+        
         if segments is None:
             segments = np.array([[0, self.ntimes]])
         self.segments = segments
