@@ -255,7 +255,7 @@ class EpochCanvas(MyMplCanvas):
         pass
 
     def update_figure(self):
-        self.axes.gca()
+        self.axes.cla()
 
         epochs = self.recording.epochs
         p = self.parent
