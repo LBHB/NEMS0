@@ -101,7 +101,7 @@ class MyMplCanvas(FigureCanvas):
         self.axes.set_position(pos2) # set a new position
 
         # We want the axes cleared every time plot() is called
-        self.axes.hold(False)
+        #self.axes.hold(False)
 
         self.compute_initial_figure()
 
@@ -204,6 +204,8 @@ class NemsCanvas(MyMplCanvas):
         stop_bin = int(p.stop_time * self.fs)
         d = self.recording[self.signal].as_continuous()[self.keep, start_bin:stop_bin]
 
+        self.axes.cla()
+
         if self.point:
             self.axes.imshow(d, aspect='auto', cmap='Greys',
                              interpolation='nearest', origin='lower')
@@ -253,16 +255,16 @@ class EpochCanvas(MyMplCanvas):
         pass
 
     def update_figure(self):
-        p = self.parent
+        self.axes.gca()
 
         epochs = self.recording.epochs
-
+        p = self.parent
         valid_epochs = epochs[(epochs['start'] >= p.start_time) &
                               (epochs['end'] < p.stop_time)]
         if valid_epochs.size == 0:
             print('no valid epochs')
+            # valid_epochs = valid_epochs.append([{'name': 'EXPT', 'start': p.start_time, 'end': p.stop_time}])
             return
-            valid_epochs = valid_epochs.append([{'name': 'EXPT', 'start': p.start_time, 'end': p.stop_time}])
 
         # On each refresh, keep the same keys but reform the lists of indices.
         self.epoch_groups = {k: [] for k in self.epoch_groups}
@@ -270,14 +272,19 @@ class EpochCanvas(MyMplCanvas):
             s=r['start']
             e=r['end']
             n=r['name']
-            print(n)
+
             prefix = n.split('_')[0]
-            if prefix in self.epoch_groups:
+            if prefix in ['PreStimSilence','PostStimSilence','REFERENCE',
+                          'TARGET']:
+                # skip
+                pass
+            elif prefix in self.epoch_groups:
                 self.epoch_groups[prefix].append(i)
             else:
                 self.epoch_groups[prefix] = [i]
 
-#        colors = ['Blue', 'Green', 'Yellow', 'Red']
+        colors = ['Red', 'Orange', 'Green', 'LightBlue',
+                  'DarkBlue', 'Purple', 'Pink', 'Black', 'Gray']
 #        k = 0
         i = 0
         for i, g in enumerate(self.epoch_groups):
@@ -320,25 +327,15 @@ class EpochCanvas(MyMplCanvas):
 #                props = {'facecolor': c, 'alpha': 0.07}
 #                self.axes.text(x[0], y[0], n, va='bottom',
 #                               bbox=props)
-                self.axes.plot(x, y, 'k-')
-                self.axes.text(s, i, n, va='bottom')
-                self.axes.hold(True)
-
-#        i = 0
-#        for index, e in valid_epochs.iterrows():
-#            x = np.array([e['start'],e['end']])
-#            y = np.array([i, i])
-#            self.axes.plot(x, y, 'k-')
-#            self.axes.text(x[0], y[0], e['name'], va='bottom')
-#            i += 1
-#            self.axes.hold(True)
+                self.axes.plot(x, y, '-', color=colors[i % len(colors)])
+                self.axes.text(s, i, n, va='bottom', fontsize='small',
+                               color=colors[i % len(colors)])
 
         self.axes.set_xlim([p.start_time, p.stop_time])
         self.axes.set_ylim([-0.5, i+0.5])
         self.axes.set_ylabel('epochs')
-        #self.axes.autoscale(enable=True, axis='x', tight=True)
+        # self.axes.autoscale(enable=True, axis='x', tight=True)
         ax_remove_box(self.axes)
-        self.axes.hold(False)
         self.draw()
 
         tick_labels = self.axes.get_xticklabels()

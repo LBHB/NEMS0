@@ -5,7 +5,6 @@ import os
 import logging
 import pandas as pd
 import pickle
-from nems.gui.recording_browser import browse_recording, browse_context
 import nems
 import nems.initializers
 import nems.priors
@@ -18,7 +17,7 @@ import nems.uri
 import nems.recording as recording
 from nems.signal import RasterizedSignal
 from nems.fitters.api import scipy_minimize
-from nems.plots.recording_browser import browse_recording, browse_context
+from nems.gui.recording_browser import browse_recording, browse_context
 
 log = logging.getLogger(__name__)
 
