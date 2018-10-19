@@ -503,7 +503,10 @@ def fit_basic_init(modelspecs, est, IsReload=False, metric='nmse',
     '''
     # only run if fitting
     if not IsReload:
-        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
+        if isinstance(metric, str):
+            metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
+        else:
+            metric_fn = metric
         modelspecs = [nems.initializers.prefit_LN(
                 est, modelspecs[0],
                 analysis_function=nems.analysis.api.fit_basic,
