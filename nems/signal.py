@@ -473,18 +473,28 @@ class SignalBase:
         return indices
 
     def reset_segmented_epochs(self):
-        epochs = self.epochs
+        epochs = np.unique(self.epochs.name)
         fs = self.fs
         df = pd.DataFrame([], columns=['start', 'end', 'name'])
-        for i, e in epochs.iterrows():
-            ep = np.array([[e['start'], e['end']]])
+        start = []
+        end = []
+        name = []
+        for ep in epochs:
             _ep = self.get_epoch_indices(ep, boundary_mode='trim')
-            if _ep.size:
-                df=df.append({'start': _ep[0,0]/fs, 'end': _ep[0,1]/fs,
-                           'name': e['name']}, ignore_index=True)
+            if _ep.size != 0:
+                _times = _ep / fs
+                start += _times[:, 0].tolist()
+                end += _times[:, 1].tolist()
+                name += [ep] * len(_times)
+
+        df['start'] = start
+        df['end'] = end
+        df['name'] = name
+        df = df.sort_values(by='start').reset_index(drop=True)
+        
         sig = self._modified_copy(self._data, epochs=df, segments=None)
         return sig
-
+    
     def count_epoch(self, epoch, mask=None):
         """Returns the number of occurrences of the given epoch."""
         epoch_indices = self.get_epoch_indices(epoch, mask=mask)
