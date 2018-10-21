@@ -57,7 +57,8 @@ rec = recording.load_recording(recording_uri)
 # predicted response
 logging.info('Generating state signal...')
 #rec = preproc.make_state_signal(rec, ['active','pupil_bs','pupil_ev'], [''], 'state')
-rec = preproc.make_state_signal(rec, ['active','pupil'], [''], 'state')
+#rec = preproc.make_state_signal(rec, ['active','pupil'], [''], 'state')
+rec = preproc.make_state_signal(rec, ['pupil','each_file'], [''], 'state')
 
 # mask out data from incorrect trials
 rec = preproc.mask_all_but_correct_references(rec)
@@ -173,7 +174,7 @@ logging.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
         modelspecs[0][0]['meta']['r_fit'][0],
         modelspecs[0][0]['meta']['r_test'][0]))
 
-print(single_state_mod_index(vals[0], modelspecs[0], state_chan="active"))
+print(single_state_mod_index(vals[0], modelspecs[0], state_chan="pupil"))
 
 # ----------------------------------------------------------------------------
 # GENERATE PLOTS

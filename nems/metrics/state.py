@@ -8,7 +8,7 @@ log = logging.getLogger(__name__)
 
 
 def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
-                    state_sig='state_raw', state_chan='pupil'):
+                    state_sig='state_raw', state_chan='pupil', stat=np.nanmean):
     if 'mask' in rec.signals.keys():
         rec = rec.apply_mask()
 
@@ -52,13 +52,13 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
     if (np.sum(ltidx) == 0):
         low = np.zeros_like(folded_psth[0, :, :].T) * np.nan
     else:
-        low = np.nanmean(folded_psth[ltidx, :, :], axis=0).T
+        low = stat(folded_psth[ltidx, :, :], axis=0).T
 
     # high = response on epochs when state greater than or equal to mean
     if (np.sum(gtidx) == 0):
         high = np.zeros_like(folded_psth[0, :, :].T) * np.nan
     else:
-        high = np.nanmean(folded_psth[gtidx, :, :], axis=0).T
+        high = stat(folded_psth[gtidx, :, :], axis=0).T
 
     return low, high
 

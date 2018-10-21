@@ -565,8 +565,13 @@ def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals,
 def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
                       new_signalname='state'):
     """
-    generate state signal for stategainX models
-
+    generate state signal for stategain.S/sdexp.S models
+    
+    valid state signals include (incomplete list):
+        pupil, pupil_ev, pupil_bs, pupil_psd
+        active, each_file, each_passive, each_half
+        far, hit, lick, p_x_a
+        
     TODO: Migrate to nems_lbhb or make a more generic version
     """
 

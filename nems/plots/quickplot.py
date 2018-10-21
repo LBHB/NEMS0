@@ -19,7 +19,7 @@ from nems.plots.timeseries import timeseries_from_signals, \
 from nems.plots.heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap
 from nems.plots.histogram import pred_error_hist
 from nems.plots.state import (state_vars_timeseries, state_var_psth_from_epoch,
-                    state_var_psth, state_gain_plot)
+                    state_var_psth, state_gain_plot, state_vars_psth_all)
 from nems.utils import find_module
 
 log = logging.getLogger(__name__)
@@ -78,13 +78,17 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
        Need to refine exactly what we want to do here
     """
 
+    log.info('Running quickplot')
+
     # Most plots will just use the default (typically 'val' for LBHB),
     # but some plots might want to plot est vs val or need access to the
     # full recording. Keeping the full ctx reference lets those plots
     # use ctx['est'], ctx['rec'], etc.
     rec = ctx[default][r_idx]
-    log.info('Running quickplot')
     modelspec = ctx['modelspecs'][m_idx]
+
+    # figure out which epoch to chop out for plots that show a signel 
+    # segment of the data (eg, one sound, one trial)
     if (epoch is not None) and rec.get_epoch_indices(epoch).shape[0]:
         pass
     elif rec['resp'].epochs is None:
@@ -170,11 +174,16 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
             fns[j](ax=ax)
             i += span
 
+    # re-evaluate in case rec left in strange state
+    rec = ms.evaluate(rec, modelspec)
+    pred = rec['pred']
+    resp = rec['resp']
+
+    ### Special plots that go *BEFORE* iterated modules
+
     # TODO: Move pre- and post- plots to separate subfunctions?
     #       Not too awful at the moment but if we add more will
     #       get pretty crowded here
-
-    ### Special plots that go *BEFORE* iterated modules
 
     # Stimulus Spectrogram
     if show_spectrogram:
@@ -197,22 +206,19 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
        (find_module('state_dc_gain', modelspec) is not None) or
        (find_module('state_weight', modelspec) is not None) or
        (find_module('state_dexp', modelspec) is not None)):
-        if rec['state'].shape[0]<=6:
-            fns = state_vars_psths(rec, epoch, psth_name='resp',
-                                   occurrence=occurrence)
-            _plot_axes([1]*len(fns), fns, -2)
+        if rec['state'].shape[0]<=10:
+            #fns = state_vars_psths(rec, epoch, psth_name='resp',
+            #                       occurrence=occurrence)
+            #
+            #_plot_axes([1]*len(fns), fns, -2)
+            fn2 = partial(state_vars_psth_all, rec, epoch, psth_name='resp', 
+                          psth_name2='pred', state_sig='state_raw',
+                          colors=None, channel=None, decimate_by=1)
+            _plot_axes(1, fn2, -2)
         else:
+            
             fn2 = partial(state_gain_plot, modelspec)
             _plot_axes(1, fn2, -2)
-        # if len(m['phi']['g']) > 5:
-        #    fn2 = partial(state_gain_plot, modelspec)
-        #    plot2 = (fn2, 1)
-        #
-        # else:
-        #    fns = state_vars_psths(rec, epoch, psth_name='resp',
-        #                           occurrence=occurrence)
-        #    plot2 = (fns, [1]*len(fns))
-        # plot_fns.extend([plot1, plot2])
 
     else:
         sigs = [rec['resp'], rec['pred']]
@@ -221,10 +227,6 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
                              occurrences=occurrence)
         _plot_axes(1, timeseries, -2)
 
-    # re-evaluate in case rec left in strange state
-    rec = ms.evaluate(rec, modelspec)
-    pred = rec['pred']
-    resp = rec['resp']
 
     # Pred v Resp Scatter Smoothed
     r_test = modelspec[0]['meta']['r_test']

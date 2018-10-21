@@ -10,6 +10,44 @@ from nems.metrics.state import state_mod_split
 from nems.plots.utils import ax_remove_box
 
 
+line_colors = {'actual_psth': (0,0,0),
+               'predicted_psth': 'red',
+               #'passive': (255/255, 133/255, 133/255),
+               'passive': (216/255, 151/255, 212/255),
+               #'active': (196/255, 33/255, 43/255),
+               'active': (129/255, 64/255, 138/255),
+               'false_alarm': (79/255, 114/255, 184/255),
+               'miss': (183/255, 196/255, 229/255),
+               'hit': (36/255, 49/255, 103/255),
+               'pre': 'green',
+               'post': (123/255, 104/255, 238/255),
+               'pas1': 'green',
+               'pas2': (153/255, 124/255, 248/255),
+               'pas3': (173/255, 144/255, 255/255),
+               'pas4': (193/255, 164/255, 255/255),
+               'pas5': 'green',
+               'pas6': (123/255, 104/255, 238/255),
+               'hard': (196/255, 149/255, 44/255),
+               'easy': (255/255, 206/255, 6/255),
+               'puretone': (247/255, 223/255, 164/255),
+               'large': (44/255, 125/255, 61/255),
+               'small': (181/255, 211/255, 166/255)}
+fill_colors = {'actual_psth': (.8,.8,.8),
+               'predicted_psth': 'pink',
+               #'passive': (226/255, 172/255, 185/255),
+               'passive': (234/255, 176/255, 223/255),
+               #'active': (244/255, 44/255, 63/255),
+               'active': (163/255, 102/255, 163/255),
+               'false_alarm': (107/255, 147/255, 204/255),
+               'miss': (200/255, 214/255, 237/255),
+               'hit': (78/255, 92/255, 135/255),
+               'pre': 'green',
+               'post': (123/255, 104/255, 238/255),
+               'hard':  (229/255, 172/255, 57/255),
+               'easy': (255/255, 225/255, 100/255),
+               'puretone': (255/255, 231/255, 179/255),
+               'large': (69/255, 191/255, 89/255),
+               'small': (215/255, 242/255, 199/255)}
 
 def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
                           decimate_by=1, channel=None):
@@ -176,6 +214,101 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
 
     if state_chan == 'baseline':
         ax.set_xlabel(epoch)
+
+
+def state_vars_psth_all(rec, epoch, psth_name='resp', psth_name2='pred',
+                        state_sig='state_raw', ax=None,
+                        colors=None, channel=None, decimate_by=1):
+
+    # TODO: Does using epochs make sense for these?
+    if ax is not None:
+        plt.sca(ax)
+        
+    newrec = rec.copy()
+    fn = lambda x: x - newrec['pred']._data
+    newrec['error'] = rec['resp'].transform(fn, 'error')
+    
+    fs = rec[psth_name].fs
+
+    d = rec[psth_name].get_epoch_bounds('PreStimSilence')
+    PreStimSilence = np.mean(np.diff(d)) - 0.5/fs
+    d = rec[psth_name].get_epoch_bounds('PostStimSilence')
+    if d.size > 0:
+        PostStimSilence = np.min(np.diff(d)) - 0.5/fs
+        dd = np.diff(d)
+        dd = dd[dd > 0]
+    else:
+        dd = np.array([])
+    if dd.size > 0:
+        PostStimSilence = np.min(dd) - 0.5/fs
+    else:
+        PostStimSilence = 0
+
+    state_chan_list = rec['state'].chans
+    low = np.zeros([0,1])
+    high = np.zeros([0,1])
+    lowE = np.zeros([0,1])
+    highE = np.zeros([0,1])
+    low2 = np.zeros([0,1])
+    high2 = np.zeros([0,1])
+    limitset = []
+    for state_chan in state_chan_list:
+        
+        _low, _high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
+                                    channel=channel, state_sig=state_sig,
+                                    state_chan=state_chan)
+        _lowE, _highE = state_mod_split(newrec, epoch=epoch, psth_name='error',
+                                    channel=channel, state_sig=state_sig,
+                                    state_chan=state_chan, stat=scipy.stats.sem)
+        gapdur = _low.shape[0]/fs/10
+        gap = np.ones([int(np.ceil(fs*gapdur)),1]) * np.nan
+        current_start = low.shape[0]/fs + gapdur 
+        limitset += [[current_start + PreStimSilence,
+                     current_start + _low.shape[0]/fs - PostStimSilence]]
+        
+        low = np.concatenate((low,gap,_low,gap), axis=0)
+        high = np.concatenate((high,gap,_high,gap), axis=0)
+        lowE = np.concatenate((lowE,gap,_lowE,gap), axis=0)
+        highE = np.concatenate((highE,gap,_highE,gap), axis=0)
+        if psth_name2 is not None:
+            _low2, _high2 = state_mod_split(rec, epoch=epoch, psth_name=psth_name2,
+                                            channel=channel, state_sig=state_sig,
+                                            state_chan=state_chan)
+            low2 = np.concatenate((low2,gap,_low2,gap), axis=0)
+            high2 = np.concatenate((high2,gap,_high2,gap), axis=0)
+
+    if decimate_by > 1:
+        low = scipy.signal.decimate(low, q=decimate_by, axis=1)
+        high = scipy.signal.decimate(high, q=decimate_by, axis=1)
+        if psth_name2 is not None:
+            low2 = scipy.signal.decimate(low2, q=decimate_by, axis=1)
+            high2 = scipy.signal.decimate(high2, q=decimate_by, axis=1)
+        fs /= decimate_by
+
+    title = None # "PSTH per state"
+    legend = ('Lo', 'Hi')
+    tt = np.arange(low.shape[0])/fs
+    ax.fill_between(tt, low[:,0]-lowE[:,0], low[:,0]+lowE[:,0], color=fill_colors['passive'])
+    ax.fill_between(tt, high[:,0]-highE[:,0], high[:,0]+highE[:,0], color=fill_colors['active'])
+    l1, = ax.plot(tt, low, ls='-', lw=1, color=line_colors['passive'])
+    l2, = ax.plot(tt, high, ls='-', lw=1, color=line_colors['active'])
+    
+    plt.legend((l1,l2), ('Lo','Hi'))
+    ax.set_ylabel('sp/sec')
+    #timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
+    #                        legend=legend, time_offset=0,
+    #                        colors=colors, ylabel="sp/sec")
+
+    if psth_name2 is not None:
+        ax.plot(tt, low2, ls='--', lw=1, color=line_colors['passive'])
+        ax.plot(tt, high2, ls='--', lw=1, color=line_colors['active'])
+
+    ylim = ax.get_ylim()
+    for ls, s in zip(limitset, state_chan_list):
+        ax.plot(ls, [ylim[1], ylim[1]], 'k-', linewidth=2)
+        lc = np.mean(ls)
+        ax.text(lc, ylim[1], s, ha='center', va='bottom', fontsize=6)
+    ax.set_ylim([ylim[0], ylim[1]*1.1])
 
 
 def state_gain_plot(modelspec, ax=None, clim=None, title=None):
