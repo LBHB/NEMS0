@@ -3,6 +3,7 @@ import numpy as np
 import hashlib
 import json
 import os
+import matplotlib.pyplot as plt
 
 import logging
 log = logging.getLogger(__name__)

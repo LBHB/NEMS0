@@ -269,13 +269,13 @@ class EpochCanvas(MyMplCanvas):
         # On each refresh, keep the same keys but reform the lists of indices.
         self.epoch_groups = {k: [] for k in self.epoch_groups}
         for i, r in valid_epochs.iterrows():
-            s=r['start']
-            e=r['end']
-            n=r['name']
+            s = r['start']
+            e = r['end']
+            n = r['name']
 
             prefix = n.split('_')[0]
-            if prefix in ['PreStimSilence','PostStimSilence','REFERENCE',
-                          'TARGET']:
+            if prefix in ['PreStimSilence', 'PostStimSilence',
+                          'REFERENCE','TARGET']:
                 # skip
                 pass
             elif prefix in self.epoch_groups:
@@ -304,6 +304,9 @@ class EpochCanvas(MyMplCanvas):
                 except KeyError:
                     # j is already the last epoch in the list
                     pass
+                    n2 = n
+                    s2 = s
+                    e2 = e
 
                 # If two epochs with the same name overlap,
                 # extend the end of the first to the end of the second

@@ -414,11 +414,11 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
 
     # compute spont rate during valid (non-masked) trials
     if 'mask' in newrec.signals.keys():
-        prestimsilence = resp.extract_epoch('PreStimSilence', 
+        prestimsilence = resp.extract_epoch('PreStimSilence',
                                             mask=newrec['mask'])
     else:
         prestimsilence = resp.extract_epoch('PreStimSilence')
-        
+
     if len(prestimsilence.shape) == 3:
         spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
     else:
@@ -435,10 +435,10 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
         for rx in epoch_regex:
             eps = ep.epoch_names_matching(resp.epochs, rx)
             epochs_to_extract += eps
-    
+
     elif type(epoch_regex) == str:
         epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
-    
+
     if 'mask' in newrec.signals.keys():
         folded_matrices = resp.extract_epochs(epochs_to_extract,
                                               mask=newrec['mask'])
@@ -472,23 +472,23 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     respavg_with_spont = resp.replace_epochs(per_stim_psth_spont)
     respavg.name = 'psth'
     respavg_with_spont.name = 'psth_sp'
-    
-    # Fill in a all non-masked periods with 0 (presumably, these are spont 
+
+    # Fill in a all non-masked periods with 0 (presumably, these are spont
     # periods not contained within stimulus epochs), or spont rate (for the signal
     # containing spont rate)
     respavg_data = respavg.as_continuous().copy()
     respavg_spont_data = respavg.as_continuous().copy()
-    
+
     if 'mask' in newrec.signals.keys():
         mask_data = newrec['mask']._data
     else:
         mask_data = np.ones(respavg_data.shape).astype(np.bool)
-        
-    spont_periods = ((np.isnan(respavg_data)) & (mask_data==True))    
-    
+
+    spont_periods = ((np.isnan(respavg_data)) & (mask_data==True))
+
     respavg_data[:, spont_periods[0,:]] = 0
     respavg_spont_data[:, spont_periods[0,:]] = spont_rate[:, np.newaxis]
-    
+
     respavg = respavg._modified_copy(respavg_data)
     respavg_with_spont = respavg_with_spont._modified_copy(respavg_spont_data)
 
@@ -550,12 +550,13 @@ def generate_psth_from_est_for_both_est_and_val(est, val,
     return est, val
 
 
-def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals, epoch_regex='^STIM_'):
+def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals,
+                                                      epoch_regex='^STIM_'):
     '''
     call generate_psth_from_est_for_both_est_and_val for each e,v
     pair in ests,vals
     '''
-    for e ,v in zip(ests, vals):
+    for e, v in zip(ests, vals):
         e, v = generate_psth_from_est_for_both_est_and_val(e, v, epoch_regex)
 
     return ests, vals
@@ -590,12 +591,12 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         noverlap = nperseg-1
         f, time, Sxx = ss.spectrogram(pup.squeeze(), fs=fs, nperseg=nperseg,
                                       noverlap=noverlap)
-        max_chan = 4 #(np.abs(f - 0.1)).argmin()
+        max_chan = 4 # (np.abs(f - 0.1)).argmin()
         # Keep only first five channels of spectrogram
         #f = interpolate.interp1d(np.arange(0, Sxx.shape[1]), Sxx[:max_chan, :], axis=1)
         #newspec = f(np.linspace(0, Sxx.shape[-1]-1, pup.shape[-1]))
-        pad1=np.ones((max_chan,int(nperseg/2)))*Sxx[:max_chan,[0]]
-        pad2=np.ones((max_chan,int(nperseg/2-1)))*Sxx[:max_chan,[-1]]
+        pad1 = np.ones((max_chan,int(nperseg/2)))*Sxx[:max_chan,[0]]
+        pad2 = np.ones((max_chan,int(nperseg/2-1)))*Sxx[:max_chan,[-1]]
         newspec = np.concatenate((pad1,Sxx[:max_chan, :],pad2), axis=1)
 
         # = np.concatenate((Sxx[:max_chan, :], np.tile(Sxx[:max_chan,-1][:, np.newaxis], [1, noverlap])), axis=1)
@@ -624,11 +625,9 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
                     pupil_trial[ii, :, :spont_bins])
         pupil_ev = pupil_trial - pupil_bs
 
-        newrec['pupil_ev'] = newrec["pupil"].replace_epoch(
-                'TRIAL', pupil_ev)
+        newrec['pupil_ev'] = newrec["pupil"].replace_epoch('TRIAL', pupil_ev)
         newrec['pupil_ev'].chans=['pupil_ev']
-        newrec['pupil_bs'] = newrec["pupil"].replace_epoch(
-                'TRIAL', pupil_bs)
+        newrec['pupil_bs'] = newrec["pupil"].replace_epoch('TRIAL', pupil_bs)
         newrec['pupil_bs'].chans=['pupil_bs']
 
     if ('each_passive' in state_signals):
@@ -655,23 +654,105 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
 
     if ('each_file' in state_signals):
         file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
+        trial_indices = resp.get_epoch_indices('TRIAL')
+        passive_indices = resp.get_epoch_indices('PASSIVE_EXPERIMENT')
         pset = []
-        found_passive1 = False
+        pcount = 0
+        acount = 0
         for f in file_epochs:
             # test if passive expt
-            epoch_indices = ep.epoch_intersection(
-                    resp.get_epoch_indices(f),
-                    resp.get_epoch_indices('PASSIVE_EXPERIMENT'))
-            if epoch_indices.size and not(found_passive1):
-                # skip first passive
-                found_passive1 = True
+            f_indices = resp.get_epoch_indices(f)
+            epoch_indices = ep.epoch_intersection(f_indices, passive_indices)
+
+            if epoch_indices.size:
+                # this is a passive file
+                name1 = "PASSIVE_{}".format(pcount)
+                pcount += 1
+                if pcount == 1:
+                    acount = 1 # reset acount for actives after first passive
+                else:
+                    # use first passive part A as baseline - don't model
+                    pset.append(name1)
+                    newrec[name1] = resp.epoch_to_signal(name1, indices=f_indices)
+
             else:
-                pset.append(f)
-                newrec[f] = resp.epoch_to_signal(f)
+                name1 = "ACTIVE_{}".format(acount)
+                pset.append(name1)
+                newrec[name1] = resp.epoch_to_signal(name1, indices=f_indices)
+
+                if pcount == 0:
+                    acount -= 1
+                else:
+                    acount += 1
+
+            # test if passive expt
+#            epoch_indices = ep.epoch_intersection(
+#                    resp.get_epoch_indices(f),
+#                    resp.get_epoch_indices('PASSIVE_EXPERIMENT'))
+#            if epoch_indices.size and not(found_passive1):
+#                # skip first passive
+#                found_passive1 = True
+#            else:
+#                pset.append(f)
+#                newrec[f] = resp.epoch_to_signal(f)
         state_signals.remove('each_file')
         state_signals.extend(pset)
         if 'each_file' in permute_signals:
             permute_signals.remove('each_file')
+            permute_signals.extend(pset)
+
+    if ('each_half' in state_signals):
+        file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
+        trial_indices = resp.get_epoch_indices('TRIAL')
+        passive_indices = resp.get_epoch_indices('PASSIVE_EXPERIMENT')
+        pset = []
+        pcount = 0
+        acount = 0
+        for f in file_epochs:
+            # test if passive expt
+            f_indices = resp.get_epoch_indices(f)
+            epoch_indices = ep.epoch_intersection(f_indices, passive_indices)
+            trial_intersect = ep.epoch_intersection(f_indices, trial_indices)
+            #trial_count = trial_intersect.shape[0]
+            #_split = int(trial_count/2)
+            _t1=trial_intersect[0,0]
+            _t2=trial_intersect[-1,1]
+            _split = int((_t1+_t2)/2)
+            epoch1 = np.array([[_t1,_split]])
+            epoch2 = np.array([[_split,_t2]])
+
+            if epoch_indices.size:
+                # this is a passive file
+                name1 = "PASSIVE_{}_{}".format(pcount, 'A')
+                name2 = "PASSIVE_{}_{}".format(pcount, 'B')
+                pcount += 1
+                if pcount == 1:
+                    acount = 1 # reset acount for actives after first passive
+                else:
+                    # don't model PASSIVE_0 A -- baseline
+                    pset.append(name1)
+                    newrec[name1] = resp.epoch_to_signal(name1, indices=epoch1)
+
+                # do include part B
+                pset.append(name2)
+                newrec[name2] = resp.epoch_to_signal(name2, indices=epoch2)
+        else:
+                name1 = "ACTIVE_{}_{}".format(acount, 'A')
+                name2 = "ACTIVE_{}_{}".format(acount, 'B')
+                pset.append(name1)
+                newrec[name1] = resp.epoch_to_signal(name1, indices=epoch1)
+                pset.append(name2)
+                newrec[name2] = resp.epoch_to_signal(name2, indices=epoch2)
+
+                if pcount == 0:
+                    acount -= 1
+                else:
+                    acount += 1
+
+        state_signals.remove('each_half')
+        state_signals.extend(pset)
+        if 'each_half' in permute_signals:
+            permute_signals.remove('each_half')
             permute_signals.extend(pset)
 
     # generate task state signals
@@ -893,7 +974,7 @@ def mask_est_val_for_jackknife_by_time(rec, modelspecs=None,
     jackknife subsamples. removed timepoints are replaced with nan
     """
     est = []
-    val = []    
+    val = []
 
     for i in range(njacks):
         est += [rec.jackknife_mask_by_time(njacks, i,

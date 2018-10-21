@@ -7,6 +7,7 @@ from .timeseries import (timeseries_from_signals, timeseries_from_vectors,
 
 from nems.utils import get_channel_number
 from nems.metrics.state import state_mod_split
+from nems.plots.utils import ax_remove_box
 
 
 
@@ -153,84 +154,6 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
             high2 = scipy.signal.decimate(high2, q=decimate_by, axis=1)
         fs /= decimate_by
 
-    """
-    chanidx = get_channel_number(rec[psth_name], channel)
-
-    full_psth = rec[psth_name]
-    folded_psth = full_psth.extract_epoch(epoch)[:, [chanidx], :] * fs
-    if psth_name2 is not None:
-        full_psth2 = rec[psth_name2]
-        folded_psth2 = full_psth2.extract_epoch(epoch)[:, [chanidx], :] * fs
-
-    if state_sig == "each_passive":
-        raise ValueError("each_passive state not supported")
-        # extract high (=1) epochs from each passive state
-    else:
-        full_var = rec['state'].loc[state_sig]
-        folded_var = full_var.extract_epoch(epoch)
-
-    # remove masked out occurences if mask signal exists
-    if 'mask' in rec.signals.keys():
-        folded_mask = rec['mask'].extract_epoch(epoch)
-        keep_occurences = folded_mask[:, 0, 0]
-        folded_psth = folded_psth[keep_occurences, :, :]
-        folded_psth2 = folded_psth2[keep_occurences, :, :]
-        folded_var = folded_var[keep_occurences, :, :]
-
-        # print(state_sig)
-        # print(folded_var.shape)
-        # print(folded_mask.shape)
-        # print(np.sum(np.isfinite(folded_mask)))
-    """
-
-    """
-    # compute the mean state for each occurrence
-    m = np.nanmean(folded_var[:, 0, :], axis=1)
-
-    # compute the mean state across all occurrences
-    mean = np.nanmean(m)
-    gtidx = (m >= mean)
-    ltidx = np.logical_not(gtidx)
-
-    # low = response on epochs when state less than mean
-    if np.sum(ltidx):
-        low = np.nanmean(folded_psth[ltidx, :, :], axis=0).T
-        low2 = np.nanmean(folded_psth2[ltidx, :, :], axis=0).T
-    else:
-        low = np.ones(folded_psth[0, :, :].shape).T * np.nan
-        low2 = np.ones(folded_psth2[0, :, :].shape).T * np.nan
-
-    # high = response on epochs when state greater than or equal to mean
-    if np.sum(gtidx):
-        high = np.nanmean(folded_psth[gtidx, :, :], axis=0).T
-        high2 = np.nanmean(folded_psth2[gtidx, :, :], axis=0).T
-    else:
-        high = np.ones(folded_psth[0, :, :].shape).T * np.nan
-        high2 = np.ones(folded_psth2[0, :, :].shape).T * np.nan
-    title = state_chan
-    hv = np.nanmean(m[m >= mean])
-    if np.sum(m < mean) > 0:
-        lv = np.nanmean(m[m < mean])
-        if (hv > 0.95) and (hv < 1.05) and (lv > -0.05) and (lv < 0.05):
-            legend = ('Lo', 'Hi')
-        else:
-            legend = ('< Mean', '>= Mean')
-
-        timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
-                                legend=legend, time_offset=PreStimSilence,
-                                colors=colors, ylabel="sp/sec")
-        timeseries_from_vectors([low2, high2], fs=fs, title=title, ax=ax,
-                                linestyle='--', time_offset=PreStimSilence,
-                                colors=colors, ylabel="sp/sec")
-    else:
-        timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
-                                time_offset=PreStimSilence,
-                                colors=colors, ylabel="sp/sec")
-        timeseries_from_vectors([low2, high2], fs=fs, title=title, ax=ax,
-                                linestyle='--', time_offset=PreStimSilence,
-                                colors=colors, ylabel="sp/sec")
-    """
-
     title = state_chan
     if state_chan == 'baseline':
         legend = None
@@ -257,16 +180,25 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
 
 def state_gain_plot(modelspec, ax=None, clim=None, title=None):
     for m in modelspec:
-        if 'state_dc_gain' in m['fn']:
+        if ('state_dc_gain' in m['fn']):
+            g = m['phi']['g'][0, :]
+            d = m['phi']['d'][0, :]
+        elif ('state_dexp' in m['fn']):
+            # hack, sdexp currently only supports single output channel
             g = m['phi']['g']
             d = m['phi']['d']
-
+    MI = modelspec[0]['meta']['state_mod']
+    state_chans = modelspec[0]['meta']['state_chans']
     if ax is not None:
         plt.sca(ax)
-
     plt.plot(d)
     plt.plot(g)
-    plt.xlabel('state channel')
-    plt.legend(('baseline', 'gain'))
+    plt.plot(MI)
+    plt.xticks(np.arange(len(state_chans)), state_chans, fontsize=6)
+    plt.legend(('baseline', 'gain', 'MI'))
+    plt.plot(np.arange(len(state_chans)),np.zeros(len(state_chans)),'k--',
+             linewidth=0.5)
     if title:
         plt.title(title)
+
+    ax_remove_box(ax)

@@ -32,17 +32,18 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
     # compute the mean state across all occurrences
     mean = np.nanmean(m)
     gtidx = (m >= mean) & g
-    if state_chan.startswith('FILE'):
+    if (state_chan.startswith('FILE') | state_chan.startswith('ACTIVE') |
+        state_chan.startswith('PASSIVE')):
         #log.info('state_chan: %s', state_chan)
 
         m0 = np.zeros_like(m)
         for s in rec[state_sig].chans:
-            if s.startswith('FILE') and s != state_chan:
+            if (s.startswith('FILE') | s.startswith('ACTIVE') |
+                s.startswith('PASSIVE')) and s != state_chan:
                 full_var = rec[state_sig].loc[s]
                 folded_var = np.squeeze(full_var.extract_epoch(epoch))
                 g = (np.sum(np.isfinite(folded_var), axis=1) > 0)
                 m0[g] += np.nanmean(folded_var[g, :], axis=1)
-
         ltidx = np.logical_not(gtidx) & np.logical_not(m0) & g
     else:
         ltidx = np.logical_not(gtidx) & g

@@ -198,7 +198,7 @@ class SignalBase:
             max_event_times = [data.shape[1] / fs]
         max_time = max(max_epoch_time, *max_event_times)
         self.ntimes = np.int(np.ceil(fs*max_time))
-        
+
         if segments is None:
             segments = np.array([[0, self.ntimes]])
         self.segments = segments
@@ -662,7 +662,7 @@ class SignalBase:
 
         return mask
 
-    def epoch_to_signal(self, epoch, boundary_mode='exclude',
+    def epoch_to_signal(self, epoch, indices=None, boundary_mode='exclude',
                         fix_overlap='merge', onsets_only=False, shift=0):
         '''
         Convert an epoch to a RasterizedSignal using the same sampling rate
@@ -670,8 +670,11 @@ class SignalBase:
 
         Parameters
         ----------
-        epoch_name : string
-            Epoch to convert to a signal
+        epoch : string
+            Name of epoch(s) to convert to a signal
+        indices : ndarray or None
+            if not None, use this Nx2 array to specify epoch times
+            otherwise find indices matching epoch
 
         Returns
         -------
@@ -679,8 +682,11 @@ class SignalBase:
             A signal whose value is 1 for each occurrence of the epoch, 0
             otherwise.
         '''
+        if indices is None:
+            # find matching epoch periods
+            indices = self.get_epoch_indices(epoch, boundary_mode, fix_overlap)
+
         data = np.zeros([1, self.ntimes], dtype=np.bool)
-        indices = self.get_epoch_indices(epoch, boundary_mode, fix_overlap)
         for lb, ub in indices:
             if onsets_only:
                 data[:, lb] = True
