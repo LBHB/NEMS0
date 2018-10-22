@@ -87,15 +87,15 @@ print(epochs[epochs['name'] == e])
 raster = resp.extract_epoch(e, mask=rec['mask'])[:,0,:]
 t = np.arange(raster.shape[1]) /resp.fs
 
-plt.figure()
-plt.subplot(2,1,1)
-plt.imshow(raster, interpolation='none', aspect='auto',
-           extent=[t[0], t[-1], raster.shape[0], 0])
-plt.title('Raster for {}'.format(epoch_list[0]))
-
-plt.subplot(2,1,2)
-plt.plot(t, np.nanmean(raster, axis=0))
-plt.title('PSTH for {}'.format(epoch_list[0]))
+#plt.figure()
+#plt.subplot(2,1,1)
+#plt.imshow(raster, interpolation='none', aspect='auto',
+#           extent=[t[0], t[-1], raster.shape[0], 0])
+#plt.title('Raster for {}'.format(epoch_list[0]))
+#
+#plt.subplot(2,1,2)
+#plt.plot(t, np.nanmean(raster, axis=0))
+#plt.title('PSTH for {}'.format(epoch_list[0]))
 
 # ----------------------------------------------------------------------------
 # INITIALIZE MODELSPEC
@@ -185,4 +185,5 @@ print(single_state_mod_index(vals[0], modelspecs[0], state_chan="pupil"))
 logging.info('Generating summary plot...')
 
 # Generate a summary plot
-fig = nplt.quickplot({'val': vals, 'modelspecs': modelspecs})
+#fig = nplt.quickplot({'val': vals, 'modelspecs': modelspecs})
+fig = nplt.model_per_time({'val': vals, 'modelspecs': modelspecs})

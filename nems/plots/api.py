@@ -13,7 +13,8 @@ from .heatmap import (weight_channels_heatmap, fir_heatmap, strf_heatmap,
 from .file import save_figure, load_figure_img, load_figure_bytes, fig2BytesIO
 from .histogram import pred_error_hist
 from .state import (state_vars_timeseries, state_var_psth,
-                    state_var_psth_from_epoch, state_vars_psth_all)
+                    state_var_psth_from_epoch, state_vars_psth_all,
+                    model_per_time)
 from .quickplot import quickplot, before_and_after_scatter
 from .diagnostic import diagnostic
 from .raster import (raster, psth_from_raster, raster_from_epoch)
