@@ -98,40 +98,45 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
         ts = rec['state'].as_continuous().copy()
         if state_colors is None:
             state_colors = [None] * num_vars
+        offset = -1.25 * mmax
         for i in range(1, num_vars):
-            # figure out gain
-            if g is not None:
-                if g.ndim == 1:
-                    tstr = "{} (d={:.3f},g={:.3f})".format(
-                            rec['state'].chans[i], d[i], g[i])
-                else:
-                    tstr = "{} (d={:.3f},g={:.3f})".format(
-                            rec['state'].chans[i], d[0, i], g[0, i])
-            else:
-                tstr = "{}".format(rec['state'].chans[i])
 
             st = ts[i, :].T
-            offset = - 1.25 * i *mmax
-            print(rec['state'].chans[i])
-            if len(np.unique(st))==2:
-                # special, binary variable
+            if len(np.unique(st)) == 2:
+                # special, binary variable, keep in one row
                 m = np.array([np.min(st)])
                 st = np.concatenate((m, st, m))
-                dinc = np.argwhere(np.diff(st)>0)
-                ddec = np.argwhere(np.diff(st)<0)
+                dinc = np.argwhere(np.diff(st) > 0)
+                ddec = np.argwhere(np.diff(st) < 0)
                 for x0, x1 in zip(dinc, ddec):
                     plt.plot([x0/fs, x1/fs], [offset, offset],
                              lw=2, color=state_colors[i-1])
+                tstr = "{}".format(rec['state'].chans[i])
+                plt.text(x0/fs, offset, tstr, fontsize=6)
+                #print("{} {} {}".format(rec['state'].chans[i], x0/fs, offset))
             else:
-                if decimate_by>1:
+                # non-binary variable, plot in own row
+                # figure out gain
+                if g is not None:
+                    if g.ndim == 1:
+                        tstr = "{} (d={:.3f},g={:.3f})".format(
+                                rec['state'].chans[i], d[i], g[i])
+                    else:
+                        tstr = "{} (d={:.3f},g={:.3f})".format(
+                                rec['state'].chans[i], d[0, i], g[0, i])
+                else:
+                    tstr = "{}".format(rec['state'].chans[i])
+                if decimate_by > 1:
                     st = scipy.signal.decimate(st[nnidx], q=decimate_by, axis=0)
                 else:
                     st = st[nnidx]
-    
-                st = st / np.nanmax(st) * mmax - 1.25 * i * mmax
-                plt.plot(t, st, linewidth=1, color=state_colors[i-1])
 
-            plt.text(t[0], -i*mmax*1.25, tstr, fontsize=6)
+                st = st / np.nanmax(st) * mmax + offset
+                plt.plot(t, st, linewidth=1, color=state_colors[i-1])
+                plt.text(t[0], offset, tstr, fontsize=6)
+
+                offset -= 1.25*mmax
+
         ax = plt.gca()
         # plt.text(0.5, 0.9, s, transform=ax.transAxes,
         #         horizontalalignment='center')
@@ -230,16 +235,16 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
 def state_vars_psth_all(rec, epoch, psth_name='resp', psth_name2='pred',
                         state_sig='state_raw', ax=None,
                         colors=None, channel=None, decimate_by=1,
-                        files_only=False):
+                        files_only=False, modelspec=None):
 
     # TODO: Does using epochs make sense for these?
     if ax is not None:
         plt.sca(ax)
-        
+
     newrec = rec.copy()
     fn = lambda x: x - newrec['pred']._data
     newrec['error'] = rec['resp'].transform(fn, 'error')
-    
+
     fs = rec[psth_name].fs
 
     d = rec[psth_name].get_epoch_bounds('PreStimSilence')
@@ -263,14 +268,15 @@ def state_vars_psth_all(rec, epoch, psth_name='resp', psth_name2='pred',
     highE = np.zeros([0,1])
     low2 = np.zeros([0,1])
     high2 = np.zeros([0,1])
+    _high2 = None
     limitset = []
     if files_only: #state_chan_list =['a','p','PASSIVE_1']
-        state_chan_list = [s for s in state_chan_list 
+        state_chan_list = [s for s in state_chan_list
                            if (s.startswith('FILE') | s.startswith('ACTIVE') |
                                s.startswith('PASSIVE')) ]
-        
+
     for state_chan in state_chan_list:
-        
+
         _low, _high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
                                     channel=channel, state_sig=state_sig,
                                     state_chan=state_chan)
@@ -281,7 +287,7 @@ def state_vars_psth_all(rec, epoch, psth_name='resp', psth_name2='pred',
             _low2, _high2 = state_mod_split(rec, epoch=epoch, psth_name=psth_name2,
                                             channel=channel, state_sig=state_sig,
                                             state_chan=state_chan)
-            
+
         gapdur = _low.shape[0]/fs/10
         gap = np.ones([int(np.ceil(fs*gapdur)),1]) * np.nan
         pgap = np.ones(_low.shape) * np.nan
@@ -299,17 +305,19 @@ def state_vars_psth_all(rec, epoch, psth_name='resp', psth_name2='pred',
                 _low = pgap
                 _low2 = pgap
             else:
+                _low = _high.copy()
+                _low2 = _high2.copy()
                 _high = pgap
                 _high2 = pgap
-                
+
         else:
-            current_start = low.shape[0]/fs + gapdur 
-            
+            current_start = low.shape[0]/fs + gapdur
+
         low = np.concatenate((low,gap,_low,gap), axis=0)
         high = np.concatenate((high,gap,_high,gap), axis=0)
         lowE = np.concatenate((lowE,gap,_lowE,gap), axis=0)
         highE = np.concatenate((highE,gap,_highE,gap), axis=0)
-        
+
         if psth_name2 is not None:
             low2 = np.concatenate((low2,gap,_low2,gap), axis=0)
             high2 = np.concatenate((high2,gap,_high2,gap), axis=0)
@@ -326,42 +334,32 @@ def state_vars_psth_all(rec, epoch, psth_name='resp', psth_name2='pred',
         fs /= decimate_by
 
     tt = np.arange(high.shape[0])/fs
-#    if files_only:
-#        if state_chan.startswith('ACTIVE'):
-#            line_color=line_colors['active']
-#            fill_color=fill_colors['active']
-#        else:
-#            line_color=line_colors['passive']
-#            fill_color=fill_colors['passive']
-#        ax.fill_between(tt, high[:,0]-highE[:,0], high[:,0]+highE[:,0], 
-#                        color=fill_color)
-#        l2, = ax.plot(tt, high, ls='-', lw=1, color=line_color)
-#        if psth_name2 is not None:
-#            ax.plot(tt, high2, ls='--', lw=1, color=line_color)
-#        
-#    else:
     ax.fill_between(tt, low[:,0]-lowE[:,0], low[:,0]+lowE[:,0], color=fill_colors['passive'])
     l1, = ax.plot(tt, low, ls='-', lw=1, color=line_colors['passive'])
     ax.fill_between(tt, high[:,0]-highE[:,0], high[:,0]+highE[:,0], color=fill_colors['active'])
     l2, = ax.plot(tt, high, ls='-', lw=1, color=line_colors['active'])
-
-    plt.legend((l1,l2), ('Lo','Hi'))
     if psth_name2 is not None:
         ax.plot(tt, low2, ls='--', lw=1, color=line_colors['passive'])
         ax.plot(tt, high2, ls='--', lw=1, color=line_colors['active'])
 
+    if not files_only:
+        plt.legend((l1,l2), ('Lo','Hi'))
+
     ax.set_ylabel('sp/sec')
-    #timeseries_from_vectors([low, high], fs=fs, title=title, ax=ax,
-    #                        legend=legend, time_offset=0,
-    #                        colors=colors, ylabel="sp/sec")
-
-
     ylim = ax.get_ylim()
+
     for ls, s in zip(limitset, state_chan_list):
+        if modelspec is not None:
+            sc = modelspec[0]['meta']['state_chans']
+            mi = modelspec[0]['meta']['state_mod']
+            sn = "{} ({:.2f})".format(s,mi[sc.index(s)])
+        else:
+            sn = s
         ax.plot(ls, [ylim[1], ylim[1]], 'k-', linewidth=2)
         lc = np.mean(ls)
-        ax.text(lc, ylim[1], s, ha='center', va='bottom', fontsize=6)
+        ax.text(lc, ylim[1], sn, ha='center', va='bottom', fontsize=6)
     ax.set_ylim([ylim[0], ylim[1]*1.1])
+    ax_remove_box(ax)
 
 
 def state_gain_plot(modelspec, ax=None, clim=None, title=None):
@@ -388,26 +386,26 @@ def state_gain_plot(modelspec, ax=None, clim=None, title=None):
         plt.title(title)
 
     ax_remove_box(ax)
-    
+
 
 def model_per_time(ctx):
     """
     state_colors : N x 2 list
        color spec for high/low lines in each of the N states
     """
-    
+
     rec = ctx['val'][0].apply_mask()
     modelspec = ctx['modelspecs'][0]
     epoch="REFERENCE"
     rec = ms.evaluate(rec, modelspec)
-    
+
     plt.figure()
     ax = plt.subplot(2, 1, 1)
     state_vars_timeseries(rec, modelspec, ax=ax)
-    
+
     ax = plt.subplot(2, 1, 2)
     state_vars_psth_all(rec, epoch, psth_name='resp',
                         psth_name2='pred', state_sig='state_raw',
                         colors=None, channel=None, decimate_by=1,
-                        ax=ax, files_only=True)
- 
+                        ax=ax, files_only=True, modelspec=modelspec)
+
