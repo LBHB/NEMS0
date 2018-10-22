@@ -87,7 +87,7 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     rec = ctx[default][r_idx]
     modelspec = ctx['modelspecs'][m_idx]
 
-    # figure out which epoch to chop out for plots that show a signel 
+    # figure out which epoch to chop out for plots that show a signel
     # segment of the data (eg, one sound, one trial)
     if (epoch is not None) and rec.get_epoch_indices(epoch).shape[0]:
         pass
@@ -206,17 +206,17 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
        (find_module('state_dc_gain', modelspec) is not None) or
        (find_module('state_weight', modelspec) is not None) or
        (find_module('state_dexp', modelspec) is not None)):
-        if rec['state'].shape[0]<=10:
+        if rec['state'].shape[0]<=15:
             #fns = state_vars_psths(rec, epoch, psth_name='resp',
             #                       occurrence=occurrence)
             #
             #_plot_axes([1]*len(fns), fns, -2)
-            fn2 = partial(state_vars_psth_all, rec, epoch, psth_name='resp', 
+            fn2 = partial(state_vars_psth_all, rec, epoch, psth_name='resp',
                           psth_name2='pred', state_sig='state_raw',
                           colors=None, channel=None, decimate_by=1)
             _plot_axes(1, fn2, -2)
         else:
-            
+
             fn2 = partial(state_gain_plot, modelspec)
             _plot_axes(1, fn2, -2)
 

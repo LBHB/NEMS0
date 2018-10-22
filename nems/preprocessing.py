@@ -566,12 +566,12 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
                       new_signalname='state'):
     """
     generate state signal for stategain.S/sdexp.S models
-    
+
     valid state signals include (incomplete list):
         pupil, pupil_ev, pupil_bs, pupil_psd
         active, each_file, each_passive, each_half
         far, hit, lick, p_x_a
-        
+
     TODO: Migrate to nems_lbhb or make a more generic version
     """
 
@@ -741,7 +741,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
                 # do include part B
                 pset.append(name2)
                 newrec[name2] = resp.epoch_to_signal(name2, indices=epoch2)
-        else:
+            else:
                 name1 = "ACTIVE_{}_{}".format(acount, 'A')
                 name2 = "ACTIVE_{}_{}".format(acount, 'B')
                 pset.append(name1)
