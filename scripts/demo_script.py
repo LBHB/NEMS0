@@ -21,8 +21,6 @@ from nems.gui.recording_browser import browse_recording, browse_context
 
 log = logging.getLogger(__name__)
 
-log = logging.getLogger(__name__)
-
 # ----------------------------------------------------------------------------
 # CONFIGURATION
 

@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import importlib
+import nems.modelspec as ms
 
 import logging
 log = logging.getLogger(__name__)
@@ -122,3 +123,38 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
         ymin, ymax = axes.get_ylim()
         xmin, xmax = axes.get_xlim()
         axes.set_aspect(abs(xmax-xmin)/abs(ymax-ymin))
+
+
+def nl_scatter(rec, modelspec, idx, sig_name='pred',
+               compare='resp', smoothing_bins=False,
+               xlabel1=None, ylabel1=None, ax=None):
+
+    # HACK: shouldn't hardcode 'stim', might be named something else
+    #       or not present at all. Need to figure out a better solution
+    #       for special case of idx = 0
+    if idx == 0:
+        # Can't have anything before index 0, so use input stimulus
+        before = rec.copy()
+        before_sig = rec['stim']
+        before.name = '**stim'
+    else:
+        before = ms.evaluate(rec.copy(), modelspec, start=None, stop=idx)
+        before_sig = before[sig_name]
+
+    # compute correlation for pre-module before it's over-written
+    if before[sig_name].shape[0] == 1:
+        corr1 = nm.corrcoef(before, pred_name=sig_name, resp_name=compare)
+    else:
+        corr1 = 0
+        log.warning('corr coef expects single-dim predictions')
+
+    compare_to = rec[compare]
+    module = modelspec[idx]
+    mod_name = module['fn'].replace('nems.modules','')
+    title1 = mod_name
+    text1 = "r = {0:.5f}".format(corr1)
+
+    plot_scatter(before_sig, compare_to, title=title1,
+                 smoothing_bins=smoothing_bins, xlabel=xlabel1,
+                 ylabel=ylabel1, text=text1, module=module, ax=ax)
+
