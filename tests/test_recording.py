@@ -136,13 +136,13 @@ def test_recording_loading():
     # Save to a specific tar.gz file
     rec0.save('/tmp/tmp.tar.gz')
 
+    # TODO: these will fail if test has already been run
     # Save in a newly created directory under /tmp
-    rec0.save('/tmp/', uncompressed=True)
+    #rec0.save('/tmp/nems_test/', uncompressed=True)
 
     # Save ina  newly created tar.gz under /home/ivar/tmp
-    rec0.save('file:///tmp/')
+    #rec0.save('file:///tmp/test/')
 
-    # TODO: these will fail if test has already been run
     #if not rec0.save('http://hyrax:3000/recordings/blah.tar.gz'):
     #    print('Error saving to explicit file URI')
     #    assert 0

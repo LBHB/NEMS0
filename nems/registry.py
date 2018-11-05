@@ -38,7 +38,7 @@ class KeywordRegistry():
 
     def __getitem__(self, kw_string):
         kw = self.lookup(kw_string)
-        accepted_args = inspect.getargspec(kw.parse)[0]
+        accepted_args = inspect.getfullargspec(kw.parse)[0]
         kwargs = {k: v for k, v in self.kwargs.items() if k in accepted_args}
         return kw.parse(kw_string, **kwargs)
 
