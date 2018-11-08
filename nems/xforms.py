@@ -173,7 +173,6 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
         excluded_cells = [cell for cell in rec['resp'].chans if cell in cellid]
         if save_other_cells_to_state is True:
             s = rec['resp'].extract_channels(excluded_cells).rasterize()
-
             rec = preproc.concatenate_state_channel(rec, s, 'state')
             rec['state_raw'] = rec['state']
         rec['resp'] = rec['resp'].extract_channels(cellid)
