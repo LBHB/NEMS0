@@ -3,6 +3,8 @@ def ld(loadkey, recording_uri=None, cellid=None):
     recordings = [recording_uri]
     options = loadkey.split('.')[1:]
     normalize = ('n' in options)
+    cst = ('cst' in options)
+
     if recording_uri is not None:
         xfspec = [['nems.xforms.load_recordings',
                    {'recording_uri_list': recordings,

@@ -562,6 +562,43 @@ def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals,
     return ests, vals
 
 
+def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
+               pc_count=None, **context):
+    """
+    generate pca signal, replace (multichannel) reference with a single
+    pc channel
+    """
+    rec0 = rec.copy()
+    if type(pc_idx) is not list:
+        pc_idx=[pc_idx]
+
+    # compute PCs only on valid (unmasked) times
+    D_ref = rec0.apply_mask()[resp_sig].as_continuous().T
+    # project full response dataset to preserve time
+    D = rec0['resp'].as_continuous().T
+
+    if pc_count is None:
+        pc_count=D_ref.shape[1]
+
+    if False:
+        pca = PCA(n_components=pc_count)
+        pca.fit(D_ref)
+
+        X = pca.transform(D)
+    else:
+        # each ROW(??) of s is a PC
+        m = np.nanmean(D_ref, axis=0, keepdims=True)
+        u, s, v = np.linalg.svd(D_ref-m, full_matrices=False)
+        vs = np.sign(np.sum(v, axis=1, keepdims=True))
+        v *= vs
+        X = (D-m) @ v.T
+
+    rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
+    rec0[resp_sig] = rec0[resp_sig]._modified_copy(X[:, pc_idx].T)
+
+    return {'rec': rec0}
+
+
 def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
                       new_signalname='state'):
     """
@@ -835,7 +872,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         a = newrec["active"].as_continuous()
         newrec["p_x_a"] = newrec["pupil"]._modified_copy(p * a)
         newrec["p_x_a"].chans = ["p_x_a"]
-        
+
     if ('prw' in state_signals):
         # add channel two of the resp to state and delete it from resp
         if len(rec['resp'].chans) != 2:
@@ -843,15 +880,15 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         else:
             ch2 = rec['resp'].chans[1]
             ch1 = rec['resp'].chans[0]
-            
+
         newrec['prw'] = newrec['resp'].extract_channels([ch2]).rasterize()
         newrec['resp'] = newrec['resp'].extract_channels([ch1]).rasterize()
-        
+
     if ('pup_x_prw' in state_signals):
         # interaction term between pupil and the other cell
         if 'prw' not in newrec.signals.keys():
             raise ValueError("Must include prw alone before using interaction")
-        
+
         else:
             pup = newrec['pupil']._data
             prw = newrec['prw']._data
@@ -859,7 +896,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
             sig.name = 'pup_x_prw'
             sig.chans = ['pup_x_prw']
             newrec.add_signal(sig)
-            
+
     for i, x in enumerate(state_signals):
         if x in permute_signals:
             # kludge: fix random seed to index of state signal in list
