@@ -149,7 +149,8 @@ def evaluate(xformspec, context={}, start=0, stop=None):
 ###############################################################################
 
 
-def load_recordings(recording_uri_list, normalize=False, cellid=None, **context):
+def load_recordings(recording_uri_list, normalize=False, cellid=None,
+                    save_other_cells_to_state=False, **context):
     '''
     Load one or more recordings into memory given a list of URIs.
     '''
@@ -166,12 +167,27 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None, **context)
     # from resp signal.
     if cellid is None:
         pass
+
     elif type(cellid) is list:
         log.info('Extracting channels %s', cellid)
+        excluded_cells = [cell for cell in rec['resp'].chans if cell in cellid]
+        if save_other_cells_to_state is True:
+            s = rec['resp'].extract_channels(excluded_cells).rasterize()
+
+            rec = preproc.concatenate_state_channel(rec, s, 'state')
+            rec['state_raw'] = rec['state']
         rec['resp'] = rec['resp'].extract_channels(cellid)
+
     elif cellid in rec['resp'].chans:
         log.info('Extracting channel %s', cellid)
+        excluded_cells = rec['resp'].chans
+        excluded_cells.remove(cellid)
+        if save_other_cells_to_state is True:
+            s = rec['resp'].extract_channels(excluded_cells).rasterize()
+            rec = preproc.concatenate_state_channel(rec, s, 'state')
+            rec['state_raw'] = rec['state']
         rec['resp'] = rec['resp'].extract_channels([cellid])
+
     else:
         log.info('No cellid match, keeping all resp channels')
 
@@ -410,6 +426,8 @@ def split_val_and_average_reps(rec, epoch_regex='^STIM_', **context):
 
 
 def split_at_time(rec, fraction, **context):
+    rec['resp'] = rec['resp'].rasterize()
+    rec['stim'] = rec['stim'].rasterize()
     est, val = rec.split_at_time(fraction)
     est['resp'] = est['resp'].rasterize()
     est['stim'] = est['stim'].rasterize()
