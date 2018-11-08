@@ -149,7 +149,8 @@ def evaluate(xformspec, context={}, start=0, stop=None):
 ###############################################################################
 
 
-def load_recordings(recording_uri_list, normalize=False, cellid=None, **context):
+def load_recordings(recording_uri_list, normalize=False, cellid=None,
+                    save_other_cells_to_state=False, **context):
     '''
     Load one or more recordings into memory given a list of URIs.
     '''
@@ -169,9 +170,17 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None, **context)
     elif type(cellid) is list:
         log.info('Extracting channels %s', cellid)
         rec['resp'] = rec['resp'].extract_channels(cellid)
+        if save_other_cells_to_state is True:
+            excluded_cells = [cell for cell in rec['resp'].chans if cell in cellid]
+            rec['state'] = rec['resp'].extract_channels(excluded_cells)
     elif cellid in rec['resp'].chans:
         log.info('Extracting channel %s', cellid)
         rec['resp'] = rec['resp'].extract_channels([cellid])
+        if save_other_cells_to_state is True:
+            excluded_cells = rec['resp'].chans
+            excluded_cells.remove(cellid)
+            rec['state'] = rec['resp'].extract_channels(excluded_cells)
+
     else:
         log.info('No cellid match, keeping all resp channels')
 
