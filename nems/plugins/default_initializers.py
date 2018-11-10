@@ -60,6 +60,22 @@ def sev(kw):
          {'epoch_regex': epoch_regex}]]
     return xfspec
 
+
+def tev(kw):
+    ops = kw.split('.')[1:]
+
+    valfrac = 0.1
+    for op in ops:
+        if op.startswith("vv"):
+            valfrac=int(op[2:]) / 1000
+        elif op.startswith("v"):
+            valfrac=int(op[1:]) / 100
+
+    xfspec = [['nems.xforms.split_at_time', {'valfrac': valfrac}]]
+
+    return xfspec
+
+
 def jk(kw):
     ops = kw.split('.')[1:]
     jk_kwargs = {}
