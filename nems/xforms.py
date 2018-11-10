@@ -279,7 +279,8 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
         if save_other_cells_to_state is True:
             s = rec['resp'].extract_channels(excluded_cells).rasterize()
             rec = preproc.concatenate_state_channel(rec, s, 'state')
-            rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
+            rec['state_raw'] = rec['state'].copy()
+            rec['state_raw'].name = 'state_raw'
         rec['resp'] = rec['resp'].extract_channels(cellid)
 
     elif cellid in rec['resp'].chans:
@@ -289,7 +290,8 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
         if save_other_cells_to_state is True:
             s = rec['resp'].extract_channels(excluded_cells).rasterize()
             rec = preproc.concatenate_state_channel(rec, s, 'state')
-            rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
+            rec['state_raw'] = rec['state'].copy()
+            rec['state_raw'].name = 'state_raw'
         rec['resp'] = rec['resp'].extract_channels([cellid])
 
     else:
