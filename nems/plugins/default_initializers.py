@@ -36,6 +36,11 @@ def init(kw):
 # move to same place as sev? -- SVD
 # TODO: Maybe can keep splitep and avgep as one thing?
 #       Would they ever be done separately?
+def timesplit(kw):
+    frac = int(kw.split('.')[1][1:])*0.1
+    return [['nems.xforms.split_at_time', {'fraction': frac}]]
+
+
 def splitep(kw):
     ops = kw.split('.')[1:]
     epoch_regex = '^STIM' if not ops else ops[0]
