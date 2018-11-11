@@ -42,26 +42,43 @@ def standard_correlation(est, val, modelspecs, rec=None):
     # Compute scores for validation dat
     r_ceiling = 0
     if type(val) is not list:
-        r_test, se_test = nmet.j_corrcoef(val, 'pred', 'resp')
-        r_fit, se_fit = nmet.j_corrcoef(est, 'pred', 'resp')
-        r_floor = nmet.r_floor(val, 'pred', 'resp')
+        if 'mask' in val[0].signals.keys():
+            v = val.apply_mask()
+            e = est.apply_mask()
+        else:
+            v = val
+            e = est
+
+        r_test, se_test = nmet.j_corrcoef(v, 'pred', 'resp')
+        r_fit, se_fit = nmet.j_corrcoef(e, 'pred', 'resp')
+        r_floor = nmet.r_floor(v, 'pred', 'resp')
         if rec is not None:
             # print('running r_ceiling')
-            r_ceiling = nmet.r_ceiling(val, rec, 'pred', 'resp')
+            r_ceiling = nmet.r_ceiling(v, rec, 'pred', 'resp')
 
-        mse_test = nmet.j_nmse(val, 'pred', 'resp')
-        mse_fit = nmet.j_nmse(est, 'pred', 'resp')
+        mse_test = nmet.j_nmse(v, 'pred', 'resp')
+        mse_fit = nmet.j_nmse(e, 'pred', 'resp')
 
     elif len(val) == 1:
-        r_test, se_test = nmet.j_corrcoef(val[0], 'pred', 'resp')
-        r_fit, se_fit = nmet.j_corrcoef(est[0], 'pred', 'resp')
-        r_floor = nmet.r_floor(val[0], 'pred', 'resp')
-        if rec is not None:
-            # print('running r_ceiling')
-            r_ceiling = nmet.r_ceiling(val[0], rec, 'pred', 'resp')
+        if 'mask' in val[0].signals.keys():
+            v = val[0].apply_mask()
+            e = est[0].apply_mask()
+        else:
+            v = val[0]
+            e = est[0]
 
-        mse_test, se_mse_test = nmet.j_nmse(val[0], 'pred', 'resp')
-        mse_fit, se_mse_fit = nmet.j_nmse(est[0], 'pred', 'resp')
+        r_test, se_test = nmet.j_corrcoef(v, 'pred', 'resp')
+        r_fit, se_fit = nmet.j_corrcoef(e, 'pred', 'resp')
+        r_floor = nmet.r_floor(v, 'pred', 'resp')
+        if rec is not None:
+            try:
+                # print('running r_ceiling')
+                r_ceiling = nmet.r_ceiling(v, rec, 'pred', 'resp')
+            except:
+                r_ceiling = 0
+
+        mse_test, se_mse_test = nmet.j_nmse(v, 'pred', 'resp')
+        mse_fit, se_mse_fit = nmet.j_nmse(e, 'pred', 'resp')
 
     else:
         # unclear if this ever excutes since jackknifed val sets are

@@ -394,6 +394,15 @@ def split_by_occurrence_counts(rec, epoch_regex='^STIM_', **context):
     return {'est': est, 'val': val}
 
 
+def split_at_time(rec, valfrac=0.1, **context):
+
+    rec['resp'] = rec['resp'].rasterize()
+    rec['stim'] = rec['stim'].rasterize()
+    est, val = rec.split_at_time(fraction=valfrac)
+
+    return {'est': est, 'val': val}
+
+
 def average_away_stim_occurrences(est, val, epoch_regex='^STIM_', **context):
     est = preproc.average_away_epoch_occurrences(est, epoch_regex=epoch_regex)
     val = preproc.average_away_epoch_occurrences(val, epoch_regex=epoch_regex)
@@ -421,18 +430,6 @@ def split_val_and_average_reps(rec, epoch_regex='^STIM_', **context):
     est, val = rec.split_using_epoch_occurrence_counts(epoch_regex=epoch_regex)
     est = preproc.average_away_epoch_occurrences(est, epoch_regex=epoch_regex)
     val = preproc.average_away_epoch_occurrences(val, epoch_regex=epoch_regex)
-
-    return {'est': est, 'val': val}
-
-
-def split_at_time(rec, fraction, **context):
-    rec['resp'] = rec['resp'].rasterize()
-    rec['stim'] = rec['stim'].rasterize()
-    est, val = rec.split_at_time(fraction)
-    est['resp'] = est['resp'].rasterize()
-    est['stim'] = est['stim'].rasterize()
-    val['resp'] = val['resp'].rasterize()
-    val['stim'] = val['stim'].rasterize()
 
     return {'est': est, 'val': val}
 
