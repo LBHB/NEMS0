@@ -563,17 +563,33 @@ def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals,
 
 
 def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
-               pc_count=None, **context):
+               pc_count=None, pc_source='all', **context):
     """
     generate pca signal, replace (multichannel) reference with a single
     pc channel
+
+    TODO: PCA on PSTH or noise (signal minus PSTH)
+       pc_source = 'all', 'psth' or 'noise'
+
     """
     rec0 = rec.copy()
     if type(pc_idx) is not list:
         pc_idx=[pc_idx]
 
     # compute PCs only on valid (unmasked) times
-    D_ref = rec0.apply_mask()[resp_sig].as_continuous().T
+    if pc_source=='all':
+        D_ref = rec0.apply_mask()[resp_sig].as_continuous().T
+    elif pc_source=='psth':
+        rec0 = generate_psth_from_resp(rec0)
+        D_ref = rec0.apply_mask()['psth'].as_continuous().T
+    elif pc_source=='noise':
+        rec0 = generate_psth_from_resp(rec0)
+        D_psth = rec0.apply_mask()['psth'].as_continuous().T
+        D_raw = rec0.apply_mask()[resp_sig].as_continuous().T
+        D_ref = D_raw - D_psth
+    else:
+        raise ValueError('pc_source {} not supported'.format(pc_source))
+
     # project full response dataset to preserve time
     D = rec0['resp'].as_continuous().T
 
@@ -581,6 +597,7 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
         pc_count=D_ref.shape[1]
 
     if False:
+        # use sklearn. maybe someday
         pca = PCA(n_components=pc_count)
         pca.fit(D_ref)
 

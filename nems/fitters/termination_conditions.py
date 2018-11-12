@@ -54,7 +54,7 @@ def error_non_decreasing(stepinfo, tolerance=1e-5):
     Returns true when stepinfo's 'err_delta' is less than tolerance.
     The default tolerance is 1.0e-5.
     '''
-    if stepinfo['err_delta'] > -tolerance:
+    if (stepinfo['err_delta'] > -tolerance) and (stepinfo['err_delta'] < 0):
         log.info("Change in error: %.06f was less than tolerance: %.2E",
                  stepinfo['err_delta'], tolerance)
         return True

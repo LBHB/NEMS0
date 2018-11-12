@@ -108,7 +108,7 @@ def j_state_mod_index(rec, epoch='REFERENCE', psth_name='pred', divisor=None,
     Use new mask on each jackknife to pass into state_mod_index
     """
 
-    channel_count = len(rec[psth_name].chans)
+    channel_count = rec[psth_name].shape[0]
 
     if (type(state_chan) == list) & (len(state_chan) == 0):
         state_chans = len(rec[state_sig].chans)

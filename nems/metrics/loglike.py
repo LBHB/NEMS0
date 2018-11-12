@@ -15,6 +15,9 @@ def likelihood_poisson(result, pred_name='pred', resp_name='resp'):
     # TODO: Why set this limit?
     x1[x1 < 0.00001] = 0.00001
 
-    numer = np.mean(x2*np.log(x1))
-    denom = np.mean(x2)
+    # norm LL copied from NARF:
+    # - nanmean(r.*log(p) - p) ./ (nanmean(r)*log(nanmean(r)));
+
+    numer = np.mean(x2*np.log(x1) - x1)
+    denom = np.mean(x2) * np.log(np.mean(x2))
     return numer/denom
