@@ -416,6 +416,15 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
             m = priors.set_mean_phi([m])[0]  # Inits phi for 1 module
             fit_portion[i] = m
 
+    # ensures all previous modules have their phi initialized
+    # choose prior mean if not found
+    for i, m in enumerate(fit_portion):
+        if ('phi' not in m.keys()) and ('prior' in m.keys()):
+            log.debug('Phi not found for module, using mean of prior: %s',
+                      m)
+            m = priors.set_mean_phi([m])[0]  # Inits phi for 1 module
+            fit_portion[i] = m
+
     # generate prediction from module preceeding dexp
     ms.fit_mode_on(fit_portion)
     rec = ms.evaluate(rec, fit_portion)
