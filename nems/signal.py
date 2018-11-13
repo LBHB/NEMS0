@@ -1462,8 +1462,8 @@ class RasterizedSignal(SignalBase):
 
         # intialize with nans so that any subsequent prediction will be
         # restricted to the specified epochs
+        # TODO - remove this - not necessary anymore?
         if data.dtype == bool:
-            print('in')
             data[:] = False
         else:
             data[:] = np.nan
