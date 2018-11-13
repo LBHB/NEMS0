@@ -11,10 +11,13 @@ def init(kw):
     st = False
     tolerance = 10**-5.5
     norm_fir = False
+    fit_sig = 'resp'
 
     for op in ops:
         if op == 'st':
             st = True
+        elif op=='psth':
+            fit_sig = 'psth'
         elif op.startswith('t'):
             # Should use \ to escape going forward, but keep d-sub in
             # for backwards compatibility.
@@ -25,7 +28,8 @@ def init(kw):
             norm_fir = True
 
     if st:
-        return [['nems.xforms.fit_state_init', {'tolerance': tolerance}]]
+        return [['nems.xforms.fit_state_init', {'tolerance': tolerance,
+                                                'fit_sig': fit_sig}]]
     else:
         return [['nems.xforms.fit_basic_init', {'tolerance': tolerance,
                                                 'norm_fir': norm_fir}]]
