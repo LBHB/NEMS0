@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import importlib
 import nems.modelspec as ms
+import nems.metrics.api as nm
 
 import logging
 log = logging.getLogger(__name__)
@@ -51,7 +52,6 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
     '''
     if (sig1.nchans > 1) or (sig2.nchans > 1):
         log.warning('sig1 or sig2 chancount > 1, using chan 0')
-
     if ax:
         plt.sca(ax)
     ax = plt.gca()

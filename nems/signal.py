@@ -491,10 +491,10 @@ class SignalBase:
         df['end'] = end
         df['name'] = name
         df = df.sort_values(by='start').reset_index(drop=True)
-        
+
         sig = self._modified_copy(self._data, epochs=df, segments=None)
         return sig
-    
+
     def count_epoch(self, epoch, mask=None):
         """Returns the number of occurrences of the given epoch."""
         epoch_indices = self.get_epoch_indices(epoch, mask=mask)
@@ -1084,9 +1084,13 @@ class RasterizedSignal(SignalBase):
         # print(epoch)
 
         for i, (lb, ub) in enumerate(epoch_indices):
+            if ub>data.shape[-1]:
+                ub=data.shape[-1]
             samples = ub-lb
-            # print(samples)
-            # print([lb, ub])
+            #print(samples)
+            #print([lb, ub])
+            #print(data[..., lb:ub].shape)
+            #print(epoch_data[i, ..., :samples].shape)
             epoch_data[i, ..., :samples] = data[..., lb:ub]
 
         return epoch_data
@@ -1144,6 +1148,7 @@ class RasterizedSignal(SignalBase):
           l, r = mysig.split_at_time(0.8)
           assert(l.ntimes == 0.8 * mysig.ntimes)
           assert(r.ntimes == 0.2 * mysig.ntimes)
+
         '''
         split_idx = max(1, int(self.ntimes * fraction))
         split_time = split_idx/self.fs

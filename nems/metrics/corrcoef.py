@@ -88,7 +88,7 @@ def j_corrcoef(result, pred_name='pred', resp_name='resp', njacks=20):
     channel_count = predmat.shape[0]
     cc = np.zeros(channel_count)
     ee = np.zeros(channel_count)
-
+    #print("shape predmat:", predmat.shape)
     for i in range(channel_count):
         pred = predmat[i, :]
         resp = respmat[i, :]

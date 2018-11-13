@@ -67,7 +67,6 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}):
             kw = kw.replace("xR", "x{}".format(R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-
         else:
             log.info('kw: %s', kw)
         if registry.kw_head(kw) not in registry:
@@ -94,6 +93,11 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}):
         i += 1
 
     # insert metadata, if provided
+    if rec is not None:
+        if ((rec['resp'].shape[0] > 1) and ('cellids' not in meta.keys()) and
+            (type(rec.meta['cellid']) is list)):
+            meta['cellids'] = rec.meta['cellid']
+
     if 'meta' not in modelspec[0].keys():
         modelspec[0]['meta'] = meta
     else:

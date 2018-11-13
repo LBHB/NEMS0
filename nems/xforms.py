@@ -180,7 +180,7 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
 
     elif cellid in rec['resp'].chans:
         log.info('Extracting channel %s', cellid)
-        excluded_cells = rec['resp'].chans
+        excluded_cells = rec['resp'].chans.copy()
         excluded_cells.remove(cellid)
         if save_other_cells_to_state is True:
             s = rec['resp'].extract_channels(excluded_cells).rasterize()
@@ -394,6 +394,15 @@ def split_by_occurrence_counts(rec, epoch_regex='^STIM_', **context):
     return {'est': est, 'val': val}
 
 
+def split_at_time(rec, valfrac=0.1, **context):
+
+    rec['resp'] = rec['resp'].rasterize()
+    rec['stim'] = rec['stim'].rasterize()
+    est, val = rec.split_at_time(fraction=valfrac)
+
+    return {'est': est, 'val': val}
+
+
 def average_away_stim_occurrences(est, val, epoch_regex='^STIM_', **context):
     est = preproc.average_away_epoch_occurrences(est, epoch_regex=epoch_regex)
     val = preproc.average_away_epoch_occurrences(val, epoch_regex=epoch_regex)
@@ -421,18 +430,6 @@ def split_val_and_average_reps(rec, epoch_regex='^STIM_', **context):
     est, val = rec.split_using_epoch_occurrence_counts(epoch_regex=epoch_regex)
     est = preproc.average_away_epoch_occurrences(est, epoch_regex=epoch_regex)
     val = preproc.average_away_epoch_occurrences(val, epoch_regex=epoch_regex)
-
-    return {'est': est, 'val': val}
-
-
-def split_at_time(rec, fraction, **context):
-    rec['resp'] = rec['resp'].rasterize()
-    rec['stim'] = rec['stim'].rasterize()
-    est, val = rec.split_at_time(fraction)
-    est['resp'] = est['resp'].rasterize()
-    est['stim'] = est['stim'].rasterize()
-    val['resp'] = val['resp'].rasterize()
-    val['stim'] = val['stim'].rasterize()
 
     return {'est': est, 'val': val}
 
@@ -540,7 +537,8 @@ def _set_zero(x):
     return y
 
 
-def fit_state_init(modelspecs, est, IsReload=False, metric='nmse', **context):
+def fit_state_init(modelspecs, est, fit_sig='resp', tolerance=1e-4,
+                   IsReload=False, metric='nmse', **context):
     '''
     Initialize modelspecs in an attempt to avoid getting stuck in
     local minima. Remove state replication/merging first.
@@ -569,15 +567,18 @@ def fit_state_init(modelspecs, est, IsReload=False, metric='nmse', **context):
             # is used
             dc = d.copy()
             dc['state'] = dc['state'].transform(_set_zero, 'state')
+            if fit_sig != 'resp':
+                log.info("Subbing %s for resp signal", fit_sig)
+                dc['resp'] = dc[fit_sig]
 
             m = nems.initializers.prefit_LN(
                     dc, m,
                     analysis_function=nems.analysis.api.fit_basic,
                     fitter=scipy_minimize, metric=metric_fn,
-                    tolerance=10**-4, max_iter=700)
+                    tolerance=tolerance, max_iter=700)
             # fit a bit more to settle in STP variables and anything else
             # that might have been excluded
-            fit_kwargs = {'tolerance': 10**-4.5, 'max_iter': 500}
+            fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
             m = nems.analysis.api.fit_basic(
                     dc, m, fit_kwargs=fit_kwargs, metric=metric_fn,
                     fitter=scipy_minimize)[0]
@@ -702,7 +703,7 @@ def fit_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
         fitter_fn = getattr(nems.fitters.api, fitter)
         fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
         if fitter == 'coordinate_descent':
-            fit_kwargs['step_size'] = 0.05
+            fit_kwargs['step_size'] = 0.1
         modelspecs = nems.analysis.api.fit_nfold(
                 est, modelspecs, fitter=fitter_fn,
                 fit_kwargs=fit_kwargs, analysis=analysis,

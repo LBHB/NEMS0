@@ -123,7 +123,7 @@ def wc(kw):
             coefs = 'nems.modules.weight_channels.gaussian_coefficients'
             mean = np.arange(n_outputs+1)/(n_outputs*2+2) + 0.25
             mean = mean[1:]
-            sd = np.full_like(mean, 0.5)
+            sd = np.full_like(mean, 0.4)
 
             mean_prior_coefficients = {
                 'mean': mean,
@@ -178,6 +178,8 @@ def fir(kw):
     None, but x{n_banks} is optional.
     '''
     pattern = re.compile(r'^fir\.?(\d{1,})x(\d{1,})x?(\d{1,})?$')
+    ops = kw.split(".")
+    kw = ".".join(ops[:2])
     parsed = re.match(pattern, kw)
     try:
         n_outputs = int(parsed.group(1))
@@ -206,6 +208,10 @@ def fir(kw):
         pass
     else:
         p_coefficients['mean'][:, 0] = 1
+
+    for op in ops:
+        if op == 'fl':
+            p_coefficients['mean'][:] = 1/(n_outputs*n_coefs)
 
     if n_banks is None:
         template = {

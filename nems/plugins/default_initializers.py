@@ -36,6 +36,11 @@ def init(kw):
 # move to same place as sev? -- SVD
 # TODO: Maybe can keep splitep and avgep as one thing?
 #       Would they ever be done separately?
+def timesplit(kw):
+    frac = int(kw.split('.')[1][1:])*0.1
+    return [['nems.xforms.split_at_time', {'fraction': frac}]]
+
+
 def splitep(kw):
     ops = kw.split('.')[1:]
     epoch_regex = '^STIM' if not ops else ops[0]
@@ -59,6 +64,22 @@ def sev(kw):
         ['nems.xforms.average_away_stim_occurrences',
          {'epoch_regex': epoch_regex}]]
     return xfspec
+
+
+def tev(kw):
+    ops = kw.split('.')[1:]
+
+    valfrac = 0.1
+    for op in ops:
+        if op.startswith("vv"):
+            valfrac=int(op[2:]) / 1000
+        elif op.startswith("v"):
+            valfrac=int(op[1:]) / 100
+
+    xfspec = [['nems.xforms.split_at_time', {'valfrac': valfrac}]]
+
+    return xfspec
+
 
 def jk(kw):
     ops = kw.split('.')[1:]
