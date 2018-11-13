@@ -568,9 +568,6 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
     generate pca signal, replace (multichannel) reference with a single
     pc channel
 
-    TODO: PCA on PSTH or noise (signal minus PSTH)
-       pc_source = 'all', 'psth' or 'noise'
-
     """
     rec0 = rec.copy()
     if type(pc_idx) is not list:
