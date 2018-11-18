@@ -563,7 +563,8 @@ def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals,
 
 
 def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
-               pc_count=None, pc_source='all', **context):
+               pc_count=None, pc_source='all', overwrite_resp=True,
+               **context):
     """
     generate pca signal, replace (multichannel) reference with a single
     pc channel
@@ -571,18 +572,22 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
     """
     rec0 = rec.copy()
     if type(pc_idx) is not list:
-        pc_idx=[pc_idx]
+        pc_idx = [pc_idx]
 
     # compute PCs only on valid (unmasked) times
+    rec0 = generate_psth_from_resp(rec0)
+    if 'mask' in rec0.signals:
+        rec_masked = rec0.apply_mask()
+    else:
+        rec_masked = rec0
+
     if pc_source=='all':
-        D_ref = rec0.apply_mask()[resp_sig].as_continuous().T
+        D_ref = rec_masked[resp_sig].as_continuous().T
     elif pc_source=='psth':
-        rec0 = generate_psth_from_resp(rec0)
-        D_ref = rec0.apply_mask()['psth'].as_continuous().T
+        D_ref = rec_masked['psth'].as_continuous().T
     elif pc_source=='noise':
-        rec0 = generate_psth_from_resp(rec0)
-        D_psth = rec0.apply_mask()['psth'].as_continuous().T
-        D_raw = rec0.apply_mask()[resp_sig].as_continuous().T
+        D_psth = rec_masked['psth'].as_continuous().T
+        D_raw = rec_masked[resp_sig].as_continuous().T
         D_ref = D_raw - D_psth
     else:
         raise ValueError('pc_source {} not supported'.format(pc_source))
@@ -608,7 +613,8 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
         X = (D-m) @ v.T
 
     rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
-    rec0[resp_sig] = rec0[resp_sig]._modified_copy(X[:, pc_idx].T)
+    if overwrite_resp:
+        rec0[resp_sig] = rec0[resp_sig]._modified_copy(X[:, pc_idx].T)
 
     return {'rec': rec0}
 
