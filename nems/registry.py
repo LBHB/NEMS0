@@ -145,10 +145,17 @@ class KeywordRegistry():
     def from_json(self, d):
         r = KeywordRegistry(*d['_KWR_ARGS'])
         d.pop('_KWR_ARGS')
-#        r.keywords = {k: getattr(imp.import_module(v), k)
-#                      for k, v in d.items()}
-        plugins = set([v for k, v in d.items()])
-        r.register_plugins(plugins)
+        try:
+            r.keywords = {k: getattr(imp.import_module(v), k)
+                      for k, v in d.items()}
+            plugins = set([v for k, v in d.items()])
+            r.register_plugins(plugins)
+        except:
+            # Assume that equivalent plugins are specified in configs.
+            # Will happen when loading a model on a PC that it
+            # was not fit on, for example.
+            pass
+
         return r
 
 
