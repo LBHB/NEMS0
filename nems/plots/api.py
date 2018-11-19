@@ -18,3 +18,4 @@ from .state import (state_vars_timeseries, state_var_psth,
 from .quickplot import quickplot, before_and_after_scatter
 from .diagnostic import diagnostic
 from .raster import (raster, psth_from_raster, raster_from_epoch)
+from .utils import (ax_remove_box)
