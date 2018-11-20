@@ -1463,10 +1463,10 @@ class RasterizedSignal(SignalBase):
         # intialize with nans so that any subsequent prediction will be
         # restricted to the specified epochs
         # TODO - remove this - not necessary anymore?
-        if data.dtype == bool:
-            data[:] = False
-        else:
-            data[:] = np.nan
+#        if data.dtype == bool:
+#            data[:] = False
+#        else:
+#            data[:] = np.nan
 
         for epoch, epoch_data in epoch_dict.items():
             indices = self.get_epoch_indices(epoch, mask=mask)

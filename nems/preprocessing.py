@@ -477,7 +477,7 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     # periods not contained within stimulus epochs), or spont rate (for the signal
     # containing spont rate)
     respavg_data = respavg.as_continuous().copy()
-    respavg_spont_data = respavg.as_continuous().copy()
+    respavg_spont_data = respavg_with_spont.as_continuous().copy()
 
     if 'mask' in newrec.signals.keys():
         mask_data = newrec['mask']._data
@@ -487,7 +487,7 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     spont_periods = ((np.isnan(respavg_data)) & (mask_data==True))
 
     respavg_data[:, spont_periods[0,:]] = 0
-    respavg_spont_data[:, spont_periods[0,:]] = spont_rate[:, np.newaxis]
+    # respavg_spont_data[:, spont_periods[0,:]] = spont_rate[:, np.newaxis]
 
     respavg = respavg._modified_copy(respavg_data)
     respavg_with_spont = respavg_with_spont._modified_copy(respavg_spont_data)
