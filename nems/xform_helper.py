@@ -96,7 +96,7 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={}, xforms_kwa
     # 6) generate plots (optional)
     if autoPlot:
         if not _xform_exists(xfspec, 'nems.xforms.plot_summary'):
-            log.info('Adding summary plot to xfspec...')
+            # log.info('Adding summary plot to xfspec...')
             xfspec.append(['nems.xforms.plot_summary', {}])
 
     return xfspec
