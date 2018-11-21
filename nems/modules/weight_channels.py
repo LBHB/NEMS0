@@ -47,7 +47,6 @@ def basic(rec, i, o, coefficients, normalize_coefs=False):
         fn = lambda x: c @ x
     else:
         fn = lambda x: coefficients @ x
-
     return [rec[i].transform(fn, o)]
 
 
@@ -93,3 +92,19 @@ def gaussian(rec, i, o, n_chan_in, mean, sd, **kw_args):
     coefficients = gaussian_coefficients(mean, sd, n_chan_in)
     fn = lambda x: coefficients @ x
     return [rec[i].transform(fn, o)]
+
+def channel_bank(rec, i, o, coefficients, normalize_coefs=False,bank_count=1):
+    '''
+    '''
+    fn = lambda x: per_channel(x, coefficients, bank_count)
+    return [rec[i].transform(fn, o)]
+
+def per_channel(x, coefficients, bank_count=1):
+    '''
+    '''
+    n_in = int(coefficients.shape[0]/int(bank_count))
+    n_out = coefficients.shape[1]
+    out = np.zeros((int(bank_count)*n_out, x.shape[1]))
+    for i in range(0,int(bank_count)*n_out,n_out):
+        out[i:i+n_in,:] = coefficients[i:i+n_in,:] @ x[i:i+n_in,:]
+    return out

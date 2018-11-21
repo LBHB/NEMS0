@@ -39,7 +39,7 @@ def get_modelspec_shortname(modelspec):
     '''
     Returns a string that is just the module ids in this modelspec.
     '''
-    keyword_string = '_'.join([m['id'] for m in modelspec])
+    keyword_string = '-'.join([m['id'] for m in modelspec])
     return keyword_string
 
 
@@ -53,7 +53,7 @@ def get_modelspec_longname(modelspec):
     keyword_string = get_modelspec_shortname(modelspec)
     fitter_name = meta.get('fitkey', meta.get('fitter', 'unknown_fitter'))
     date = nems.utils.iso8601_datestring()
-    guess = '.'.join([recording_name, keyword_string, fitter_name, date])
+    guess = '_'.join([recording_name, keyword_string, fitter_name, date])
 
     guess = re.sub('[:]', '', guess)
     guess = re.sub('[,]', '', guess)
@@ -134,6 +134,7 @@ def load_modelspecs(directory, basename, regex=None):
         with open(file, 'r') as f:
             try:
                 m = json.load(f)
+                m[0]['meta']['filename']=file
             except json.JSONDecodeError as e:
                 print("Couldn't load modelspec: {0}"
                       "Error: {1}".format(file, e))

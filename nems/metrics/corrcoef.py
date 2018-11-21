@@ -177,6 +177,7 @@ def _r_single(X, N=100):
         for p2 in range(p1+1, repcount):
             pairs.append([p1, p2])
 
+   
     if paircount < N:
         N = paircount
 
@@ -222,7 +223,7 @@ def _r_single(X, N=100):
     return rac
 
 
-def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
+def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100, exclude_neg_pred=True):
     """
     parameter:
         result : recording
@@ -298,10 +299,15 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
                 X1 = X1[ff]
                 X2 = X2[ff]
 
-                if (np.sum(X1) > 0) and (np.sum(X2) > 0):
-                    rs[nn] = np.corrcoef(X1, X2)[0, 1]
-                else:
+                #if (np.sum(X1) > 0) and (not exclude_neg_pred or (np.sum(X2) > 0)):
+                if (np.sum(X1) <= 0) and (exclude_neg_pred and (np.sum(X2) <= 0)):
                     rs[nn] = 0
+                else:
+                    rs[nn] = np.corrcoef(X1, X2)[0, 1]
+#                if (np.sum(X1) > 0) and (np.sum(X2) > 0):
+#                    rs[nn] = np.corrcoef(X1, X2)[0, 1]
+#                else:
+#                    rs[nn] = 0
 
             rnorm[chanidx] = np.mean(rs)/np.sqrt(rac)
         else:
@@ -437,4 +443,92 @@ def r_ceiling_test(result, fullrec, pred_name='pred',
     # weighted average based on number of samples in each epoch
     rnorm = xc_act / np.mean(xc_set)
 
+    return rnorm
+
+def r_ceiling_predvar(result, fullrec, pred_name='pred', resp_name='resp', N=100, exclude_neg_pred=True):
+    """
+    parameter:
+        result : recording
+            validation data containing resp_name and pred_name signals
+        fullrec : orginal recording that isn't averaged across reps
+        N : int
+            number of random single trial pairs to test
+
+    returns:
+        rnorm: nparray
+           corrected ceiling measure for each response channel (ie,
+           there should be support for multiple neural channels)
+
+    Compute noise-corrected correlation coefficient based on single-trial
+    correlations in the actual response. Based on method in
+    Hsu and Theusnissen (2004) Network.
+
+    SVD revised 2018-08-30 to hopefully make more stable. Instead of computing
+    average single-trial corr from separate per-stimulus measurements, now
+    concatenates one rep of each validation stimulus into a long vector for
+    calculating a corr coeff across all stimuli. Still repeats this for a
+    bunch of pairs to get a good estimate of correlation between single trials
+    """
+
+    epoch_regex = '^STIM_'
+    epochs_to_extract = ep.epoch_names_matching(result[resp_name].epochs,
+                                                epoch_regex)
+    folded_resp = result[resp_name].extract_epochs(epochs_to_extract)
+
+    epochs_to_extract = ep.epoch_names_matching(result[pred_name].epochs,
+                                                epoch_regex)
+    folded_pred = result[pred_name].extract_epochs(epochs_to_extract)
+
+    resp = fullrec[resp_name].rasterize()
+    pred = fullrec[pred_name].rasterize()
+    
+    chancount = fullrec[resp_name].shape[0]
+
+    rnorm = np.zeros(chancount)
+    for chanidx in range(chancount):
+        Xall = []
+        p = []
+        reps = []
+        preps = []
+        for k, d in folded_resp.items():
+            if np.sum(np.isfinite(d)) > 0:
+
+                Xall.append(resp.extract_epoch(k)[:, chanidx, :])
+                p.append(folded_pred[k][:, chanidx, :])
+                reps.append(Xall[-1].shape[0])
+                preps.append(p[-1].shape[0])
+
+        if Xall == []:
+            return 0
+
+        minreps = np.min(reps)
+        X = [x[:minreps, :] for x in Xall]
+        X = np.concatenate(X, axis=1)
+
+        minpreps = np.min(preps)
+        p = [p0[:minpreps, :] for p0 in p]
+        p = np.concatenate(p, axis=1)
+        if minreps > 1:
+            
+
+            repcount = X.shape[0]
+            rs = np.zeros(repcount)
+            for nn in range(repcount):
+                X1 = X[nn, :]
+                X2 = p[0, :]
+
+                # remove all nans from pred and resp
+                ff = np.isfinite(X1) & np.isfinite(X2)
+                X1 = X1[ff]
+                X2 = X2[ff]
+
+                #if (np.sum(X1) > 0) and (not exclude_neg_pred or (np.sum(X2) > 0)):
+                if (np.sum(X1) > 0) and (np.sum(X2) > 0):
+                    rs[nn] = np.corrcoef(X1, X2)[0, 1]
+                else:
+                    rs[nn] = 0
+
+            rnorm[chanidx] = np.mean(rs)/np.sqrt(rac)
+        else:
+            rnorm[chanidx] = 0
     return rnorm

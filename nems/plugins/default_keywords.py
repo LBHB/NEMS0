@@ -63,11 +63,13 @@ def wc(kw):
     whereas `wc.15x2.g.c` would be equivalent to `wc.15x2.c`.
     '''
     options = kw.split('.')
-    in_out_pattern = re.compile(r'^(\d{1,})x(\d{1,})$')
+    #in_out_pattern = re.compile(r'^(\d{1,})x(\d{1,})$')
+    in_out_pattern = re.compile(r'^(\d{1,})x(\d{1,})x?(\d{1,})?$')
     try:
         parsed = re.match(in_out_pattern, options[1])
         n_inputs = int(parsed.group(1))
         n_outputs = int(parsed.group(2))
+        n_banks = parsed.group(3)  # None if not given in keyword string
     except (TypeError, IndexError):
         # n_inputs x n_outputs should always follow wc.
         # TODO: Ideally would like the order to not matter like with other
@@ -84,15 +86,31 @@ def wc(kw):
                     "overwrite the previous option. kw given: {}".format(kw))
 
     # This is the default for wc, but options might overwrite it.
-    fn = 'nems.modules.weight_channels.basic'
-    fn_kwargs = {'i': 'pred', 'o': 'pred', 'normalize_coefs': False}
-    p_coefficients = {'mean': np.zeros((n_outputs, n_inputs))+0.01,
+    if n_banks is None:
+        fn = 'nems.modules.weight_channels.basic'
+        fn_kwargs = {'i': 'pred', 'o': 'pred', 'normalize_coefs': False}
+    else:
+        fn = 'nems.modules.weight_channels.channel_bank'
+        fn_kwargs = {'i': 'pred', 'o': 'pred', 'normalize_coefs': False,
+                     'bank_count': n_banks}
+        if ('c' in options[2:]) or ('g' in options[2:]) or ('o' in options[2:]):
+            raise RuntimeError('Fix banks to work for these as needed.')
+    if n_banks is None:
+        p_coefficients = {'mean': np.zeros((n_outputs, n_inputs))+0.01,
                       'sd': np.ones((n_outputs, n_inputs))}
+    else:
+        n_banks = int(n_banks)
+        p_coefficients = {'mean': np.zeros((n_outputs, n_inputs))+0.01,
+                      'sd': np.ones((n_outputs, n_inputs))}
+        
     # add some variety across channels to help get the fitter started
     for i in range(n_outputs):
         x0 = int(i/n_outputs*n_inputs)
         x1 = int((i+1)/n_outputs*n_inputs)
         p_coefficients['mean'][i, x0:x1] = 0.02
+    if n_banks is not None:
+        p_coefficients['mean']=np.tile(p_coefficients['mean'],n_banks).T
+        p_coefficients['sd']=np.tile(p_coefficients['sd'],n_banks).T
     prior = {'coefficients': ('Normal', p_coefficients)}
     normalize = False
     coefs = None
@@ -112,6 +130,9 @@ def wc(kw):
                 }
                 p_coefficients['mean'][(n_outputs-1):, :] = 1 / n_inputs
 
+            if n_banks is not None:
+                p_coefficients['mean']=np.tile(p_coefficients['mean'],n_banks).T
+                p_coefficients['sd']=np.tile(p_coefficients['sd'],n_banks).T
             prior = {'coefficients': ('Normal', p_coefficients)}
 
         elif op == 'g':
@@ -132,7 +153,9 @@ def wc(kw):
             sd_prior_coefficients = {'sd': sd}
             prior = {'mean': ('Normal', mean_prior_coefficients),
                      'sd': ('HalfNormal', sd_prior_coefficients)}
-
+            if n_banks is not None:
+                p_coefficients['mean']=np.tile(p_coefficients['mean'],n_banks).T
+                p_coefficients['sd']=np.tile(p_coefficients['sd'],n_banks).T
         elif op == 'n':
             normalize = True
 

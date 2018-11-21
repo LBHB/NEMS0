@@ -43,18 +43,6 @@ def replicate_channels(rec, i='pred', o='pred', repcount=2):
     return [rec[i].transform(fn, o)]
 
 
-def _merge_states(x, state):
-    """
-    inputs
-       x - N x T matrix,
-       s - 1 X T matrix with integer values 0 ... N-1
-    """
-    res = np.zeros_like(x[:1, :])
-    res.fill(np.nan)
-    # print(state.shape)
-    for i in range(x.shape[0]):
-        res[state[-1:, :] == i] = x[i, state[-1, :] == i]
-    return res
 
 
 def merge_channels(rec, i='pred', o='pred', s='state'):
@@ -64,3 +52,25 @@ def merge_channels(rec, i='pred', o='pred', s='state'):
     """
     fn = lambda x: _merge_states(x, rec[s].as_continuous())
     return [rec[i].transform(fn, o)]
+
+def _merge_states(x, state,chans_per_out=1):
+    """
+    inputs
+       x - N x T matrix,
+       s - 1 X T matrix with integer values 0 ... N-1
+    """
+    if chans_per_out == 1:
+        res = np.zeros_like(x[:1, :])
+    else:
+        res = np.zeros((chans_per_out,x.shape[1]))
+    res.fill(np.nan)
+    #print(state.shape)
+
+    N_states=int(x.shape[0]/chans_per_out)
+    for i in range(N_states):
+        for j in range(chans_per_out):
+            if chans_per_out == 1:
+                 res[state[-1:, :] == i] = x[i, state[-1, :] == i]
+            else:
+                res[j,state[-1] == i] = x[i+j, state[-1, :] == i]
+    return res

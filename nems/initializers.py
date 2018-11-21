@@ -72,6 +72,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}):
         if registry.kw_head(kw) not in registry:
             raise ValueError("unknown keyword: {}".format(kw))
 
+
         d = copy.deepcopy(registry[kw])
         d['id'] = kw
         modelspec.append(d)
@@ -118,7 +119,7 @@ def from_keywords_as_list(keyword_string, registry=None, meta={}):
 
 def prefit_LN(est, modelspec, analysis_function=fit_basic,
               fitter=scipy_minimize, metric=None, norm_fir=False,
-              tolerance=10**-5.5, max_iter=700):
+              tolerance=10**-5.5, max_iter=700,keep_merge=True):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
     local minima.
@@ -147,7 +148,8 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
                                  extra_exclude=['stp'],
                                  fitter=fitter,
                                  metric=metric,
-                                 fit_kwargs=fit_kwargs)
+                                 fit_kwargs=fit_kwargs,
+                                 keep_merge=keep_merge)
 
     # then initialize the STP module (if there is one)
     for i, m in enumerate(modelspec):
@@ -201,7 +203,8 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
 def prefit_to_target(rec, modelspec, analysis_function, target_module,
                      extra_exclude=[],
                      fitter=scipy_minimize, metric=None,
-                     fit_kwargs={}):
+                     fit_kwargs={},
+                     keep_merge=True):
     """Removes all modules from the modelspec that come after the
     first occurrence of the target module, then performs a
     rough fit on the shortened modelspec, then adds the latter
@@ -260,7 +263,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
             log.info('resp has %d channels', len(mean_resp))
             m['phi']['level'][:] = mean_resp
 
-        if (i < target_i) or ('merge_channels' in m['fn']):
+        if (i < target_i) or (keep_merge and ('merge_channels' in m['fn'])):
             tmodelspec.append(m)
 
     # fit the subset of modules
