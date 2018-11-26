@@ -491,10 +491,18 @@ class ApplicationWindow(qw.QMainWindow):
         self._update_max_time()
         self.time_slider = qw.QScrollBar(orientation=1)
         self.time_slider.setRange(0, self.max_time-self.display_duration)
+        self.time_slider.setRepeatAction(200, 2)
+        self.time_slider.setSingleStep(1)
         self.time_slider.valueChanged.connect(self.scroll_all)
         self.plot_layout.addWidget(self.time_slider)
 
         self.outer_layout.addLayout(self.plot_layout)
+
+        # TODO not working yet
+        tap_right_short = qw.QShortcut(qg.QKeySequence(qc.Qt.Key_Right), self)
+        tap_right_short.activated.connect(self.tap_right)
+        tap_left_short = qw.QShortcut(qg.QKeySequence(qc.Qt.Key_Left), self)
+        tap_left_short.activated.connect(self.tap_left)
 
 
         # Set zoom / display range for plot views
@@ -558,6 +566,16 @@ class ApplicationWindow(qw.QMainWindow):
 
     def _update_max_time(self):
         self.max_time = max([p.max_time for p in self.plot_list])
+
+    def tap_right(self):
+        self.time_slider.set_value(
+                self.time_slider.value + self.time_slider.singleStep
+                )
+
+    def tap_left(self):
+        self.time_slider.set_value(
+                self.time_slider.value - self.time_slider.singleStep
+                )
 
     #@show_exceptions('bool')
     def set_display_range(self):
