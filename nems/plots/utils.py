@@ -5,6 +5,7 @@ Created on Wed Sep  5 14:02:26 2018
 
 @author: svd
 """
+import matplotlib.pyplot as plt
 
 def ax_remove_box(ax=None):
     """

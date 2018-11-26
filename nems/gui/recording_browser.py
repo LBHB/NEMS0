@@ -31,6 +31,7 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
+import matplotlib.ticker as tkr
 import numpy as np
 
 import PyQt5.QtCore as qc
@@ -104,8 +105,6 @@ class MyMplCanvas(FigureCanvas):
         #self.axes.hold(False)
 
         self.compute_initial_figure()
-
-        #
         FigureCanvas.__init__(self, fig)
         self.setParent(parent)
 
@@ -150,7 +149,10 @@ class NemsCanvas(MyMplCanvas):
     def __init__(self, recording=None, signal='stim', parent=None,
                  *args, **kwargs):
         MyMplCanvas.__init__(self, *args, **kwargs)
-        self.recording = recording
+        if 'mask' in recording.signals:
+            self.recording = recording.apply_mask()
+        else:
+            self.recording = recording
         self.signal = signal
         self.signal_obj = self.recording[self.signal]
         self.fs = self.signal_obj.fs
@@ -160,8 +162,7 @@ class NemsCanvas(MyMplCanvas):
         sig_array = self.signal_obj.as_continuous()
         # Chop off end of array (where it's all nan'd out after processing)
         # TODO: Make this smarter incase there are intermediate nans?
-        no_nans = sig_array[:, ~np.all(np.isnan(sig_array), axis=0)]
-        self.max_time = no_nans.shape[-1] / self.recording[self.signal].fs
+        self.max_time = sig_array.shape[-1] / self.recording[self.signal].fs
 
         point = (isinstance(self.recording[self.signal],
                             nems.signal.PointProcess))
@@ -172,7 +173,7 @@ class NemsCanvas(MyMplCanvas):
 
         if (not point) and (not tiled):
             self.ymax = np.nanmax(sig_array)*1.25
-            self.ymin = np.nanmin(sig_array)*1.25
+            self.ymin = min(0, np.nanmin(sig_array)*1.25)
 
         self.point = point
         self.tiled = tiled
@@ -190,21 +191,12 @@ class NemsCanvas(MyMplCanvas):
         else:
             keep = np.ones(c_count, dtype=bool)
             channel_names = None
-
         self.keep = keep
         self.channel_names = channel_names
 
-    def compute_initial_figure(self):
-        pass
-
-    def update_figure(self):
         p = self.parent
 
-        start_bin = int(p.start_time * self.fs)
-        stop_bin = int(p.stop_time * self.fs)
-        d = self.recording[self.signal].as_continuous()[self.keep, start_bin:stop_bin]
-
-        self.axes.cla()
+        d = sig_array[self.keep, :]
 
         if self.point:
             self.axes.imshow(d, aspect='auto', cmap='Greys',
@@ -213,29 +205,43 @@ class NemsCanvas(MyMplCanvas):
         elif self.tiled:
             self.axes.imshow(d, aspect='auto', origin='lower')
         else:
-            t = np.linspace(p.start_time, p.stop_time, d.shape[1])
-            self.axes.plot(t, d.T)
+            self.axes.plot(d.T)
             if self.channel_names is not None:
                 if len(self.channel_names) > 1:
                     self.axes.legend(self.channel_names, frameon=False)
-            self.axes.set_xlim(p.start_time, p.stop_time)
             self.axes.set_ylim(ymin=self.ymin, ymax=self.ymax)
 
-        #self.axes.set_xlim(p.start_time, p.stop_time)
+        self.axes.set_xlim(p.start_time*self.fs, p.stop_time*self.fs)
         self.axes.set_ylabel(self.signal)
-        #self.axes.autoscale(enable=True, axis='x', tight=True)
         ax_remove_box(self.axes)
         self.draw()
 
+        tick_labels = self.axes.get_xticklabels()
         if self.point or self.tiled:
-            tick_labels = self.axes.get_xticklabels()
-
-            #new_labels = [round((t.get_position()[0]+start_bin)/fs)
-            #              if t.get_text() else ''
-            #              for t in tick_labels]
             new_labels = ['']*len(tick_labels)
             self.axes.set_xticklabels(new_labels)
             self.draw()
+        else:
+            # TODO: Still not working... Should turn bins to seconds
+            fmt = tkr.FuncFormatter(self.seconds_formatter())
+            self.axes.yaxis.set_major_formatter(fmt)
+            self.draw()
+
+    def compute_initial_figure(self):
+        pass
+
+    def seconds_formatter(self):
+        def fmt(x, pos):
+            s = '{}'.format(x / self.fs)
+            return s
+        return fmt
+
+    def update_figure(self):
+        p = self.parent
+        self.axes.set_xlim(p.start_time*self.fs, p.stop_time*self.fs)
+        if not (self.point or self.tiled):
+            self.axes.set_ylim(ymin=self.ymin, ymax=self.ymax)
+        self.draw()
 
 
 class EpochCanvas(MyMplCanvas):
@@ -250,6 +256,79 @@ class EpochCanvas(MyMplCanvas):
         print("creating epoch canvas: {}".format(signal))
         self.max_time = 0
         self.epoch_groups = {}
+
+#        self.axes.cla()
+##########################################################
+#        epochs = self.recording.epochs
+#
+#        # On each refresh, keep the same keys but reform the lists of indices.
+#        self.epoch_groups = {k: [] for k in self.epoch_groups}
+#        for i, r in epochs.iterrows():
+#            s = r['start']
+#            e = r['end']
+#            n = r['name']
+#
+#            prefix = n.split('_')[0]
+#            if prefix in ['PreStimSilence', 'PostStimSilence',
+#                          'REFERENCE','TARGET']:
+#                # skip
+#                pass
+#            elif prefix in self.epoch_groups:
+#                self.epoch_groups[prefix].append(i)
+#            else:
+#                self.epoch_groups[prefix] = [i]
+#
+#        colors = ['Red', 'Orange', 'Green', 'LightBlue',
+#                  'DarkBlue', 'Purple', 'Pink', 'Black', 'Gray']
+#        i = 0
+#        for i, g in enumerate(self.epoch_groups):
+#            for j in self.epoch_groups[g]:
+#                n = epochs['name'][j]
+#                s = epochs['start'][j]
+#                e = epochs['end'][j]
+#
+#                try:
+#                    n2 = epochs['name'][j+1]
+#                    s2 = epochs['start'][j+1]
+#                    e2 = epochs['end'][j+1]
+#                except KeyError:
+#                    # j is already the last epoch in the list
+#                    pass
+#                    n2 = n
+#                    s2 = s
+#                    e2 = e
+#
+#                # If two epochs with the same name overlap,
+#                # extend the end of the first to the end of the second
+#                # and skip the second epoch.
+#                # Same if end goes past next start.
+#                if n == n2:
+#                    if (s2 < e) or (e > s2):
+#                        e = e2
+#                        j += 1
+#                    else:
+#                        pass
+#
+#                x = np.array([s, e])
+#                y = np.array([i, i])
+#
+#                self.axes.plot(x, y, '-', color=colors[i % len(colors)])
+#                self.axes.text(s, i, n, va='bottom', fontsize='small',
+#                               color=colors[i % len(colors)])
+#
+#        self.axes.set_xlim([self.parent.start_time, self.parent.stop_time])
+#        self.axes.set_ylim([-0.5, i+0.5])
+#        ax_remove_box(self.axes)
+#        self.draw()
+#
+#        xtick_labels = self.axes.get_xticklabels()
+#        ytick_labels = self.axes.get_yticklabels()
+#        new_xlabels = ['']*len(xtick_labels)
+#        new_ylabels = ['']*len(ytick_labels)
+#        self.axes.set_xticklabels(new_xlabels)
+#        self.axes.set_yticklabels(new_ylabels)
+#        self.axes.set_ylabel('epochs')
+#        self.draw()
 
     def compute_initial_figure(self):
         pass
@@ -285,13 +364,8 @@ class EpochCanvas(MyMplCanvas):
 
         colors = ['Red', 'Orange', 'Green', 'LightBlue',
                   'DarkBlue', 'Purple', 'Pink', 'Black', 'Gray']
-#        k = 0
         i = 0
         for i, g in enumerate(self.epoch_groups):
-#            c = colors[k]
-#            k += 1
-#            if k == len(colors):
-#                k = 0
             for j in self.epoch_groups[g]:
                 n = valid_epochs['name'][j]
                 s = valid_epochs['start'][j]
@@ -323,29 +397,31 @@ class EpochCanvas(MyMplCanvas):
                 if s < p.start_time:
                     s = p.start_time
                 elif e > p.stop_time:
-                    p = p.stop_time
+                    e = p.stop_time
 
                 x = np.array([s, e])
                 y = np.array([i, i])
-#                props = {'facecolor': c, 'alpha': 0.07}
-#                self.axes.text(x[0], y[0], n, va='bottom',
-#                               bbox=props)
+
                 self.axes.plot(x, y, '-', color=colors[i % len(colors)])
                 self.axes.text(s, i, n, va='bottom', fontsize='small',
                                color=colors[i % len(colors)])
 
         self.axes.set_xlim([p.start_time, p.stop_time])
         self.axes.set_ylim([-0.5, i+0.5])
-        self.axes.set_ylabel('epochs')
-        # self.axes.autoscale(enable=True, axis='x', tight=True)
         ax_remove_box(self.axes)
         self.draw()
 
-        tick_labels = self.axes.get_xticklabels()
-
-        new_labels = ['']*len(tick_labels)
-        self.axes.set_xticklabels(new_labels)
+        xtick_labels = self.axes.get_xticklabels()
+        ytick_labels = self.axes.get_yticklabels()
+        new_xlabels = ['']*len(xtick_labels)
+        new_ylabels = ['']*len(ytick_labels)
+        self.axes.set_xticklabels(new_xlabels)
+        self.axes.set_yticklabels(new_ylabels)
+        self.axes.set_ylabel('epochs')
         self.draw()
+
+#        self.axes.set_xlim(self.parent.start_time, self.parent.stop_time)
+#        self.draw()
 
 
 class ApplicationWindow(qw.QMainWindow):
