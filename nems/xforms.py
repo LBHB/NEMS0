@@ -749,16 +749,15 @@ def predict(modelspecs, est, val, **context):
 
 
 def add_summary_statistics(est, val, modelspecs, fn='standard_correlation',
-                           rec=None, **context):
+                           rec=None, use_mask=True, **context):
     '''
     standard_correlation: average all correlation metrics and add
                           to first modelspec only.
     correlation_per_model: evaluate correlation metrics separately for each
                            modelspec and save results in each modelspec
     '''
-
     corr_fn = getattr(nems.analysis.api, fn)
-    modelspecs = corr_fn(est, val, modelspecs, rec=rec)
+    modelspecs = corr_fn(est, val, modelspecs, rec=rec, use_mask=use_mask)
 
     if find_module('state', modelspecs[0]) is not None:
         s = metrics.state_mod_index(val[0], epoch='REFERENCE', psth_name='pred',

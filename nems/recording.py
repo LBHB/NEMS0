@@ -496,9 +496,18 @@ class Recording:
         est = Recording(signals=est)
         val = Recording(signals=val)
 
-        log.info('creating masks for partitioned est,val signals')
-        est = est.create_mask(np.isfinite(est['resp'].as_continuous()[0,:]))
-        val = val.create_mask(np.isfinite(val['resp'].as_continuous()[0,:]))
+ 
+        est = est.and_mask(np.isfinite(est['resp'].as_continuous()[0,:]))
+        val = val.and_mask(np.isfinite(val['resp'].as_continuous()[0,:]))
+#        if 'mask' in est.signals.keys():
+#            log.info('mask exists, Merging (AND) with masks for partitioned est,val signals')
+#            m = est['mask'].as_continuous().squeeze()
+#            est = est.create_mask(np.logical_and(m,np.isfinite(est['resp'].as_continuous()[0,:])))
+#            val = val.create_mask(np.logical_and(m,np.isfinite(val['resp'].as_continuous()[0,:])))        
+#        else:
+#            log.info('creating masks for partitioned est,val signals')
+#            est = est.create_mask(np.isfinite(est['resp'].as_continuous()[0,:]))
+#            val = val.create_mask(np.isfinite(val['resp'].as_continuous()[0,:]))
 
         return (est,val)
 
@@ -549,7 +558,7 @@ class Recording:
         repetitions of the same stimuli so that we can more accurately estimate the peri-
         stimulus time histogram (PSTH). This function tries to split the data into those
         two data sets based on the epoch occurrence counts.
-        '''
+        ''' 
         groups = ep.group_epochs_by_occurrence_counts(self.epochs, epoch_regex)
         if len(groups) > 2:
             l=np.array(list(groups.keys()))
@@ -876,17 +885,18 @@ class Recording:
     def create_mask(self, epoch=None, base_signal=None):
         '''
         inputs:
-            epoch: {None, boolean, ndarray, string}
+            epoch: {None, boolean, ndarray, string, list}
              if None, defaults to False
              if False, initialize mask signal to False for all times
              if True, initialize mask signal to False for all times
              if Tx1 ndarray, True where ndarray is true, False elsewhere
              if Nx2 ndarray, True in N epoch times
-             if string, mask is True for epochs with .name==string
+             if string (eoch name), mask is True for epochs with .name==string
+             if list of strings (epoch names), mask is OR combo of all strings
+             if list of tuples (epoch times), mask is OR combo of all epoch times
 
         TODO: remove unnecessary deepcopys from this and subsequent functions
         TODO: add epochs, base signal parameters
-           if epochs not None, call self.or_mask
         '''
 
         rec = self.copy()
@@ -894,19 +904,7 @@ class Recording:
             sig_name = list(rec.signals.keys())[0]
             base_signal = rec[sig_name]
 
-        if epoch is None:
-            mask = np.zeros([1, base_signal.ntimes], dtype=np.bool)
-        elif (type(epoch) is np.ndarray) and (epoch.ndim==2):
-            mask = np.zeros([1, base_signal.ntimes], dtype=np.bool)
-            for e in epoch:
-                mask[0, e[0]:e[1]] = True
-        elif type(epoch) is np.ndarray:
-            mask = np.zeros([1, base_signal.ntimes], dtype=np.bool)
-            #print(mask.shape)
-            #print(epoch.shape)
-            mask[0, epoch] = True
-        else:
-            mask = base_signal.generate_epoch_mask(epoch)
+        mask = base_signal.generate_epoch_mask(epoch)
 
         try:
             mask_sig = base_signal._modified_copy(mask)
@@ -914,19 +912,16 @@ class Recording:
             # Only rasterized signals support _modified_copy
             mask_sig = base_signal.rasterize()._modified_copy(mask)
         mask_sig.name = 'mask'
-
+        
         rec.add_signal(mask_sig)
 
         return rec
 
     def or_mask(self, epoch, invert=False):
         '''
-        epoch : string, list of strings, 2darray
-           epoch(s) can be either list of epoch names or simply an array
-        of index segments to mask
-
-        Make rec['mask'] == True for all epochs (or segs) in list of epoch
-        names.
+        Make rec['mask'] == True for all {epoch} or where current mask true.
+        Mask is created if it doesn't exist
+        See create_mask for input formats for 'epoch'
 
         ex:
             rec.or_mask(['HIT_TRIAL', 'PASSIVE_EXPERIMENT']) will return a
@@ -937,15 +932,7 @@ class Recording:
             rec = self.create_mask(False)
         else:
             rec = self.copy()
-
-        if (type(epoch) is str) or (type(epoch) is np.ndarray):
-            or_mask = rec['mask'].generate_epoch_mask(epoch)
-
-        elif type(epoch) is list:
-            or_mask = rec['mask'].generate_epoch_mask(epoch[0])
-
-            for e in epoch[1:]:
-                or_mask = or_mask | rec['mask'].generate_epoch_mask(e)
+        or_mask = rec['mask'].generate_epoch_mask(epoch)
 
         # Invert
         if invert:
@@ -959,12 +946,10 @@ class Recording:
 
     def and_mask(self, epoch, invert=False):
         '''
-        list of epoch names can be either list of epoch names or simply an array
-        of index segments to mask
-
-        Make mask == True for all epochs (or index segments) in list of epoch
-        names where current mask is also true.
-
+        Make rec['mask'] == True for all epochs where current mask is also true.
+        Mask is created if it doesn't exist
+        See create_mask for input formats for 'epoch'
+        
         example use:
             newrec = rec.or_mask(['ACTIVE_EXPERIMENT'])
             newrec = rec.and_mask(['REFERENCE', 'TARGET'])
@@ -976,15 +961,7 @@ class Recording:
             rec = self.create_mask(True)
         else:
             rec = self.copy()
-
-        if (type(epoch) is str) or (type(epoch) is np.ndarray):
-            and_mask = rec['mask'].generate_epoch_mask(epoch)
-
-        elif type(epoch) is list:
-            and_mask = rec['mask'].generate_epoch_mask(epoch[0])
-
-            for e in epoch[1:]:
-                and_mask = and_mask | rec['mask'].generate_epoch_mask(e)
+        and_mask = rec['mask'].generate_epoch_mask(epoch)
 
         # Invert
         if invert:
