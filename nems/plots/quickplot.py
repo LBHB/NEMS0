@@ -16,7 +16,8 @@ from nems.plots.spectrogram import (plot_spectrogram, spectrogram_from_signal,
                           spectrogram_from_epoch)
 from nems.plots.timeseries import timeseries_from_signals, \
     timeseries_from_epoch, before_and_after_stp
-from nems.plots.heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap
+from nems.plots.heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap, \
+    strf_timeseries
 from nems.plots.histogram import pred_error_hist
 from nems.plots.state import (state_vars_timeseries, state_var_psth_from_epoch,
                     state_var_psth, state_gain_plot, state_vars_psth_all)
@@ -331,7 +332,10 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
             elif 'fir' in fname:
 
                 if 'fir.basic' in fname:
-                    fn = partial(fir_heatmap, modelspec, chans=chans)
+                    if m['phi']['coefficients'].shape[0]<=3:
+                        fn = partial(strf_timeseries, modelspec, chans=chans)
+                    else:
+                        fn = partial(fir_heatmap, modelspec, chans=chans)
                     plot = (fn, 1)
                     plot_fns.append(plot)
                 elif 'fir.filter_bank' in fname:
