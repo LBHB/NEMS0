@@ -51,12 +51,12 @@ def generate_prediction(est, val, modelspecs):
     return new_est, new_val
 
 
-def standard_correlation(est, val, modelspecs, rec=None):
-
+def standard_correlation(est, val, modelspecs, rec=None, use_mask=True):
+    # use_mask: mask before computing metrics (if mask exists)
     # Compute scores for validation dat
     r_ceiling = 0
     if type(val) is not list:
-        if 'mask' in val[0].signals.keys():
+        if ('mask' in val[0].signals.keys()) and use_mask:
             v = val.apply_mask()
             e = est.apply_mask()
         else:
@@ -74,7 +74,7 @@ def standard_correlation(est, val, modelspecs, rec=None):
         mse_fit = nmet.j_nmse(e, 'pred', 'resp')
 
     elif len(val) == 1:
-        if 'mask' in val[0].signals.keys():
+        if ('mask' in val[0].signals.keys()) and use_mask:
             v = val[0].apply_mask()
             e = est[0].apply_mask()
         else:
@@ -189,7 +189,6 @@ def standard_correlation_by_epochs(est,val,modelspecs,epochs_list, rec=None):
     #For example, ['A', 'B', ['A', 'B']] will measure correlations separately
     # for all epochs marked 'A', all epochs marked 'B', and all epochs marked
     # 'A'or 'B'
-
 
     for epochs in epochs_list:
         # Create a label for this subset. If epochs is a list, join elements with "+"

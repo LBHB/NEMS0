@@ -134,6 +134,7 @@ def load_modelspecs(directory, basename, regex=None):
         with open(file, 'r') as f:
             try:
                 m = json.load(f)
+                m[0]['meta']['filename']=file
             except json.JSONDecodeError as e:
                 print("Couldn't load modelspec: {0}"
                       "Error: {1}".format(file, e))
