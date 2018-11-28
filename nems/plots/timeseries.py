@@ -34,10 +34,12 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
 
     cc = 0
     opt = {}
+    h=[]
     for t, v in zip(times, values):
         if colors is not None:
             opt = {'color': colors[cc]}
-        plt.plot(t, v, linestyle=linestyle, linewidth=linewidth, **opt)
+        h_ = plt.plot(t, v, linestyle=linestyle, linewidth=linewidth, **opt)
+        h = h + h_
         cc += 1
 
     plt.margins(x=0)
@@ -50,6 +52,8 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
         plt.title(title, fontsize=8)
 
     ax_remove_box(ax)
+    
+    return h
 
 
 def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,

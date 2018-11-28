@@ -231,7 +231,6 @@ def strf_timeseries(modelspec, ax=None, clim=None, show_factorized=True,
        if not None, label each row of the strf with the corresponding
        channel name
     """
-
     wcc = _get_wc_coefficients(modelspec)
     firc = _get_fir_coefficients(modelspec)
     if wcc is None and firc is None:
@@ -250,7 +249,26 @@ def strf_timeseries(modelspec, ax=None, clim=None, show_factorized=True,
             strf = fir_coefs
 
     times = np.arange(strf.shape[1])/fs
-    plot_timeseries([times], [strf.T], xlabel='Time lag', ylabel='Gain',
+    strf_h=plot_timeseries([times], [strf.T], xlabel='Time lag', ylabel='Gain',
                     legend=chans, linestyle='-', linewidth=1,
                     ax=ax, title=title)
     plt.plot(times[[0, len(times)-1]], np.array([0, 0]), linewidth=0.5, color='gray')
+    
+    if show_factorized and not show_fir_only:
+        wcN=wcc.shape[0]
+        
+        ax.set_prop_cycle(None)
+        fir_h=plot_timeseries([times], [firc.T], xlabel='Time lag', ylabel='Gain',legend=chans, linestyle='--', linewidth=1,ax=ax, title=title)
+        
+        ax.set_prop_cycle(None)
+        weight_x=np.arange(-1*wcN,0)
+        w_h=ax.plot(weight_x, wcc)
+        ax.plot(weight_x, np.array([0, 0]), linewidth=0.5, color='gray')
+        ax.set_xlim((-1*wcN,len(times)))
+        strf_l=['Weighted FIR {}'.format(n+1) for n in range(wcN)]
+        fir_l=['Raw FIR {}'.format(n+1) for n in range(wcN)]
+        plt.legend(strf_h+fir_h,strf_l+fir_l, loc=1,fontsize='x-small')
+        ax.set_xticks(np.hstack((np.arange(-1*wcN,0),np.arange(0,len(times)+1,2))))
+        ax.set_xticklabels(np.hstack((np.arange(1,wcN+1),np.arange(0,len(times)+1,2))))
+        
+
