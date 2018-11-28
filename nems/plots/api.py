@@ -1,6 +1,6 @@
 from .assemble import (simple_grid, freeze_defaults, get_predictions,
                        plot_layout, combine_signal_channels, pad_to_signals)
-from .scatter import plot_scatter, nl_scatter
+from .scatter import plot_scatter, nl_scatter, plot_nl_io
 from .summary import plot_summary
 from .spectrogram import (plot_spectrogram, spectrogram_from_signal,
                           spectrogram_from_epoch)

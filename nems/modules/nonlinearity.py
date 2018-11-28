@@ -64,31 +64,47 @@ def _dlog(x, offset):
 
     # soften effects of more extreme offsets
     inflect = 2
-    if offset > inflect:
-        adjoffset = inflect + (offset-inflect) / 50
-    elif offset < -inflect:
-        adjoffset = -inflect + (offset + inflect) / 50
-    else:
-        adjoffset = offset
+
+    adjoffset=offset.copy()
+    adjoffset[offset > inflect] = inflect + (offset[offset > inflect]-inflect) / 50
+    adjoffset[offset < -inflect] = inflect + (offset[offset < -inflect]+inflect) / 50
 
     d = 10.0**adjoffset
-    zeroer = 0
-    zbt = 0
-    y = x.copy()
+
+    # deprecated:
+    #zeroer = 0
+    #zbt = 0
+    #y = x.copy()
 
     # avoid nan-related warning
-    out = ~np.isnan(y)
-    out[out] = y[out] < zbt
+    #out = ~np.isnan(y)
+    #out[out] = y[out] < zbt
 
-    y[out] = zbt
-    y = y - zbt
+    #y[out] = zbt
+    #y = y - zbt
+    #return np.log((y + d) / d) + zeroer
 
-    return np.log((y + d) / d) + zeroer
+    return np.log((x + d) / d)
 
 
 def dlog(rec, i, o, offset):
 
     fn = lambda x : _dlog(x, offset)
+
+    return [rec[i].transform(fn, o)]
+
+
+def _relu(x, offset):
+
+    y = x - offset
+    y[y<0] = 0
+
+    return y
+
+
+def relu(rec, i, o, offset):
+
+    fn = lambda x : _relu(x, offset)
 
     return [rec[i].transform(fn, o)]
 

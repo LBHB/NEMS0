@@ -573,6 +573,16 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
     rec0 = rec.copy()
     if type(pc_idx) is not list:
         pc_idx = [pc_idx]
+    resp = rec0[resp_sig]
+
+    # compute duration of spont period
+    d = resp.get_epoch_bounds('PreStimSilence')
+    if len(d):
+        PreStimSilence = np.mean(np.diff(d))
+    else:
+        PreStimSilence = 0
+    prestimbins = int(PreStimSilence * resp.fs)
+
 
     # compute PCs only on valid (unmasked) times
     rec0[resp_sig] = rec0[resp_sig].rasterize()
@@ -613,20 +623,20 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
             sd = np.nanstd(D_ref, axis=0, keepdims=True)
         else:
             sd = np.ones(m.shape)
-            
+
         u, s, v = np.linalg.svd((D_ref-m)/sd, full_matrices=False)
         X = (D-m) / sd @ v.T
-        
+
         rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
-    
-        r = rec0[pc_sig].extract_epoch('REFERENCE')
+
+        r = rec0[pc_sig].extract_epoch('REFERENCE', mask=rec0['mask'])
         mr=np.mean(r,axis=0)
-        spont=np.mean(mr[:,:50],axis=1,keepdims=True)
-        mr-=spont
-        vs = np.sign(np.sum(mr, axis=1, keepdims=True))
+        spont=np.mean(mr[:,:prestimbins],axis=1,keepdims=True)
+        mr -= spont
+        vs = np.sign(np.sum(mr[:,prestimbins:(prestimbins+10)], axis=1, keepdims=True))
         v *= vs
         X = (D-m) / sd @ v.T
-        
+
         rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
 
 #    r = rec0[pc_sig].extract_epoch('REFERENCE')
@@ -636,12 +646,12 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
 #    plt.figure()
 #    plt.plot(mr[:5,:].T)
 #    plt.legend(('1','2','3','4','5'))
-    
+
     rec0.meta['pc_weights'] = v
     if overwrite_resp:
         rec0[resp_sig] = rec0[resp_sig]._modified_copy(X[:, pc_idx].T)
         rec0.meta['pc_idx'] = pc_idx
-        
+
     return {'rec': rec0}
 
 

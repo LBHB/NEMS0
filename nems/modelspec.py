@@ -226,9 +226,9 @@ def evaluate(rec, modelspec, start=None, stop=None):
             fn = lambda x: (x - m['norm']['d']) / m['norm']['g']
             new_signals = [s.transform(fn, k)]
 
-
         for s in new_signals:
             d.add_signal(s)
+
     return d
 
 
