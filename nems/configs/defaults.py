@@ -45,6 +45,16 @@ NEMS_LOG_CONSOLE_LEVEL = 'DEBUG'
 
 
 ################################################################################
+# Data & database
+################################################################################
+
+NEMS_RESULTS_DIR = os.path.abspath(os.path.dirname(__file__) + '/../results')
+NEMS_RECORDINGS_DIR = os.path.abspath(os.path.dirname(__file__) + '/../recordings')
+
+SQL_ENGINE = 'sqlite'
+
+
+################################################################################
 # Plugins Registries
 ################################################################################
 # Keyword Plugins, updates nems.plugins.default_keywords
