@@ -5,6 +5,7 @@ import copy
 import nems.modelspec as ms
 import nems.metrics.api as nmet
 import nems.recording as recording
+from nems.utils import find_module
 
 
 def generate_prediction(est, val, modelspecs):
@@ -27,39 +28,71 @@ def generate_prediction(est, val, modelspecs):
             est = [est.copy() for i, _ in enumerate(modelspecs)]
             val = [val.copy() for i, _ in enumerate(modelspecs)]
 
-    new_est = [ms.evaluate(d, m) for m, d in zip(modelspecs, est)]
-    new_val = [ms.evaluate(d, m) for m, d in zip(modelspecs, val)]
+    new_est = []
+    new_val = []
+    for m, e, v in zip(modelspecs, est, val):
+        # nan-out periods outside of mask
+        e = ms.evaluate(e, m)
+        v = ms.evaluate(v, m)
+        if 'mask' in v.signals.keys():
+            m = v['mask'].as_continuous()
+            x = v['pred'].as_continuous().copy()
+            x[..., m[0,:] == 0] = np.nan
+            v['pred'] = v['pred']._modified_copy(x)
+        new_est.append(e)
+        new_val.append(v)
+
+    #new_est = [ms.evaluate(d, m) for m, d in zip(modelspecs, est)]
+    #new_val = [ms.evaluate(d, m) for m, d in zip(modelspecs, val)]
+
     if list_val:
         new_val = [recording.jackknife_inverse_merge(new_val)]
 
     return new_est, new_val
 
 
-def standard_correlation(est, val, modelspecs, rec=None):
-
+def standard_correlation(est, val, modelspecs, rec=None, use_mask=True):
+    # use_mask: mask before computing metrics (if mask exists)
     # Compute scores for validation dat
     r_ceiling = 0
     if type(val) is not list:
-        r_test, se_test = nmet.j_corrcoef(val, 'pred', 'resp')
-        r_fit, se_fit = nmet.j_corrcoef(est, 'pred', 'resp')
-        r_floor = nmet.r_floor(val, 'pred', 'resp')
+        if ('mask' in val[0].signals.keys()) and use_mask:
+            v = val.apply_mask()
+            e = est.apply_mask()
+        else:
+            v = val
+            e = est
+
+        r_test, se_test = nmet.j_corrcoef(v, 'pred', 'resp')
+        r_fit, se_fit = nmet.j_corrcoef(e, 'pred', 'resp')
+        r_floor = nmet.r_floor(v, 'pred', 'resp')
         if rec is not None:
             # print('running r_ceiling')
-            r_ceiling = nmet.r_ceiling(val, rec, 'pred', 'resp')
+            r_ceiling = nmet.r_ceiling(v, rec, 'pred', 'resp')
 
-        mse_test = nmet.j_nmse(val, 'pred', 'resp')
-        mse_fit = nmet.j_nmse(est, 'pred', 'resp')
+        mse_test = nmet.j_nmse(v, 'pred', 'resp')
+        mse_fit = nmet.j_nmse(e, 'pred', 'resp')
 
     elif len(val) == 1:
-        r_test, se_test = nmet.j_corrcoef(val[0], 'pred', 'resp')
-        r_fit, se_fit = nmet.j_corrcoef(est[0], 'pred', 'resp')
-        r_floor = nmet.r_floor(val[0], 'pred', 'resp')
-        if rec is not None:
-            # print('running r_ceiling')
-            r_ceiling = nmet.r_ceiling(val[0], rec, 'pred', 'resp')
+        if ('mask' in val[0].signals.keys()) and use_mask:
+            v = val[0].apply_mask()
+            e = est[0].apply_mask()
+        else:
+            v = val[0]
+            e = est[0]
 
-        mse_test, se_mse_test = nmet.j_nmse(val[0], 'pred', 'resp')
-        mse_fit, se_mse_fit = nmet.j_nmse(est[0], 'pred', 'resp')
+        r_test, se_test = nmet.j_corrcoef(v, 'pred', 'resp')
+        r_fit, se_fit = nmet.j_corrcoef(e, 'pred', 'resp')
+        r_floor = nmet.r_floor(v, 'pred', 'resp')
+        if rec is not None:
+            try:
+                # print('running r_ceiling')
+                r_ceiling = nmet.r_ceiling(v, rec, 'pred', 'resp')
+            except:
+                r_ceiling = 0
+
+        mse_test, se_mse_test = nmet.j_nmse(v, 'pred', 'resp')
+        mse_fit, se_mse_fit = nmet.j_nmse(e, 'pred', 'resp')
 
     else:
         # unclear if this ever excutes since jackknifed val sets are
@@ -156,7 +189,6 @@ def standard_correlation_by_epochs(est,val,modelspecs,epochs_list, rec=None):
     #For example, ['A', 'B', ['A', 'B']] will measure correlations separately
     # for all epochs marked 'A', all epochs marked 'B', and all epochs marked
     # 'A'or 'B'
-
 
     for epochs in epochs_list:
         # Create a label for this subset. If epochs is a list, join elements with "+"

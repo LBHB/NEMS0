@@ -34,11 +34,13 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
 
     if bounds is not None:
         bounds = list(zip(*bounds))
-
+    delta=0
     stepinfo, update_stepinfo = tc.create_stepinfo()
     stop_fit = lambda : (tc.error_non_decreasing(stepinfo, tolerance)
                          or tc.max_iterations_reached(stepinfo, max_iter)
                          or tc.less_than_equal(step_size, step_min))
+    #stop_fit = lambda : (tc.max_iterations_reached(stepinfo, max_iter)
+    #                     or tc.less_than_equal(step_size, step_min))
 
     this_sigma = sigma.copy()
     n_parameters = len(sigma)
@@ -72,9 +74,10 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
                                 step_errors.argmin(), step_errors.shape
                                 )
         err = step_errors[i_param, j_sign]
+        delta = stepinfo['err'] - err
 
         # If change was negative, try reducing step size.
-        if err >= stepinfo['err']:
+        if delta < 0:
             log.info("Error worse, reducing step size from %.06f to %.06f",
                      step_size, step_size * step_change)
             step_size *= step_change
@@ -82,22 +85,22 @@ def coordinate_descent(sigma, cost_fn, step_size=0.1, step_change=0.5,
             continue
         else:
             this_steps += 1
-            if this_steps > 10:
+            if this_steps > 20:
                 log.info("Increasing step size from %.06f to %.6f",
                          step_size, step_size / np.sqrt(step_change))
                 this_steps = 0
                 step_size /= np.sqrt(step_change)
 
-        # If j is 1, shift was negative, otherwise it was 0 for positive.
-        if j_sign == 1:
-            sigma[i_param] = this_sigma[i_param] = sigma[i_param] - step_size
-        else:
-            sigma[i_param] = this_sigma[i_param] = sigma[i_param] + step_size
+            # If j is 1, shift was negative, otherwise it was 0 for positive.
+            if j_sign == 1:
+                sigma[i_param] = this_sigma[i_param] = sigma[i_param] - step_size
+            else:
+                sigma[i_param] = this_sigma[i_param] = sigma[i_param] + step_size
 
-        update_stepinfo(err=err)
-        log.debug("step=%d", stepinfo["stepnum"])
-        if stepinfo['stepnum'] % 20 == 0:
-            log.debug("sigma is now: %s", sigma)
+            update_stepinfo(err=err)
+            log.debug("step=%d", stepinfo["stepnum"])
+            if stepinfo['stepnum'] % 20 == 0:
+                log.debug("sigma is now: %s", sigma)
 
     log.info("Final error: %.06f (step size %.06f)\n",
              stepinfo['err'], step_size)

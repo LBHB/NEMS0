@@ -149,7 +149,8 @@ def evaluate(xformspec, context={}, start=0, stop=None):
 ###############################################################################
 
 
-def load_recordings(recording_uri_list, normalize=False, cellid=None, **context):
+def load_recordings(recording_uri_list, normalize=False, cellid=None,
+                    save_other_cells_to_state=False, **context):
     '''
     Load one or more recordings into memory given a list of URIs.
     '''
@@ -166,14 +167,37 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None, **context)
     # from resp signal.
     if cellid is None:
         pass
+
     elif type(cellid) is list:
         log.info('Extracting channels %s', cellid)
+        excluded_cells = [cell for cell in rec['resp'].chans if cell in cellid]
+        if save_other_cells_to_state is True:
+            s = rec['resp'].extract_channels(excluded_cells).rasterize()
+            rec = preproc.concatenate_state_channel(rec, s, 'state')
+            rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
         rec['resp'] = rec['resp'].extract_channels(cellid)
+
     elif cellid in rec['resp'].chans:
         log.info('Extracting channel %s', cellid)
+        excluded_cells = rec['resp'].chans.copy()
+        excluded_cells.remove(cellid)
+        if save_other_cells_to_state is True:
+            s = rec['resp'].extract_channels(excluded_cells).rasterize()
+            rec = preproc.concatenate_state_channel(rec, s, 'state')
+            rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
         rec['resp'] = rec['resp'].extract_channels([cellid])
+
     else:
         log.info('No cellid match, keeping all resp channels')
+
+    # Quick fix - will take care of this on the baphy loading side in the future.
+    if 'pupil' in rec.signals.keys() and np.any(np.isnan(rec['pupil'].as_continuous())):
+                log.info('Padding {0} with the last non-nan value'.format('pupil'))
+                inds = ~np.isfinite(rec['pupil'].as_continuous())
+                arr = copy.deepcopy(rec['pupil'].as_continuous())
+                arr[inds] = arr[~inds][-1]
+                rec['pupil'] = rec['pupil']._modified_copy(arr)
+
     return {'rec': rec}
 
 
@@ -288,12 +312,15 @@ def remove_all_but_correct_references(rec, **context):
     return {'rec': rec}
 
 
-def mask_all_but_correct_references(rec, **context):
+def mask_all_but_correct_references(rec, balance_rep_count=False,
+                                    include_incorrect=False, **context):
     '''
     find REFERENCE epochs spanned by either PASSIVE_EXPERIMENT or
     HIT_TRIAL epochs. mask out all other segments from signals in rec
     '''
-    rec = preproc.mask_all_but_correct_references(rec)
+    rec = preproc.mask_all_but_correct_references(
+            rec, balance_rep_count=balance_rep_count,
+            include_incorrect=include_incorrect)
 
     return {'rec': rec}
 
@@ -344,8 +371,33 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     return {'rec': rec}
 
 
+def make_mod_signal(rec, signal='resp'):
+    """
+    Make new signal called mod that can be used for calculating an unbiased
+    mod_index
+    """
+    new_rec = rec.copy()
+    psth = new_rec['psth_sp']
+    resp = new_rec[signal]
+    mod_data = resp.as_continuous() - psth.as_continuous()
+    mod = psth._modified_copy(mod_data)
+    mod.name = 'mod'
+    new_rec.add_signal(mod)
+
+    return new_rec
+
+
 def split_by_occurrence_counts(rec, epoch_regex='^STIM_', **context):
     est, val = rec.split_using_epoch_occurrence_counts(epoch_regex=epoch_regex)
+
+    return {'est': est, 'val': val}
+
+
+def split_at_time(rec, valfrac=0.1, **context):
+
+    rec['resp'] = rec['resp'].rasterize()
+    rec['stim'] = rec['stim'].rasterize()
+    est, val = rec.split_at_time(fraction=valfrac)
 
     return {'est': est, 'val': val}
 
@@ -381,16 +433,6 @@ def split_val_and_average_reps(rec, epoch_regex='^STIM_', **context):
     return {'est': est, 'val': val}
 
 
-def split_at_time(rec, fraction, **context):
-    est, val = rec.split_at_time(fraction)
-    est['resp'] = est['resp'].rasterize()
-    est['stim'] = est['stim'].rasterize()
-    val['resp'] = val['resp'].rasterize()
-    val['stim'] = val['stim'].rasterize()
-
-    return {'est': est, 'val': val}
-
-
 def use_all_data_for_est_and_val(rec, **context):
     est = rec.copy()
     val = rec.copy()
@@ -418,12 +460,18 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
 
 
 def mask_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
-                       njacks=10, IsReload=False, **context):
+                       by_time=False, njacks=10, IsReload=False, **context):
 
-    est_out, val_out, modelspecs_out = \
-        preproc.mask_est_val_for_jackknife(rec, modelspecs=modelspecs,
-                                           epoch_name=epoch_name,
-                                           njacks=njacks, IsReload=IsReload)
+    if by_time != True:
+        est_out, val_out, modelspecs_out = \
+            preproc.mask_est_val_for_jackknife(rec, modelspecs=modelspecs,
+                                               epoch_name=epoch_name,
+                                               njacks=njacks, IsReload=IsReload)
+    else:
+        est_out, val_out, modelspecs_out = \
+            preproc.mask_est_val_for_jackknife_by_time(rec, modelspecs=modelspecs,
+                                               njacks=njacks, IsReload=IsReload)
+
     if IsReload:
         return {'est': est_out, 'val': val_out}
     else:
@@ -458,7 +506,7 @@ def jack_subset(est, val, modelspecs=None, IsReload=False,
 
 
 def fit_basic_init(modelspecs, est, IsReload=False, metric='nmse',
-                   tolerance=10**-5.5, **context):
+                   tolerance=10**-5.5, norm_fir=False, **context):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
     local minima.
@@ -469,12 +517,15 @@ def fit_basic_init(modelspecs, est, IsReload=False, metric='nmse',
     '''
     # only run if fitting
     if not IsReload:
-        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
+        if isinstance(metric, str):
+            metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
+        else:
+            metric_fn = metric
         modelspecs = [nems.initializers.prefit_LN(
                 est, modelspecs[0],
                 analysis_function=nems.analysis.api.fit_basic,
                 fitter=scipy_minimize, metric=metric_fn,
-                tolerance=tolerance, max_iter=700)]
+                tolerance=tolerance, max_iter=700, norm_fir=norm_fir)]
 
     return {'modelspecs': modelspecs}
 
@@ -485,7 +536,8 @@ def _set_zero(x):
     return y
 
 
-def fit_state_init(modelspecs, est, IsReload=False, metric='nmse', **context):
+def fit_state_init(modelspecs, est, fit_sig='resp', tolerance=1e-4,
+                   IsReload=False, metric='nmse', **context):
     '''
     Initialize modelspecs in an attempt to avoid getting stuck in
     local minima. Remove state replication/merging first.
@@ -514,15 +566,18 @@ def fit_state_init(modelspecs, est, IsReload=False, metric='nmse', **context):
             # is used
             dc = d.copy()
             dc['state'] = dc['state'].transform(_set_zero, 'state')
+            if fit_sig != 'resp':
+                log.info("Subbing %s for resp signal", fit_sig)
+                dc['resp'] = dc[fit_sig]
 
             m = nems.initializers.prefit_LN(
                     dc, m,
                     analysis_function=nems.analysis.api.fit_basic,
                     fitter=scipy_minimize, metric=metric_fn,
-                    tolerance=10**-4, max_iter=700)
+                    tolerance=tolerance, max_iter=700)
             # fit a bit more to settle in STP variables and anything else
             # that might have been excluded
-            fit_kwargs = {'tolerance': 10**-4.5, 'max_iter': 500}
+            fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
             m = nems.analysis.api.fit_basic(
                     dc, m, fit_kwargs=fit_kwargs, metric=metric_fn,
                     fitter=scipy_minimize)[0]
@@ -647,7 +702,7 @@ def fit_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
         fitter_fn = getattr(nems.fitters.api, fitter)
         fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
         if fitter == 'coordinate_descent':
-            fit_kwargs['step_size'] = 0.05
+            fit_kwargs['step_size'] = 0.1
         modelspecs = nems.analysis.api.fit_nfold(
                 est, modelspecs, fitter=fitter_fn,
                 fit_kwargs=fit_kwargs, analysis=analysis,
@@ -693,15 +748,49 @@ def predict(modelspecs, est, val, **context):
 
 
 def add_summary_statistics(est, val, modelspecs, fn='standard_correlation',
-                           rec=None, **context):
+                           rec=None, use_mask=True, **context):
     '''
     standard_correlation: average all correlation metrics and add
                           to first modelspec only.
     correlation_per_model: evaluate correlation metrics separately for each
-                           modelspec and save results in each modelspec.
+                           modelspec and save results in each modelspec
     '''
     corr_fn = getattr(nems.analysis.api, fn)
-    modelspecs = corr_fn(est, val, modelspecs, rec=rec)
+    modelspecs = corr_fn(est, val, modelspecs, rec=rec, use_mask=use_mask)
+
+    if find_module('state', modelspecs[0]) is not None:
+        s = metrics.state_mod_index(val[0], epoch='REFERENCE', psth_name='pred',
+                            state_sig='state_raw', state_chan=[])
+        j_s, ee = metrics.j_state_mod_index(val[0], epoch='REFERENCE', psth_name='pred',
+                            state_sig='state_raw', state_chan=[], njacks=10)
+        modelspecs[0][0]['meta']['state_mod'] = s
+        modelspecs[0][0]['meta']['j_state_mod'] = j_s
+        modelspecs[0][0]['meta']['se_state_mod'] = ee
+        modelspecs[0][0]['meta']['state_chans'] = val[0]['state'].chans
+
+        # Charlie testing diff ways to calculate mod index
+
+        # try using resp
+        s = metrics.state_mod_index(val[0], epoch='REFERENCE', psth_name='resp',
+                            state_sig='state_raw', state_chan=[])
+        j_s, ee = metrics.j_state_mod_index(val[0], epoch='REFERENCE', psth_name='resp',
+                            state_sig='state_raw', state_chan=[], njacks=10)
+        modelspecs[0][0]['meta']['state_mod_r'] = s
+        modelspecs[0][0]['meta']['j_state_mod_r'] = j_s
+        modelspecs[0][0]['meta']['se_state_mod_r'] = ee
+
+        # try using the "mod" signal (if it exists) which is calculated
+        if 'mod' in modelspecs[0][0]['meta']['modelname']:
+            s = metrics.state_mod_index(val[0], epoch='REFERENCE',
+                                            psth_name='mod', divisor='resp',
+                                            state_sig='state_raw', state_chan=[])
+            j_s, ee = metrics.j_state_mod_index(val[0], epoch='REFERENCE',
+                                            psth_name='mod', divisor='resp',
+                                            state_sig='state_raw', state_chan=[],
+                                            njacks=10)
+            modelspecs[0][0]['meta']['state_mod_m'] = s
+            modelspecs[0][0]['meta']['j_state_mod_m'] = j_s
+            modelspecs[0][0]['meta']['se_state_mod_m'] = ee
 
     return {'modelspecs': modelspecs}
 
@@ -816,6 +905,11 @@ def save_analysis(destination,
 def load_analysis(filepath, eval_model=True, only=None):
     """
     load xforms and modelspec(s) from a specified directory
+    if eval_mode is True, reevalueates all steps, this is time consuming but gives an exact copy of the
+    original context
+    only can be ither an int, usually 0, to evaluate the first step of loading a recording, or an slice
+    object, which gives more flexibility over what steps of the original xfspecs to run again.
+
     """
     log.info('Loading modelspecs from %s...', filepath)
 
@@ -833,7 +927,10 @@ def load_analysis(filepath, eval_model=True, only=None):
     elif only is not None:
         # Useful for just loading the recording without doing
         # any subsequent evaluation.
-        ctx, log_xf = evaluate([xfspec[only]], ctx)
+        if isinstance(only, int):
+            ctx, log_xf = evaluate([xfspec[only]], ctx)
+        elif isinstance(only, slice):
+            ctx, log_xf = evaluate(xfspec[only], ctx)
 
     return xfspec, ctx
 

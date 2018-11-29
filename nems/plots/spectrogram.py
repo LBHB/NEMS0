@@ -6,19 +6,25 @@ import matplotlib.gridspec as gridspec
 
 
 def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
-                     cmap=None):
+                     cmap=None, clim=None, extent=False):
 
     if not ax:
         ax = plt.gca()
 
-    if fs is None:
-        times = np.arange(0, array.shape[1])
-    else:
-        times = np.arange(0, array.shape[1])/fs-time_offset
+    if extent:
+        if fs is None:
+            times = np.arange(0, array.shape[1])
+        else:
+            times = np.arange(0, array.shape[1])/fs-time_offset
 
-    extent = [times[0], times[-1], 1, array.shape[0]]
-    ax.imshow(array, origin='lower', interpolation='none',
-              aspect='auto', extent=extent, cmap=cmap)
+        extent = [times[0], times[-1], 1, array.shape[0]]
+        ax.imshow(array, origin='lower', interpolation='none',
+                  aspect='auto', extent=extent, cmap=cmap, clim=clim)
+    # Extent causes errors with on-off signal spectrogram
+    else:
+        ax.imshow(array, origin='lower', interpolation='none',
+                  aspect='auto', cmap=cmap, clim=clim)
+
     ax.margins(x=0)
 
     # Override x-tic labels to display as real time
@@ -44,9 +50,10 @@ def spectrogram_from_signal(signal, title=None, ax=None):
     plot_spectrogram(array, fs=signal.fs, title=title, ax=None)
 
 
-def spectrogram_from_epoch(signal, epoch, occurrence=0, ax=None, title=None):
+def spectrogram_from_epoch(signal, epoch, occurrence=0, ax=None, title=None,
+                           extent=True):
     if occurrence is None:
         return
     extracted = signal.extract_epoch(epoch)
     array = extracted[occurrence]
-    plot_spectrogram(array, fs=signal.fs, ax=ax, title=title)
+    plot_spectrogram(array, fs=signal.fs, ax=ax, title=title, extent=extent)

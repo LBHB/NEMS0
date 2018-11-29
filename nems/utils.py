@@ -1,5 +1,9 @@
 import time
 import numpy as np
+import hashlib
+import json
+import os
+import matplotlib.pyplot as plt
 
 import logging
 log = logging.getLogger(__name__)
@@ -10,6 +14,39 @@ def iso8601_datestring():
     Returns a string containing the present date as a string.
     '''
     return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
+
+
+def recording_filename_hash(name, meta, uri_path='', uncompressed=False):
+    """
+    name : string
+    meta : dictionary (string keys only?)
+    uri_path : base path
+    uncompressed : boolean
+        if True, return .tgz file
+        if False, return path to folder
+
+    returns
+       guessed_filename : string
+        <uri_path>/<batch>/<name>_<meta hash>.tgz
+
+    hashing function to generate recording filenames
+    JSON encode meta, then append hash to name
+    """
+    meta_hash = hashlib.sha1(json.dumps(meta, sort_keys=True).encode('utf-8')).hexdigest()
+
+    if uncompressed:
+        guessed_filename = name + "_" + meta_hash + os.sep
+    else:
+        guessed_filename = name + "_" + meta_hash + '.tgz'
+
+    batch = meta.get('batch', None)
+    if batch is not None:
+        guessed_filename = os.path.join(str(batch), guessed_filename)
+
+    if uri_path is not None and uri_path != '':
+        guessed_filename = os.path.join(uri_path, guessed_filename)
+
+    return guessed_filename
 
 
 def one_zz(zerocount=1):
@@ -128,6 +165,8 @@ def get_channel_number(sig, channel=None):
     """
     if channel is None:
         chanidx = 0
+    elif sig.chans is None:
+        chanidx = 0
     elif type(channel) is str:
         try:
             chanidx = sig.chans.index(channel)
@@ -198,3 +237,14 @@ def smooth(x,window_len=11,window='hanning'):
 
     y=np.convolve(w/w.sum(),s,mode='valid')
     return y
+
+
+def ax_remove_box(ax=None):
+    """
+    remove right and top lines from plot border
+    """
+    if ax is None:
+        ax = plt.gca()
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+

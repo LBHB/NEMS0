@@ -10,18 +10,20 @@ import numpy as np
 import copy
 import tempfile
 import shutil
+import json
 
 from nems.uri import local_uri, http_uri, targz_uri
 import nems.epoch as ep
 from nems.signal import SignalBase, RasterizedSignal, merge_selections, \
                         list_signals, load_signal, load_signal_from_streams
+from nems.utils import recording_filename_hash
 
 log = logging.getLogger(__name__)
 
 
 class Recording:
 
-    def __init__(self, signals):
+    def __init__(self, signals, meta=None, name=None):
         '''
         Signals argument should be a dictionary of signal objects.
         '''
@@ -33,16 +35,24 @@ class Recording:
             raise ValueError('A recording must contain at least 1 signal')
         if not len(set(recordings)) == 1:
             raise ValueError('Not all signals are from the same recording.')
+        if name is None:
+            self.name = recordings[0]
+        else:
+            self.name = name
 
-        self.name = recordings[0]
         self.uri = None  # This will be lost on copying
+
+        if meta is not None:
+            self.meta = meta
+        else:
+            self.meta = {}
 
     def copy(self):
         '''
         Returns a copy of this recording.
         '''
         signals = self.signals.copy()
-        other = Recording(signals)
+        other = Recording(signals, meta=self.meta.copy())
         for k, v in vars(self).items():
             if k == 'signals':
                 continue
@@ -81,20 +91,22 @@ class Recording:
     @staticmethod
     def load(uri):
         '''
-        Loads from a local .tar.gz file, a local directory, from s3,
-        or from an HTTP URL containing a .tar.gz file. Examples:
+        DEPRECATED??? REPLACED by regular functions?
+
+        Loads from a local .tgz file, a local directory, from s3,
+        or from an HTTP URL containing a .tgz file. Examples:
 
         # Load all signals in the gus016c-a2 directory
         rec = Recording.load('/home/myuser/gus016c-a2')
         rec = Recording.load('file:///home/myuser/gus016c-a2')
 
         # Load the local tar gz directory.
-        rec = Recording.load('file:///home/myuser/gus016c-a2.tar.gz')
+        rec = Recording.load('file:///home/myuser/gus016c-a2.tgz')
 
-        # Load a tar.gz file served from a flat filesystem
-        rec = Recording.load('http://potoroo/recordings/gus016c-a2.tar.gz')
+        # Load a tgz file served from a flat filesystem
+        rec = Recording.load('http://potoroo/recordings/gus016c-a2.tgz')
 
-        # Load a tar.gz file created by the nems-baphy interafce
+        # Load a tgz file created by the nems-baphy interafce
         rec = Recording.load('http://potoroo/baphy/271/gus016c-a2')
 
         # Load from S3:
@@ -118,7 +130,8 @@ class Recording:
     def load_dir(directory_or_targz):
         '''
         Loads all the signals (CSV/JSON pairs) found in DIRECTORY or
-        .tar.gz file, and returns a Recording object containing all of them.
+        .tgz file, and returns a Recording object containing all of them.
+        DEPRECATED???
         '''
         if os.path.isdir(directory_or_targz):
             files = list_signals(directory_or_targz)
@@ -132,17 +145,22 @@ class Recording:
 
     @staticmethod
     def load_targz(targz):
+        '''
+        Loads the recording object from a tgz file.
+        DEPRECATED???
+        '''
         if os.path.exists(targz):
             with open(targz, 'rb') as stream:
                 return load_recording_from_targz_stream(stream)
         else:
-            m = 'Not a .tar.gz file: {}'.format(targz)
+            m = 'Not a .tgz file: {}'.format(targz)
             raise ValueError(m)
 
     @staticmethod
     def load_url(url):
         '''
-        Loads the recording object from a URL. File must be tar.gz format.
+        Loads the recording object from a URL. File must be tgz format.
+        DEPRECATED???
         '''
         r = requests.get(url, stream=True)
         if not (r.status_code == 200 and
@@ -163,6 +181,7 @@ class Recording:
     def load_from_arrays(arrays, rec_name, fs, sig_names=None,
                          signal_kwargs={}):
         '''
+        DEPRECATED???
         Generates a recording object, and the signal objects it contains,
         from a list of array-like structures of the form channels x time
         (see signal.py for more details about how arrays are represented
@@ -263,9 +282,9 @@ class Recording:
         # Combine into recording and return
         return Recording(signals)
 
-    def save(self, uri, uncompressed=False):
+    def save(self, uri='', uncompressed=False):
         '''
-        Saves this recording to a URI as a compressed .tar.gz file.
+        Saves this recording to a URI as a compressed .tgz file.
         Returns the URI of what was saved, or None if there was a problem.
 
         Optional argument 'uncompressed' may be used to force the save
@@ -278,42 +297,48 @@ class Recording:
         rec.save('/home/username/recordings/')
 
         # Save it to a local file, with a specific name
-        rec.save('/home/username/recordings/my_recording.tar.gz')
+        rec.save('/home/username/recordings/my_recording.tgz')
 
         # Same, but with an explicit file:// prefix
-        rec.save('file:///home/username/recordings/my_recording.tar.gz')
+        rec.save('file:///home/username/recordings/my_recording.tgz')
 
         # Save it to the nems_db running on potoroo, use automatic filename
         rec.save('http://potoroo/recordings/')
 
         # Save it to the nems_db running on potoroo, specific filename
-        rec.save('http://potoroo/recordings/my_recording.tar.gz')
+        rec.save('http://potoroo/recordings/my_recording.tgz')
 
         # Save it to AWS (TODO, Not Implemented, Needs credentials)
         rec.save('s3://nems.amazonaws.com/somebucket/')
         '''
-        guessed_filename = self.name + '.tar.gz'
+
+        guessed_filename = recording_filename_hash(
+                self.name, self.meta,  uri_path=uri, uncompressed=uncompressed)
+
         # Set the URI metadata since we are writing to a URI now
         if not self.uri:
             self.uri = uri
         if local_uri(uri):
             uri = local_uri(uri)
-            print(uri)
+            log.info("Saving recording to : %s", uri)
             if targz_uri(uri):
                 return self.save_targz(uri)
             elif uncompressed:
                 return self.save_dir(uri)
             else:
-                #print(uri + '/' + guessed_filename)
-                return self.save_targz(uri + '/' + guessed_filename)
+                # print(uri + '/' + guessed_filename)
+                uri = uri + os.sep + guessed_filename
+                return self.save_targz(uri)
         elif http_uri(uri):
             uri = http_uri(uri)
             if targz_uri(uri):
                 return self.save_url(uri)
             elif uri[-1] == '/':
-                return self.save_url(uri + guessed_filename)
+                uri = uri + guessed_filename
+                return self.save_url(uri)
             else:
-                return self.save_url(uri + '/' + guessed_filename)
+                uri = uri + os.sep + guessed_filename
+                return self.save_url(uri)
         elif uri[0:6] == 's3://':
             raise NotImplementedError
         else:
@@ -324,9 +349,10 @@ class Recording:
         Saves all the signals (CSV/JSON pairs) in this recording into
         DIRECTORY in a new directory named the same as this recording.
         '''
-        if os.path.isdir(directory):
-            directory = os.path.join(directory, self.name)
-        elif os.path.exits(directory):
+        # SVD moved recname adding to save
+        #if os.path.isdir(directory):
+        #    directory = os.path.join(directory, self.name)
+        if os.path.exists(directory):
             m = 'File named {} exists; unable to create dir'.format(directory)
             raise ValueError(m)
         else:
@@ -335,12 +361,18 @@ class Recording:
             os.makedirs(directory, exist_ok=True)
         for s in self.signals.values():
             s.save(directory)
+
+        # Save meta dictionary to json file. Works?
+        metafilepath = directory + os.sep + self.name + '.meta.json'
+        md_fh = open(metafilepath, 'w')
+        self._save_metadata(md_fh)
+
         return directory
 
     def save_targz(self, uri):
         '''
         Saves all the signals (CSV/JSON pairs) in this recording
-        as a .tar.gz file at a local URI.
+        as a .tgz file at a local URI.
         '''
         directory = os.path.dirname(uri)
         if not os.path.isdir(directory):
@@ -354,21 +386,34 @@ class Recording:
 
     def as_targz(self):
         '''
-        Returns a BytesIO containing all the rec's signals as a .tar.gz stream.
+        Returns a BytesIO containing all the rec's signals as a .tgz stream.
         You may either send this over HTTP or save it to a file. No temporary
-        files are created in the creation of this .tar.gz stream.
+        files are created in the creation of this .tgz stream.
 
         Example of saving an in-memory recording to disk:
             rec = Recording(...)
-            with open('/some/path/test.tar.gz', 'wb') as fh:
+            with open('/some/path/test.tgz', 'wb') as fh:
                 tgz = rec.as_targz()
                 fh.write(tgz.read())
                 tgz.close()  # Don't forget to close it!
         '''
         f = io.BytesIO()  # Create a buffer
         tar = tarfile.open(fileobj=f, mode='w:gz')
-        # tar = tarfile.open('/home/ivar/poopy.tar.gz', mode='w:gz')
-        # With the tar buffer open, write all signal files
+        # tar = tarfile.open('/home/ivar/poopy.tgz', mode='w:gz')
+        # With the tar buffer open, write meta data, then all signal files
+
+        # save meta
+        metafilebase = self.name + '.meta.json'
+        md_fh = io.StringIO()
+        self._save_metadata(md_fh)
+        stream = io.BytesIO(md_fh.getvalue().encode())
+        info = tarfile.TarInfo(os.path.join(self.name, metafilebase))
+        info.uname = 'nems'  # User name
+        info.gname = 'users'  # Group name
+        info.mtime = time.time()
+        info.size = stream.getbuffer().nbytes
+        tar.addfile(info, stream)
+
         for s in self.signals.values():
             d = s.as_file_streams()  # Dict mapping filenames to streams
             for filename, stringstream in d.items():
@@ -382,6 +427,7 @@ class Recording:
                 info.mtime = time.time()
                 info.size = stream.getbuffer().nbytes
                 tar.addfile(info, stream)
+
         tar.close()
         f.seek(0)
         return f
@@ -404,6 +450,14 @@ class Recording:
                                                             uri)
             log.warn(m)
             return None
+
+    def _save_metadata(self, md_fh, fmt='%.18e'):
+        '''
+        Save this signal to a CSV file + JSON sidecar. If desired,
+        you may use optional parameter fmt (for example, fmt='%1.3e')
+        to alter the precision of the floating point matrices.
+        '''
+        json.dump(self.meta, md_fh)
 
     def get_signal(self, signal_name):
         '''
@@ -442,9 +496,18 @@ class Recording:
         est = Recording(signals=est)
         val = Recording(signals=val)
 
-        log.info('creating masks for partitioned est,val signals')
-        est = est.create_mask(np.isfinite(est['resp'].as_continuous()[0,:]))
-        val = val.create_mask(np.isfinite(val['resp'].as_continuous()[0,:]))
+ 
+        est = est.and_mask(np.isfinite(est['resp'].as_continuous()[0,:]))
+        val = val.and_mask(np.isfinite(val['resp'].as_continuous()[0,:]))
+#        if 'mask' in est.signals.keys():
+#            log.info('mask exists, Merging (AND) with masks for partitioned est,val signals')
+#            m = est['mask'].as_continuous().squeeze()
+#            est = est.create_mask(np.logical_and(m,np.isfinite(est['resp'].as_continuous()[0,:])))
+#            val = val.create_mask(np.logical_and(m,np.isfinite(val['resp'].as_continuous()[0,:])))        
+#        else:
+#            log.info('creating masks for partitioned est,val signals')
+#            est = est.create_mask(np.isfinite(est['resp'].as_continuous()[0,:]))
+#            val = val.create_mask(np.isfinite(val['resp'].as_continuous()[0,:]))
 
         return (est,val)
 
@@ -455,8 +518,22 @@ class Recording:
         with 80% of the data in the left, and 20% of the data in
         the right signal. Useful for making est/val data splits, or
         truncating the beginning or end of a data set.
+
+        FOR silly reasons having to do with the ordering of val stimuli,
+          "r" is actually the beginning of the signal -- used for val
+          "l" is the end, used for est
         '''
-        return self._split_helper(lambda s: s.split_at_time(fraction))
+        est = {}
+        val = {}
+        for s in self.signals.values():
+            v, e = s.split_at_time(fraction)
+            est[e.name] = e
+            val[v.name] = v
+
+        est = Recording(signals=est)
+        val = Recording(signals=val)
+
+        return est, val
 
     def split_by_epochs(self, epochs_for_est, epochs_for_val):
         '''
@@ -481,7 +558,7 @@ class Recording:
         repetitions of the same stimuli so that we can more accurately estimate the peri-
         stimulus time histogram (PSTH). This function tries to split the data into those
         two data sets based on the epoch occurrence counts.
-        '''
+        ''' 
         groups = ep.group_epochs_by_occurrence_counts(self.epochs, epoch_regex)
         if len(groups) > 2:
             l=np.array(list(groups.keys()))
@@ -620,6 +697,71 @@ class Recording:
 
         return rec
 
+    def jackknife_mask_by_time(self, njacks, jack_idx, tiled=True,
+                               invert=False):
+        '''
+        To function in place of jackknife_mask_by_epoch for cases where you wish
+        to fit all data evenly, including that which is not contained in an epoch
+        mask.
+        '''
+        # create mask if one doesn't exist yet and initialize mask to be all
+        # True
+        if 'mask' not in self.signals.keys():
+            rec = self.create_mask(True)
+        else:
+            rec = self.copy()
+
+        m_data = rec['mask'].as_continuous().copy()
+
+        if tiled != True:
+            raise NotImplemented
+
+        # Figure out the length of the non-nan data
+        times = m_data.sum()
+
+        # Full length of jackknife window
+        window_len = int((times/njacks))
+
+        # Length of a val chunk within a jackknife window
+        val_length = int(((window_len/times) * window_len))
+
+        # The mask, either true/false will only be applied on the val_chunks
+        template_inds = np.arange(0, val_length)
+
+        # Shift the beginning of this chunk based on which jack_idx
+        shift = int(jack_idx*val_length)
+        template_inds += shift
+
+        # Find all locations where the current mask is True
+        mask_true = np.argwhere(m_data==True)[:,1]
+
+        # If invert, set all mask to False. Only val chunks will be set to True
+        if invert == True:
+            m_data[0, mask_true] = False
+
+        # Look over all jackknife windows and update the mask accordingly
+        for i in range(0, njacks):
+            if (jack_idx==(njacks-1)):
+                ti = template_inds+int((i*window_len))
+                e = int((i+1)*window_len)
+                args = mask_true[ti[0]:e]
+                if (i == njacks-1):
+                    args = mask_true[ti[0]:times]
+            else:
+                ti = template_inds+int((i*window_len))
+                np.append(ti, ti[-1]+1)
+                args = mask_true[ti]
+
+            if invert == True:
+                m_data[0, args] = True
+            else:
+                m_data[0, args] = False
+
+        # pass modified mask back into the 'mask' signal and add to the rec
+        rec['mask'] = rec['mask']._modified_copy(m_data)
+
+        return rec
+
     def jackknife_by_epoch(self, njacks, jack_idx, epoch_name,
                            tiled=True,invert=False,
                            only_signals=None, excise=False):
@@ -717,7 +859,7 @@ class Recording:
     def select_epoch():
         raise NotImplementedError    # TODO
 
-    def select_times(self, times, padding=0):
+    def select_times(self, times, padding=0, reset_epochs=False):
 
         if padding != 0:
             raise NotImplementedError    # TODO
@@ -725,7 +867,10 @@ class Recording:
         k = list(self.signals.keys())
         newsigs = {n: s.select_times(times) for n, s in self.signals.items()}
 
-        return Recording(newsigs)
+        if reset_epochs:
+            newsigs = {n: s.reset_segmented_epochs() for n, s in newsigs.items()}
+            del newsigs['mask']
+        return Recording(newsigs, meta=self.meta)
 
     def nan_times(self, times, padding=0):
 
@@ -740,16 +885,18 @@ class Recording:
     def create_mask(self, epoch=None, base_signal=None):
         '''
         inputs:
-            epoch: {None, boolean, ndarray, string}
+            epoch: {None, boolean, ndarray, string, list}
              if None, defaults to False
              if False, initialize mask signal to False for all times
              if True, initialize mask signal to False for all times
-             if ndarray, True where ndarray is true, False elsewhere
-             if string, mask is True for epochs with .name==string
+             if Tx1 ndarray, True where ndarray is true, False elsewhere
+             if Nx2 ndarray, True in N epoch times
+             if string (eoch name), mask is True for epochs with .name==string
+             if list of strings (epoch names), mask is OR combo of all strings
+             if list of tuples (epoch times), mask is OR combo of all epoch times
 
         TODO: remove unnecessary deepcopys from this and subsequent functions
         TODO: add epochs, base signal parameters
-           if epochs not None, call self.or_mask
         '''
 
         rec = self.copy()
@@ -757,15 +904,7 @@ class Recording:
             sig_name = list(rec.signals.keys())[0]
             base_signal = rec[sig_name]
 
-        if epoch is None:
-            mask = np.zeros([1, base_signal.ntimes], dtype=np.bool)
-        elif type(epoch) is np.ndarray:
-            mask = np.zeros([1, base_signal.ntimes], dtype=np.bool)
-            #print(mask.shape)
-            #print(epoch.shape)
-            mask[0, epoch] = True
-        else:
-            mask = base_signal.generate_epoch_mask(epoch)
+        mask = base_signal.generate_epoch_mask(epoch)
 
         try:
             mask_sig = base_signal._modified_copy(mask)
@@ -773,19 +912,16 @@ class Recording:
             # Only rasterized signals support _modified_copy
             mask_sig = base_signal.rasterize()._modified_copy(mask)
         mask_sig.name = 'mask'
-
+        
         rec.add_signal(mask_sig)
 
         return rec
 
     def or_mask(self, epoch, invert=False):
         '''
-        epoch : string, list of strings, 2darray
-           epoch(s) can be either list of epoch names or simply an array
-        of index segments to mask
-
-        Make rec['mask'] == True for all epochs (or segs) in list of epoch
-        names.
+        Make rec['mask'] == True for all {epoch} or where current mask true.
+        Mask is created if it doesn't exist
+        See create_mask for input formats for 'epoch'
 
         ex:
             rec.or_mask(['HIT_TRIAL', 'PASSIVE_EXPERIMENT']) will return a
@@ -796,15 +932,7 @@ class Recording:
             rec = self.create_mask(False)
         else:
             rec = self.copy()
-
-        if (type(epoch) is str) or (type(epoch) is np.ndarray):
-            or_mask = rec['mask'].generate_epoch_mask(epoch)
-
-        elif type(epoch) is list:
-            or_mask = rec['mask'].generate_epoch_mask(epoch[0])
-
-            for e in epoch[1:]:
-                or_mask = or_mask | rec['mask'].generate_epoch_mask(e)
+        or_mask = rec['mask'].generate_epoch_mask(epoch)
 
         # Invert
         if invert:
@@ -818,13 +946,10 @@ class Recording:
 
     def and_mask(self, epoch, invert=False):
         '''
-        list of epoch names can be either list of epoch names or simply an array
-        of index segments to mask
-
-
-        Make mask == True for all epochs (or index segments) in list of epoch
-        names where current mask is also true.
-
+        Make rec['mask'] == True for all epochs where current mask is also true.
+        Mask is created if it doesn't exist
+        See create_mask for input formats for 'epoch'
+        
         example use:
             newrec = rec.or_mask(['ACTIVE_EXPERIMENT'])
             newrec = rec.and_mask(['REFERENCE', 'TARGET'])
@@ -836,15 +961,7 @@ class Recording:
             rec = self.create_mask(True)
         else:
             rec = self.copy()
-
-        if (type(epoch) is str) or (type(epoch) is np.ndarray):
-            and_mask = rec['mask'].generate_epoch_mask(epoch)
-
-        elif type(epoch) is list:
-            and_mask = rec['mask'].generate_epoch_mask(epoch[0])
-
-            for e in epoch[1:]:
-                and_mask = and_mask | rec['mask'].generate_epoch_mask(e)
+        and_mask = rec['mask'].generate_epoch_mask(epoch)
 
         # Invert
         if invert:
@@ -856,7 +973,7 @@ class Recording:
 
         return rec
 
-    def apply_mask(self):
+    def apply_mask(self, reset_epochs=False):
         '''
         Used to excise data based on boolean called mask. Returns new recording
         with only data specified mask. To make mask, see "create_epoch_mask"
@@ -882,7 +999,7 @@ class Recording:
         #    times = times[:-1,:]
         # log.info('masking')
         # log.info(times)
-        newrec = rec.select_times(times)
+        newrec = rec.select_times(times, reset_epochs=reset_epochs)
 
         return newrec
 
@@ -892,18 +1009,18 @@ def load_recording_from_targz(targz):
         with open(targz, 'rb') as stream:
             return load_recording_from_targz_stream(stream)
     else:
-        m = 'Not a .tar.gz file: {}'.format(targz)
+        m = 'Not a .tgz file: {}'.format(targz)
         raise ValueError(m)
 
 
 def load_recording_from_targz_stream(tgz_stream):
     '''
-    Loads the recording object from the given .tar.gz stream, which
+    Loads the recording object from the given .tgz stream, which
     is expected to be a io.BytesIO object.
     For hdf5 files, copy to temporary directory and load with hdf5 utility
     '''
     tpath=None
-
+    meta = {}
     streams = {}  # For holding file streams as we unpack
     with tarfile.open(fileobj=tgz_stream, mode='r:gz') as t:
         for member in t.getmembers():
@@ -912,7 +1029,11 @@ def load_recording_from_targz_stream(tgz_stream):
             basename = os.path.basename(member.name)
             # Now put it in a subdict so we can find it again
             signame = str(basename.split('.')[0:2])
-            if basename.endswith('epoch.csv'):
+            if basename.endswith('meta.json'):
+                f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
+                meta = json.load(f)
+                f = None
+            elif basename.endswith('epoch.csv'):
                 keyname = 'epoch_stream'
                 f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
 
@@ -935,21 +1056,23 @@ def load_recording_from_targz_stream(tgz_stream):
                 f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
 
             else:
-                m = 'Unexpected file found in tar.gz: {} (size={})'.format(member.name, member.size)
+                m = 'Unexpected file found in tgz: {} (size={})'.format(member.name, member.size)
                 raise ValueError(m)
-            # Ensure that we can doubly nest the streams dict
-            if signame not in streams:
-                streams[signame] = {}
-            # Read out a stringIO object for each file now while it's open
-            #f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
-            streams[signame][keyname] = f
+
+            if f is not None:
+                # Ensure that we can doubly nest the streams dict
+                if signame not in streams:
+                    streams[signame] = {}
+                # Read out a stringIO object for each file now while it's open
+                #f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
+                streams[signame][keyname] = f
 
     # Now that the streams are organized, convert them into signals
     # log.debug({k: streams[k].keys() for k in streams})
     signals = [load_signal_from_streams(**sg) for sg in streams.values()]
     signals_dict = {s.name: s for s in signals}
 
-    rec = Recording(signals=signals_dict)
+    rec = Recording(signals=signals_dict, meta=meta)
 
     if tpath:
         shutil.rmtree(tpath) # clean up if tpath is not None
@@ -958,20 +1081,20 @@ def load_recording_from_targz_stream(tgz_stream):
 
 def load_recording(uri):
     '''
-    Loads from a local .tar.gz file, a local directory, from s3,
-    or from an HTTP URL containing a .tar.gz file. Examples:
+    Loads from a local .tgz file, a local directory, from s3,
+    or from an HTTP URL containing a .tgz file. Examples:
 
     # Load all signals in the gus016c-a2 directory
     rec = Recording.load('/home/myuser/gus016c-a2')
     rec = Recording.load('file:///home/myuser/gus016c-a2')
 
     # Load the local tar gz directory.
-    rec = Recording.load('file:///home/myuser/gus016c-a2.tar.gz')
+    rec = Recording.load('file:///home/myuser/gus016c-a2.tgz')
 
-    # Load a tar.gz file served from a flat filesystem
-    rec = Recording.load('http://potoroo/recordings/gus016c-a2.tar.gz')
+    # Load a tgz file served from a flat filesystem
+    rec = Recording.load('http://potoroo/recordings/gus016c-a2.tgz')
 
-    # Load a tar.gz file created by the nems-baphy interafce
+    # Load a tgz file created by the nems-baphy interafce
     rec = Recording.load('http://potoroo/baphy/271/gus016c-a2')
 
     # Load from S3:
@@ -997,7 +1120,7 @@ def load_recording(uri):
 def load_recording_from_dir(directory_or_targz):
     '''
     Loads all the signals (CSV/JSON pairs) found in DIRECTORY or
-    .tar.gz file, and returns a Recording object containing all of them.
+    .tgz file, and returns a Recording object containing all of them.
     '''
     if os.path.isdir(directory_or_targz):
         files = list_signals(directory_or_targz)
@@ -1011,7 +1134,7 @@ def load_recording_from_dir(directory_or_targz):
 
 def load_recording_from_url(url):
     '''
-    Loads the recording object from a URL. File must be tar.gz format.
+    Loads the recording object from a URL. File must be tgz format.
     '''
     r = requests.get(url, stream=True)
     if not (r.status_code == 200 and
@@ -1169,7 +1292,7 @@ def jackknife_inverse_merge(rec_list):
                 # print(sn)
                 # print(np.sum(np.isfinite(_data)))
                 for r in rec_list:
-                    m = r['mask'].as_continuous()[0, :]
+                    m = r['mask'].as_continuous()[0, :].astype(bool)
                     _data[:, m] = r[sn].rasterize().as_continuous()[:, m]
                     # if sn=='pred':
                     #    print(np.sum(m))
@@ -1183,7 +1306,7 @@ def jackknife_inverse_merge(rec_list):
             #new_sigs[sn]=sig_list[0].jackknife_inverse_merge(sig_list)
             new_sigs[sn]=merge_selections(sig_list)
 
-    return Recording(signals=new_sigs)
+    return Recording(signals=new_sigs, meta=rec_list[0].meta.copy())
 
 
 # TODO: Might be a better place for this, but moved it from nems.uri

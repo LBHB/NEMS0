@@ -123,7 +123,7 @@ def wc(kw):
             coefs = 'nems.modules.weight_channels.gaussian_coefficients'
             mean = np.arange(n_outputs+1)/(n_outputs*2+2) + 0.25
             mean = mean[1:]
-            sd = np.full_like(mean, 0.5)
+            sd = np.full_like(mean, 0.4)
 
             mean_prior_coefficients = {
                 'mean': mean,
@@ -178,6 +178,8 @@ def fir(kw):
     None, but x{n_banks} is optional.
     '''
     pattern = re.compile(r'^fir\.?(\d{1,})x(\d{1,})x?(\d{1,})?$')
+    ops = kw.split(".")
+    kw = ".".join(ops[:2])
     parsed = re.match(pattern, kw)
     try:
         n_outputs = int(parsed.group(1))
@@ -206,6 +208,10 @@ def fir(kw):
         pass
     else:
         p_coefficients['mean'][:, 0] = 1
+
+    for op in ops:
+        if op == 'fl':
+            p_coefficients['mean'][:] = 1/(n_outputs*n_coefs)
 
     if n_banks is None:
         template = {
@@ -379,6 +385,39 @@ def lvl(kw):
         'fn_kwargs': {'i': 'pred', 'o': 'pred'},
         'prior': {'level': ('Normal', {'mean': np.zeros([n_shifts, 1]),
                                        'sd': np.ones([n_shifts, 1])})}
+        }
+
+    return template
+
+
+def scl(kw):
+    '''
+    Generate and register default modulespec for the scale module.
+
+    Parameters
+    ----------
+    kw : str
+        Expected format: r'^scl\.(\d{1,})$'
+
+    Options
+    -------
+    None
+    '''
+    pattern = re.compile(r'^scl\.?(\d{1,})$')
+    parsed = re.match(pattern, kw)
+    try:
+        n_scales = int(parsed.group(1))
+    except TypeError:
+        raise ValueError("Got a TypeError when parsing lvl keyword, "
+                         "make sure keyword has the form: \n"
+                         "scl.{n_scales}.\n"
+                         "keyword given: %s" % kw)
+
+    template = {
+        'fn': 'nems.modules.scale.scale',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred'},
+        'prior': {'a': ('Normal', {'mean': np.ones([n_scales, 1]),
+                                   'sd': np.ones([n_scales, 1])})}
         }
 
     return template
@@ -631,6 +670,8 @@ def dlog(kw):
     -------
     nN : Apply normalization for the given number of channels, N.
          E.g. `n18` or `n2`
+    f : fixed log, offset=-1
+    cN : Apply separate offset to each of N input channels
 
     Note
     ----
@@ -639,16 +680,18 @@ def dlog(kw):
     normalization is used - otherwise, only 'dlog' is required since the
     number of channels would be redundant information.
     '''
-    pattern = re.compile(r'^dlog(\.?n\d{1,})?\.?([f, \.]*)$')
-    parsed = re.match(pattern, kw)
-    norm = parsed.group(1)
-    options = parsed.group(2).split('.')
-    if norm is not None:
-        chans = int(norm.strip('.')[1:])  # skip leading .n
-    else:
-        chans = 0
+    options = kw.split(".")
+    chans = 1
+    nchans = 0
+    offset = False
 
-    offset = ('f' in options)
+    for op in options:
+        if op.startswith('c'):
+            chans = int(op[1:])
+        elif op.startswith('n'):
+            nchans = int(op[1:])
+        elif op == 'f':
+            offset = True
 
     template = {
         'fn': 'nems.modules.nonlinearity.dlog',
@@ -656,15 +699,59 @@ def dlog(kw):
                       'o': 'pred'}
     }
 
-    if chans:
-        d = np.zeros([chans, 1])
-        g = np.ones([chans, 1])
+    if nchans:
+        d = np.zeros([nchans, 1])
+        g = np.ones([nchans, 1])
         template['norm'] = {'type': 'minmax', 'recalc': 0, 'd': d, 'g': g}
 
     if offset:
-        template['fn_kwargs']['offset'] = -1
+        template['fn_kwargs']['offset'] = np.array([[-1]])
     else:
-        template['prior'] = {'offset': ('Normal', {'mean': [0], 'sd': [2]})}
+        template['prior'] = {'offset': ('Normal', {
+                'mean': np.zeros((chans, 1)),
+                'sd': np.ones((chans, 1))*2})}
+
+    return template
+
+
+def relu(kw):
+    '''
+    Generate and register modulespec for nonlinearity.relu module.
+
+    Parameters
+    ----------
+    kw : str
+        Expected format: r'^relu(\.n\d{1,})?$'
+
+    Options
+    -------
+    N : Apply threshold for the given number of channels, N.
+         E.g. `n18` or `n2`
+    f : fixed threshold of zero
+
+    '''
+    options = kw.split(".")[1:]
+    chans = 1
+    offset = False
+
+    for op in options:
+        if op == 'f':
+            offset = True
+        else:
+            chans = int(op)
+
+    template = {
+        'fn': 'nems.modules.nonlinearity.relu',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred'}
+    }
+
+    if offset:
+        template['fn_kwargs']['offset'] = np.array([[0]])
+    else:
+        template['prior'] = {'offset': ('Normal', {
+                'mean': np.zeros((chans, 1)),
+                'sd': np.ones((chans, 1))*2})}
 
     return template
 
@@ -713,6 +800,121 @@ def stategain(kw):
 
     template = {
         'fn': 'nems.modules.state.state_dc_gain',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      's': 'state'},
+        'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
+                  'd': ('Normal', {'mean': d_mean, 'sd': d_sd})}
+        }
+
+    return template
+
+
+def stateseg(kw):
+    '''
+    Generate and register modulespec for the state_segmented module.
+
+    Parameters
+    ----------
+    kw : str
+        Expected format: r'^stateseg\.?(\d{1,})x(\d{1,})$'
+        e.g., "stateseg.SxR" :
+            S : number of state channels (required)
+            R : number of channels to modulate (default = 1)
+
+    Options
+    -------
+    None
+
+    TODO: set initial conditions for segmented linear model
+
+    '''
+    # parse the keyword
+    pattern = re.compile(r'^stateseg\.?(\d{1,})x(\d{1,})$')
+    parsed = re.match(pattern, kw)
+    if parsed is None:
+        # backward compatible parsing if R not specified
+        pattern = re.compile(r'^stateseg\.?(\d{1,})$')
+        parsed = re.match(pattern, kw)
+    try:
+        n_vars = int(parsed.group(1))
+        if len(parsed.groups())>1:
+            n_chans = int(parsed.group(2))
+        else:
+            n_chans = 1
+    except TypeError:
+        raise ValueError("Got TypeError when parsing stateseg keyword.\n"
+                         "Make sure keyword is of the form: \n"
+                         "stategain.{n_variables} \n"
+                         "keyword given: %s" % kw)
+
+    # specify initial conditions
+    zeros = np.zeros([n_chans, n_vars])
+    ones = np.ones([n_chans, n_vars])
+    g_mean = zeros.copy()
+    g_mean[:, 0] = 1
+    g_sd = ones.copy()
+    d_mean = zeros
+    d_sd = ones
+
+    template = {
+        'fn': 'nems.modules.state.state_segmented',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      's': 'state'},
+        'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
+                  'd': ('Normal', {'mean': d_mean, 'sd': d_sd})}
+        }
+
+    return template
+
+
+def sw(kw):
+    '''
+    Generate and register modulespec for the state.state_weight module.
+
+    Parameters
+    ----------
+    kw : str
+        Expected format: r'^sw\.?(\d{1,})x(\d{1,})$'
+        e.g., "stategain.SxR" :
+            S : number of state channels (required)
+            R : number of channels to modulate (default = 2)
+
+    TODO: support for more than one output channel? (filterbank)
+
+    Options
+    -------
+    None
+    '''
+    pattern = re.compile(r'^sw\.?(\d{1,})x(\d{1,})$')
+    parsed = re.match(pattern, kw)
+    if parsed is None:
+        # backward compatible parsing if R not specified
+        pattern = re.compile(r'^sw\.?(\d{1,})$')
+        parsed = re.match(pattern, kw)
+    try:
+        n_vars = int(parsed.group(1))
+        if len(parsed.groups())>1:
+            n_chans = int(parsed.group(2))
+        else:
+            n_chans = 1
+    except TypeError:
+        raise ValueError("Got TypeError when parsing stategain keyword.\n"
+                         "Make sure keyword is of the form: \n"
+                         "sw.{n_variables} \n"
+                         "keyword given: %s" % kw)
+
+    zeros = np.zeros([n_chans, n_vars])
+    ones = np.ones([n_chans, n_vars])
+    g_mean = zeros.copy()
+    g_mean[:, 0] = 0.5
+    g_sd = ones.copy()
+    d_mean = np.zeros([1, n_vars])
+    d_sd = np.ones([1, n_vars])
+
+    template = {
+        'fn': 'nems.modules.state.state_weight',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
                       's': 'state'},

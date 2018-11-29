@@ -134,6 +134,7 @@ def load_modelspecs(directory, basename, regex=None):
         with open(file, 'r') as f:
             try:
                 m = json.load(f)
+                m[0]['meta']['filename']=file
             except json.JSONDecodeError as e:
                 print("Couldn't load modelspec: {0}"
                       "Error: {1}".format(file, e))
@@ -226,13 +227,13 @@ def evaluate(rec, modelspec, start=None, stop=None):
             fn = lambda x: (x - m['norm']['d']) / m['norm']['g']
             new_signals = [s.transform(fn, k)]
 
-
         for s in new_signals:
             d.add_signal(s)
+
     return d
 
 
-def summary_stats(modelspecs, mod_key='fn', meta_include=[]):
+def summary_stats(modelspecs, mod_key='fn', meta_include=[], stats_keys=[]):
     '''
     Generates summary statistics for a list of modelspecs.
     Each modelspec must be of the same length and contain the same
@@ -311,12 +312,20 @@ def summary_stats(modelspecs, mod_key='fn', meta_include=[]):
     # Convert entries from lists of values to dictionaries
     # containing keys for mean, std and the raw values.
     with_stats = {}
+
     for col, values in columns.items():
-        mean = try_scalar((np.mean(values, axis=0)))
-        std = try_scalar((np.std(values, axis=0)))
-        sem = try_scalar((st.sem(values, axis=0)))
-        max = try_scalar((np.max(values, axis=0)))
-        min = try_scalar((np.min(values, axis=0)))
+        try:
+            mean = try_scalar((np.mean(values, axis=0)))
+            std = try_scalar((np.std(values, axis=0)))
+            sem = try_scalar((st.sem(values, axis=0)))
+            max = try_scalar((np.max(values, axis=0)))
+            min = try_scalar((np.min(values, axis=0)))
+        except:
+            mean = np.nan
+            std = np.nan
+            sem = np.nan
+            max = np.nan
+            min = np.nan
         values = try_scalar((np.array(values)))
 
         with_stats[col] = {

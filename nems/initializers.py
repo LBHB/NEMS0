@@ -67,7 +67,6 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}):
             kw = kw.replace("xR", "x{}".format(R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-
         else:
             log.info('kw: %s', kw)
         if registry.kw_head(kw) not in registry:
@@ -94,6 +93,11 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}):
         i += 1
 
     # insert metadata, if provided
+    if rec is not None:
+        if ((rec['resp'].shape[0] > 1) and ('cellids' not in meta.keys()) and
+            (type(rec.meta['cellid']) is list)):
+            meta['cellids'] = rec.meta['cellid']
+
     if 'meta' not in modelspec[0].keys():
         modelspec[0]['meta'] = meta
     else:
@@ -113,7 +117,7 @@ def from_keywords_as_list(keyword_string, registry=None, meta={}):
 
 
 def prefit_LN(est, modelspec, analysis_function=fit_basic,
-              fitter=scipy_minimize, metric=None,
+              fitter=scipy_minimize, metric=None, norm_fir=False,
               tolerance=10**-5.5, max_iter=700):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
@@ -129,13 +133,19 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
     TODO -- make sure this works generally or create alternatives
 
     '''
+
     fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
+
+    # Instead of using FIR prior, initialize to random coefficients then
+    # divide by L2 norm to force sum of squares = 1
+    if norm_fir:
+        modelspec = fir_L2_norm(modelspec)
 
     # fit without STP module first (if there is one)
     modelspec = prefit_to_target(est, modelspec, fit_basic,
                                  target_module='levelshift',
                                  extra_exclude=['stp'],
-                                 fitter=scipy_minimize,
+                                 fitter=fitter,
                                  metric=metric,
                                  fit_kwargs=fit_kwargs)
 
@@ -167,6 +177,14 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
                     fitter=scipy_minimize,
                     metric=metric,
                     fit_kwargs=fit_kwargs)
+#            for i, m in enumerate(modelspec):
+#                if ('phi' not in m.keys()) and ('prior' in m.keys()):
+#                    log.debug('Phi not found for module, using mean of prior: %s',
+#                              m)
+#                    old_prior = m['prior'].copy()
+#                    m = priors.set_mean_phi([m])[0]  # Inits phi for 1 module
+#                    modelspec[i] = m
+#                    modelspec[i]['prior'] = old_prior
             break
 
 #                modelspecs = [prefit_to_target(
@@ -176,7 +194,6 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
 #                        fitter=scipy_minimize,
 #                        fit_kwargs={'tolerance': 1e-6, 'max_iter': 500})
 #                        for modelspec in modelspecs]
-
 
     return modelspec
 
@@ -350,6 +367,15 @@ def init_dexp(rec, modelspec):
     else:
         fit_portion = modelspec[:target_i]
 
+    # ensures all previous modules have their phi initialized
+    # choose prior mean if not found
+    for i, m in enumerate(fit_portion):
+        if ('phi' not in m.keys()) and ('prior' in m.keys()):
+            log.debug('Phi not found for module, using mean of prior: %s',
+                      m)
+            m = priors.set_mean_phi([m])[0]  # Inits phi for 1 module
+            fit_portion[i] = m
+
     # generate prediction from module preceeding dexp
     ms.fit_mode_on(fit_portion)
     rec = ms.evaluate(rec, fit_portion)
@@ -405,9 +431,9 @@ def init_logsig(rec, modelspec):
     # preserve input modelspec
     modelspec = copy.deepcopy(modelspec)
 
-    target_i = find_module('double_exponential', modelspec)
+    target_i = find_module('logistic_sigmoid', modelspec)
     if target_i is None:
-        log.warning("No dexp module was found, can't initialize.")
+        log.warning("No logsig module was found, can't initialize.")
         return modelspec
 
     if target_i == len(modelspec):
@@ -424,11 +450,14 @@ def init_logsig(rec, modelspec):
     resp = rec['resp'].as_continuous()
 
     mean_pred = np.nanmean(pred)
-    min_pred = np.nanmean(pred)-np.nanstd(pred)*3
-    max_pred = np.nanmean(pred)+np.nanstd(pred)*3
+    min_pred = np.nanmean(pred) - np.nanstd(pred)*3
+    max_pred = np.nanmean(pred) + np.nanstd(pred)*3
+    if min_pred < 0:
+        min_pred = 0
+        mean_pred = (min_pred+max_pred)/2
+
     pred_range = max_pred - min_pred
     min_resp = max(np.nanmean(resp)-np.nanstd(resp)*3, 0)  # must be >= 0
-
     max_resp = np.nanmean(resp)+np.nanstd(resp)*3
     resp_range = max_resp - min_resp
 
@@ -447,9 +476,9 @@ def init_logsig(rec, modelspec):
     shift = ('Normal', {'mean': shift0, 'sd': pred_range})
     kappa = ('Exponential', {'beta': kappa0})
 
-    modelspec[target_i]['prior'] = {
+    modelspec[target_i]['prior'].update({
             'base': base, 'amplitude': amplitude, 'shift': shift,
-            'kappa': kappa}
+            'kappa': kappa})
 
     modelspec[target_i]['bounds'] = {
             'base': (1e-15, None),
@@ -457,5 +486,18 @@ def init_logsig(rec, modelspec):
             'shift': (None, None),
             'kappa': (1e-15, None)
             }
+
+    return modelspec
+
+
+def fir_L2_norm(modelspec):
+    modelspec = copy.deepcopy(modelspec)
+    fir_idx = find_module('fir', modelspec)
+    prior = priors._tuples_to_distributions(modelspec[fir_idx]['prior'])
+    random_coeffs = np.random.rand(*prior['coefficients'].mean().shape)
+    normed = random_coeffs / np.linalg.norm(random_coeffs)
+    # Assumes fir phi hasn't been initialized yet and that coefficients
+    # is the only parameter to set. MAY NOT BE TRUE FOR SOME MODELS.
+    modelspec[fir_idx]['phi'] = {'coefficients': normed}
 
     return modelspec

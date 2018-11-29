@@ -10,21 +10,29 @@ def init(kw):
     ops = escaped_split(kw, '.')[1:]
     st = False
     tolerance = 10**-5.5
+    norm_fir = False
+    fit_sig = 'resp'
 
     for op in ops:
         if op == 'st':
             st = True
+        elif op=='psth':
+            fit_sig = 'psth'
         elif op.startswith('t'):
             # Should use \ to escape going forward, but keep d-sub in
             # for backwards compatibility.
             num = op.replace('d', '.').replace('\\', '')
             tolpower = float(num[1:])*(-1)
             tolerance = 10**tolpower
+        elif op == 'L2f':
+            norm_fir = True
 
     if st:
-        return [['nems.xforms.fit_state_init', {'tolerance': tolerance}]]
+        return [['nems.xforms.fit_state_init', {'tolerance': tolerance,
+                                                'fit_sig': fit_sig}]]
     else:
-        return [['nems.xforms.fit_basic_init', {'tolerance': tolerance}]]
+        return [['nems.xforms.fit_basic_init', {'tolerance': tolerance,
+                                                'norm_fir': norm_fir}]]
 
 
 # TOOD: Maybe these should go in fitters instead?
@@ -32,6 +40,11 @@ def init(kw):
 # move to same place as sev? -- SVD
 # TODO: Maybe can keep splitep and avgep as one thing?
 #       Would they ever be done separately?
+def timesplit(kw):
+    frac = int(kw.split('.')[1][1:])*0.1
+    return [['nems.xforms.split_at_time', {'fraction': frac}]]
+
+
 def splitep(kw):
     ops = kw.split('.')[1:]
     epoch_regex = '^STIM' if not ops else ops[0]
@@ -56,6 +69,22 @@ def sev(kw):
          {'epoch_regex': epoch_regex}]]
     return xfspec
 
+
+def tev(kw):
+    ops = kw.split('.')[1:]
+
+    valfrac = 0.1
+    for op in ops:
+        if op.startswith("vv"):
+            valfrac=int(op[2:]) / 1000
+        elif op.startswith("v"):
+            valfrac=int(op[1:]) / 100
+
+    xfspec = [['nems.xforms.split_at_time', {'valfrac': valfrac}]]
+
+    return xfspec
+
+
 def jk(kw):
     ops = kw.split('.')[1:]
     jk_kwargs = {}
@@ -76,6 +105,9 @@ def jk(kw):
                 keep_only = int(op[1:])
             else:
                 keep_only = 1
+        elif op.startswith('bt'):
+            # jackknife by time
+            jk_kwargs['by_time'] = True
 
     if do_split:
         xfspec = [['nems.xforms.split_for_jackknife', jk_kwargs]]

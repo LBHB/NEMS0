@@ -9,17 +9,13 @@ NEMS is the Neural Encoding Model System. It is helpful for fitting a mathematic
 git clone https://github.com/lbhb/NEMS
 
 ```
-
 Then add the NEMS library via pip (where "NEMS" is the installation directory):
 ```
 pip install -e NEMS
 ```
-We have found that Python 3 distributions compiled with the Intel MKL libraries are about twice as fast as the default Python implementations that come installed on many linux machines. Please see our basic [conda installation instructions](docs/conda.md) if you would like to set up a python environment like the way that we do.
-
-NOTE: Regardless of which Python distribution you choose to use, NEMS is designed to use Python 3. Backwards compatibility with Python 2 is untested and unsupported.
+We have found that Python 3 distributions compiled with the Intel MKL libraries are about twice as fast as the default Python implementations that come installed on many linux machines. Please see our basic [conda installation instructions](docs/conda.md) if you would like to set up a python environment like the way that we do. NOTE: NEMS is designed to use Python 3. Backwards compatibility with Python 2 is untested and unsupported.
 
 Alternatively (not recommended), you may install all the depdencies on your own, e.g.,
-
 ```
 pip install requests numpy scipy matplotlib pandas
 ```
@@ -37,7 +33,7 @@ You may test if everything is working by telling NEMS to download some sample au
 cd NEMS/scripts
 ipython
 
-[0]: run demo_script.py
+In [1]: run demo_script.py
 ```
 
 Open `demo_script.py` in an editor to work through each step of the fit.

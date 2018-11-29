@@ -11,34 +11,41 @@ from nems.plugins import (default_keywords, default_loaders, default_fitters,
 log = logging.getLogger(__name__)
 
 
-def generate_xforms_spec(recording_uri, modelname, meta={}, xforms_kwargs={},
+def generate_xforms_spec(recording_uri=None, modelname=None, meta={}, xforms_kwargs={},
                          kw_kwargs={}, autoPred=True, autoStats=True,
                          autoPlot=True):
     """
-    TODO: Update this doc
+    Generate an xforms spec based on a modelname, which can then be evaluated
+    in order to process and fit a model.
 
-    OUTDATED
-    Fits a single NEMS model
-    eg, 'ozgf100ch18_wc18x1_lvl1_fir15x1_dexp1_fit01'
-    generates modelspec with 'wc18x1_lvl1_fir1x15_dexp1'
+    Parameter
+    ---------
+    recording_uri : str
+        Location to load recording from, e.g. a filepath or URL.
+    modelname : str
+        NEMS-formatted modelname, e.g. 'ld-sev_wc.18x2-fir.2x15-dexp.1_basic'
+        The modelname will be parsed into a series of xforms functions using
+        xforms and keyword registries.
+    meta : dict
+        Additional keyword arguments for nems.initializers.init_from_keywords
+    xforms_kwargs : dict
+        Additional keyword arguments for the xforms registry
+    kw_kwargs : dict
+        Additional keyword arguments for the keyword registry
+    autoPred : boolean
+        If true, will automatically append nems.xforms.predict to the xfspec
+        if it is not already present.
+    autoStats : boolean
+        If true, will automatically append nems.xforms.add_summary_statistics
+        to the xfspec if it is not already present.
+    autoPlot : boolean
+        If true, will automatically append nems.xforms.plot_summary to the
+        xfspec if it is not already present.
 
-    based on fit_model function in nems/scripts/fit_model.py
+    Returns
+    -------
+    xfspec : list of 2- or 4- tuples
 
-    example xfspec:
-     xfspec = [
-        ['nems.xforms.load_recordings', {'recording_uri_list': recordings}],
-        ['nems.xforms.add_average_sig', {'signal_to_average': 'resp',
-                                         'new_signalname': 'resp',
-                                         'epoch_regex': '^STIM_'}],
-        ['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}],
-        ['nems.xforms.init_from_keywords', {'keywordstring': modelspecname}],
-        ['nems.xforms.set_random_phi',  {}],
-        ['nems.xforms.fit_basic',       {}],
-        # ['nems.xforms.add_summary_statistics',    {}],
-        ['nems.xforms.plot_summary',    {}],
-        # ['nems.xforms.save_recordings', {'recordings': ['est', 'val']}],
-        ['nems.xforms.fill_in_default_metadata',    {}],
-     ]
     """
 
     log.info('Initializing modelspec(s) for recording/model {0}/{1}...'
@@ -50,8 +57,11 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, xforms_kwargs={},
     #       or something along those lines... since they aren't really
     #       just loaders and fitters
     load_keywords, model_keywords, fit_keywords = escaped_split(modelname, '_')
+    if recording_uri is not None:
+        xforms_lib = KeywordRegistry(recording_uri=recording_uri, **xforms_kwargs)
+    else:
+        xforms_lib = KeywordRegistry(**xforms_kwargs)
 
-    xforms_lib = KeywordRegistry(recording_uri=recording_uri, **xforms_kwargs)
     xforms_lib.register_modules([default_loaders, default_fitters,
                                  default_initializers])
     xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
@@ -93,7 +103,7 @@ def generate_xforms_spec(recording_uri, modelname, meta={}, xforms_kwargs={},
     # 6) generate plots (optional)
     if autoPlot:
         if not _xform_exists(xfspec, 'nems.xforms.plot_summary'):
-            log.info('Adding summary plot to xfspec...')
+            # log.info('Adding summary plot to xfspec...')
             xfspec.append(['nems.xforms.plot_summary', {}])
 
     return xfspec

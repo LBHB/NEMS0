@@ -38,7 +38,7 @@ class KeywordRegistry():
 
     def __getitem__(self, kw_string):
         kw = self.lookup(kw_string)
-        accepted_args = inspect.getargspec(kw.parse)[0]
+        accepted_args = inspect.getfullargspec(kw.parse)[0]
         kwargs = {k: v for k, v in self.kwargs.items() if k in accepted_args}
         return kw.parse(kw_string, **kwargs)
 
@@ -58,7 +58,8 @@ class KeywordRegistry():
         if len(h) == 1:
             # no hypen, do regex for first all-alpha string
             alpha = re.compile('^[a-zA-Z]*')
-            kw_head = re.match(alpha, kw_string)[0]
+            #print(kw_string)
+            kw_head = re.match(alpha, kw_string).group(0)
         else:
             kw_head = h[0]
         return kw_head
@@ -144,10 +145,17 @@ class KeywordRegistry():
     def from_json(self, d):
         r = KeywordRegistry(*d['_KWR_ARGS'])
         d.pop('_KWR_ARGS')
-#        r.keywords = {k: getattr(imp.import_module(v), k)
-#                      for k, v in d.items()}
-        plugins = set([v for k, v in d.items()])
-        r.register_plugins(plugins)
+        try:
+            r.keywords = {k: getattr(imp.import_module(v), k)
+                      for k, v in d.items()}
+            plugins = set([v for k, v in d.items()])
+            r.register_plugins(plugins)
+        except:
+            # Assume that equivalent plugins are specified in configs.
+            # Will happen when loading a model on a PC that it
+            # was not fit on, for example.
+            pass
+
         return r
 
 

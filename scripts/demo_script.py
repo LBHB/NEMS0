@@ -17,7 +17,7 @@ import nems.uri
 import nems.recording as recording
 from nems.signal import RasterizedSignal
 from nems.fitters.api import scipy_minimize
-from nems.plots.recording_browser import browse_recording, browse_context
+from nems.gui.recording_browser import browse_recording, browse_context
 
 log = logging.getLogger(__name__)
 
@@ -131,12 +131,14 @@ log.info('Generating summary plot...')
 # Generate a summary plot
 context = {'val': val, 'modelspecs': modelspecs, 'est': est}
 fig = nplt.quickplot(context)
+fig.show()
 
 # Optional: uncomment to save your figure
 # fname = nplt.save_figure(fig, modelspecs=modelspecs, save_dir=modelspecs_dir)
 
 # browse the validation data
-browse_recording(val[0], signals=['stim', 'pred', 'resp'], cellid=cellid)
+aw = browse_recording(val[0], signals=['stim', 'pred', 'resp'], cellid=cellid)
+
 
 
 # ----------------------------------------------------------------------------

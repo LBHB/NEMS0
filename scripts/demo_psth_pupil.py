@@ -21,6 +21,7 @@ import nems.utils
 import nems.uri
 from nems import recording
 from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
+from nems.metrics.state import single_state_mod_index
 
 # ----------------------------------------------------------------------------
 # CONFIGURATION
@@ -56,7 +57,8 @@ rec = recording.load_recording(recording_uri)
 # predicted response
 logging.info('Generating state signal...')
 #rec = preproc.make_state_signal(rec, ['active','pupil_bs','pupil_ev'], [''], 'state')
-rec = preproc.make_state_signal(rec, ['active','pupil'], [''], 'state')
+#rec = preproc.make_state_signal(rec, ['active','pupil'], [''], 'state')
+rec = preproc.make_state_signal(rec, ['pupil','each_file'], [''], 'state')
 
 # mask out data from incorrect trials
 rec = preproc.mask_all_but_correct_references(rec)
@@ -85,15 +87,15 @@ print(epochs[epochs['name'] == e])
 raster = resp.extract_epoch(e, mask=rec['mask'])[:,0,:]
 t = np.arange(raster.shape[1]) /resp.fs
 
-plt.figure()
-plt.subplot(2,1,1)
-plt.imshow(raster, interpolation='none', aspect='auto',
-           extent=[t[0], t[-1], raster.shape[0], 0])
-plt.title('Raster for {}'.format(epoch_list[0]))
-
-plt.subplot(2,1,2)
-plt.plot(t, np.nanmean(raster, axis=0))
-plt.title('PSTH for {}'.format(epoch_list[0]))
+#plt.figure()
+#plt.subplot(2,1,1)
+#plt.imshow(raster, interpolation='none', aspect='auto',
+#           extent=[t[0], t[-1], raster.shape[0], 0])
+#plt.title('Raster for {}'.format(epoch_list[0]))
+#
+#plt.subplot(2,1,2)
+#plt.plot(t, np.nanmean(raster, axis=0))
+#plt.title('PSTH for {}'.format(epoch_list[0]))
 
 # ----------------------------------------------------------------------------
 # INITIALIZE MODELSPEC
@@ -163,9 +165,16 @@ ests, vals = nems.analysis.api.generate_prediction(ests, vals, modelspecs)
 # evaluate prediction accuracy
 modelspecs = nems.analysis.api.standard_correlation(ests, vals, modelspecs)
 
+s = nems.metrics.api.state_mod_index(vals[0], epoch='REFERENCE', 
+                                      psth_name='pred',
+                                      state_sig='state', state_chan=[])
+modelspecs[0][0]['meta']['state_mod'] = s
+
 logging.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
-        modelspecs[0][0]['meta']['r_fit'],
-        modelspecs[0][0]['meta']['r_test']))
+        modelspecs[0][0]['meta']['r_fit'][0],
+        modelspecs[0][0]['meta']['r_test'][0]))
+
+print(single_state_mod_index(vals[0], modelspecs[0], state_chan="pupil"))
 
 # ----------------------------------------------------------------------------
 # GENERATE PLOTS
@@ -176,4 +185,5 @@ logging.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
 logging.info('Generating summary plot...')
 
 # Generate a summary plot
-fig = nplt.quickplot({'val': vals, 'modelspecs': modelspecs})
+#fig = nplt.quickplot({'val': vals, 'modelspecs': modelspecs})
+fig = nplt.model_per_time({'val': vals, 'modelspecs': modelspecs})

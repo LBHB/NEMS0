@@ -16,10 +16,11 @@ from nems.plots.spectrogram import (plot_spectrogram, spectrogram_from_signal,
                           spectrogram_from_epoch)
 from nems.plots.timeseries import timeseries_from_signals, \
     timeseries_from_epoch, before_and_after_stp
-from nems.plots.heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap
+from nems.plots.heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap, \
+    strf_timeseries
 from nems.plots.histogram import pred_error_hist
 from nems.plots.state import (state_vars_timeseries, state_var_psth_from_epoch,
-                    state_var_psth, state_gain_plot)
+                    state_var_psth, state_gain_plot, state_vars_psth_all)
 from nems.utils import find_module
 
 log = logging.getLogger(__name__)
@@ -78,13 +79,17 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
        Need to refine exactly what we want to do here
     """
 
+    log.info('Running quickplot')
+
     # Most plots will just use the default (typically 'val' for LBHB),
     # but some plots might want to plot est vs val or need access to the
     # full recording. Keeping the full ctx reference lets those plots
     # use ctx['est'], ctx['rec'], etc.
     rec = ctx[default][r_idx]
-    log.info('Running quickplot')
     modelspec = ctx['modelspecs'][m_idx]
+
+    # figure out which epoch to chop out for plots that show a signel
+    # segment of the data (eg, one sound, one trial)
     if (epoch is not None) and rec.get_epoch_indices(epoch).shape[0]:
         pass
     elif rec['resp'].epochs is None:
@@ -119,7 +124,8 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
         occurrence = occurrences[occurrence]
 
     # determine if 'stim' signal exists
-    show_spectrogram = ('stim' in rec.signals.keys())
+    show_spectrogram = ('stim' in rec.signals.keys() and
+                        'state' not in rec.signals.keys())
 
     plot_fns = _get_plot_fns(ctx, default=default, occurrence=occurrence,
                              epoch=epoch, m_idx=m_idx)
@@ -170,11 +176,16 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
             fns[j](ax=ax)
             i += span
 
+    # re-evaluate in case rec left in strange state
+    rec = ms.evaluate(rec, modelspec)
+    pred = rec['pred']
+    resp = rec['resp']
+
+    ### Special plots that go *BEFORE* iterated modules
+
     # TODO: Move pre- and post- plots to separate subfunctions?
     #       Not too awful at the moment but if we add more will
     #       get pretty crowded here
-
-    ### Special plots that go *BEFORE* iterated modules
 
     # Stimulus Spectrogram
     if show_spectrogram:
@@ -195,20 +206,21 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     # Pred v Resp Timeseries
     if ((find_module('merge_channels', modelspec) is not None) or
        (find_module('state_dc_gain', modelspec) is not None) or
+       (find_module('state_weight', modelspec) is not None) or
        (find_module('state_dexp', modelspec) is not None)):
+        if rec['state'].shape[0]<=15:
+            #fns = state_vars_psths(rec, epoch, psth_name='resp',
+            #                       occurrence=occurrence)
+            #
+            #_plot_axes([1]*len(fns), fns, -2)
+            fn2 = partial(state_vars_psth_all, rec, epoch, psth_name='resp',
+                          psth_name2='pred', state_sig='state_raw',
+                          colors=None, channel=None, decimate_by=1)
+            _plot_axes(1, fn2, -2)
+        else:
 
-        fns = state_vars_psths(rec, epoch, psth_name='resp',
-                               occurrence=occurrence)
-        _plot_axes([1]*len(fns), fns, -2)
-        # if len(m['phi']['g']) > 5:
-        #    fn2 = partial(state_gain_plot, modelspec)
-        #    plot2 = (fn2, 1)
-        #
-        # else:
-        #    fns = state_vars_psths(rec, epoch, psth_name='resp',
-        #                           occurrence=occurrence)
-        #    plot2 = (fns, [1]*len(fns))
-        # plot_fns.extend([plot1, plot2])
+            fn2 = partial(state_gain_plot, modelspec)
+            _plot_axes(1, fn2, -2)
 
     else:
         sigs = [rec['resp'], rec['pred']]
@@ -217,10 +229,6 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
                              occurrences=occurrence)
         _plot_axes(1, timeseries, -2)
 
-    # re-evaluate in case rec left in strange state
-    rec = ms.evaluate(rec, modelspec)
-    pred = rec['pred']
-    resp = rec['resp']
 
     # Pred v Resp Scatter Smoothed
     r_test = modelspec[0]['meta']['r_test']
@@ -324,7 +332,10 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
             elif 'fir' in fname:
 
                 if 'fir.basic' in fname:
-                    fn = partial(fir_heatmap, modelspec, chans=chans)
+                    if m['phi']['coefficients'].shape[0]<=3:
+                        fn = partial(strf_timeseries, modelspec, chans=chans)
+                    else:
+                        fn = partial(fir_heatmap, modelspec, chans=chans)
                     plot = (fn, 1)
                     plot_fns.append(plot)
                 elif 'fir.filter_bank' in fname:
@@ -346,11 +357,13 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                 continue
 
             elif ('weight_channels' in fname) and strf_done:
-                # second weight channels, eg for population model
-                fn = partial(weight_channels_heatmap, modelspec, chans=chans, wc_idx=wc_idx)
-                plot = (fn, 1)
-                plot_fns.append(plot)
-                wc_idx+=1
+                if ('ct' not in m['id']):
+                    # second weight channels, eg for population model
+                    fn = partial(weight_channels_heatmap, modelspec, chans=chans,
+                                 wc_idx=wc_idx)
+                    plot = (fn, 1)
+                    plot_fns.append(plot)
+                    wc_idx+=1
 
             elif ('weight_channels' in fname):
                 wc_idx+=1
@@ -423,7 +436,8 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
 
             plot_fns.append(plot1)
 
-        elif ('state.state_dc_gain' in fname) or ('state_dexp' in fname):
+        elif (('state.state_dc_gain' in fname) or ('state_dexp' in fname) or
+              ('state.state_weight' in fname)):
             fn1 = partial(state_vars_timeseries, rec, modelspec)
             plot1 = (fn1, 1)
 
@@ -439,19 +453,28 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
             plot_fns.append(plot1)
 
         elif 'dynamic_sigmoid' in fname:
-            if rec['contrast'].shape[0] > 1:
-                chans = rec['contrast'].chans
-                fn = partial(strf_heatmap, modelspec, title='Contrast STRF',
-                             chans=chans, wc_idx=1, fir_idx=1)
-                plot = (fn, 1)
-                plot_fns.append(plot)
+            #if rec['contrast'].shape[0] > 1:
+            def contrast_strf(modelspec, chans, ax):
+                try:
+                    strf_heatmap(modelspec, title='Contrast STRF', chans=chans,
+                                 wc_idx=1, fir_idx=1, ax=ax)
+                except IndexError:
+                    strf_heatmap(modelspec, title='Contrast STRF (Fixed A.V.)',
+                                 chans=chans, wc_idx=0, fir_idx=0,
+                                 absolute_value=True, ax=ax)
 
-                fn = partial(
-                        spectrogram_from_epoch, rec['contrast'], epoch,
-                        occurrence=occurrence, title='Contrast Input'
-                        )
-                plot = (fn, 1)
-                plot_fns.insert(0, plot)
+            fn = partial(contrast_strf, modelspec, chans=None)
+            plot = (fn, 1)
+            plot_fns.append(plot)
+
+            extent = False if rec['contrast'].shape[0] == 1 else True
+            fn = partial(
+                    spectrogram_from_epoch, rec['contrast'], epoch,
+                    occurrence=occurrence, title='Contrast Input',
+                    extent=extent
+                    )
+            plot = (fn, 1)
+            plot_fns.insert(0, plot)
 
     return plot_fns
 
@@ -558,7 +581,7 @@ def state_vars_psths(rec, epoch, psth_name='resp', occurrence=0):
     state_var_list = rec['state'].chans
     psth_list = [
             partial(state_var_psth_from_epoch, rec, epoch, psth_name=psth_name,
-                    state_sig=var)
+                    state_sig='state_raw', state_chan=var)
             for var in state_var_list
             ]
     return psth_list
