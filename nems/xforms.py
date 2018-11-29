@@ -61,6 +61,7 @@ def evaluate_step(xfa, context={}):
       but now xfa can be len 4, where xfa[2] indicates context in keys and
       xfa[3] is context out keys
     '''
+    
     if not(len(xfa) == 2 or len(xfa) == 4):
         raise ValueError('Got non 2- or 4-tuple for xform: {}'.format(xfa))
     xf = xfa[0]
@@ -507,7 +508,7 @@ def jack_subset(est, val, modelspecs=None, IsReload=False,
 
 
 def fit_basic_init(modelspecs, est, IsReload=False, metric='nmse',
-                   tolerance=10**-5.5, norm_fir=False, **context):
+                   tolerance=10**-5.5, norm_fir=False, nl_mode=2, **context):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
     local minima.
@@ -526,7 +527,8 @@ def fit_basic_init(modelspecs, est, IsReload=False, metric='nmse',
                 est, modelspecs[0],
                 analysis_function=nems.analysis.api.fit_basic,
                 fitter=scipy_minimize, metric=metric_fn,
-                tolerance=tolerance, max_iter=700, norm_fir=norm_fir)]
+                tolerance=tolerance, max_iter=700, norm_fir=norm_fir, 
+                nl_mode=nl_mode)]
 
     return {'modelspecs': modelspecs}
 
