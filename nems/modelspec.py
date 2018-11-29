@@ -134,6 +134,7 @@ def load_modelspecs(directory, basename, regex=None):
         with open(file, 'r') as f:
             try:
                 m = json.load(f)
+                m[0]['meta']['filename']=file
             except json.JSONDecodeError as e:
                 print("Couldn't load modelspec: {0}"
                       "Error: {1}".format(file, e))
@@ -226,9 +227,9 @@ def evaluate(rec, modelspec, start=None, stop=None):
             fn = lambda x: (x - m['norm']['d']) / m['norm']['g']
             new_signals = [s.transform(fn, k)]
 
-
         for s in new_signals:
             d.add_signal(s)
+
     return d
 
 

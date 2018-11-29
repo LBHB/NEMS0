@@ -28,8 +28,22 @@ def generate_prediction(est, val, modelspecs):
             est = [est.copy() for i, _ in enumerate(modelspecs)]
             val = [val.copy() for i, _ in enumerate(modelspecs)]
 
-    new_est = [ms.evaluate(d, m) for m, d in zip(modelspecs, est)]
-    new_val = [ms.evaluate(d, m) for m, d in zip(modelspecs, val)]
+    new_est = []
+    new_val = []
+    for m, e, v in zip(modelspecs, est, val):
+        # nan-out periods outside of mask
+        e = ms.evaluate(e, m)
+        v = ms.evaluate(v, m)
+        if 'mask' in v.signals.keys():
+            m = v['mask'].as_continuous()
+            x = v['pred'].as_continuous().copy()
+            x[..., m[0,:] == 0] = np.nan
+            v['pred'] = v['pred']._modified_copy(x)
+        new_est.append(e)
+        new_val.append(v)
+
+    #new_est = [ms.evaluate(d, m) for m, d in zip(modelspecs, est)]
+    #new_val = [ms.evaluate(d, m) for m, d in zip(modelspecs, val)]
 
     if list_val:
         new_val = [recording.jackknife_inverse_merge(new_val)]
@@ -37,12 +51,12 @@ def generate_prediction(est, val, modelspecs):
     return new_est, new_val
 
 
-def standard_correlation(est, val, modelspecs, rec=None):
-
+def standard_correlation(est, val, modelspecs, rec=None, use_mask=True):
+    # use_mask: mask before computing metrics (if mask exists)
     # Compute scores for validation dat
     r_ceiling = 0
     if type(val) is not list:
-        if 'mask' in val[0].signals.keys():
+        if ('mask' in val[0].signals.keys()) and use_mask:
             v = val.apply_mask()
             e = est.apply_mask()
         else:
@@ -60,7 +74,7 @@ def standard_correlation(est, val, modelspecs, rec=None):
         mse_fit = nmet.j_nmse(e, 'pred', 'resp')
 
     elif len(val) == 1:
-        if 'mask' in val[0].signals.keys():
+        if ('mask' in val[0].signals.keys()) and use_mask:
             v = val[0].apply_mask()
             e = est[0].apply_mask()
         else:
@@ -175,7 +189,6 @@ def standard_correlation_by_epochs(est,val,modelspecs,epochs_list, rec=None):
     #For example, ['A', 'B', ['A', 'B']] will measure correlations separately
     # for all epochs marked 'A', all epochs marked 'B', and all epochs marked
     # 'A'or 'B'
-
 
     for epochs in epochs_list:
         # Create a label for this subset. If epochs is a list, join elements with "+"

@@ -670,6 +670,8 @@ def dlog(kw):
     -------
     nN : Apply normalization for the given number of channels, N.
          E.g. `n18` or `n2`
+    f : fixed log, offset=-1
+    cN : Apply separate offset to each of N input channels
 
     Note
     ----
@@ -678,16 +680,18 @@ def dlog(kw):
     normalization is used - otherwise, only 'dlog' is required since the
     number of channels would be redundant information.
     '''
-    pattern = re.compile(r'^dlog(\.?n\d{1,})?\.?([f, \.]*)$')
-    parsed = re.match(pattern, kw)
-    norm = parsed.group(1)
-    options = parsed.group(2).split('.')
-    if norm is not None:
-        chans = int(norm.strip('.')[1:])  # skip leading .n
-    else:
-        chans = 0
+    options = kw.split(".")
+    chans = 1
+    nchans = 0
+    offset = False
 
-    offset = ('f' in options)
+    for op in options:
+        if op.startswith('c'):
+            chans = int(op[1:])
+        elif op.startswith('n'):
+            nchans = int(op[1:])
+        elif op == 'f':
+            offset = True
 
     template = {
         'fn': 'nems.modules.nonlinearity.dlog',
@@ -695,15 +699,59 @@ def dlog(kw):
                       'o': 'pred'}
     }
 
-    if chans:
-        d = np.zeros([chans, 1])
-        g = np.ones([chans, 1])
+    if nchans:
+        d = np.zeros([nchans, 1])
+        g = np.ones([nchans, 1])
         template['norm'] = {'type': 'minmax', 'recalc': 0, 'd': d, 'g': g}
 
     if offset:
-        template['fn_kwargs']['offset'] = -1
+        template['fn_kwargs']['offset'] = np.array([[-1]])
     else:
-        template['prior'] = {'offset': ('Normal', {'mean': [0], 'sd': [2]})}
+        template['prior'] = {'offset': ('Normal', {
+                'mean': np.zeros((chans, 1)),
+                'sd': np.ones((chans, 1))*2})}
+
+    return template
+
+
+def relu(kw):
+    '''
+    Generate and register modulespec for nonlinearity.relu module.
+
+    Parameters
+    ----------
+    kw : str
+        Expected format: r'^relu(\.n\d{1,})?$'
+
+    Options
+    -------
+    N : Apply threshold for the given number of channels, N.
+         E.g. `n18` or `n2`
+    f : fixed threshold of zero
+
+    '''
+    options = kw.split(".")[1:]
+    chans = 1
+    offset = False
+
+    for op in options:
+        if op == 'f':
+            offset = True
+        else:
+            chans = int(op)
+
+    template = {
+        'fn': 'nems.modules.nonlinearity.relu',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred'}
+    }
+
+    if offset:
+        template['fn_kwargs']['offset'] = np.array([[0]])
+    else:
+        template['prior'] = {'offset': ('Normal', {
+                'mean': np.zeros((chans, 1)),
+                'sd': np.ones((chans, 1))*2})}
 
     return template
 

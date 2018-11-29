@@ -649,27 +649,54 @@ class SignalBase:
         #        for name in epoch_names}
 
     def generate_epoch_mask(self, epoch=True):
-
-        if epoch == True:
-            mask = np.ones([1, self.ntimes], dtype=np.bool)
-
-        elif epoch == False:
-            mask = np.zeros([1, self.ntimes], dtype=np.bool)
+        '''
+        inputs:
+            epoch: {None, boolean, ndarray, string, list}
+             if None, defaults to False
+             if False, initialize mask signal to False for all times
+             if True, initialize mask signal to False for all times
+             if Tx1 ndarray, True where ndarray is true, False elsewhere
+             if Nx2 ndarray, True in N epoch times
+             if string (eoch name), mask is True for epochs with .name==string
+             if list of strings (epoch names), mask is OR combo of all strings
+             if list of tuples (epoch times), mask is OR combo of all epoch times
+        '''
+        
+        mask = np.zeros([1, self.ntimes], dtype=np.bool)
+        if (epoch is None) or (epoch is False):
+            pass    
 
         elif type(epoch) is str:
-            mask = np.zeros([1, self.ntimes], dtype=np.bool)
-
             # assuming defaults for boundary_mask and fix_overlap!
             indices = self.get_epoch_indices(epoch)
             for lb, ub in indices:
                 mask[:, lb:ub] = True
 
-        elif (type(epoch) is np.ndarray) or (type(epoch) is list):
-            mask = np.zeros([1, self.ntimes], dtype=np.bool)
-
+        elif (type(epoch) is list) and (type(epoch[0]) is tuple):
+            #epoch is a list of indicies
+            for (lb, ub) in epoch:
+                mask[:, lb:ub] = True
+                
+        elif (type(epoch) is list) and (type(epoch[0]) is str):
+            #epoch is a list of epochs
+            mask = self.generate_epoch_mask(epoch[0])
+            for e in epoch [1:]:
+                mask = mask | self.generate_epoch_mask(e)
+                
+        elif (type(epoch) is np.ndarray) and (epoch.ndim==2):
+            #epoch is an array of indicies
             for (lb, ub) in epoch:
                 mask[:, lb:ub] = True
 
+        elif (type(epoch) is np.ndarray) and (epoch.ndim==1):
+            #epoch is an 1darray
+            mask[0, epoch] = True
+
+        elif epoch == True:
+            mask[:] = 1
+            
+        else:
+            raise RuntimeError('Invalid epoch passed to generate_epoch_mask')
         return mask
 
     def epoch_to_signal(self, epoch, indices=None, boundary_mode='exclude',
@@ -1463,10 +1490,10 @@ class RasterizedSignal(SignalBase):
         # intialize with nans so that any subsequent prediction will be
         # restricted to the specified epochs
         # TODO - remove this - not necessary anymore?
-        if data.dtype == bool:
-            data[:] = False
-        else:
-            data[:] = np.nan
+#        if data.dtype == bool:
+#            data[:] = False
+#        else:
+#            data[:] = np.nan
 
         for epoch, epoch_data in epoch_dict.items():
             indices = self.get_epoch_indices(epoch, mask=mask)
@@ -1525,7 +1552,7 @@ class RasterizedSignal(SignalBase):
         '''
         # TODO: Update this to work with a mapping of key -> Nx2 epoch
         # structure as well.
-        new_data = np.full(self.shape, np.nan)
+        new_data = np.full(self.shape, np.nan, dtype = self._data.dtype)
         for epoch_name in list_of_epoch_names:
             for (lb, ub) in self.get_epoch_indices(epoch_name):
                 new_data[:, lb:ub] = self._data[:, lb:ub]

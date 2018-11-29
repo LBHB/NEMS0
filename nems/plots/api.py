@@ -1,6 +1,6 @@
 from .assemble import (simple_grid, freeze_defaults, get_predictions,
                        plot_layout, combine_signal_channels, pad_to_signals)
-from .scatter import plot_scatter, nl_scatter
+from .scatter import plot_scatter, nl_scatter, plot_nl_io
 from .summary import plot_summary
 from .spectrogram import (plot_spectrogram, spectrogram_from_signal,
                           spectrogram_from_epoch)
@@ -18,3 +18,4 @@ from .state import (state_vars_timeseries, state_var_psth,
 from .quickplot import quickplot, before_and_after_scatter
 from .diagnostic import diagnostic
 from .raster import (raster, psth_from_raster, raster_from_epoch)
+from .utils import (ax_remove_box)

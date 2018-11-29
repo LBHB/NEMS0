@@ -6,7 +6,7 @@ import matplotlib.gridspec as gridspec
 
 
 def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
-                     cmap=None, extent=False):
+                     cmap=None, clim=None, extent=False):
 
     if not ax:
         ax = plt.gca()
@@ -19,11 +19,11 @@ def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
 
         extent = [times[0], times[-1], 1, array.shape[0]]
         ax.imshow(array, origin='lower', interpolation='none',
-                  aspect='auto', extent=extent, cmap=cmap)
+                  aspect='auto', extent=extent, cmap=cmap, clim=clim)
     # Extent causes errors with on-off signal spectrogram
     else:
         ax.imshow(array, origin='lower', interpolation='none',
-                  aspect='auto', cmap=cmap)
+                  aspect='auto', cmap=cmap, clim=clim)
 
     ax.margins(x=0)
 

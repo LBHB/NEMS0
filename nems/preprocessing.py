@@ -477,7 +477,7 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     # periods not contained within stimulus epochs), or spont rate (for the signal
     # containing spont rate)
     respavg_data = respavg.as_continuous().copy()
-    respavg_spont_data = respavg.as_continuous().copy()
+    respavg_spont_data = respavg_with_spont.as_continuous().copy()
 
     if 'mask' in newrec.signals.keys():
         mask_data = newrec['mask']._data
@@ -487,7 +487,7 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     spont_periods = ((np.isnan(respavg_data)) & (mask_data==True))
 
     respavg_data[:, spont_periods[0,:]] = 0
-    respavg_spont_data[:, spont_periods[0,:]] = spont_rate[:, np.newaxis]
+    # respavg_spont_data[:, spont_periods[0,:]] = spont_rate[:, np.newaxis]
 
     respavg = respavg._modified_copy(respavg_data)
     respavg_with_spont = respavg_with_spont._modified_copy(respavg_spont_data)
@@ -563,7 +563,8 @@ def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals,
 
 
 def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
-               pc_count=None, pc_source='all', **context):
+               pc_count=None, pc_source='all', overwrite_resp=True,
+               whiten=True, **context):
     """
     generate pca signal, replace (multichannel) reference with a single
     pc channel
@@ -571,18 +572,33 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
     """
     rec0 = rec.copy()
     if type(pc_idx) is not list:
-        pc_idx=[pc_idx]
+        pc_idx = [pc_idx]
+    resp = rec0[resp_sig]
+
+    # compute duration of spont period
+    d = resp.get_epoch_bounds('PreStimSilence')
+    if len(d):
+        PreStimSilence = np.mean(np.diff(d))
+    else:
+        PreStimSilence = 0
+    prestimbins = int(PreStimSilence * resp.fs)
+
 
     # compute PCs only on valid (unmasked) times
+    rec0[resp_sig] = rec0[resp_sig].rasterize()
+    rec0 = generate_psth_from_resp(rec0)
+    if 'mask' in rec0.signals:
+        rec_masked = rec0.apply_mask()
+    else:
+        rec_masked = rec0
+
     if pc_source=='all':
-        D_ref = rec0.apply_mask()[resp_sig].as_continuous().T
+        D_ref = rec_masked[resp_sig].as_continuous().T
     elif pc_source=='psth':
-        rec0 = generate_psth_from_resp(rec0)
-        D_ref = rec0.apply_mask()['psth'].as_continuous().T
+        D_ref = rec_masked['psth'].as_continuous().T
     elif pc_source=='noise':
-        rec0 = generate_psth_from_resp(rec0)
-        D_psth = rec0.apply_mask()['psth'].as_continuous().T
-        D_raw = rec0.apply_mask()[resp_sig].as_continuous().T
+        D_psth = rec_masked['psth'].as_continuous().T
+        D_raw = rec_masked[resp_sig].as_continuous().T
         D_ref = D_raw - D_psth
     else:
         raise ValueError('pc_source {} not supported'.format(pc_source))
@@ -599,16 +615,42 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
         pca.fit(D_ref)
 
         X = pca.transform(D)
+        rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
     else:
-        # each ROW(??) of s is a PC
+        # each row(??) of v is a PC --weights to project into PC domain
         m = np.nanmean(D_ref, axis=0, keepdims=True)
-        u, s, v = np.linalg.svd(D_ref-m, full_matrices=False)
-        vs = np.sign(np.sum(v, axis=1, keepdims=True))
-        v *= vs
-        X = (D-m) @ v.T
+        if whiten:
+            sd = np.nanstd(D_ref, axis=0, keepdims=True)
+        else:
+            sd = np.ones(m.shape)
 
-    rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
-    rec0[resp_sig] = rec0[resp_sig]._modified_copy(X[:, pc_idx].T)
+        u, s, v = np.linalg.svd((D_ref-m)/sd, full_matrices=False)
+        X = (D-m) / sd @ v.T
+
+        rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
+
+        r = rec0[pc_sig].extract_epoch('REFERENCE', mask=rec0['mask'])
+        mr=np.mean(r,axis=0)
+        spont=np.mean(mr[:,:prestimbins],axis=1,keepdims=True)
+        mr -= spont
+        vs = np.sign(np.sum(mr[:,prestimbins:(prestimbins+10)], axis=1, keepdims=True))
+        v *= vs
+        X = (D-m) / sd @ v.T
+
+        rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
+
+#    r = rec0[pc_sig].extract_epoch('REFERENCE')
+#    mr=np.mean(r,axis=0)
+#    spont=np.mean(mr[:,:50],axis=1,keepdims=True)
+#    mr-=spont
+#    plt.figure()
+#    plt.plot(mr[:5,:].T)
+#    plt.legend(('1','2','3','4','5'))
+
+    rec0.meta['pc_weights'] = v
+    if overwrite_resp:
+        rec0[resp_sig] = rec0[resp_sig]._modified_copy(X[:, pc_idx].T)
+        rec0.meta['pc_idx'] = pc_idx
 
     return {'rec': rec0}
 

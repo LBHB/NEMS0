@@ -79,12 +79,24 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
             # ????
             bincount = np.min([smoothing_bins, s2.shape[1]])
             T = np.int(np.floor(s2.shape[1] / bincount))
-            s2 = s2[:, 0:(T * bincount)]
-            s2 = np.reshape(s2, [2, bincount, T])
-            s2 = np.mean(s2, 2)
-            s2 = np.squeeze(s2)
-            x = s2[0, :]
-            y = s2[1, :]
+            x0 = np.zeros(bincount)
+            y0 = np.zeros(bincount)
+            minx=np.min(x)
+            stepsize = (np.max(x)-minx)/bincount
+            for bb in range(bincount):
+                kk = (x>=minx+bb*stepsize) & (x<minx+(bb+1)*stepsize)
+                if np.sum(kk):
+                    x0[bb]=np.mean(x[kk])
+                    y0[bb]=np.mean(y[kk])
+            kk = (np.abs(x0)>0) & (np.abs(y0)>0)
+            x=x0
+            y=y0
+#            s2 = s2[:, 0:(T * bincount)]
+#            s2 = np.reshape(s2, [2, bincount, T])
+#            s2 = np.mean(s2, 2)
+#            s2 = np.squeeze(s2)
+#            x = s2[0, :]
+#            y = s2[1, :]
 
         chan_name = 'Channel {}'.format(i) if not sig2.chans else sig2.chans[i]
         plt.scatter(x, y, label=chan_name, s=2, color='darkgray')
@@ -132,13 +144,18 @@ def nl_scatter(rec, modelspec, idx, sig_name='pred',
     # HACK: shouldn't hardcode 'stim', might be named something else
     #       or not present at all. Need to figure out a better solution
     #       for special case of idx = 0
+
+    if 'mask' in rec.signals.keys():
+        before = rec.apply_mask()
+    else:
+        before = rec.copy()
     if idx == 0:
         # Can't have anything before index 0, so use input stimulus
-        before = rec.copy()
-        before_sig = rec['stim']
+        sig_name='stim'
+        before_sig = before['stim']
         before.name = '**stim'
     else:
-        before = ms.evaluate(rec.copy(), modelspec, start=None, stop=idx)
+        before = ms.evaluate(before, modelspec, start=None, stop=idx)
         before_sig = before[sig_name]
 
     # compute correlation for pre-module before it's over-written
@@ -148,7 +165,7 @@ def nl_scatter(rec, modelspec, idx, sig_name='pred',
         corr1 = 0
         log.warning('corr coef expects single-dim predictions')
 
-    compare_to = rec[compare]
+    compare_to = before[compare]
     module = modelspec[idx]
     mod_name = module['fn'].replace('nems.modules','')
     title1 = mod_name
