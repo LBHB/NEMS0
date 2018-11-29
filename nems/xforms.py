@@ -906,6 +906,11 @@ def save_analysis(destination,
 def load_analysis(filepath, eval_model=True, only=None):
     """
     load xforms and modelspec(s) from a specified directory
+    if eval_mode is True, reevalueates all steps, this is time consuming but gives an exact copy of the
+    original context
+    only can be ither an int, usually 0, to evaluate the first step of loading a recording, or an slice
+    object, which gives more flexibility over what steps of the original xfspecs to run again.
+
     """
     log.info('Loading modelspecs from %s...', filepath)
 
@@ -923,7 +928,10 @@ def load_analysis(filepath, eval_model=True, only=None):
     elif only is not None:
         # Useful for just loading the recording without doing
         # any subsequent evaluation.
-        ctx, log_xf = evaluate([xfspec[only]], ctx)
+        if isinstance(only, int):
+            ctx, log_xf = evaluate([xfspec[only]], ctx)
+        elif isinstance(only, slice):
+            ctx, log_xf = evaluate(xfspec[only], ctx)
 
     return xfspec, ctx
 
