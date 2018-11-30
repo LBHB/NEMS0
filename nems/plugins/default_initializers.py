@@ -44,7 +44,7 @@ def init(kw):
     norm_fir = False
     fit_sig = 'resp'
     nl_mode = 2
-    
+
     for op in ops:
         if op == 'st':
             st = True
@@ -69,7 +69,6 @@ def init(kw):
         return [['nems.xforms.fit_basic_init', {'tolerance': tolerance,
                                                 'norm_fir': norm_fir,
                                                 'nl_mode':nl_mode}]]
-
 
 # TOOD: Maybe these should go in fitters instead?
 #       Not really initializers, but really fitters either.

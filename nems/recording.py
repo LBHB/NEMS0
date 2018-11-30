@@ -1292,7 +1292,7 @@ def jackknife_inverse_merge(rec_list):
                 # print(sn)
                 # print(np.sum(np.isfinite(_data)))
                 for r in rec_list:
-                    m = r['mask'].as_continuous()[0, :]
+                    m = r['mask'].as_continuous()[0, :].astype(bool)
                     _data[:, m] = r[sn].rasterize().as_continuous()[:, m]
                     # if sn=='pred':
                     #    print(np.sum(m))

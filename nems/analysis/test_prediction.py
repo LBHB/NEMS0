@@ -28,8 +28,22 @@ def generate_prediction(est, val, modelspecs):
             est = [est.copy() for i, _ in enumerate(modelspecs)]
             val = [val.copy() for i, _ in enumerate(modelspecs)]
 
-    new_est = [ms.evaluate(d, m) for m, d in zip(modelspecs, est)]
-    new_val = [ms.evaluate(d, m) for m, d in zip(modelspecs, val)]
+    new_est = []
+    new_val = []
+    for m, e, v in zip(modelspecs, est, val):
+        # nan-out periods outside of mask
+        e = ms.evaluate(e, m)
+        v = ms.evaluate(v, m)
+        if 'mask' in v.signals.keys():
+            m = v['mask'].as_continuous()
+            x = v['pred'].as_continuous().copy()
+            x[..., m[0,:] == 0] = np.nan
+            v['pred'] = v['pred']._modified_copy(x)
+        new_est.append(e)
+        new_val.append(v)
+
+    #new_est = [ms.evaluate(d, m) for m, d in zip(modelspecs, est)]
+    #new_val = [ms.evaluate(d, m) for m, d in zip(modelspecs, val)]
 
     if list_val:
         new_val = [recording.jackknife_inverse_merge(new_val)]
