@@ -151,7 +151,8 @@ def evaluate(xformspec, context={}, start=0, stop=None):
 
 
 def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
-                           save_cache=True, **context):
+                           save_cache=True, IsReload=False, modelspecs=None,
+                           **context):
     """
     generic wrapper for loading recordings
     :param load_command: string pointing to relevant load command, eg "my.lib.load_fun"
@@ -220,7 +221,6 @@ def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
             rec.save(data_file)
 
     # if cellid specified, select only that channel
-    log.info("cellid: %s", cellid)
     if cellid is not None:
         if cellid in rec['resp'].chans:
             log.info("match found, extracting channel from rec")

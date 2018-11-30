@@ -23,7 +23,7 @@ from nems.fitters.api import scipy_minimize
 # ----------------------------------------------------------------------------
 # CONFIGURATION
 
-logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
 sys.path.append('/Users/svd/python/scripts/')
 from svd_io import load_polley_data, demo_loader
@@ -47,7 +47,10 @@ xfspec = []
 #xfspec.append(['nems.xforms.load_recordings',
 #               {'recording_uri_list': [recording_uri]}])
 # load from external format
-xfspec.append(['nems.xforms.load_recording_wrapper', {'load_command': load_command}])
+xfspec.append(['nems.xforms.load_recording_wrapper',
+               {'load_command': load_command,
+                'exptid': exptid,
+                'datafile': datafile}])
 xfspec.append(['nems.xforms.split_by_occurrence_counts',
                {'epoch_regex': '^STIM_'}])
 xfspec.append(['nems.xforms.average_away_stim_occurrences', {}])
@@ -76,18 +79,16 @@ xfspec.append(['nems.analysis.api.standard_correlation', {},
 xfspec.append(['nems.xforms.plot_summary',    {}])
 
 # actually do the fit
-ctx = {'datafile': datafile,
-       'exptid': exptid}
-ctx, log_xf = xforms.evaluate(xfspec, ctx)
+ctx, log_xf = xforms.evaluate(xfspec)
 
 
 # ----------------------------------------------------------------------------
 # SAVE YOUR RESULTS
 
 # save results to file
-log.info('Saving modelspec(s) to {0} ...'.format(destination))
 destination = os.path.join(results_dir, str(batch), xforms.get_meta(ctx)['cellid'],
                            ms.get_modelspec_longname(ctx['modelspecs'][0]))
+log.info('Saving modelspec(s) to {0} ...'.format(destination))
 xforms.save_analysis(destination,
                       recording=ctx['rec'],
                       modelspecs=ctx['modelspecs'],
@@ -96,6 +97,7 @@ xforms.save_analysis(destination,
                       log=log_xf)
 
 # save summary of results to a database
+log.info('Saving metadata to db  ...')
 modelspec = xforms.get_modelspec(ctx)
 modelspec[0]['meta']['modelpath'] = destination
 modelspec[0]['meta']['figurefile'] = destination + 'figure.0000.png'
