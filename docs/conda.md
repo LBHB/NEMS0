@@ -9,10 +9,14 @@ https://conda.io/miniconda.html
 # Set up an environment
 conda create -n nemsenv python=3 -c intel
 
-# Get inside the environment
+# Get inside the environment.
+# In Windows:
 source activate nemsenv
+# In Linux/OSX:
+conda activate nemsenv
 
-# Install any needed packages inside that
+# Use git to clone nems into the directory nems/. Then install any
+needed packages:
 pip install -e nems
 
 ```

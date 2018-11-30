@@ -25,9 +25,6 @@ from nems.fitters.api import scipy_minimize
 
 log = logging.getLogger(__name__)
 
-sys.path.append('/Users/svd/python/scripts/')
-from svd_io import load_polley_data, demo_loader
-
 # figure out data and results paths:
 results_dir = nems.get_setting('NEMS_RESULTS_DIR')
 signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
@@ -37,11 +34,17 @@ signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
 recording_uri = os.path.join(signals_dir, "TAR010c-18-1.tgz")
 
 datafile = os.path.join(signals_dir, "TAR010c-18-1.pkl")
-load_command = 'svd_io.demo_loader'
+load_command = 'nems.demo.loaders.demo_loader'
 exptid = "TAR010c"
 batch = 271
 cellid = "TAR010c-18-1"
 
+# MODEL SPEC
+#modelspecname = 'dlog-wc.18x1.g-stp.1-fir.1x15-lvl.1-dexp.1'
+modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
+
+
+# generate modelspec
 xfspec = []
 # load internally:
 #xfspec.append(['nems.xforms.load_recordings',

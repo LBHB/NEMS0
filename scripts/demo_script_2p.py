@@ -33,8 +33,8 @@ log = logging.getLogger(__name__)
 # LOAD AND FORMAT RECORDING DATA
 
 # 2p data from Polley Lab at EPL
-respfile='/Users/svd/data/data_nems_2p/neurons.csv'
-stimfile='/Users/svd/data/data_nems_2p/stim_spectrogram.csv'
+respfile='/auto/users/svd/projects/nems_test/raw_data/data_nems_2p/neurons.csv'
+stimfile='/auto/users/svd/projects/nems_test/raw_data/data_nems_2p/stim_spectrogram.csv'
 exptid = "POL001"
 cellid = "POL001-080"
 batch = None
