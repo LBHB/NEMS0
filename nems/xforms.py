@@ -150,7 +150,7 @@ def evaluate(xformspec, context={}, start=0, stop=None):
 ###############################################################################
 
 
-def load_recording_wrapper(load_command=None, exptid="NONE",
+def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
                            save_cache=True, **context):
     """
     generic wrapper for loading recordings
@@ -160,6 +160,7 @@ def load_recording_wrapper(load_command=None, exptid="NONE",
         X and Y can be in three different forms:
            1. 2D, with M x T and N x T matrices. Ie, the number of channels can differ
               between them but they should have the same times.
+           TODO: Support for other formats
            2. 3D, M x T and N x R x T. R corresponds to repetitions of the same X, X will be
               tiled R times to match the length of Y
            3. 4D M x S x T and N x R x S x T or N x S x T. S stimuli were repeated R times
@@ -179,9 +180,10 @@ def load_recording_wrapper(load_command=None, exptid="NONE",
         filename will be "<cellid>_<hash>.tgz"
     :param context['batch'] (optional)
         numerical identifier for grouping the recording with other recordings
-    :param exptid
+    :param cellid
         string identifier for the signals being modeled. eg the name of the cell or
-        the experiment (if multiple cells are being modeled at once).
+        the experiment (if multiple cells are being modeled at once). will extract
+        that chan from rec['resp'].chans after loading (but not saved in cache)
     :param context: dictionary of parameters/metadata that will be passed through to load_command
 
     :return: rec - NEMS recording object
@@ -190,26 +192,40 @@ def load_recording_wrapper(load_command=None, exptid="NONE",
     if os.path.exists(data_file):
         log.info("Loading cached file %s", data_file)
         rec = load_recording(data_file)
-        return {'rec': rec}
+    else:
 
-    fn = ms._lookup_fn_at(load_command)
+        fn = ms._lookup_fn_at(load_command)
 
-    data = fn(**context)
+        data = fn(exptid=exptid, **context)
 
-    signals = {}
-    fs = data.get('fs',100)
-    for k in data.keys():
-        if k in ['fs','meta','epochs']:
-            pass
-        elif k.endswith('_labels'):
-            pass
-        else:
-            signals[k] = RasterizedSignal(fs, data[k], k, exptid, chans=data.get(k+'_labels'))
+        signals = {}
+        fs = data.get('fs',100)
+        meta = data.get('meta', {})
+        epochs = data.get('epochs', None)
+        for k in data.keys():
+            if k in ['fs', 'meta', 'epochs']:
+                pass
+            elif k.endswith('_labels'):
+                pass
+            else:
+                signals[k] = RasterizedSignal(fs, data[k], k, exptid, epochs=epochs,
+                                              chans=data.get(k+'_labels'))
 
-    rec = Recording(signals)
+        rec = Recording(signals)
+        rec.meta = meta.copy()
+        rec.meta.update(context)
+        rec.meta["exptid"] = exptid
 
-    if save_cache:
-        rec.save(data_file)
+        if save_cache:
+            rec.save(data_file)
+
+    # if cellid specified, select only that channel
+    log.info("cellid: %s", cellid)
+    if cellid is not None:
+        if cellid in rec['resp'].chans:
+            log.info("match found, extracting channel from rec")
+            rec['resp'] = rec['resp'].extract_channels([cellid])
+            rec.meta["cellid"] = cellid
 
     return {'rec': rec}
 
