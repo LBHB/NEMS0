@@ -1,4 +1,5 @@
 import cProfile
+import copy
 import numpy as np
 from numpy import exp
 
@@ -64,6 +65,9 @@ def _dlog(x, offset):
 
     # soften effects of more extreme offsets
     inflect = 2
+
+    if isinstance(offset, int):
+        offset = np.array([[offset]])
 
     adjoffset=offset.copy()
     adjoffset[offset > inflect] = inflect + (offset[offset > inflect]-inflect) / 50
