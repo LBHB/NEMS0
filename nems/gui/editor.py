@@ -1,11 +1,14 @@
 import sys
 import copy
+import json
+import logging
 
-import PyQt5.QtCore as qc
-import PyQt5.QtGui as qg
+import numpy as np
 import PyQt5.QtWidgets as qw
 
 from nems import xforms
+
+log = logging.getLogger(__name__)
 
 
 class ModelEditor(qw.QMainWindow):
@@ -71,33 +74,24 @@ class EditorWidget(qw.QWidget):
     def _xfspec_setup(self):
         spec = self.parent.xfspec
         layout = qw.QVBoxLayout(self)
-        table = qw.QTableWidget(self)
-        table.setRowCount(len(spec))
-        table.setColumnCount(3)
-        table.setHorizontalHeaderLabels(['fn', 'kwargs', 'additional'])
-        header = table.horizontalHeader()
-        for i in range(3):
-            header.setSectionResizeMode(i, qw.QHeaderView.ResizeToContents)
         for i, xf in enumerate(spec):
-            table.setItem(i, 0, qw.QTableWidgetItem(xf[0]))
-
-        layout.addWidget(table)
+            name = xf[0]
+            col1 = ColumnWidget(self, 'kwargs', *list(xf[1].keys()))
+            col2 = ColumnWidget(self, 'values', *list(xf[1].values()))
+            w = RowWidget(self, name, col1, col2)
+            layout.addWidget(w)
         return layout
 
     def _modelspec_setup(self):
         spec = self.parent.ctx['modelspecs'][0]
         layout = qw.QVBoxLayout(self)
-        table = qw.QTableWidget(self)
-        table.setRowCount(len(spec))
-        table.setColumnCount(3)
-        table.setHorizontalHeaderLabels(['fn', 'phi', 'value(s)'])
-        header = table.horizontalHeader()
-        for i in range(3):
-            header.setSectionResizeMode(i, qw.QHeaderView.ResizeToContents)
         for i, m in enumerate(spec):
-            table.setItem(i, 0, qw.QTableWidgetItem(m['fn']))
+            name = m['fn']
+            col1 = ColumnWidget(self, 'phi', *list(m['phi'].keys()))
+            col2 = ColumnWidget(self, 'values', *list(m['phi'].values()))
+            w = RowWidget(self, name, col1, col2)
+            layout.addWidget(w)
 
-        layout.addWidget(table)
         return layout
 
     def reset_model(self):
@@ -125,6 +119,75 @@ class EditorWidget(qw.QWidget):
     def update_modelspec(self):
         # TODO
         pass
+
+
+class RowWidget(qw.QWidget):
+    def __init__(self, parent, name, *items):
+        super(qw.QWidget, self).__init__(parent)
+        self.parent = parent
+        self.name = name
+        self.items = items
+        self.collapsed = True
+
+        self.layout = qw.QHBoxLayout(self)
+        self.header = qw.QLabel(self.name, self)
+        self.toggle = qw.QPushButton('+/-', self)
+        self.toggle.clicked.connect(self.toggle_collapsed)
+        self.layout.addWidget(self.header)
+        self.layout.addWidget(self.toggle)
+        for it in self.items:
+            self.layout.addWidget(it)
+        self.setLayout(self.layout)
+
+    def toggle_collapsed(self):
+        if self.collapsed:
+            self._expand()
+        else:
+            self._collapse()
+        self.collapsed = not self.collapsed
+
+    def _collapse(self):
+        [it._collapse() for it in self.items]
+
+    def _expand(self):
+        [it._expand() for it in self.items]
+
+
+class ColumnWidget(qw.QWidget):
+    def __init__(self, parent, name, *items):
+        super(qw.QWidget, self).__init__(parent)
+        self.parent = parent
+        self.name = name
+        self.items = items
+
+        self.layout = qw.QVBoxLayout(self)
+        self.header = qw.QLabel(self.name, self)
+        self.layout.addWidget(self.header)
+        for i, it in enumerate(self.items):
+            contents = self._parse_item(it, i)
+            line = qw.QLineEdit(contents, self)
+            line.setVisible(False)
+            self.layout.addWidget(line)
+        self.setLayout(self.layout)
+
+    def _parse_item(self, item, idx):
+        if isinstance(item, np.ndarray):
+            # TODO
+            return 'array'
+
+        else:
+            # Just assume it's suitable as a string
+            return str(item)
+
+    def _collapse(self):
+        for i in range(self.layout.count())[1:]:
+            w = self.layout.itemAt(i).widget()
+            w.hide()
+
+    def _expand(self):
+        for i in range(self.layout.count())[1:]:
+            w = self.layout.itemAt(i).widget()
+            w.show()
 
 
 # Just for testing - typically will be opened by recording_browser.py
