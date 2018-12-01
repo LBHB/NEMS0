@@ -82,7 +82,7 @@ xfspec.append(['nems.analysis.api.standard_correlation', {},
 xfspec.append(['nems.xforms.plot_summary',    {}])
 
 # actually do the fit
-ctx, log_xf = xforms.evaluate(xfspec[:1])
+ctx, log_xf = xforms.evaluate(xfspec)
 
 
 # ----------------------------------------------------------------------------

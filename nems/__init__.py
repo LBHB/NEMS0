@@ -67,7 +67,7 @@ def load_config():
 _config = load_config()
 
 
-def get_setting(setting):
+def get_setting(setting=None):
     '''
     Get value of setting.
     '''

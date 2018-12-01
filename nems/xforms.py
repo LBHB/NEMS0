@@ -704,10 +704,19 @@ def fit_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
         fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
 
         if jackknifed_fit:
-            return fit_nfold(modelspecs, est, tolerance=tolerance,
-                             metric=metric, fitter=fitter,
-                             fit_kwargs=fit_kwargs, analysis='fit_basic',
-                             **context)
+            if len(modelspecs) < est.view_count():
+                modelspecs = [copy.deepcopy(modelspecs[0]) for i in range(est.view_count())]
+            modelspecs = [
+                    nems.analysis.api.fit_basic(
+                        e, m, fit_kwargs=fit_kwargs,
+                        metric=metric_fn, fitter=fitter_fn)[0]
+                    for e,m in zip(est.views(), modelspecs)
+                    ]
+
+            #return fit_nfold(modelspecs, est, tolerance=tolerance,
+            #                 metric=metric, fitter=fitter,
+            #                 fit_kwargs=fit_kwargs, analysis='fit_basic',
+            #                 **context)
 
         elif random_sample_fit:
             basic_kwargs = {'metric': metric_fn, 'fitter': fitter_fn,

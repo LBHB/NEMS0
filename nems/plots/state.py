@@ -393,8 +393,11 @@ def model_per_time(ctx):
     state_colors : N x 2 list
        color spec for high/low lines in each of the N states
     """
+    if type(ctx['val']) is list:
+        rec = ctx['val'][0].apply_mask()
+    else:
+        rec = ctx['val'].apply_mask()
 
-    rec = ctx['val'][0].apply_mask()
     modelspec = ctx['modelspecs'][0]
     epoch="REFERENCE"
     rec = ms.evaluate(rec, modelspec)
