@@ -59,7 +59,13 @@ class EditorWidget(qw.QWidget):
         self.evaluate = qw.QPushButton('Evaluate', self)
         self.evaluate.clicked.connect(self.evaluate_model)
 
-        self.layout.addWidget(self.tabs)
+        self.tLayout = qw.QHBoxLayout(self)
+        self.bLayout = qw.QHBoxLayout(self)
+        self.tLayout.addWidget(self.tabs)
+        self.bLayout.addWidget(self.reset)
+        self.bLayout.addWidget(self.evaluate)
+        self.layout.addLayout(self.tLayout)
+        self.layout.addLayout(self.bLayout)
         self.setLayout(self.layout)
 
     def _xfspec_setup(self):
@@ -97,6 +103,13 @@ class EditorWidget(qw.QWidget):
     def reset_model(self):
         self.parent.ctx = copy.deepcopy(self.original_ctx)
         self.parent.xfspec = copy.deepcopy(self.original_xfspec)
+
+        # TODO: Need to actually reset the values in the table as well.
+        #       This approach is not working:
+        self.xfspec_tab.layout = self._xfspec_setup()
+        self.xfspec_tab.setLayout(self.xfspec_tab.layout)
+        self.modelspec_tab.layout = self._modelspec_setup()
+        self.modelspec_tab.setLayout(self.modelspec_tab.layout)
 
     def evaluate_model(self):
         xfspec, ctx = xforms.evaluate(self.parent.xfspec, self.parent.ctx,
