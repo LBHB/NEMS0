@@ -71,7 +71,7 @@ def _dlog(x, offset):
 
     adjoffset=offset.copy()
     adjoffset[offset > inflect] = inflect + (offset[offset > inflect]-inflect) / 50
-    adjoffset[offset < -inflect] = inflect + (offset[offset < -inflect]+inflect) / 50
+    adjoffset[offset < -inflect] = -inflect + (offset[offset < -inflect]+inflect) / 50
 
     d = 10.0**adjoffset
 
