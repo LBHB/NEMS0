@@ -28,6 +28,8 @@ class Recording:
         Signals argument should be a dictionary of signal objects.
         '''
         self.signals = signals
+        self.signal_views = [signals]
+        self.view_idx = 0
 
         # Verify that all signals are from the same recording
         recordings = [s.recording for s in self.signals.values()]
@@ -51,10 +53,14 @@ class Recording:
         '''
         Returns a copy of this recording.
         '''
-        signals = self.signals.copy()
-        other = Recording(signals, meta=self.meta.copy())
+        signal_views = [s.copy() for s in self.signal_views]
+        other = Recording(signal_views[self.view_idx], meta=self.meta.copy())
+        other.signal_views = signal_views
+        other.view_idx = self.view_idx
+        other.signals = signal_views[other.view_idx]
+
         for k, v in vars(self).items():
-            if k == 'signals':
+            if k in ['signals', 'signal_views', 'view_idx']:
                 continue
             setattr(other, k, copy.copy(v))
         return other
@@ -82,11 +88,40 @@ class Recording:
     # See: https://docs.python.org/3/reference/datamodel.html?emulating-container-types#emulating-container-types
 
     def __getitem__(self, key):
-        return self.get_signal(key)
+        if type(key) is int:
+            return self.signal_views[key]
+        else:
+            return self.get_signal(key)
 
     def __setitem__(self, key, val):
         val.name = key
         self.add_signal(val)
+
+    def set_view(self, view_idx=0):
+        """choose a different view, typically a different masking for jackknifing.
+        returns a shallow copy of the recording, signals preserved in place"""
+        rec = self.copy()
+        rec.signals = rec.signal_views[view_idx]
+        rec.view_idx = view_idx
+
+        return rec
+
+    def views(self):
+        """return a list of all views of this recording"""
+        return [self.set_view(i) for i in range(self.view_count())]
+
+    def view_count(self):
+        """return how many views exist in this recording"""
+        return len(self.signal_views)
+
+    def tile_views(self, view_count=1):
+        """repeat current signals dict view_count times in self.signal views
+        returns a shallow copy of the recording, signals preserved in place"""
+        rec = self.copy()
+
+        rec.signal_views = [rec.signals] * view_count
+        rec.view_idx = 0
+        return rec
 
     @staticmethod
     def load(uri):
@@ -697,6 +732,19 @@ class Recording:
 
         return rec
 
+    def jackknife_masks_by_epoch(self, njacks, epoch_name,
+                                 tiled=True, invert=False):
+        signal_views = []
+        for jack_idx in range(njacks):
+            trec = self.jackknife_mask_by_epoch(njacks, jack_idx, epoch_name,
+                                                tiled, invert)
+            signal_views += [trec.signals]
+        rec = self.copy()
+        rec.signal_views = signal_views
+        rec.signals = signal_views
+
+        return rec
+
     def jackknife_mask_by_time(self, njacks, jack_idx, tiled=True,
                                invert=False):
         '''
@@ -811,27 +859,58 @@ class Recording:
                                                    invert=invert, excise=excise)
         return Recording(signals=new_sigs)
 
-# moved to independent function, below
-#    @staticmethod
-#    def jackknife_inverse_merge(rec_list):
-#        '''
-#        merges list of jackknife validation data into a signal recording
-#        '''
-#        if type(rec_list) is not list:
-#            raise ValueError('Expecting list of recordings')
-#        new_sigs = {}
-#        rec1=rec_list[0]
-#        for sn in rec1.signals.keys():
-#            sig_list=[r[sn] for r in rec_list]
-#            #new_sigs[sn]=sig_list[0].jackknife_inverse_merge(sig_list)
-#            new_sigs[sn]=merge_selections(sig_list)
-#        return Recording(signals=new_sigs)
-
     def jackknifes_by_epoch(self, nsplits, epoch_name, only_signals=None):
         raise NotImplementedError         # TODO
 
     def jackknifes_by_time(self, nsplits, only_signals=None):
         raise NotImplementedError         # TODO
+
+    def jackknife_inverse_merge(self):
+        '''
+        merges views from jackknife validation data into a single view
+
+        currently two different approaches, depending on whether mask signal
+        is present.
+        '''
+        if self.view_count() == 1:
+            raise ValueError('Expecting recording with multiple views')
+
+        sig_list = list(self.signals.keys())
+        if 'mask' in sig_list:
+            # new system: using mask==True to identify valid segment from
+            # each signal  -- only pred and mask, since those are the only
+            # ones that should be modified???
+            new_sigs = {}
+
+            # for sn in ['pred', 'mask', 'stim', 'psth']:
+            for sn in sig_list:
+                r = self[sn]
+                if type(r._data) is np.ndarray:
+                    _data = np.zeros(r.shape, dtype=r._data.dtype)
+                    if not (_data.dtype == bool):
+                        _data[:] = np.nan
+                else:
+                    _data = np.zeros(r.shape)
+                    _data[:] = np.nan
+
+                # print(sn)
+                # print(np.sum(np.isfinite(_data)))
+                for r in self.views():
+                    m = r['mask'].as_continuous()[0, :].astype(bool)
+                    _data[:, m] = r[sn].rasterize().as_continuous()[:, m]
+                    # if sn=='pred':
+                    #    print(np.sum(m))
+                    #    print(np.sum(np.isfinite(_data)))
+                new_sigs[sn] = self[sn].rasterize()._modified_copy(_data)
+                # print(np.sum(np.isfinite(new_sigs[sn].as_continuous())))
+        else:
+            new_sigs = {}
+            for sn in sig_list:
+                sig_list = [r[sn] for r in self.views()]
+                # new_sigs[sn]=sig_list[0].jackknife_inverse_merge(sig_list)
+                new_sigs[sn] = merge_selections(sig_list)
+
+        return Recording(signals=new_sigs, meta=self.meta.copy())
 
     def concatenate_recordings(self, recordings):
         '''
@@ -895,7 +974,6 @@ class Recording:
              if list of strings (epoch names), mask is OR combo of all strings
              if list of tuples (epoch times), mask is OR combo of all epoch times
 
-        TODO: remove unnecessary deepcopys from this and subsequent functions
         TODO: add epochs, base signal parameters
         '''
 

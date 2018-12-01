@@ -82,13 +82,14 @@ xfspec.append(['nems.analysis.api.standard_correlation', {},
 xfspec.append(['nems.xforms.plot_summary',    {}])
 
 # actually do the fit
-ctx, log_xf = xforms.evaluate(xfspec)
+ctx, log_xf = xforms.evaluate(xfspec[:1])
 
 
 # ----------------------------------------------------------------------------
 # SAVE YOUR RESULTS
 
 # save results to file
+"""
 destination = os.path.join(results_dir, str(batch), xforms.get_meta(ctx)['cellid'],
                            ms.get_modelspec_longname(ctx['modelspecs'][0]))
 log.info('Saving modelspec(s) to {0} ...'.format(destination))
@@ -105,4 +106,4 @@ modelspec = xforms.get_modelspec(ctx)
 modelspec[0]['meta']['modelpath'] = destination
 modelspec[0]['meta']['figurefile'] = destination + 'figure.0000.png'
 nd.update_results_table(modelspec)
-
+"""

@@ -48,10 +48,15 @@ stim = RasterizedSignal(fs, X, 'stim', recname, epochs=epochs, chans=stimchans)
 signals = {'resp': resp, 'stim': stim}
 rec = recording.Recording(signals)
 
+epoch_name = "REFERENCE"
+njacks=5
+est = rec.jackknife_masks_by_epoch(njacks, epoch_name, tiled=True)
+val = rec.jackknife_masks_by_epoch(njacks, epoch_name, tiled=True, invert=True)
+
 #est, val = rec.split_at_time(0.2)
-est, val = rec.split_using_epoch_occurrence_counts(epoch_regex="^STIM_")
-est = preproc.average_away_epoch_occurrences(est, epoch_regex="^STIM_")
-val = preproc.average_away_epoch_occurrences(val, epoch_regex="^STIM_")
+#est, val = rec.split_using_epoch_occurrence_counts(epoch_regex="^STIM_")
+#est = preproc.average_away_epoch_occurrences(est, epoch_regex="^STIM_")
+#val = preproc.average_away_epoch_occurrences(val, epoch_regex="^STIM_")
 
 # ----------------------------------------------------------------------------
 # INITIALIZE MODELSPEC
@@ -83,15 +88,17 @@ modelspec = nems.initializers.from_keywords(modelspec_name, meta=meta)
 log.info('Fitting modelspec(s)...')
 
 # quick fit linear part first to avoid local minima
-modelspec = nems.initializers.prefit_to_target(
-        est, modelspec, nems.analysis.api.fit_basic,
+modelspecs = [nems.initializers.prefit_to_target(
+        e, modelspec, nems.analysis.api.fit_basic,
         target_module='levelshift',
         fitter=scipy_minimize,
         fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
+        for e in est.views()]
 
 
 # then fit full nonlinear model
-modelspecs = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
+#modelspecs = [nems.analysis.api.fit_basic(e, m, fitter=scipy_minimize)[0]
+#              for m, e in zip(modelspecs, est.views())]
 
 # ----------------------------------------------------------------------------
 # GENERATE SUMMARY STATISTICS
@@ -134,7 +141,7 @@ fig.show()
 # fname = nplt.save_figure(fig, modelspecs=modelspecs, save_dir=modelspecs_dir)
 
 # browse the validation data
-#aw = browse_recording(val[0], signals=['stim', 'pred', 'resp'], cellid=cellid)
+#aw = browse_recording(val, signals=['stim', 'pred', 'resp'], cellid=cellid)
 
 
 

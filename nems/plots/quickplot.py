@@ -85,7 +85,11 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     # but some plots might want to plot est vs val or need access to the
     # full recording. Keeping the full ctx reference lets those plots
     # use ctx['est'], ctx['rec'], etc.
-    rec = ctx[default][r_idx]
+    if type(ctx[default]) is list:
+        rec = ctx[default][r_idx]
+    else:
+        rec = ctx[default]
+
     modelspec = ctx['modelspecs'][m_idx]
 
     # figure out which epoch to chop out for plots that show a signel

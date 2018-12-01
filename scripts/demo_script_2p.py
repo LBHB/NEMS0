@@ -23,8 +23,6 @@ import nems.recording as recording
 from nems.signal import RasterizedSignal
 from nems.fitters.api import scipy_minimize
 
-sys.path.append('/Users/svd/python/scripts/')
-from svd_io import load_polley_data
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +36,7 @@ stimfile='/auto/users/svd/projects/nems_test/raw_data/data_nems_2p/stim_spectrog
 exptid = "POL001"
 cellid = "POL001-080"
 batch = None
-load_command='svd_io.load_polley_data'
+load_command='nems.demo.loaders.load_polley_data'
 
 xfspec = []
 xfspec.append(['nems.xforms.load_recording_wrapper', {'load_command': load_command}])

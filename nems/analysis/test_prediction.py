@@ -9,24 +9,37 @@ from nems.utils import find_module
 
 
 def generate_prediction(est, val, modelspecs):
-    list_val = False
-    if type(val) is list:
-        # ie, if jackknifing
-        list_val = True
-    else:
+
+    list_val = (type(val) is list)
+
+    if ~list_val:
         # Evaluate estimation and validation data
 
-        # Since ms.evaluate only does a shallow copy of rec, successive
-        # evaluations of one rec on many modelspecs just results in a list of
-        # different pointers to the same recording. So need to force copies of
-        # est/val before evaluating.
-        if len(modelspecs) == 1:
-            # no copies needed for 1 modelspec
-            est = [est]
-            val = [val]
+        # SVD adding support for views, rather than list of recordings
+        if est.view_count() == 1:
+            new_est = est.tile_views(len(modelspecs))
+            new_val = val.tile_views(len(modelspecs))
         else:
-            est = [est.copy() for i, _ in enumerate(modelspecs)]
-            val = [val.copy() for i, _ in enumerate(modelspecs)]
+            # assume est and val have view_count() == len(modelspecs)
+            new_est = est.copy()
+            new_val = val.copy()
+
+        for i, m in enumerate(modelspecs):
+            # update each view with prediction from corresponding modelspec
+            new_est = ms.evaluate(new_est.set_view(i), m)
+            new_val = ms.evaluate(new_val.set_view(i), m)
+
+            # this seems kludgy. but where should mask be handled?
+            if 'mask' in new_val.signals.keys():
+                m = new_val['mask'].as_continuous()
+                x = new_val['pred'].as_continuous().copy()
+                x[..., m[0,:] == 0] = np.nan
+                new_val['pred'] = new_val['pred']._modified_copy(x)
+
+        if new_val.view_count() > 1:
+            new_val = new_val.jackknife_inverse_merge()
+
+        return new_est, new_val
 
     new_est = []
     new_val = []
@@ -56,7 +69,10 @@ def standard_correlation(est, val, modelspecs, rec=None, use_mask=True):
     # Compute scores for validation dat
     r_ceiling = 0
     if type(val) is not list:
-        if ('mask' in val[0].signals.keys()) and use_mask:
+
+        # TODO: support for views
+
+        if ('mask' in val.signals.keys()) and use_mask:
             v = val.apply_mask()
             e = est.apply_mask()
         else:
@@ -70,8 +86,11 @@ def standard_correlation(est, val, modelspecs, rec=None, use_mask=True):
             # print('running r_ceiling')
             r_ceiling = nmet.r_ceiling(v, rec, 'pred', 'resp')
 
-        mse_test = nmet.j_nmse(v, 'pred', 'resp')
-        mse_fit = nmet.j_nmse(e, 'pred', 'resp')
+        mse_test, se_mse_test = nmet.j_nmse(v, 'pred', 'resp')
+        mse_fit, se_mse_fit = nmet.j_nmse(e, 'pred', 'resp')
+
+        ll_test = nmet.likelihood_poisson(v, 'pred', 'resp')
+        ll_fit = nmet.likelihood_poisson(e, 'pred', 'resp')
 
     elif len(val) == 1:
         if ('mask' in val[0].signals.keys()) and use_mask:
@@ -94,9 +113,13 @@ def standard_correlation(est, val, modelspecs, rec=None, use_mask=True):
         mse_test, se_mse_test = nmet.j_nmse(v, 'pred', 'resp')
         mse_fit, se_mse_fit = nmet.j_nmse(e, 'pred', 'resp')
 
+        ll_test = nmet.likelihood_poisson(v, 'pred', 'resp')
+        ll_fit = nmet.likelihood_poisson(e, 'pred', 'resp')
+
     else:
         # unclear if this ever excutes since jackknifed val sets are
         # typically already merged
+        raise ValueError("no support for val list of recordings len>1")
         r = [nmet.corrcoef(p, 'pred', 'resp') for p in val]
         r_test = np.mean(r)
         se_test = np.std(r) / np.sqrt(len(val))
@@ -116,22 +139,22 @@ def standard_correlation(est, val, modelspecs, rec=None, use_mask=True):
         mse_test = np.mean(mse_test)
         mse_fit = np.mean(mse_fit)
 
-    ll_test = [nmet.likelihood_poisson(p, 'pred', 'resp') for p in val]
-    ll_fit = [nmet.likelihood_poisson(p, 'pred', 'resp') for p in est]
+        ll_test = np.mean([nmet.likelihood_poisson(p, 'pred', 'resp') for p in val])
+        ll_fit = np.mean([nmet.likelihood_poisson(p, 'pred', 'resp') for p in est])
 
     modelspecs[0][0]['meta']['r_test'] = r_test
     modelspecs[0][0]['meta']['se_test'] = se_test
     modelspecs[0][0]['meta']['r_floor'] = r_floor
     modelspecs[0][0]['meta']['mse_test'] = mse_test
     modelspecs[0][0]['meta']['se_mse_test'] = se_mse_test
-    modelspecs[0][0]['meta']['ll_test'] = np.mean(ll_test)
+    modelspecs[0][0]['meta']['ll_test'] = ll_test
 
     modelspecs[0][0]['meta']['r_fit'] = r_fit
     modelspecs[0][0]['meta']['se_fit'] = se_fit
     modelspecs[0][0]['meta']['r_ceiling'] = r_ceiling
     modelspecs[0][0]['meta']['mse_fit'] = mse_fit
     modelspecs[0][0]['meta']['se_mse_fit'] = se_mse_fit
-    modelspecs[0][0]['meta']['ll_fit'] = np.mean(ll_fit)
+    modelspecs[0][0]['meta']['ll_fit'] = ll_fit
 
     return modelspecs
 
