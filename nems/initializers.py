@@ -31,7 +31,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}):
     keywords = keyword_string.split('-')
 
     # Lookup the modelspec fragments in the registry
-    modelspec = []
+    modelspec = ms.ModelSpec()
     for kw in keywords:
         if kw.startswith("fir.Nx") and (rec is not None):
             N = rec['stim'].nchans
@@ -229,7 +229,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
     # identify any excluded modules and take them out of temp modelspec
     # that will be fit here
     exclude_idx = []
-    tmodelspec = []
+    tmodelspec = ms.ModelSpec()
     for i in range(len(modelspec)):
         m = copy.deepcopy(modelspec[i])
         for fn in extra_exclude:
@@ -272,8 +272,10 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
                                        metric=metric, fit_kwargs=fit_kwargs)[0]
 
     # reassemble the full modelspec with updated phi values from tmodelspec
+    print(modelspec[0])
+    print(tmodelspec[0])
     for i in np.setdiff1d(np.arange(target_i), np.array(exclude_idx)):
-        modelspec[i] = tmodelspec[i]
+        modelspec[int(i)] = tmodelspec[int(i)]
 
     return modelspec
 

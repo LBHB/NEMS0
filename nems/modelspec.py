@@ -15,17 +15,110 @@ import nems.uri
 #       function names. If you do so, see /docs/planning/models.py and
 #       bring the ideas into this file, then delete it from docs/planning.
 
-class Model:
-
-    def __init__(self):
-        self.modules = []
+class ModelSpec:
+    """
+    key attribute: raw --- equivalent of old model spec
+    is raw everything you need to specify the model? Or should we un-embed meta?
+    """
+    def __init__(self, raw=None, fit_index=None):
+        if raw is None:
+            self.raw = [[]]
+        else:
+            self.raw = raw
 
         # a Model can have multiple fits, each of which contains a different
         # set of phi values. fit_index references the default phi
-        self.fit_index = 0
+        if fit_index is None:
+            self.fit_index = 0
+        else:
+            self.fit_index = fit_index
+        self.mod_index = 0
+
+    def __getitem__(self, key):
+        try:
+            return self.get_module(key)
+        except:
+            if type(key) is slice:
+                return [self.raw[self.fit_index][ii] for ii in range(*key.indices(len(self)))]
+            elif key=='meta':
+                return self.meta()
+            elif key=='phi':
+                return self.phi()
+            else:
+                raise ValueError('key {} not supported'.format(key))
+
+    def __setitem__(self, key, val):
+        if type(key) is int:
+            self.raw[self.fit_index][key] = val
+        else:
+            raise ValueError('key {} not supported'.format(key))
+        return self
+
+    def __iter__(self):
+        self.mod_index = -1
+        return self
+
+    def __next__(self):
+        if self.mod_index < len(self.raw[self.fit_index])-1:
+            self.mod_index += 1
+            return self.get_module(self.mod_index)
+        else:
+            raise StopIteration
+
+    def __repr__(self):
+        return repr(self.raw)
+
+    def __str__(self):
+        x = [m['fn'] for m in self.raw[0]]
+        return "\n".join(x)
+
+    def __len__(self):
+        return len(self.raw[0])
+
+    def get_module(self, index):
+        """
+        :param index:
+        :return: single module from current fit_index (doesn't create a copy!)
+        """
+        return self.raw[self.fit_index][index]
+
+    def copy(self, lb=None, ub=None):
+        """
+        :param lb: start module (default 0)
+        :param ub: stop module (default -1)
+        :return: A deep copy of the modelspec (subset of modules if specified)
+        """
+        raw = [copy.deepcopy(m[lb:ub]) for m in self.raw]
+        return ModelSpec(raw)
+
+    def fits(self):
+        m_list = []
+        for f in range(len(self.raw)):
+            m_list += [ModelSpec(self.raw, f)]
+
+        return m_list
+
+    def meta(self):
+        return self.raw[0][0]['meta']
+
+    def fn(self):
+        return [m['fn'] for m in self.raw[0]]
+
+    def phi(self, fit_index=None):
+        """
+        :param fit_index: which model fit to use (default use self.fit_index
+        :return: list of phi dictionaries, or None for modules with no phi
+        """
+        if fit_index is None:
+            fit_index = self.fit_index
+        return [m.get('phi') for m in self.raw[fit_index]]
 
     def append(self, module):
-        self.modules.append(module)
+        self.raw[0].append(module)
+
+    def tile_fits(self, fit_count):
+        self.raw = [self.raw[0].copy() for i in range(fit_count)]
+        return self
 
     def get_priors(self, data):
         # Here, we query each module for it's priors. A prior will be a
@@ -46,20 +139,13 @@ class Model:
 
         return priors
 
-    def evaluate(self, data, phi):
-        '''
-        Evaluate the Model on some data using the provided modelspec.
-        '''
-        result = data.copy()
-        for module, module_phi in zip(self.modules, phi):
-            module_output = module.evaluate(result, module_phi)
-            result.update(module_output)
+    def evaluate(self, rec, start=None, stop=None):
+        """
+        Evaluate the Model on a recording.
+        """
+        rec = evaluate(rec, self.raw[self.fit_index], start=start, stop=stop)
 
-        # We're just returning the final output (More memory efficient. If we
-        # get into partial evaluation of a subset of the stack, then we will
-        # need to figure out a way to properly cache the results of unchanged
-        # parameters such as using joblib).
-        return result
+        return rec
 
     def generate_tensor(self, data, phi):
         '''
@@ -86,20 +172,6 @@ class Model:
             result.update(module_output)
         return result
 
-    def iget_subset(self, lb=None, ub=None):
-        '''
-        Return a subset of the model by index
-        '''
-        model = Model()
-        model.modules = self.modules[lb:ub]
-        return model
-
-    @property
-    def n_modules(self):
-        '''
-        Number of modules in Model
-        '''
-        return len(self.modules)
 
 def get_modelspec_metadata(modelspec):
     '''
@@ -155,8 +227,10 @@ def save_modelspec(modelspec, filepath):
     '''
     Saves a modelspec to filepath. Overwrites any existing file.
     '''
-    nems.uri.save_resource(filepath, json=modelspec)
-
+    if type(modelspec) is list:
+        nems.uri.save_resource(filepath, json=modelspec)
+    else:
+        nems.uri.save_resource(filepath, json=modelspec.raw)
 
 def save_modelspecs(directory, modelspecs, basename=None):
     '''
@@ -178,7 +252,12 @@ def save_modelspecs(directory, modelspecs, basename=None):
             bname = basename
         basepath = os.path.join(directory, bname)
         filepath = _modelspec_filename(basepath, idx)
-        save_modelspec(modelspec, filepath)
+        if type(modelspec) is list:
+            save_modelspec(modelspec, filepath)
+        else:
+            # HACK for backwards compatibility. if saving a modelspecs list
+            # then only need a single fit_index from the ModelSpec class
+            save_modelspec(modelspec.raw[0], filepath)
     return filepath
 
 
@@ -187,7 +266,7 @@ def load_modelspec(uri):
     Returns a single modelspecs loaded from uri
     '''
     ms = nems.uri.load_resource(uri)
-    return ms
+    return ModelSpec(ms)
 
 
 def load_modelspecs(directory, basename, regex=None):
@@ -224,7 +303,8 @@ def load_modelspecs(directory, basename, regex=None):
                 print("Couldn't load modelspec: {0}"
                       "Error: {1}".format(file, e))
             modelspecs.append(m)
-    return modelspecs
+    return ModelSpec(modelspecs)
+    #return modelspecs
 
 
 lookup_table = {}  # TODO: Replace with real memoization/joblib later

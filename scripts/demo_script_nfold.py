@@ -88,12 +88,20 @@ modelspec = nems.initializers.from_keywords(modelspec_name, meta=meta)
 log.info('Fitting modelspec(s)...')
 
 # quick fit linear part first to avoid local minima
-modelspecs = [nems.initializers.prefit_to_target(
-        e, modelspec, nems.analysis.api.fit_basic,
+modelspec = modelspec.tile_fits(njacks)
+for m, e in zip(m.fits(), est.views()):
+    m = nems.initializers.prefit_to_target(
+        e, m, nems.analysis.api.fit_basic,
         target_module='levelshift',
         fitter=scipy_minimize,
         fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
-        for e in est.views()]
+
+#modelspecs = [nems.initializers.prefit_to_target(
+#        e, modelspec, nems.analysis.api.fit_basic,
+#        target_module='levelshift',
+#        fitter=scipy_minimize,
+#        fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
+#        for e in est.views()]
 
 
 # then fit full nonlinear model

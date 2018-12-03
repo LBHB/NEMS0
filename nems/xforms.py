@@ -302,7 +302,7 @@ def load_modelspecs(modelspecs, uris,
     models.
     '''
     if not IsReload:
-        modelspecs = [load_resource(uri) for uri in uris]
+        modelspecs = [ms.ModelSpec([load_resource(uri)]) for uri in uris]
     return {'modelspecs': modelspecs}
 
 

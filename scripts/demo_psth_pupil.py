@@ -135,10 +135,16 @@ est, val, m = preproc.mask_est_val_for_jackknife(rec, modelspecs=None,
 
 logging.info('Fitting modelspec(s)...')
 
-modelspecs = nems.analysis.api.fit_nfold(est, modelspecs,
-                                         fitter=scipy_minimize)
+modelspec.tile_fits(nfolds)
+for fit_index, e in enumerate(est.views()):
+    logging.info("Fitting JK {}/{}".format(fit_index+1, nfolds))
+    modelspec.fit_index = fit_index
+    modelspec = nems.analysis.api.fit_basic(e, modelspec, fitter=scipy_minimize)[0]
 
-# above is shorthand for:
+# OLD SHORT WAY
+#modelspecs = nems.analysis.api.fit_nfold(est, modelspecs,
+#                                         fitter=scipy_minimize)
+# OLD LONG WAY:
 # modelspecs_out=[]
 # i=0
 # for m,d in zip(modelspecs,est.views()):
@@ -152,7 +158,7 @@ modelspecs = nems.analysis.api.fit_nfold(est, modelspecs,
 # SAVE YOUR RESULTS
 
 logging.info('Saving Results...')
-ms.save_modelspecs(modelspecs_dir, modelspecs)
+ms.save_modelspecs(modelspecs_dir, modelspec.fits())
 
 # ----------------------------------------------------------------------------
 # GENERATE SUMMARY STATISTICS
@@ -160,22 +166,22 @@ ms.save_modelspecs(modelspecs_dir, modelspecs)
 logging.info('Generating summary statistics...')
 
 # generate predictions
-est, val = nems.analysis.api.generate_prediction(est, val, modelspecs)
+est, val = nems.analysis.api.generate_prediction(est, val, modelspec.fits())
 
 # evaluate prediction accuracy
-modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs)
+modelspec = nems.analysis.api.standard_correlation(est, val, modelspec.fits())[0]
 
 s = nems.metrics.api.state_mod_index(val, epoch='REFERENCE',
                                      psth_name='pred',
                                     state_sig='state', state_chan=[])
-modelspecs[0][0]['meta']['state_mod'] = s
-modelspecs[0][0]['meta']['state_chans'] = est['state'].chans
+modelspec.meta()['state_mod'] = s
+modelspec.meta()['state_chans'] = est['state'].chans
 
 logging.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
-        modelspecs[0][0]['meta']['r_fit'][0],
-        modelspecs[0][0]['meta']['r_test'][0]))
+        modelspec.meta()['r_fit'][0],
+        modelspec.meta()['r_test'][0]))
 
-print(single_state_mod_index(val, modelspecs[0], state_chan="pupil"))
+print(single_state_mod_index(val, modelspec, state_chan="pupil"))
 
 # ----------------------------------------------------------------------------
 # GENERATE PLOTS
@@ -187,4 +193,4 @@ logging.info('Generating summary plot...')
 
 # Generate a summary plot
 #fig = nplt.quickplot({'val': vals, 'modelspecs': modelspecs})
-fig = nplt.model_per_time({'val': val, 'modelspecs': modelspecs})
+fig = nplt.model_per_time({'val': val, 'modelspecs': modelspec.fits()})
