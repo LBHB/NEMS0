@@ -15,6 +15,7 @@ import pandas.io.sql as psql
 import sqlite3
 
 #import nems_db.util
+import nems
 from nems import get_setting
 #from nems_db import get_setting
 from nems.utils import recording_filename_hash
@@ -82,7 +83,7 @@ def sqlite_test():
         print("Tables missing, need to reinitialize database?")
 
         print("Creating db")
-        scriptfilename = '/Users/svd/python/nems_db/nems_db/nems.db.sqlite.sql'
+        scriptfilename = os.path.join(nems.NEMS_PATH, 'scripts', 'nems.db.sqlite.sql')
         cursor = conn.cursor()
 
         print("Reading Script...")
