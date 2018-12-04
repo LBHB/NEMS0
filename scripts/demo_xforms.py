@@ -3,7 +3,9 @@
 
 import os
 import logging
+import sys
 import nems
+
 import nems.initializers
 import nems.priors
 import nems.preprocessing as preproc
@@ -13,6 +15,7 @@ import nems.analysis.api
 import nems.utils
 import nems.uri
 import nems.xforms as xforms
+import nems.db as nd
 
 from nems.recording import Recording
 from nems.fitters.api import scipy_minimize
@@ -20,30 +23,47 @@ from nems.fitters.api import scipy_minimize
 # ----------------------------------------------------------------------------
 # CONFIGURATION
 
-logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
 # figure out data and results paths:
-nems_dir = os.path.abspath(os.path.dirname(xforms.__file__) + '/..')
-signals_dir = nems_dir + '/recordings'
-modelspecs_dir = nems_dir + '/modelspecs'
+results_dir = nems.get_setting('NEMS_RESULTS_DIR')
+signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
 
 # ----------------------------------------------------------------------------
 # DATA LOADING & PRE-PROCESSING
-recording_uri = signals_dir + "/TAR010c-18-1.tgz"
-recordings = [recording_uri]
+recording_uri = os.path.join(signals_dir, "TAR010c-18-1.tgz")
 
+datafile = os.path.join(signals_dir, "TAR010c-18-1.pkl")
+load_command = 'nems.demo.loaders.demo_loader'
+exptid = "TAR010c"
+batch = 271
+cellid = "TAR010c-18-1"
+
+# MODEL SPEC
+#modelspecname = 'dlog-wc.18x1.g-stp.1-fir.1x15-lvl.1-dexp.1'
+modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
+
+
+# generate modelspec
 xfspec = []
-xfspec.append(['nems.xforms.load_recordings',
-               {'recording_uri_list': recordings}])
+# load internally:
+#xfspec.append(['nems.xforms.load_recordings',
+#               {'recording_uri_list': [recording_uri]}])
+# load from external format
+xfspec.append(['nems.xforms.load_recording_wrapper',
+               {'load_command': load_command,
+                'exptid': exptid,
+                'datafile': datafile}])
 xfspec.append(['nems.xforms.split_by_occurrence_counts',
                {'epoch_regex': '^STIM_'}])
 xfspec.append(['nems.xforms.average_away_stim_occurrences', {}])
 
 # MODEL SPEC
-# modelspecname = 'dlog_wcg18x1_stp1_fir1x15_lvl1_dexp1'
-modelspecname = 'wc.18x1.g_fir.1x15_lvl.1'
+#modelspecname = 'dlog-wc.18x1.g-stp.1-fir.1x15-lvl.1-dexp.1'
+modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
 
-meta = {'cellid': 'TAR010c-18-1', 'batch': 271, 'modelname': modelspecname}
+meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
+        'recording': exptid}
 
 xfspec.append(['nems.xforms.init_from_keywords',
                {'keywordstring': modelspecname, 'meta': meta}])
@@ -68,8 +88,21 @@ ctx, log_xf = xforms.evaluate(xfspec)
 # ----------------------------------------------------------------------------
 # SAVE YOUR RESULTS
 
-# GOAL: Save your results to disk. (BEFORE you screw it up trying to plot!)
+# save results to file
+destination = os.path.join(results_dir, str(batch), xforms.get_meta(ctx)['cellid'],
+                           ms.get_modelspec_longname(ctx['modelspecs'][0]))
+log.info('Saving modelspec(s) to {0} ...'.format(destination))
+xforms.save_analysis(destination,
+                      recording=ctx['rec'],
+                      modelspecs=ctx['modelspecs'],
+                      xfspec=xfspec,
+                      figures=ctx['figures'],
+                      log=log_xf)
 
-# logging.info('Saving Results...')
-# ms.save_modelspecs(modelspecs_dir, modelspecs)
+# save summary of results to a database
+log.info('Saving metadata to db  ...')
+modelspec = xforms.get_modelspec(ctx)
+modelspec[0]['meta']['modelpath'] = destination
+modelspec[0]['meta']['figurefile'] = destination + 'figure.0000.png'
+nd.update_results_table(modelspec)
 

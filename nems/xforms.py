@@ -16,10 +16,11 @@ from nems.modelspec import set_modelspec_metadata, get_modelspec_metadata,\
 import nems.plots.api as nplt
 import nems.preprocessing as preproc
 import nems.priors as priors
+from nems.signal import RasterizedSignal
 from nems.uri import save_resource, load_resource
-from nems.utils import iso8601_datestring, find_module
+from nems.utils import iso8601_datestring, find_module, recording_filename_hash
 from nems.fitters.api import scipy_minimize
-from nems.recording import load_recording
+from nems.recording import load_recording, Recording
 
 log = logging.getLogger(__name__)
 xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
@@ -147,6 +148,86 @@ def evaluate(xformspec, context={}, start=0, stop=None):
 ###############################################################################
 ##################       LOADERS / MODELSPEC STUFF    #########################
 ###############################################################################
+
+
+def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
+                           save_cache=True, IsReload=False, modelspecs=None,
+                           **context):
+    """
+    generic wrapper for loading recordings
+    :param load_command: string pointing to relevant load command, eg "my.lib.load_fun"
+        load_command should be able to take **context as an input and return
+        a dictionary of relevant signals. d : {'stim': X, 'resp': Y, 'state': S} etc.
+        X and Y can be in three different forms:
+           1. 2D, with M x T and N x T matrices. Ie, the number of channels can differ
+              between them but they should have the same times.
+           TODO: Support for other formats
+           2. 3D, M x T and N x R x T. R corresponds to repetitions of the same X, X will be
+              tiled R times to match the length of Y
+           3. 4D M x S x T and N x R x S x T or N x S x T. S stimuli were repeated R times
+              (or once) X will be unwrapped to M*S x T and tiled if R>1
+        additional special dictionary entries:
+          d['<signame>_labels'] - list of strings, one to label each row of stim, resp, etc
+          d['fs'] - sampling rate for all signals
+          d['epochs'] - dataframe with 'start' 'end' 'name' columns for important events.
+          d['meta'] - meta data that will be included in rec.meta. regardless, rec.meta
+            will be initialized with rec.meta = context
+    :param save_cache
+        if true the recording will be saved to a NEMS native recording file. context will
+        also be used to generate a hash that determines the file name. future calls will
+        then generate a hash and load a matching recording from the cache if it exists.
+        cached recordings are stored in nems.get_config(NEMS_RECORDINGS_DIR)
+        if batch is not None, it will be saved in "<batch>/" subdirectory
+        filename will be "<cellid>_<hash>.tgz"
+    :param context['batch'] (optional)
+        numerical identifier for grouping the recording with other recordings
+    :param cellid
+        string identifier for the signals being modeled. eg the name of the cell or
+        the experiment (if multiple cells are being modeled at once). will extract
+        that chan from rec['resp'].chans after loading (but not saved in cache)
+    :param context: dictionary of parameters/metadata that will be passed through to load_command
+
+    :return: rec - NEMS recording object
+    """
+    data_file = recording_filename_hash(exptid, context, nems.get_setting('NEMS_RECORDINGS_DIR'))
+    if os.path.exists(data_file):
+        log.info("Loading cached file %s", data_file)
+        rec = load_recording(data_file)
+    else:
+
+        fn = ms._lookup_fn_at(load_command)
+
+        data = fn(exptid=exptid, **context)
+
+        signals = {}
+        fs = data.get('fs',100)
+        meta = data.get('meta', {})
+        epochs = data.get('epochs', None)
+        for k in data.keys():
+            if k in ['fs', 'meta', 'epochs']:
+                pass
+            elif k.endswith('_labels'):
+                pass
+            else:
+                signals[k] = RasterizedSignal(fs, data[k], k, exptid, epochs=epochs,
+                                              chans=data.get(k+'_labels'))
+
+        rec = Recording(signals)
+        rec.meta = meta.copy()
+        rec.meta.update(context)
+        rec.meta["exptid"] = exptid
+
+        if save_cache:
+            rec.save(data_file)
+
+    # if cellid specified, select only that channel
+    if cellid is not None:
+        if cellid in rec['resp'].chans:
+            log.info("match found, extracting channel from rec")
+            rec['resp'] = rec['resp'].extract_channels([cellid])
+            rec.meta["cellid"] = cellid
+
+    return {'rec': rec}
 
 
 def load_recordings(recording_uri_list, normalize=False, cellid=None,
