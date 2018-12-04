@@ -328,7 +328,7 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
         return modelspec
 
     exclude_idx = np.setdiff1d(np.arange(0, len(modelspec)),
-                               np.array(fit_idx))
+                               np.array(fit_idx)).tolist()
     for i in exclude_idx:
         m = tmodelspec[i]
         if not m.get('phi'):
@@ -344,12 +344,13 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
     # fit the subset of modules
     if metric is None:
         tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-                                       fit_kwargs=fit_kwargs)[0]
+                                       fit_kwargs=fit_kwargs)
     else:
         tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-                                       metric=metric, fit_kwargs=fit_kwargs)[0]
+                                       metric=metric, fit_kwargs=fit_kwargs)
 
     # reassemble the full modelspec with updated phi values from tmodelspec
+
     for i in fit_idx:
         modelspec[i] = tmodelspec[i]
 

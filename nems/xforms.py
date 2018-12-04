@@ -563,15 +563,15 @@ def jack_subset(est, val, modelspecs=None, IsReload=False,
                 keep_only=1, **context):
 
     if keep_only == 1:
-        est = est[0]
-        val = val[0]
+        est = est.views(view_range=0)[0]
+        val = val.views(view_range=0)[0]
         est['resp']=est['resp'].rasterize()
         val['resp']=val['resp'].rasterize()
         est['stim']=est['stim'].rasterize()
         val['stim']=val['stim'].rasterize()
     else:
-        est = est[:keep_only]
-        val = val[:keep_only]
+        est = est.views(keep_only)[0]
+        val = val.views(keep_only)[0]
     if modelspecs is not None:
         modelspecs_out = modelspecs[:keep_only]
 
@@ -709,7 +709,7 @@ def fit_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
             modelspecs = [
                     nems.analysis.api.fit_basic(
                         e, m, fit_kwargs=fit_kwargs,
-                        metric=metric_fn, fitter=fitter_fn)[0]
+                        metric=metric_fn, fitter=fitter_fn)
                     for e,m in zip(est.views(), modelspecs)
                     ]
 
@@ -849,9 +849,9 @@ def add_summary_statistics(est, val, modelspecs, fn='standard_correlation',
     modelspecs = corr_fn(est, val, modelspecs, rec=rec, use_mask=use_mask)
 
     if find_module('state', modelspecs[0]) is not None:
-        s = metrics.state_mod_index(val[0], epoch='REFERENCE', psth_name='pred',
+        s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='pred',
                             state_sig='state_raw', state_chan=[])
-        j_s, ee = metrics.j_state_mod_index(val[0], epoch='REFERENCE', psth_name='pred',
+        j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='pred',
                             state_sig='state_raw', state_chan=[], njacks=10)
         modelspecs[0][0]['meta']['state_mod'] = s
         modelspecs[0][0]['meta']['j_state_mod'] = j_s
@@ -861,9 +861,9 @@ def add_summary_statistics(est, val, modelspecs, fn='standard_correlation',
         # Charlie testing diff ways to calculate mod index
 
         # try using resp
-        s = metrics.state_mod_index(val[0], epoch='REFERENCE', psth_name='resp',
+        s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='resp',
                             state_sig='state_raw', state_chan=[])
-        j_s, ee = metrics.j_state_mod_index(val[0], epoch='REFERENCE', psth_name='resp',
+        j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='resp',
                             state_sig='state_raw', state_chan=[], njacks=10)
         modelspecs[0][0]['meta']['state_mod_r'] = s
         modelspecs[0][0]['meta']['j_state_mod_r'] = j_s
