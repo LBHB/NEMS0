@@ -112,11 +112,16 @@ def _get_db_uri():
 
     sql_engine = get_setting('SQL_ENGINE')
     nems_recording_dir = get_setting('NEMS_RECORDINGS_DIR')
+    MYSQL_USER = get_setting('MYSQL_USER')
+    MYSQL_PASS = get_setting('MYSQL_PASS')
+    MYSQL_DB = get_setting('MYSQL_DB')
+    MYSQL_PORT = get_setting('MYSQL_PORT')
+    MYSQL_HOST = get_setting('MYSQL_HOST')
 
     if sql_engine == 'mysql':
         db_uri = 'mysql+pymysql://{0}:{1}@{2}:{3}/{4}'.format(
-                creds['MYSQL_USER'], creds['MYSQL_PASS'], creds['MYSQL_HOST'],
-                creds['MYSQL_PORT'], creds['MYSQL_DB']
+                MYSQL_USER, MYSQL_PASS, MYSQL_HOST,
+                MYSQL_PORT, MYSQL_DB
                 )
     elif sql_engine == 'sqlite':
         dbfilepath = os.path.join(nems_recording_dir,'nems.db')
