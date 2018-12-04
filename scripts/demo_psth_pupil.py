@@ -109,8 +109,6 @@ meta = {'cellid': cellid, 'modelname': modelname}
 # Method #1: create from "shorthand" keyword string
 modelspec = nems.initializers.from_keywords(modelname, rec=rec, meta=meta)
 
-modelspecs = [modelspec]
-
 # ----------------------------------------------------------------------------
 # DATA WITHHOLDING
 
@@ -123,7 +121,7 @@ logging.info('Generating jackknife datasets for n-fold cross-validation...')
 # signals in each set are the same, but the excluded segments are set to nan.
 nfolds = 10
 est, val, m = preproc.mask_est_val_for_jackknife(rec, modelspecs=None,
-                                                   njacks=nfolds)
+                                                 njacks=nfolds)
 
 
 # ----------------------------------------------------------------------------
@@ -139,7 +137,7 @@ modelspec.tile_fits(nfolds)
 for fit_index, e in enumerate(est.views()):
     logging.info("Fitting JK {}/{}".format(fit_index+1, nfolds))
     modelspec.fit_index = fit_index
-    modelspec = nems.analysis.api.fit_basic(e, modelspec, fitter=scipy_minimize)[0]
+    modelspec = nems.analysis.api.fit_basic(e, modelspec, fitter=scipy_minimize)
 
 # OLD SHORT WAY
 #modelspecs = nems.analysis.api.fit_nfold(est, modelspecs,
@@ -166,10 +164,10 @@ ms.save_modelspecs(modelspecs_dir, modelspec.fits())
 logging.info('Generating summary statistics...')
 
 # generate predictions
-est, val = nems.analysis.api.generate_prediction(est, val, modelspec.fits())
+est, val = nems.analysis.api.generate_prediction(est, val, modelspec)
 
 # evaluate prediction accuracy
-modelspec = nems.analysis.api.standard_correlation(est, val, modelspec.fits())[0]
+modelspec = nems.analysis.api.standard_correlation(est, val, modelspec)
 
 s = nems.metrics.api.state_mod_index(val, epoch='REFERENCE',
                                      psth_name='pred',

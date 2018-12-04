@@ -17,6 +17,7 @@ import nems.epoch as ep
 from nems.signal import SignalBase, RasterizedSignal, merge_selections, \
                         list_signals, load_signal, load_signal_from_streams
 from nems.utils import recording_filename_hash
+from nems import get_setting
 
 log = logging.getLogger(__name__)
 
@@ -1414,8 +1415,7 @@ def get_demo_recordings(directory=None, name=None, unpack=False):
     uris = [(prefix + n) for n in names]
 
     if directory is None:
-        nems_dir = os.path.abspath(os.path.dirname(__file__) + '/..')
-        directory = nems_dir + '/recordings'
+        directory = get_setting('NEMS_RECORDINGS_DIR')
 
     if unpack:
         recs = [Recording.load(uri) for uri in uris]
@@ -1442,7 +1442,7 @@ def get_demo_recordings(directory=None, name=None, unpack=False):
                         'application/gzip', 'application/x-gzip',
                         'application/x-compressed', 'application/x-tgz',
                         'application/x-tar', 'application/x-compressed-tar',
-                        'binary/octet-stream'
+                        'binary/octet-stream',  'application/x-www-form-urlencoded; charset=utf-8'
                         ]
                 if not (r.status_code == 200
                         and r.headers['content-type'] in allowed_headers):

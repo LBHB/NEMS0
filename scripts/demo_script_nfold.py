@@ -6,7 +6,6 @@ import logging
 import pandas as pd
 import pickle
 
-from nems.gui.recording_browser import browse_recording, browse_context
 import nems
 import nems.initializers
 import nems.priors
@@ -49,9 +48,9 @@ signals = {'resp': resp, 'stim': stim}
 rec = recording.Recording(signals)
 
 epoch_name = "REFERENCE"
-njacks=5
-est = rec.jackknife_masks_by_epoch(njacks, epoch_name, tiled=True)
-val = rec.jackknife_masks_by_epoch(njacks, epoch_name, tiled=True, invert=True)
+nfolds=5
+est = rec.jackknife_masks_by_epoch(nfolds, epoch_name, tiled=True)
+val = rec.jackknife_masks_by_epoch(nfolds, epoch_name, tiled=True, invert=True)
 
 #est, val = rec.split_at_time(0.2)
 #est, val = rec.split_using_epoch_occurrence_counts(epoch_regex="^STIM_")
@@ -88,8 +87,8 @@ modelspec = nems.initializers.from_keywords(modelspec_name, meta=meta)
 log.info('Fitting modelspec(s)...')
 
 # quick fit linear part first to avoid local minima
-modelspec = modelspec.tile_fits(njacks)
-for m, e in zip(m.fits(), est.views()):
+modelspec.tile_fits(nfolds)
+for m, e in zip(modelspec.fits(), est.views()):
     m = nems.initializers.prefit_to_target(
         e, m, nems.analysis.api.fit_basic,
         target_module='levelshift',
@@ -107,6 +106,10 @@ for m, e in zip(m.fits(), est.views()):
 # then fit full nonlinear model
 #modelspecs = [nems.analysis.api.fit_basic(e, m, fitter=scipy_minimize)[0]
 #              for m, e in zip(modelspecs, est.views())]
+for fit_index, e in enumerate(est.views()):
+    logging.info("Fitting JK {}/{}".format(fit_index+1, nfolds))
+    modelspec.fit_index = fit_index
+    modelspec = nems.analysis.api.fit_basic(e, modelspec, fitter=scipy_minimize)
 
 # ----------------------------------------------------------------------------
 # GENERATE SUMMARY STATISTICS
@@ -114,14 +117,14 @@ for m, e in zip(m.fits(), est.views()):
 log.info('Generating summary statistics...')
 
 # generate predictions
-est, val = nems.analysis.api.generate_prediction(est, val, modelspecs)
+est, val = nems.analysis.api.generate_prediction(est, val, modelspec)
 
 # evaluate prediction accuracy
-modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs)
+modelspec = nems.analysis.api.standard_correlation(est, val, modelspec)
 
 log.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
-        modelspecs[0][0]['meta']['r_fit'][0],
-        modelspecs[0][0]['meta']['r_test'][0]))
+        modelspec.meta()['r_fit'][0],
+        modelspec.meta()['r_test'][0]))
 
 # ----------------------------------------------------------------------------
 # SAVE YOUR RESULTS
@@ -141,7 +144,7 @@ log.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
 log.info('Generating summary plot...')
 
 # Generate a summary plot
-context = {'val': val, 'modelspecs': modelspecs, 'est': est}
+context = {'val': val, 'modelspecs': modelspec.fits(), 'est': est}
 fig = nplt.quickplot(context)
 fig.show()
 

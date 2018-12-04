@@ -19,7 +19,7 @@ default_kws.register_module(default_keywords)
 default_kws.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
 
-def from_keywords(keyword_string, registry=None, rec=None, meta={}):
+def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_mean_prior=True):
     '''
     Returns a modelspec created by splitting keyword_string on underscores
     and replacing each keyword with what is found in the nems.keywords.defaults
@@ -74,6 +74,8 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}):
 
         d = copy.deepcopy(registry[kw])
         d['id'] = kw
+        d = priors.set_mean_phi([d])[0]  # Inits phi for 1 module
+
         modelspec.append(d)
 
     # first module that takes input='pred' should take 'stim' instead.
@@ -266,14 +268,17 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
     # fit the subset of modules
     if metric is None:
         tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-                                       fit_kwargs=fit_kwargs)[0]
+                                       fit_kwargs=fit_kwargs)
     else:
         tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-                                       metric=metric, fit_kwargs=fit_kwargs)[0]
+                                       metric=metric, fit_kwargs=fit_kwargs)
+    if type(tmodelspec) is list:
+        # backward compatibility
+        tmodelspec = tmodelspec[0]
 
     # reassemble the full modelspec with updated phi values from tmodelspec
-    print(modelspec[0])
-    print(tmodelspec[0])
+    #print(modelspec[0])
+    #print(tmodelspec[0])
     for i in np.setdiff1d(np.arange(target_i), np.array(exclude_idx)):
         modelspec[int(i)] = tmodelspec[int(i)]
 

@@ -8,9 +8,14 @@ import nems.recording as recording
 from nems.utils import find_module
 
 
-def generate_prediction(est, val, modelspecs):
+def generate_prediction(est, val, modelspec):
 
     list_val = (type(val) is list)
+    list_modelspec = (type(modelspec) is list)
+    if list_modelspec:
+        modelspecs = modelspec
+    else:
+        modelspecs = modelspec.fits()
 
     if ~list_val:
         # Evaluate estimation and validation data
@@ -64,10 +69,25 @@ def generate_prediction(est, val, modelspecs):
     return new_est, new_val
 
 
-def standard_correlation(est, val, modelspecs, rec=None, use_mask=True):
+def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None, use_mask=True):
     # use_mask: mask before computing metrics (if mask exists)
     # Compute scores for validation dat
     r_ceiling = 0
+
+    # some crazy stuff to maintain backward compatibility
+    # eventually we will only support modelspec and deprecate support for
+    # modelspecs lists
+    if modelspecs is None:
+        list_modelspec = (type(modelspec) is list)
+        if modelspec is None:
+            raise ValueError('modelspecs or modelspec required for input')
+        if list_modelspec:
+            modelspecs = modelspec
+        else:
+            modelspecs = modelspec.fits()
+    else:
+        list_modelspec = True
+
     if type(val) is not list:
 
         # TODO: support for views
@@ -156,7 +176,11 @@ def standard_correlation(est, val, modelspecs, rec=None, use_mask=True):
     modelspecs[0][0]['meta']['se_mse_fit'] = se_mse_fit
     modelspecs[0][0]['meta']['ll_fit'] = ll_fit
 
-    return modelspecs
+    if list_modelspec:
+        # backward compatibility
+        return modelspecs
+    else:
+        return modelspecs[0]
 
 
 def correlation_per_model(est, val, modelspecs, rec=None):

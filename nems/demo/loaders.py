@@ -37,7 +37,7 @@ def load_polley_data(respfile=None, stimfile=None, exptid="RECORDING", channel_n
     res['stim'] = np.genfromtxt(stimfile, delimiter=',')
 
     neuron_count, T = res['resp'].shape
-    stim_labels = np.exp(np.linspace(np.log(4), np.log(64), res['stim'].shape[0]))
+    stim_labels = np.round(np.exp(np.linspace(np.log(4), np.log(64), res['stim'].shape[0])), 1)
     res['stim_labels'] = [str(s) for s in stim_labels]
     res['resp_labels'] = ["{}-{:03d}".format(exptid, i) for i in range(neuron_count)]
 

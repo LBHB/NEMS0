@@ -91,7 +91,7 @@ modelspec = nems.initializers.prefit_to_target(
 
 
 # then fit full nonlinear model
-modelspecs = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
+modelspec = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
 
 # ----------------------------------------------------------------------------
 # GENERATE SUMMARY STATISTICS
@@ -99,14 +99,14 @@ modelspecs = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
 log.info('Generating summary statistics...')
 
 # generate predictions
-est, val = nems.analysis.api.generate_prediction(est, val, modelspecs)
+est, val = nems.analysis.api.generate_prediction(est, val, modelspec)
 
 # evaluate prediction accuracy
-modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs)
+modelspec = nems.analysis.api.standard_correlation(est, val, modelspec)
 
 log.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
-        modelspecs[0][0]['meta']['r_fit'][0],
-        modelspecs[0][0]['meta']['r_test'][0]))
+        modelspec.meta()['r_fit'][0],
+        modelspec.meta()['r_test'][0]))
 
 # ----------------------------------------------------------------------------
 # SAVE YOUR RESULTS
@@ -126,7 +126,7 @@ log.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
 log.info('Generating summary plot...')
 
 # Generate a summary plot
-context = {'val': val, 'modelspecs': modelspecs, 'est': est}
+context = {'val': val, 'modelspecs': modelspec.fits(), 'est': est}
 fig = nplt.quickplot(context)
 fig.show()
 

@@ -733,7 +733,7 @@ def fit_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
                     nems.analysis.api.fit_basic(est, modelspec,
                                                 fit_kwargs=fit_kwargs,
                                                 metric=metric_fn,
-                                                fitter=fitter_fn)[0]
+                                                fitter=fitter_fn)
                     for modelspec in modelspecs
                     ]
 
@@ -983,7 +983,7 @@ def save_analysis(destination,
     for number, modelspec in enumerate(modelspecs):
         set_modelspec_metadata(modelspec, 'xfspec', xfspec_uri)
         save_resource(base_uri + 'modelspec.{:04d}.json'.format(number),
-                      json=modelspec)
+                      json=modelspec[:])
     for number, figure in enumerate(figures):
         save_resource(base_uri + 'figure.{:04d}.png'.format(number),
                       data=figure)

@@ -206,7 +206,11 @@ def get_modelspec_longname(modelspec):
     without a path.
     '''
     meta = get_modelspec_metadata(modelspec)
-    recording_name = meta.get('recording', 'unknown_recording')
+
+    recording_name = meta.get('exptid')
+    if recording_name is None:
+        recording_name = meta.get('recording', 'unknown_recording')
+
     keyword_string = get_modelspec_shortname(modelspec)
     fitter_name = meta.get('fitkey', meta.get('fitter', 'unknown_fitter'))
     date = nems.utils.iso8601_datestring()
