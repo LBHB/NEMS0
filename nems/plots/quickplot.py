@@ -90,7 +90,8 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     else:
         rec = ctx[default]
 
-    modelspec = ctx['modelspecs'][m_idx]
+    modelspec = ctx['modelspec']
+    modelspec.fit_index = m_idx
 
     # figure out which epoch to chop out for plots that show a signel
     # segment of the data (eg, one sound, one trial)
@@ -288,7 +289,8 @@ Helper functions for quickplot()
 def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                   r_idx=0):
     rec = ctx[default][r_idx]
-    modelspec = ctx['modelspecs'][m_idx]
+    modelspec = ctx['modelspec']
+    modelspec.fit_index = m_idx
 
     plot_fns = []
 
@@ -343,7 +345,7 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                     plot = (fn, 1)
                     plot_fns.append(plot)
                 elif 'fir.filter_bank' in fname:
-                    fns = [partial(fir_heatmap, m) for m in ctx['modelspecs']]
+                    fns = [partial(fir_heatmap, m) for m in ctx['modelspec'].fits()]
                     plot = (fns, [1]*len(fns))
                     plot_fns.append(plot)
                 else:
@@ -483,10 +485,10 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
     return plot_fns
 
 
-def quickplot_no_xforms(rec, est, val, modelspecs, default='val', occurrence=0,
+def quickplot_no_xforms(rec, est, val, modelspec, default='val', occurrence=0,
                         epoch='TRIAL', figsize=None, height_mult=3.0, m_idx=0):
     """Compatibility wrapper for quickplot."""
-    ctx = {'rec': rec, 'est': est, 'val': val, 'modelspecs': modelspecs}
+    ctx = {'rec': rec, 'est': est, 'val': val, 'modelspec': modelspec}
     return quickplot(ctx, default=default, epoch=epoch, occurrence=occurrence,
                      figsize=figsize, height_mult=height_mult, m_idx=m_idx)
 

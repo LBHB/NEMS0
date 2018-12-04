@@ -91,7 +91,22 @@ class ModelSpec:
         raw = [copy.deepcopy(m[lb:ub]) for m in self.raw]
         return ModelSpec(raw)
 
+    def fit_count(self):
+        """Number of fits in this modelspec"""
+        return len(self.raw)
+
+    def get_fit(self, fit_index=None):
+        """return copy, fit_index set to specified value"""
+        m = self.copy()
+
+        if fit_index is not None:
+            m.fit_index = fit_index
+
+        return m
+
     def fits(self):
+        """List of modelspecs, one for each fit, for compatibility with some
+           old functions"""
         m_list = []
         for f in range(len(self.raw)):
             m_list += [ModelSpec(self.raw, f)]

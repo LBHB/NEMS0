@@ -73,16 +73,20 @@ xfspec.append(['nems.xforms.fit_basic', {}])
 # xfspec.append(['nems.xforms.fit_basic_shrink', {}])
 #xfspec.append(['nems.xforms.fit_basic_cd', {}])
 # xfspec.append(['nems.xforms.fit_iteratively', {}])
-xfspec.append(['nems.xforms.predict',    {}])
+xfspec.append(['nems.xforms.predict', {}])
 # xfspec.append(['nems.xforms.add_summary_statistics',    {}])
 xfspec.append(['nems.analysis.api.standard_correlation', {},
-               ['est', 'val', 'modelspecs', 'rec'], ['modelspecs']])
+               ['est', 'val', 'modelspec', 'rec'], ['modelspec']])
 
 # GENERATE PLOTS
-xfspec.append(['nems.xforms.plot_summary',    {}])
+xfspec.append(['nems.xforms.plot_summary', {}])
 
 # actually do the fit
-ctx, log_xf = xforms.evaluate(xfspec)
+log_xf = "NO LOG"
+ctx = {}
+for xfa in xfspec:
+    ctx = xforms.evaluate_step(xfa, ctx)
+#ctx, log_xf = xforms.evaluate(xfspec)
 
 
 # ----------------------------------------------------------------------------
@@ -90,18 +94,20 @@ ctx, log_xf = xforms.evaluate(xfspec)
 
 # save results to file
 destination = os.path.join(results_dir, str(batch), xforms.get_meta(ctx)['cellid'],
-                           ms.get_modelspec_longname(ctx['modelspecs'][0]))
+                           ms.get_modelspec_longname(ctx['modelspec']))
 log.info('Saving modelspec(s) to {0} ...'.format(destination))
+"""
 xforms.save_analysis(destination,
                       recording=ctx['rec'],
-                      modelspecs=ctx['modelspecs'],
+                      modelspec=ctx['modelspec'],
                       xfspec=xfspec,
                       figures=ctx['figures'],
                       log=log_xf)
 
 # save summary of results to a database
 log.info('Saving metadata to db  ...')
-modelspec = xforms.get_modelspec(ctx)
-modelspec[0]['meta']['modelpath'] = destination
-modelspec[0]['meta']['figurefile'] = destination + 'figure.0000.png'
+modelspec = ctx['modelspec']
+modelspec.meta()['modelpath'] = destination
+modelspec.meta()['figurefile'] = destination + 'figure.0000.png'
 nd.update_results_table(modelspec)
+"""
