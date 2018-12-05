@@ -819,7 +819,7 @@ def browse_context(ctx, rec='val', signals=['stim', 'resp'], rec_idx=0,
     rec = ctx[rec]
     if isinstance(rec, list):
         rec = rec[rec_idx]
-    meta = ctx['modelspecs'][0][0]['meta']
+    meta = ctx['modelspec'].meta()
     cellid = meta.get('cellid', None)
     modelname = meta.get('modelname', None)
 

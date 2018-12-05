@@ -82,27 +82,29 @@ class ModelSpec:
         """
         return self.raw[self.fit_index][index]
 
-    def copy(self, lb=None, ub=None):
+    def copy(self, lb=None, ub=None, fit_index=None):
         """
         :param lb: start module (default 0)
         :param ub: stop module (default -1)
         :return: A deep copy of the modelspec (subset of modules if specified)
         """
         raw = [copy.deepcopy(m[lb:ub]) for m in self.raw]
-        return ModelSpec(raw)
+        m = ModelSpec(raw)
+        if fit_index is not None:
+            m.fit_index = fit_index
+
+        return m
 
     def fit_count(self):
         """Number of fits in this modelspec"""
         return len(self.raw)
 
-    def get_fit(self, fit_index=None):
+    def set_fit(self, fit_index=None):
         """return copy, fit_index set to specified value"""
-        m = self.copy()
-
         if fit_index is not None:
-            m.fit_index = fit_index
+            self.fit_index = fit_index
 
-        return m
+        return self
 
     def fits(self):
         """List of modelspecs, one for each fit, for compatibility with some
@@ -201,7 +203,7 @@ def set_modelspec_metadata(modelspec, key, value):
     Sets a key/value pair in the modelspec's metadata. Purely by convention,
     metadata info for the entire modelspec is stored in the first module.
     '''
-    if not modelspec[0].get('meta'):
+    if not modelspec.meta():
         modelspec[0]['meta'] = {}
     modelspec[0]['meta'][key] = value
     return modelspec

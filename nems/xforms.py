@@ -152,7 +152,7 @@ def evaluate(xformspec, context={}, start=0, stop=None):
 
 def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
                            save_cache=True, IsReload=False, modelspecs=None,
-                           **context):
+                           modelspec=None, **context):
     """
     generic wrapper for loading recordings
     :param load_command: string pointing to relevant load command, eg "my.lib.load_fun"
@@ -161,7 +161,7 @@ def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
         X and Y can be in three different forms:
            1. 2D, with M x T and N x T matrices. Ie, the number of channels can differ
               between them but they should have the same times.
-           TODO: Support for other formats
+           TODO: Support for other stim/resp matrix formats:
            2. 3D, M x T and N x R x T. R corresponds to repetitions of the same X, X will be
               tiled R times to match the length of Y
            3. 4D M x S x T and N x R x S x T or N x S x T. S stimuli were repeated R times
@@ -207,6 +207,7 @@ def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
             if k in ['fs', 'meta', 'epochs']:
                 pass
             elif k.endswith('_labels'):
+                # these wil
                 pass
             else:
                 signals[k] = RasterizedSignal(fs, data[k], k, exptid, epochs=epochs,
@@ -302,8 +303,8 @@ def load_modelspecs(modelspecs, uris,
     models.
     '''
     if not IsReload:
-        modelspecs = [ms.ModelSpec([load_resource(uri)]) for uri in uris]
-    return {'modelspecs': modelspecs}
+        modelspec = ms.ModelSpec([load_resource(uri) for uri in uris])
+    return {'modelspec': modelspec}
 
 
 def set_random_phi(modelspecs, IsReload=False, **context):
@@ -565,15 +566,15 @@ def jack_subset(est, val, modelspecs=None, IsReload=False,
                 keep_only=1, **context):
 
     if keep_only == 1:
-        est = est[0]
-        val = val[0]
+        est = est.views(view_range=0)[0]
+        val = val.views(view_range=0)[0]
         est['resp']=est['resp'].rasterize()
         val['resp']=val['resp'].rasterize()
         est['stim']=est['stim'].rasterize()
         val['stim']=val['stim'].rasterize()
     else:
-        est = est[:keep_only]
-        val = val[:keep_only]
+        est = est.views(keep_only)[0]
+        val = val.views(keep_only)[0]
     if modelspecs is not None:
         modelspecs_out = modelspecs[:keep_only]
 
@@ -962,7 +963,7 @@ def tree_path(recording, modelspecs, xfspec):
 
 def save_analysis(destination,
                   recording,
-                  modelspecs,
+                  modelspec,
                   xfspec,
                   figures,
                   log,
@@ -977,10 +978,10 @@ def save_analysis(destination,
     base_uri = base_uri if base_uri[-1] == '/' else base_uri + '/'
     xfspec_uri = base_uri + 'xfspec.json'  # For attaching to modelspecs
 
-    for number, modelspec in enumerate(modelspecs):
-        set_modelspec_metadata(modelspec, 'xfspec', xfspec_uri)
+    for number, m in enumerate(modelspec.fits()):
+        set_modelspec_metadata(m, 'xfspec', xfspec_uri)
         save_resource(base_uri + 'modelspec.{:04d}.json'.format(number),
-                      json=modelspec[:])
+                      json=m[:])
     for number, figure in enumerate(figures):
         save_resource(base_uri + 'figure.{:04d}.png'.format(number),
                       data=figure)
@@ -998,7 +999,7 @@ def load_analysis(filepath, eval_model=True, only=None):
     object, which gives more flexibility over what steps of the original xfspecs to run again.
 
     """
-    log.info('Loading modelspecs from %s...', filepath)
+    log.info('Loading modelspec from %s...', filepath)
 
     xfspec = load_xform(filepath + 'xfspec.json')
 

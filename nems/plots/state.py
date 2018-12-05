@@ -388,7 +388,7 @@ def state_gain_plot(modelspec, ax=None, clim=None, title=None):
     ax_remove_box(ax)
 
 
-def model_per_time(ctx):
+def model_per_time(ctx, fit_idx=0):
     """
     state_colors : N x 2 list
        color spec for high/low lines in each of the N states
@@ -398,7 +398,9 @@ def model_per_time(ctx):
     else:
         rec = ctx['val'].apply_mask()
 
-    modelspec = ctx['modelspecs'][0]
+    modelspec = ctx['modelspec']
+    modelspec.fit_idx = 0
+
     epoch="REFERENCE"
     rec = ms.evaluate(rec, modelspec)
 

@@ -107,9 +107,17 @@ class Recording:
 
         return rec
 
-    def views(self):
+    def views(self, view_range=None):
+        rec = self.copy()
+
+        if view_range is not None:
+            if type(view_range) is int:
+                rec.signal_views = [rec.signal_views[view_range]]
+            else:
+                rec.signal_views = rec.signal_views[view_range]
+
         """return a list of all views of this recording"""
-        return [self.set_view(i) for i in range(self.view_count())]
+        return [rec.set_view(i) for i in range(rec.view_count())]
 
     def view_count(self):
         """return how many views exist in this recording"""
@@ -532,14 +540,14 @@ class Recording:
         est = Recording(signals=est)
         val = Recording(signals=val)
 
- 
+
         est = est.and_mask(np.isfinite(est['resp'].as_continuous()[0,:]))
         val = val.and_mask(np.isfinite(val['resp'].as_continuous()[0,:]))
 #        if 'mask' in est.signals.keys():
 #            log.info('mask exists, Merging (AND) with masks for partitioned est,val signals')
 #            m = est['mask'].as_continuous().squeeze()
 #            est = est.create_mask(np.logical_and(m,np.isfinite(est['resp'].as_continuous()[0,:])))
-#            val = val.create_mask(np.logical_and(m,np.isfinite(val['resp'].as_continuous()[0,:])))        
+#            val = val.create_mask(np.logical_and(m,np.isfinite(val['resp'].as_continuous()[0,:])))
 #        else:
 #            log.info('creating masks for partitioned est,val signals')
 #            est = est.create_mask(np.isfinite(est['resp'].as_continuous()[0,:]))
@@ -594,7 +602,7 @@ class Recording:
         repetitions of the same stimuli so that we can more accurately estimate the peri-
         stimulus time histogram (PSTH). This function tries to split the data into those
         two data sets based on the epoch occurrence counts.
-        ''' 
+        '''
         groups = ep.group_epochs_by_occurrence_counts(self.epochs, epoch_regex)
         if len(groups) > 2:
             l=np.array(list(groups.keys()))
@@ -991,7 +999,7 @@ class Recording:
             # Only rasterized signals support _modified_copy
             mask_sig = base_signal.rasterize()._modified_copy(mask)
         mask_sig.name = 'mask'
-        
+
         rec.add_signal(mask_sig)
 
         return rec
@@ -1028,7 +1036,7 @@ class Recording:
         Make rec['mask'] == True for all epochs where current mask is also true.
         Mask is created if it doesn't exist
         See create_mask for input formats for 'epoch'
-        
+
         example use:
             newrec = rec.or_mask(['ACTIVE_EXPERIMENT'])
             newrec = rec.and_mask(['REFERENCE', 'TARGET'])
