@@ -12,7 +12,9 @@ import nems.xforms as xforms
 
 cellid='TAR010c-18-1'
 batch=271
-d=nd.get_results_file(batch=batch, cellids=[cellid])
+#modelname = 'wc.18x1.g-fir.1x15-lvl.1'
+modelname = 'dlog-wc.18x1.g-fir.1x15-lvl.1'
+#modelname = 'dlog-wc.18x1.g-stp.1-fir.1x15-lvl.1-dexp.1'
 
 d=nd.get_results_file(batch=batch, cellids=[cellid], modelnames=[modelname])
 
@@ -21,4 +23,5 @@ xfspec, ctx = xforms.load_analysis(filepath, eval_model=False)
 
 ctx, log_xf = xforms.evaluate(xfspec, ctx)
 
-nplt.quickplot(ctx)
+#nplt.quickplot(ctx)
+ctx['modelspec'].quickplot(ctx['val'])

@@ -67,11 +67,14 @@ def evaluate_step(xfa, context={}):
     xf = xfa[0]
     xfargs = xfa[1]
     if len(xfa) > 2:
-        context_in = {k: context[k] for k in xfa[2]}
+        # backward compatibility
+        a = [k.replace("modelspecs", "modelspec") for k in xfa[2]]
+        context_in = {k: context[k] for k in a}
     else:
         context_in = context
     if len(xfa) > 3:
-        context_out_keys = xfa[3]
+        a = [k.replace("modelspecs", "modelspec") for k in xfa[3]]
+        context_out_keys = a
     else:
         context_out_keys = []
 

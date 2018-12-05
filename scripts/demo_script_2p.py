@@ -23,7 +23,6 @@ from nems.signal import RasterizedSignal
 from nems.fitters.api import scipy_minimize
 import nems.db as nd
 
-
 log = logging.getLogger(__name__)
 
 

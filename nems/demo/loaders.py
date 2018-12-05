@@ -1,6 +1,36 @@
 import numpy as np
 import pickle
 
+def dummy_loader(N=1000, **context):
+    """"DUMMY LOADER FUNCTION FOR TESTING xforms.load_wrapper"""
+
+    cellid = "DUMMY01"
+    epochs = None
+    X = np.zeros([1, 1000])
+    X[:, 40] = 1
+    X[:, 60] = 1
+    X[:, 100] = 2
+    X[:, 500] = 2
+    X[:, 700] = 1
+
+    Y = X * 2 + 1
+    Y[:, 20] = 10
+    Y[:, 200] = 10
+    Y[:, 600] = 10
+    Y[:, 950] = 10
+
+    res = {}
+    res['fs'] = 100
+    res['resp'] = Y
+    res['stim'] = X
+    res['epochs'] = epochs
+
+    res['resp_labels'] = [cellid]
+    res['stim_labels'] = ['STIM']
+
+    return res
+
+
 def demo_loader(datafile=None, **context):
 
     # load stim and resp matrices from pkl files

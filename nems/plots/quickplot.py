@@ -12,8 +12,8 @@ import nems.metrics.api as nm
 # Better way to do this than to copy all of .api's imports?
 # Can't use api b/c get circular import issue
 from nems.plots.scatter import plot_scatter
-from nems.plots.spectrogram import (plot_spectrogram, spectrogram_from_signal,
-                          spectrogram_from_epoch)
+from nems.plots.specgram import (plot_spectrogram, spectrogram_from_signal,
+                                 spectrogram_from_epoch)
 from nems.plots.timeseries import timeseries_from_signals, \
     timeseries_from_epoch, before_and_after_stp
 from nems.plots.heatmap import weight_channels_heatmap, fir_heatmap, strf_heatmap, \

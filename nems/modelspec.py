@@ -7,6 +7,7 @@ import numpy as np
 import scipy.stats as st
 import nems.utils
 import nems.uri
+import matplotlib.pyplot as plt
 
 # Functions for saving, loading, and evaluating modelspecs
 
@@ -33,6 +34,9 @@ class ModelSpec:
         else:
             self.fit_index = fit_index
         self.mod_index = 0
+        self.plot_recording = None
+        self.plot_epoch = 'REFERENCE'
+        self.plot_occurrence = 0
 
     def __getitem__(self, key):
         try:
@@ -75,12 +79,14 @@ class ModelSpec:
     def __len__(self):
         return len(self.raw[0])
 
-    def get_module(self, index):
+    def get_module(self, mod_index=None):
         """
-        :param index:
+        :param mod_index: index of module to return
         :return: single module from current fit_index (doesn't create a copy!)
         """
-        return self.raw[self.fit_index][index]
+        if mod_index is None:
+            mod_index = self.mod_index
+        return self.raw[self.fit_index][mod_index]
 
     def copy(self, lb=None, ub=None, fit_index=None):
         """
@@ -129,6 +135,45 @@ class ModelSpec:
         if fit_index is None:
             fit_index = self.fit_index
         return [m.get('phi') for m in self.raw[fit_index]]
+
+    def plot_fn(self, mod_index=None, plot_fn_idx=None, fit_index=None):
+        """get function for plotting something about a module"""
+        if mod_index is None:
+            mod_index = self.mod_index
+        if fit_index is not None:
+            self.fit_index = fit_index
+
+        module = self.get_module(mod_index)
+        if plot_fn_idx is None:
+            plot_fn_idx = module.get('plot_fn_idx', 0)
+        try:
+            fn_path = module.get('plot_fns')[plot_fn_idx]
+        except:
+            fn_path = 'nems.plots.timeseries.mod_output'
+
+        return _lookup_fn_at(fn_path)
+
+    def plot(self, mod_index=None, rec=None, ax=None, plot_fn_idx=None,
+             fit_index=None, sig_name='pred'):
+        """generate plot for a single module"""
+
+        if rec is None:
+            rec = self.plot_recording
+
+        plot_fn = self.plot_fn(mod_index=mod_index, plot_fn_idx=plot_fn_idx,
+                               fit_index=fit_index)
+        plot_fn(rec=rec, modelspec=self, sig_name=sig_name, idx=mod_index, ax=ax)
+
+    def quickplot(self, rec=None):
+
+        if rec is None:
+            rec = self.plot_recording
+        fig = plt.figure()
+        plot_count = len(self)
+        for i in range(plot_count):
+            ax = fig.add_subplot(plot_count, 1, i+1)
+            self.plot(mod_index=i, rec=rec, ax=ax)
+        return fig
 
     def append(self, module):
         self.raw[0].append(module)
