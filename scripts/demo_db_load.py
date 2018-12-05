@@ -14,6 +14,8 @@ cellid='TAR010c-18-1'
 batch=271
 d=nd.get_results_file(batch=batch, cellids=[cellid])
 
+d=nd.get_results_file(batch=batch, cellids=[cellid], modelnames=[modelname])
+
 filepath = d['modelpath'][0] + '/'
 xfspec, ctx = xforms.load_analysis(filepath, eval_model=False)
 

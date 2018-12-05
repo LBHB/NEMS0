@@ -607,10 +607,10 @@ def fit_basic_init(modelspec, est, IsReload=False, metric='nmse',
             metric_fn = metric
 
         for fit_idx in range(modelspec.fit_count()):
-            modelspec.fit_index = fit_idx
+            #modelspec.fit_index = fit_idx
 
             modelspec = nems.initializers.prefit_LN(
-                    est, modelspec,
+                    est, modelspec.set_fit(fit_idx),
                     analysis_function=nems.analysis.api.fit_basic,
                     fitter=scipy_minimize, metric=metric_fn,
                     tolerance=tolerance, max_iter=700, norm_fir=norm_fir)
@@ -707,34 +707,30 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
         fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
 
         if jackknifed_fit:
+            nfolds = est.view_count()
             if modelspec.fit_count() < est.view_count():
                 modelspec.tile_fits(nfolds)
-            for i, e in enumerate(est.views()):
-                log.info("Initializing modelspec %d/%d state-free",
-                         i + 1, len(modelspec))
-                modelspec.fit_index = i
-
+            for fit_idx, e in enumerate(est.views()):
+                log.info("Fitting fold %d/%d", fit_idx + 1, nfolds)
                 modelspec = nems.analysis.api.fit_basic(
-                        e, modelspec, fit_kwargs=fit_kwargs,
+                        e, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
                         metric=metric_fn, fitter=fitter_fn)
 
         elif random_sample_fit:
             basic_kwargs = {'metric': metric_fn, 'fitter': fitter_fn,
                             'fit_kwargs': fit_kwargs}
+            raise NotImplementedError("random_sample_fit not tested in new modelspec system")
             return fit_n_times_from_random_starts(
-                        modelspecs, est, ntimes=n_random_samples,
+                        modelspec, est, ntimes=n_random_samples,
                         subset=random_fit_subset,
                         analysis='fit_basic', basic_kwargs=basic_kwargs
                         )
-
         else:
             # standard single shot
             for fit_idx in range(modelspec.fit_count()):
-                modelspec.fit_index = fit_idx
-                modelspec = nems.analysis.api.fit_basic(est, modelspec,
-                                                fit_kwargs=fit_kwargs,
-                                                metric=metric_fn,
-                                                fitter=fitter_fn)
+                modelspec = nems.analysis.api.fit_basic(
+                    est, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
+                    metric=metric_fn, fitter=fitter_fn)
 
     return {'modelspec': modelspec}
 
@@ -863,9 +859,9 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
                             state_sig='state_raw', state_chan=[])
         j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='resp',
                             state_sig='state_raw', state_chan=[], njacks=10)
-        modelspecs.meta()['state_mod_r'] = s
-        modelspecs.meta()['j_state_mod_r'] = j_s
-        modelspecs.meta()['se_state_mod_r'] = ee
+        modelspec.meta()['state_mod_r'] = s
+        modelspec.meta()['j_state_mod_r'] = j_s
+        modelspec.meta()['se_state_mod_r'] = ee
 
         # try using the "mod" signal (if it exists) which is calculated
         if 'mod' in modelspec.meta()['modelname']:

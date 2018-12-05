@@ -100,7 +100,7 @@ class ModelSpec:
         return len(self.raw)
 
     def set_fit(self, fit_index=None):
-        """return copy, fit_index set to specified value"""
+        """return self with fit_index set to specified value"""
         if fit_index is not None:
             self.fit_index = fit_index
 

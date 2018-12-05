@@ -90,8 +90,7 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     else:
         rec = ctx[default]
 
-    modelspec = ctx['modelspec']
-    modelspec.fit_index = m_idx
+    modelspec = ctx['modelspec'].set_fit(m_idx)
 
     # figure out which epoch to chop out for plots that show a signel
     # segment of the data (eg, one sound, one trial)
@@ -132,8 +131,7 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     show_spectrogram = ('stim' in rec.signals.keys() and
                         'state' not in rec.signals.keys())
 
-    plot_fns = _get_plot_fns(ctx, default=default, occurrence=occurrence,
-                             epoch=epoch, m_idx=m_idx)
+    plot_fns = _get_plot_fns(rec, modelspec, occurrence=occurrence, epoch=epoch)
 
     # Need to know how many total plots for outer gridspec (n).
     # +3 is to account for module-independent plots at end
@@ -286,11 +284,7 @@ Helper functions for quickplot()
 """
 
 
-def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
-                  r_idx=0):
-    rec = ctx[default][r_idx]
-    modelspec = ctx['modelspec']
-    modelspec.fit_index = m_idx
+def _get_plot_fns(rec, modelspec, default='val', epoch='TRIAL', occurrence=0, m_idx=0, r_idx=0):
 
     plot_fns = []
 
