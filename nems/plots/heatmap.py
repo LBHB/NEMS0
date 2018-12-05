@@ -95,7 +95,7 @@ def _get_fir_coefficients(modelspec, idx=0):
 
 
 def weight_channels_heatmap(modelspec, ax=None, clim=None, title=None,
-                            chans=None, wc_idx=0):
+                            chans=None, wc_idx=0, **options):
     coefficients = _get_wc_coefficients(modelspec, idx=wc_idx)
     if coefficients.shape[0]>coefficients.shape[1]:
         plot_heatmap(coefficients.T, xlabel='Channel Out', ylabel='Channel In',
@@ -109,7 +109,7 @@ def weight_channels_heatmap(modelspec, ax=None, clim=None, title=None,
 
 
 def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None,
-                fir_idx=0):
+                fir_idx=0, **options):
     coefficients = _get_fir_coefficients(modelspec, idx=fir_idx)
     plot_heatmap(coefficients, xlabel='Time Bin', ylabel='Channel In',
                  ax=ax, clim=clim, title=title)

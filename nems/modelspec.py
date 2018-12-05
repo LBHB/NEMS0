@@ -7,6 +7,7 @@ import numpy as np
 import scipy.stats as st
 import nems.utils
 import nems.uri
+import matplotlib.pyplot as plt
 
 # Functions for saving, loading, and evaluating modelspecs
 
@@ -144,7 +145,7 @@ class ModelSpec:
 
         module = self.get_module(mod_index)
         if plot_fn_idx is None:
-            plot_fn_idx = module.get('def_plot_fn_idx', 0)
+            plot_fn_idx = module.get('plot_fn_idx', 0)
         try:
             fn_path = module.get('plot_fns')[plot_fn_idx]
         except:
@@ -162,6 +163,17 @@ class ModelSpec:
         plot_fn = self.plot_fn(mod_index=mod_index, plot_fn_idx=plot_fn_idx,
                                fit_index=fit_index)
         plot_fn(rec=rec, modelspec=self, sig_name=sig_name, idx=mod_index, ax=ax)
+
+    def quickplot(self, rec=None):
+
+        if rec is None:
+            rec = self.plot_recording
+        fig = plt.figure()
+        plot_count = len(self)
+        for i in range(plot_count):
+            ax = fig.add_subplot(plot_count, 1, i+1)
+            self.plot(mod_index=i, rec=rec, ax=ax)
+        return fig
 
     def append(self, module):
         self.raw[0].append(module)
