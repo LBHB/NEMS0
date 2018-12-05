@@ -126,7 +126,7 @@ log.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
 log.info('Generating summary plot...')
 
 # Generate a summary plot
-context = {'val': val, 'modelspecs': modelspec.fits(), 'est': est}
+context = {'val': val, 'modelspec': modelspec, 'est': est}
 fig = nplt.quickplot(context)
 fig.show()
 

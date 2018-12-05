@@ -220,3 +220,35 @@ def before_and_after(rec, modelspec, sig_name, ax=None, title=None, idx=0,
     timeseries_from_signals([before, after], channels=channels,
                             xlabel=xlabel, ylabel=ylabel, ax=ax,
                             title=title)
+
+def mod_output(rec, modelspec, sig_name='pred', ax=None, title=None, idx=0,
+               channels=0, xlabel='Time', ylabel='Value', **options):
+    '''
+    Plots a time series of specified signal output by step in the modelspec.
+
+    Arguments:
+    ----------
+    rec : recording object
+        The dataset to use. See nems/recording.py.
+
+    modelspec : list of dicts
+        The transformations to perform. See nems/modelspec.py.
+
+    sig_name : str or list of strings
+        Specifies the signal in 'rec' to be examined.
+
+    idx : int
+        An index into the modelspec. rec[sig_name] will be plotted
+        as it exists after step idx-1 and after step idx.
+
+    Returns:
+    --------
+    None
+    '''
+    if type(sig_name) is str:
+        sig_name = [sig_name]
+
+    sig_list = [modelspec.evaluate(rec, stop=idx+1)[s] for s in sig_name]
+    timeseries_from_signals(sig_list, channels=channels,
+                            xlabel=xlabel, ylabel=ylabel, ax=ax,
+                            title=title)

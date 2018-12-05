@@ -120,7 +120,7 @@ def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None,
 
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
                  title=None, fs=None, chans=None, wc_idx=0, fir_idx=0,
-                 interpolation='none', absolute_value=False):
+                 interpolation='none', absolute_value=False, **options):
     """
     chans: list
        if not None, label each row of the strf with the corresponding
@@ -225,7 +225,7 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
 
 def strf_timeseries(modelspec, ax=None, clim=None, show_factorized=True,
                     show_fir_only=True,
-                    title=None, fs=1, chans=None):
+                    title=None, fs=1, chans=None, **options):
     """
     chans: list
        if not None, label each row of the strf with the corresponding

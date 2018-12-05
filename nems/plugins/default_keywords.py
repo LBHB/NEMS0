@@ -217,6 +217,10 @@ def fir(kw):
         template = {
             'fn': 'nems.modules.fir.basic',
             'fn_kwargs': {'i': 'pred', 'o': 'pred'},
+            'plot_fns': ['nems.plots.api.mod_output',
+                         'nems.plots.api.strf_heatmap',
+                         'nems.plots.api.strf_timeseries'],
+            'def_plot_fn_idx': 1,
             'prior': {
                 'coefficients': ('Normal', p_coefficients),
             }
@@ -226,6 +230,10 @@ def fir(kw):
             'fn': 'nems.modules.fir.filter_bank',
             'fn_kwargs': {'i': 'pred', 'o': 'pred',
                           'bank_count': n_banks},
+            'plot_fns': ['nems.plots.api.mod_output',
+                         'nems.plots.api.strf_heatmap',
+                         'nems.plots.api.strf_timeseries'],
+            'def_plot_fn_idx': 1,
             'prior': {
                 'coefficients': ('Normal', p_coefficients),
             }
