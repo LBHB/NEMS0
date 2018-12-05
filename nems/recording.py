@@ -819,6 +819,18 @@ class Recording:
 
         return rec
 
+    def jackknife_masks_by_time(self, njacks, tiled=True, invert=False):
+
+        signal_views = []
+        for jack_idx in range(njacks):
+            trec = self.jackknife_mask_by_time(njacks, jack_idx, tiled, invert)
+            signal_views += [trec.signals]
+        rec = self.copy()
+        rec.signal_views = signal_views
+        rec.signals = signal_views
+
+        return rec
+
     def jackknife_by_epoch(self, njacks, jack_idx, epoch_name,
                            tiled=True,invert=False,
                            only_signals=None, excise=False):
@@ -827,6 +839,8 @@ class Recording:
         set of data. If you would only like to jackknife certain signals,
         while copying all other signals intact, provide their names in a
         list to optional argument 'only_signals'.
+
+        DEPRECATED???-- use masks
         '''
         if excise and only_signals:
             raise Exception('Excising only some signals makes signals ragged!')
@@ -841,15 +855,6 @@ class Recording:
                                                     invert=invert, tiled=tiled)
         return Recording(signals=new_sigs)
 
-        # if signal_names is not None:
-        #     signals = {n: self.signals[n] for n in signal_names}
-        # else:
-        #     signals = self.signals
-
-        # kw = dict(regex=regex, invert=invert)
-        # split = {n: s.jackknifed_by_epochs(**kw) for n, s in signals.items()}
-        # return Recording(signals=split)
-
     def jackknife_by_time(self, nsplits, split_idx, only_signals=None,
                           invert=False, excise=False):
         '''
@@ -857,6 +862,8 @@ class Recording:
         set of data.  If you would only like to jackknife certain signals,
         while copying all other signals intact, provide their names in a
         list to optional argument 'only_signals'.
+
+        DEPRECATED??? -- use masks
         '''
         if excise and only_signals:
             raise Exception('Excising only some signals makes signals ragged!')

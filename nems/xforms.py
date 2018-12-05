@@ -543,26 +543,26 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
         return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
 
-def mask_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
+def mask_for_jackknife(rec, modelspec=None, epoch_name='REFERENCE',
                        by_time=False, njacks=10, IsReload=False, **context):
 
     if by_time != True:
-        est_out, val_out, modelspecs_out = \
-            preproc.mask_est_val_for_jackknife(rec, modelspecs=modelspecs,
+        est_out, val_out, modelspec_out = \
+            preproc.mask_est_val_for_jackknife(rec, modelspec=modelspec,
                                                epoch_name=epoch_name,
                                                njacks=njacks, IsReload=IsReload)
     else:
-        est_out, val_out, modelspecs_out = \
-            preproc.mask_est_val_for_jackknife_by_time(rec, modelspecs=modelspecs,
+        est_out, val_out, modelspec_out = \
+            preproc.mask_est_val_for_jackknife_by_time(rec, modelspec=modelspec,
                                                njacks=njacks, IsReload=IsReload)
 
     if IsReload:
         return {'est': est_out, 'val': val_out}
     else:
-        return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
+        return {'est': est_out, 'val': val_out, 'modelspec': modelspec_out}
 
 
-def jack_subset(est, val, modelspecs=None, IsReload=False,
+def jack_subset(est, val, modelspec=None, IsReload=False,
                 keep_only=1, **context):
 
     if keep_only == 1:
@@ -575,13 +575,14 @@ def jack_subset(est, val, modelspecs=None, IsReload=False,
     else:
         est = est.views(keep_only)[0]
         val = val.views(keep_only)[0]
-    if modelspecs is not None:
-        modelspecs_out = modelspecs[:keep_only]
+
+    if modelspec is not None:
+        modelspec_out = modelspec[:keep_only]
 
     if IsReload:
         return {'est': est, 'val': val}
     else:
-        return {'est': est, 'val': val, 'modelspecs': modelspecs_out}
+        return {'est': est, 'val': val, 'modelspec': modelspec_out}
 
 
 ###############################################################################
