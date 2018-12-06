@@ -77,7 +77,7 @@ class EditorWidget(qw.QWidget):
         return layout
 
     def _modelspec_setup(self):
-        spec = self.parent.ctx['modelspecs'][0]
+        spec = self.parent.ctx['modelspec']
         layout = qw.QVBoxLayout(self)
         for i, m in enumerate(spec):
             name = m['fn']
