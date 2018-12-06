@@ -37,11 +37,13 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
     mintime = np.inf
     maxtime = 0
     for t, v in zip(times, values):
-        gidx = np.isfinite(v)
-
         if colors is not None:
             opt = {'color': colors[cc]}
-        plt.plot(t[gidx], v[gidx], linestyle=linestyle, linewidth=linewidth, **opt)
+        if v.ndim==1:
+            v=v[:,np.newaxis]
+        for idx in range(v.shape[1]):
+            gidx = np.isfinite(v[:,idx])
+            plt.plot(t[gidx], v[gidx,idx], linestyle=linestyle, linewidth=linewidth, **opt)
         cc += 1
         mintime = np.min((mintime, np.min(t[gidx])))
         maxtime = np.max((maxtime, np.max(t[gidx])))
