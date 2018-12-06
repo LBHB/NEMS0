@@ -32,9 +32,11 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
     else:
         extent = None
 
-    plt.imshow(array, aspect='auto', origin='lower',
-               cmap=plt.get_cmap('jet'), clim=clim,
-               interpolation=interpolation, extent=extent)
+    if cmap is None:
+        cmap = plt.get_cmap('jet')
+
+    plt.imshow(array, aspect='auto', origin='lower', cmap=cmap,
+               clim=clim, interpolation=interpolation, extent=extent)
 
     # Force integer tick labels, skipping gaps
     #y, x = array.shape
@@ -99,10 +101,10 @@ def weight_channels_heatmap(modelspec, ax=None, clim=None, title=None,
     coefficients = _get_wc_coefficients(modelspec, idx=wc_idx)
     if coefficients.shape[0]>coefficients.shape[1]:
         plot_heatmap(coefficients.T, xlabel='Channel Out', ylabel='Channel In',
-                     ax=ax, clim=clim, title=title)
+                     ax=ax, clim=clim, title=title, cmap='bwr')
     else:
         plot_heatmap(coefficients, xlabel='Channel In', ylabel='Channel Out',
-                     ax=ax, clim=clim, title=title)
+                     ax=ax, clim=clim, title=title, cmap='bwr')
     if chans is not None:
         for i, c in enumerate(chans):
             plt.text(i, 0, c)

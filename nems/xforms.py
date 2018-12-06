@@ -744,7 +744,7 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
     return {'modelspec': modelspec}
 
 
-def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
+def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
                     module_sets=None, invert=False, tolerances=[1e-4],
                     metric='nmse', fitter='scipy_minimize', fit_kwargs={},
                     jackknifed_fit=False, random_sample_fit=False,
@@ -755,7 +755,7 @@ def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
 
     if not IsReload:
         if jackknifed_fit:
-            return fit_nfold(modelspecs, est, tol_iter=tol_iter,
+            return fit_nfold(modelspec, est, tol_iter=tol_iter,
                              fit_iter=fit_iter, module_sets=module_sets,
                              tolerances=tolerances, metric=metric,
                              fitter=fitter, fit_kwargs=fit_kwargs,
@@ -767,23 +767,21 @@ def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
                            'module_sets': module_sets, 'metric': metric_fn,
                            'fitter': fitter_fn, 'fit_kwargs': fit_kwargs}
             return fit_n_times_from_random_starts(
-                        modelspecs, est, ntimes=n_random_samples,
+                        modelspec, est, ntimes=n_random_samples,
                         subset=random_fit_subset,
                         analysis='fit_iteratively', iter_kwargs=iter_kwargs,
                         )
 
         else:
-            modelspecs = [
-                    nems.analysis.api.fit_iteratively(
-                            est, modelspec, fit_kwargs=fit_kwargs,
+            for fit_idx in range(modelspec.fit_count()):
+                modelspec = nems.analysis.api.fit_iteratively(
+                            est, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
                             fitter=fitter_fn, module_sets=module_sets,
                             invert=invert, tolerances=tolerances,
                             tol_iter=tol_iter, fit_iter=fit_iter,
-                            metric=metric_fn)[0]
-                    for modelspec in modelspecs
-                    ]
+                            metric=metric_fn)
 
-    return {'modelspecs': modelspecs}
+    return {'modelspec': modelspec}
 
 
 def fit_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
@@ -791,6 +789,7 @@ def fit_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
               analysis='fit_basic', tolerances=None, module_sets=None,
               tol_iter=100, fit_iter=20, **context):
     ''' fitting n fold, one from each entry in est '''
+    raise Warning("DEPRECATED?")
     if not IsReload:
         metric = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
         fitter_fn = getattr(nems.fitters.api, fitter)
