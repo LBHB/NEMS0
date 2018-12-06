@@ -191,6 +191,8 @@ def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
     :param context: dictionary of parameters/metadata that will be passed through to load_command
 
     :return: rec - NEMS recording object
+
+    TODO: option to re-cache
     """
     data_file = recording_filename_hash(exptid, context, nems.get_setting('NEMS_RECORDINGS_DIR'))
     if os.path.exists(data_file):
@@ -855,10 +857,10 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
                             state_sig='state_raw', state_chan=[])
         j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='pred',
                             state_sig='state_raw', state_chan=[], njacks=10)
-        modelspec.meta()['state_mod'] = s
-        modelspec.meta()['j_state_mod'] = j_s
-        modelspec.meta()['se_state_mod'] = ee
-        modelspec.meta()
+        modelspec.meta['state_mod'] = s
+        modelspec.meta['j_state_mod'] = j_s
+        modelspec.meta['se_state_mod'] = ee
+        modelspec.meta
         # Charlie testing diff ways to calculate mod index
 
         # try using resp
@@ -866,12 +868,12 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
                             state_sig='state_raw', state_chan=[])
         j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='resp',
                             state_sig='state_raw', state_chan=[], njacks=10)
-        modelspec.meta()['state_mod_r'] = s
-        modelspec.meta()['j_state_mod_r'] = j_s
-        modelspec.meta()['se_state_mod_r'] = ee
+        modelspec.meta['state_mod_r'] = s
+        modelspec.meta['j_state_mod_r'] = j_s
+        modelspec.meta['se_state_mod_r'] = ee
 
         # try using the "mod" signal (if it exists) which is calculated
-        if 'mod' in modelspec.meta()['modelname']:
+        if 'mod' in modelspec.meta['modelname']:
             s = metrics.state_mod_index(val, epoch='REFERENCE',
                                             psth_name='mod', divisor='resp',
                                             state_sig='state_raw', state_chan=[])
@@ -879,9 +881,9 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
                                             psth_name='mod', divisor='resp',
                                             state_sig='state_raw', state_chan=[],
                                             njacks=10)
-            modelspec.meta()['state_mod_m'] = s
-            modelspec.meta()['j_state_mod_m'] = j_s
-            modelspec.meta()['se_state_mod_m'] = ee
+            modelspec.meta['state_mod_m'] = s
+            modelspec.meta['j_state_mod_m'] = j_s
+            modelspec.meta['se_state_mod_m'] = ee
 
     return {'modelspec': modelspec}
 
@@ -1042,7 +1044,7 @@ def evaluate_context(ctx, rec_key='val', rec_idx=0, mspec_idx=0, start=None,
 def get_meta(ctx, mspec_idx=0, mod_idx=0):
     if (mspec_idx > 0) or (mod_idx >0):
         raise ValueError("meta indexing not supported")
-    return ctx['modelspec'].meta()
+    return ctx['modelspec'].meta
 
 
 def get_modelspec(ctx, mspec_idx=0):

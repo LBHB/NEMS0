@@ -605,11 +605,11 @@ def update_results_table(modelspec, preview=None,
     db_tables = Tables()
     NarfResults = db_tables['NarfResults']
     session = Session()
-    cellids = modelspec.meta().get('cellids', [modelspec.meta()['cellid']])
+    cellids = modelspec.meta.get('cellids', [modelspec.meta['cellid']])
 
     for cellid in cellids:
-        batch = modelspec.meta()['batch']
-        modelname = modelspec.meta()['modelname']
+        batch = modelspec.meta['batch']
+        modelname = modelspec.meta['modelname']
 
         r = (
             session.query(NarfResults)

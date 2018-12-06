@@ -109,6 +109,6 @@ xforms.save_analysis(destination,
 # save summary of results to a database
 log.info('Saving metadata to db  ...')
 modelspec = ctx['modelspec']
-modelspec.meta()['modelpath'] = destination
-modelspec.meta()['figurefile'] = destination + 'figure.0000.png'
+modelspec.meta['modelpath'] = destination
+modelspec.meta['figurefile'] = destination + 'figure.0000.png'
 nd.update_results_table(modelspec)

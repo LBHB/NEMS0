@@ -172,12 +172,12 @@ modelspec = nems.analysis.api.standard_correlation(est, val, modelspec)
 s = nems.metrics.api.state_mod_index(val, epoch='REFERENCE',
                                      psth_name='pred',
                                     state_sig='state', state_chan=[])
-modelspec.meta()['state_mod'] = s
-modelspec.meta()['state_chans'] = est['state'].chans
+modelspec.meta['state_mod'] = s
+modelspec.meta['state_chans'] = est['state'].chans
 
 logging.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
-        modelspec.meta()['r_fit'][0],
-        modelspec.meta()['r_test'][0]))
+        modelspec.meta['r_fit'][0],
+        modelspec.meta['r_test'][0]))
 
 print(single_state_mod_index(val, modelspec, state_chan="pupil"))
 
@@ -191,4 +191,4 @@ logging.info('Generating summary plot...')
 
 # Generate a summary plot
 #fig = nplt.quickplot({'val': vals, 'modelspecs': modelspecs})
-fig = nplt.model_per_time({'val': val, 'modelspecs': modelspec.fits()})
+fig = nplt.model_per_time({'val': val, 'modelspec': modelspec})

@@ -45,7 +45,7 @@ class ModelSpec:
             if type(key) is slice:
                 return [self.raw[self.fit_index][ii] for ii in range(*key.indices(len(self)))]
             elif key=='meta':
-                return self.meta()
+                return self.meta
             elif key=='phi':
                 return self.phi()
             else:
@@ -121,13 +121,11 @@ class ModelSpec:
 
         return m_list
 
-    def meta(self, key=None):
+    @property
+    def meta(self):
         if self.raw[0][0].get('meta') is None:
             self.raw[0][0]['meta'] = {}
-        if key is None:
-            return self.raw[0][0]['meta']
-        else:
-            return self.raw[0][0]['meta'][key]
+        return self.raw[0][0]['meta']
 
     def fn(self):
         return [m['fn'] for m in self.raw[0]]
@@ -253,7 +251,7 @@ class ModelSpec:
         Returns a LONG name for this modelspec suitable for use in saving to disk
         without a path.
         '''
-        meta = self.meta()
+        meta = self.meta
 
         recording_name = meta.get('exptid')
         if recording_name is None:
@@ -276,7 +274,7 @@ def get_modelspec_metadata(modelspec):
     Returns a dict of the metadata for this modelspec. Purely by convention,
     metadata info for the entire modelspec is stored in the first module.
     '''
-    return modelspec.meta()
+    return modelspec.meta
 
 
 def set_modelspec_metadata(modelspec, key, value):
@@ -284,7 +282,7 @@ def set_modelspec_metadata(modelspec, key, value):
     Sets a key/value pair in the modelspec's metadata. Purely by convention,
     metadata info for the entire modelspec is stored in the first module.
     '''
-    if not modelspec.meta():
+    if not modelspec.meta:
         modelspec[0]['meta'] = {}
     modelspec[0]['meta'][key] = value
     return modelspec

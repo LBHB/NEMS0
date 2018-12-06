@@ -123,8 +123,8 @@ est, val = nems.analysis.api.generate_prediction(est, val, modelspec)
 modelspec = nems.analysis.api.standard_correlation(est, val, modelspec)
 
 log.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
-        modelspec.meta()['r_fit'][0],
-        modelspec.meta()['r_test'][0]))
+        modelspec.meta['r_fit'][0],
+        modelspec.meta['r_test'][0]))
 
 # ----------------------------------------------------------------------------
 # SAVE YOUR RESULTS
