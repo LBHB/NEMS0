@@ -122,6 +122,9 @@ class ModelSpec:
         return m_list
 
     def meta(self):
+        if self.raw[0][0].get('meta') is None:
+            self.raw[0][0]['meta'] = {}
+
         return self.raw[0][0]['meta']
 
     def fn(self):

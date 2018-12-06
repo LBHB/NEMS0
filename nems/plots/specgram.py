@@ -62,7 +62,10 @@ def spectrogram_from_epoch(signal, epoch, occurrence=0, ax=None, title=None,
 def spectrogram(rec, stim_name='stim', ax=None, title=None, idx=0,
                 channels=0, xlabel='Time', ylabel='Value', **options):
     # TODO: How can the colorbar be scaled to match other signals?
-    signal = rec.apply_mask()[stim_name]
-    print(signal.shape)
+    if 'mask' in rec.signals.keys():
+        signal = rec.apply_mask()[stim_name]
+    else:
+        signal = rec[stim_name]
+
     array = signal.as_continuous()
     plot_spectrogram(array, fs=signal.fs, title=title, ax=None)

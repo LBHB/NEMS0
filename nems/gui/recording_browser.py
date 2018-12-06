@@ -29,7 +29,7 @@ from functools import wraps
 import pandas as pd
 
 import matplotlib
-matplotlib.use("Qt5Agg")
+#matplotlib.use("Qt5Agg")
 import matplotlib.ticker as tkr
 import numpy as np
 

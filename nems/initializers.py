@@ -279,7 +279,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
     # reassemble the full modelspec with updated phi values from tmodelspec
     #print(modelspec[0])
     #print(tmodelspec[0])
-    for i in np.setdiff1d(np.arange(target_i), np.array(exclude_idx)):
+    for i in np.setdiff1d(np.arange(target_i), np.array(exclude_idx)).tolist():
         modelspec[int(i)] = tmodelspec[int(i)]
 
     return modelspec

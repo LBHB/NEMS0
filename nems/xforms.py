@@ -575,12 +575,15 @@ def jack_subset(est, val, modelspec=None, IsReload=False,
         val['resp']=val['resp'].rasterize()
         est['stim']=est['stim'].rasterize()
         val['stim']=val['stim'].rasterize()
+
     else:
         est = est.views(keep_only)[0]
         val = val.views(keep_only)[0]
 
     if modelspec is not None:
-        modelspec_out = modelspec[:keep_only]
+        modelspec_out = modelspec.copy()
+        modelspec_out.raw = modelspec_out.raw[:keep_only]
+        modelspec_out.fit_index = 0
 
     if IsReload:
         return {'est': est, 'val': val}
