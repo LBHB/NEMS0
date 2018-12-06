@@ -510,7 +510,7 @@ class ApplicationWindow(qw.QMainWindow):
         self.display_range.setValidator(
                 qg.QDoubleValidator(self.minimum_duration, 10000.0, 4)
                 )
-        self.display_range.textChanged.connect(self.set_display_range)
+        self.display_range.editingFinished.connect(self.set_display_range)
         self.display_range.setText(str(self.display_duration))
 
         # Increment / Decrement zoom
@@ -522,7 +522,6 @@ class ApplicationWindow(qw.QMainWindow):
         range_layout = qw.QHBoxLayout()
         [range_layout.addWidget(w) for w in [self.display_range, plus, minus]]
         self.outer_layout.addLayout(range_layout)
-
 
         # control buttons
         qbtn = qw.QPushButton('Quit', self)
@@ -552,6 +551,7 @@ class ApplicationWindow(qw.QMainWindow):
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
         self.statusBar().showMessage("Welcome to the NEMS recording browser", 2000)
+        self._update_range()
 
     # Plot Window adjusters
     #@show_exceptions('bool')
@@ -605,6 +605,8 @@ class ApplicationWindow(qw.QMainWindow):
 
     def _update_range(self):
         self.time_slider.setRange(0, self.max_time-self.display_duration)
+        self.time_slider.setSingleStep(int(np.ceil(self.display_duration/10)))
+        self.time_slider.setPageStep(int(self.display_duration))
         self.scroll_all()
 
     # Add / Remove plots

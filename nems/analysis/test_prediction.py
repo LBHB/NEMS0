@@ -226,7 +226,7 @@ def correlation_per_model(est, val, modelspecs, rec=None):
     return modelspecs
 
 
-def standard_correlation_by_epochs(est,val,modelspecs,epochs_list, rec=None):
+def standard_correlation_by_epochs(est,val,modelspec=None,modelspecs=None,epochs_list=None, rec=None):
 
     #Does the same thing as standard_correlation, excpet with subsets of data
     #defined by epochs_list
@@ -236,6 +236,17 @@ def standard_correlation_by_epochs(est,val,modelspecs,epochs_list, rec=None):
     #For example, ['A', 'B', ['A', 'B']] will measure correlations separately
     # for all epochs marked 'A', all epochs marked 'B', and all epochs marked
     # 'A'or 'B'
+  
+    if modelspecs is None:
+        list_modelspec = (type(modelspec) is list)
+        if modelspec is None:
+            raise ValueError('modelspecs or modelspec required for input')
+        if list_modelspec:
+            modelspecs = modelspec
+        else:
+            modelspecs = modelspec.fits()
+    else:
+        list_modelspec = True
 
     for epochs in epochs_list:
         # Create a label for this subset. If epochs is a list, join elements with "+"
@@ -277,7 +288,11 @@ def standard_correlation_by_epochs(est,val,modelspecs,epochs_list, rec=None):
         modelspecs[0][0]['meta'][epoch_list_str]['mse_fit'] = np.mean(mse_fit)
         modelspecs[0][0]['meta'][epoch_list_str]['ll_fit'] = np.mean(ll_fit)
 
-    return modelspecs
+    if list_modelspec:
+        # backward compatibility
+        return modelspecs
+    else:
+        return modelspecs[0]
 
 
 def generate_prediction_sets(est, val, modelspecs):

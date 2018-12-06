@@ -37,11 +37,13 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
     mintime = np.inf
     maxtime = 0
     for t, v in zip(times, values):
-        gidx = np.isfinite(v)
-
         if colors is not None:
             opt = {'color': colors[cc]}
-        plt.plot(t[gidx], v[gidx], linestyle=linestyle, linewidth=linewidth, **opt)
+        if v.ndim==1:
+            v=v[:,np.newaxis]
+        for idx in range(v.shape[1]):
+            gidx = np.isfinite(v[:,idx])
+            plt.plot(t[gidx], v[gidx,idx], linestyle=linestyle, linewidth=linewidth, **opt)
         cc += 1
         mintime = np.min((mintime, np.min(t[gidx])))
         maxtime = np.max((maxtime, np.max(t[gidx])))
@@ -99,7 +101,7 @@ def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
     plot_timeseries(times, values, xlabel, ylabel, legend=legend,
                     linestyle=linestyle, linewidth=linewidth,
                     ax=ax, title=title)
-
+    return ax
 
 def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
                           xlabel='Time', ylabel='Value',
@@ -254,11 +256,14 @@ def mod_output(rec, modelspec, sig_name='pred', ax=None, title=None, idx=0,
     if type(sig_name) is str:
         sig_name = [sig_name]
 
-    trec = modelspec.evaluate(rec, stop=idx+1).apply_mask()
+    trec = modelspec.evaluate(rec, stop=idx+1)
+    if 'mask' in trec.signals.keys():
+        trec = trec.apply_mask()
+
     sigs = [trec[s] for s in sig_name]
     ax = timeseries_from_signals(sigs, channels=channels,
-                            xlabel=xlabel, ylabel=ylabel, ax=ax,
-                            title=title)
+                                 xlabel=xlabel, ylabel=ylabel, ax=ax,
+                                 title=title)
     return ax
 
 def pred_resp(rec, modelspec, ax=None, title=None,

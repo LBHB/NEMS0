@@ -9,6 +9,7 @@ Created on Tue Jan 23 10:11:40 2018
 import nems.plots.api as nplt
 import nems.db as nd
 import nems.xforms as xforms
+from nems.gui.recording_browser import browse_recording, browse_context
 
 cellid='TAR010c-18-1'
 batch=271
@@ -25,3 +26,6 @@ ctx, log_xf = xforms.evaluate(xfspec, ctx)
 
 #nplt.quickplot(ctx)
 ctx['modelspec'].quickplot(ctx['val'])
+
+aw = browse_context(ctx, signals=['stim', 'pred', 'resp'])
+

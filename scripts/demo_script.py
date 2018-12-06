@@ -6,7 +6,6 @@ import logging
 import pandas as pd
 import pickle
 
-from nems.gui.recording_browser import browse_recording, browse_context
 import nems
 import nems.initializers
 import nems.priors
@@ -134,7 +133,7 @@ fig.show()
 # fname = nplt.save_figure(fig, modelspecs=modelspecs, save_dir=modelspecs_dir)
 
 # browse the validation data
-#aw = browse_recording(val[0], signals=['stim', 'pred', 'resp'], cellid=cellid)
+#aw = browse_recording(val, signals=['stim', 'pred', 'resp'], cellid=cellid)
 
 
 
