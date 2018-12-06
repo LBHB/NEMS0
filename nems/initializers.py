@@ -250,7 +250,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
                 exclude_idx.append(i)
                 # log.info(m)
 
-        if ('levelshift' in m['fn']) and (m.get('phi') is None):
+        if ('levelshift' in m['fn']):
             m = priors.set_mean_phi([m])[0]
             try:
                 mean_resp = np.nanmean(rec['resp'].as_continuous(), axis=1, keepdims=True)
