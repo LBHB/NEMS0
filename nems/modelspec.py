@@ -34,9 +34,9 @@ class ModelSpec:
         else:
             self.fit_index = fit_index
         self.mod_index = 0
-        self.plot_recording = None
         self.plot_epoch = 'REFERENCE'
         self.plot_occurrence = 0
+        self.recording = None  # default recording for evaluation & plotting
 
     def __getitem__(self, key):
         try:
@@ -121,11 +121,13 @@ class ModelSpec:
 
         return m_list
 
-    def meta(self):
+    def meta(self, key=None):
         if self.raw[0][0].get('meta') is None:
             self.raw[0][0]['meta'] = {}
-
-        return self.raw[0][0]['meta']
+        if key is None:
+            return self.raw[0][0]['meta']
+        else:
+            return self.raw[0][0]['meta'][key]
 
     def fn(self):
         return [m['fn'] for m in self.raw[0]]
@@ -161,7 +163,7 @@ class ModelSpec:
         """generate plot for a single module"""
 
         if rec is None:
-            rec = self.plot_recording
+            rec = self.recording
 
         plot_fn = self.plot_fn(mod_index=mod_index, plot_fn_idx=plot_fn_idx,
                                fit_index=fit_index)
@@ -170,7 +172,7 @@ class ModelSpec:
     def quickplot(self, rec=None):
 
         if rec is None:
-            rec = self.plot_recording
+            rec = self.recording
         fig = plt.figure()
         plot_count = len(self)
         for i in range(plot_count):
@@ -204,10 +206,12 @@ class ModelSpec:
 
         return priors
 
-    def evaluate(self, rec, start=None, stop=None):
+    def evaluate(self, rec=None, start=None, stop=None):
         """
         Evaluate the Model on a recording.
         """
+        if rec is None:
+            rec = self.recording
         rec = evaluate(rec, self.raw[self.fit_index], start=start, stop=stop)
 
         return rec
@@ -237,13 +241,42 @@ class ModelSpec:
             result.update(module_output)
         return result
 
+    def get_shortname(self):
+        '''
+        Returns a string that is just the module ids in this modelspec.
+        '''
+        keyword_string = '_'.join([m['id'] for m in self])
+        return keyword_string
+
+    def get_longname(self):
+        '''
+        Returns a LONG name for this modelspec suitable for use in saving to disk
+        without a path.
+        '''
+        meta = self.meta()
+
+        recording_name = meta.get('exptid')
+        if recording_name is None:
+            recording_name = meta.get('recording', 'unknown_recording')
+
+        keyword_string = get_modelspec_shortname(self)
+        fitter_name = meta.get('fitkey', meta.get('fitter', 'unknown_fitter'))
+        date = nems.utils.iso8601_datestring()
+        guess = '.'.join([recording_name, keyword_string, fitter_name, date])
+
+        # remove problematic characters
+        guess = re.sub('[:]', '', guess)
+        guess = re.sub('[,]', '', guess)
+
+        return guess
+
 
 def get_modelspec_metadata(modelspec):
     '''
     Returns a dict of the metadata for this modelspec. Purely by convention,
     metadata info for the entire modelspec is stored in the first module.
     '''
-    return modelspec[0].get('meta', {})
+    return modelspec.meta()
 
 
 def set_modelspec_metadata(modelspec, key, value):
@@ -261,8 +294,7 @@ def get_modelspec_shortname(modelspec):
     '''
     Returns a string that is just the module ids in this modelspec.
     '''
-    keyword_string = '_'.join([m['id'] for m in modelspec])
-    return keyword_string
+    return modelspec.get_shortname()
 
 
 def get_modelspec_longname(modelspec):
@@ -270,21 +302,7 @@ def get_modelspec_longname(modelspec):
     Returns a LONG name for this modelspec suitable for use in saving to disk
     without a path.
     '''
-    meta = get_modelspec_metadata(modelspec)
-
-    recording_name = meta.get('exptid')
-    if recording_name is None:
-        recording_name = meta.get('recording', 'unknown_recording')
-
-    keyword_string = get_modelspec_shortname(modelspec)
-    fitter_name = meta.get('fitkey', meta.get('fitter', 'unknown_fitter'))
-    date = nems.utils.iso8601_datestring()
-    guess = '.'.join([recording_name, keyword_string, fitter_name, date])
-
-    guess = re.sub('[:]', '', guess)
-    guess = re.sub('[,]', '', guess)
-
-    return guess
+    return modelspec.get_longname()
 
 
 def _modelspec_filename(basepath, number):

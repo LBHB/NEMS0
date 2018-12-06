@@ -4,8 +4,8 @@
 import os
 import logging
 import sys
-import nems
 
+import nems
 import nems.initializers
 import nems.priors
 import nems.preprocessing as preproc
@@ -16,6 +16,7 @@ import nems.utils
 import nems.uri
 import nems.xforms as xforms
 import nems.db as nd
+import nems.recording as recording
 
 from nems.recording import Recording
 from nems.fitters.api import scipy_minimize
@@ -31,7 +32,7 @@ signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
 
 # ----------------------------------------------------------------------------
 # DATA LOADING & PRE-PROCESSING
-recording_uri = os.path.join(signals_dir, "TAR010c-18-1.tgz")
+recording.get_demo_recordings(name="TAR010c-18-1.pkl")
 
 datafile = os.path.join(signals_dir, "TAR010c-18-1.pkl")
 load_command = 'nems.demo.loaders.demo_loader'
@@ -40,9 +41,9 @@ batch = 271
 cellid = "TAR010c-18-1"
 
 # MODEL SPEC
-#modelspecname = 'dlog-wc.18x1.g-stp.1-fir.1x15-lvl.1-dexp.1'
 #modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
 modelspecname = 'dlog-wc.18x1.g-fir.1x15-lvl.1'
+#modelspecname = 'dlog-wc.18x1.g-stp.1-fir.1x15-lvl.1-dexp.1'
 
 
 # generate modelspec
