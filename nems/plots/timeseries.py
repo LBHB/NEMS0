@@ -99,7 +99,7 @@ def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
     plot_timeseries(times, values, xlabel, ylabel, legend=legend,
                     linestyle=linestyle, linewidth=linewidth,
                     ax=ax, title=title)
-
+    return ax
 
 def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
                           xlabel='Time', ylabel='Value',
@@ -254,11 +254,14 @@ def mod_output(rec, modelspec, sig_name='pred', ax=None, title=None, idx=0,
     if type(sig_name) is str:
         sig_name = [sig_name]
 
-    trec = modelspec.evaluate(rec, stop=idx+1).apply_mask()
+    trec = modelspec.evaluate(rec, stop=idx+1)
+    if 'mask' in trec.signals.keys():
+        trec = trec.apply_mask()
+
     sigs = [trec[s] for s in sig_name]
     ax = timeseries_from_signals(sigs, channels=channels,
-                            xlabel=xlabel, ylabel=ylabel, ax=ax,
-                            title=title)
+                                 xlabel=xlabel, ylabel=ylabel, ax=ax,
+                                 title=title)
     return ax
 
 def pred_resp(rec, modelspec, ax=None, title=None,
