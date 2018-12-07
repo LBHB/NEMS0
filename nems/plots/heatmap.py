@@ -249,7 +249,7 @@ def strf_timeseries(modelspec, ax=None, clim=None, show_factorized=True,
             strf = fir_coefs
 
     times = np.arange(strf.shape[1])/fs
-    strf_h=plot_timeseries([times], [strf.T], xlabel='Time lag', ylabel='Gain',
+    _,strf_h=plot_timeseries([times], [strf.T], xlabel='Time lag', ylabel='Gain',
                     legend=chans, linestyle='-', linewidth=1,
                     ax=ax, title=title)
     plt.plot(times[[0, len(times)-1]], np.array([0, 0]), linewidth=0.5, color='gray')
@@ -258,7 +258,7 @@ def strf_timeseries(modelspec, ax=None, clim=None, show_factorized=True,
         wcN=wcc.shape[0]
         
         ax.set_prop_cycle(None)
-        fir_h=plot_timeseries([times], [firc.T], xlabel='Time lag', ylabel='Gain',legend=chans, linestyle='--', linewidth=1,ax=ax, title=title)
+        _,fir_h=plot_timeseries([times], [firc.T], xlabel='Time lag', ylabel='Gain',legend=chans, linestyle='--', linewidth=1,ax=ax, title=title)
         
         ax.set_prop_cycle(None)
         weight_x=np.arange(-1*wcN,0)
