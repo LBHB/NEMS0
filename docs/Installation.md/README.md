@@ -1,15 +1,6 @@
-# NEMS #
+# Installing NEMS #
 
-NEMS is the Neural Encoding Model System. It is helpful for fitting a mathematical 
-model to time series data, plotting the model predictions, and comparing the predictive 
-accuracy of multiple models. We use it to develop and test [computational models of how
-sound is encoded in the brains of behaving mammals](https://hearingbrain.org), but it will 
-probably work with your timeseries data as well.
-
-
-## Installation
-
-### Generic Python Install
+## Generic Python Install
 
 Download NEMS:
 ```
@@ -47,26 +38,12 @@ Then add the NEMS library via pip (where "NEMS" is the installation directory):
 pip install -e NEMS
 ```
 
-### Conda and MKL
+## Other installation options
 
-Although NEMS will work with most python3 implementations, we recommend using an 
-environment compiled against Intel MKL library and the most 
-recent version of numpy. In our performance tests, we have found that use of these 
-libraries can make NEMS run nearly *twice* as fast as the python that comes installed on 
-most linux distributions. 
-
-To use MKL, follow the Conda instructions above but create your environment using this 
-command:
-
-```
-conda create -n nemsenv python=3 -c intel
-```
-
-
-### Other installation options
-
-NEMS is designed to use Python 3. Backwards compatibility with Python 2 is untested and 
-unsupported.
+We have found that Python 3 distributions compiled with the Intel MKL libraries are about twice as fast 
+as the default Python implementations that come installed on many linux machines. 
+Please see our (slightly outdated) [conda installation instructions](docs/conda.md) if you 
+would like to set up a python environment like the way that we do. NOTE: NEMS is designed to use Python 3. Backwards compatibility with Python 2 is untested and unsupported.
 
 Alternatively (not recommended), you may install all the dependencies on your own, e.g.,
 ```
