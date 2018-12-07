@@ -17,6 +17,7 @@ import nems.epoch as ep
 from nems.signal import SignalBase, RasterizedSignal, merge_selections, \
                         list_signals, load_signal, load_signal_from_streams
 from nems.utils import recording_filename_hash
+from nems import get_setting
 
 log = logging.getLogger(__name__)
 
@@ -28,6 +29,8 @@ class Recording:
         Signals argument should be a dictionary of signal objects.
         '''
         self.signals = signals
+        self.signal_views = [signals]
+        self.view_idx = 0
 
         # Verify that all signals are from the same recording
         recordings = [s.recording for s in self.signals.values()]
@@ -51,10 +54,14 @@ class Recording:
         '''
         Returns a copy of this recording.
         '''
-        signals = self.signals.copy()
-        other = Recording(signals, meta=self.meta.copy())
+        signal_views = [s.copy() for s in self.signal_views]
+        other = Recording(signal_views[self.view_idx], meta=self.meta.copy())
+        other.signal_views = signal_views
+        other.view_idx = self.view_idx
+        other.signals = signal_views[other.view_idx]
+
         for k, v in vars(self).items():
-            if k == 'signals':
+            if k in ['signals', 'signal_views', 'view_idx']:
                 continue
             setattr(other, k, copy.copy(v))
         return other
@@ -82,11 +89,48 @@ class Recording:
     # See: https://docs.python.org/3/reference/datamodel.html?emulating-container-types#emulating-container-types
 
     def __getitem__(self, key):
-        return self.get_signal(key)
+        if type(key) is int:
+            return self.signal_views[key]
+        else:
+            return self.get_signal(key)
 
     def __setitem__(self, key, val):
         val.name = key
         self.add_signal(val)
+
+    def set_view(self, view_idx=0):
+        """choose a different view, typically a different masking for jackknifing.
+        returns a shallow copy of the recording, signals preserved in place"""
+        rec = self.copy()
+        rec.signals = rec.signal_views[view_idx]
+        rec.view_idx = view_idx
+
+        return rec
+
+    def views(self, view_range=None):
+        rec = self.copy()
+
+        if view_range is not None:
+            if type(view_range) is int:
+                rec.signal_views = [rec.signal_views[view_range]]
+            else:
+                rec.signal_views = rec.signal_views[view_range]
+
+        """return a list of all views of this recording"""
+        return [rec.set_view(i) for i in range(rec.view_count())]
+
+    def view_count(self):
+        """return how many views exist in this recording"""
+        return len(self.signal_views)
+
+    def tile_views(self, view_count=1):
+        """repeat current signals dict view_count times in self.signal views
+        returns a shallow copy of the recording, signals preserved in place"""
+        rec = self.copy()
+
+        rec.signal_views = [rec.signals] * view_count
+        rec.view_idx = 0
+        return rec
 
     @staticmethod
     def load(uri):
@@ -496,14 +540,14 @@ class Recording:
         est = Recording(signals=est)
         val = Recording(signals=val)
 
- 
+
         est = est.and_mask(np.isfinite(est['resp'].as_continuous()[0,:]))
         val = val.and_mask(np.isfinite(val['resp'].as_continuous()[0,:]))
 #        if 'mask' in est.signals.keys():
 #            log.info('mask exists, Merging (AND) with masks for partitioned est,val signals')
 #            m = est['mask'].as_continuous().squeeze()
 #            est = est.create_mask(np.logical_and(m,np.isfinite(est['resp'].as_continuous()[0,:])))
-#            val = val.create_mask(np.logical_and(m,np.isfinite(val['resp'].as_continuous()[0,:])))        
+#            val = val.create_mask(np.logical_and(m,np.isfinite(val['resp'].as_continuous()[0,:])))
 #        else:
 #            log.info('creating masks for partitioned est,val signals')
 #            est = est.create_mask(np.isfinite(est['resp'].as_continuous()[0,:]))
@@ -558,7 +602,7 @@ class Recording:
         repetitions of the same stimuli so that we can more accurately estimate the peri-
         stimulus time histogram (PSTH). This function tries to split the data into those
         two data sets based on the epoch occurrence counts.
-        ''' 
+        '''
         groups = ep.group_epochs_by_occurrence_counts(self.epochs, epoch_regex)
         if len(groups) > 2:
             l=np.array(list(groups.keys()))
@@ -697,6 +741,19 @@ class Recording:
 
         return rec
 
+    def jackknife_masks_by_epoch(self, njacks, epoch_name,
+                                 tiled=True, invert=False):
+        signal_views = []
+        for jack_idx in range(njacks):
+            trec = self.jackknife_mask_by_epoch(njacks, jack_idx, epoch_name,
+                                                tiled, invert)
+            signal_views += [trec.signals]
+        rec = self.copy()
+        rec.signal_views = signal_views
+        rec.signals = signal_views
+
+        return rec
+
     def jackknife_mask_by_time(self, njacks, jack_idx, tiled=True,
                                invert=False):
         '''
@@ -762,6 +819,18 @@ class Recording:
 
         return rec
 
+    def jackknife_masks_by_time(self, njacks, tiled=True, invert=False):
+
+        signal_views = []
+        for jack_idx in range(njacks):
+            trec = self.jackknife_mask_by_time(njacks, jack_idx, tiled, invert)
+            signal_views += [trec.signals]
+        rec = self.copy()
+        rec.signal_views = signal_views
+        rec.signals = signal_views
+
+        return rec
+
     def jackknife_by_epoch(self, njacks, jack_idx, epoch_name,
                            tiled=True,invert=False,
                            only_signals=None, excise=False):
@@ -770,6 +839,8 @@ class Recording:
         set of data. If you would only like to jackknife certain signals,
         while copying all other signals intact, provide their names in a
         list to optional argument 'only_signals'.
+
+        DEPRECATED???-- use masks
         '''
         if excise and only_signals:
             raise Exception('Excising only some signals makes signals ragged!')
@@ -784,15 +855,6 @@ class Recording:
                                                     invert=invert, tiled=tiled)
         return Recording(signals=new_sigs)
 
-        # if signal_names is not None:
-        #     signals = {n: self.signals[n] for n in signal_names}
-        # else:
-        #     signals = self.signals
-
-        # kw = dict(regex=regex, invert=invert)
-        # split = {n: s.jackknifed_by_epochs(**kw) for n, s in signals.items()}
-        # return Recording(signals=split)
-
     def jackknife_by_time(self, nsplits, split_idx, only_signals=None,
                           invert=False, excise=False):
         '''
@@ -800,6 +862,8 @@ class Recording:
         set of data.  If you would only like to jackknife certain signals,
         while copying all other signals intact, provide their names in a
         list to optional argument 'only_signals'.
+
+        DEPRECATED??? -- use masks
         '''
         if excise and only_signals:
             raise Exception('Excising only some signals makes signals ragged!')
@@ -811,27 +875,58 @@ class Recording:
                                                    invert=invert, excise=excise)
         return Recording(signals=new_sigs)
 
-# moved to independent function, below
-#    @staticmethod
-#    def jackknife_inverse_merge(rec_list):
-#        '''
-#        merges list of jackknife validation data into a signal recording
-#        '''
-#        if type(rec_list) is not list:
-#            raise ValueError('Expecting list of recordings')
-#        new_sigs = {}
-#        rec1=rec_list[0]
-#        for sn in rec1.signals.keys():
-#            sig_list=[r[sn] for r in rec_list]
-#            #new_sigs[sn]=sig_list[0].jackknife_inverse_merge(sig_list)
-#            new_sigs[sn]=merge_selections(sig_list)
-#        return Recording(signals=new_sigs)
-
     def jackknifes_by_epoch(self, nsplits, epoch_name, only_signals=None):
         raise NotImplementedError         # TODO
 
     def jackknifes_by_time(self, nsplits, only_signals=None):
         raise NotImplementedError         # TODO
+
+    def jackknife_inverse_merge(self):
+        '''
+        merges views from jackknife validation data into a single view
+
+        currently two different approaches, depending on whether mask signal
+        is present.
+        '''
+        if self.view_count() == 1:
+            raise ValueError('Expecting recording with multiple views')
+
+        sig_list = list(self.signals.keys())
+        if 'mask' in sig_list:
+            # new system: using mask==True to identify valid segment from
+            # each signal  -- only pred and mask, since those are the only
+            # ones that should be modified???
+            new_sigs = {}
+
+            # for sn in ['pred', 'mask', 'stim', 'psth']:
+            for sn in sig_list:
+                r = self[sn]
+                if type(r._data) is np.ndarray:
+                    _data = np.zeros(r.shape, dtype=r._data.dtype)
+                    if not (_data.dtype == bool):
+                        _data[:] = np.nan
+                else:
+                    _data = np.zeros(r.shape)
+                    _data[:] = np.nan
+
+                # print(sn)
+                # print(np.sum(np.isfinite(_data)))
+                for r in self.views():
+                    m = r['mask'].as_continuous()[0, :].astype(bool)
+                    _data[:, m] = r[sn].rasterize().as_continuous()[:, m]
+                    # if sn=='pred':
+                    #    print(np.sum(m))
+                    #    print(np.sum(np.isfinite(_data)))
+                new_sigs[sn] = self[sn].rasterize()._modified_copy(_data)
+                # print(np.sum(np.isfinite(new_sigs[sn].as_continuous())))
+        else:
+            new_sigs = {}
+            for sn in sig_list:
+                sig_list = [r[sn] for r in self.views()]
+                # new_sigs[sn]=sig_list[0].jackknife_inverse_merge(sig_list)
+                new_sigs[sn] = merge_selections(sig_list)
+
+        return Recording(signals=new_sigs, meta=self.meta.copy())
 
     def concatenate_recordings(self, recordings):
         '''
@@ -895,7 +990,6 @@ class Recording:
              if list of strings (epoch names), mask is OR combo of all strings
              if list of tuples (epoch times), mask is OR combo of all epoch times
 
-        TODO: remove unnecessary deepcopys from this and subsequent functions
         TODO: add epochs, base signal parameters
         '''
 
@@ -912,7 +1006,7 @@ class Recording:
             # Only rasterized signals support _modified_copy
             mask_sig = base_signal.rasterize()._modified_copy(mask)
         mask_sig.name = 'mask'
-        
+
         rec.add_signal(mask_sig)
 
         return rec
@@ -949,7 +1043,7 @@ class Recording:
         Make rec['mask'] == True for all epochs where current mask is also true.
         Mask is created if it doesn't exist
         See create_mask for input formats for 'epoch'
-        
+
         example use:
             newrec = rec.or_mask(['ACTIVE_EXPERIMENT'])
             newrec = rec.and_mask(['REFERENCE', 'TARGET'])
@@ -1336,8 +1430,7 @@ def get_demo_recordings(directory=None, name=None, unpack=False):
     uris = [(prefix + n) for n in names]
 
     if directory is None:
-        nems_dir = os.path.abspath(os.path.dirname(__file__) + '/..')
-        directory = nems_dir + '/recordings'
+        directory = get_setting('NEMS_RECORDINGS_DIR')
 
     if unpack:
         recs = [Recording.load(uri) for uri in uris]
@@ -1364,7 +1457,7 @@ def get_demo_recordings(directory=None, name=None, unpack=False):
                         'application/gzip', 'application/x-gzip',
                         'application/x-compressed', 'application/x-tgz',
                         'application/x-tar', 'application/x-compressed-tar',
-                        'binary/octet-stream'
+                        'binary/octet-stream',  'application/x-www-form-urlencoded; charset=utf-8'
                         ]
                 if not (r.status_code == 200
                         and r.headers['content-type'] in allowed_headers):

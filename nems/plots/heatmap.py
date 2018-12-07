@@ -95,7 +95,7 @@ def _get_fir_coefficients(modelspec, idx=0):
 
 
 def weight_channels_heatmap(modelspec, ax=None, clim=None, title=None,
-                            chans=None, wc_idx=0):
+                            chans=None, wc_idx=0, **options):
     coefficients = _get_wc_coefficients(modelspec, idx=wc_idx)
     if coefficients.shape[0]>coefficients.shape[1]:
         plot_heatmap(coefficients.T, xlabel='Channel Out', ylabel='Channel In',
@@ -109,7 +109,7 @@ def weight_channels_heatmap(modelspec, ax=None, clim=None, title=None,
 
 
 def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None,
-                fir_idx=0):
+                fir_idx=0, **options):
     coefficients = _get_fir_coefficients(modelspec, idx=fir_idx)
     plot_heatmap(coefficients, xlabel='Time Bin', ylabel='Channel In',
                  ax=ax, clim=clim, title=title)
@@ -120,7 +120,7 @@ def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None,
 
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
                  title=None, fs=None, chans=None, wc_idx=0, fir_idx=0,
-                 interpolation='none', absolute_value=False):
+                 interpolation='none', absolute_value=False, **options):
     """
     chans: list
        if not None, label each row of the strf with the corresponding
@@ -225,7 +225,7 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
 
 def strf_timeseries(modelspec, ax=None, clim=None, show_factorized=True,
                     show_fir_only=True,
-                    title=None, fs=1, chans=None):
+                    title=None, fs=1, chans=None, **options):
     """
     chans: list
        if not None, label each row of the strf with the corresponding

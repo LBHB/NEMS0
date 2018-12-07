@@ -109,8 +109,6 @@ meta = {'cellid': cellid, 'modelname': modelname}
 # Method #1: create from "shorthand" keyword string
 modelspec = nems.initializers.from_keywords(modelname, rec=rec, meta=meta)
 
-modelspecs = [modelspec]
-
 # ----------------------------------------------------------------------------
 # DATA WITHHOLDING
 
@@ -122,8 +120,8 @@ logging.info('Generating jackknife datasets for n-fold cross-validation...')
 # lists of recordings for estimation (est) and validation (val). Size of
 # signals in each set are the same, but the excluded segments are set to nan.
 nfolds = 10
-ests, vals, m = preproc.mask_est_val_for_jackknife(rec, modelspecs=None,
-                                                   njacks=nfolds)
+est, val, m = preproc.mask_est_val_for_jackknife(rec, modelspecs=None,
+                                                 njacks=nfolds)
 
 
 # ----------------------------------------------------------------------------
@@ -135,13 +133,19 @@ ests, vals, m = preproc.mask_est_val_for_jackknife(rec, modelspecs=None,
 
 logging.info('Fitting modelspec(s)...')
 
-modelspecs = nems.analysis.api.fit_nfold(ests, modelspecs,
-                                         fitter=scipy_minimize)
+modelspec.tile_fits(nfolds)
+for fit_index, e in enumerate(est.views()):
+    logging.info("Fitting JK {}/{}".format(fit_index+1, nfolds))
+    modelspec.fit_index = fit_index
+    modelspec = nems.analysis.api.fit_basic(e, modelspec, fitter=scipy_minimize)
 
-# above is shorthand for:
+# OLD SHORT WAY
+#modelspecs = nems.analysis.api.fit_nfold(est, modelspecs,
+#                                         fitter=scipy_minimize)
+# OLD LONG WAY:
 # modelspecs_out=[]
 # i=0
-# for m,d in zip(modelspecs,ests):
+# for m,d in zip(modelspecs,est.views()):
 #     i+=1
 #     logging.info("Fitting JK {}/{}".format(i,nfolds))
 #     modelspecs_out += \
@@ -152,7 +156,7 @@ modelspecs = nems.analysis.api.fit_nfold(ests, modelspecs,
 # SAVE YOUR RESULTS
 
 logging.info('Saving Results...')
-ms.save_modelspecs(modelspecs_dir, modelspecs)
+ms.save_modelspecs(modelspecs_dir, modelspec.fits())
 
 # ----------------------------------------------------------------------------
 # GENERATE SUMMARY STATISTICS
@@ -160,21 +164,22 @@ ms.save_modelspecs(modelspecs_dir, modelspecs)
 logging.info('Generating summary statistics...')
 
 # generate predictions
-ests, vals = nems.analysis.api.generate_prediction(ests, vals, modelspecs)
+est, val = nems.analysis.api.generate_prediction(est, val, modelspec)
 
 # evaluate prediction accuracy
-modelspecs = nems.analysis.api.standard_correlation(ests, vals, modelspecs)
+modelspec = nems.analysis.api.standard_correlation(est, val, modelspec)
 
-s = nems.metrics.api.state_mod_index(vals[0], epoch='REFERENCE', 
-                                      psth_name='pred',
-                                      state_sig='state', state_chan=[])
-modelspecs[0][0]['meta']['state_mod'] = s
+s = nems.metrics.api.state_mod_index(val, epoch='REFERENCE',
+                                     psth_name='pred',
+                                    state_sig='state', state_chan=[])
+modelspec.meta['state_mod'] = s
+modelspec.meta['state_chans'] = est['state'].chans
 
 logging.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
-        modelspecs[0][0]['meta']['r_fit'][0],
-        modelspecs[0][0]['meta']['r_test'][0]))
+        modelspec.meta['r_fit'][0],
+        modelspec.meta['r_test'][0]))
 
-print(single_state_mod_index(vals[0], modelspecs[0], state_chan="pupil"))
+print(single_state_mod_index(val, modelspec, state_chan="pupil"))
 
 # ----------------------------------------------------------------------------
 # GENERATE PLOTS
@@ -186,4 +191,4 @@ logging.info('Generating summary plot...')
 
 # Generate a summary plot
 #fig = nplt.quickplot({'val': vals, 'modelspecs': modelspecs})
-fig = nplt.model_per_time({'val': vals, 'modelspecs': modelspecs})
+fig = nplt.model_per_time({'val': val, 'modelspec': modelspec})

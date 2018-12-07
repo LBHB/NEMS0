@@ -8,25 +8,43 @@ import nems.recording as recording
 from nems.utils import find_module
 
 
-def generate_prediction(est, val, modelspecs):
-    list_val = False
-    if type(val) is list:
-        # ie, if jackknifing
-        list_val = True
+def generate_prediction(est, val, modelspec):
+
+    list_val = (type(val) is list)
+    list_modelspec = (type(modelspec) is list)
+    if list_modelspec:
+        modelspecs = modelspec
     else:
+        modelspecs = modelspec.fits()
+
+    if ~list_val:
         # Evaluate estimation and validation data
 
-        # Since ms.evaluate only does a shallow copy of rec, successive
-        # evaluations of one rec on many modelspecs just results in a list of
-        # different pointers to the same recording. So need to force copies of
-        # est/val before evaluating.
-        if len(modelspecs) == 1:
-            # no copies needed for 1 modelspec
-            est = [est]
-            val = [val]
+        # SVD adding support for views, rather than list of recordings
+        if est.view_count() == 1:
+            new_est = est.tile_views(len(modelspecs))
+            new_val = val.tile_views(len(modelspecs))
         else:
-            est = [est.copy() for i, _ in enumerate(modelspecs)]
-            val = [val.copy() for i, _ in enumerate(modelspecs)]
+            # assume est and val have view_count() == len(modelspecs)
+            new_est = est.copy()
+            new_val = val.copy()
+
+        for i, m in enumerate(modelspecs):
+            # update each view with prediction from corresponding modelspec
+            new_est = ms.evaluate(new_est.set_view(i), m)
+            new_val = ms.evaluate(new_val.set_view(i), m)
+
+            # this seems kludgy. but where should mask be handled?
+            if 'mask' in new_val.signals.keys():
+                m = new_val['mask'].as_continuous()
+                x = new_val['pred'].as_continuous().copy()
+                x[..., m[0,:] == 0] = np.nan
+                new_val['pred'] = new_val['pred']._modified_copy(x)
+
+        if new_val.view_count() > 1:
+            new_val = new_val.jackknife_inverse_merge()
+
+        return new_est, new_val
 
     new_est = []
     new_val = []
@@ -51,12 +69,30 @@ def generate_prediction(est, val, modelspecs):
     return new_est, new_val
 
 
-def standard_correlation(est, val, modelspecs, rec=None, use_mask=True):
+def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None, use_mask=True):
     # use_mask: mask before computing metrics (if mask exists)
     # Compute scores for validation dat
     r_ceiling = 0
+
+    # some crazy stuff to maintain backward compatibility
+    # eventually we will only support modelspec and deprecate support for
+    # modelspecs lists
+    if modelspecs is None:
+        list_modelspec = (type(modelspec) is list)
+        if modelspec is None:
+            raise ValueError('modelspecs or modelspec required for input')
+        if list_modelspec:
+            modelspecs = modelspec
+        else:
+            modelspecs = modelspec.fits()
+    else:
+        list_modelspec = True
+
     if type(val) is not list:
-        if ('mask' in val[0].signals.keys()) and use_mask:
+
+        # TODO: support for views
+
+        if ('mask' in val.signals.keys()) and use_mask:
             v = val.apply_mask()
             e = est.apply_mask()
         else:
@@ -70,8 +106,11 @@ def standard_correlation(est, val, modelspecs, rec=None, use_mask=True):
             # print('running r_ceiling')
             r_ceiling = nmet.r_ceiling(v, rec, 'pred', 'resp')
 
-        mse_test = nmet.j_nmse(v, 'pred', 'resp')
-        mse_fit = nmet.j_nmse(e, 'pred', 'resp')
+        mse_test, se_mse_test = nmet.j_nmse(v, 'pred', 'resp')
+        mse_fit, se_mse_fit = nmet.j_nmse(e, 'pred', 'resp')
+
+        ll_test = nmet.likelihood_poisson(v, 'pred', 'resp')
+        ll_fit = nmet.likelihood_poisson(e, 'pred', 'resp')
 
     elif len(val) == 1:
         if ('mask' in val[0].signals.keys()) and use_mask:
@@ -94,9 +133,13 @@ def standard_correlation(est, val, modelspecs, rec=None, use_mask=True):
         mse_test, se_mse_test = nmet.j_nmse(v, 'pred', 'resp')
         mse_fit, se_mse_fit = nmet.j_nmse(e, 'pred', 'resp')
 
+        ll_test = nmet.likelihood_poisson(v, 'pred', 'resp')
+        ll_fit = nmet.likelihood_poisson(e, 'pred', 'resp')
+
     else:
         # unclear if this ever excutes since jackknifed val sets are
         # typically already merged
+        raise ValueError("no support for val list of recordings len>1")
         r = [nmet.corrcoef(p, 'pred', 'resp') for p in val]
         r_test = np.mean(r)
         se_test = np.std(r) / np.sqrt(len(val))
@@ -116,24 +159,28 @@ def standard_correlation(est, val, modelspecs, rec=None, use_mask=True):
         mse_test = np.mean(mse_test)
         mse_fit = np.mean(mse_fit)
 
-    ll_test = [nmet.likelihood_poisson(p, 'pred', 'resp') for p in val]
-    ll_fit = [nmet.likelihood_poisson(p, 'pred', 'resp') for p in est]
+        ll_test = np.mean([nmet.likelihood_poisson(p, 'pred', 'resp') for p in val])
+        ll_fit = np.mean([nmet.likelihood_poisson(p, 'pred', 'resp') for p in est])
 
     modelspecs[0][0]['meta']['r_test'] = r_test
     modelspecs[0][0]['meta']['se_test'] = se_test
     modelspecs[0][0]['meta']['r_floor'] = r_floor
     modelspecs[0][0]['meta']['mse_test'] = mse_test
     modelspecs[0][0]['meta']['se_mse_test'] = se_mse_test
-    modelspecs[0][0]['meta']['ll_test'] = np.mean(ll_test)
+    modelspecs[0][0]['meta']['ll_test'] = ll_test
 
     modelspecs[0][0]['meta']['r_fit'] = r_fit
     modelspecs[0][0]['meta']['se_fit'] = se_fit
     modelspecs[0][0]['meta']['r_ceiling'] = r_ceiling
     modelspecs[0][0]['meta']['mse_fit'] = mse_fit
     modelspecs[0][0]['meta']['se_mse_fit'] = se_mse_fit
-    modelspecs[0][0]['meta']['ll_fit'] = np.mean(ll_fit)
+    modelspecs[0][0]['meta']['ll_fit'] = ll_fit
 
-    return modelspecs
+    if list_modelspec:
+        # backward compatibility
+        return modelspecs
+    else:
+        return modelspecs[0]
 
 
 def correlation_per_model(est, val, modelspecs, rec=None):
@@ -179,7 +226,7 @@ def correlation_per_model(est, val, modelspecs, rec=None):
     return modelspecs
 
 
-def standard_correlation_by_epochs(est,val,modelspecs,epochs_list, rec=None):
+def standard_correlation_by_epochs(est,val,modelspec=None,modelspecs=None,epochs_list=None, rec=None):
 
     #Does the same thing as standard_correlation, excpet with subsets of data
     #defined by epochs_list
@@ -189,6 +236,17 @@ def standard_correlation_by_epochs(est,val,modelspecs,epochs_list, rec=None):
     #For example, ['A', 'B', ['A', 'B']] will measure correlations separately
     # for all epochs marked 'A', all epochs marked 'B', and all epochs marked
     # 'A'or 'B'
+  
+    if modelspecs is None:
+        list_modelspec = (type(modelspec) is list)
+        if modelspec is None:
+            raise ValueError('modelspecs or modelspec required for input')
+        if list_modelspec:
+            modelspecs = modelspec
+        else:
+            modelspecs = modelspec.fits()
+    else:
+        list_modelspec = True
 
     for epochs in epochs_list:
         # Create a label for this subset. If epochs is a list, join elements with "+"
@@ -230,7 +288,11 @@ def standard_correlation_by_epochs(est,val,modelspecs,epochs_list, rec=None):
         modelspecs[0][0]['meta'][epoch_list_str]['mse_fit'] = np.mean(mse_fit)
         modelspecs[0][0]['meta'][epoch_list_str]['ll_fit'] = np.mean(ll_fit)
 
-    return modelspecs
+    if list_modelspec:
+        # backward compatibility
+        return modelspecs
+    else:
+        return modelspecs[0]
 
 
 def generate_prediction_sets(est, val, modelspecs):

@@ -41,7 +41,10 @@ modelspecs_dir = os.path.abspath(relative_modelspecs_dir)
 logging.info('Loading data...')
 
 # Method #1: Load the data from a local directory
-rec = Recording.load(os.path.join(signals_dir, 'TAR010c-18-1.tgz'))
+rec = Recording.load(os.path.join(signals_dir, 'TAR010c.NAT.fs50.tgz'))
+
+cellid='TAR010c-16-2'
+rec['resp'] = rec['resp'].extract_channels([cellid])
 
 # Method #2: Load the data from baphy using the (incomplete, TODO) HTTP API:
 #URL = "http://potoroo:3004/baphy/271/bbl086b-11-1?rasterfs=200"
@@ -50,20 +53,6 @@ rec = Recording.load(os.path.join(signals_dir, 'TAR010c-18-1.tgz'))
 logging.info('Generating state signal...')
 
 rec=preproc.make_state_signal(rec,['pupil'],[''],'state')
-
-
-# ----------------------------------------------------------------------------
-# INITIALIZE MODELSPEC
-
-# GOAL: Define the model that you wish to test
-
-logging.info('Initializing modelspec...')
-
-# Method #1: create from "shorthand" keyword string
-#modelspec = nems.initializers.from_keywords('pup_wcg18x1_fir15x1_lvl1_dexp1')
-modelspec = nems.initializers.from_keywords('wcgNx2_fir15x2_lvl1_stategain2')
-#modelspec = nems.initializers.from_keywords('wcgNx2_fir15x2_lvl1')
-#modelspec = nems.initializers.from_keywords('pup_wcg18x2_fir15x2_lvl1_stategain2')
 
 # ----------------------------------------------------------------------------
 # DATA WITHHOLDING
@@ -74,8 +63,22 @@ modelspec = nems.initializers.from_keywords('wcgNx2_fir15x2_lvl1_stategain2')
 logging.info('Generating jackknife sets...')
 
 # create all jackknife sets
-nfolds=3
-ests,vals,m=preproc.split_est_val_for_jackknife(rec, modelspecs=None, njacks=nfolds)
+epoch_name = "REFERENCE"
+nfolds=5
+est = rec.jackknife_masks_by_epoch(nfolds, epoch_name, tiled=True)
+val = rec.jackknife_masks_by_epoch(nfolds, epoch_name, tiled=True, invert=True)
+#ests,vals,m=preproc.split_est_val_for_jackknife(rec, modelspecs=None, njacks=nfolds)
+
+# ----------------------------------------------------------------------------
+# INITIALIZE MODELSPEC
+
+# GOAL: Define the model that you wish to test
+
+logging.info('Initializing modelspec...')
+
+# create from "shorthand" keyword string
+modelspec = nems.initializers.from_keywords('wc.18x2.g-fir.2x10-lvl.1-stategain.2')
+
 
 # ----------------------------------------------------------------------------
 # RUN AN ANALYSIS
@@ -87,7 +90,7 @@ ests,vals,m=preproc.split_est_val_for_jackknife(rec, modelspecs=None, njacks=nfo
 logging.info('Fitting modelspec(s)...')
 modelspecs_out=[]
 i=0
-for d in ests:
+for d in est.views():
     m=copy.deepcopy(modelspec)
     i+=1
     logging.info("Fitting JK {}/{}".format(i,nfolds))
@@ -104,21 +107,14 @@ modelspecs=modelspecs_out
 # ----------------------------------------------------------------------------
 # SAVE YOUR RESULTS
 
-logging.info('Saving Results...')
-ms.save_modelspecs(modelspecs_dir, modelspecs)
+#logging.info('Saving Results...')
+#ms.save_modelspecs(modelspecs_dir, modelspecs)
 
 # ----------------------------------------------------------------------------
 # GENERATE SUMMARY STATISTICS
 
 logging.info('Generating summary statistics...')
-modelspecs,est,val=nems.analysis.api.standard_correlation(ests,vals,modelspecs)
-
-#new_rec = [ms.evaluate(val, m) for m in modelspecs]
-#r_test = [nems.metrics.api.corrcoef(p, 'pred', 'resp') for p in new_rec]
-#new_rec = [ms.evaluate(est, m) for m in modelspecs]
-#r_fit = [nems.metrics.api.corrcoef(p, 'pred', 'resp') for p in new_rec]
-#modelspecs[0][0]['meta']['r_fit']=np.mean(r_fit)
-#modelspecs[0][0]['meta']['r_test']=np.mean(r_test)
+modelspecs = nems.analysis.api.standard_correlation(est,val,modelspecs)
 
 logging.info("r_fit={0} r_test={1}".format(modelspecs[0][0]['meta']['r_fit'],
       modelspecs[0][0]['meta']['r_test']))
