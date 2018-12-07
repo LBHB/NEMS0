@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 import nems.recording as recording
 import nems.plots.api as nplt
 import nems.epoch as ep
+import nems
 
-nems_dir = os.path.abspath(os.path.dirname(recording.__file__) + '/..')
-signals_dir = nems_dir + '/recordings'
+signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
 
 #uri = signals_dir + "/por074b-c2.tgz"
 #uri = signals_dir + "/BRT026c-02-1.tgz"
