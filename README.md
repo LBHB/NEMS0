@@ -6,12 +6,15 @@ accuracy of multiple models. We use it to develop and test [computational models
 sound is encoded in the brains of behaving mammals](https://hearingbrain.org), but it will 
 probably work with your timeseries data as well.
 
-
 ## Installation
 
-### Generic Python Install
+If you don't already have Python installed, see the 
+[installation instructions](docs/installation.md)
+ for recommended procedures.  
 
-Download NEMS:
+### Quick Generic Python Install
+
+If you already have Python, download NEMS:
 ```
 git clone https://github.com/lbhb/NEMS
 ```
@@ -20,64 +23,6 @@ Add the NEMS library via pip (where "NEMS" is the installation directory):
 pip install -e NEMS
 ```
 NEMS libraries should now be loadable. See next section for how to try it out!
-
-## Conda installation
-
-Conda is simple and popular platform for Python package management. NEMS is does not currently have a 
-conda package, but you can use conda to manage python and your other packages.
-To install NEMS in a conda environment, first
-download and install Conda from here:
-[https://www.anaconda.com/download/](https://www.anaconda.com/download/).
-
-Create a NEMS environment:
-```
-conda create -n NEMS
-conda activate NEMS # or in Windows: activate NEMS
-```
-Install required packages and some useful utilities:
-```
-conda install ipython pip jupyter numpy scipy matplotlib pandas requests h5py sqlalchemy
-```
-Download NEMS:
-```
-git clone https://github.com/lbhb/NEMS
-```
-Then add the NEMS library via pip (where "NEMS" is the installation directory):
-```
-pip install -e NEMS
-```
-
-### Conda and MKL
-
-Although NEMS will work with most python3 implementations, we recommend using an 
-environment compiled against Intel MKL library and the most 
-recent version of numpy. In our performance tests, we have found that use of these 
-libraries can make NEMS run nearly *twice* as fast as the python that comes installed on 
-most linux distributions. 
-
-To use MKL, follow the Conda instructions above but create your environment using this 
-command:
-
-```
-conda create -n nemsenv python=3 -c intel
-```
-
-
-### Other installation options
-
-NEMS is designed to use Python 3. Backwards compatibility with Python 2 is untested and 
-unsupported.
-
-Alternatively (not recommended), you may install all the dependencies on your own, e.g.,
-```
-pip install requests numpy scipy matplotlib pandas sqlalchemy h5py
-```
-
-You may want to add NEMS to your python path. Eg, in Linux:
-```
-echo "export PYTHONPATH=\"\$PYTHONPATH:`pwd`/NEMS\"" >> ~/.bashrc
-source ~/.bashrc
-```
 
 ## Your First Model Fit
 
