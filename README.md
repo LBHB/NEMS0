@@ -73,8 +73,7 @@ ipython
 
 In [1]: run demo_script.py
 ```
-
-Open `demo_script.py` in an editor to work through each step of the fit.
+And/or open `demo_script.py` in an editor to work through each step of the fit.
 
 ### Via jupyter notebook
 
@@ -83,11 +82,11 @@ If you have jupyter notebook installed:
 cd NEMS/notebooks
 jupter notebook
 ``` 
-Click on demo_xforms.pynb
+Click on `demo_xforms.pynb` and give it a whirl!
 
 ## Table of Contents ##
 
-This documentation is a work in progress as of March 9, 2018.
+This documentation is a work in progress as of Dec 1, 2018.
 
 1. [Quick Start](docs/quickstart.md)
 2. Organizing your Data
