@@ -420,7 +420,17 @@ def init_dexp(rec, modelspec, nl_mode=2):
             amp[i, 0] = stdr * 3
             predrange = 2 / (np.max(pred) - np.min(pred) + 1)
         elif nl_mode == 2:
-            amp[i, 0] = resp[pred>np.percentile(pred,90)].mean()
+            mask=np.zeros_like(pred,dtype=bool)
+            pct=91
+            while sum(mask)<.01*pred.shape[0]:
+                pct-=1
+                mask=pred>np.percentile(pred,pct)
+            if pct !=90:
+                log.warning('Init dexp: Default for init mode 2 is to find mean '
+                         'of responses for times where pred>pctile(pred,90). '
+                         '\nNo times were found so this was lowered to '
+                         'pred>pctile(pred,%d).', pct)
+            amp[i, 0] = resp[mask].mean()
             predrange = 2 / (np.std(pred)*3)
         else:
             raise ValueError('nl mode = {} not valid'.format(nl_mode))
