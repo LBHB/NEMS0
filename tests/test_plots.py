@@ -14,11 +14,13 @@ signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
 #uri = signals_dir + "/por074b-c2.tgz"
 #uri = signals_dir + "/BRT026c-02-1.tgz"
 #cellid = "BRT026c-02-1"
-uri = signals_dir + "/TAR010c-18-1.tgz"
+recording_file = "TAR010c-18-1.tgz"
+uri = os.path.join(signals_dir, recording_file)
+
 cellid = "TAR010c-18-1"
 
-
 def test_plots():
+    recording.get_demo_recordings(name=recording_file)
     rec = recording.load_recording(uri)
 
     resp = rec['resp'].rasterize()
