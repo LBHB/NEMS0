@@ -5,9 +5,9 @@ NEMS is the Neural Encoding Model System. It is helpful for fitting a mathematic
 
 ## Installation
 
+### Generic Python Install
 ```
 git clone https://github.com/lbhb/NEMS
-
 ```
 Then add the NEMS library via pip (where "NEMS" is the installation directory):
 ```
@@ -25,7 +25,46 @@ echo "export PYTHONPATH=\"\$PYTHONPATH:`pwd`/NEMS\"" >> ~/.bashrc
 source ~/.bashrc
 ```
 
+### Conda installation
+
+Conda is simple and popular platform for Python package management. To install NEMS using conda,
+download and install Conda here: [https://www.anaconda.com/download/](https://www.anaconda.com/download/).
+
+Create a NEMS environment:
+```
+conda create -n NEMS
+conda activate NEMS # or in Windows: activate NEMS
+```
+Install required packages and some useful utilities:
+```
+conda install ipython pip jupyter numpy scipy matplotlib pandas requests h5py sqlalchemy
+```
+Then download NEMS using:
+```
+git clone https://github.com/lbhb/NEMS
+```
+Then add the NEMS library via pip (where "NEMS" is the installation directory):
+```
+pip install -e NEMS
+```
+
+### Other installation options
+
+We have found that Python 3 distributions compiled with the Intel MKL libraries are about twice as fast as the default Python implementations that come installed on many linux machines. Please see our basic [conda installation instructions](docs/conda.md) if you would like to set up a python environment like the way that we do. NOTE: NEMS is designed to use Python 3. Backwards compatibility with Python 2 is untested and unsupported.
+
+Alternatively (not recommended), you may install all the depdencies on your own, e.g.,
+```
+pip install requests numpy scipy matplotlib pandas
+```
+Then add NEMS to your python path. Eg, in Linux:
+```
+echo "export PYTHONPATH=\"\$PYTHONPATH:`pwd`/NEMS\"" >> ~/.bashrc
+source ~/.bashrc
+```
+
 ## Your First Model Fit
+
+### Via python console
 
 You may test if everything is working by telling NEMS to download some sample auditory stimulus-response data, use a simple linear-nonlinear model (which should taking about 2 minutes to fit), and then save the results locally:
 
@@ -38,6 +77,14 @@ In [1]: run demo_script.py
 
 Open `demo_script.py` in an editor to work through each step of the fit.
 
+### Via jupyter notebook
+
+If you have jupyter notebook installed:
+```
+cd NEMS/notebooks
+jupter notebook
+``` 
+Click on demo_xforms.pynb
 
 ## Table of Contents ##
 
