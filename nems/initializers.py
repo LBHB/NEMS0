@@ -19,7 +19,7 @@ default_kws.register_module(default_keywords)
 default_kws.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
 
-def from_keywords(keyword_string, registry=None, rec=None, meta={}):
+def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_mean_prior=True):
     '''
     Returns a modelspec created by splitting keyword_string on underscores
     and replacing each keyword with what is found in the nems.keywords.defaults
@@ -31,7 +31,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}):
     keywords = keyword_string.split('-')
 
     # Lookup the modelspec fragments in the registry
-    modelspec = []
+    modelspec = ms.ModelSpec()
     for kw in keywords:
         if kw.startswith("fir.Nx") and (rec is not None):
             N = rec['stim'].nchans
@@ -74,6 +74,8 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}):
 
         d = copy.deepcopy(registry[kw])
         d['id'] = kw
+        d = priors.set_mean_phi([d])[0]  # Inits phi for 1 module
+
         modelspec.append(d)
 
     # first module that takes input='pred' should take 'stim' instead.
@@ -229,7 +231,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
     # identify any excluded modules and take them out of temp modelspec
     # that will be fit here
     exclude_idx = []
-    tmodelspec = []
+    tmodelspec = ms.ModelSpec()
     for i in range(len(modelspec)):
         m = copy.deepcopy(modelspec[i])
         for fn in extra_exclude:
@@ -248,7 +250,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
                 exclude_idx.append(i)
                 # log.info(m)
 
-        if ('levelshift' in m['fn']) and (m.get('phi') is None):
+        if ('levelshift' in m['fn']):
             m = priors.set_mean_phi([m])[0]
             try:
                 mean_resp = np.nanmean(rec['resp'].as_continuous(), axis=1, keepdims=True)
@@ -266,14 +268,19 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
     # fit the subset of modules
     if metric is None:
         tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-                                       fit_kwargs=fit_kwargs)[0]
+                                       fit_kwargs=fit_kwargs)
     else:
         tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-                                       metric=metric, fit_kwargs=fit_kwargs)[0]
+                                       metric=metric, fit_kwargs=fit_kwargs)
+    if type(tmodelspec) is list:
+        # backward compatibility
+        tmodelspec = tmodelspec[0]
 
     # reassemble the full modelspec with updated phi values from tmodelspec
-    for i in np.setdiff1d(np.arange(target_i), np.array(exclude_idx)):
-        modelspec[i] = tmodelspec[i]
+    #print(modelspec[0])
+    #print(tmodelspec[0])
+    for i in np.setdiff1d(np.arange(target_i), np.array(exclude_idx)).tolist():
+        modelspec[int(i)] = tmodelspec[int(i)]
 
     return modelspec
 
@@ -321,7 +328,7 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
         return modelspec
 
     exclude_idx = np.setdiff1d(np.arange(0, len(modelspec)),
-                               np.array(fit_idx))
+                               np.array(fit_idx)).tolist()
     for i in exclude_idx:
         m = tmodelspec[i]
         if not m.get('phi'):
@@ -337,12 +344,13 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
     # fit the subset of modules
     if metric is None:
         tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-                                       fit_kwargs=fit_kwargs)[0]
+                                       fit_kwargs=fit_kwargs)
     else:
         tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-                                       metric=metric, fit_kwargs=fit_kwargs)[0]
+                                       metric=metric, fit_kwargs=fit_kwargs)
 
     # reassemble the full modelspec with updated phi values from tmodelspec
+
     for i in fit_idx:
         modelspec[i] = tmodelspec[i]
 

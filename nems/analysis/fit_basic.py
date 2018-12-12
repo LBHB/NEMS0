@@ -111,8 +111,11 @@ def fit_basic(data, modelspec,
     ms.set_modelspec_metadata(improved_modelspec, 'n_parms',
                               len(improved_sigma))
 
-    results = [copy.deepcopy(improved_modelspec)]
-    return results
+    if type(improved_modelspec) is list:
+        return [copy.deepcopy(improved_modelspec)]
+    else:
+        return improved_modelspec.copy()
+
 
 
 def fit_random_subsets(data, modelspec, nsplits=1, rebuild_every=10000):

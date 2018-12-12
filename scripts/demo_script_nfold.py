@@ -47,10 +47,15 @@ stim = RasterizedSignal(fs, X, 'stim', recname, epochs=epochs, chans=stimchans)
 signals = {'resp': resp, 'stim': stim}
 rec = recording.Recording(signals)
 
+epoch_name = "REFERENCE"
+nfolds=5
+est = rec.jackknife_masks_by_epoch(nfolds, epoch_name, tiled=True)
+val = rec.jackknife_masks_by_epoch(nfolds, epoch_name, tiled=True, invert=True)
+
 #est, val = rec.split_at_time(0.2)
-est, val = rec.split_using_epoch_occurrence_counts(epoch_regex="^STIM_")
-est = preproc.average_away_epoch_occurrences(est, epoch_regex="^STIM_")
-val = preproc.average_away_epoch_occurrences(val, epoch_regex="^STIM_")
+#est, val = rec.split_using_epoch_occurrence_counts(epoch_regex="^STIM_")
+#est = preproc.average_away_epoch_occurrences(est, epoch_regex="^STIM_")
+#val = preproc.average_away_epoch_occurrences(val, epoch_regex="^STIM_")
 
 # ----------------------------------------------------------------------------
 # INITIALIZE MODELSPEC
@@ -82,15 +87,29 @@ modelspec = nems.initializers.from_keywords(modelspec_name, meta=meta)
 log.info('Fitting modelspec(s)...')
 
 # quick fit linear part first to avoid local minima
-modelspec = nems.initializers.prefit_to_target(
-        est, modelspec, nems.analysis.api.fit_basic,
+modelspec.tile_fits(nfolds)
+for m, e in zip(modelspec.fits(), est.views()):
+    m = nems.initializers.prefit_to_target(
+        e, m, nems.analysis.api.fit_basic,
         target_module='levelshift',
         fitter=scipy_minimize,
         fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
 
+#modelspecs = [nems.initializers.prefit_to_target(
+#        e, modelspec, nems.analysis.api.fit_basic,
+#        target_module='levelshift',
+#        fitter=scipy_minimize,
+#        fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
+#        for e in est.views()]
+
 
 # then fit full nonlinear model
-modelspec = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
+#modelspecs = [nems.analysis.api.fit_basic(e, m, fitter=scipy_minimize)[0]
+#              for m, e in zip(modelspecs, est.views())]
+for fit_index, e in enumerate(est.views()):
+    logging.info("Fitting JK {}/{}".format(fit_index+1, nfolds))
+    modelspec.fit_index = fit_index
+    modelspec = nems.analysis.api.fit_basic(e, modelspec, fitter=scipy_minimize)
 
 # ----------------------------------------------------------------------------
 # GENERATE SUMMARY STATISTICS
@@ -125,7 +144,7 @@ log.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
 log.info('Generating summary plot...')
 
 # Generate a summary plot
-context = {'val': val, 'modelspec': modelspec, 'est': est}
+context = {'val': val, 'modelspecs': modelspec.fits(), 'est': est}
 fig = nplt.quickplot(context)
 fig.show()
 

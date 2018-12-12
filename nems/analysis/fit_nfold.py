@@ -24,8 +24,13 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
       each fold
 
     '''
+    if type(data_list) is list:
+        nfolds = len(data_list)
+    else:
+        # backward compatibility
+        data_list = data_list.views()
+        nfolds = len(data_list)
 
-    nfolds = len(data_list)
     models = []
     if metric is None:
         metric = lambda d: metrics.nmse(d, 'pred', 'resp')
