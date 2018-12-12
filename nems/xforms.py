@@ -616,6 +616,7 @@ def fit_basic_init(modelspec, est, IsReload=False, metric='nmse',
             metric_fn = metric
 
         for fit_idx in range(modelspec.fit_count()):
+            # alternative approach to setting which set of phi is being fit:
             #modelspec.fit_index = fit_idx
 
             modelspec = nems.initializers.prefit_LN(

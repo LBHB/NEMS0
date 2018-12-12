@@ -451,12 +451,15 @@ def evaluate(rec, modelspec, start=None, stop=None):
     for m in modelspec[start:stop]:
         fn = _lookup_fn_at(m['fn'])
         fn_kwargs = m.get('fn_kwargs', {})
-        kwargs = {**fn_kwargs, **m['phi']}  # Merges both dicts
+        phi = m.get('phi', {})
+        kwargs = {**fn_kwargs, **phi}  # Merges both dicts
         new_signals = fn(rec=d, **kwargs)
-        if type(new_signals) is not list:
-            raise ValueError('Fn did not return list of signals: {}'.format(m))
+
+        #if type(new_signals) is not list:
+        #    raise ValueError('Fn did not return list of signals: {}'.format(m))
 
         # testing normalization
+        """
         if 'norm' in m.keys():
             s = new_signals[0]
             k = s.name
@@ -476,6 +479,7 @@ def evaluate(rec, modelspec, start=None, stop=None):
 
             fn = lambda x: (x - m['norm']['d']) / m['norm']['g']
             new_signals = [s.transform(fn, k)]
+        """
 
         for s in new_signals:
             d.add_signal(s)

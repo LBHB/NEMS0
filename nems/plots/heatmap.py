@@ -96,9 +96,14 @@ def _get_fir_coefficients(modelspec, idx=0):
     return None
 
 
-def weight_channels_heatmap(modelspec, ax=None, clim=None, title=None,
+def weight_channels_heatmap(modelspec, mod_index=None, ax=None, clim=None, title=None,
                             chans=None, wc_idx=0, **options):
-    coefficients = _get_wc_coefficients(modelspec, idx=wc_idx)
+    if mod_index is not None:
+        # module has been specified
+        coefficients = _get_wc_coefficients(modelspec[mod_index:], idx=0)
+    else:
+        # weird old way: get the idx-th set of coefficients
+        coefficients = _get_wc_coefficients(modelspec, idx=wc_idx)
     if coefficients.shape[0]>coefficients.shape[1]:
         plot_heatmap(coefficients.T, xlabel='Channel Out', ylabel='Channel In',
                      ax=ax, clim=clim, title=title, cmap='bwr')
