@@ -7,6 +7,7 @@ import numpy as np
 import scipy.stats as st
 import nems.utils
 import nems.uri
+import matplotlib.pyplot as plt
 
 # Functions for saving, loading, and evaluating modelspecs
 
@@ -15,13 +16,265 @@ import nems.uri
 #       function names. If you do so, see /docs/planning/models.py and
 #       bring the ideas into this file, then delete it from docs/planning.
 
+class ModelSpec:
+    """
+    key attribute: raw --- equivalent of old model spec
+    is raw everything you need to specify the model? Or should we un-embed meta?
+    """
+    def __init__(self, raw=None, fit_index=None):
+        if raw is None:
+            self.raw = [[]]
+        else:
+            self.raw = raw
+
+        # a Model can have multiple fits, each of which contains a different
+        # set of phi values. fit_index references the default phi
+        if fit_index is None:
+            self.fit_index = 0
+        else:
+            self.fit_index = fit_index
+        self.mod_index = 0
+        self.plot_epoch = 'REFERENCE'
+        self.plot_occurrence = 0
+        self.recording = None  # default recording for evaluation & plotting
+
+    def __getitem__(self, key):
+        try:
+            return self.get_module(key)
+        except:
+            if type(key) is slice:
+                return [self.raw[self.fit_index][ii] for ii in range(*key.indices(len(self)))]
+            elif key=='meta':
+                return self.meta
+            elif key=='phi':
+                return self.phi()
+            else:
+                raise ValueError('key {} not supported'.format(key))
+
+    def __setitem__(self, key, val):
+        if type(key) is int:
+            self.raw[self.fit_index][key] = val
+        else:
+            raise ValueError('key {} not supported'.format(key))
+        return self
+
+    def __iter__(self):
+        self.mod_index = -1
+        return self
+
+    def __next__(self):
+        if self.mod_index < len(self.raw[self.fit_index])-1:
+            self.mod_index += 1
+            return self.get_module(self.mod_index)
+        else:
+            raise StopIteration
+
+    def __repr__(self):
+        return repr(self.raw)
+
+    def __str__(self):
+        x = [m['fn'] for m in self.raw[0]]
+        return "\n".join(x)
+
+    def __len__(self):
+        return len(self.raw[0])
+
+    def get_module(self, mod_index=None):
+        """
+        :param mod_index: index of module to return
+        :return: single module from current fit_index (doesn't create a copy!)
+        """
+        if mod_index is None:
+            mod_index = self.mod_index
+        return self.raw[self.fit_index][mod_index]
+
+    def copy(self, lb=None, ub=None, fit_index=None):
+        """
+        :param lb: start module (default 0)
+        :param ub: stop module (default -1)
+        :return: A deep copy of the modelspec (subset of modules if specified)
+        """
+        raw = [copy.deepcopy(m[lb:ub]) for m in self.raw]
+        m = ModelSpec(raw)
+        if fit_index is not None:
+            m.fit_index = fit_index
+
+        return m
+
+    def fit_count(self):
+        """Number of fits in this modelspec"""
+        return len(self.raw)
+
+    def set_fit(self, fit_index=None):
+        """return self with fit_index set to specified value"""
+        if fit_index is not None:
+            self.fit_index = fit_index
+
+        return self
+
+    def fits(self):
+        """List of modelspecs, one for each fit, for compatibility with some
+           old functions"""
+        m_list = []
+        for f in range(len(self.raw)):
+            m_list += [ModelSpec(self.raw, f)]
+
+        return m_list
+
+    @property
+    def meta(self):
+        if self.raw[0][0].get('meta') is None:
+            self.raw[0][0]['meta'] = {}
+        return self.raw[0][0]['meta']
+
+    def fn(self):
+        return [m['fn'] for m in self.raw[0]]
+
+    def phi(self, fit_index=None):
+        """
+        :param fit_index: which model fit to use (default use self.fit_index
+        :return: list of phi dictionaries, or None for modules with no phi
+        """
+        if fit_index is None:
+            fit_index = self.fit_index
+        return [m.get('phi') for m in self.raw[fit_index]]
+
+    def plot_fn(self, mod_index=None, plot_fn_idx=None, fit_index=None):
+        """get function for plotting something about a module"""
+        if mod_index is None:
+            mod_index = self.mod_index
+        if fit_index is not None:
+            self.fit_index = fit_index
+
+        module = self.get_module(mod_index)
+        if plot_fn_idx is None:
+            plot_fn_idx = module.get('plot_fn_idx', 0)
+        try:
+            fn_path = module.get('plot_fns')[plot_fn_idx]
+        except:
+            fn_path = 'nems.plots.timeseries.mod_output'
+
+        return _lookup_fn_at(fn_path)
+
+    def plot(self, mod_index=None, rec=None, ax=None, plot_fn_idx=None,
+             fit_index=None, sig_name='pred'):
+        """generate plot for a single module"""
+
+        if rec is None:
+            rec = self.recording
+
+        plot_fn = self.plot_fn(mod_index=mod_index, plot_fn_idx=plot_fn_idx,
+                               fit_index=fit_index)
+        plot_fn(rec=rec, modelspec=self, sig_name=sig_name, idx=mod_index, ax=ax)
+
+    def quickplot(self, rec=None):
+
+        if rec is None:
+            rec = self.recording
+        fig = plt.figure()
+        plot_count = len(self)
+        for i in range(plot_count):
+            ax = fig.add_subplot(plot_count, 1, i+1)
+            self.plot(mod_index=i, rec=rec, ax=ax)
+        return fig
+
+    def append(self, module):
+        self.raw[0].append(module)
+
+    def tile_fits(self, fit_count):
+        self.raw = [self.raw[0].copy() for i in range(fit_count)]
+        return self
+
+    def get_priors(self, data):
+        # Here, we query each module for it's priors. A prior will be a
+        # distribution, so we set phi to the mean (i.e., expected value) for
+        # each parameter, then ask the module to evaluate the input data. By
+        # doing so, we give each module an opportunity to perform sensible data
+        # transforms that allow the following module to initialize its priors as
+        # it sees fit.
+        result = data.copy()
+        priors = []
+        for module in self.modules:
+            module_priors = module.get_priors(result)
+            priors.append(module_priors)
+
+            phi = {k: p.mean() for k, p in module_priors.items()}
+            module_output = module.evaluate(result, phi)
+            result.update(module_output)
+
+        return priors
+
+    def evaluate(self, rec=None, start=None, stop=None):
+        """
+        Evaluate the Model on a recording.
+        """
+        if rec is None:
+            rec = self.recording
+        rec = evaluate(rec, self.raw[self.fit_index], start=start, stop=stop)
+
+        return rec
+
+    def generate_tensor(self, data, phi):
+        '''
+        Evaluate the module given the input data and phi
+
+        Parameters
+        ----------
+        data : dictionary of arrays and/or tensors
+        phi : list of dictionaries
+            Each entry in the list maps to the corresponding module in the
+            model. If a module does not require any input parameters, use a
+            blank dictionary. All elements in phi must be scalars, arrays or
+            tensors.
+
+        Returns
+        -------
+        data : dictionary of Signals
+            dictionary of arrays and/or tensors
+        '''
+        # Loop through each module in the stack and transform the data.
+        result = data.copy()
+        for module, module_phi in zip(self.modules, phi):
+            module_output = module.generate_tensor(result, module_phi)
+            result.update(module_output)
+        return result
+
+    def get_shortname(self):
+        '''
+        Returns a string that is just the module ids in this modelspec.
+        '''
+        keyword_string = '_'.join([m['id'] for m in self])
+        return keyword_string
+
+    def get_longname(self):
+        '''
+        Returns a LONG name for this modelspec suitable for use in saving to disk
+        without a path.
+        '''
+        meta = self.meta
+
+        recording_name = meta.get('exptid')
+        if recording_name is None:
+            recording_name = meta.get('recording', 'unknown_recording')
+
+        keyword_string = get_modelspec_shortname(self)
+        fitter_name = meta.get('fitkey', meta.get('fitter', 'unknown_fitter'))
+        date = nems.utils.iso8601_datestring()
+        guess = '.'.join([recording_name, keyword_string, fitter_name, date])
+
+        # remove problematic characters
+        guess = re.sub('[:]', '', guess)
+        guess = re.sub('[,]', '', guess)
+
+        return guess
+
 
 def get_modelspec_metadata(modelspec):
     '''
     Returns a dict of the metadata for this modelspec. Purely by convention,
     metadata info for the entire modelspec is stored in the first module.
     '''
-    return modelspec[0].get('meta', {})
+    return modelspec.meta
 
 
 def set_modelspec_metadata(modelspec, key, value):
@@ -29,7 +282,7 @@ def set_modelspec_metadata(modelspec, key, value):
     Sets a key/value pair in the modelspec's metadata. Purely by convention,
     metadata info for the entire modelspec is stored in the first module.
     '''
-    if not modelspec[0].get('meta'):
+    if not modelspec.meta:
         modelspec[0]['meta'] = {}
     modelspec[0]['meta'][key] = value
     return modelspec
@@ -39,8 +292,7 @@ def get_modelspec_shortname(modelspec):
     '''
     Returns a string that is just the module ids in this modelspec.
     '''
-    keyword_string = '_'.join([m['id'] for m in modelspec])
-    return keyword_string
+    return modelspec.get_shortname()
 
 
 def get_modelspec_longname(modelspec):
@@ -48,17 +300,7 @@ def get_modelspec_longname(modelspec):
     Returns a LONG name for this modelspec suitable for use in saving to disk
     without a path.
     '''
-    meta = get_modelspec_metadata(modelspec)
-    recording_name = meta.get('recording', 'unknown_recording')
-    keyword_string = get_modelspec_shortname(modelspec)
-    fitter_name = meta.get('fitkey', meta.get('fitter', 'unknown_fitter'))
-    date = nems.utils.iso8601_datestring()
-    guess = '.'.join([recording_name, keyword_string, fitter_name, date])
-
-    guess = re.sub('[:]', '', guess)
-    guess = re.sub('[,]', '', guess)
-
-    return guess
+    return modelspec.get_longname()
 
 
 def _modelspec_filename(basepath, number):
@@ -70,8 +312,10 @@ def save_modelspec(modelspec, filepath):
     '''
     Saves a modelspec to filepath. Overwrites any existing file.
     '''
-    nems.uri.save_resource(filepath, json=modelspec)
-
+    if type(modelspec) is list:
+        nems.uri.save_resource(filepath, json=modelspec)
+    else:
+        nems.uri.save_resource(filepath, json=modelspec.raw)
 
 def save_modelspecs(directory, modelspecs, basename=None):
     '''
@@ -93,7 +337,12 @@ def save_modelspecs(directory, modelspecs, basename=None):
             bname = basename
         basepath = os.path.join(directory, bname)
         filepath = _modelspec_filename(basepath, idx)
-        save_modelspec(modelspec, filepath)
+        if type(modelspec) is list:
+            save_modelspec(modelspec, filepath)
+        else:
+            # HACK for backwards compatibility. if saving a modelspecs list
+            # then only need a single fit_index from the ModelSpec class
+            save_modelspec(modelspec.raw[0], filepath)
     return filepath
 
 
@@ -102,7 +351,7 @@ def load_modelspec(uri):
     Returns a single modelspecs loaded from uri
     '''
     ms = nems.uri.load_resource(uri)
-    return ms
+    return ModelSpec(ms)
 
 
 def load_modelspecs(directory, basename, regex=None):
@@ -139,7 +388,8 @@ def load_modelspecs(directory, basename, regex=None):
                 print("Couldn't load modelspec: {0}"
                       "Error: {1}".format(file, e))
             modelspecs.append(m)
-    return modelspecs
+    return ModelSpec(modelspecs)
+    #return modelspecs
 
 
 lookup_table = {}  # TODO: Replace with real memoization/joblib later
@@ -197,16 +447,19 @@ def evaluate(rec, modelspec, start=None, stop=None):
     of the list (whereas a value of -1 for stop will not).
     '''
     # d = copy.deepcopy(rec)  # Paranoid, but 100% safe
-    d = copy.copy(rec)  # About 10x faster & fine if Signals are immutable
+    d = rec.copy()  # About 10x faster & fine if Signals are immutable
     for m in modelspec[start:stop]:
         fn = _lookup_fn_at(m['fn'])
         fn_kwargs = m.get('fn_kwargs', {})
-        kwargs = {**fn_kwargs, **m['phi']}  # Merges both dicts
+        phi = m.get('phi', {})
+        kwargs = {**fn_kwargs, **phi}  # Merges both dicts
         new_signals = fn(rec=d, **kwargs)
-        if type(new_signals) is not list:
-            raise ValueError('Fn did not return list of signals: {}'.format(m))
+
+        #if type(new_signals) is not list:
+        #    raise ValueError('Fn did not return list of signals: {}'.format(m))
 
         # testing normalization
+        """
         if 'norm' in m.keys():
             s = new_signals[0]
             k = s.name
@@ -226,9 +479,11 @@ def evaluate(rec, modelspec, start=None, stop=None):
 
             fn = lambda x: (x - m['norm']['d']) / m['norm']['g']
             new_signals = [s.transform(fn, k)]
+        """
 
         for s in new_signals:
             d.add_signal(s)
+        d.signal_views[d.view_idx] = d.signals
 
     return d
 

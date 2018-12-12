@@ -48,8 +48,8 @@ NEMS_LOG_CONSOLE_LEVEL = 'DEBUG'
 # Data & database
 ################################################################################
 
-NEMS_RESULTS_DIR = os.path.abspath(os.path.dirname(__file__) + '/../results')
-NEMS_RECORDINGS_DIR = os.path.abspath(os.path.dirname(__file__) + '/../recordings')
+NEMS_RESULTS_DIR = os.path.abspath(os.path.dirname(__file__) + '/../../results')
+NEMS_RECORDINGS_DIR = os.path.abspath(os.path.dirname(__file__) + '/../../recordings')
 
 SQL_ENGINE = 'sqlite'
 

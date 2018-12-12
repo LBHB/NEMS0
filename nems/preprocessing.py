@@ -1045,15 +1045,15 @@ def split_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
     return est, val, modelspecs_out
 
 
-def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
+def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
                                njacks=10, IsReload=False, **context):
     """
     take a single recording (est) and define njacks est/val sets using a
     jackknife logic. returns lists est_out and val_out of corresponding
     jackknife subsamples. removed timepoints are replaced with nan
     """
-    est = []
-    val = []
+    #est = []
+    #val = []
     # logging.info("Generating {} jackknifes".format(njacks))
     if rec.get_epoch_indices(epoch_name).shape[0]:
         pass
@@ -1066,26 +1066,28 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
     else:
         raise ValueError('No epochs matching '+epoch_name)
 
-    for i in range(njacks):
+    #for i in range(njacks):
         # est_out += [est.jackknife_by_time(njacks, i)]
         # val_out += [est.jackknife_by_time(njacks, i, invert=True)]
-        est += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
-                                            tiled=True)]
-        val += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
-                                            tiled=True, invert=True)]
+        #est += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
+        #                                    tiled=True)]
+        #val += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
+        #                                    tiled=True, invert=True)]
+    est = rec.jackknife_masks_by_epoch(njacks, epoch_name, tiled=True)
+    val = rec.jackknife_masks_by_epoch(njacks, epoch_name,
+                                       tiled=True, invert=True)
 
-    modelspecs_out = []
-    if (not IsReload) and (modelspecs is not None):
-        if len(modelspecs) == 1:
-            modelspecs_out = [copy.deepcopy(modelspecs[0])
-                              for i in range(njacks)]
-        elif len(modelspecs) == njacks:
-            # assume modelspecs already generated for njacks
-            modelspecs_out = modelspecs
+    modelspec_out = []
+    if (not IsReload) and (modelspec is not None):
+        if modelspec.fit_count() == 1:
+            modelspec_out = modelspec.tile_fits(njacks)
+        elif modelspec.fit_count() == njacks:
+            # assume modelspec already generated for njacks
+            modelspec_out = modelspec
         else:
-            raise ValueError('modelspecs must be len 1 or njacks')
+            raise ValueError('modelspec must be len 1 or njacks')
 
-    return est, val, modelspecs_out
+    return est, val, modelspec_out
 
 
 def mask_est_val_for_jackknife_by_time(rec, modelspecs=None,
@@ -1095,24 +1097,23 @@ def mask_est_val_for_jackknife_by_time(rec, modelspecs=None,
     jackknife logic. returns lists est_out and val_out of corresponding
     jackknife subsamples. removed timepoints are replaced with nan
     """
-    est = []
-    val = []
+    #est = []
+    #val = []
+    #for i in range(njacks):
+    #    est += [rec.jackknife_mask_by_time(njacks, i, tiled=True)]
+    #    val += [rec.jackknife_mask_by_time(njacks, i, tiled=True, invert=True)]
 
-    for i in range(njacks):
-        est += [rec.jackknife_mask_by_time(njacks, i,
-                                            tiled=True)]
-        val += [rec.jackknife_mask_by_time(njacks, i,
-                                            tiled=True, invert=True)]
+    est = rec.jackknife_masks_by_time(njacks, tiled=True)
+    val = rec.jackknife_masks_by_time(njacks, tiled=True, invert=True)
 
-    modelspecs_out = []
-    if (not IsReload) and (modelspecs is not None):
-        if len(modelspecs) == 1:
-            modelspecs_out = [copy.deepcopy(modelspecs[0])
-                              for i in range(njacks)]
-        elif len(modelspecs) == njacks:
-            # assume modelspecs already generated for njacks
-            modelspecs_out = modelspecs
+    modelspec_out = []
+    if (not IsReload) and (modelspec is not None):
+        if modelspec.fit_count() == 1:
+            modelspec_out = modelspec.tile_fits(njacks)
+        elif modelspec.fit_count() == njacks:
+            # assume modelspec already generated for njacks
+            modelspec_out = modelspec
         else:
-            raise ValueError('modelspecs must be len 1 or njacks')
+            raise ValueError('modelspec must be len 1 or njacks')
 
-    return est, val, modelspecs_out
+    return est, val, modelspec_out

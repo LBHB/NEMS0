@@ -8,7 +8,7 @@ from nems.plots.assemble import plot_layout
 from nems.plots.heatmap import (weight_channels_heatmap, fir_heatmap,
                                 strf_heatmap)
 from nems.plots.scatter import plot_scatter
-from nems.plots.spectrogram import spectrogram_from_epoch
+from nems.plots.specgram import spectrogram_from_epoch
 from nems.plots.timeseries import timeseries_from_epoch
 from nems.plots.histogram import pred_error_hist
 import nems.modelspec as ms

@@ -67,11 +67,14 @@ def evaluate_step(xfa, context={}):
     xf = xfa[0]
     xfargs = xfa[1]
     if len(xfa) > 2:
-        context_in = {k: context[k] for k in xfa[2]}
+        # backward compatibility
+        a = [k.replace("modelspecs", "modelspec") for k in xfa[2]]
+        context_in = {k: context[k] for k in a}
     else:
         context_in = context
     if len(xfa) > 3:
-        context_out_keys = xfa[3]
+        a = [k.replace("modelspecs", "modelspec") for k in xfa[3]]
+        context_out_keys = a
     else:
         context_out_keys = []
 
@@ -152,7 +155,7 @@ def evaluate(xformspec, context={}, start=0, stop=None):
 
 def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
                            save_cache=True, IsReload=False, modelspecs=None,
-                           **context):
+                           modelspec=None, **context):
     """
     generic wrapper for loading recordings
     :param load_command: string pointing to relevant load command, eg "my.lib.load_fun"
@@ -161,7 +164,7 @@ def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
         X and Y can be in three different forms:
            1. 2D, with M x T and N x T matrices. Ie, the number of channels can differ
               between them but they should have the same times.
-           TODO: Support for other formats
+           TODO: Support for other stim/resp matrix formats:
            2. 3D, M x T and N x R x T. R corresponds to repetitions of the same X, X will be
               tiled R times to match the length of Y
            3. 4D M x S x T and N x R x S x T or N x S x T. S stimuli were repeated R times
@@ -188,6 +191,8 @@ def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
     :param context: dictionary of parameters/metadata that will be passed through to load_command
 
     :return: rec - NEMS recording object
+
+    TODO: option to re-cache
     """
     data_file = recording_filename_hash(exptid, context, nems.get_setting('NEMS_RECORDINGS_DIR'))
     if os.path.exists(data_file):
@@ -207,6 +212,7 @@ def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
             if k in ['fs', 'meta', 'epochs']:
                 pass
             elif k.endswith('_labels'):
+                # these wil
                 pass
             else:
                 signals[k] = RasterizedSignal(fs, data[k], k, exptid, epochs=epochs,
@@ -288,7 +294,7 @@ def init_from_keywords(keywordstring, meta={}, IsReload=False,
         modelspec = init.from_keywords(keyword_string=keywordstring,
                                        meta=meta, registry=registry, rec=rec)
 
-        return {'modelspecs': [modelspec]}
+        return {'modelspec': modelspec}
     else:
         return {}
 
@@ -302,42 +308,44 @@ def load_modelspecs(modelspecs, uris,
     models.
     '''
     if not IsReload:
-        modelspecs = [load_resource(uri) for uri in uris]
-    return {'modelspecs': modelspecs}
+        modelspec = ms.ModelSpec([load_resource(uri) for uri in uris])
+    return {'modelspec': modelspec}
 
 
 def set_random_phi(modelspecs, IsReload=False, **context):
     ''' Starts all modelspecs at random phi sampled from the priors. '''
     if not IsReload:
-        modelspecs = [priors.set_random_phi(m) for m in modelspecs]
-    return {'modelspecs': modelspecs}
+        for fit_idx in modelspec.fit_count():
+            modelspec.fit_index = fit_idx
+            for i, m in enumerate(modelspec):
+                modelspec[i] = priors.set_random_phi(m)
+    return {'modelspec': modelspec}
 
 
-def fill_in_default_metadata(rec, modelspecs, IsReload=False, **context):
+def fill_in_default_metadata(rec, modelspec, IsReload=False, **context):
     '''
     Sets any uninitialized metadata to defaults that should help us
     find it in nems_db again. (fitter, recording, date, etc)
     '''
     if not IsReload:
         # Add metadata to help you reload this state later
-        for modelspec in modelspecs:
-            meta = get_modelspec_metadata(modelspec)
-            if 'fitter' not in meta:
-                set_modelspec_metadata(modelspec, 'fitter', 'None')
-            if 'fit_time' not in meta:
-                set_modelspec_metadata(modelspec, 'fitter', 'None')
-            if 'recording' not in meta:
-                recname = rec.name if rec else 'None'
-                set_modelspec_metadata(modelspec, 'recording', recname)
-            if 'recording_uri' not in meta:
-                uri = rec.uri if rec and rec.uri else 'None'
-                set_modelspec_metadata(modelspec, 'recording_uri', uri)
-            if 'date' not in meta:
-                set_modelspec_metadata(modelspec, 'date', iso8601_datestring())
-            if 'hostname' not in meta:
-                set_modelspec_metadata(modelspec, 'hostname',
-                                       socket.gethostname())
-    return {'modelspecs': modelspecs}
+        meta = get_modelspec_metadata(modelspec)
+        if 'fitter' not in meta:
+            set_modelspec_metadata(modelspec, 'fitter', 'None')
+        if 'fit_time' not in meta:
+            set_modelspec_metadata(modelspec, 'fitter', 'None')
+        if 'recording' not in meta:
+            recname = rec.name if rec else 'None'
+            set_modelspec_metadata(modelspec, 'recording', recname)
+        if 'recording_uri' not in meta:
+            uri = rec.uri if rec and rec.uri else 'None'
+            set_modelspec_metadata(modelspec, 'recording_uri', uri)
+        if 'date' not in meta:
+            set_modelspec_metadata(modelspec, 'date', iso8601_datestring())
+        if 'hostname' not in meta:
+            set_modelspec_metadata(modelspec, 'hostname',
+                                   socket.gethostname())
+    return {'modelspec': modelspec}
 
 
 def only_best_modelspec(modelspecs, metakey='r_test', comparison='greatest',
@@ -540,45 +548,49 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
         return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
 
-def mask_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
+def mask_for_jackknife(rec, modelspec=None, epoch_name='REFERENCE',
                        by_time=False, njacks=10, IsReload=False, **context):
 
     if by_time != True:
-        est_out, val_out, modelspecs_out = \
-            preproc.mask_est_val_for_jackknife(rec, modelspecs=modelspecs,
+        est_out, val_out, modelspec_out = \
+            preproc.mask_est_val_for_jackknife(rec, modelspec=modelspec,
                                                epoch_name=epoch_name,
                                                njacks=njacks, IsReload=IsReload)
     else:
-        est_out, val_out, modelspecs_out = \
-            preproc.mask_est_val_for_jackknife_by_time(rec, modelspecs=modelspecs,
+        est_out, val_out, modelspec_out = \
+            preproc.mask_est_val_for_jackknife_by_time(rec, modelspec=modelspec,
                                                njacks=njacks, IsReload=IsReload)
 
     if IsReload:
         return {'est': est_out, 'val': val_out}
     else:
-        return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
+        return {'est': est_out, 'val': val_out, 'modelspec': modelspec_out}
 
 
-def jack_subset(est, val, modelspecs=None, IsReload=False,
+def jack_subset(est, val, modelspec=None, IsReload=False,
                 keep_only=1, **context):
 
     if keep_only == 1:
-        est = est[0]
-        val = val[0]
+        est = est.views(view_range=0)[0]
+        val = val.views(view_range=0)[0]
         est['resp']=est['resp'].rasterize()
         val['resp']=val['resp'].rasterize()
         est['stim']=est['stim'].rasterize()
         val['stim']=val['stim'].rasterize()
+
     else:
-        est = est[:keep_only]
-        val = val[:keep_only]
-    if modelspecs is not None:
-        modelspecs_out = modelspecs[:keep_only]
+        est = est.views(keep_only)[0]
+        val = val.views(keep_only)[0]
+
+    if modelspec is not None:
+        modelspec_out = modelspec.copy()
+        modelspec_out.raw = modelspec_out.raw[:keep_only]
+        modelspec_out.fit_index = 0
 
     if IsReload:
         return {'est': est, 'val': val}
     else:
-        return {'est': est, 'val': val, 'modelspecs': modelspecs_out}
+        return {'est': est, 'val': val, 'modelspec': modelspec_out}
 
 
 ###############################################################################
@@ -586,7 +598,7 @@ def jack_subset(est, val, modelspecs=None, IsReload=False,
 ###############################################################################
 
 
-def fit_basic_init(modelspecs, est, IsReload=False, metric='nmse',
+def fit_basic_init(modelspec, est, IsReload=False, metric='nmse',
                    tolerance=10**-5.5, norm_fir=False, **context):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
@@ -602,13 +614,18 @@ def fit_basic_init(modelspecs, est, IsReload=False, metric='nmse',
             metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
         else:
             metric_fn = metric
-        modelspecs = [nems.initializers.prefit_LN(
-                est, modelspecs[0],
-                analysis_function=nems.analysis.api.fit_basic,
-                fitter=scipy_minimize, metric=metric_fn,
-                tolerance=tolerance, max_iter=700, norm_fir=norm_fir)]
 
-    return {'modelspecs': modelspecs}
+        for fit_idx in range(modelspec.fit_count()):
+            # alternative approach to setting which set of phi is being fit:
+            #modelspec.fit_index = fit_idx
+
+            modelspec = nems.initializers.prefit_LN(
+                    est, modelspec.set_fit(fit_idx),
+                    analysis_function=nems.analysis.api.fit_basic,
+                    fitter=scipy_minimize, metric=metric_fn,
+                    tolerance=tolerance, max_iter=700, norm_fir=norm_fir)
+
+    return {'modelspec': modelspec}
 
 
 def _set_zero(x):
@@ -617,7 +634,7 @@ def _set_zero(x):
     return y
 
 
-def fit_state_init(modelspecs, est, fit_sig='resp', tolerance=1e-4,
+def fit_state_init(modelspec, est, fit_sig='resp', tolerance=1e-4,
                    IsReload=False, metric='nmse', **context):
     '''
     Initialize modelspecs in an attempt to avoid getting stuck in
@@ -637,11 +654,10 @@ def fit_state_init(modelspecs, est, fit_sig='resp', tolerance=1e-4,
             est = [est]
 
         modelspecs_out = []
-        i = 0
-        for m, d in zip(modelspecs, est):
-            i += 1
+        for i, d in enumerate(est.views()):
             log.info("Initializing modelspec %d/%d state-free",
-                     i, len(modelspecs))
+                     i+1, len(modelspec))
+            modelspec.fit_index = i
 
             # set state to 0 for all timepoints so that only first filterbank
             # is used
@@ -651,27 +667,27 @@ def fit_state_init(modelspecs, est, fit_sig='resp', tolerance=1e-4,
                 log.info("Subbing %s for resp signal", fit_sig)
                 dc['resp'] = dc[fit_sig]
 
-            m = nems.initializers.prefit_LN(
-                    dc, m,
+            modelspec = nems.initializers.prefit_LN(
+                    dc, modelspec,
                     analysis_function=nems.analysis.api.fit_basic,
                     fitter=scipy_minimize, metric=metric_fn,
                     tolerance=tolerance, max_iter=700)
             # fit a bit more to settle in STP variables and anything else
             # that might have been excluded
             fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
-            m = nems.analysis.api.fit_basic(
-                    dc, m, fit_kwargs=fit_kwargs, metric=metric_fn,
+            modelspec = nems.analysis.api.fit_basic(
+                    dc, modelspec, fit_kwargs=fit_kwargs, metric=metric_fn,
                     fitter=scipy_minimize)[0]
-            rep_idx = find_module('replicate_channels', m)
-            mrg_idx = find_module('merge_channels', m)
+            rep_idx = find_module('replicate_channels', modelspec)
+            mrg_idx = find_module('merge_channels', modelspec)
             if rep_idx is not None:
-                repcount = m[rep_idx]['fn_kwargs']['repcount']
+                repcount = modelspec[rep_idx]['fn_kwargs']['repcount']
                 for j in range(rep_idx+1, mrg_idx):
                     # assume all phi
-                    log.debug(m[j]['fn'])
-                    if 'phi' in m[j].keys():
-                        for phi in m[j]['phi'].keys():
-                            s = m[j]['phi'][phi].shape
+                    log.debug(modelspec[j]['fn'])
+                    if 'phi' in modelspec[j].keys():
+                        for phi in modelspec[j]['phi'].keys():
+                            s = modelspec[j]['phi'][phi].shape
                             setcount = int(s[0] / repcount)
                             log.debug('phi[%s] setcount=%d', phi, setcount)
                             snew = np.ones(len(s))
@@ -679,13 +695,9 @@ def fit_state_init(modelspecs, est, fit_sig='resp', tolerance=1e-4,
                             new_v = np.tile(m[j]['phi'][phi][:setcount, ...],
                                             snew.astype(int))
                             log.debug(new_v)
-                            m[j]['phi'][phi] = new_v
+                            modelspec[j]['phi'][phi] = new_v
 
-            modelspecs_out.append(m)
-
-        modelspecs = modelspecs_out
-
-    return {'modelspecs': modelspecs}
+    return {'modelspec': modelspec}
 
 
 ###############################################################################
@@ -693,45 +705,47 @@ def fit_state_init(modelspecs, est, fit_sig='resp', tolerance=1e-4,
 ###############################################################################
 
 
-def fit_basic(modelspecs, est, max_iter=1000, tolerance=1e-7,
+def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
               metric='nmse', IsReload=False, fitter='scipy_minimize',
               jackknifed_fit=False, random_sample_fit=False,
               n_random_samples=0, random_fit_subset=None, **context):
     ''' A basic fit that optimizes every input modelspec. '''
+
     if not IsReload:
         metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
         fitter_fn = getattr(nems.fitters.api, fitter)
         fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
 
         if jackknifed_fit:
-            return fit_nfold(modelspecs, est, tolerance=tolerance,
-                             metric=metric, fitter=fitter,
-                             fit_kwargs=fit_kwargs, analysis='fit_basic',
-                             **context)
+            nfolds = est.view_count()
+            if modelspec.fit_count() < est.view_count():
+                modelspec.tile_fits(nfolds)
+            for fit_idx, e in enumerate(est.views()):
+                log.info("Fitting fold %d/%d", fit_idx + 1, nfolds)
+                modelspec = nems.analysis.api.fit_basic(
+                        e, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
+                        metric=metric_fn, fitter=fitter_fn)
 
         elif random_sample_fit:
             basic_kwargs = {'metric': metric_fn, 'fitter': fitter_fn,
                             'fit_kwargs': fit_kwargs}
+            raise NotImplementedError("random_sample_fit not tested in new modelspec system")
             return fit_n_times_from_random_starts(
-                        modelspecs, est, ntimes=n_random_samples,
+                        modelspec, est, ntimes=n_random_samples,
                         subset=random_fit_subset,
                         analysis='fit_basic', basic_kwargs=basic_kwargs
                         )
-
         else:
             # standard single shot
-            modelspecs = [
-                    nems.analysis.api.fit_basic(est, modelspec,
-                                                fit_kwargs=fit_kwargs,
-                                                metric=metric_fn,
-                                                fitter=fitter_fn)[0]
-                    for modelspec in modelspecs
-                    ]
+            for fit_idx in range(modelspec.fit_count()):
+                modelspec = nems.analysis.api.fit_basic(
+                    est, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
+                    metric=metric_fn, fitter=fitter_fn)
 
-    return {'modelspecs': modelspecs}
+    return {'modelspec': modelspec}
 
 
-def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
+def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
                     module_sets=None, invert=False, tolerances=[1e-4],
                     metric='nmse', fitter='scipy_minimize', fit_kwargs={},
                     jackknifed_fit=False, random_sample_fit=False,
@@ -742,7 +756,7 @@ def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
 
     if not IsReload:
         if jackknifed_fit:
-            return fit_nfold(modelspecs, est, tol_iter=tol_iter,
+            return fit_nfold(modelspec, est, tol_iter=tol_iter,
                              fit_iter=fit_iter, module_sets=module_sets,
                              tolerances=tolerances, metric=metric,
                              fitter=fitter, fit_kwargs=fit_kwargs,
@@ -754,23 +768,21 @@ def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
                            'module_sets': module_sets, 'metric': metric_fn,
                            'fitter': fitter_fn, 'fit_kwargs': fit_kwargs}
             return fit_n_times_from_random_starts(
-                        modelspecs, est, ntimes=n_random_samples,
+                        modelspec, est, ntimes=n_random_samples,
                         subset=random_fit_subset,
                         analysis='fit_iteratively', iter_kwargs=iter_kwargs,
                         )
 
         else:
-            modelspecs = [
-                    nems.analysis.api.fit_iteratively(
-                            est, modelspec, fit_kwargs=fit_kwargs,
+            for fit_idx in range(modelspec.fit_count()):
+                modelspec = nems.analysis.api.fit_iteratively(
+                            est, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
                             fitter=fitter_fn, module_sets=module_sets,
                             invert=invert, tolerances=tolerances,
                             tol_iter=tol_iter, fit_iter=fit_iter,
-                            metric=metric_fn)[0]
-                    for modelspec in modelspecs
-                    ]
+                            metric=metric_fn)
 
-    return {'modelspecs': modelspecs}
+    return {'modelspec': modelspec}
 
 
 def fit_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
@@ -778,6 +790,7 @@ def fit_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
               analysis='fit_basic', tolerances=None, module_sets=None,
               tol_iter=100, fit_iter=20, **context):
     ''' fitting n fold, one from each entry in est '''
+    raise Warning("DEPRECATED?")
     if not IsReload:
         metric = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
         fitter_fn = getattr(nems.fitters.api, fitter)
@@ -814,21 +827,21 @@ def fit_n_times_from_random_starts(modelspecs, est, ntimes, subset,
 ###############################################################################
 
 
-def save_recordings(modelspecs, est, val, **context):
+def save_recordings(modelspec, est, val, **context):
     # TODO: Save the recordings somehow?
-    return {'modelspecs': modelspecs}
+    return {'modelspec': modelspec}
 
 
-def predict(modelspecs, est, val, **context):
+def predict(modelspec, est, val, **context):
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
     # TODO: Add statistics to metadata of every modelspec
 
-    est, val = nems.analysis.api.generate_prediction(est, val, modelspecs)
+    est, val = nems.analysis.api.generate_prediction(est, val, modelspec)
 
     return {'val': val, 'est': est}
 
 
-def add_summary_statistics(est, val, modelspecs, fn='standard_correlation',
+def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
                            rec=None, use_mask=True, **context):
     '''
     standard_correlation: average all correlation metrics and add
@@ -837,52 +850,51 @@ def add_summary_statistics(est, val, modelspecs, fn='standard_correlation',
                            modelspec and save results in each modelspec
     '''
     corr_fn = getattr(nems.analysis.api, fn)
-    modelspecs = corr_fn(est, val, modelspecs, rec=rec, use_mask=use_mask)
+    modelspec = corr_fn(est, val, modelspec=modelspec, rec=rec, use_mask=use_mask)
 
-    if find_module('state', modelspecs[0]) is not None:
-        s = metrics.state_mod_index(val[0], epoch='REFERENCE', psth_name='pred',
+    if find_module('state', modelspec) is not None:
+        s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='pred',
                             state_sig='state_raw', state_chan=[])
-        j_s, ee = metrics.j_state_mod_index(val[0], epoch='REFERENCE', psth_name='pred',
+        j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='pred',
                             state_sig='state_raw', state_chan=[], njacks=10)
-        modelspecs[0][0]['meta']['state_mod'] = s
-        modelspecs[0][0]['meta']['j_state_mod'] = j_s
-        modelspecs[0][0]['meta']['se_state_mod'] = ee
-        modelspecs[0][0]['meta']['state_chans'] = val[0]['state'].chans
-
+        modelspec.meta['state_mod'] = s
+        modelspec.meta['j_state_mod'] = j_s
+        modelspec.meta['se_state_mod'] = ee
+        modelspec.meta
         # Charlie testing diff ways to calculate mod index
 
         # try using resp
-        s = metrics.state_mod_index(val[0], epoch='REFERENCE', psth_name='resp',
+        s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='resp',
                             state_sig='state_raw', state_chan=[])
-        j_s, ee = metrics.j_state_mod_index(val[0], epoch='REFERENCE', psth_name='resp',
+        j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='resp',
                             state_sig='state_raw', state_chan=[], njacks=10)
-        modelspecs[0][0]['meta']['state_mod_r'] = s
-        modelspecs[0][0]['meta']['j_state_mod_r'] = j_s
-        modelspecs[0][0]['meta']['se_state_mod_r'] = ee
+        modelspec.meta['state_mod_r'] = s
+        modelspec.meta['j_state_mod_r'] = j_s
+        modelspec.meta['se_state_mod_r'] = ee
 
         # try using the "mod" signal (if it exists) which is calculated
-        if 'mod' in modelspecs[0][0]['meta']['modelname']:
-            s = metrics.state_mod_index(val[0], epoch='REFERENCE',
+        if 'mod' in modelspec.meta['modelname']:
+            s = metrics.state_mod_index(val, epoch='REFERENCE',
                                             psth_name='mod', divisor='resp',
                                             state_sig='state_raw', state_chan=[])
-            j_s, ee = metrics.j_state_mod_index(val[0], epoch='REFERENCE',
+            j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE',
                                             psth_name='mod', divisor='resp',
                                             state_sig='state_raw', state_chan=[],
                                             njacks=10)
-            modelspecs[0][0]['meta']['state_mod_m'] = s
-            modelspecs[0][0]['meta']['j_state_mod_m'] = j_s
-            modelspecs[0][0]['meta']['se_state_mod_m'] = ee
+            modelspec.meta['state_mod_m'] = s
+            modelspec.meta['j_state_mod_m'] = j_s
+            modelspec.meta['se_state_mod_m'] = ee
 
-    return {'modelspecs': modelspecs}
+    return {'modelspec': modelspec}
 
 
-def plot_summary(modelspecs, val, figures=None, IsReload=False, **context):
+def plot_summary(modelspec, val, figures=None, IsReload=False, **context):
     # CANNOT initialize figures=[] in optional args our you will create a bug
 
     if figures is None:
         figures = []
     if not IsReload:
-        fig = nplt.quickplot({'modelspecs': modelspecs, 'val': val})
+        fig = nplt.quickplot({'modelspec': modelspec, 'val': val})
         # Needed to make into a Bytes because you can't deepcopy figures!
         figures.append(nplt.fig2BytesIO(fig))
 
@@ -956,7 +968,7 @@ def tree_path(recording, modelspecs, xfspec):
 
 def save_analysis(destination,
                   recording,
-                  modelspecs,
+                  modelspec,
                   xfspec,
                   figures,
                   log,
@@ -971,10 +983,10 @@ def save_analysis(destination,
     base_uri = base_uri if base_uri[-1] == '/' else base_uri + '/'
     xfspec_uri = base_uri + 'xfspec.json'  # For attaching to modelspecs
 
-    for number, modelspec in enumerate(modelspecs):
-        set_modelspec_metadata(modelspec, 'xfspec', xfspec_uri)
+    for number, m in enumerate(modelspec.fits()):
+        set_modelspec_metadata(m, 'xfspec', xfspec_uri)
         save_resource(base_uri + 'modelspec.{:04d}.json'.format(number),
-                      json=modelspec)
+                      json=m[:])
     for number, figure in enumerate(figures):
         save_resource(base_uri + 'figure.{:04d}.png'.format(number),
                       data=figure)
@@ -992,7 +1004,7 @@ def load_analysis(filepath, eval_model=True, only=None):
     object, which gives more flexibility over what steps of the original xfspecs to run again.
 
     """
-    log.info('Loading modelspecs from %s...', filepath)
+    log.info('Loading modelspec from %s...', filepath)
 
     xfspec = load_xform(filepath + 'xfspec.json')
 
@@ -1024,20 +1036,26 @@ def load_analysis(filepath, eval_model=True, only=None):
 def evaluate_context(ctx, rec_key='val', rec_idx=0, mspec_idx=0, start=None,
                      stop=None):
     rec = ctx[rec_key][0]
-    mspec = ctx['modelspecs'][mspec_idx]
+    mspec = ctx['modelspec']
+    mspec.fit_index = mspec_idx
     return ms.evaluate(rec, mspec, start=start, stop=stop)
 
 
 def get_meta(ctx, mspec_idx=0, mod_idx=0):
-    return ctx['modelspecs'][mspec_idx][mod_idx]['meta']
+    if (mspec_idx > 0) or (mod_idx >0):
+        raise ValueError("meta indexing not supported")
+    return ctx['modelspec'].meta
 
 
 def get_modelspec(ctx, mspec_idx=0):
-    return ctx['modelspecs'][mspec_idx]
+    m = ctx['modelspec'].copy()
+    m.fit_index = mspec_idx
+    return m
 
 
 def get_module(ctx, val, key='index', mspec_idx=0, find_all_matches=False):
-    mspec = ctx['modelspecs'][mspec_idx]
+    mspec = ctx['modelspec']
+    mspec.fit_index = mspec_idx
     if key in ['index', 'idx', 'i']:
         return mspec[val]
     else:

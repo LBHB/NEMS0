@@ -34,23 +34,31 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
 
     cc = 0
     opt = {}
+    mintime = np.inf
+    maxtime = 0
     for t, v in zip(times, values):
         if colors is not None:
             opt = {'color': colors[cc]}
-        plt.plot(t, v, linestyle=linestyle, linewidth=linewidth, **opt)
+        if v.ndim==1:
+            v=v[:,np.newaxis]
+        for idx in range(v.shape[1]):
+            gidx = np.isfinite(v[:,idx])
+            plt.plot(t[gidx], v[gidx,idx], linestyle=linestyle, linewidth=linewidth, **opt)
         cc += 1
+        mintime = np.min((mintime, np.min(t[gidx])))
+        maxtime = np.max((maxtime, np.max(t[gidx])))
 
     plt.margins(x=0)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    ax.set_xlim([np.min(times), np.max(times)])
+    ax.set_xlim([mintime, maxtime])
     if legend:
         plt.legend(legend)
     if title:
         plt.title(title, fontsize=8)
 
     ax_remove_box(ax)
-
+    return ax
 
 def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
                             linestyle='-', linewidth=1, legend=None,
@@ -93,7 +101,7 @@ def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
     plot_timeseries(times, values, xlabel, ylabel, legend=legend,
                     linestyle=linestyle, linewidth=linewidth,
                     ax=ax, title=title)
-
+    return ax
 
 def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
                           xlabel='Time', ylabel='Value',
@@ -140,7 +148,7 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
 
 
 def before_and_after_stp(modelspec, sig_name='pred', ax=None, title=None,
-                         channels=0, xlabel='Time', ylabel='Value', fs=100):
+                         channels=0, xlabel='Time', ylabel='Value', fs=100, **options):
     '''
     Plots a timeseries of specified signal just before and just after
     the transformation performed at some step in the modelspec.
@@ -181,7 +189,7 @@ def before_and_after_stp(modelspec, sig_name='pred', ax=None, title=None,
 
 
 def before_and_after(rec, modelspec, sig_name, ax=None, title=None, idx=0,
-                     channels=0, xlabel='Time', ylabel='Value'):
+                     channels=0, xlabel='Time', ylabel='Value', **options):
     '''
     Plots a timeseries of specified signal just before and just after
     the transformation performed at some step in the modelspec.
@@ -220,3 +228,64 @@ def before_and_after(rec, modelspec, sig_name, ax=None, title=None, idx=0,
     timeseries_from_signals([before, after], channels=channels,
                             xlabel=xlabel, ylabel=ylabel, ax=ax,
                             title=title)
+
+def mod_output(rec, modelspec, sig_name='pred', ax=None, title=None, idx=0,
+               channels=0, xlabel='Time', ylabel='Value', **options):
+    '''
+    Plots a time series of specified signal output by step in the modelspec.
+
+    Arguments:
+    ----------
+    rec : recording object
+        The dataset to use. See nems/recording.py.
+
+    modelspec : list of dicts
+        The transformations to perform. See nems/modelspec.py.
+
+    sig_name : str or list of strings
+        Specifies the signal in 'rec' to be examined.
+
+    idx : int
+        An index into the modelspec. rec[sig_name] will be plotted
+        as it exists after step idx-1 and after step idx.
+
+    Returns:
+    --------
+    ax : axis containing plot
+    '''
+    if type(sig_name) is str:
+        sig_name = [sig_name]
+
+    trec = modelspec.evaluate(rec, stop=idx+1)
+    if 'mask' in trec.signals.keys():
+        trec = trec.apply_mask()
+
+    sigs = [trec[s] for s in sig_name]
+    ax = timeseries_from_signals(sigs, channels=channels,
+                                 xlabel=xlabel, ylabel=ylabel, ax=ax,
+                                 title=title)
+    return ax
+
+def pred_resp(rec, modelspec, ax=None, title=None,
+              channels=0, xlabel='Time', ylabel='Value', **options):
+    '''
+    Plots a time series of prediction overlaid on response.
+
+    Arguments:
+    ----------
+    rec : recording object
+        The dataset to use. See nems/recording.py.
+
+    modelspec : list of dicts
+        The transformations to perform. See nems/modelspec.py.
+
+    Returns:
+    --------
+    ax : axis containing plot
+    '''
+    sig_list = ['pred', 'resp']
+    sigs = [rec[s] for s in sig_list]
+    ax = timeseries_from_signals(sigs, channels=channels,
+                            xlabel=xlabel, ylabel=ylabel, ax=ax,
+                            title=title)
+    return ax
