@@ -1,10 +1,17 @@
+[Contents](README.md)
+
 # Modelspecs and Keywords
 
 ## What's a ModelSpec?
 
-A modelspec is a data structure that unambiguously defines a mathematical predictive model. It is a simple, minimalist format that is easily saved and loaded to disk.
+A modelspec is a data structure that unambiguously defines a sequence of 
+transformations in a NEMS model. It is a simple, minimalist format that is 
+easily [saved and loaded to disk](saving.md).
 
-An example of a simple modelspec before fitting might be:
+A modelspec is essentially an ordered list of dicts. 
+Each dict describes a single [module](modules.md) that performs an input-output transformation 
+performed by a pure function (`fn`).
+An example of a simple modelspec before fitting is:
 
 ```
 [{"id": "wc18x1",
@@ -55,22 +62,7 @@ After fitting, that same modelspec might look like this:
   "prior": [TODO]}]
 ```
 
-Note that a modelspec is essentially an ordered list of dicts. Each dict describes a single module that performs an input-output transformation performed by a pure function (`fn`).
-
-The only *mandatory* field each module dict is `fn`. All other fields are optional. Presently, we have reserved the following fields for specific uses:
-
-| Field     | Type | Description                                             |
-|-----------|------|---------------------------------------------------------|
-| id        | str  | Name of the module keyword that created this dict.      |
-| fn        | str  | The pure transformation function.                       |
-| fn_kwargs | dict | Non-fittable arguments that are passed to fn.           |
-| meta      | dict | A dictionary of metadata, descriptions, benchmarks, etc |
-| phi       | dict | Like fn, but fittable. The "parameters" of the module.  |
-| prior     | dict | Defines a prior distribution from which bounds or       |
-|           |      | samples may be drawn by the fitter during optimization. |
-|-----------|------|---------------------------------------------------------|
-
-You may place whatever information at all you like in `meta` without consulting anyone -- "description", "date", "notes", or information on fitters and data files are all good types of things to put in the `meta` dict. However, in the interests of forcing helpful design discussions, if you wish to establish a convention for another top-level field for modules, please bring it up in the [NEMS Slack channel](https://lbhb.slack.com/messages/C5F12803H).
+More on the [modules](modules.md) that comprise modelspecs here.
 
 ## What's an Initializer? What are module keywords?
 

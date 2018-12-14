@@ -6,6 +6,8 @@ accuracy of multiple models. We use it to develop and test [computational models
 sound is encoded in the brains of behaving mammals](https://hearingbrain.org), but it will 
 probably work with your timeseries data as well.
 
+[Main Help](docs/README.md)
+
 ## Installation
 
 If you don't already have Python installed, see the 
@@ -47,31 +49,3 @@ jupter notebook
 ``` 
 Click on `demo_xforms.pynb` and give it a whirl!
 
-## Table of Contents ##
-
-This documentation is a work in progress as of Dec 1, 2018.
-
-1. [Quick Start](docs/quickstart.md)
-2. Organizing your Data
-   - [Signals](docs/signals.md)
-   - [Recordings](docs/recordings.md)
-   - [Epochs](docs/epochs.md)
-3. Organizing your Models
-   - [Modules](docs/modules.md)
-   - [Modelspecs](docs/modelspecs.md)
-   - [Distributions](docs/distributions.ipynb)
-4. Fitting your Models
-   - [Priors](docs/priors.md) -- TODO
-   - [Fitters](docs/fitters.md) -- TODO
-   - [Xforms](docs/xforms.md)
-5. Detailed Guides
-   - [Architectural Diagram](docs/architecture.svg)
-   - Creating your own modules
-   - Comparing your models with others
-   - Sharing modules, models, and data with others
-6. Contributing to NEMS
-   - [How To Contribute](docs/contributing.md)
-   - [Design Discussion Archive](docs/discussions.md)
-   - [Development History](docs/history.md)
-7. Other
-   - [NGINX Caching](docs/nginx.md)
