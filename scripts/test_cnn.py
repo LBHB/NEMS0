@@ -23,7 +23,7 @@ import nems.recording as recording
 from nems.signal import RasterizedSignal
 from nems.fitters.api import scipy_minimize
 from nems.gui.recording_browser import browse_recording, browse_context
-import nems.cnn as cnn
+import nems.tf.cnn as cnn
 
 log = logging.getLogger(__name__)
 
