@@ -76,8 +76,8 @@ def diagnostic(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     # but some plots might want to plot est vs val or need access to the
     # full recording. Keeping the full ctx reference lets those plots
     # use ctx['est'], ctx['rec'], etc.
-    rec = ctx[default][r_idx]
-    modelspec = ctx['modelspecs'][m_idx]
+    rec = ctx[default].set_view(r_idx)
+    modelspec = ctx['modelspec'].set_fit(m_idx)
     if (epoch is not None) and rec.get_epoch_indices(epoch).shape[0]:
         pass
     elif rec.get_epoch_indices('REFERENCE').shape[0]:
@@ -103,10 +103,30 @@ def diagnostic(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     else:
         occurrence=occurrences[occurrence]
 
-    ctx_copy = copy.deepcopy(ctx)
-    plot_fns = _get_plot_fns(ctx, default=default, occurrence=occurrence,
-                             epoch=epoch, m_idx=m_idx, pre_dur=pre_dur,
-                             dur=dur)
+    #plot_fns = _get_plot_fns(ctx, default=default, occurrence=occurrence,
+    #                         epoch=epoch, m_idx=m_idx, pre_dur=pre_dur,
+    #                         dur=dur)
+    plot_fns = []
+
+    # TODO: This feels a bit hacky, likely needs review.
+    #modules = [m['fn'] for m in modelspec]
+
+    for idx, m in enumerate(modelspec):
+        fname = m['fn']
+
+        fmatch=['weight_channels','fir','stp','nonlinearity','state']
+        i = 0
+        for fn in fmatch:
+            if fn in fname:
+                i += 1
+        if i:
+            channels = 0
+            fn = output_psth(rec, modelspec, idx, sig_name='pred',
+                             epoch=epoch, occurrences=occurrence,
+                             channels=channels, mod_name=fname,
+                             pre_dur=pre_dur, dur=dur)
+            plot = (fn, 1)
+            plot_fns.append(plot)
 
     # Need to know how many total plots for outer gridspec (n).
     # +3 is to account for module-independent plots at end
@@ -203,11 +223,11 @@ def diagnostic(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     plt.pause(0.001)
     return fig
 
-
+"""
 def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
                   r_idx=0, pre_dur=None, dur=None):
-    rec = ctx[default][r_idx]
-    modelspec = ctx['modelspecs'][m_idx]
+    rec = ctx[default].set_view(r_idx)
+    modelspec = ctx['modelspec'].set_fit(m_idx)
 
     plot_fns = []
 
@@ -232,7 +252,7 @@ def _get_plot_fns(ctx, default='val', epoch='TRIAL', occurrence=0, m_idx=0,
             plot_fns.append(plot)
 
     return plot_fns
-
+"""
 
 def quickplot_no_xforms(rec, est, val, modelspecs, default='val', occurrence=0,
                         epoch='TRIAL', figsize=None, height_mult=3.0, m_idx=0):
@@ -314,7 +334,7 @@ def output_psth(rec, modelspec, idx, sig_name='pred',
 
     time_vector = np.arange(0, len(value_vector)) / after_sig.fs - \
             PreStimSilence
-    good_bins = (time_vector >= -PreStimSilence)
+    good_bins = (time_vector >= -pre_dur)
     if dur is not None:
         good_bins[time_vector > dur] = False
 
