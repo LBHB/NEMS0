@@ -21,6 +21,11 @@ def weights_norm(shape, sig=0.1, seed=0):
     W = tf.Variable(tf.random_normal(shape, stddev=sig, mean=0, seed=seed))
     return W
 
+def weights_zeros(shape, sig=0.1, seed=0):
+    #W = tf.Variable(tf.random_normal(shape, stddev=0.001, mean=0, seed=seed))
+    W = tf.Variable(tf.zeros(shape))
+    return W
+
 def poisson(response, prediction):
     return tf.reduce_mean(prediction - response * tf.log(prediction + 1e-5), name='poisson')
 
@@ -54,6 +59,8 @@ def kern2D(n_x, n_y, n_kern, sig, rank=None, seed=0, distr='tnorm'):
         fn = weights_tnorm
     elif distr == 'norm':
         fn = weights_norm
+    elif distr == 'zeros':
+        fn = weights_zeros
     else:
         raise NameError('No matching distribution')
 
@@ -191,10 +198,10 @@ class Net:
 
                 self.layers[i]['W'] = tf.abs(kern2D(1, n_input_feats, self.layers[i]['n_kern'],
                                                     self.weight_scale, seed=seed_to_randint(self.seed)+i,
-                                                    distr='norm'))
+                                                    distr='tnorm'))
                 self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
                                                     self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
-                                                    distr='norm'))
+                                                    distr='zeros'))
                 self.layers[i]['Y'] = act(self.layers[i]['act'])(conv1d(X, self.layers[i]['W']) + self.layers[i]['b'])
 
             elif self.layers[i]['type'] == 'normalization':

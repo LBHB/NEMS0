@@ -73,23 +73,62 @@ data_dims = [n_stim, n_tps_per_stim, n_resp]
 v_feat_dims = [3, n_tps_per_stim, n_feats]
 v_data_dims = [3, n_tps_per_stim, n_resp]
 
+# extract stimulus matrix
 #F = np.random.randn(feat_dims[0], feat_dims[1], feat_dims[2])
 F = np.reshape(est['stim'].as_continuous().copy().T, feat_dims)
+Fv = np.reshape(val['stim'].as_continuous().copy().T, v_feat_dims)
+
+#normalize to mean 0, variannce 1
 m_stim=np.mean(F, axis=(0, 1), keepdims=True)
 s_stim=np.std(F, axis=(0, 1), keepdims=True)
 F -= m_stim
 F /= s_stim
-Fv = np.reshape(val['stim'].as_continuous().copy().T, v_feat_dims)
 Fv -= m_stim
 Fv /= s_stim
-
-tf.reset_default_graph()
 
 modelspecname = 'wc.18x2-fir.2x15-relu.1'
 meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
         'recording': rec.name}
 
+SIM_DATA = False
 USE_LINK = True
+
+if SIM_DATA:
+        print("simulating responses with known kernel")
+        # parameters
+        P = {}
+        P['rank'] = 2
+        P['act'] = 'relu'
+
+        layers = []
+
+        # convolutional layer
+        layer = {}
+        layer['type'] = 'conv'
+        layer['time_win_sec'] = time_win_sec
+        layer['act'] = P['act']
+        layer['n_kern'] = 1
+        layer['rank'] = P['rank']
+        layers.append(layer)
+
+        net1_seed = 12
+        tf.reset_default_graph()
+        net1 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=modelspecs_dir)
+        net1.build()
+        D = net1.predict(F)
+        Dv = net1.predict(Fv)
+
+        net1_layer_vals = net1.layer_vals()
+
+        plt.figure()
+        plt.imshow(np.fliplr(net1_layer_vals[0]['W'][:,:,0].T), interpolation='none', origin='lower')
+        plt.ylabel('time'); plt.xlabel('feature')
+        plt.title('Actual simulated weights')
+        plt.colorbar()
+else:
+        D = np.reshape(est['resp'].as_continuous().copy().T, data_dims)
+        Dv = np.reshape(val['resp'].as_continuous().copy().T, v_data_dims)
+
 net1_seed = 50
 tf.reset_default_graph()
 
@@ -97,8 +136,33 @@ if USE_LINK:
         modelspec = init.from_keywords(modelspecname, meta=meta)
         #layers = cnnlink.modelspec2cnn(modelspec, data_dims=data_dims, n_inputs=n_feats, fs=est['resp'].fs, net_seed=net1_seed)
         layers = cnnlink.modelspec2cnn(modelspec, n_inputs=n_feats, fs=est['resp'].fs)
+        #layers = [{'act': 'identity', 'n_kern': 1,
+        #  'time_win_sec': 0.01, 'type': 'reweight-positive'},
+        # {'act': 'relu', 'n_kern': 1, 'rank': None,
+        #  'time_win_sec': 0.15, 'type': 'conv'}]
         net2 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=modelspecs_dir)
+        #net2.optimizer = 'GradientDescent'
+        #net2.optimizer = 'RMSProp'
+        net2.build()
+        """
+        with net2.sess.as_default():
+                b = net2.layers[0]['b']
+                tf.assign(b, 0)
 
+                x=b.eval()
+
+            layers = []
+            for i in range(self.n_layers):
+                layer = {}
+                layer['W'] = self.layers[i]['W'].eval()
+                if 'b' in self.layers[i]:
+                    layer['b'] = self.layers[i]['b'].eval()
+                layers.append(layer)
+
+            return layers
+        net2.layer_vals()[0]['b'][0,0,0]=0
+        net2.layer_vals()[1]['b'][0,0,0]=0
+        """
 else:
         # parameters
         P = {}
@@ -116,24 +180,12 @@ else:
         layer['rank'] = P['rank']
         layers.append(layer)
 
-        #net1_seed = 13
-        #tf.reset_default_graph()
-        #net1 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=modelspecs_dir)
-        #net1.build()
-        #D = net1.predict(F)
-        #
-        #net1_layer_vals = net1.layer_vals()
-
         # create network
-        #tf.reset_default_graph()
         net2 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=modelspecs_dir)
+        # net2.optimizer = 'GradientDescent'
+        # net2.optimizer = 'RMSProp'
+        net2.build()
 
-#net2.optimizer = 'GradientDescent'
-#net2.optimizer = 'RMSProp'
-net2.build()
-
-D = np.reshape(est['resp'].as_continuous().copy().T, data_dims)
-Dv = np.reshape(val['resp'].as_continuous().copy().T, v_data_dims)
 
 net2_layer_init = net2.layer_vals()
 
@@ -149,48 +201,37 @@ Dv_pred = net2.predict(Fv)
 # plot results (init vs. final STRF, pred comp)
 plt.figure()
 
-if len(net2_layer_init)>1:
-        plt.subplot(3, 2, 1)
-        plt.imshow(np.fliplr(net2_layer_init[0]['W'][0,:,:].T), interpolation='none', origin='lower')
-        plt.ylabel('time'); plt.xlabel('feature')
+if USE_LINK:
+        plt.subplot(2, 2, 1)
+        plt.imshow(np.fliplr(np.matmul(net2_layer_init[0]['W'][0,:,:], net2_layer_init[1]['W'][:,:,0].T)), interpolation='none', origin='lower')
+        plt.ylabel('feature'); plt.xlabel('time lag')
         plt.title('Init weights')
         plt.colorbar()
 
-        plt.subplot(3, 2, 2)
-        plt.imshow(np.fliplr(net2_layer_vals[0]['W'][0,:,:].T), interpolation='none', origin='lower')
-        plt.ylabel('time'); plt.xlabel('feature')
+        plt.subplot(2, 2, 2)
+        plt.imshow(np.fliplr(np.matmul(net2_layer_vals[0]['W'][0, :, :], net2_layer_vals[1]['W'][:, :, 0].T)),
+                   interpolation='none', origin='lower')
+        plt.ylabel('feature')
+        plt.xlabel('time lag')
         plt.title('Fit weights')
         plt.colorbar()
 
-        plt.subplot(3, 2, 3)
-        plt.imshow(np.fliplr(net2_layer_init[1]['W'][:,:,0].T), interpolation='none', origin='lower')
-        plt.ylabel('time'); plt.xlabel('feature')
-        plt.title('Init weights')
-        plt.colorbar()
-
-        plt.subplot(3, 2, 4)
-        plt.imshow(np.fliplr(net2_layer_vals[1]['W'][:,:,0].T), interpolation='none', origin='lower')
-        plt.ylabel('time'); plt.xlabel('feature')
-        plt.title('Fit weights')
-        plt.colorbar()
-
-        plt.subplot(3, 1, 3)
 else:
         plt.subplot(2, 2, 1)
         plt.imshow(np.fliplr(net2_layer_init[0]['W'][:, :, 0].T), interpolation='none', origin='lower')
-        plt.ylabel('time')
-        plt.xlabel('feature')
+        plt.ylabel('feature')
+        plt.xlabel('time lag')
         plt.title('Init weights')
         plt.colorbar()
 
         plt.subplot(2, 2, 2)
         plt.imshow(np.fliplr(net2_layer_vals[0]['W'][:, :, 0].T), interpolation='none', origin='lower')
-        plt.ylabel('time')
-        plt.xlabel('feature')
+        plt.ylabel('feature')
+        plt.xlabel('time lag')
         plt.title('Fit weights')
         plt.colorbar()
 
-        plt.subplot(2, 1, 2)
+plt.subplot(2, 1, 2)
 
 respidx = 0
 plt.plot(Dv[respidx, :, 0])
@@ -198,7 +239,14 @@ plt.plot(Dv_pred[respidx, :, 0])
 cc=np.corrcoef(Dv.flatten(), Dv_pred.flatten())
 plt.title('prediction corr: {:.3f}'.format(cc[0,1]))
 
+if USE_LINK:
+        modelspec = cnnlink.cnn2modelspec(net2, modelspec)
+        est, val = nems.analysis.api.generate_prediction(est, val, modelspec)
 
+        # evaluate prediction accuracy
+        modelspec = nems.analysis.api.standard_correlation(est, val, modelspec)
+
+        nplt.quickplot({'val': val, 'modelspec': modelspec})
 """
 net1_seed = 7
 tf.reset_default_graph()
