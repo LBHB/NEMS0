@@ -4,9 +4,9 @@
 
 ## Generic Python Install
 
-Download NEMS:
+Download NEMS (dev branch recommended):
 ```
-git clone https://github.com/lbhb/NEMS
+git clone -b dev https://github.com/lbhb/NEMS
 ```
 Add the NEMS library via pip (where "NEMS" is the installation directory):
 ```
