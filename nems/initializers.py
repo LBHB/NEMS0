@@ -74,7 +74,8 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
 
         d = copy.deepcopy(registry[kw])
         d['id'] = kw
-        d = priors.set_mean_phi([d])[0]  # Inits phi for 1 module
+        if init_phi_to_mean_prior:
+            d = priors.set_mean_phi([d])[0]  # Inits phi for 1 module
 
         modelspec.append(d)
 

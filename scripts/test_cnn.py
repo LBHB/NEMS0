@@ -14,6 +14,7 @@ import nems
 #import nems.initializers
 import nems.priors
 import nems.preprocessing as preproc
+import nems.initializers as init
 import nems.modelspec as ms
 import nems.plots.api as nplt
 import nems.analysis.api
@@ -24,6 +25,7 @@ from nems.signal import RasterizedSignal
 from nems.fitters.api import scipy_minimize
 from nems.gui.recording_browser import browse_recording, browse_context
 import nems.tf.cnn as cnn
+import nems.tf.cnnlink as cnnlink
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +39,7 @@ modelspecs_dir = nems.NEMS_PATH + '/modelspecs'
 recording.get_demo_recordings(signals_dir)
 
 datafile = signals_dir + "/TAR010c-18-1.pkl"
+batch=271
 
 # ----------------------------------------------------------------------------
 # LOAD AND FORMAT RECORDING DATA
@@ -56,6 +59,7 @@ rec = recording.Recording(signals)
 est, val = rec.split_using_epoch_occurrence_counts(epoch_regex="^STIM_")
 est = preproc.average_away_epoch_occurrences(est, epoch_regex="^STIM_").apply_mask()
 val = preproc.average_away_epoch_occurrences(val, epoch_regex="^STIM_").apply_mask()
+
 
 sr_Hz=est['resp'].fs
 time_win_sec = 0.1
@@ -79,42 +83,58 @@ Fv = np.reshape(val['stim'].as_continuous().copy().T, v_feat_dims)
 Fv -= m_stim
 Fv /= s_stim
 
+tf.reset_default_graph()
 
-# parameters
-P = {}
-P['rank'] = 2
-P['act'] = 'relu'
+modelspecname = 'wc.18x2-fir.2x15-relu.1'
+meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
+        'recording': rec.name}
 
-layers = []
+USE_LINK = True
+net1_seed = 50
+tf.reset_default_graph()
 
-# convolutional layer
-layer = {}
-layer['type'] = 'conv'
-layer['time_win_sec'] = time_win_sec
-layer['act'] = P['act']
-layer['n_kern'] = 1
-layer['rank'] = P['rank']
-layers.append(layer)
+if USE_LINK:
+        modelspec = init.from_keywords(modelspecname, meta=meta)
+        #layers = cnnlink.modelspec2cnn(modelspec, data_dims=data_dims, n_inputs=n_feats, fs=est['resp'].fs, net_seed=net1_seed)
+        layers = cnnlink.modelspec2cnn(modelspec, n_inputs=n_feats, fs=est['resp'].fs)
+        net2 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=modelspecs_dir)
 
-#net1_seed = 13
-#tf.reset_default_graph()
-#net1 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=modelspecs_dir)
-#net1.build()
-#D = net1.predict(F)
-#
-#net1_layer_vals = net1.layer_vals()
+else:
+        # parameters
+        P = {}
+        P['rank'] = 2
+        P['act'] = 'relu'
+
+        layers = []
+
+        # convolutional layer
+        layer = {}
+        layer['type'] = 'conv'
+        layer['time_win_sec'] = time_win_sec
+        layer['act'] = P['act']
+        layer['n_kern'] = 1
+        layer['rank'] = P['rank']
+        layers.append(layer)
+
+        #net1_seed = 13
+        #tf.reset_default_graph()
+        #net1 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=modelspecs_dir)
+        #net1.build()
+        #D = net1.predict(F)
+        #
+        #net1_layer_vals = net1.layer_vals()
+
+        # create network
+        #tf.reset_default_graph()
+        net2 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=modelspecs_dir)
+
+#net2.optimizer = 'GradientDescent'
+#net2.optimizer = 'RMSProp'
+net2.build()
 
 D = np.reshape(est['resp'].as_continuous().copy().T, data_dims)
 Dv = np.reshape(val['resp'].as_continuous().copy().T, v_data_dims)
 
-
-# create network
-net1_seed = 50
-tf.reset_default_graph()
-net2 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=modelspecs_dir)
-#net2.optimizer = 'GradientDescent'
-#net2.optimizer = 'RMSProp'
-net2.build()
 net2_layer_init = net2.layer_vals()
 
 train_val_test = np.zeros(data_dims[0])
@@ -129,19 +149,49 @@ Dv_pred = net2.predict(Fv)
 # plot results (init vs. final STRF, pred comp)
 plt.figure()
 
-plt.subplot(2, 2, 1)
-plt.imshow(np.fliplr(net2_layer_init[0]['W'][:,:,0].T), interpolation='none', origin='lower')
-plt.ylabel('time'); plt.xlabel('feature')
-plt.title('Init weights')
-plt.colorbar()
+if len(net2_layer_init)>1:
+        plt.subplot(3, 2, 1)
+        plt.imshow(np.fliplr(net2_layer_init[0]['W'][0,:,:].T), interpolation='none', origin='lower')
+        plt.ylabel('time'); plt.xlabel('feature')
+        plt.title('Init weights')
+        plt.colorbar()
 
-plt.subplot(2, 2, 2)
-plt.imshow(np.fliplr(net2_layer_vals[0]['W'][:,:,0].T), interpolation='none', origin='lower')
-plt.ylabel('time'); plt.xlabel('feature')
-plt.title('Fit weights')
-plt.colorbar()
+        plt.subplot(3, 2, 2)
+        plt.imshow(np.fliplr(net2_layer_vals[0]['W'][0,:,:].T), interpolation='none', origin='lower')
+        plt.ylabel('time'); plt.xlabel('feature')
+        plt.title('Fit weights')
+        plt.colorbar()
 
-plt.subplot(2, 1, 2)
+        plt.subplot(3, 2, 3)
+        plt.imshow(np.fliplr(net2_layer_init[1]['W'][:,:,0].T), interpolation='none', origin='lower')
+        plt.ylabel('time'); plt.xlabel('feature')
+        plt.title('Init weights')
+        plt.colorbar()
+
+        plt.subplot(3, 2, 4)
+        plt.imshow(np.fliplr(net2_layer_vals[1]['W'][:,:,0].T), interpolation='none', origin='lower')
+        plt.ylabel('time'); plt.xlabel('feature')
+        plt.title('Fit weights')
+        plt.colorbar()
+
+        plt.subplot(3, 1, 3)
+else:
+        plt.subplot(2, 2, 1)
+        plt.imshow(np.fliplr(net2_layer_init[0]['W'][:, :, 0].T), interpolation='none', origin='lower')
+        plt.ylabel('time')
+        plt.xlabel('feature')
+        plt.title('Init weights')
+        plt.colorbar()
+
+        plt.subplot(2, 2, 2)
+        plt.imshow(np.fliplr(net2_layer_vals[0]['W'][:, :, 0].T), interpolation='none', origin='lower')
+        plt.ylabel('time')
+        plt.xlabel('feature')
+        plt.title('Fit weights')
+        plt.colorbar()
+
+        plt.subplot(2, 1, 2)
+
 respidx = 0
 plt.plot(Dv[respidx, :, 0])
 plt.plot(Dv_pred[respidx, :, 0])
