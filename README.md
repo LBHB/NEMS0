@@ -16,9 +16,10 @@ If you don't already have Python installed, see the
 
 ### Quick Generic Python Install
 
-If you already have Python, download NEMS:
+If you already have Python, download NEMS. Currently we recommend using the `dev` branch,
+which contains a number of useful features:
 ```
-git clone https://github.com/lbhb/NEMS
+git clone -b dev https://github.com/lbhb/NEMS
 ```
 Add the NEMS library via pip (where "NEMS" is the installation directory):
 ```
