@@ -424,10 +424,15 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     else:
         spont_rate = np.nanmean(prestimsilence)
 
-    idx = resp.get_epoch_indices('PreStimSilence')
-    prebins = idx[0][1] - idx[0][0]
-    idx = resp.get_epoch_indices('PostStimSilence')
-    postbins = idx[0][1] - idx[0][0]
+    preidx = resp.get_epoch_indices('PreStimSilence')
+    dpre=preidx[:,1]-preidx[:,0]
+    minpre=np.min(dpre)
+    prebins = preidx[0][1] - preidx[0][0]
+    posidx = resp.get_epoch_indices('PostStimSilence')
+    dpos=posidx[:,1]-posidx[:,0]
+    minpos=np.min(dpre)
+    postbins = posidx[0][1] - posidx[0][0]
+    #refidx = resp.get_epoch_indices('REFERENCE')
 
     # compute PSTH response during valid trials
     if type(epoch_regex) == list:
@@ -438,6 +443,31 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
 
     elif type(epoch_regex) == str:
         epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
+
+    for ename in epochs_to_extract:
+        ematch = np.argwhere(resp.epochs['name']==ename)
+        ff = resp.get_epoch_indices(ename)
+        for i,fe in enumerate(ff):
+            re = ((resp.epochs['name']=='REFERENCE') &
+                  (resp.epochs['start']==fe[0]/resp.fs))
+            pe = ep.epoch_contained(preidx, [fe])
+            thispdur = np.diff(preidx[pe])
+            if thispdur.shape and thispdur>minpre:
+                print('adjust {} to {}'.format(thispdur, minpre))
+                print(resp.epochs.loc[ematch[i]])
+                resp.epochs.loc[ematch[i],'start'] += (thispdur[0,0]-minpre)/resp.fs
+                resp.epochs.loc[re,'start'] += (thispdur[0,0]-minpre)/resp.fs
+                print(resp.epochs.loc[ematch[i]])
+
+            pe = ep.epoch_contained(posidx, [fe])
+            thispdur = np.diff(posidx[pe])
+            if thispdur.shape and thispdur>minpos:
+                print('adjust {} to {}'.format(thispdur, minpos))
+                print(resp.epochs.loc[ematch[i]])
+                resp.epochs.loc[ematch[i],'end'] -= (thispdur[0,0]-minpos)/resp.fs
+                resp.epochs.loc[re,'end'] -= (thispdur[0,0]-minpos)/resp.fs
+                print(resp.epochs.loc[ematch[i]])
+    newrec['resp'].epochs = resp.epochs.copy()
 
     if 'mask' in newrec.signals.keys():
         folded_matrices = resp.extract_epochs(epochs_to_extract,

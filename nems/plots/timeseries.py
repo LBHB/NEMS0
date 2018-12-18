@@ -135,7 +135,7 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
         time_vector = np.arange(0, len(value_vector)) / s.fs - PreStimSilence
 
         # limit time range if specified
-        good_bins = (time_vector >= -PreStimSilence)
+        good_bins = (time_vector >= -pre_dur)
         if dur is not None:
             good_bins[time_vector > dur] = False
 

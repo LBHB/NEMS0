@@ -860,7 +860,8 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
         modelspec.meta['state_mod'] = s
         modelspec.meta['j_state_mod'] = j_s
         modelspec.meta['se_state_mod'] = ee
-        modelspec.meta
+        modelspec.meta['state_chans'] = val['state'].chans
+
         # Charlie testing diff ways to calculate mod index
 
         # try using resp
