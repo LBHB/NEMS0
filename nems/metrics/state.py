@@ -88,6 +88,11 @@ def state_mod_index(rec, epoch='REFERENCE', psth_name='pred', divisor=None,
     low, high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
                                 state_sig=state_sig, state_chan=state_chan)
 
+    # kludge to deal with variable length REFERENCES.
+    kk = np.isfinite(low) & np.isfinite(high)
+    low = low[kk]
+    high = high[kk]
+
     if divisor is not None:
         low_denom, high_denom = state_mod_split(rec, epoch=epoch,
                                                 psth_name=divisor,

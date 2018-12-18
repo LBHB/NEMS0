@@ -98,13 +98,18 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None, us
         else:
             v = val
             e = est
+            use_mask = False
 
         r_test, se_test = nmet.j_corrcoef(v, 'pred', 'resp')
         r_fit, se_fit = nmet.j_corrcoef(e, 'pred', 'resp')
         r_floor = nmet.r_floor(v, 'pred', 'resp')
         if rec is not None:
+            if use_mask:
+                r = rec.apply_mask()
+            else:
+                r = rec
             # print('running r_ceiling')
-            r_ceiling = nmet.r_ceiling(v, rec, 'pred', 'resp')
+            r_ceiling = nmet.r_ceiling(v, r, 'pred', 'resp')
 
         mse_test, se_mse_test = nmet.j_nmse(v, 'pred', 'resp')
         mse_fit, se_mse_fit = nmet.j_nmse(e, 'pred', 'resp')
@@ -113,6 +118,8 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None, us
         ll_fit = nmet.likelihood_poisson(e, 'pred', 'resp')
 
     elif len(val) == 1:
+        # does this ever run?
+        raise ValueError("val as list not supported any more?")
         if ('mask' in val[0].signals.keys()) and use_mask:
             v = val[0].apply_mask()
             e = est[0].apply_mask()
@@ -236,7 +243,7 @@ def standard_correlation_by_epochs(est,val,modelspec=None,modelspecs=None,epochs
     #For example, ['A', 'B', ['A', 'B']] will measure correlations separately
     # for all epochs marked 'A', all epochs marked 'B', and all epochs marked
     # 'A'or 'B'
-  
+
     if modelspecs is None:
         list_modelspec = (type(modelspec) is list)
         if modelspec is None:
