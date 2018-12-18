@@ -128,6 +128,8 @@ class Net:
         # directory and file info
         if log_dir is None:
             self.log_dir = '/Users/svnh2/Desktop/projects/scratch'
+        elif log_dir[-1] == '/':
+            self.log_dir = log_dir[:-1]
         else:
             self.log_dir = log_dir
         if not os.path.exists(self.log_dir):
