@@ -857,7 +857,7 @@ def stategain(kw):
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.state_vars_timeseries',
                      'nems.plots.api.state_vars_psth_all'],
-        'plot_fn_idx': 2,
+        'plot_fn_idx': 3,
         'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
                   'd': ('Normal', {'mean': d_mean, 'sd': d_sd})}
         }

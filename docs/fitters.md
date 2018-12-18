@@ -1,3 +1,5 @@
+[Contents](README.md)
+
 # Fitters
 
 To keep fitters as simple and re-useable as possible, they should only require `sigma` (some representatio of a point in fit-space, like a vector) and `cost_fn` (some function for determining error based on sigma) as arguments. This keeps fitter functions from needing to know anything about the model architecture, and ensures easy compatibility with popular fitting packages like scipy.minimize.
