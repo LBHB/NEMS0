@@ -64,6 +64,7 @@ xfspec.append(['nems.xforms.average_away_stim_occurrences', {}])
 #modelspecname = 'dlog-wc.18x1.g-stp.1-fir.1x15-lvl.1-dexp.1'
 #modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
 modelspecname = 'dlog-wc.18x1.g-fir.1x15-lvl.1'
+#modelspecname = 'wc.18x1.g-fir.1x15-relu.1'
 
 meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
         'recording': exptid}
