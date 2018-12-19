@@ -45,7 +45,7 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100, net_seed=1):
 
         elif m['fn'] in ['nems.modules.weight_channels.basic']:
             layer = {}
-            layer['type'] = 'reweight-positive'
+            layer['type'] = 'reweight-positive-zero'
             layer['time_win_sec'] = 1 / fs
             if next_fn == 'nems.modules.nonlinearity.relu':
                 layer['act'] = 'relu'
