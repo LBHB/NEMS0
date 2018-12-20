@@ -287,6 +287,9 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
 
     return {'rec': rec}
 
+def normalize_stim(rec=None, norm_method='meanstd', **context):
+    rec['stim'] = rec['stim'].rasterize().normalize(norm_method)
+    return {'rec': rec}
 
 def init_from_keywords(keywordstring, meta={}, IsReload=False,
                        registry=None, rec=None, **context):

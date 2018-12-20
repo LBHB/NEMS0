@@ -180,6 +180,15 @@ class Net:
                                                  distr='norm'))
                 self.layers[i]['Y'] = act(self.layers[i]['act'])(conv1d(X_pad, self.layers[i]['W']) + self.layers[i]['b'])
 
+            elif self.layers[i]['type'] == 'dlog':
+
+                print('Loc dlog')
+
+                self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
+                                                    self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
+                                                    distr='tnorm'))
+                self.layers[i]['Y'] = tf.log((X + self.layers[i]['b']) / self.layers[i]['b'])
+
             elif self.layers[i]['type'] == 'reweight':
 
                 print('Loc reweight')
@@ -392,7 +401,8 @@ class Net:
             layers = []
             for i in range(self.n_layers):
                 layer = {}
-                layer['W'] = self.layers[i]['W'].eval()
+                if 'W' in self.layers[i]:
+                    layer['W'] = self.layers[i]['W'].eval()
                 if 'b' in self.layers[i]:
                     layer['b'] = self.layers[i]['b'].eval()
                 layers.append(layer)
