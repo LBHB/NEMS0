@@ -243,8 +243,9 @@ class Net:
                 self.layers[i]['s'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
                                                     self.weight_scale, seed=seed_to_randint(self.seed) + i + self.n_layers,
                                                     distr='uniform'))
-                self.layers[i]['Y'] = conv1d(X, tf.exp(- tf.square((tf.reshape(tf.range(0, 1, 1/n_input_feats, dtype=tf.float32), [1, n_input_feats, 1])-self.layers[i]['m'])/
-                                                       self.layers[i]['s'])))
+                self.layers[i]['W'] = tf.exp(- tf.square((tf.reshape(tf.range(0, 1, 1/n_input_feats, dtype=tf.float32), [1, n_input_feats, 1])-self.layers[i]['m'])/
+                                                       self.layers[i]['s']))
+                self.layers[i]['Y'] = act(self.layers[i]['act'])(conv1d(X, self.layers[i]['W']))
 
             elif self.layers[i]['type'] == 'normalization':
 
