@@ -45,35 +45,28 @@ batch = 271
 cellid = "TAR010c-18-1"
 
 # MODEL SPEC
-#modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
-modelspecname = 'dlog-wc.18x1.g-fir.1x15-lvl.1'
 #modelspecname = 'dlog-wc.18x1.g-stp.1-fir.1x15-lvl.1-dexp.1'
+#modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
+#modelspecname = 'dlog-wc.18x1.g-fir.1x15-lvl.1'
+modelspecname = 'wc.18x1.g-fir.1x15-relu.1'
 
+meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
+        'recording': exptid, 'temp_path': results_dir}
 
 # generate modelspec
 xfspec = []
 # load internally:
 #xfspec.append(['nems.xforms.load_recordings',
 #               {'recording_uri_list': [recording_uri]}])
+
 # load from external format
 xfspec.append(['nems.xforms.load_recording_wrapper',
                {'load_command': load_command,
                 'exptid': exptid,
                 'datafile': datafile}])
-xfspec.append(['nems.xforms.normalize_stim',
-               {'norm_method': 'minmax'}])
-xfspec.append(['nems.xforms.split_by_occurrence_counts',
-               {'epoch_regex': '^STIM_'}])
+xfspec.append(['nems.xforms.normalize_stim', {'norm_method': 'meanstd'}])
+xfspec.append(['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}])
 xfspec.append(['nems.xforms.average_away_stim_occurrences', {}])
-
-# MODEL SPEC
-#modelspecname = 'dlog-wc.18x1.g-stp.1-fir.1x15-lvl.1-dexp.1'
-#modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
-#modelspecname = 'dlog-wc.18x1.g-fir.1x15-lvl.1'
-modelspecname = 'dlog-wc.18x1-fir.1x15-relu.1'
-
-meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
-        'recording': exptid, 'temp_path': results_dir}
 
 xfspec.append(['nems.xforms.init_from_keywords',
                {'keywordstring': modelspecname, 'meta': meta}])

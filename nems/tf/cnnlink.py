@@ -17,8 +17,8 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100, net_seed=1):
     """convert NEMS modelspec to TF network.
     Initialize with existing phi?
     Translations:
-        wc -> reweight, identity (require lvl?)
-        fir+lvl -> conv, indentity
+        wc -> reweight-positive-zeros, identity (require lvl?)
+        fir+lvl -> conv, identity
         wc+relu -> reweight, relu
         fir+relu -> conv2d, relu
 
@@ -57,23 +57,35 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100, net_seed=1):
 
         elif m['fn'] in ['nems.modules.weight_channels.basic']:
             layer = {}
-            layer['type'] = 'reweight-positive-zeros'
             layer['time_win_sec'] = 1 / fs
             if next_fn == 'nems.modules.nonlinearity.relu':
+                layer['type'] = 'reweight-positive'
                 layer['act'] = 'relu'
             else:
+                layer['type'] = 'reweight-positive-zero'
                 layer['act'] = 'identity'
             layer['n_kern'] = m['phi']['coefficients'].shape[0]
             #layer['rank'] = None  # P['rank']
             layers.append(layer)
 
+        elif m['fn'] in ['nems.modules.weight_channels.gaussian']:
+            layer = {}
+            layer['time_win_sec'] = 1 / fs
+            if next_fn == 'nems.modules.nonlinearity.relu':
+                layer['type'] = 'reweight-gaussian'
+                layer['act'] = 'relu'
+            else:
+                layer['type'] = 'reweight-gaussian'
+                layer['act'] = 'identity'
+            layer['n_kern'] = m['phi']['mean'].shape[0]
+            #layer['rank'] = None  # P['rank']
+            layers.append(layer)
+
+
         else:
             raise ValueError("fn %s not supported", m['fn'])
 
-    # NOT CLEAR IF THIS IS BEST DONE IN
-    #net1 = cnn.Net(data_dims, n_inputs, fs, layers, seed=net_seed, log_dir=modelspecs_dir)
-    #net1.build()
-
+    print(layers)
     return layers
 
 
@@ -111,10 +123,17 @@ def cnn2modelspec(net, modelspec):
             modelspec[i]['phi']['offset'] = np.log10(net_layer_vals[current_layer]['b'][0, :, :].T)
             print(net_layer_vals[current_layer])
             current_layer += 1
+
+        elif m['fn'] in ['nems.modules.weight_channels.gaussian']:
+            modelspec[i]['phi']['mean'] = net_layer_vals[current_layer]['m'][0, :, :].T
+            modelspec[i]['phi']['sd'] = net_layer_vals[current_layer]['s'][0, :, :].T
+            print(net_layer_vals[current_layer])
+            current_layer += 1
         else:
             raise ValueError("fn %s not supported", m['fn'])
 
     return modelspec
+
 
 def fit_tf(est=None, modelspec=None,
            optimizer='Adam',

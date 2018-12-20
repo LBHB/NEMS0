@@ -26,6 +26,10 @@ def weights_zeros(shape, sig=0.1, seed=0):
     W = tf.Variable(tf.zeros(shape))
     return W
 
+def weights_uniform(shape, sig=0.1, seed=0):
+    W = tf.Variable(tf.random_uniform(shape, minval=0, maxval=1, seed=seed))
+    return W
+
 def poisson(response, prediction):
     return tf.reduce_mean(prediction - response * tf.log(prediction + 1e-5), name='poisson')
 
@@ -61,6 +65,8 @@ def kern2D(n_x, n_y, n_kern, sig, rank=None, seed=0, distr='tnorm'):
         fn = weights_norm
     elif distr == 'zeros':
         fn = weights_zeros
+    elif distr == 'uniform':
+        fn = weights_uniform
     else:
         raise NameError('No matching distribution')
 
@@ -128,6 +134,8 @@ class Net:
         # directory and file info
         if log_dir is None:
             self.log_dir = '/Users/svnh2/Desktop/projects/scratch'
+        elif log_dir[-1] == '/':
+            self.log_dir = log_dir[:-1]
         else:
             self.log_dir = log_dir
         if not os.path.exists(self.log_dir):
@@ -207,11 +215,36 @@ class Net:
 
                 self.layers[i]['W'] = tf.abs(kern2D(1, n_input_feats, self.layers[i]['n_kern'],
                                                     self.weight_scale, seed=seed_to_randint(self.seed)+i,
-                                                    distr='tnorm'))
+                                                    distr='norm'))
                 self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
                                                     self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
-                                                    distr='zeros'))
+                                                    distr='norm'))
                 self.layers[i]['Y'] = act(self.layers[i]['act'])(conv1d(X, self.layers[i]['W']) + self.layers[i]['b'])
+
+            elif self.layers[i]['type'] == 'reweight-positive-zero':
+
+                print('Loc reweight-positive-zero')
+
+                self.layers[i]['W'] = tf.abs(kern2D(1, n_input_feats, self.layers[i]['n_kern'],
+                                                    self.weight_scale, seed=seed_to_randint(self.seed)+i,
+                                                    distr='tnorm'))
+                #self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
+                #                                    self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
+                #                                    distr='zeros'))
+                #self.layers[i]['Y'] = act(self.layers[i]['act'])(conv1d(X, self.layers[i]['W']) + self.layers[i]['b'])
+                self.layers[i]['Y'] = act(self.layers[i]['act'])(conv1d(X, self.layers[i]['W']))
+
+            elif self.layers[i]['type'] == 'reweight-gaussian':
+
+                print('Loc reweight-gaussian')
+                self.layers[i]['m'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
+                                                    self.weight_scale, seed=seed_to_randint(self.seed) + i + self.n_layers,
+                                                    distr='uniform'))
+                self.layers[i]['s'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
+                                                    self.weight_scale, seed=seed_to_randint(self.seed) + i + self.n_layers,
+                                                    distr='uniform'))
+                self.layers[i]['Y'] = conv1d(X, tf.exp(- tf.square((tf.reshape(tf.range(0, 1, 1/n_input_feats, dtype=tf.float32), [1, n_input_feats, 1])-self.layers[i]['m'])/
+                                                       self.layers[i]['s'])))
 
             elif self.layers[i]['type'] == 'normalization':
 
@@ -405,6 +438,10 @@ class Net:
                     layer['W'] = self.layers[i]['W'].eval()
                 if 'b' in self.layers[i]:
                     layer['b'] = self.layers[i]['b'].eval()
+                if 'm' in self.layers[i]:
+                    layer['m'] = self.layers[i]['m'].eval()
+                if 's' in self.layers[i]:
+                    layer['s'] = self.layers[i]['s'].eval()
                 layers.append(layer)
 
             return layers

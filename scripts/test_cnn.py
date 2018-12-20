@@ -34,8 +34,9 @@ log = logging.getLogger(__name__)
 
 
 # figure out data and results paths:
-signals_dir = nems.NEMS_PATH + '/recordings'
-modelspecs_dir = nems.NEMS_PATH + '/modelspecs'
+results_dir = nems.get_setting('NEMS_RESULTS_DIR')
+signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
+
 recording.get_demo_recordings(signals_dir)
 
 datafile = signals_dir + "/TAR010c-18-1.pkl"
@@ -86,7 +87,7 @@ F /= s_stim
 Fv -= m_stim
 Fv /= s_stim
 
-modelspecname = 'wc.18x2-fir.2x15-relu.1'
+modelspecname = 'wc.18x2.g-fir.2x15-relu.1'
 meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
         'recording': rec.name}
 
@@ -111,9 +112,9 @@ if SIM_DATA:
         layer['rank'] = P['rank']
         layers.append(layer)
 
-        net1_seed = 12
+        net1_seed = 50
         tf.reset_default_graph()
-        net1 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=modelspecs_dir)
+        net1 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=results_dir)
         net1.build()
         D = net1.predict(F)
         Dv = net1.predict(Fv)
@@ -140,7 +141,7 @@ if USE_LINK:
         #  'time_win_sec': 0.01, 'type': 'reweight-positive'},
         # {'act': 'relu', 'n_kern': 1, 'rank': None,
         #  'time_win_sec': 0.15, 'type': 'conv'}]
-        net2 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=modelspecs_dir)
+        net2 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=results_dir)
         #net2.optimizer = 'GradientDescent'
         #net2.optimizer = 'RMSProp'
         net2.build()
@@ -181,7 +182,7 @@ else:
         layers.append(layer)
 
         # create network
-        net2 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=modelspecs_dir)
+        net2 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=results_dir)
         # net2.optimizer = 'GradientDescent'
         # net2.optimizer = 'RMSProp'
         net2.build()
