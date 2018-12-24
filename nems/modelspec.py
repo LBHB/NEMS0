@@ -18,21 +18,36 @@ import matplotlib.pyplot as plt
 
 class ModelSpec:
     """
-    key attribute: raw --- equivalent of old model spec
-    is raw everything you need to specify the model? Or should we un-embed meta?
+    Defines a model based on a NEMS modelspec.
+
+    Attributes
+    ----------
+    raw : nested list of dictionaries
+        Equialent of old NEMS modelspec.
+        The first level is a list of cells, each of which is a list of
+        lists.
+        The second level is a list of fits, each of which is a list of
+        dictionaries.
+        Each dictionary specifies a module, or one step in the model.
+        For example,
+    fit_index : int
+        Integer index of which fit to reference when multiple are present,
+        default 0, when jacknifing et cetera.
+    cell_index : int
+        Integer index of which "cell" to reference when multiple are present,
+        default 0.
+
     """
-    def __init__(self, raw=None, fit_index=None):
-        if raw is None:
-            self.raw = [[]]
-        else:
-            self.raw = raw
+
+    def __init__(self, raw=None, phis=None, fit_index=0, cell_index=0):
+        self.raw = [[]] if raw is None else raw
+        self.phis = [] if phis is None else phis
 
         # a Model can have multiple fits, each of which contains a different
-        # set of phi values. fit_index references the default phi
-        if fit_index is None:
-            self.fit_index = 0
-        else:
-            self.fit_index = fit_index
+        # set of phi values. fit_index re
+        # rerences the default phi
+        self.fit_index = fit_index
+        self.cell_index = cell_index
         self.mod_index = 0
         self.plot_epoch = 'REFERENCE'
         self.plot_occurrence = 0
@@ -43,10 +58,11 @@ class ModelSpec:
             return self.get_module(key)
         except:
             if type(key) is slice:
-                return [self.raw[self.fit_index][ii] for ii in range(*key.indices(len(self)))]
-            elif key=='meta':
+                return [self.raw[self.fit_index][ii]
+                        for ii in range(*key.indices(len(self)))]
+            elif key == 'meta':
                 return self.meta
-            elif key=='phi':
+            elif key == 'phi':
                 return self.phi()
             else:
                 raise ValueError('key {} not supported'.format(key))
@@ -115,11 +131,8 @@ class ModelSpec:
     def fits(self):
         """List of modelspecs, one for each fit, for compatibility with some
            old functions"""
-        m_list = []
-        for f in range(len(self.raw)):
-            m_list += [ModelSpec(self.raw, f)]
-
-        return m_list
+        return [ModelSpec(self.raw, fit_index=f)
+                for f, _ in enumerate(self.raw)]
 
     @property
     def meta(self):
@@ -650,6 +663,7 @@ def try_scalar(x):
     except ValueError:
         pass
     return x
+
 
 # TODO: Check that the word 'phi' is not used in fn_kwargs
 # TODO: Error checking the modelspec before execution;

@@ -18,29 +18,40 @@ log = logging.getLogger(__name__)
 # TODO: implement some kind of coordinate system to keep track of where changes
 #       to individual phi etc need to be propagated
 
-class ModelEditor(qw.QMainWindow):
-    def __init__(self, ctx=None, xfspec=None, parent=None):
+class EditorWindow(qw.QMainWindow):
+    def __init__(self, modelspec=None, xfspec=None, parent=None):
         qw.QMainWindow.__init__(self)
-        self.ctx = ctx
         self.xfspec = xfspec
-        # TODO: or leave this as the new Modelspec object?
-        self.modelspec = self.ctx['modelspec'].fits()[0]
-        self.original_ctx = copy.deepcopy(ctx)
-        self.original_modelspec = copy.deepcopy(self.modelspec)
-        self.original_xfspec = copy.deepcopy(xfspec)
-        self.parent = parent
+        self.modelspec = modelspec
+        self.title = 'NEMS Model Browser'
 
-        self.title = 'NEMS Model Editor'
+        if self.modelspec is not None:
+            self.modelspec_editor = ModelspecEditor(self.modelspec, self)
+        if self.xfspec is not None:
+            self.xfspec_editor = XfspecEditor(self.xfspec, self)
 
-        self.editor = EditorWidget(self)
-        self.setCentralWidget(self.editor)
-
+        self.global_controls = GlobalControls(self.modelspec, self)
+        self.fit_editor = FitterEditor(self.modelspec, self.xfspec, self)
+        self.main_widget = qw.QWidget(self)
+        self.setCentralWidget(self.main_widget)
         self.show()
 
-    def update_browser(self):
-        # TODO: after updating xfspec / ctx, tell model browser to
-        #       update plots
-        pass
+
+class ModelspecEditor(qw.QMainWindow):
+    def __init__(self, modelspec, parent=None):
+        qw.QMainWindow.__init__(self)
+        self.modelspec = modelspec
+        self.original_modelspec = copy.deepcopy(self.modelspec)
+        self.parent = parent
+
+        self.modules = [ModuleEditor(i, m, self)
+                        for i, m in enumerate(self.modelspec)]
+        self.module_layout = qw.QVBoxLayout(self)
+        [self.module_layout.addWidget(m) for m in self.modules]
+
+class ModuleEditor(qw.QWidget):
+    def __init__(self, index, module, parent):
+        super(qw.QWidget, self).__init__(parent)
 
 
 class EditorWidget(qw.QWidget):
