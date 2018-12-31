@@ -69,7 +69,8 @@ def generate_prediction(est, val, modelspec):
     return new_est, new_val
 
 
-def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None, use_mask=True):
+def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
+                         use_mask=True):
     # use_mask: mask before computing metrics (if mask exists)
     # Compute scores for validation dat
     r_ceiling = 0
@@ -104,7 +105,7 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None, us
         r_fit, se_fit = nmet.j_corrcoef(e, 'pred', 'resp')
         r_floor = nmet.r_floor(v, 'pred', 'resp')
         if rec is not None:
-            if use_mask:
+            if 'mask' in rec.signals.keys() and use_mask:
                 r = rec.apply_mask()
             else:
                 r = rec
