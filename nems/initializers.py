@@ -101,10 +101,17 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
             (type(rec.meta['cellid']) is list)):
             meta['cellids'] = rec.meta['cellid']
 
-    if 'meta' not in modelspec[0].keys():
-        modelspec[0]['meta'] = meta
-    else:
-        modelspec[0]['meta'].update(meta)
+    # for modelspec object, we know that meta must exist, so just update
+    modelspec.meta.update(meta)
+
+    if modelspec.meta.get('modelpath') is None:
+        results_dir = get_setting('NEMS_RESULTS_DIR')
+        batch = modelspec.meta.get('batch', 0)
+        cellid = modelspec.meta.get('cellid', 'CELL')
+        destination = '{0}/{1}/{2}/{3}/'.format(
+            results_dir, batch, cellid, modelspec.get_longname())
+        modelspec.meta['modelpath'] = destination
+        modelspec.meta['figurefile'] = destination+'figure.0000.png'
 
     return modelspec
 

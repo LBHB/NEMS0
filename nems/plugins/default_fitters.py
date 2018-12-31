@@ -121,6 +121,45 @@ def basic(fitkey):
     return xfspec
 
 
+def tf(fitkey):
+    '''
+    Perform a fit_basic analysis on a model.
+
+    Parameters
+    ----------
+    fitkey : str
+        Expected format: tf.<fitter>.<jackknifing>.<metric>.<misc>
+        Example: basic.cd.nf10.shr.mi1000
+        Example translation:
+            Use fit_basic with coordinate_descent, nfold fitting with 10 folds,
+            with nmse_shrinkage as the metric and 1000 maximum iterations
+
+    Options
+    -------
+    cd : Use coordinate_descent for fitting (default is scipy_minimize)
+    miN : Set maximum iterations to N, where N is any positive integer.
+    tN : Set tolerance to 10**-N, where N is any positive integer.
+
+    '''
+
+    xfspec = []
+
+    options = _extract_options(fitkey)
+    max_iter = 1000
+    fitter = 'Adam'
+    for op in options:
+        if op[:1] == 'i':
+            max_iter = int(op[1:])
+        elif op[:1] == 'f':
+            fitter = op[1:]
+
+    xfspec = [['nems.tf.cnnlink.fit_tf',
+               {'max_iter': max_iter,
+                'optimizer': fitter}]]
+
+    return xfspec
+
+
 def iter(fitkey):
     '''
     Perform a fit_iteratively analysis on a model.
@@ -168,7 +207,7 @@ def iter(fitkey):
 
 def _extract_options(fitkey):
     if fitkey == 'basic' or fitkey == 'iter':
-        # empty options (i.e. just use defualts)
+        # empty options (i.e. just use defaults)
         options = []
     else:
         chunks = escaped_split(fitkey, '.')

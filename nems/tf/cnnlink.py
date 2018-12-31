@@ -138,7 +138,7 @@ def cnn2modelspec(net, modelspec):
 
 
 def fit_tf(est=None, modelspec=None,
-           optimizer='Adam',
+           optimizer='Adam', max_iter=1000,
            cost_function='mse',
            metaname='fit_basic', **context):
     '''
@@ -165,7 +165,10 @@ def fit_tf(est=None, modelspec=None,
     time_win_sec = 0.1
 
     n_feats = est['stim'].shape[0]
-    n_tps_per_stim = 550
+    e = est['stim'].get_epoch_indices('REFERENCE')
+    n_tps_per_stim = e[0][1]-e[0][0]
+    # before: hard coded as n_tps_per_stim = 550
+
     n_stim = int(est['stim'].shape[1] / n_tps_per_stim)
     n_resp = 1
     feat_dims = [n_stim, n_tps_per_stim, n_feats]
@@ -192,7 +195,7 @@ def fit_tf(est=None, modelspec=None,
 
     tf.reset_default_graph()
 
-    net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=net1_seed, log_dir=modelspec.meta['temp_path'])
+    net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=net1_seed, log_dir=modelspec.meta['modelpath'])
     net2.optimizer = optimizer
 
     net2.build()
@@ -200,7 +203,7 @@ def fit_tf(est=None, modelspec=None,
 
     train_val_test = np.zeros(data_dims[0])
     train_val_test[80:] = 1
-    net2.train(F, D, max_iter=1000, train_val_test=train_val_test)
+    net2.train(F, D, max_iter=max_iter, train_val_test=train_val_test)
 
     modelspec = cnn2modelspec(net2, modelspec)
 
