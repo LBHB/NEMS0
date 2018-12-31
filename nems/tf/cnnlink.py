@@ -211,4 +211,3 @@ def fit_tf(est=None, modelspec=None,
     #                          len(improved_sigma))
 
     return {'modelspec': modelspec}
-
