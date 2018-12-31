@@ -88,6 +88,8 @@ Fv -= m_stim
 Fv /= s_stim
 
 modelspecname = 'wc.18x2.g-fir.2x15-relu.1'
+#modelspecname = 'wc.18x1.g-fir.1x15'
+
 meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
         'recording': rec.name}
 

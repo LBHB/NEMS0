@@ -125,8 +125,8 @@ def cnn2modelspec(net, modelspec):
             current_layer += 1
 
         elif m['fn'] in ['nems.modules.weight_channels.gaussian']:
-            modelspec[i]['phi']['mean'] = net_layer_vals[current_layer]['m'][0, :, :].T
-            modelspec[i]['phi']['sd'] = net_layer_vals[current_layer]['s'][0, :, :].T
+            modelspec[i]['phi']['mean'] = net_layer_vals[current_layer]['m'][0, 0, :].T / 10
+            modelspec[i]['phi']['sd'] = net_layer_vals[current_layer]['s'][0, 0, :].T / 20
             if next_fn == 'nems.modules.nonlinearity.relu':
                 modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
             print(net_layer_vals[current_layer])

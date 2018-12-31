@@ -26,8 +26,8 @@ def weights_zeros(shape, sig=0.1, seed=0):
     W = tf.Variable(tf.zeros(shape))
     return W
 
-def weights_uniform(shape, sig=0.1, seed=0):
-    W = tf.Variable(tf.random_uniform(shape, minval=0, maxval=1, seed=seed))
+def weights_uniform(shape, minval=0, maxval=10, sig=0.1, seed=0):
+    W = tf.Variable(tf.random_uniform(shape, minval=minval, maxval=maxval, seed=seed))
     return W
 
 def poisson(response, prediction):
@@ -237,14 +237,15 @@ class Net:
             elif self.layers[i]['type'] == 'reweight-gaussian':
 
                 print('Loc reweight-gaussian')
-                self.layers[i]['m'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
-                                                    self.weight_scale, seed=seed_to_randint(self.seed) + i + self.n_layers,
-                                                    distr='uniform'))
+                self.layers[i]['m'] = kern2D(1, 1, self.layers[i]['n_kern'],
+                                             self.weight_scale, seed=seed_to_randint(self.seed) + i + self.n_layers,
+                                             distr='uniform')
                 self.layers[i]['s'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
                                                     self.weight_scale, seed=seed_to_randint(self.seed) + i + self.n_layers,
                                                     distr='uniform'))
-                self.layers[i]['W'] = tf.exp(- tf.square((tf.reshape(tf.range(0, 1, 1/n_input_feats, dtype=tf.float32), [1, n_input_feats, 1])-self.layers[i]['m'])/
-                                                       self.layers[i]['s']))
+                self.layers[i]['Wraw'] = tf.exp(-0.5 * tf.square((tf.reshape(tf.range(0, 10, 10/n_input_feats, dtype=tf.float32), [1, n_input_feats, 1])-self.layers[i]['m'])/
+                                                           (self.layers[i]['s']/2)))
+                self.layers[i]['W'] = self.layers[i]['Wraw'] / tf.reduce_sum(self.layers[i]['Wraw'], axis=1)
                 self.layers[i]['Y'] = act(self.layers[i]['act'])(conv1d(X, self.layers[i]['W']))
 
             elif self.layers[i]['type'] == 'normalization':
