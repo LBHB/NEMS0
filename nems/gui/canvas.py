@@ -10,27 +10,16 @@ from nems.plots.utils import ax_remove_box
 
 
 class MyMplCanvas(FigureCanvas):
-    """Ultimately, this is a QWidget (as well as a FigureCanvasAgg, etc.)."""
     def __init__(self, parent=None, width=5, height=4, dpi=100):
-        #fig = Figure(figsize=(width, height), dpi=dpi)
         fig = plt.figure(figsize=(width, height), dpi=dpi)
-        #self.axes = fig.add_subplot(111)
+        self.axes = fig.add_subplot(111)
+        self.axes.set_position([0.075, 0.1, 0.9, 0.8])
 
-        # tweak size of axes in window
-        #pos1 = self.axes.get_position() # get the original position
-        #pos2 = [0.075, 0.1, 0.9, 0.8]
-        #self.axes.set_position(pos2) # set a new position
-
-        self.compute_initial_figure()
-        FigureCanvas.__init__(self, fig)
+        super(FigureCanvas, self).__init__(fig)
         self.setParent(parent)
-
         FigureCanvas.setSizePolicy(self, qw.QSizePolicy.Expanding,
                                    qw.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
-
-    def compute_initial_figure(self):
-        pass
 
 
 class NemsCanvas(MyMplCanvas):

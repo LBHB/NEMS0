@@ -6,6 +6,7 @@ import logging
 import numpy as np
 import PyQt5.QtWidgets as qw
 import PyQt5.QtCore as qc
+import PyQt5.QtGui as qg
 
 from nems import xforms
 from nems.gui.models import ArrayModel
@@ -13,6 +14,11 @@ from nems.gui.canvas import MyMplCanvas
 
 log = logging.getLogger(__name__)
 
+_SCROLLABLE_PLOT_FNS = [
+        'nems.plots.api.strf_timeseries',
+        'nems.plots.api.before_and_after',
+        'nems.plots.api.pred_resp',
+        ]
 
 # TODO: redo some of these functions to take advantage of new modelspec setup?
 
@@ -74,22 +80,18 @@ class ModelspecEditor(qw.QWidget):
         self.rec = rec
         self.parent = parent
 
-        layout = qw.QVBoxLayout()
+        layout = qw.QGridLayout()
         self.modules = [ModuleEditor(i, m, self)
                         for i, m in enumerate(self.modelspec)]
         self.collapsers = [ModuleCollapser(m, self) for m in self.modules]
-        for m, c in zip(self.modules, self.collapsers):
-            row = qw.QHBoxLayout()
-            row.addWidget(c)
-            row.addWidget(m)
-            layout.addLayout(row)
+        self.controllers = [ModuleControls(m, self) for m in self.modules]
+        i = 0
+        widgets = zip(self.collapsers, self.controllers, self.modules)
+        for i, (col, cnt, m) in enumerate(widgets):
+            layout.addWidget(col, i, 0)
+            layout.addWidget(cnt, i, 1)
+            layout.addWidget(m, i, 2)
 
-        #module_layout = qw.QVBoxLayout()
-        #collapser_layout = qw.QVBoxLayout()
-        #[module_layout.addWidget(m) for m in self.modules]
-        #[collapser_layout.addWidget(c) for c in self.collapsers]
-        #outer_layout.addLayout(collapser_layout)
-        #outer_layout.addLayout(module_layout)
         self.setLayout(layout)
 
     def update_modelspec(self):
@@ -122,52 +124,64 @@ class ModelspecEditor(qw.QWidget):
 
 
 class ModuleEditor(qw.QWidget):
-    def __init__(self, mod_index, module, parent):
+    def __init__(self, mod_index, data, parent):
         super(qw.QWidget, self).__init__()
         self.mod_index = mod_index
-        self.module = module
+        self.data = data
         self.parent = parent
 
         # Default plot options - set them up here then change w/ controller
-        self.plot_fn_idx = None
-        self.fit_index = None
+        self.plot_fn_idx = data.get('plot_fn_idx', 0)
+        self.fit_index = parent.modelspec.fit_index
+        # TODO: Need to do something smarter with this
         self.sig_name = 'pred'
+        self.scrollable = self.check_scrollable()
 
-        layout = qw.QHBoxLayout()
-        controls_layout = qw.QVBoxLayout()
-        plot_layout = qw.QVBoxLayout()
-
-        self.controls = ModuleControls(self.module, parent=self)
-        controls_layout.addWidget(self.controls)
+        self.layout = qw.QHBoxLayout()
         self.canvas = MyMplCanvas(parent=self)
-        plot_layout.addWidget(self.canvas)
-
-        layout.addLayout(controls_layout)
-        layout.addLayout(plot_layout)
-        self.setLayout(layout)
+        self.layout.addWidget(self.canvas)
+        self.setLayout(self.layout)
 
         # Draw initial plot
-        self.new_plot()
+        self.plot_on_axes()
 
     def new_plot(self):
-        self.axes = self.canvas.figure.add_subplot(111)
-        self.parent.modelspec.plot(self.mod_index, self.parent.rec, self.axes,
+        self.layout.removeWidget(self.canvas)
+        self.canvas.close()
+        self.canvas = MyMplCanvas(parent=self)
+        self.plot_on_axes()
+        self.layout.addWidget(self.canvas)
+        self.scrollable = self.check_scrollable()
+
+    def plot_on_axes(self):
+        ax = self.canvas.figure.add_subplot(111)
+        self.parent.modelspec.plot(self.mod_index, self.parent.rec, ax,
                                    self.plot_fn_idx, self.fit_index,
                                    self.sig_name)
         self.canvas.draw()
 
-    def update_plot(self):
-        gc = self.parent.parent.global_controls
-        try:
-            fs = self.parent.rec[self.sig_name].fs
-        except AttributeError:
-            log.warning('No sampling rate for signal: %s' % self.sig_name)
-            fs = 1
+    def check_scrollable(self):
+        plots = self.data.get('plot_fns', [])
+        if plots[self.plot_fn_idx] in _SCROLLABLE_PLOT_FNS:
+            self.scrollable = True
+        else:
+            self.scrollable = False
 
-        self.canvas.axes.set_xlim(gc.start_time*fs, gc.stop_time*fs)
-#        if not (self.point or self.tiled):
-#            self.axes.set_ylim(ymin=self.ymin, ymax=self.ymax)
-        self.canvas.draw()
+    def update_plot(self):
+        if self.scrollable:
+            gc = self.parent.parent.global_controls
+            try:
+                fs = self.parent.rec[self.sig_name].fs
+            except AttributeError:
+                log.warning('No sampling rate for signal: %s' % self.sig_name)
+                fs = 1
+
+            self.canvas.axes.set_xlim(gc.start_time*fs, gc.stop_time*fs)
+    #        if not (self.point or self.tiled):
+    #            self.axes.set_ylim(ymin=self.ymin, ymax=self.ymax)
+            self.canvas.draw()
+        else:
+            pass
 
 
 class ModuleCollapser(qw.QWidget):
@@ -199,9 +213,21 @@ class ModuleControls(qw.QWidget):
         self.parent = parent
 
         layout = qw.QVBoxLayout()
-        self.test = qw.QLineEdit('test module controls')
-        layout.addWidget(self.test)
+
+        self.plot_functions_menu = qw.QComboBox()
+        self.plot_functions_menu.addItems(module.data.get('plot_fns', []))
+        initial_index = self.module.plot_fn_idx
+        if initial_index is None:
+            initial_index = 0
+        self.plot_functions_menu.setCurrentIndex(initial_index)
+        layout.addWidget(self.plot_functions_menu)
+        self.plot_functions_menu.currentIndexChanged.connect(self.change_plot)
+
         self.setLayout(layout)
+
+    def change_plot(self, index):
+        self.module.plot_fn_idx = int(index)
+        self.module.new_plot()
 
 
 class XfspecEditor(qw.QWidget):
@@ -252,18 +278,100 @@ class XfStepEditor(qw.QWidget):
 
 
 class GlobalControls(qw.QWidget):
+    start_time = 0
+    display_duration = 10.0
+    minimum_duration = 0.001
+    stop_time = 10
+
     def __init__(self, modelspec, parent):
         super(qw.QWidget, self).__init__()
         self.modelspec = modelspec
         self.parent = parent
 
-        # update fit and cell index for parent modelspec
-        # control time scroll for scrollable plots
+        # Slider for plot view windows
+        self._update_max_time()
+        self.time_slider = qw.QScrollBar(orientation=1)
+        self.time_slider.setRange(0, self.max_time-self.display_duration)
+        self.time_slider.setRepeatAction(200, 2)
+        self.time_slider.setSingleStep(1)
+        self.time_slider.valueChanged.connect(self.scroll_all)
+
+        # Set zoom / display range for plot views
+        self.display_range = qw.QLineEdit()
+        self.display_range.setValidator(
+                qg.QDoubleValidator(self.minimum_duration, 10000.0, 4)
+                )
+        self.display_range.editingFinished.connect(self.set_display_range)
+        self.display_range.setText(str(self.display_duration))
+
+        # Increment / Decrement zoom
+        plus = qw.QPushButton('Zoom Out')
+        plus.clicked.connect(self.increment_display_range)
+        minus = qw.QPushButton('Zoom In')
+        minus.clicked.connect(self.decrement_display_range)
+        range_layout = qw.QHBoxLayout()
+        [range_layout.addWidget(w) for w in [self.display_range, plus, minus]]
 
         layout = qw.QVBoxLayout()
-        self.test = qw.QLineEdit('test global controls')
-        layout.addWidget(self.test)
+        layout.addWidget(self.time_slider)
+        layout.addLayout(range_layout)
         self.setLayout(layout)
+
+        #self._update_range()
+
+    # Plot window adjustments
+    def scroll_all(self):
+        self.start_time = self.time_slider.value()
+        self.stop_time = self.start_time + self.display_duration
+
+        # don't go past the latest time of the biggest plot
+        # (should all have the same max most of the time)
+        self._update_max_time()
+        if self.stop_time >= self.max_time:
+            self.stop_time = self.max_time
+            self.start_time = max(0, self.max_time - self.display_duration)
+
+        [m.update_plot() for m in self.parent.modelspec_editor.modules]
+
+    def _update_max_time(self):
+        resp = self.parent.rec['resp']
+        self.max_time = resp.as_continuous().shape[-1] / resp.fs
+
+
+    def tap_right(self):
+        self.time_slider.set_value(
+                self.time_slider.value + self.time_slider.singleStep
+                )
+
+    def tap_left(self):
+        self.time_slider.set_value(
+                self.time_slider.value - self.time_slider.singleStep
+                )
+
+    def set_display_range(self):
+        duration = float(self.display_range.text())
+        if not duration:
+            print("Duration not set to a valid value. Please enter a"
+                  "a number > 0")
+            return
+        self.display_duration = duration
+        self._update_range()
+
+    def increment_display_range(self):
+        self.display_duration += 1
+        self.display_range.setText(str(self.display_duration))
+        self._update_range()
+
+    def decrement_display_range(self):
+        self.display_duration -= 1
+        self.display_range.setText(str(self.display_duration))
+        self._update_range()
+
+    def _update_range(self):
+        self.time_slider.setRange(0, self.max_time-self.display_duration)
+        self.time_slider.setSingleStep(int(np.ceil(self.display_duration/10)))
+        self.time_slider.setPageStep(int(self.display_duration))
+        self.scroll_all()
 
 
 class FitEditor(qw.QWidget):
