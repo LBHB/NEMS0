@@ -27,21 +27,31 @@ _SCROLLABLE_PLOT_FNS = [
 
 
 class EditorWindow(qw.QMainWindow):
-    def __init__(self, modelspec=None, xfspec=None, rec=None):
+    def __init__(self, modelspec=None, xfspec=None, rec=None, ctx=None,
+                 rec_name='val'):
         super(qw.QMainWindow, self).__init__()
         self.title = 'NEMS Model Browser'
-        self.editor = EditorWidget(modelspec, xfspec, rec, self)
+        if (modelspec is None) and (ctx is not None):
+            modelspec = ctx.get('modelspec', None)
+        if (rec is None) and (ctx is not None):
+            rec = ctx.get(rec_name, None)
+        self.editor = EditorWidget(modelspec, xfspec, rec, ctx, self)
         self.setCentralWidget(self.editor)
         self.setWindowTitle(self.title)
         self.show()
 
 
 class EditorWidget(qw.QWidget):
-    def __init__(self, modelspec=None, xfspec=None, rec=None, parent=None):
+    def __init__(self, modelspec=None, xfspec=None, rec=None, ctx=None,
+                 parent=None):
         super(qw.QWidget, self).__init__()
         self.xfspec = xfspec
         self.modelspec = modelspec
         self.rec = rec
+        if ctx is None:
+            self.ctx = {}
+        else:
+            self.ctx = ctx
 
         self.xfspec = xfspec
         self.modelspec = modelspec
@@ -53,6 +63,7 @@ class EditorWidget(qw.QWidget):
         row_two_layout = qw.QHBoxLayout()
 
         if (modelspec is not None) and (rec is not None):
+            self.modelspec.recording = rec
             self.modelspec_editor = ModelspecEditor(modelspec, rec, self)
         if self.xfspec is not None:
             self.xfspec_editor = XfspecEditor(self.xfspec, self)
@@ -82,9 +93,10 @@ class ModelspecEditor(qw.QWidget):
 
         layout = qw.QGridLayout()
         self.modules = [ModuleEditor(i, m, self)
-                        for i, m in enumerate(self.modelspec)]
-        self.collapsers = [ModuleCollapser(m, self) for m in self.modules]
+                        for i, m in enumerate(self.modelspec.modules)]
         self.controllers = [ModuleControls(m, self) for m in self.modules]
+        self.collapsers = [ModuleCollapser(m, self) for m in self.modules]
+
         i = 0
         widgets = zip(self.collapsers, self.controllers, self.modules)
         for i, (col, cnt, m) in enumerate(widgets):
@@ -92,6 +104,7 @@ class ModelspecEditor(qw.QWidget):
             layout.addWidget(cnt, i, 1)
             layout.addWidget(m, i, 2)
 
+        layout.setAlignment(qc.Qt.AlignTop)
         self.setLayout(layout)
 
     def update_modelspec(self):
@@ -110,24 +123,19 @@ class ModelspecEditor(qw.QWidget):
             modelspec[i]['phi'] = p
         self.parent.ctx['modelspec'].raw = modelspec
 
-    def evaluate_model(self):
-        raise NotImplementedError
-
-        # Make sure xfspec and modelspec are up to date before evaluating
-        self.update_xfspec()
-        self.update_modelspec()
-        xfspec, ctx = xforms.evaluate(self.parent.xfspec, self.parent.ctx,
-                                      eval_model=True)
-        self.parent.xfspec = xfspec
-        self.parent.ctx = ctx
-        self.parent.update_browser()
+    def evaluate_model(self, first_changed_module=0):
+        # TODO: Fix issues with first_changed_module.
+        new_rec = self.parent.modelspec.evaluate()#start=first_changed_module)
+        self.parent.modelspec.recording = new_rec
+        #for m in self.modules[first_changed_module:]:
+        for m in self.modules:
+            m.new_plot()
 
 
 class ModuleEditor(qw.QWidget):
     def __init__(self, mod_index, data, parent):
         super(qw.QWidget, self).__init__()
         self.mod_index = mod_index
-        self.data = data
         self.parent = parent
 
         # Default plot options - set them up here then change w/ controller
@@ -140,6 +148,7 @@ class ModuleEditor(qw.QWidget):
         self.layout = qw.QHBoxLayout()
         self.canvas = MyMplCanvas(parent=self)
         self.layout.addWidget(self.canvas)
+        self.layout.setAlignment(qc.Qt.AlignTop)
         self.setLayout(self.layout)
 
         # Draw initial plot
@@ -152,16 +161,20 @@ class ModuleEditor(qw.QWidget):
         self.plot_on_axes()
         self.layout.addWidget(self.canvas)
         self.scrollable = self.check_scrollable()
+        self.update_plot()
 
     def plot_on_axes(self):
         ax = self.canvas.figure.add_subplot(111)
-        self.parent.modelspec.plot(self.mod_index, self.parent.rec, ax,
+        rec = self.parent.modelspec.recording
+        self.parent.modelspec.plot(self.mod_index, rec, ax,
                                    self.plot_fn_idx, self.fit_index,
-                                   self.sig_name)
+                                   self.sig_name, no_legend=True)
         self.canvas.draw()
 
     def check_scrollable(self):
-        plots = self.data.get('plot_fns', [])
+        plots = self.parent.modelspec[self.mod_index].get(
+                'plot_fns', ['nems.plots.api.mod_output']
+                )
         if plots[self.plot_fn_idx] in _SCROLLABLE_PLOT_FNS:
             self.scrollable = True
         else:
@@ -188,6 +201,7 @@ class ModuleCollapser(qw.QWidget):
     def __init__(self, module, parent):
         super(qw.QWidget, self).__init__()
         self.module = module
+        self.controller = parent.controllers[module.mod_index]
         self.parent = parent
         self.collapsed = False
 
@@ -196,13 +210,16 @@ class ModuleCollapser(qw.QWidget):
         self.toggle.setFixedSize(40, 25)
         self.toggle.clicked.connect(self.toggle_collapsed)
         layout.addWidget(self.toggle)
+        layout.setAlignment(qc.Qt.AlignTop)
         self.setLayout(layout)
 
     def toggle_collapsed(self):
         if self.collapsed:
             self.module.show()
+            self.controller.show()
         else:
             self.module.hide()
+            self.controller.hide()
         self.collapsed = not self.collapsed
 
 
@@ -211,11 +228,16 @@ class ModuleControls(qw.QWidget):
         super(qw.QWidget, self).__init__()
         self.module = module
         self.parent = parent
+        self.mod_index = self.module.mod_index
+        self.module_data = copy.deepcopy(
+                self.module.parent.modelspec[self.mod_index]
+                )
 
         layout = qw.QVBoxLayout()
 
+        plot_list = self.module_data.get('plot_fns', [])
         self.plot_functions_menu = qw.QComboBox()
-        self.plot_functions_menu.addItems(module.data.get('plot_fns', []))
+        self.plot_functions_menu.addItems(plot_list)
         initial_index = self.module.plot_fn_idx
         if initial_index is None:
             initial_index = 0
@@ -223,11 +245,74 @@ class ModuleControls(qw.QWidget):
         layout.addWidget(self.plot_functions_menu)
         self.plot_functions_menu.currentIndexChanged.connect(self.change_plot)
 
+        self.edit_phi = qw.QPushButton('Edit Phi')
+        self.edit_phi.clicked.connect(self.open_phi)
+        layout.addWidget(self.edit_phi)
+
+        self.phi_editor = PhiEditor(self.module_data['phi'], self)
+        self.phi_editor.hide()
+        self.save_phi = qw.QPushButton('Save Phi')
+        self.save_phi.hide()
+        self.save_phi.clicked.connect(self.close_phi)
+        layout.addWidget(self.phi_editor)
+        layout.addWidget(self.save_phi)
+
+        layout.setAlignment(qc.Qt.AlignTop)
         self.setLayout(layout)
 
     def change_plot(self, index):
         self.module.plot_fn_idx = int(index)
         self.module.new_plot()
+
+    def open_phi(self):
+        self.phi_editor.show()
+        self.save_phi.show()
+
+    def close_phi(self):
+        new_phi = self.phi_editor.export_phi()
+        if not self.phi_equal(new_phi):
+            need_evaluate = True
+        else:
+            need_evaluate = False
+
+        self.parent.modelspec[self.mod_index]['phi'] = copy.deepcopy(new_phi)
+        self.phi_editor.hide()
+        self.save_phi.hide()
+
+        if need_evaluate:
+            self.parent.evaluate_model(first_changed_module=self.mod_index)
+            self.module_data['phi'] = copy.deepcopy(new_phi)
+
+    def phi_equal(self, phi2):
+        equal = True
+        phi1 = self.parent.modelspec[self.mod_index]['phi']
+        for v1, v2 in zip(phi1.values(), phi2.values()):
+            if not np.array_equal(v1, v2):
+                equal = False
+                break
+        return equal
+
+
+class PhiEditor(qw.QWidget):
+    def __init__(self, phi, parent):
+        super(qw.QWidget, self).__init__(parent)
+        self.phi = phi
+        self.original_phi = copy.deepcopy(phi)
+        self.parent = parent
+
+        layout = qw.QFormLayout()
+        self.arrays = {}
+        for k, v in phi.items():
+            label = qw.QLabel(k)
+            array = ArrayModel(self, v)
+            self.arrays[k] = array
+            layout.addRow(label, array)
+
+        layout.setAlignment(qc.Qt.AlignTop)
+        self.setLayout(layout)
+
+    def export_phi(self):
+        return {k: v.array for k, v in self.arrays.items()}
 
 
 class XfspecEditor(qw.QWidget):
@@ -244,6 +329,8 @@ class XfspecEditor(qw.QWidget):
         self.setLayout(self.step_layout)
 
     def update_xfspec(self):
+        raise NotImplementedError
+
         xfspec = []
         for w in self.xfspec_tab.values:
             xf = []
@@ -258,6 +345,11 @@ class XfspecEditor(qw.QWidget):
 
         self.parent.xfspec = xfspec
 
+    def filtered_xfspec(self):
+        checks = [s.checked for s in self.steps]
+        x = [s for s, c in zip(self.xfspec, checks) if c]
+        return x
+
 
 class XfStepEditor(qw.QWidget):
     def __init__(self, index, step, parent):
@@ -265,6 +357,7 @@ class XfStepEditor(qw.QWidget):
         self.index = index
         self.step = step
         self.parent = parent
+        self.checked = True
 
         # need to be able to turn steps on and off
         # need to be able to get and set values from the step (which should
@@ -272,9 +365,14 @@ class XfStepEditor(qw.QWidget):
         # need to propagate updates back to parent xfspec
 
         layout = qw.QVBoxLayout()
-        self.test = qw.QLineEdit('test xfstep editor')
-        layout.addWidget(self.test)
+        self.checkbox = qw.QCheckBox(self.step[0], self)
+        self.checkbox.setCheckState(qc.Qt.Checked)
+        self.checkbox.stateChanged.connect(self.toggle)
+        layout.addWidget(self.checkbox)
         self.setLayout(layout)
+
+    def toggle(self):
+        self.checked = not self.checked
 
 
 class GlobalControls(qw.QWidget):
@@ -397,11 +495,10 @@ class FitEditor(qw.QWidget):
 
 # Just for testing - typically will be opened by recording_browser.py
 # ctx and xfspec should be loaded into current console environment elsewhere
-def run(modelspec, xfspec, rec):
+def run(modelspec, xfspec, rec, ctx):
     app = qw.QApplication(sys.argv)
-    ex = EditorWindow(modelspec=modelspec, xfspec=xfspec, rec=rec)
+    ex = EditorWindow(modelspec=modelspec, xfspec=xfspec, rec=rec, ctx=ctx)
     sys.exit(app.exec_())
-
 
 _DEBUG = False
 if __name__ == '__main__':
@@ -412,4 +509,14 @@ if __name__ == '__main__':
             sys._excepthook(exctype, value, traceback)
             sys.exit(1)
         sys.excepthook = exception_hook
-    run(modelspec, xfspec, rec)
+
+    if 'load' in sys.argv:
+        xfspec, ctx = xforms.load_analysis(
+            "/home/jacob/code/nems/results/271/TAR010c-18-1/"
+            "TAR010c.dlog_wc.18x1.g_fir.1x15_lvl.1_dexp.1.fit_basic"
+            ".2018-12-24T014712/"
+            )
+        modelspec = ctx['modelspec']
+        rec = ctx['val']
+
+    run(modelspec, xfspec, rec, ctx)

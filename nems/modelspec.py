@@ -78,6 +78,10 @@ class ModelSpec:
         self.mod_index = -1
         return self
 
+    # TODO: Something funny is going on when iterating oveer modules directly
+    #       using these methods. The last couple modules were being excluded.
+    #       Temp fix: use .modules instead and then iterate over the list
+    #       returned by that.
     def __next__(self):
         if self.mod_index < len(self.raw[self.fit_index])-1:
             self.mod_index += 1
@@ -152,6 +156,10 @@ class ModelSpec:
             fit_index = self.fit_index
         return [m.get('phi') for m in self.raw[fit_index]]
 
+    @property
+    def modules(self):
+        return [m for m in self.raw[self.fit_index]]
+
     def plot_fn(self, mod_index=None, plot_fn_idx=None, fit_index=None):
         """get function for plotting something about a module"""
         if mod_index is None:
@@ -170,7 +178,7 @@ class ModelSpec:
         return _lookup_fn_at(fn_path)
 
     def plot(self, mod_index=None, rec=None, ax=None, plot_fn_idx=None,
-             fit_index=None, sig_name='pred'):
+             fit_index=None, sig_name='pred', **options):
         """generate plot for a single module"""
 
         if rec is None:
@@ -178,7 +186,8 @@ class ModelSpec:
 
         plot_fn = self.plot_fn(mod_index=mod_index, plot_fn_idx=plot_fn_idx,
                                fit_index=fit_index)
-        plot_fn(rec=rec, modelspec=self, sig_name=sig_name, idx=mod_index, ax=ax)
+        plot_fn(rec=rec, modelspec=self, sig_name=sig_name, idx=mod_index,
+                ax=ax, **options)
 
     def quickplot(self, rec=None):
 

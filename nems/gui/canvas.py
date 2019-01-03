@@ -13,7 +13,7 @@ class MyMplCanvas(FigureCanvas):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
         fig = plt.figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
-        self.axes.set_position([0.075, 0.1, 0.9, 0.8])
+        self.axes.set_position([0.175, 0.175, 0.775, 0.7])
 
         super(FigureCanvas, self).__init__(fig)
         self.setParent(parent)

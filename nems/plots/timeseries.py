@@ -81,7 +81,7 @@ def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
 
 def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
                             linestyle='-', linewidth=1,
-                            ax=None, title=None):
+                            ax=None, title=None, no_legend=False):
     """TODO: doc"""
     channels = pad_to_signals(signals, channels)
 
@@ -98,6 +98,8 @@ def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
         if s.chans is not None:
             legend.append(s.name+' '+s.chans[c])
 
+    if no_legend:
+        legend = None
     plot_timeseries(times, values, xlabel, ylabel, legend=legend,
                     linestyle=linestyle, linewidth=linewidth,
                     ax=ax, title=title)
@@ -267,7 +269,8 @@ def mod_output(rec, modelspec, sig_name='pred', ax=None, title=None, idx=0,
     return ax
 
 def pred_resp(rec, modelspec, ax=None, title=None,
-              channels=0, xlabel='Time', ylabel='Value', **options):
+              channels=0, xlabel='Time', ylabel='Value',
+              no_legend=False, **options):
     '''
     Plots a time series of prediction overlaid on response.
 
@@ -287,5 +290,5 @@ def pred_resp(rec, modelspec, ax=None, title=None,
     sigs = [rec[s] for s in sig_list]
     ax = timeseries_from_signals(sigs, channels=channels,
                             xlabel=xlabel, ylabel=ylabel, ax=ax,
-                            title=title)
+                            title=title, no_legend=no_legend)
     return ax

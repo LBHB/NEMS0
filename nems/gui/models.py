@@ -9,6 +9,8 @@ log = logging.getLogger(__name__)
 
 class XformsModel(qw.QWidget):
     def __init__(self, parent, xfspec):
+        raise NotImplementedError
+
         super(qw.QWidget, self).__init__(parent)
         self.xfspec = xfspec
         self.original_xfspec = copy.deepcopy(xfspec)
@@ -42,6 +44,8 @@ class XformsModel(qw.QWidget):
 
 class MspecModel(qw.QWidget):
     def __init__(self, parent, modelspec):
+        raise NotImplementedError
+
         super(qw.QWidget, self).__init__(parent)
         self.modelspec = modelspec
         self.original_modelspec = copy.deepcopy(modelspec)
