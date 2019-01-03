@@ -95,12 +95,13 @@ class ModelSpec:
         :return: A deep copy of the modelspec (subset of modules if specified)
         """
         raw = [copy.deepcopy(m[lb:ub]) for m in self.raw]
-        m = ModelSpec(raw)
         if fit_index is not None:
-            m.fit_index = fit_index
+            raw = [raw[fit_index]]
+        m = ModelSpec(raw)
 
         return m
 
+    @property
     def fit_count(self):
         """Number of fits in this modelspec"""
         return len(self.raw)

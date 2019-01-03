@@ -153,7 +153,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
 
     # fit without STP module first (if there is one)
     modelspec = prefit_to_target(est, modelspec, fit_basic,
-                                 target_module='levelshift',
+                                 target_module=['levelshift','relu'],
                                  extra_exclude=['stp'],
                                  fitter=fitter,
                                  metric=metric,
@@ -223,8 +223,12 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
 
     # figure out last modelspec module to fit
     target_i = None
+    if type(target_module) is not list:
+        target_module = [target_module]
     for i, m in enumerate(modelspec):
-        if target_module in m['fn']:
+        tlist = [True for t in target_module if t in m['fn']]
+
+        if len(tlist):
             target_i = i + 1
             break
 

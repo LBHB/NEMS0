@@ -6,10 +6,12 @@ Uses Sam Norman-Haignere's CNN library as a front end for TF
 import tensorflow as tf
 import numpy as np
 import time
+import copy
 
 import nems
 import nems.modelspec as ms
 import nems.tf.cnn as cnn
+import nems.metrics.api as nmet
 
 modelspecs_dir = nems.get_setting('NEMS_RESULTS_DIR')
 
@@ -81,7 +83,6 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100, net_seed=1):
             #layer['rank'] = None  # P['rank']
             layers.append(layer)
 
-
         else:
             raise ValueError("fn %s not supported", m['fn'])
 
@@ -125,8 +126,8 @@ def cnn2modelspec(net, modelspec):
             current_layer += 1
 
         elif m['fn'] in ['nems.modules.weight_channels.gaussian']:
-            modelspec[i]['phi']['mean'] = net_layer_vals[current_layer]['m'][0, 0, :].T / 10
-            modelspec[i]['phi']['sd'] = net_layer_vals[current_layer]['s'][0, 0, :].T / 20
+            modelspec[i]['phi']['mean'] = net_layer_vals[current_layer]['m'][0, 0, :].T
+            modelspec[i]['phi']['sd'] = net_layer_vals[current_layer]['s'][0, 0, :].T / 10
             if next_fn == 'nems.modules.nonlinearity.relu':
                 modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
             print(net_layer_vals[current_layer])
@@ -138,7 +139,7 @@ def cnn2modelspec(net, modelspec):
 
 
 def fit_tf(est=None, modelspec=None,
-           optimizer='Adam', max_iter=1000,
+           optimizer='Adam', max_iter=1000, init_count=1,
            cost_function='mse',
            metaname='fit_basic', **context):
     '''
@@ -182,35 +183,57 @@ def fit_tf(est=None, modelspec=None,
     D = np.reshape(est['resp'].as_continuous().copy().T, data_dims)
 
     # SKIP ? normalize to mean 0, variannce 1
+    # should be taken care of in earlier normalization of stimulus
     #m_stim = np.mean(F, axis=(0, 1), keepdims=True)
     #s_stim = np.std(F, axis=(0, 1), keepdims=True)
     #F -= m_stim
     #F /= s_stim
 
-    layers = modelspec2cnn(modelspec, n_inputs=n_feats, fs=est['resp'].fs)
-    # layers = [{'act': 'identity', 'n_kern': 1,
-    #  'time_win_sec': 0.01, 'type': 'reweight-positive'},
-    # {'act': 'relu', 'n_kern': 1, 'rank': None,
-    #  'time_win_sec': 0.15, 'type': 'conv'}]
+    new_est = est.tile_views(init_count)
+    r_fit = np.zeros(init_count, dtype=np.float)
+    print('fitting from {} initial conditions'.format(init_count))
+    for i in range(init_count):
+        if i > 0:
+            # add a new set of fit parameters
+            modelspec.raw.append(copy.deepcopy(modelspec.raw[0]))
+            new_est = new_est.set_view(i)
 
-    tf.reset_default_graph()
+        modelspec.set_fit(i)
 
-    net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=net1_seed, log_dir=modelspec.meta['modelpath'])
-    net2.optimizer = optimizer
+        layers = modelspec2cnn(modelspec, n_inputs=n_feats, fs=est['resp'].fs)
+        # layers = [{'act': 'identity', 'n_kern': 1,
+        #  'time_win_sec': 0.01, 'type': 'reweight-positive'},
+        # {'act': 'relu', 'n_kern': 1, 'rank': None,
+        #  'time_win_sec': 0.15, 'type': 'conv'}]
+        tf.reset_default_graph()
 
-    net2.build()
-    net2_layer_init = net2.layer_vals()
+        seed = net1_seed + i
+        net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=modelspec.meta['modelpath'])
+        net2.optimizer = optimizer
 
-    train_val_test = np.zeros(data_dims[0])
-    train_val_test[80:] = 1
-    net2.train(F, D, max_iter=max_iter, train_val_test=train_val_test)
+        net2.build()
+        # net2_layer_init = net2.layer_vals()
+        # print(net2_layer_init)
 
-    modelspec = cnn2modelspec(net2, modelspec)
+        train_val_test = np.zeros(data_dims[0])
+        train_val_test[80:] = 1
+        net2.train(F, D, max_iter=max_iter, train_val_test=train_val_test)
+
+        modelspec = cnn2modelspec(net2, modelspec)
+
+        new_est = modelspec.evaluate(new_est)
+        r_fit[i], se_fit = nmet.j_corrcoef(new_est, 'pred', 'resp')
+
+    # figure out which modelspec does best on fit data
+    print('r_fit range: ', r_fit)
+    ibest = np.argmax(r_fit)
+    print("Best fit_index is {} r_fit={:.3f}".format(ibest, r_fit[ibest]))
+    modelspec = modelspec.copy(fit_index=ibest)
 
     elapsed_time = (time.time() - start_time)
-    ms.set_modelspec_metadata(modelspec, 'fitter', metaname)
-    ms.set_modelspec_metadata(modelspec, 'fit_time', elapsed_time)
-    #ms.set_modelspec_metadata(modelspec, 'n_parms',
-    #                          len(improved_sigma))
+    modelspec.meta['fitter'] = metaname
+    modelspec.meta['fit_time'] = elapsed_time
+    # ms.set_modelspec_metadata(modelspec, 'n_parms',
+    #                           len(improved_sigma))
 
-    return {'modelspec': modelspec}
+    return {'modelspec': modelspec, 'new_est': new_est}

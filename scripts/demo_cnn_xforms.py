@@ -71,7 +71,7 @@ xfspec.append(['nems.xforms.average_away_stim_occurrences', {}])
 xfspec.append(['nems.xforms.init_from_keywords',
                {'keywordstring': modelspecname, 'meta': meta}])
 
-xfspec.append(['nems.tf.cnnlink.fit_tf', {}])
+xfspec.append(['nems.tf.cnnlink.fit_tf', {'init_count': 5}])
 #xfspec.append(['nems.xforms.fit_basic_init', {}])
 #xfspec.append(['nems.xforms.fit_basic', {}])
 # xfspec.append(['nems.xforms.fit_basic_shrink', {}])

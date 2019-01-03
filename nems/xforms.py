@@ -287,9 +287,11 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
 
     return {'rec': rec}
 
+
 def normalize_stim(rec=None, norm_method='meanstd', **context):
     rec['stim'] = rec['stim'].rasterize().normalize(norm_method)
     return {'rec': rec}
+
 
 def init_from_keywords(keywordstring, meta={}, IsReload=False,
                        registry=None, rec=None, **context):
@@ -318,7 +320,7 @@ def load_modelspecs(modelspecs, uris,
 def set_random_phi(modelspecs, IsReload=False, **context):
     ''' Starts all modelspecs at random phi sampled from the priors. '''
     if not IsReload:
-        for fit_idx in modelspec.fit_count():
+        for fit_idx in modelspec.fit_count:
             modelspec.fit_index = fit_idx
             for i, m in enumerate(modelspec):
                 modelspec[i] = priors.set_random_phi(m)
@@ -618,7 +620,7 @@ def fit_basic_init(modelspec, est, IsReload=False, metric='nmse',
         else:
             metric_fn = metric
 
-        for fit_idx in range(modelspec.fit_count()):
+        for fit_idx in range(modelspec.fit_count):
             # alternative approach to setting which set of phi is being fit:
             #modelspec.fit_index = fit_idx
 
@@ -721,7 +723,7 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
 
         if jackknifed_fit:
             nfolds = est.view_count()
-            if modelspec.fit_count() < est.view_count():
+            if modelspec.fit_count < est.view_count():
                 modelspec.tile_fits(nfolds)
             for fit_idx, e in enumerate(est.views()):
                 log.info("Fitting fold %d/%d", fit_idx + 1, nfolds)
@@ -740,7 +742,7 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
                         )
         else:
             # standard single shot
-            for fit_idx in range(modelspec.fit_count()):
+            for fit_idx in range(modelspec.fit_count):
                 modelspec = nems.analysis.api.fit_basic(
                     est, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
                     metric=metric_fn, fitter=fitter_fn)
@@ -777,7 +779,7 @@ def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
                         )
 
         else:
-            for fit_idx in range(modelspec.fit_count()):
+            for fit_idx in range(modelspec.fit_count):
                 modelspec = nems.analysis.api.fit_iteratively(
                             est, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
                             fitter=fitter_fn, module_sets=module_sets,

@@ -147,15 +147,19 @@ def tf(fitkey):
     options = _extract_options(fitkey)
     max_iter = 1000
     fitter = 'Adam'
+    init_count = 1
     for op in options:
         if op[:1] == 'i':
             max_iter = int(op[1:])
         elif op[:1] == 'f':
             fitter = op[1:]
+        elif op[:1] == 's':
+            init_count = int(op[1:])
 
     xfspec = [['nems.tf.cnnlink.fit_tf',
                {'max_iter': max_iter,
-                'optimizer': fitter}]]
+                'optimizer': fitter,
+                'init_count': init_count}]]
 
     return xfspec
 

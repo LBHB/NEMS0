@@ -101,7 +101,7 @@ def dlog(rec, i, o, offset):
 def _relu(x, offset):
 
     y = x - offset
-    y[y<0] = 0
+    y[y < 0] = 0
 
     return y
 
