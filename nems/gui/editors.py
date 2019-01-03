@@ -1,3 +1,5 @@
+#import matplotlib
+#matplotlib.use('Qt5Agg')
 import sys
 import copy
 import json
@@ -11,6 +13,7 @@ import PyQt5.QtGui as qg
 from nems import xforms
 from nems.gui.models import ArrayModel
 from nems.gui.canvas import MyMplCanvas
+import nems.db as nd
 
 log = logging.getLogger(__name__)
 
@@ -511,11 +514,17 @@ if __name__ == '__main__':
         sys.excepthook = exception_hook
 
     if 'load' in sys.argv:
-        xfspec, ctx = xforms.load_analysis(
-            "/home/jacob/code/nems/results/271/TAR010c-18-1/"
-            "TAR010c.dlog_wc.18x1.g_fir.1x15_lvl.1_dexp.1.fit_basic"
-            ".2018-12-24T014712/"
-            )
+        cellid='TAR010c-18-2'
+        batch=289
+        modelname="ozgf.fs50.ch18-ld-sev_dlog-wc.18x1.g-fir.1x10-lvl.1-dexp.1_init-basic"
+        d = nd.get_results_file(batch, modelnames=[modelname], cellids=[cellid])
+        filename = d.loc[0,'modelpath']
+        xfspec, ctx = xforms.load_analysis(filename)
+        #xfspec, ctx = xforms.load_analysis(
+        #     "/home/jacob/code/nems/results/271/TAR010c-18-1/"
+        #     "TAR010c.dlog_wc.18x1.g_fir.1x15_lvl.1_dexp.1.fit_basic"
+        #     ".2018-12-24T014712/"
+        #     )
         modelspec = ctx['modelspec']
         rec = ctx['val']
 
