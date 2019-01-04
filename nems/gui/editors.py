@@ -23,10 +23,7 @@ _SCROLLABLE_PLOT_FNS = [
         'nems.plots.api.pred_resp',
         ]
 
-# TODO: redo some of these functions to take advantage of new modelspec setup?
-
-# TODO: implement some kind of coordinate system to keep track of where changes
-#       to individual phi etc need to be propagated
+# TODO: epochs display above plots
 
 
 class EditorWindow(qw.QMainWindow):
@@ -94,7 +91,10 @@ class ModelspecEditor(qw.QWidget):
         self.rec = rec
         self.parent = parent
 
-        layout = qw.QGridLayout()
+        self.setup_layout()
+
+    def setup_layout(self):
+        self.layout = qw.QGridLayout()
         self.modules = [ModuleEditor(i, m, self)
                         for i, m in enumerate(self.modelspec.modules)]
         self.controllers = [ModuleControls(m, self) for m in self.modules]
@@ -103,28 +103,12 @@ class ModelspecEditor(qw.QWidget):
         i = 0
         widgets = zip(self.collapsers, self.controllers, self.modules)
         for i, (col, cnt, m) in enumerate(widgets):
-            layout.addWidget(col, i, 0)
-            layout.addWidget(cnt, i, 1)
-            layout.addWidget(m, i, 2)
+            self.layout.addWidget(col, i, 0)
+            self.layout.addWidget(cnt, i, 1)
+            self.layout.addWidget(m, i, 2)
 
-        layout.setAlignment(qc.Qt.AlignTop)
-        self.setLayout(layout)
-
-    def update_modelspec(self):
-        raise NotImplementedError
-
-        phis = []
-        for w in self.modelspec_tab.values:
-            p = {}
-            for k, v in zip(w.keys, w.values):
-                p[k] = v
-            phis.append(p)
-
-        # TODO: just use some method of modelspec object to update phi instead
-        modelspec = copy.deepcopy(self.parent.ctx['modelspec'].raw)
-        for i, p in enumerate(phis):
-            modelspec[i]['phi'] = p
-        self.parent.ctx['modelspec'].raw = modelspec
+        self.layout.setAlignment(qc.Qt.AlignTop)
+        self.setLayout(self.layout)
 
     def evaluate_model(self, first_changed_module=0):
         # TODO: Fix issues with first_changed_module.
@@ -133,6 +117,14 @@ class ModelspecEditor(qw.QWidget):
         #for m in self.modules[first_changed_module:]:
         for m in self.modules:
             m.new_plot()
+
+    def reset_model(self):
+        self.modelspec = copy.deepcopy(self.original_modelspec)
+        # remove old layout
+        temp = qw.QWidget()
+        temp.setLayout(self.layout)
+        # recreate layout with new phi
+        self.setup_layout()
 
 
 class ModuleEditor(qw.QWidget):
@@ -178,21 +170,23 @@ class ModuleEditor(qw.QWidget):
         plots = self.parent.modelspec[self.mod_index].get(
                 'plot_fns', ['nems.plots.api.mod_output']
                 )
+
         if plots[self.plot_fn_idx] in _SCROLLABLE_PLOT_FNS:
-            self.scrollable = True
+            scrollable = True
         else:
-            self.scrollable = False
+            scrollable = False
+        return scrollable
 
     def update_plot(self):
         if self.scrollable:
             gc = self.parent.parent.global_controls
-            try:
-                fs = self.parent.rec[self.sig_name].fs
-            except AttributeError:
-                log.warning('No sampling rate for signal: %s' % self.sig_name)
-                fs = 1
+            # try:
+            #     fs = self.parent.rec[self.sig_name].fs
+            # except AttributeError:
+            #     log.warning('No sampling rate for signal: %s' % self.sig_name)
+            #     fs = 1
 
-            self.canvas.axes.set_xlim(gc.start_time*fs, gc.stop_time*fs)
+            self.canvas.axes.set_xlim(gc.start_time, gc.stop_time)
     #        if not (self.point or self.tiled):
     #            self.axes.set_ylim(ymin=self.ymin, ymax=self.ymax)
             self.canvas.draw()
@@ -238,6 +232,11 @@ class ModuleControls(qw.QWidget):
 
         layout = qw.QVBoxLayout()
 
+        name = self.module_data['fn']
+        self.label = qw.QLabel(name)
+        self.label.setStyleSheet("background-color: rgb(255, 255, 255);")
+        layout.addWidget(self.label)
+
         plot_list = self.module_data.get('plot_fns', [])
         self.plot_functions_menu = qw.QComboBox()
         self.plot_functions_menu.addItems(plot_list)
@@ -248,17 +247,22 @@ class ModuleControls(qw.QWidget):
         layout.addWidget(self.plot_functions_menu)
         self.plot_functions_menu.currentIndexChanged.connect(self.change_plot)
 
-        self.edit_phi = qw.QPushButton('Edit Phi')
-        self.edit_phi.clicked.connect(self.open_phi)
-        layout.addWidget(self.edit_phi)
+        button_layout = qw.QHBoxLayout()
+        self.edit_phi_btn = qw.QPushButton('Edit Phi')
+        self.edit_phi_btn.clicked.connect(self.edit_phi)
+        self.reset_phi_btn = qw.QPushButton('Reset Phi')
+        self.reset_phi_btn.clicked.connect(self.reset_phi)
+        button_layout.addWidget(self.edit_phi_btn)
+        button_layout.addWidget(self.reset_phi_btn)
+        layout.addLayout(button_layout)
 
         self.phi_editor = PhiEditor(self.module_data['phi'], self)
         self.phi_editor.hide()
-        self.save_phi = qw.QPushButton('Save Phi')
-        self.save_phi.hide()
-        self.save_phi.clicked.connect(self.close_phi)
+        self.save_phi_btn = qw.QPushButton('Save Phi')
+        self.save_phi_btn.hide()
+        self.save_phi_btn.clicked.connect(self.save_phi)
         layout.addWidget(self.phi_editor)
-        layout.addWidget(self.save_phi)
+        layout.addWidget(self.save_phi_btn)
 
         layout.setAlignment(qc.Qt.AlignTop)
         self.setLayout(layout)
@@ -267,11 +271,11 @@ class ModuleControls(qw.QWidget):
         self.module.plot_fn_idx = int(index)
         self.module.new_plot()
 
-    def open_phi(self):
+    def edit_phi(self):
         self.phi_editor.show()
-        self.save_phi.show()
+        self.save_phi_btn.show()
 
-    def close_phi(self):
+    def save_phi(self):
         new_phi = self.phi_editor.export_phi()
         if not self.phi_equal(new_phi):
             need_evaluate = True
@@ -280,11 +284,15 @@ class ModuleControls(qw.QWidget):
 
         self.parent.modelspec[self.mod_index]['phi'] = copy.deepcopy(new_phi)
         self.phi_editor.hide()
-        self.save_phi.hide()
+        self.save_phi_btn.hide()
 
         if need_evaluate:
             self.parent.evaluate_model(first_changed_module=self.mod_index)
             self.module_data['phi'] = copy.deepcopy(new_phi)
+
+    def reset_phi(self):
+        self.phi_editor.reset_phi()
+        self.save_phi()
 
     def phi_equal(self, phi2):
         equal = True
@@ -303,19 +311,30 @@ class PhiEditor(qw.QWidget):
         self.original_phi = copy.deepcopy(phi)
         self.parent = parent
 
-        layout = qw.QFormLayout()
+        self.setup_layout()
+
+    def setup_layout(self):
+        self.layout = qw.QFormLayout()
         self.arrays = {}
-        for k, v in phi.items():
+        for k, v in self.phi.items():
             label = qw.QLabel(k)
             array = ArrayModel(self, v)
             self.arrays[k] = array
-            layout.addRow(label, array)
+            self.layout.addRow(label, array)
 
-        layout.setAlignment(qc.Qt.AlignTop)
-        self.setLayout(layout)
+        self.layout.setAlignment(qc.Qt.AlignTop)
+        self.setLayout(self.layout)
+
+    def reset_phi(self):
+        self.phi = copy.deepcopy(self.original_phi)
+        # remove old layout
+        temp = qw.QWidget()
+        temp.setLayout(self.layout)
+        # recreate layout with new phi
+        self.setup_layout()
 
     def export_phi(self):
-        return {k: v.array for k, v in self.arrays.items()}
+        return {k: v.export_array() for k, v in self.arrays.items()}
 
 
 class XfspecEditor(qw.QWidget):
@@ -413,9 +432,15 @@ class GlobalControls(qw.QWidget):
         range_layout = qw.QHBoxLayout()
         [range_layout.addWidget(w) for w in [self.display_range, plus, minus]]
 
+        buttons_layout = qw.QHBoxLayout()
+        self.reset_model_btn = qw.QPushButton('Reset Model')
+        self.reset_model_btn.clicked.connect(self.reset_model)
+        buttons_layout.addWidget(self.reset_model_btn)
+
         layout = qw.QVBoxLayout()
         layout.addWidget(self.time_slider)
         layout.addLayout(range_layout)
+        layout.addLayout(buttons_layout)
         self.setLayout(layout)
 
         #self._update_range()
@@ -435,7 +460,7 @@ class GlobalControls(qw.QWidget):
         [m.update_plot() for m in self.parent.modelspec_editor.modules]
 
     def _update_max_time(self):
-        resp = self.parent.rec['resp']
+        resp = self.parent.rec.apply_mask()['resp']
         self.max_time = resp.as_continuous().shape[-1] / resp.fs
 
 
@@ -473,6 +498,9 @@ class GlobalControls(qw.QWidget):
         self.time_slider.setSingleStep(int(np.ceil(self.display_duration/10)))
         self.time_slider.setPageStep(int(self.display_duration))
         self.scroll_all()
+
+    def reset_model(self):
+        self.parent.modelspec_editor.reset_model()
 
 
 class FitEditor(qw.QWidget):
@@ -516,15 +544,10 @@ if __name__ == '__main__':
     if 'load' in sys.argv:
         batch = 271
         cellid = "TAR010c-18-1"
-        modelname = 'dlog-wc.18x1.g-fir.1x15-lvl.1'
+        modelname = 'dlog-wc.18x1.g-fir.1x15-lvl.1-dexp.1'
         d = nd.get_results_file(batch, modelnames=[modelname], cellids=[cellid])
         filename = d.loc[0,'modelpath']
         xfspec, ctx = xforms.load_analysis(filename)
-        #xfspec, ctx = xforms.load_analysis(
-        #     "/home/jacob/code/nems/results/271/TAR010c-18-1/"
-        #     "TAR010c.dlog_wc.18x1.g_fir.1x15_lvl.1_dexp.1.fit_basic"
-        #     ".2018-12-24T014712/"
-        #     )
         modelspec = ctx['modelspec']
         rec = ctx['val']
 
