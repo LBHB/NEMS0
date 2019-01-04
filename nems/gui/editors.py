@@ -25,6 +25,11 @@ _SCROLLABLE_PLOT_FNS = [
 
 # TODO: epochs display above plots
 
+# TODO: add backwards compatibility shim to add plot_fns, plot_fn_idx etc to
+#       old modelspecs if none of the modules have those specified.
+
+# TODO: enable stepping through fits N evals at a time.
+
 
 class EditorWindow(qw.QMainWindow):
     def __init__(self, modelspec=None, xfspec=None, rec=None, ctx=None,
@@ -350,23 +355,6 @@ class XfspecEditor(qw.QWidget):
         [self.step_layout.addWidget(s) for s in self.steps]
         self.setLayout(self.step_layout)
 
-    def update_xfspec(self):
-        raise NotImplementedError
-
-        xfspec = []
-        for w in self.xfspec_tab.values:
-            xf = []
-            for k, v in zip(w.keys, w.values):
-                try:
-                    v = json.loads(v)
-                except TypeError:
-                    # Want to un-string dictionaries etc, but not ndarrays
-                    pass
-                xf.append(v)
-            xfspec.append(xf)
-
-        self.parent.xfspec = xfspec
-
     def filtered_xfspec(self):
         checks = [s.checked for s in self.steps]
         x = [s for s, c in zip(self.xfspec, checks) if c]
@@ -435,7 +423,19 @@ class GlobalControls(qw.QWidget):
         buttons_layout = qw.QHBoxLayout()
         self.reset_model_btn = qw.QPushButton('Reset Model')
         self.reset_model_btn.clicked.connect(self.reset_model)
+        self.fit_index_label = qw.QLabel('Fit Index')
+        self.fit_index_line = qw.QLineEdit()
+        self.fit_index_line.editingFinished.connect(self.update_fit_index)
+        self.fit_index_line.setText(str(self.parent.modelspec_editor.modelspec.fit_index))
+        self.cell_index_label = qw.QLabel('Cell Index')
+        self.cell_index_line = qw.QLineEdit()
+        self.cell_index_line.editingFinished.connect(self.update_cell_index)
+        self.cell_index_line.setText(str(self.parent.modelspec_editor.modelspec.cell_index))
         buttons_layout.addWidget(self.reset_model_btn)
+        buttons_layout.addWidget(self.fit_index_label)
+        buttons_layout.addWidget(self.fit_index_line)
+        buttons_layout.addWidget(self.cell_index_label)
+        buttons_layout.addWidget(self.cell_index_line)
 
         layout = qw.QVBoxLayout()
         layout.addWidget(self.time_slider)
@@ -501,6 +501,36 @@ class GlobalControls(qw.QWidget):
 
     def reset_model(self):
         self.parent.modelspec_editor.reset_model()
+
+    def update_fit_index(self):
+        i = int(self.fit_index_line.text())
+        j = self.parent.modelspec_editor.modelspec.fit_index
+
+        if i == j:
+            return
+
+        if i > len(self.parent.modelspec_editor.modelspec.raw):
+            # TODO: Flash red or something to indicate error
+            self.fit_index_line.setText(str(j))
+            return
+
+        self.parent.modelspec_editor.modelspec.fit_index = i
+        self.parent.modelspec_editor.evaluate_model()
+
+    def update_cell_index(self):
+        i = int(self.cell_index_line.text())
+        j = self.parent.modelspec_editor.modelspec.cell_index
+
+        if i == j:
+            return
+
+        if i > len(self.parent.modelspec_editor.modelspec.phis):
+            # TODO: Flash red or something to indicate error
+            self.cell_index_line.setText(str(j))
+            return
+
+        self.parent.modelspec_editor.modelspec.cell_index = i
+        self.parent.modelspec_editor.evaluate_model()
 
 
 class FitEditor(qw.QWidget):
