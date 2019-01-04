@@ -216,7 +216,10 @@ def fit_tf(est=None, modelspec=None,
         # print(net2_layer_init)
 
         train_val_test = np.zeros(data_dims[0])
-        train_val_test[80:] = 1
+        val_n = int(0.9 * data_dims[0])
+        train_val_test[val_n:] = 1
+        train_val_test = np.roll(train_val_test, int(data_dims[0]/init_count*i))
+        print(train_val_test)
         net2.train(F, D, max_iter=max_iter, train_val_test=train_val_test)
 
         modelspec = cnn2modelspec(net2, modelspec)

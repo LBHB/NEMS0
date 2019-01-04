@@ -123,31 +123,32 @@ def basic(fitkey):
 
 def tf(fitkey):
     '''
-    Perform a fit_basic analysis on a model.
+    Perform a Tensorflow fit, using Sam Norman-Haignere's CNN library
 
     Parameters
     ----------
     fitkey : str
-        Expected format: tf.<fitter>.<jackknifing>.<metric>.<misc>
-        Example: basic.cd.nf10.shr.mi1000
+        Expected format: tf.f<fitter>.i<max_iter>.s<start_conditions>
+        Example: tf.fAdam.i1000.s20
         Example translation:
-            Use fit_basic with coordinate_descent, nfold fitting with 10 folds,
-            with nmse_shrinkage as the metric and 1000 maximum iterations
+            Use Adam fitter, max 1000 iterations, starting from 20 random
+            initial condition
 
     Options
     -------
-    cd : Use coordinate_descent for fitting (default is scipy_minimize)
-    miN : Set maximum iterations to N, where N is any positive integer.
-    tN : Set tolerance to 10**-N, where N is any positive integer.
+    f<fitter> : string specifying fitter, passed through to TF
+    i<N> : Set maximum iterations to N, any positive integer.
+    s<S> : Initialize with S random seeds, pick the best performer across
+           the entire fit set.
 
     '''
 
-    xfspec = []
-
     options = _extract_options(fitkey)
+
     max_iter = 1000
     fitter = 'Adam'
     init_count = 1
+
     for op in options:
         if op[:1] == 'i':
             max_iter = int(op[1:])
