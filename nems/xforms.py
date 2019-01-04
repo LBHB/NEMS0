@@ -1007,12 +1007,12 @@ def load_analysis(filepath, eval_model=True, only=None):
     """
     log.info('Loading modelspec from %s...', filepath)
 
-    xfspec = load_xform(filepath + 'xfspec.json')
+    xfspec = load_xform(os.path.join(filepath, 'xfspec.json'))
 
     mspaths = []
     for file in os.listdir(filepath):
         if file.startswith("modelspec"):
-            mspaths.append(filepath + "/" + file)
+            mspaths.append(os.path.join(filepath, file))
     ctx = load_modelspecs([], uris=mspaths, IsReload=False)
     ctx['IsReload'] = True
 

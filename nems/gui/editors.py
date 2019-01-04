@@ -514,9 +514,9 @@ if __name__ == '__main__':
         sys.excepthook = exception_hook
 
     if 'load' in sys.argv:
-        cellid='TAR010c-18-2'
-        batch=289
-        modelname="ozgf.fs50.ch18-ld-sev_dlog-wc.18x1.g-fir.1x10-lvl.1-dexp.1_init-basic"
+        batch = 271
+        cellid = "TAR010c-18-1"
+        modelname = 'dlog-wc.18x1.g-fir.1x15-lvl.1'
         d = nd.get_results_file(batch, modelnames=[modelname], cellids=[cellid])
         filename = d.loc[0,'modelpath']
         xfspec, ctx = xforms.load_analysis(filename)
