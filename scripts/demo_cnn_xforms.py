@@ -21,8 +21,7 @@ import nems.analysis.api
 import nems.utils
 import nems.uri
 import nems.recording as recording
-from nems.signal import RasterizedSignal
-from nems.fitters.api import scipy_minimize
+import nems.xforms as xforms
 from nems.gui.recording_browser import browse_recording, browse_context
 import nems.tf.cnn as cnn
 import nems.tf.cnnlink as cnnlink
@@ -31,37 +30,70 @@ log = logging.getLogger(__name__)
 
 # ----------------------------------------------------------------------------
 # CONFIGURATION
-
-
 # figure out data and results paths:
 results_dir = nems.get_setting('NEMS_RESULTS_DIR')
 signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
 
-recording.get_demo_recordings(signals_dir)
-
-datafile = signals_dir + "/TAR010c-18-1.pkl"
-batch=271
-
 # ----------------------------------------------------------------------------
-# LOAD AND FORMAT RECORDING DATA
+# DATA LOADING & PRE-PROCESSING
+recording.get_demo_recordings(name="TAR010c-18-1.pkl")
 
-with open(datafile, 'rb') as f:
-        cellid, recname, fs, X, Y, epochs = pickle.load(f)
+datafile = os.path.join(signals_dir, "TAR010c-18-1.pkl")
+load_command = 'nems.demo.loaders.demo_loader'
+exptid = "TAR010c"
+batch = 271
+cellid = "TAR010c-18-1"
 
-stimchans = [str(x) for x in range(X.shape[0])]
-# borrowed from recording.load_recording_from_arrays
+# MODEL SPEC
+#modelspecname = 'dlog-wc.18x1.g-stp.1-fir.1x15-lvl.1-dexp.1'
+#modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
+#modelspecname = 'dlog-wc.18x1.g-fir.1x15-lvl.1'
+modelspecname = 'wc.18x1.g-fir.1x15-relu.1'
 
-resp = RasterizedSignal(fs, Y, 'resp', recname, epochs=epochs, chans=[cellid])
-stim = RasterizedSignal(fs, X, 'stim', recname, epochs=epochs, chans=stimchans)
-signals = {'resp': resp, 'stim': stim}
-rec = recording.Recording(signals)
+meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
+        'recording': exptid, 'temp_path': results_dir}
 
-#est, val = rec.split_at_time(0.2)
-est, val = rec.split_using_epoch_occurrence_counts(epoch_regex="^STIM_")
-est = preproc.average_away_epoch_occurrences(est, epoch_regex="^STIM_").apply_mask()
-val = preproc.average_away_epoch_occurrences(val, epoch_regex="^STIM_").apply_mask()
+# generate modelspec
+xfspec = []
+# load internally:
+#xfspec.append(['nems.xforms.load_recordings',
+#               {'recording_uri_list': [recording_uri]}])
+
+# load from external format
+xfspec.append(['nems.xforms.load_recording_wrapper',
+               {'load_command': load_command,
+                'exptid': exptid,
+                'datafile': datafile}])
+xfspec.append(['nems.xforms.normalize_stim', {'norm_method': 'meanstd'}])
+xfspec.append(['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}])
+xfspec.append(['nems.xforms.average_away_stim_occurrences', {}])
+
+xfspec.append(['nems.xforms.init_from_keywords',
+               {'keywordstring': modelspecname, 'meta': meta}])
+
+xfspec.append(['nems.tf.cnnlink.fit_tf', {'init_count': 5}])
+#xfspec.append(['nems.xforms.fit_basic_init', {}])
+#xfspec.append(['nems.xforms.fit_basic', {}])
+# xfspec.append(['nems.xforms.fit_basic_shrink', {}])
+#xfspec.append(['nems.xforms.fit_basic_cd', {}])
+# xfspec.append(['nems.xforms.fit_iteratively', {}])
+xfspec.append(['nems.xforms.predict', {}])
+# xfspec.append(['nems.xforms.add_summary_statistics',    {}])
+xfspec.append(['nems.analysis.api.standard_correlation', {},
+               ['est', 'val', 'modelspec', 'rec'], ['modelspec']])
+
+# GENERATE PLOTS
+xfspec.append(['nems.xforms.plot_summary', {}])
+
+# actually do the fit
+log_xf = "NO LOG"
+ctx = {}
+for xfa in xfspec:
+    ctx = xforms.evaluate_step(xfa, ctx)
+#ctx, log_xf = xforms.evaluate(xfspec)
 
 
+"""
 sr_Hz=est['resp'].fs
 time_win_sec = 0.1
 
@@ -87,9 +119,7 @@ F /= s_stim
 Fv -= m_stim
 Fv /= s_stim
 
-modelspecname = 'wc.18x2.g-fir.2x15-relu.1'
-#modelspecname = 'wc.18x1.g-fir.1x15'
-
+modelspecname = 'wc.18x2-fir.2x15-relu.1'
 meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
         'recording': rec.name}
 
@@ -114,9 +144,9 @@ if SIM_DATA:
         layer['rank'] = P['rank']
         layers.append(layer)
 
-        net1_seed = 50
+        net1_seed = 12
         tf.reset_default_graph()
-        net1 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=results_dir)
+        net1 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=modelspecs_dir)
         net1.build()
         D = net1.predict(F)
         Dv = net1.predict(Fv)
@@ -143,29 +173,10 @@ if USE_LINK:
         #  'time_win_sec': 0.01, 'type': 'reweight-positive'},
         # {'act': 'relu', 'n_kern': 1, 'rank': None,
         #  'time_win_sec': 0.15, 'type': 'conv'}]
-        net2 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=results_dir)
+        net2 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=modelspecs_dir)
         #net2.optimizer = 'GradientDescent'
         #net2.optimizer = 'RMSProp'
         net2.build()
-        """
-        with net2.sess.as_default():
-                b = net2.layers[0]['b']
-                tf.assign(b, 0)
-
-                x=b.eval()
-
-            layers = []
-            for i in range(self.n_layers):
-                layer = {}
-                layer['W'] = self.layers[i]['W'].eval()
-                if 'b' in self.layers[i]:
-                    layer['b'] = self.layers[i]['b'].eval()
-                layers.append(layer)
-
-            return layers
-        net2.layer_vals()[0]['b'][0,0,0]=0
-        net2.layer_vals()[1]['b'][0,0,0]=0
-        """
 else:
         # parameters
         P = {}
@@ -184,7 +195,7 @@ else:
         layers.append(layer)
 
         # create network
-        net2 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=results_dir)
+        net2 = cnn.Net(data_dims, n_feats, sr_Hz, deepcopy(layers), seed=net1_seed, log_dir=modelspecs_dir)
         # net2.optimizer = 'GradientDescent'
         # net2.optimizer = 'RMSProp'
         net2.build()
@@ -250,6 +261,8 @@ if USE_LINK:
         modelspec = nems.analysis.api.standard_correlation(est, val, modelspec)
 
         nplt.quickplot({'val': val, 'modelspec': modelspec})
+"""
+
 """
 net1_seed = 7
 tf.reset_default_graph()

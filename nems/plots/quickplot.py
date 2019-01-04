@@ -348,8 +348,8 @@ def _get_plot_fns(rec, modelspec, default='val', epoch='TRIAL', occurrence=0, m_
         else:
             if ('fir' in fname) and not strf_done:
                 chans = rec['stim'].chans
-                print('CHANS: ')
-                print(chans)
+                # print('CHANS: ')
+                # print(chans)
                 fn = partial(strf_heatmap, modelspec, title='STRF', chans=chans)
                 plot = (fn, 1)
                 plot_fns.append(plot)

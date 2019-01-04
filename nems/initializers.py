@@ -101,10 +101,17 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
             (type(rec.meta['cellid']) is list)):
             meta['cellids'] = rec.meta['cellid']
 
-    if 'meta' not in modelspec[0].keys():
-        modelspec[0]['meta'] = meta
-    else:
-        modelspec[0]['meta'].update(meta)
+    # for modelspec object, we know that meta must exist, so just update
+    modelspec.meta.update(meta)
+
+    if modelspec.meta.get('modelpath') is None:
+        results_dir = get_setting('NEMS_RESULTS_DIR')
+        batch = modelspec.meta.get('batch', 0)
+        cellid = modelspec.meta.get('cellid', 'CELL')
+        destination = '{0}/{1}/{2}/{3}/'.format(
+            results_dir, batch, cellid, modelspec.get_longname())
+        modelspec.meta['modelpath'] = destination
+        modelspec.meta['figurefile'] = destination+'figure.0000.png'
 
     return modelspec
 
@@ -146,7 +153,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
 
     # fit without STP module first (if there is one)
     modelspec = prefit_to_target(est, modelspec, fit_basic,
-                                 target_module='levelshift',
+                                 target_module=['levelshift','relu'],
                                  extra_exclude=['stp'],
                                  fitter=fitter,
                                  metric=metric,
@@ -216,8 +223,12 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
 
     # figure out last modelspec module to fit
     target_i = None
+    if type(target_module) is not list:
+        target_module = [target_module]
     for i, m in enumerate(modelspec):
-        if target_module in m['fn']:
+        tlist = [True for t in target_module if t in m['fn']]
+
+        if len(tlist):
             target_i = i + 1
             break
 
