@@ -50,8 +50,8 @@ def nmse(result, pred_name='pred', resp_name='resp'):
     X1 = result[pred_name].as_continuous()
     X2 = result[resp_name].as_continuous()
 
-    keepidx = np.isfinite(X1) * np.isfinite(X2)
-    if np.all(np.logical_not(keepidx)):
+    keepidx = np.isfinite(X1) & np.isfinite(X2)
+    if np.all(~keepidx):
         log.debug("All values were NaN or inf in pred and resp")
         return 1
 
