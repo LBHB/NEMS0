@@ -92,7 +92,10 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
                 modelspec[i]['fn_kwargs']['i'] = 'psth'
             else:
                 modelspec[i]['fn_kwargs']['i'] = 'stim'
-            first_input_to_stim = True
+
+        # if correction is not in first module, then assume the modelspec can handle things?
+        # fix for BNB's RDT model
+        first_input_to_stim = True
         i += 1
 
     # insert metadata, if provided

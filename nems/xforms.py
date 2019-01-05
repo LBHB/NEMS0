@@ -153,6 +153,11 @@ def evaluate(xformspec, context={}, start=0, stop=None):
 ###############################################################################
 
 
+def init_context(**context):
+
+    return context
+
+
 def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
                            save_cache=True, IsReload=False, modelspecs=None,
                            modelspec=None, **context):

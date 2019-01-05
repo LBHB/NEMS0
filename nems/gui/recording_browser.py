@@ -46,7 +46,7 @@ from matplotlib.figure import Figure
 from nems.recording import Recording
 import nems.signal
 from nems.plots.utils import ax_remove_box
-from nems.gui.editor import ModelEditor
+#from nems.gui.editor import ModelEditor
 
 class RecordingPlotWrapper():
     # TODO: Not using this anymore?
@@ -536,8 +536,8 @@ class ApplicationWindow(qw.QMainWindow):
         remove_sig = qw.QPushButton('Remove Signal', self)
         remove_sig.clicked.connect(self.remove_signal)
 
-        edit_model = qw.QPushButton('Edit Model', self)
-        edit_model.clicked.connect(self.open_model_editor)
+        #edit_model = qw.QPushButton('Edit Model', self)
+        #edit_model.clicked.connect(self.open_model_editor)
 
         control_layout = qw.QHBoxLayout()
         control_layout.addWidget(qbtn)
@@ -666,8 +666,8 @@ class ApplicationWindow(qw.QMainWindow):
                           width=self.plot_width, height=self.plot_height,
                           dpi=self.plot_dpi)
 
-    def open_model_editor(self):
-        self.editor = ModelEditor(ctx=self.ctx, xfspec=self.xfspec)
+    #def open_model_editor(self):
+    #    self.editor = ModelEditor(ctx=self.ctx, xfspec=self.xfspec)
 
     def close_model_editor(self):
         self.editor = None

@@ -13,12 +13,20 @@ from nems.gui.models import ArrayModel
 log = logging.getLogger(__name__)
 
 
+# TODO: redo some of these functions to take advantage of new modelspec setup?
+
+# TODO: implement some kind of coordinate system to keep track of where changes
+#       to individual phi etc need to be propagated
+
 class ModelEditor(qw.QMainWindow):
     def __init__(self, ctx=None, xfspec=None, parent=None):
         qw.QMainWindow.__init__(self)
         self.ctx = ctx
         self.xfspec = xfspec
+        # TODO: or leave this as the new Modelspec object?
+        self.modelspec = self.ctx['modelspec'].fits()[0]
         self.original_ctx = copy.deepcopy(ctx)
+        self.original_modelspec = copy.deepcopy(self.modelspec)
         self.original_xfspec = copy.deepcopy(xfspec)
         self.parent = parent
 
@@ -46,10 +54,16 @@ class EditorWidget(qw.QWidget):
         self.tabs.addTab(self.xfspec_tab, 'xfspec')
         self.tabs.addTab(self.modelspec_tab, 'modelspec')
 
-        self.xfspec_tab.layout = self._xfspec_setup()
+        l1, k1, v1 = self._xfspec_setup()
+        self.xfspec_tab.layout = l1
+        self.xfspec_tab.keys = k1
+        self.xfspec_tab.values = v1
         self.xfspec_tab.setLayout(self.xfspec_tab.layout)
 
-        self.modelspec_tab.layout = self._modelspec_setup()
+        l2, k2, v2 = self._modelspec_setup()
+        self.modelspec_tab.layout = l2
+        self.modelspec_tab.keys = k2
+        self.modelspec_tab.values = v2
         self.modelspec_tab.setLayout(self.modelspec_tab.layout)
 
         self.reset = qw.QPushButton('Reset', self)
@@ -70,24 +84,36 @@ class EditorWidget(qw.QWidget):
 
     def _xfspec_setup(self):
         layout = qw.QGridLayout(self)
+        keys = []
+        values = []
         for i, xf in enumerate(self.parent.xfspec):
             js = range(len(xf))
             k = KeysTable(self, js)
-            v = ValuesTable(self, [xf[j] for j in js])
+            keys.append(k)
+            v = ValuesTable(self, js, [xf[j] for j in js])
+            values.append(v)
             layout.addWidget(k, i, 1)
             layout.addWidget(v, i, 2)
             layout.addWidget(RowController(self, xf[0], k, v), i, 0)
-        return layout
+        return layout, keys, values
 
     def _modelspec_setup(self):
         layout = qw.QGridLayout(self)
-        for i, m in enumerate(self.parent.ctx['modelspec'].fits()[0]):
+        keys = []
+        values = []
+        for i, m in enumerate(self.parent.modelspec):
             k = KeysTable(self, list(m['phi'].keys()))
-            v = ValuesTable(self, list(m['phi'].values()))
+            keys.append(k)
+            v = ValuesTable(self, list(m['phi'].keys()),
+                            list(m['phi'].values()))
+            values.append(v)
             layout.addWidget(k, i, 1)
             layout.addWidget(v, i, 2)
             layout.addWidget(RowController(self, m['fn'], k, v), i, 0)
-        return layout
+        return layout, keys, values
+
+    def _update_display(self):
+        pass
 
     def reset_model(self):
         self.parent.ctx = copy.deepcopy(self.original_ctx)
@@ -99,8 +125,12 @@ class EditorWidget(qw.QWidget):
         self.xfspec_tab.setLayout(self.xfspec_tab.layout)
         self.modelspec_tab.layout = self._modelspec_setup()
         self.modelspec_tab.setLayout(self.modelspec_tab.layout)
+        self._update_display()
 
     def evaluate_model(self):
+        # Make sure xfspec and modelspec are up to date before evaluating
+        self.update_xfspec()
+        self.update_modelspec()
         xfspec, ctx = xforms.evaluate(self.parent.xfspec, self.parent.ctx,
                                       eval_model=True)
         self.parent.xfspec = xfspec
@@ -108,14 +138,34 @@ class EditorWidget(qw.QWidget):
         self.parent.update_browser()
 
     def update_xfspec(self):
-        # TODO: after a change is made to one of the entries,
-        #       update in xfspec as well
-        pass
+        xfspec = []
+        for w in self.xfspec_tab.values:
+            xf = []
+            for k, v in zip(w.keys, w.values):
+                try:
+                    v = json.loads(v)
+                except TypeError:
+                    # Want to un-string dictionaries etc, but not ndarrays
+                    pass
+                xf.append(v)
+            xfspec.append(xf)
+
+        self.parent.xfspec = xfspec
 
     def update_modelspec(self):
-        # TODO: after a change is made to one of the entries,
-        #       update modelspec as well
-        pass
+        phis = []
+        for w in self.modelspec_tab.values:
+            p = {}
+            for k, v in zip(w.keys, w.values):
+                p[k] = v
+            phis.append(p)
+
+        # TODO: just use some method of modelspec object to update phi instead
+        modelspec = copy.deepcopy(self.parent.ctx['modelspec'].raw)
+        for i, p in enumerate(phis):
+            modelspec[i]['phi'] = p
+        self.parent.ctx['modelspec'].raw = modelspec
+
 
 class RowController(qw.QWidget):
     def __init__(self, parent, name, keys, values):
@@ -177,9 +227,10 @@ class KeysTable(qw.QWidget):
 
 
 class ValuesTable(qw.QWidget):
-    def __init__(self, parent, values):
+    def __init__(self, parent, keys, values):
         super(qw.QWidget, self).__init__(parent)
         self.parent = parent
+        self.keys = keys
         self.values = values
 
         self.layout = qw.QVBoxLayout(self)
