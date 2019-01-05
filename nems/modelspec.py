@@ -41,6 +41,7 @@ class ModelSpec:
 
     def __init__(self, raw=None, phis=None, fit_index=0, cell_index=0,
                  recording=None):
+
         self.raw = [[]] if raw is None else raw
         self.phis = [] if phis is None else phis
 
@@ -53,9 +54,6 @@ class ModelSpec:
         self.plot_epoch = 'REFERENCE'
         self.plot_occurrence = 0
         self.recording = recording  # default recording for evaluation & plotting
-        self.modules = self.raw[self.fit_index]
-        self.modelspecname = '-'.join([m.get('id', 'BLANKID')
-                                       for m in self.modules])
 
     def __getitem__(self, key):
         try:
@@ -111,6 +109,14 @@ class ModelSpec:
         if mod_index is None:
             mod_index = self.mod_index
         return self.raw[self.fit_index][mod_index]
+
+    @property
+    def modules(self):
+        return self.raw[self.fit_index]
+
+    @property
+    def modelspecname(self):
+        return '-'.join([m.get('id', 'BLANKID') for m in self.modules])
 
     def copy(self, lb=None, ub=None, fit_index=None):
         """

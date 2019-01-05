@@ -26,6 +26,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
     registry. You may provide your own keyword registry using the
     registry={...} argument.
     '''
+
     if registry is None:
         registry = default_kws
     keywords = keyword_string.split('-')
@@ -69,6 +70,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
 
         else:
             log.info('kw: %s', kw)
+
         if registry.kw_head(kw) not in registry:
             raise ValueError("unknown keyword: {}".format(kw))
 

@@ -110,6 +110,7 @@ class EditorWidget(qw.QWidget):
 
     def set_new_modelspec(self, new):
         self.modelspec = new
+        self.ctx['modelspec'] = new
         self.modelspec.recording = self.rec
         self.modelspec_editor.modelspec = new
         self.modelspec_editor.modelspec.recording = self.rec
@@ -147,17 +148,21 @@ class ModelspecEditor(qw.QWidget):
         # TODO: Fix issues with first_changed_module.
         new_rec = self.parent.modelspec.evaluate()#start=first_changed_module)
         self.parent.modelspec.recording = new_rec
+        self.modelspec.recording = new_rec
         #for m in self.modules[first_changed_module:]:
         for m in self.modules:
             m.new_plot()
+        # self.clear_layout()
+        # self.setup_layout()
 
     def reset_model(self):
         self.modelspec = copy.deepcopy(self.original_modelspec)
-        # remove old layout
+        self.clear_layout()
+        self.setup_layout()
+
+    def clear_layout(self):
         temp = qw.QWidget()
         temp.setLayout(self.layout)
-        # recreate layout with new phi
-        self.setup_layout()
 
 
 class ModuleEditor(qw.QWidget):
@@ -566,14 +571,6 @@ class FitEditor(qw.QWidget):
         super(qw.QWidget, self).__init__()
         self.parent = parent
 
-        # Be able to pick out fitter steps from xfspec?
-        # Or maybe just pre-specifify the fitter functions with
-        # an option to look up additional ones
-
-        # this is per SVD request separate from xfspec editor
-        # want to be able to easily switch between different fits,
-        # do only initialization, etc.
-
         self.layout = qw.QHBoxLayout()
 
         self.init_fn_menu = qw.QComboBox()
@@ -592,10 +589,10 @@ class FitEditor(qw.QWidget):
         self.fit_btn.clicked.connect(self.fit)
         self.layout.addWidget(self.fit_btn)
 
-        self.eval_label = qw.QLabel('# Evals')
-        self.eval_edit = qw.QLineEdit('50')
-        self.layout.addWidget(self.eval_label)
-        self.layout.addWidget(self.eval_edit)
+        self.iter_label = qw.QLabel('# iters')
+        self.iter_edit = qw.QLineEdit('50')
+        self.layout.addWidget(self.iter_label)
+        self.layout.addWidget(self.iter_edit)
 
         self.setLayout(self.layout)
 
@@ -605,7 +602,6 @@ class FitEditor(qw.QWidget):
         if 'from_keywords' in name:
             self.reset_from_keywords()
         else:
-            self.reset_from_keywords()
             fn = _lookup_fn_at(name)
             rec = self.parent.rec
             modelspec = self.parent.modelspec
@@ -624,8 +620,8 @@ class FitEditor(qw.QWidget):
     def fit(self):
         name = self.fit_fn_menu.currentText()
         fn = _lookup_fn_at(name)
-        n_evals = int(self.eval_edit.text())
-        fit_kwargs = {'max_iter': n_evals}
+        n_iters = int(self.iter_edit.text())
+        fit_kwargs = {'max_iter': n_iters}
         rec = self.parent.rec
         modelspec = self.parent.modelspec
 
