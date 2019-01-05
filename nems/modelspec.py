@@ -39,7 +39,8 @@ class ModelSpec:
 
     """
 
-    def __init__(self, raw=None, phis=None, fit_index=0, cell_index=0):
+    def __init__(self, raw=None, phis=None, fit_index=0, cell_index=0,
+                 recording=None):
         self.raw = [[]] if raw is None else raw
         self.phis = [] if phis is None else phis
 
@@ -51,7 +52,10 @@ class ModelSpec:
         self.mod_index = 0
         self.plot_epoch = 'REFERENCE'
         self.plot_occurrence = 0
-        self.recording = None  # default recording for evaluation & plotting
+        self.recording = recording  # default recording for evaluation & plotting
+        self.modules = self.raw[self.fit_index]
+        self.modelspecname = '-'.join([m.get('id', 'BLANKID')
+                                       for m in self.modules])
 
     def __getitem__(self, key):
         try:
@@ -155,10 +159,6 @@ class ModelSpec:
         if fit_index is None:
             fit_index = self.fit_index
         return [m.get('phi') for m in self.raw[fit_index]]
-
-    @property
-    def modules(self):
-        return [m for m in self.raw[self.fit_index]]
 
     def plot_fn(self, mod_index=None, plot_fn_idx=None, fit_index=None):
         """get function for plotting something about a module"""

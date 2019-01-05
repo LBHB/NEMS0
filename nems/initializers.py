@@ -160,7 +160,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
             break
 
     # pre-fit static NL if it exists
-    for m in modelspec:
+    for m in modelspec.modules:
         if 'double_exponential' in m['fn']:
             modelspec = init_dexp(est, modelspec)
             modelspec = prefit_mod_subset(
@@ -216,7 +216,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
 
     # figure out last modelspec module to fit
     target_i = None
-    for i, m in enumerate(modelspec):
+    for i, m in enumerate(modelspec.modules):
         if target_module in m['fn']:
             target_i = i + 1
             break
@@ -314,7 +314,7 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
         fit_idx = fit_set
     else:
         fit_idx = []
-        for i, m in enumerate(modelspec):
+        for i, m in enumerate(modelspec.modules):
             for fn in fit_set:
                 if fn in m['fn']:
                     fit_idx.append(i)
@@ -372,9 +372,9 @@ def init_dexp(rec, modelspec):
         return modelspec
 
     if target_i == len(modelspec):
-        fit_portion = modelspec
+        fit_portion = modelspec.modules
     else:
-        fit_portion = modelspec[:target_i]
+        fit_portion = modelspec.modules[:target_i]
 
     # ensures all previous modules have their phi initialized
     # choose prior mean if not found
@@ -446,9 +446,9 @@ def init_logsig(rec, modelspec):
         return modelspec
 
     if target_i == len(modelspec):
-        fit_portion = modelspec
+        fit_portion = modelspec.modules
     else:
-        fit_portion = modelspec[:target_i]
+        fit_portion = modelspec.modules[:target_i]
 
     # generate prediction from module preceeding dexp
     ms.fit_mode_on(fit_portion)

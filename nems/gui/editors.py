@@ -13,20 +13,41 @@ import PyQt5.QtGui as qg
 from nems import xforms
 from nems.gui.models import ArrayModel
 from nems.gui.canvas import MyMplCanvas
+from nems.modelspec import _lookup_fn_at
 import nems.db as nd
 
 log = logging.getLogger(__name__)
 
+# Only module plots included here will be scrolled in time
+# by the slider.
 _SCROLLABLE_PLOT_FNS = [
         'nems.plots.api.strf_timeseries',
         'nems.plots.api.before_and_after',
         'nems.plots.api.pred_resp',
         ]
 
+# These are used as click-once operations
+# TODO: separate initialization from prefitting
+_INIT_FNS = [
+        'nems.initializers.from_keywords',
+        'nems.initializers.prefit_LN'
+        ]
+
+# These can be repeated as needed in small steps
+_FIT_FNS = [
+        'nems.analysis.fit_basic.fit_basic',
+        'nems.analysis.fit_iteratively.fit_iteratively'
+        ]
+
+
 # TODO: epochs display above plots
 
 # TODO: add backwards compatibility shim to add plot_fns, plot_fn_idx etc to
 #       old modelspecs if none of the modules have those specified.
+
+# TODO: Switch modelspec, xfspec etc. references to all just point to EditorWidget copy
+#       instead of making separate copies. Then all updates can use the most convenient
+#       pointer instead of needing to call parent.parent.parent.modelspec
 
 # TODO: enable stepping through fits N evals at a time.
 
@@ -74,7 +95,7 @@ class EditorWidget(qw.QWidget):
             self.xfspec_editor = XfspecEditor(self.xfspec, self)
 
         self.global_controls = GlobalControls(self.modelspec, self)
-        self.fit_editor = FitEditor(self.modelspec, self.xfspec, self)
+        self.fit_editor = FitEditor(self)
 
         row_one_layout.addWidget(self.modelspec_editor)
         row_one_layout.addWidget(self.xfspec_editor)
@@ -86,6 +107,13 @@ class EditorWidget(qw.QWidget):
 
         self.setWindowTitle(self.title)
         self.show()
+
+    def set_new_modelspec(self, new):
+        self.modelspec = new
+        self.modelspec.recording = self.rec
+        self.modelspec_editor.modelspec = new
+        self.modelspec_editor.modelspec.recording = self.rec
+        self.modelspec_editor.evaluate_model()
 
 
 class ModelspecEditor(qw.QWidget):
@@ -534,10 +562,8 @@ class GlobalControls(qw.QWidget):
 
 
 class FitEditor(qw.QWidget):
-    def __init__(self, modelspec, xfspec, parent):
+    def __init__(self, parent):
         super(qw.QWidget, self).__init__()
-        self.modelspec = modelspec
-        self.xfspec = xfspec
         self.parent = parent
 
         # Be able to pick out fitter steps from xfspec?
@@ -548,10 +574,63 @@ class FitEditor(qw.QWidget):
         # want to be able to easily switch between different fits,
         # do only initialization, etc.
 
-        layout = qw.QVBoxLayout()
-        self.test = qw.QLineEdit('test fit editor')
-        layout.addWidget(self.test)
-        self.setLayout(layout)
+        self.layout = qw.QHBoxLayout()
+
+        self.init_fn_menu = qw.QComboBox()
+        self.init_fn_menu.addItems(_INIT_FNS)
+        self.layout.addWidget(self.init_fn_menu)
+
+        self.init_btn = qw.QPushButton('Initialize')
+        self.init_btn.clicked.connect(self.initialize)
+        self.layout.addWidget(self.init_btn)
+
+        self.fit_fn_menu = qw.QComboBox()
+        self.fit_fn_menu.addItems(_FIT_FNS)
+        self.layout.addWidget(self.fit_fn_menu)
+
+        self.fit_btn = qw.QPushButton('Fit')
+        self.fit_btn.clicked.connect(self.fit)
+        self.layout.addWidget(self.fit_btn)
+
+        self.eval_label = qw.QLabel('# Evals')
+        self.eval_edit = qw.QLineEdit('50')
+        self.layout.addWidget(self.eval_label)
+        self.layout.addWidget(self.eval_edit)
+
+        self.setLayout(self.layout)
+
+    def initialize(self):
+        name = self.init_fn_menu.currentText()
+
+        if 'from_keywords' in name:
+            self.reset_from_keywords()
+        else:
+            self.reset_from_keywords()
+            fn = _lookup_fn_at(name)
+            rec = self.parent.rec
+            modelspec = self.parent.modelspec
+            new_modelspec = fn(rec, modelspec)
+            self.parent.set_new_modelspec(new_modelspec)
+
+    def reset_from_keywords(self):
+        fn = _lookup_fn_at('nems.initializers.from_keywords')
+        s = self.parent.modelspec.modelspecname
+        registry = self.parent.ctx.get('registry', None)
+        rec = self.parent.rec
+        meta = self.parent.modelspec.meta
+        new_modelspec = fn(s, registry=registry, rec=rec, meta=meta)
+        self.parent.set_new_modelspec(new_modelspec)
+
+    def fit(self):
+        name = self.fit_fn_menu.currentText()
+        fn = _lookup_fn_at(name)
+        n_evals = int(self.eval_edit.text())
+        fit_kwargs = {'max_iter': n_evals}
+        rec = self.parent.rec
+        modelspec = self.parent.modelspec
+
+        new_modelspec = fn(rec, modelspec, fit_kwargs=fit_kwargs)
+        self.parent.set_new_modelspec(new_modelspec)
 
 
 # Just for testing - typically will be opened by recording_browser.py
