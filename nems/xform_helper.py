@@ -11,7 +11,8 @@ from nems.plugins import (default_keywords, default_loaders, default_fitters,
 log = logging.getLogger(__name__)
 
 
-def generate_xforms_spec(recording_uri=None, modelname=None, meta={}, xforms_kwargs={},
+def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
+                         xforms_kwargs={}, xforms_init_context=None,
                          kw_kwargs={}, autoPred=True, autoStats=True,
                          autoPlot=True):
     """
@@ -74,13 +75,18 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={}, xforms_kwa
     # to run through (like a packaged-up script)
     xfspec = []
 
+    # 0) set up initial context
+    if xforms_init_context is None:
+        xforms_init_context = {}
+    xforms_init_context['keywordstring'] = model_keywords
+    xforms_init_context['meta'] = meta
+    xfspec.append(['nems.xforms.init_context', xforms_init_context])
+
     # 1) Load the data
     xfspec.extend(_parse_kw_string(load_keywords, xforms_lib))
 
     # 2) generate a modelspec
-    xfspec.append(['nems.xforms.init_from_keywords',
-                   {'keywordstring': model_keywords, 'meta': meta,
-                    'registry': keyword_lib}])
+    xfspec.append(['nems.xforms.init_from_keywords', {'registry': keyword_lib}])
 
     # 3) fit the data
     xfspec.extend(_parse_kw_string(fit_keywords, xforms_lib))

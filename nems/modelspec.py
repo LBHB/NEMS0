@@ -148,14 +148,17 @@ class ModelSpec:
     def fn(self):
         return [m['fn'] for m in self.raw[0]]
 
-    def phi(self, fit_index=None):
+    def phi(self, fit_index=None, mod_idx=None):
         """
         :param fit_index: which model fit to use (default use self.fit_index
         :return: list of phi dictionaries, or None for modules with no phi
         """
         if fit_index is None:
             fit_index = self.fit_index
-        return [m.get('phi') for m in self.raw[fit_index]]
+        if mod_idx is None:
+            return [m.get('phi') for m in self.raw[fit_index]]
+        else:
+            return self.raw[fit_index][mod_idx].get('phi')
 
     @property
     def modules(self):
