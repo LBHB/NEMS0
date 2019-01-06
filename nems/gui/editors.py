@@ -12,7 +12,7 @@ import PyQt5.QtGui as qg
 
 from nems import xforms
 from nems.gui.models import ArrayModel
-from nems.gui.canvas import MyMplCanvas
+from nems.gui.canvas import MyMplCanvas, EpochCanvas
 from nems.modelspec import _lookup_fn_at
 import nems.db as nd
 
@@ -50,6 +50,7 @@ _FIT_FNS = [
 #       pointer instead of needing to call parent.parent.parent.modelspec
 
 # TODO: enable stepping through fits N evals at a time.
+#       --Sort of working so far...
 
 
 class EditorWindow(qw.QMainWindow):
@@ -85,17 +86,18 @@ class EditorWidget(qw.QWidget):
         self.title = 'NEMS Model Browser'
 
         outer_layout = qw.QVBoxLayout()
+        outer_layout.setSpacing(0)
         row_one_layout = qw.QHBoxLayout()
         row_two_layout = qw.QHBoxLayout()
 
-        if (modelspec is not None) and (rec is not None):
-            self.modelspec.recording = rec
-            self.modelspec_editor = ModelspecEditor(modelspec, rec, self)
+        self.modelspec.recording = rec
+        self.modelspec_editor = ModelspecEditor(modelspec, rec, self)
         if self.xfspec is not None:
             self.xfspec_editor = XfspecEditor(self.xfspec, self)
-
-        self.global_controls = GlobalControls(self.modelspec, self)
+        self.global_controls = GlobalControls(self)
         self.fit_editor = FitEditor(self)
+
+        self.modelspec_editor.setup_layout()
 
         row_one_layout.addWidget(self.modelspec_editor)
         row_one_layout.addWidget(self.xfspec_editor)
@@ -125,7 +127,7 @@ class ModelspecEditor(qw.QWidget):
         self.rec = rec
         self.parent = parent
 
-        self.setup_layout()
+        #self.setup_layout()
 
     def setup_layout(self):
         self.layout = qw.QGridLayout()
@@ -134,12 +136,20 @@ class ModelspecEditor(qw.QWidget):
         self.controllers = [ModuleControls(m, self) for m in self.modules]
         self.collapsers = [ModuleCollapser(m, self) for m in self.modules]
 
-        i = 0
         widgets = zip(self.collapsers, self.controllers, self.modules)
-        for i, (col, cnt, m) in enumerate(widgets):
-            self.layout.addWidget(col, i, 0)
-            self.layout.addWidget(cnt, i, 1)
-            self.layout.addWidget(m, i, 2)
+        j = 0
+        for col, cnt, m in widgets:
+            if j == 0:
+                epochs = EpochCanvas(recording=self.rec, parent=self.parent.global_controls)
+                # self.layout.addWidget(qw.QWidget(), 0, 0)
+                # self.layout.addWidget(qw.QWidget(), 0, 1)
+                self.layout.addWidget(epochs, 0, 2)
+                j += 1
+
+            self.layout.addWidget(col, j, 0)
+            self.layout.addWidget(cnt, j, 1)
+            self.layout.addWidget(m, j, 2)
+            j += 1
 
         self.layout.setAlignment(qc.Qt.AlignTop)
         self.setLayout(self.layout)
@@ -241,21 +251,34 @@ class ModuleCollapser(qw.QWidget):
         self.collapsed = False
 
         layout = qw.QVBoxLayout()
-        self.toggle = qw.QPushButton('+/-', self)
-        self.toggle.setFixedSize(40, 25)
+        self.toggle = qw.QPushButton('-', self)
+        self.toggle.setFixedSize(12, 12)
         self.toggle.clicked.connect(self.toggle_collapsed)
         layout.addWidget(self.toggle)
         layout.setAlignment(qc.Qt.AlignTop)
         self.setLayout(layout)
+        self.expand_margins()
 
     def toggle_collapsed(self):
         if self.collapsed:
             self.module.show()
             self.controller.show()
+            self.toggle.setText('-')
+            #self.expand_margins()
         else:
             self.module.hide()
             self.controller.hide()
+            self.toggle.setText('+')
+            #self.shrink_margins()
         self.collapsed = not self.collapsed
+
+    def shrink_margins(self):
+        self.controller.layout.setContentsMargins(0,0,0,0)
+        self.module.layout.setContentsMargins(0,0,0,0)
+
+    def expand_margins(self):
+        self.controller.layout.setContentsMargins(10,10,10,10)
+        self.module.layout.setContentsMargins(10,10,10,10)
 
 
 class ModuleControls(qw.QWidget):
@@ -268,12 +291,12 @@ class ModuleControls(qw.QWidget):
                 self.module.parent.modelspec[self.mod_index]
                 )
 
-        layout = qw.QVBoxLayout()
+        self.layout = qw.QVBoxLayout()
 
         name = self.module_data['fn']
         self.label = qw.QLabel(name)
         self.label.setStyleSheet("background-color: rgb(255, 255, 255);")
-        layout.addWidget(self.label)
+        self.layout.addWidget(self.label)
 
         plot_list = self.module_data.get('plot_fns', [])
         self.plot_functions_menu = qw.QComboBox()
@@ -282,7 +305,7 @@ class ModuleControls(qw.QWidget):
         if initial_index is None:
             initial_index = 0
         self.plot_functions_menu.setCurrentIndex(initial_index)
-        layout.addWidget(self.plot_functions_menu)
+        self.layout.addWidget(self.plot_functions_menu)
         self.plot_functions_menu.currentIndexChanged.connect(self.change_plot)
 
         button_layout = qw.QHBoxLayout()
@@ -292,18 +315,18 @@ class ModuleControls(qw.QWidget):
         self.reset_phi_btn.clicked.connect(self.reset_phi)
         button_layout.addWidget(self.edit_phi_btn)
         button_layout.addWidget(self.reset_phi_btn)
-        layout.addLayout(button_layout)
+        self.layout.addLayout(button_layout)
 
         self.phi_editor = PhiEditor(self.module_data['phi'], self)
         self.phi_editor.hide()
         self.save_phi_btn = qw.QPushButton('Save Phi')
         self.save_phi_btn.hide()
         self.save_phi_btn.clicked.connect(self.save_phi)
-        layout.addWidget(self.phi_editor)
-        layout.addWidget(self.save_phi_btn)
+        self.layout.addWidget(self.phi_editor)
+        self.layout.addWidget(self.save_phi_btn)
 
-        layout.setAlignment(qc.Qt.AlignTop)
-        self.setLayout(layout)
+        self.layout.setAlignment(qc.Qt.AlignTop)
+        self.setLayout(self.layout)
 
     def change_plot(self, index):
         self.module.plot_fn_idx = int(index)
@@ -424,9 +447,8 @@ class GlobalControls(qw.QWidget):
     minimum_duration = 0.001
     stop_time = 10
 
-    def __init__(self, modelspec, parent):
+    def __init__(self, parent):
         super(qw.QWidget, self).__init__()
-        self.modelspec = modelspec
         self.parent = parent
 
         # Slider for plot view windows
@@ -495,7 +517,6 @@ class GlobalControls(qw.QWidget):
     def _update_max_time(self):
         resp = self.parent.rec.apply_mask()['resp']
         self.max_time = resp.as_continuous().shape[-1] / resp.fs
-
 
     def tap_right(self):
         self.time_slider.set_value(
