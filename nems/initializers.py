@@ -26,6 +26,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
     registry. You may provide your own keyword registry using the
     registry={...} argument.
     '''
+
     if registry is None:
         registry = default_kws
     keywords = keyword_string.split('-')
@@ -69,6 +70,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
 
         else:
             log.info('kw: %s', kw)
+
         if registry.kw_head(kw) not in registry:
             raise ValueError("unknown keyword: {}".format(kw))
 
@@ -170,7 +172,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
             break
 
     # pre-fit static NL if it exists
-    for m in modelspec:
+    for m in modelspec.modules:
         if 'double_exponential' in m['fn']:
             modelspec = init_dexp(est, modelspec)
             modelspec = prefit_mod_subset(
@@ -228,7 +230,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
     target_i = None
     if type(target_module) is not list:
         target_module = [target_module]
-    for i, m in enumerate(modelspec):
+    for i, m in enumerate(modelspec.modules):
         tlist = [True for t in target_module if t in m['fn']]
 
         if len(tlist):
@@ -328,7 +330,7 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
         fit_idx = fit_set
     else:
         fit_idx = []
-        for i, m in enumerate(modelspec):
+        for i, m in enumerate(modelspec.modules):
             for fn in fit_set:
                 if fn in m['fn']:
                     fit_idx.append(i)
@@ -386,9 +388,9 @@ def init_dexp(rec, modelspec):
         return modelspec
 
     if target_i == len(modelspec):
-        fit_portion = modelspec
+        fit_portion = modelspec.modules
     else:
-        fit_portion = modelspec[:target_i]
+        fit_portion = modelspec.modules[:target_i]
 
     # ensures all previous modules have their phi initialized
     # choose prior mean if not found
@@ -460,9 +462,9 @@ def init_logsig(rec, modelspec):
         return modelspec
 
     if target_i == len(modelspec):
-        fit_portion = modelspec
+        fit_portion = modelspec.modules
     else:
-        fit_portion = modelspec[:target_i]
+        fit_portion = modelspec.modules[:target_i]
 
     # generate prediction from module preceeding dexp
     ms.fit_mode_on(fit_portion)

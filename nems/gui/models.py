@@ -135,4 +135,8 @@ class ArrayModel(qw.QTableWidget):
     def print(self):
         print(str(self.array))
 
-
+    def export_array(self):
+        if self.array.shape != self.original_array.shape:
+            return np.full_like(self.original_array, self.array)
+        else:
+            return self.array

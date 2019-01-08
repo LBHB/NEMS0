@@ -123,7 +123,6 @@ class NemsCanvas(MyMplCanvas):
 
 
 class EpochCanvas(MyMplCanvas):
-    """A canvas that updates itself every second with a new plot."""
 
     def __init__(self, recording=None, signal='stim', parent=None,
                  *args, **kwargs):
@@ -134,9 +133,6 @@ class EpochCanvas(MyMplCanvas):
         print("creating epoch canvas: {}".format(signal))
         self.max_time = 0
         self.epoch_groups = {}
-
-    def compute_initial_figure(self):
-        pass
 
     def update_figure(self):
         self.axes.cla()
