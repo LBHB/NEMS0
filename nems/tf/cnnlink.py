@@ -12,6 +12,7 @@ import nems
 import nems.modelspec as ms
 import nems.tf.cnn as cnn
 import nems.metrics.api as nmet
+import nems.utils
 
 modelspecs_dir = nems.get_setting('NEMS_RESULTS_DIR')
 
@@ -226,6 +227,8 @@ def fit_tf(est=None, modelspec=None,
 
         new_est = modelspec.evaluate(new_est)
         r_fit[i], se_fit = nmet.j_corrcoef(new_est, 'pred', 'resp')
+
+        nems.utils.progress_fun()
 
     # figure out which modelspec does best on fit data
     print('r_fit range: ', r_fit)

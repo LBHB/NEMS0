@@ -1109,9 +1109,9 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
 
     modelspec_out = []
     if (not IsReload) and (modelspec is not None):
-        if modelspec.fit_count() == 1:
+        if modelspec.fit_count == 1:
             modelspec_out = modelspec.tile_fits(njacks)
-        elif modelspec.fit_count() == njacks:
+        elif modelspec.fit_count == njacks:
             # assume modelspec already generated for njacks
             modelspec_out = modelspec
         else:
@@ -1138,9 +1138,9 @@ def mask_est_val_for_jackknife_by_time(rec, modelspecs=None,
 
     modelspec_out = []
     if (not IsReload) and (modelspec is not None):
-        if modelspec.fit_count() == 1:
+        if modelspec.fit_count == 1:
             modelspec_out = modelspec.tile_fits(njacks)
-        elif modelspec.fit_count() == njacks:
+        elif modelspec.fit_count == njacks:
             # assume modelspec already generated for njacks
             modelspec_out = modelspec
         else:

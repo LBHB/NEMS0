@@ -128,8 +128,9 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
         occurrence = occurrences[occurrence]
 
     # determine if 'stim' signal exists
-    show_spectrogram = ('stim' in rec.signals.keys() and
-                        'state' not in rec.signals.keys())
+    show_spectrogram = ('stim' in rec.signals.keys())
+    # show_spectrogram = ('stim' in rec.signals.keys() and
+    #                     'state' not in rec.signals.keys())
 
     plot_fns = _get_plot_fns(rec, modelspec, occurrence=occurrence, epoch=epoch)
 
