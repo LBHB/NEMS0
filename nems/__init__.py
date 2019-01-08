@@ -6,6 +6,7 @@ log = logging.getLogger(__name__)
 
 NEMS_PATH = os.path.abspath(os.path.dirname(__file__) + '/..')
 
+
 def load_config():
     # Load the default settings
     from os import environ, path, utime
@@ -65,6 +66,10 @@ def load_config():
 
 
 _config = load_config()
+
+
+def get_settings():
+    return {k: getattr(_config, k) for k in dir(_config) if k == k.upper()}
 
 
 def get_setting(setting=None):
