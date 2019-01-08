@@ -1,11 +1,12 @@
-# Quick Start
+[Contents](README.md)
 
+# Quick Start
 
 ## I just want to analyze data! Where should I put my script?
    
 If you are just hacking around, please put your code in `scripts` -- it's for any one-off analysis or snippet of code that isn't yet ready for reuse by other people. We recommend using `scripts/demo_script.py` as a guide for the types of operations that you may find useful. 
 
-There is an [xforms](docs/xforms.md) system for saving complicated analyses in a way that you can reload later; this was what we used in the `scripts/fit_model.py` command. We also have a good tutorial/template at `scripts/demo_script.py`. We recommend beginners make a copy of it and edit it as needed. You may run it with:
+There is an [xforms](docs/xforms.md) system for batching and saving analyses in a way that you can reload later; this was what we used in the `scripts/fit_model.py` command. We also have a good tutorial/template at `scripts/demo_script.py`. We recommend beginners make a copy of it and edit it as needed. You may run it with:
 
 ```
 # Run the demo script
@@ -36,5 +37,5 @@ sig.save('../recordings/my-new-recording/my-new-signal')
 
 ### Output Results
 
-Once you have fit a model to a recording, you can save the resulting files either locally in your `nems/results` directory, or to a remote [NEMS_DB](http://github.com/lbhb/nems_db) server. 
+Once you have fit a model to a recording, you can save the resulting files either locally in your `nems/results` directory, or to a remote [database](database.md) server. 
 

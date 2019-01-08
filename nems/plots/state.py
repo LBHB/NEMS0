@@ -50,7 +50,7 @@ fill_colors = {'actual_psth': (.8,.8,.8),
                'small': (215/255, 242/255, 199/255)}
 
 def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
-                          decimate_by=1, channel=None):
+                          decimate_by=1, channel=None, **options):
 
     if ax is not None:
         plt.sca(ax)
@@ -164,9 +164,9 @@ def state_var_psth(rec, psth_name='resp', var_name='pupil', ax=None,
     timeseries_from_vectors([low, high], fs=fs, title=var_name, ax=ax)
 
 
-def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
+def state_var_psth_from_epoch(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pred',
                               state_sig='state_raw', state_chan='pupil', ax=None,
-                              colors=None, channel=None, decimate_by=1):
+                              colors=None, channel=None, decimate_by=1, **options):
     """
     Plot PSTH averaged across all occurences of epoch, grouped by
     above- and below-average values of a state signal (state_sig)
@@ -232,10 +232,10 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
         ax.set_xlabel(epoch)
 
 
-def state_vars_psth_all(rec, epoch, psth_name='resp', psth_name2='pred',
+def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pred',
                         state_sig='state_raw', ax=None,
                         colors=None, channel=None, decimate_by=1,
-                        files_only=False, modelspec=None):
+                        files_only=False, modelspec=None, **options):
 
     # TODO: Does using epochs make sense for these?
     if ax is not None:
@@ -388,14 +388,19 @@ def state_gain_plot(modelspec, ax=None, clim=None, title=None):
     ax_remove_box(ax)
 
 
-def model_per_time(ctx):
+def model_per_time(ctx, fit_idx=0):
     """
     state_colors : N x 2 list
        color spec for high/low lines in each of the N states
     """
+    if type(ctx['val']) is list:
+        rec = ctx['val'][0].apply_mask()
+    else:
+        rec = ctx['val'].apply_mask()
 
-    rec = ctx['val'][0].apply_mask()
-    modelspec = ctx['modelspecs'][0]
+    modelspec = ctx['modelspec']
+    modelspec.fit_idx = 0
+
     epoch="REFERENCE"
     rec = ms.evaluate(rec, modelspec)
 

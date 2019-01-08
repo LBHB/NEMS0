@@ -1,8 +1,10 @@
 import time
-import numpy as np
 import hashlib
 import json
 import os
+from collections import Sequence
+
+import numpy as np
 import matplotlib.pyplot as plt
 
 import logging
@@ -247,4 +249,19 @@ def ax_remove_box(ax=None):
         ax = plt.gca()
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
+
+
+def depth(s):
+    '''
+    Count depth of nesting of a sequence. E.g. [[[1]]] has a depth of 3.
+    '''
+    i = 0
+    x = s
+    while isinstance(x, Sequence):
+        i += 1
+        if x:
+            x = x[0]
+        else:
+            x = None
+    return i
 

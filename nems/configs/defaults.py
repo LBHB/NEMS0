@@ -45,6 +45,26 @@ NEMS_LOG_CONSOLE_LEVEL = 'DEBUG'
 
 
 ################################################################################
+# Data & database
+################################################################################
+
+NEMS_RESULTS_DIR = os.path.abspath(os.path.dirname(__file__) + '/../../results')
+NEMS_RECORDINGS_DIR = os.path.abspath(os.path.dirname(__file__) + '/../../recordings')
+
+SQL_ENGINE = 'sqlite'
+
+MYSQL_HOST = None
+MYSQL_USER = None
+MYSQL_PASS = None
+MYSQL_DB = None
+MYSQL_PORT ='3306'
+
+# Default paths passed to command prompt for model queue
+# TO DO -- FIX PATHS TO SOMETHING GENERIC
+DEFAULT_EXEC_PATH = '/auto/users/nems/anaconda3/bin/python'
+DEFAULT_SCRIPT_PATH = '/auto/users/nems/nems_db/nems_fit_single.py'
+
+################################################################################
 # Plugins Registries
 ################################################################################
 # Keyword Plugins, updates nems.plugins.default_keywords

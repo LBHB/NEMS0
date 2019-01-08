@@ -10,7 +10,7 @@ with codecs.open('README.md', encoding='utf-8') as f:
     long_description = f.read()
 
 GENERAL_REQUIRES = ['numpy', 'scipy', 'matplotlib', 'pandas', 'requests',
-                    'h5py']
+                    'h5py', 'sqlalchemy']
 
 setup(
     name=NAME,

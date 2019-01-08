@@ -255,14 +255,11 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
     epochs_to_extract = ep.epoch_names_matching(result[resp_name].epochs,
                                                 epoch_regex)
     folded_resp = result[resp_name].extract_epochs(epochs_to_extract)
-
-    epochs_to_extract = ep.epoch_names_matching(result[pred_name].epochs,
-                                                epoch_regex)
     folded_pred = result[pred_name].extract_epochs(epochs_to_extract)
 
     resp = fullrec[resp_name].rasterize()
 
-    chancount = fullrec[resp_name].shape[0]
+    chancount = resp.shape[0]
 
     rnorm = np.zeros(chancount)
     for chanidx in range(chancount):

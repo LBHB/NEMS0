@@ -135,3 +135,20 @@ def rand(kw):
             nt_kwargs['subset'] = [int(i) for i in op[1:].split(',')]
 
     return [['nems.xforms.random_sample_fit', nt_kwargs]]
+
+
+def norm(kw):
+    """
+    Normalize stim and response before splitting/fitting to support
+    fitters that can't deal with big variations in values
+    """
+    ops = kw.split('.')[1:]
+    norm_method = 'meanstd'
+    for op in ops:
+        if op == 'ms':
+            norm_method = 'meanstd'
+        elif op == 'mm':
+            norm_method = 'minmax'
+
+    return [['nems.xforms.normalize_stim', {'norm_method': norm_method}]]
+

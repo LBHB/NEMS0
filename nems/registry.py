@@ -1,9 +1,11 @@
+import logging
+import importlib.util
+import inspect
 import re
 import os
+from pathlib import Path
 import sys
-import inspect
-import importlib as imp
-import logging
+
 log = logging.getLogger(__name__)
 
 
@@ -68,36 +70,56 @@ class KeywordRegistry():
         kw_head = self.kw_head(kw_string)
         return self.keywords[kw_head]
 
-    def register_plugin(self, d):
+    def register_plugin(self, location):
         '''
-        Adds all callable() variables from all modules contained within
-        the specified package directory as eponymous keywords.
-        Additional, user-defined keywords should be registered via this method.
+        Registers a plugin
 
         Parameters
         ----------
-        d : str
-            A path to a directory containing one or more modules that
-            define keyword functions.
+        location: string
+            Can be one of:
+            * module name (e.g., `my_code.plugins.keywords`)
+            * file name (e.g., `/path/my_code/plugins/keywords.py')
+            * path name (e.g., '/path/my_code/plugins')
         '''
-        if d.endswith('.py'):
-            package, mod = os.path.split(d)
-            sys.path.append(package)
-            module_name = mod[:-3]
-            modules = [imp.import_module(module_name)]#, package=package_name)]
+        pathname = Path(location)
+        if pathname.exists():
+            if pathname.is_dir():
+                self._register_plugin_by_path(pathname)
+            else:
+                self._register_plugin_by_file(pathname)
         else:
-            sys.path.append(d)
-            if d.endswith('/'):
-                d = d[:-1]
-            modules = [
-                    imp.import_module(f[:-3])
-                    for f in os.listdir(d) if f.endswith('.py')
-                    ]
-        self.register_modules(modules)
+            self._register_plugin_by_module_name(location)
 
-    def register_plugins(self, pkgs):
+    def _register_plugin_by_module_name(self, module_name):
+        module = importlib.import_module(module_name)
+        self.register_module(module)
+
+    def _register_plugin_by_path(self, pathname):
+        for filename in pathname.glob('*.py'):
+            self._register_plugin_by_file(filename)
+
+    def _register_plugin_by_file(self, filename):
+        '''
+        Adds all callable() names defined inside the Python file as keywords
+
+        Parameters
+        ----------
+        filename : str
+            Path to a file containing one or more modules that define keyword
+            functions.
+        '''
+        spec = importlib.util.spec_from_file_location('', filename)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.register_module(module)
+
+    def register_plugins(self, locations):
         '''Invokes self.register_plugin for each package listed in pkgs.'''
-        [self.register_plugin(p) for p in pkgs]
+        print(locations)
+        print(type(locations))
+        for loc in locations:
+            self.register_plugin(loc)
 
     def register_module(self, module):
         '''
@@ -113,7 +135,8 @@ class KeywordRegistry():
 
     def register_modules(self, modules):
         '''Invokes self.register_module for each module listed in modules.'''
-        [self.register_module(m) for m in modules]
+        for module in modules:
+            self.register_module(module)
 
     def _validate(self, m, a):
         '''
@@ -146,7 +169,7 @@ class KeywordRegistry():
         r = KeywordRegistry(*d['_KWR_ARGS'])
         d.pop('_KWR_ARGS')
         try:
-            r.keywords = {k: getattr(imp.import_module(v), k)
+            r.keywords = {k: getattr(importlib.import_module(v), k)
                       for k, v in d.items()}
             plugins = set([v for k, v in d.items()])
             r.register_plugins(plugins)

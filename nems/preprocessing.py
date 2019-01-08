@@ -127,20 +127,37 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
         epoch_data = signal.rasterize().extract_epochs(epoch_names)
 
         # Average over all occurrences of each epoch
-        for epoch_name, epoch in epoch_data.items():
+        data = []
+        for epoch_name in epoch_names:
+            epoch = epoch_data[epoch_name]
+
             # TODO: fix empty matrix error. do epochs align properly?
             if np.sum(np.isfinite(epoch)):
-                epoch_data[epoch_name] = np.nanmean(epoch, axis=0)
+                epoch = np.nanmean(epoch, axis=0)
             else:
-                epoch_data[epoch_name] = epoch[0,...]
-        data = [epoch_data[epoch_name] for epoch_name in epoch_names]
+                epoch = epoch[0,...]
+
+            mask = new_epochs['name'] == epoch_name
+            bounds = new_epochs.loc[mask, ['start', 'end']].values
+            bounds = np.round(bounds.astype(float) * signal.fs).astype(int)
+            elen = bounds[0,1] - bounds[0, 0]
+            if epoch.shape[-1] > elen:
+                log.info('truncating epoch_data for epoch %s', epoch_name)
+                epoch = epoch[..., :elen]
+            elif epoch.shape[-1]<elen:
+                pad = np.zeros((epoch.shape[0], elen-epoch.shape[1])) * np.nan
+                epoch = np.concatenate((epoch, pad), axis=1)
+                log.info('padding epoch_data for epoch %s with nan', epoch_name)
+
+            data.append(epoch)
+
         data = np.concatenate(data, axis=-1)
         if data.shape[-1] != round(signal.fs * offset):
             raise ValueError('Misalignment issue in averaging signal')
 
         averaged_signal = signal._modified_copy(data, epochs=new_epochs)
         averaged_recording.add_signal(averaged_signal)
-#        # TODO: Eventually need a smarter check for this incase it's named
+#        # TODO: Eventually need a smarter check for this in case it's named
 #        #       something else. Basically just want to preserve spike data.
 #        if signal.name == 'resp':
 #            spikes = signal.copy()
@@ -424,10 +441,15 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     else:
         spont_rate = np.nanmean(prestimsilence)
 
-    idx = resp.get_epoch_indices('PreStimSilence')
-    prebins = idx[0][1] - idx[0][0]
-    idx = resp.get_epoch_indices('PostStimSilence')
-    postbins = idx[0][1] - idx[0][0]
+    preidx = resp.get_epoch_indices('PreStimSilence')
+    dpre=preidx[:,1]-preidx[:,0]
+    minpre=np.min(dpre)
+    prebins = preidx[0][1] - preidx[0][0]
+    posidx = resp.get_epoch_indices('PostStimSilence')
+    dpos=posidx[:,1]-posidx[:,0]
+    minpos=np.min(dpre)
+    postbins = posidx[0][1] - posidx[0][0]
+    #refidx = resp.get_epoch_indices('REFERENCE')
 
     # compute PSTH response during valid trials
     if type(epoch_regex) == list:
@@ -438,6 +460,31 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
 
     elif type(epoch_regex) == str:
         epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
+
+    for ename in epochs_to_extract:
+        ematch = np.argwhere(resp.epochs['name']==ename)
+        ff = resp.get_epoch_indices(ename)
+        for i,fe in enumerate(ff):
+            re = ((resp.epochs['name']=='REFERENCE') &
+                  (resp.epochs['start']==fe[0]/resp.fs))
+            pe = ep.epoch_contained(preidx, [fe])
+            thispdur = np.diff(preidx[pe])
+            if thispdur.shape and thispdur>minpre:
+                print('adjust {} to {}'.format(thispdur, minpre))
+                print(resp.epochs.loc[ematch[i]])
+                resp.epochs.loc[ematch[i],'start'] += (thispdur[0,0]-minpre)/resp.fs
+                resp.epochs.loc[re,'start'] += (thispdur[0,0]-minpre)/resp.fs
+                print(resp.epochs.loc[ematch[i]])
+
+            pe = ep.epoch_contained(posidx, [fe])
+            thispdur = np.diff(posidx[pe])
+            if thispdur.shape and thispdur>minpos:
+                print('adjust {} to {}'.format(thispdur, minpos))
+                print(resp.epochs.loc[ematch[i]])
+                resp.epochs.loc[ematch[i],'end'] -= (thispdur[0,0]-minpos)/resp.fs
+                resp.epochs.loc[re,'end'] -= (thispdur[0,0]-minpos)/resp.fs
+                print(resp.epochs.loc[ematch[i]])
+    newrec['resp'].epochs = resp.epochs.copy()
 
     if 'mask' in newrec.signals.keys():
         folded_matrices = resp.extract_epochs(epochs_to_extract,
@@ -1045,15 +1092,15 @@ def split_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
     return est, val, modelspecs_out
 
 
-def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
+def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
                                njacks=10, IsReload=False, **context):
     """
     take a single recording (est) and define njacks est/val sets using a
     jackknife logic. returns lists est_out and val_out of corresponding
     jackknife subsamples. removed timepoints are replaced with nan
     """
-    est = []
-    val = []
+    #est = []
+    #val = []
     # logging.info("Generating {} jackknifes".format(njacks))
     if rec.get_epoch_indices(epoch_name).shape[0]:
         pass
@@ -1066,26 +1113,28 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
     else:
         raise ValueError('No epochs matching '+epoch_name)
 
-    for i in range(njacks):
+    #for i in range(njacks):
         # est_out += [est.jackknife_by_time(njacks, i)]
         # val_out += [est.jackknife_by_time(njacks, i, invert=True)]
-        est += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
-                                            tiled=True)]
-        val += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
-                                            tiled=True, invert=True)]
+        #est += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
+        #                                    tiled=True)]
+        #val += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
+        #                                    tiled=True, invert=True)]
+    est = rec.jackknife_masks_by_epoch(njacks, epoch_name, tiled=True)
+    val = rec.jackknife_masks_by_epoch(njacks, epoch_name,
+                                       tiled=True, invert=True)
 
-    modelspecs_out = []
-    if (not IsReload) and (modelspecs is not None):
-        if len(modelspecs) == 1:
-            modelspecs_out = [copy.deepcopy(modelspecs[0])
-                              for i in range(njacks)]
-        elif len(modelspecs) == njacks:
-            # assume modelspecs already generated for njacks
-            modelspecs_out = modelspecs
+    modelspec_out = []
+    if (not IsReload) and (modelspec is not None):
+        if modelspec.fit_count == 1:
+            modelspec_out = modelspec.tile_fits(njacks)
+        elif modelspec.fit_count == njacks:
+            # assume modelspec already generated for njacks
+            modelspec_out = modelspec
         else:
-            raise ValueError('modelspecs must be len 1 or njacks')
+            raise ValueError('modelspec must be len 1 or njacks')
 
-    return est, val, modelspecs_out
+    return est, val, modelspec_out
 
 
 def mask_est_val_for_jackknife_by_time(rec, modelspecs=None,
@@ -1095,24 +1144,23 @@ def mask_est_val_for_jackknife_by_time(rec, modelspecs=None,
     jackknife logic. returns lists est_out and val_out of corresponding
     jackknife subsamples. removed timepoints are replaced with nan
     """
-    est = []
-    val = []
+    #est = []
+    #val = []
+    #for i in range(njacks):
+    #    est += [rec.jackknife_mask_by_time(njacks, i, tiled=True)]
+    #    val += [rec.jackknife_mask_by_time(njacks, i, tiled=True, invert=True)]
 
-    for i in range(njacks):
-        est += [rec.jackknife_mask_by_time(njacks, i,
-                                            tiled=True)]
-        val += [rec.jackknife_mask_by_time(njacks, i,
-                                            tiled=True, invert=True)]
+    est = rec.jackknife_masks_by_time(njacks, tiled=True)
+    val = rec.jackknife_masks_by_time(njacks, tiled=True, invert=True)
 
-    modelspecs_out = []
-    if (not IsReload) and (modelspecs is not None):
-        if len(modelspecs) == 1:
-            modelspecs_out = [copy.deepcopy(modelspecs[0])
-                              for i in range(njacks)]
-        elif len(modelspecs) == njacks:
-            # assume modelspecs already generated for njacks
-            modelspecs_out = modelspecs
+    modelspec_out = []
+    if (not IsReload) and (modelspec is not None):
+        if modelspec.fit_count == 1:
+            modelspec_out = modelspec.tile_fits(njacks)
+        elif modelspec.fit_count == njacks:
+            # assume modelspec already generated for njacks
+            modelspec_out = modelspec
         else:
-            raise ValueError('modelspecs must be len 1 or njacks')
+            raise ValueError('modelspec must be len 1 or njacks')
 
-    return est, val, modelspecs_out
+    return est, val, modelspec_out

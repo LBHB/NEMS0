@@ -29,8 +29,7 @@ from functools import wraps
 import pandas as pd
 
 import matplotlib
-matplotlib.use("Qt5Agg")
-import matplotlib.pyplot as plt
+#matplotlib.use("Qt5Agg")
 import matplotlib.ticker as tkr
 import numpy as np
 
@@ -44,11 +43,10 @@ from matplotlib.figure import Figure
 
 #import nems_db.db as nd
 #import nems_db.xform_wrappers as nw
-import nems.xforms as xforms
-import nems.plots.api as nplt
 from nems.recording import Recording
 import nems.signal
 from nems.plots.utils import ax_remove_box
+#from nems.gui.editor import ModelEditor
 
 class RecordingPlotWrapper():
     # TODO: Not using this anymore?
@@ -440,13 +438,15 @@ class ApplicationWindow(qw.QMainWindow):
     plot_dpi = 100
 
     def __init__(self, recording, signals=['stim', 'resp'], cellid=None,
-                 modelname=None):
+                 modelname=None, ctx=None, xfspec=None):
         qw.QMainWindow.__init__(self)
 
         self.recording=recording
         self.signals=signals
         self.cellid=cellid
         self.modelname=modelname
+        self.ctx = ctx
+        self.xfspec = xfspec
 
         self.setAttribute(qc.Qt.WA_DeleteOnClose)
 
@@ -510,7 +510,7 @@ class ApplicationWindow(qw.QMainWindow):
         self.display_range.setValidator(
                 qg.QDoubleValidator(self.minimum_duration, 10000.0, 4)
                 )
-        self.display_range.textChanged.connect(self.set_display_range)
+        self.display_range.editingFinished.connect(self.set_display_range)
         self.display_range.setText(str(self.display_duration))
 
         # Increment / Decrement zoom
@@ -522,7 +522,6 @@ class ApplicationWindow(qw.QMainWindow):
         range_layout = qw.QHBoxLayout()
         [range_layout.addWidget(w) for w in [self.display_range, plus, minus]]
         self.outer_layout.addLayout(range_layout)
-
 
         # control buttons
         qbtn = qw.QPushButton('Quit', self)
@@ -537,17 +536,22 @@ class ApplicationWindow(qw.QMainWindow):
         remove_sig = qw.QPushButton('Remove Signal', self)
         remove_sig.clicked.connect(self.remove_signal)
 
+        #edit_model = qw.QPushButton('Edit Model', self)
+        #edit_model.clicked.connect(self.open_model_editor)
+
         control_layout = qw.QHBoxLayout()
         control_layout.addWidget(qbtn)
         control_layout.addWidget(qbtn2)
         control_layout.addWidget(add_sig)
         control_layout.addWidget(remove_sig)
+        #control_layout.addWidget(edit_model)
         self.outer_layout.addLayout(control_layout)
 
         self.main_widget.setLayout(self.outer_layout)
         self.main_widget.setFocus()
         self.setCentralWidget(self.main_widget)
         self.statusBar().showMessage("Welcome to the NEMS recording browser", 2000)
+        self._update_range()
 
     # Plot Window adjusters
     #@show_exceptions('bool')
@@ -601,6 +605,8 @@ class ApplicationWindow(qw.QMainWindow):
 
     def _update_range(self):
         self.time_slider.setRange(0, self.max_time-self.display_duration)
+        self.time_slider.setSingleStep(int(np.ceil(self.display_duration/10)))
+        self.time_slider.setPageStep(int(self.display_duration))
         self.scroll_all()
 
     # Add / Remove plots
@@ -659,6 +665,12 @@ class ApplicationWindow(qw.QMainWindow):
         return NemsCanvas(self.recording, s, self, self.main_widget,
                           width=self.plot_width, height=self.plot_height,
                           dpi=self.plot_dpi)
+
+    #def open_model_editor(self):
+    #    self.editor = ModelEditor(ctx=self.ctx, xfspec=self.xfspec)
+
+    def close_model_editor(self):
+        self.editor = None
 
     def resp_as_spikes(self):
         pass
@@ -795,23 +807,26 @@ def pandas_table_test():
 
 
 def browse_recording(rec, signals=['stim', 'resp', 'psth', 'pred'], cellid=None,
-                     modelname=None):
+                     modelname=None, ctx=None, xfspec=None):
     aw = ApplicationWindow(recording=rec, signals=signals,
-                           cellid=cellid, modelname=modelname)
+                           cellid=cellid, modelname=modelname, ctx=ctx,
+                           xfspec=xfspec)
     _window_startup(aw)
 
     return aw
 
 
-def browse_context(ctx, rec='val', signals=['stim', 'resp'], rec_idx=0):
+def browse_context(ctx, rec='val', signals=['stim', 'resp'], rec_idx=0,
+                   xfspec=None):
     rec = ctx[rec]
     if isinstance(rec, list):
         rec = rec[rec_idx]
-    meta = ctx['modelspecs'][0][0]['meta']
+    meta = ctx['modelspec'].meta
     cellid = meta.get('cellid', None)
     modelname = meta.get('modelname', None)
 
-    aw = browse_recording(rec, signals, cellid, modelname)
+    aw = browse_recording(rec, signals, cellid, modelname,
+                          ctx=ctx, xfspec=xfspec)
 
     return aw
 
