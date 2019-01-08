@@ -1,0 +1,2 @@
+def firstkw(kwstring):
+    return {}
