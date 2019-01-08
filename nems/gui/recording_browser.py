@@ -544,7 +544,7 @@ class ApplicationWindow(qw.QMainWindow):
         control_layout.addWidget(qbtn2)
         control_layout.addWidget(add_sig)
         control_layout.addWidget(remove_sig)
-        control_layout.addWidget(edit_model)
+        #control_layout.addWidget(edit_model)
         self.outer_layout.addLayout(control_layout)
 
         self.main_widget.setLayout(self.outer_layout)
