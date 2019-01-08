@@ -127,20 +127,37 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
         epoch_data = signal.rasterize().extract_epochs(epoch_names)
 
         # Average over all occurrences of each epoch
-        for epoch_name, epoch in epoch_data.items():
+        data = []
+        for epoch_name in epoch_names:
+            epoch = epoch_data[epoch_name]
+
             # TODO: fix empty matrix error. do epochs align properly?
             if np.sum(np.isfinite(epoch)):
-                epoch_data[epoch_name] = np.nanmean(epoch, axis=0)
+                epoch = np.nanmean(epoch, axis=0)
             else:
-                epoch_data[epoch_name] = epoch[0,...]
-        data = [epoch_data[epoch_name] for epoch_name in epoch_names]
+                epoch = epoch[0,...]
+
+            mask = new_epochs['name'] == epoch_name
+            bounds = new_epochs.loc[mask, ['start', 'end']].values
+            bounds = np.round(bounds.astype(float) * signal.fs).astype(int)
+            elen = bounds[0,1] - bounds[0, 0]
+            if epoch.shape[-1] > elen:
+                log.info('truncating epoch_data for epoch %s', epoch_name)
+                epoch = epoch[..., :elen]
+            elif epoch.shape[-1]<elen:
+                pad = np.zeros((epoch.shape[0], elen-epoch.shape[1])) * np.nan
+                epoch = np.concatenate((epoch, pad), axis=1)
+                log.info('padding epoch_data for epoch %s with nan', epoch_name)
+
+            data.append(epoch)
+
         data = np.concatenate(data, axis=-1)
         if data.shape[-1] != round(signal.fs * offset):
             raise ValueError('Misalignment issue in averaging signal')
 
         averaged_signal = signal._modified_copy(data, epochs=new_epochs)
         averaged_recording.add_signal(averaged_signal)
-#        # TODO: Eventually need a smarter check for this incase it's named
+#        # TODO: Eventually need a smarter check for this in case it's named
 #        #       something else. Basically just want to preserve spike data.
 #        if signal.name == 'resp':
 #            spikes = signal.copy()
