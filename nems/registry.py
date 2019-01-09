@@ -9,6 +9,26 @@ import sys
 log = logging.getLogger(__name__)
 
 
+def is_keyword(name, obj):
+    '''
+    Determine whether named object is a keyword
+
+    Parameters
+    ----------
+    name : string
+        Name of object
+    obj : object
+        Object
+
+    False if private function, all-caps global variable or not callable. True
+    otherwise.
+    '''
+    private = name.startswith('_')
+    caps = name.upper() == name
+    is_callable = callable(obj)
+    return is_callable and (not private) and not(caps)
+
+
 class KeywordRegistry():
     '''
     Behaves similar to a dictionary, except that
@@ -92,6 +112,7 @@ class KeywordRegistry():
 
     def _register_plugin_by_module_name(self, module_name):
         module = importlib.import_module(module_name)
+        module.__location__ = module_name
         self.register_module(module)
 
     def _register_plugin_by_path(self, pathname):
@@ -111,12 +132,11 @@ class KeywordRegistry():
         spec = importlib.util.spec_from_file_location('', filename)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
+        module.__location__ = filename
         self.register_module(module)
 
     def register_plugins(self, locations):
         '''Invokes self.register_plugin for each package listed in pkgs.'''
-        print(locations)
-        print(type(locations))
         for loc in locations:
             self.register_plugin(loc)
 
@@ -126,29 +146,21 @@ class KeywordRegistry():
         instead of a path for a directory.
         Default nems keywords are added via this method.
         '''
-        if not module:
-            return
-        for a in dir(module):
-            if self._validate(module, a):
-                self.keywords[a] = Keyword(a, getattr(module, a))
+        try:
+            location = str(module.__location__)
+        except AttributeError:
+            # Always default to the name of the module rather than the file
+            # because this makes code more portable across platforms.
+            location = str(module.__name__)
+
+        for name, obj in vars(module).items():
+            if is_keyword(name, obj):
+                self.keywords[name] = Keyword(name, obj, location)
 
     def register_modules(self, modules):
         '''Invokes self.register_module for each module listed in modules.'''
         for module in modules:
             self.register_module(module)
-
-    def _validate(self, m, a):
-        '''
-        Ignore private functions, all-caps global variables,
-        and anything that isn't callable.
-        '''
-        private = (a.startswith('_'))
-        caps = (a.upper() == a)
-        is_callable = (callable(getattr(m, a)))
-        if (is_callable) and (not private) and (not caps):
-            return True
-        else:
-            return False
 
     def __iter__(self):
         # Pass through keywords dictionary's iteration to allow
@@ -159,38 +171,39 @@ class KeywordRegistry():
         return self.keywords.__next__()
 
     def to_json(self):
-        d = {k: v.file_string() for k, v in self.keywords.items()}
+        d = {k: v.source_string for k, v in self.keywords.items()}
         d['_KWR_ARGS'] = self.kwargs
         return d
 
     @classmethod
     def from_json(self, d):
-        r = KeywordRegistry(*d['_KWR_ARGS'])
+        registry = KeywordRegistry(*d['_KWR_ARGS'])
         d.pop('_KWR_ARGS')
-        try:
-            r.keywords = {k: getattr(importlib.import_module(v), k)
-                      for k, v in d.items()}
-            plugins = set([v for k, v in d.items()])
-            r.register_plugins(plugins)
-        except:
-            # Assume that equivalent plugins are specified in configs.
-            # Will happen when loading a model on a PC that it
-            # was not fit on, for example.
-            pass
-
-        return r
+        unique_sources = set(d.values())
+        for source in unique_sources:
+            try:
+                registry.register_plugin(source)
+            except:
+                log.warn('Unable to register plugin %s', source)
+                # Assume that equivalent plugins are specified in configs.
+                # Will happen when loading a model on a PC that it was not fit
+                # on, for example.
+        return registry
 
 
 class Keyword():
     '''
-    Ex: `kw_head = 'ozgf'`
-        `parse = mymodule.keywords.ozgf`
-        `parse('ozgf.123') = [{'fn': module1}, {'fn': module2}]`
+    Parameters
+    ----------
+    key : string
+        Keyword (just the base, excluding parameters). e.g., 'ozgf'
+    parse : callable
+        Function that parses full keyword string
+    source_string : string
+        Location (i.e., module or file) that keyword was defined in
     '''
 
-    def __init__(self, kw_head, parse):
-        self.key = kw_head
+    def __init__(self, key, parse, source_string):
+        self.key = key
         self.parse = parse
-
-    def file_string(self):
-        return inspect.getmodule(self.parse).__file__
+        self.source_string = source_string
