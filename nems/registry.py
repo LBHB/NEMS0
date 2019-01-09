@@ -13,24 +13,24 @@ class KeywordRegistry():
     '''
     Behaves similar to a dictionary, except that
     registry[key_string] will trigger a function call based on
-    the leading portion of the key (either before the first hyphen or
+    the leading portion of the key (either before the first period or
     until the first non-alpha character).
 
     The function call is determined by the Keyword instance referenced by
     the leading portion of the key, and it will receive the keyword string
-    itself as the first argument followed by *args.
+    itself as the first argument followed by **kwargs.
 
     For example:
-        kws = KeywordRegistry(' arg1', ' arg2')
-        kws['mykey'] = lambda x, y, z: x + y + z
+        def add_kwargs(kw, myarg1='', myarg2=''):
+            return kw + myarg1 + myarg2
 
-        In[0]: kws['mykey-testing']
-        Out[0]: 'mykey-testing arg1 arg2'
+        kws = KeywordRegistry(myarg1=' first', myarg2=' second')
+        kws['mykey'] = add_kwargs
 
-        kws['myfir'] = {'fn': nems.modules.fir.basic, 'phi': ...}
-        modelspec.append(kws['myfir15x2'])
+        In[0]: kws['mykey.test']
+        Out[0]: 'mykey.test first second'
 
-    See register_plugin and register_modules for how to easily add entire
+    See register_plugin and register_modules for how to add entire
     directories or modules of keyword definitions.
     '''
 
@@ -54,13 +54,12 @@ class KeywordRegistry():
         # backwards-compatibility alias and overrides the normal kw head rule.
         if kw_string in self.keywords:
             return kw_string
-        # look for '-' first. if not present, use first alpha-only string
+        # Look for '.' first. If not present, use first alpha-only string
         # as head instead.
         h = kw_string.split('.')
         if len(h) == 1:
-            # no hypen, do regex for first all-alpha string
+            # no period, do regex for first all-alpha string
             alpha = re.compile('^[a-zA-Z]*')
-            #print(kw_string)
             kw_head = re.match(alpha, kw_string).group(0)
         else:
             kw_head = h[0]
@@ -186,7 +185,7 @@ class Keyword():
     '''
     Ex: `kw_head = 'ozgf'`
         `parse = mymodule.keywords.ozgf`
-        `parse('ozgf-123') = [{'fn': module1}, {'fn': module2}]`
+        `parse('ozgf.123') = [{'fn': module1}, {'fn': module2}]`
     '''
 
     def __init__(self, kw_head, parse):
