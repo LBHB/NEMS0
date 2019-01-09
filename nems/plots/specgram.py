@@ -51,7 +51,7 @@ def spectrogram_from_signal(signal, title=None, ax=None):
 
 
 def spectrogram_from_epoch(signal, epoch, occurrence=0, ax=None, title=None,
-                           extent=True):
+                           extent=True, **options):
     if occurrence is None:
         return
     extracted = signal.extract_epoch(epoch)
@@ -68,4 +68,8 @@ def spectrogram(rec, stim_name='stim', ax=None, title=None, idx=0,
         signal = rec[stim_name]
 
     array = signal.as_continuous()
-    plot_spectrogram(array, fs=signal.fs, title=title, ax=None)
+    plot_spectrogram(array, fs=signal.fs, title=title, ax=ax)
+
+def pred_spectrogram(stim_name='pred', **options):
+    """wrapper for spectrogram, forces stim_name to be pred"""
+    spectrogram(stim_name=stim_name, **options)
