@@ -17,6 +17,7 @@ def loader_registry():
 def model_registry():
     models = KeywordRegistry()
     models.register_module(default_keywords)
+    models.register_plugins(['resources/plugin1.py'])
     return models
 
 
@@ -94,4 +95,3 @@ def test_jsonify(model_registry):
     json = model_registry.to_json()
     unjson = KeywordRegistry.from_json(json)
     unjson.keywords == model_registry.keywords
-    return json, unjson
