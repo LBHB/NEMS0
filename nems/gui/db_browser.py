@@ -40,7 +40,12 @@ def load_settings(m):
     m.batchLE.setText(config.get('db_browser_last', 'batch'))
     m.cellLE.setText(config.get('db_browser_last', 'cells'))
     m.modelLE.setText(config.get('db_browser_last', 'models'))
-
+    try:
+        geostr = config.get('db_browser_last', 'geometry')
+        g=[int(x) for x in geostr.split(",")]
+        m.setGeometry(*g)
+    except:
+        pass
 
 def save_settings(m):
 
@@ -50,7 +55,9 @@ def save_settings(m):
     batch = m.batchLE.text()
     cellmask = m.cellLE.text()
     modelmask = m.modelLE.text()
-
+    rect = m.frameGeometry().getRect()
+    geostr = ",".join([str(x) for x in rect])
+    print(geostr)
     try:
         # Create non-existent section
         config.add_section('db_browser_last')
@@ -60,6 +67,7 @@ def save_settings(m):
     config.set('db_browser_last', 'batch', batch)
     config.set('db_browser_last', 'cells', cellmask)
     config.set('db_browser_last', 'models', modelmask)
+    config.set('db_browser_last', 'geometry', geostr)
 
     with open(configfile, 'w') as f:
         config.write(f)
@@ -147,6 +155,12 @@ class model_browser(qw.QWidget):
 
         self.show()
         self.raise_()
+
+    def resizeEvent(self, event):
+        save_settings(self)
+
+    def moveEvent(self, event):
+        save_settings(self)
 
     def update_widgets(self):
 
@@ -244,6 +258,5 @@ def view_model_recording(cellid="TAR010c-18-2", batch=289,
 if __name__ == '__main__':
     app = qw.QApplication(sys.argv)
     m = model_browser()
-    #ex = EditorWindow(modelspec=modelspec, xfspec=xfspec, rec=rec, ctx=ctx)
     sys.exit(app.exec_())
 
