@@ -158,6 +158,7 @@ class ModelSpec:
     def fn(self):
         return [m['fn'] for m in self.raw[0]]
 
+    @property
     def phi(self, fit_index=None, mod_idx=None):
         """
         :param fit_index: which model fit to use (default use self.fit_index

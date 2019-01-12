@@ -16,6 +16,10 @@ from nems.modelspec import set_modelspec_metadata, get_modelspec_metadata,\
 import nems.plots.api as nplt
 import nems.preprocessing as preproc
 import nems.priors as priors
+from nems import get_setting
+from nems.registry import KeywordRegistry
+from nems.plugins import (default_keywords, default_loaders, default_fitters,
+                          default_initializers)
 from nems.signal import RasterizedSignal
 from nems.uri import save_resource, load_resource
 from nems.utils import iso8601_datestring, find_module, recording_filename_hash
@@ -153,7 +157,15 @@ def evaluate(xformspec, context={}, start=0, stop=None):
 ###############################################################################
 
 
-def init_context(**context):
+def init_context(kw_kwargs=None, **context):
+    #if kw_kwargs is None:
+    #    keyword_lib = KeywordRegistry()
+    #else:
+    #    keyword_lib = KeywordRegistry(**kw_kwargs)
+
+    #keyword_lib.register_module(default_keywords)
+    #keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
+    #context['registry'] = keyword_lib
 
     return context
 
@@ -625,12 +637,24 @@ def fit_basic_init(modelspec, est, IsReload=False, metric='nmse',
         else:
             metric_fn = metric
 
-        for fit_idx in range(modelspec.fit_count):
-            # alternative approach to setting which set of phi is being fit:
-            #modelspec.fit_index = fit_idx
+        # TODO : handle multiple fits for single est
 
+        # TODO : make structure here parallel to fit_basic?
+        if jackknifed_fit:
+            nfolds = est.view_count()
+            if modelspec.fit_count < est.view_count():
+                modelspec.tile_fits(nfolds)
+
+            for fit_idx, e in enumerate(est.views()):
+
+                modelspec = nems.initializers.prefit_LN(
+                        e, modelspec.set_fit(fit_idx),
+                        analysis_function=nems.analysis.api.fit_basic,
+                        fitter=scipy_minimize, metric=metric_fn,
+                        tolerance=tolerance, max_iter=700, norm_fir=norm_fir)
+        else:
             modelspec = nems.initializers.prefit_LN(
-                    est, modelspec.set_fit(fit_idx),
+                    est, modelspec,
                     analysis_function=nems.analysis.api.fit_basic,
                     fitter=scipy_minimize, metric=metric_fn,
                     tolerance=tolerance, max_iter=700, norm_fir=norm_fir)
@@ -1008,14 +1032,15 @@ def save_analysis(destination,
 
 def load_analysis(filepath, eval_model=True, only=None):
     """
-    load xforms and modelspec(s) from a specified directory
-    if eval_mode is True, reevalueates all steps, this is time consuming but gives an exact copy of the
+    load xforms spec and context dictionary for a model fit
+    :param filepath: URI of saved xforms model
+    :param eval_model: if True, re-evaluates all steps. Time consuming but gives an exact copy of the
     original context
-    only can be ither an int, usually 0, to evaluate the first step of loading a recording, or an slice
+    :param only: either an int, usually 0, to evaluate the first step of loading a recording, or a slice
     object, which gives more flexibility over what steps of the original xfspecs to run again.
-
+    :return: (xfspec, ctx) tuple
     """
-    log.info('Loading modelspec from %s...', filepath)
+    log.info('Loading xfspec and context from %s...', filepath)
 
     xfspec = load_xform(os.path.join(filepath, 'xfspec.json'))
 

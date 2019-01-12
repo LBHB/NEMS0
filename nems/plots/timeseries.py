@@ -128,10 +128,15 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
     times = []
     values = []
     for s, o, c in zip(signals, occurrences, channels):
-        # Get occurrences x chans x time
-        extracted = s.extract_epoch(epoch)
-        # Get values from specified occurrence and channel
-        value_vector = extracted[o][c]
+        if epoch is None:
+            # just get the entire signal for this channel
+            value_vector = s.as_continuous()[c]
+        else:
+            # Get occurrences x chans x time
+            extracted = s.extract_epoch(epoch)
+            # Get values from specified occurrence and channel
+            value_vector = extracted[o][c]
+
         # Convert bins to time (relative to start of epoch)
         # TODO: want this to be absolute time relative to start of data?
         time_vector = np.arange(0, len(value_vector)) / s.fs - PreStimSilence

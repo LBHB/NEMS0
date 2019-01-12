@@ -148,7 +148,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
     TODO -- make sure this works generally or create alternatives
 
     '''
-
+    log.info('prefit_LN parameters: tol=%.2e max_iter=%d', tolerance, max_iter)
     fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
 
     # Instead of using FIR prior, initialize to random coefficients then
@@ -158,8 +158,8 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
 
     # fit without STP module first (if there is one)
     modelspec = prefit_to_target(est, modelspec, fit_basic,
-                                 target_module=['levelshift','relu'],
-                                 extra_exclude=['stp'],
+                                 target_module=['levelshift', 'relu'],
+                                 extra_exclude=['stp', 'rdt_gain'],
                                  fitter=fitter,
                                  metric=metric,
                                  fit_kwargs=fit_kwargs)

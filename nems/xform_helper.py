@@ -30,9 +30,11 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
     meta : dict
         Additional keyword arguments for nems.initializers.init_from_keywords
     xforms_kwargs : dict
-        Additional keyword arguments for the xforms registry
+        Additional keyword arguments for the xforms registry. DEPRECATED??
     kw_kwargs : dict
-        Additional keyword arguments for the keyword registry
+        Additional keyword arguments for the keyword registry. DEPRECATED?
+    xforms_init_context : dict
+        Initialization for context. REPLACES xforms_kwargs and kw_kwargs???
     autoPred : boolean
         If true, will automatically append nems.xforms.predict to the xfspec
         if it is not already present.
@@ -67,7 +69,7 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
                                  default_initializers])
     xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
 
-    keyword_lib = KeywordRegistry(**kw_kwargs)
+    keyword_lib = KeywordRegistry()
     keyword_lib.register_module(default_keywords)
     keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
@@ -78,6 +80,8 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
     # 0) set up initial context
     if xforms_init_context is None:
         xforms_init_context = {}
+    if kw_kwargs is not None:
+         xforms_init_context['kw_kwargs'] = kw_kwargs
     xforms_init_context['keywordstring'] = model_keywords
     xforms_init_context['meta'] = meta
     xfspec.append(['nems.xforms.init_context', xforms_init_context])
@@ -87,6 +91,7 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
 
     # 2) generate a modelspec
     xfspec.append(['nems.xforms.init_from_keywords', {'registry': keyword_lib}])
+    #xfspec.append(['nems.xforms.init_from_keywords', {}])
 
     # 3) fit the data
     xfspec.extend(_parse_kw_string(fit_keywords, xforms_lib))

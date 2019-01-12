@@ -110,8 +110,11 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     elif rec.get_epoch_indices('SIGNAL').shape[0]:
         log.info('quickplot for SIGNAL epochs')
         epoch = 'SIGNAL'
+    elif rec.get_epoch_indices('SEQUENCE1').shape[0]:
+        log.info('quickplot for SEQUENCE1 epochs')
+        epoch = 'SEQUENCE1'
     else:
-        raise ValueError('No epochs matching ' + epoch)
+        log.info('No epochs matching %s. Plotting entire signal', epoch)
 
     if epoch is None:
         extracted = rec['resp'].as_continuous()

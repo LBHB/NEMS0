@@ -6,7 +6,7 @@ import matplotlib.gridspec as gridspec
 
 
 def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
-                     cmap=None, clim=None, extent=False):
+                     cmap=None, clim=None, extent=True, **options):
 
     if not ax:
         ax = plt.gca()
@@ -20,8 +20,8 @@ def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
         extent = [times[0], times[-1], 1, array.shape[0]]
         ax.imshow(array, origin='lower', interpolation='none',
                   aspect='auto', extent=extent, cmap=cmap, clim=clim)
-    # Extent causes errors with on-off signal spectrogram
     else:
+        # maybe something had a bug and couldn't plot in seconds?
         ax.imshow(array, origin='lower', interpolation='none',
                   aspect='auto', cmap=cmap, clim=clim)
 
@@ -43,6 +43,7 @@ def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
     if title:
         ax.set_title(title)
 
+    return ax
 
 def spectrogram_from_signal(signal, title=None, ax=None):
     # TODO: How can the colorbar be scaled to match other signals?
@@ -50,26 +51,89 @@ def spectrogram_from_signal(signal, title=None, ax=None):
     plot_spectrogram(array, fs=signal.fs, title=title, ax=None)
 
 
-def spectrogram_from_epoch(signal, epoch, occurrence=0, ax=None, title=None,
-                           extent=True, **options):
+def spectrogram_from_epoch(signal, epoch, occurrence=0, ax=None, **options):
     if occurrence is None:
         return
-    extracted = signal.extract_epoch(epoch)
-    array = extracted[occurrence]
-    plot_spectrogram(array, fs=signal.fs, ax=ax, title=title, extent=extent)
+    if epoch is None:
+        # valid epoch not specified, use whole signal
+        array = signal.as_continuous()
+    else:
+        extracted = signal.extract_epoch(epoch)
+        array = extracted[occurrence]
+    plot_spectrogram(array, fs=signal.fs, ax=ax, **options)
 
 
-def spectrogram(rec, stim_name='stim', ax=None, title=None, idx=0,
-                channels=0, xlabel='Time', ylabel='Value', **options):
-    # TODO: How can the colorbar be scaled to match other signals?
+def spectrogram(rec, stim_name='stim', ax=None, title=None, **options):
+    """
+    plot a spectrogram of an entire signal (typically stim), **options passed through
+    :param rec:
+    :param stim_name:
+    :param ax:
+    :param title:
+    :param options:
+    :return:
+
+    TODO: How can the colorbar be scaled to match other signals?
+    """
     if 'mask' in rec.signals.keys():
         signal = rec.apply_mask()[stim_name]
     else:
         signal = rec[stim_name]
 
     array = signal.as_continuous()
-    plot_spectrogram(array, fs=signal.fs, title=title, ax=ax)
+    ax = plot_spectrogram(array, fs=signal.fs, title=title, ax=ax, **options)
+
+    return ax
+
 
 def pred_spectrogram(stim_name='pred', **options):
-    """wrapper for spectrogram, forces stim_name to be pred"""
-    spectrogram(stim_name=stim_name, **options)
+    """
+    wrapper for spectrogram, forces stim_name to be pred. other **options passed through
+    :param rec:
+    :param stim_name:
+    :param ax:
+    :param title:
+    :param options:
+    :return:
+    """
+    ax = spectrogram(stim_name=stim_name, **options)
+
+    return ax
+
+
+def spectrogram_output(rec, modelspec, sig_name='pred', idx=0, ax=None, **options):
+    '''
+    Wrapper for spectrogram, displays signal output by set in modelspec.
+    other **options passed through
+
+    Arguments:
+    ----------
+    rec : recording object
+        The dataset to use. See nems/recording.py.
+
+    modelspec : list of dicts
+        The transformations to perform. See nems/modelspec.py.
+
+    sig_name : str
+        Specifies the signal in 'rec' to be plotted [pred].
+
+    idx : int
+        An index into the modelspec. rec[sig_name] will be plotted
+        as it exists after step idx-1 and before step idx.
+
+    Returns:
+    --------
+    ax : axis containing plot
+    '''
+
+    trec = modelspec.evaluate(rec, stop=idx+1)
+
+    if 'mask' in rec.signals.keys():
+        signal = trec.apply_mask()[sig_name]
+    else:
+        signal = trec[sig_name]
+
+    array = signal.as_continuous()
+    ax = plot_spectrogram(array, ax=ax, fs=signal.fs, **options)
+
+    return ax

@@ -90,7 +90,7 @@ def jk(kw):
     jk_kwargs = {}
     do_split = False
     keep_only = 0
-    log.info("setting up n-fold fitting...")
+    log.info("Setting up N-fold fitting...")
 
     for op in ops:
         if op.startswith('nf'):

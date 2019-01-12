@@ -11,6 +11,7 @@ matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
+import os.path
 
 import PyQt5.QtCore as qc
 import PyQt5.QtGui as qg
@@ -27,6 +28,42 @@ import nems_lbhb.plots as lplt
 import nems.db as nd
 from nems.gui.recording_browser import (browse_recording)
 from nems.gui.editors import EditorWidget
+from configparser import ConfigParser
+import nems
+
+configfile = os.path.join(nems.get_setting('SAVED_SETTINGS_PATH') + '/gui.ini')
+
+def load_settings(m):
+
+    config = ConfigParser()
+    config.read(configfile)
+    m.batchLE.setText(config.get('db_browser_last', 'batch'))
+    m.cellLE.setText(config.get('db_browser_last', 'cells'))
+    m.modelLE.setText(config.get('db_browser_last', 'models'))
+
+
+def save_settings(m):
+
+    config = ConfigParser()
+    config.read(configfile)
+
+    batch = m.batchLE.text()
+    cellmask = m.cellLE.text()
+    modelmask = m.modelLE.text()
+
+    try:
+        # Create non-existent section
+        config.add_section('db_browser_last')
+    except:
+        pass
+
+    config.set('db_browser_last', 'batch', batch)
+    config.set('db_browser_last', 'cells', cellmask)
+    config.set('db_browser_last', 'models', modelmask)
+
+    with open(configfile, 'w') as f:
+        config.write(f)
+
 
 class model_browser(qw.QWidget):
     """
@@ -84,6 +121,8 @@ class model_browser(qw.QWidget):
         self.modelLE.returnPressed.connect(self.update_widgets)
         self.modelLE.setMaximumWidth(800)
 
+        load_settings(self)
+
         formLayout.addRow(modellabel,self.modelLE)
 
         vLayout.addLayout(formLayout)
@@ -114,6 +153,8 @@ class model_browser(qw.QWidget):
         batch = int(self.batchLE.text())
         cellmask = self.cellLE.text()
         modelmask = "%" + self.modelLE.text() + "%"
+
+        save_settings(self)
 
         if batch > 0:
             self.batch = batch

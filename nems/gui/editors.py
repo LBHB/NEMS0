@@ -21,10 +21,13 @@ log = logging.getLogger(__name__)
 # Only module plots included here will be scrolled in time
 # by the slider.
 _SCROLLABLE_PLOT_FNS = [
-        'nems.plots.api.strf_timeseries',
-        'nems.plots.api.before_and_after',
-        'nems.plots.api.pred_resp',
-        ]
+    'nems.plots.api.strf_timeseries',
+    'nems.plots.api.before_and_after',
+    'nems.plots.api.pred_resp',
+    'nems.plots.api.spectrogram_output',
+    'nems.plots.api.spectrogram',
+    'nems.plots.api.mod_output'
+]
 
 # These are used as click-once operations
 # TODO: separate initialization from prefitting
@@ -643,7 +646,7 @@ class FitEditor(qw.QWidget):
         fn = _lookup_fn_at(name)
         n_iters = int(self.iter_edit.text())
         fit_kwargs = {'max_iter': n_iters}
-        rec = self.parent.rec
+        rec = self.parent.ctx['est']
         modelspec = self.parent.modelspec
 
         new_modelspec = fn(rec, modelspec, fit_kwargs=fit_kwargs)
@@ -656,6 +659,15 @@ def run(modelspec, xfspec, rec, ctx):
     app = qw.QApplication(sys.argv)
     ex = EditorWindow(modelspec=modelspec, xfspec=xfspec, rec=rec, ctx=ctx)
     sys.exit(app.exec_())
+
+def browse_xform_fit(ctx, xfspec, recname='val'):
+
+    modelspec=ctx['modelspec']
+    rec=ctx[recname]
+    app = qw.QApplication(sys.argv)
+    ex = EditorWindow(modelspec=modelspec, xfspec=xfspec, rec=rec, ctx=ctx)
+    sys.exit(app.exec_())
+
 
 _DEBUG = False
 if __name__ == '__main__':

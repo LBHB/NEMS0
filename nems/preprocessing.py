@@ -1105,11 +1105,14 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
     if rec.get_epoch_indices(epoch_name).shape[0]:
         pass
     elif rec.get_epoch_indices('REFERENCE').shape[0]:
-        log.info('jackknifing by REFERENCE epochs')
+        log.info('Jackknifing by REFERENCE epochs')
         epoch_name = 'REFERENCE'
     elif rec.get_epoch_indices('TARGET').shape[0]:
-        log.info('jackknifing by TARGET epochs')
+        log.info('Jackknifing by TARGET epochs')
         epoch_name = 'TARGET'
+    elif rec.get_epoch_indices('TRIAL').shape[0]:
+        log.info('Jackknifing by TRIAL epochs')
+        epoch_name = 'TRIAL'
     else:
         raise ValueError('No epochs matching '+epoch_name)
 
