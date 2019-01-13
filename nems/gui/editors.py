@@ -102,8 +102,8 @@ class EditorWidget(qw.QWidget):
         # canvases to fill the layout properly.
         self.modelspec_editor.adjust_initial_plots()
         self.modelspec_editor.epochs.setup_figure()
-        for c in self.modelspec_editor.controllers:
-            c.layout.setContentsMargins(0, 0, 0, 0)
+        # for c in self.modelspec_editor.controllers:
+        #     c.layout.setContentsMargins(0, 0, 0, 0)
 
         self.setup_module_collapser()
         self.setup_xfstep_collapser()
@@ -430,15 +430,16 @@ class EpochsCollapser(qw.QWidget):
         self.collapsed = not self.collapsed
 
 
-class ModuleControls(qw.QWidget):
+class ModuleControls(qw.QFrame):
     def __init__(self, module, parent=None):
-        super(qw.QWidget, self).__init__()
+        super(qw.QFrame, self).__init__()
         self.module = module
         self.parent = parent
         self.mod_index = self.module.mod_index
         self.module_data = copy.deepcopy(
                 self.module.parent.modelspec[self.mod_index]
                 )
+        self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Raised)
 
         self.layout = qw.QVBoxLayout()
 
@@ -570,13 +571,14 @@ class XfspecEditor(qw.QWidget):
         return x
 
 
-class XfStepEditor(qw.QWidget):
+class XfStepEditor(qw.QFrame):
     def __init__(self, index, step, parent):
-        super(qw.QWidget, self).__init__()
+        super(qw.QFrame, self).__init__()
         self.index = index
         self.step = step
         self.parent = parent
         self.checked = True
+        self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Raised)
 
         # need to be able to turn steps on and off
         # need to be able to get and set values from the step (which should
