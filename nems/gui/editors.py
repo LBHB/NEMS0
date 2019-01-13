@@ -263,8 +263,11 @@ class ModelspecEditor(qw.QWidget):
         j = 0
         for col, cnt, m in widgets:
             if j == 0:
-                epochs = EpochCanvas(recording=self.rec, parent=self.parent.global_controls)
-                self.layout.addWidget(epochs, 0, 2)
+                self.epochs = EpochCanvas(
+                    recording=self.rec,
+                    parent=self.parent.global_controls
+                    )
+                self.layout.addWidget(self.epochs, 0, 2)
                 j += 1
 
             self.layout.addWidget(col, j, 0)
@@ -635,6 +638,7 @@ class GlobalControls(qw.QWidget):
             self.start_time = max(0, self.max_time - self.display_duration)
 
         [m.update_plot() for m in self.parent.modelspec_editor.modules]
+        self.parent.modelspec_editor.epochs.update_figure()
 
     def _update_max_time(self):
         resp = self.parent.rec.apply_mask()['resp']
