@@ -86,7 +86,6 @@ class EditorWidget(qw.QWidget):
         self.bottom_collapsed = False
 
         outer_layout = qw.QVBoxLayout()
-        outer_layout.setSpacing(0)
         row_one_layout = qw.QHBoxLayout()
         row_two_layout = qw.QHBoxLayout()
         row_three_layout = qw.QHBoxLayout()
@@ -103,6 +102,8 @@ class EditorWidget(qw.QWidget):
         # canvases to fill the layout properly.
         self.modelspec_editor.adjust_initial_plots()
         self.modelspec_editor.epochs.setup_figure()
+        for c in self.modelspec_editor.controllers:
+            c.layout.setContentsMargins(0, 0, 0, 0)
 
         self.setup_module_collapser()
         self.setup_xfstep_collapser()
@@ -115,9 +116,11 @@ class EditorWidget(qw.QWidget):
         row_one_layout.addLayout(self.xfstep_collapser_layout)
         row_two_layout.addWidget(self.global_controls)
         row_two_layout.addWidget(self.fit_editor)
+        row_two_layout.setContentsMargins(10, 10, 10, 2)
         outer_layout.addLayout(row_one_layout)
         outer_layout.addLayout(row_two_layout)
         outer_layout.addLayout(self.bottom_collapser_layout)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(outer_layout)
 
         self.setWindowTitle(self.title)
@@ -134,62 +137,41 @@ class EditorWidget(qw.QWidget):
     def setup_module_collapser(self):
         self.module_collapser_layout = qw.QVBoxLayout()
 
-        # top_line = qw.QFrame()
-        # top_line.setFrameShape(qw.QFrame.VLine)
-        # top_line.setFrameShadow(qw.QFrame.Sunken)
-
         self.module_collapser = qw.QToolButton(self)
         self.module_collapser.setMaximumWidth(15)
         self.module_collapser.clicked.connect(self.toggle_module_controls)
         self.module_collapser.setArrowType(qc.Qt.LeftArrow)
+        policy = qw.QSizePolicy()
+        policy.setVerticalPolicy(qw.QSizePolicy.Expanding)
+        self.module_collapser.setSizePolicy(policy)
 
-        # bottom_line = qw.QFrame()
-        # bottom_line.setFrameShape(qw.QFrame.VLine)
-        # bottom_line.setFrameShadow(qw.QFrame.Sunken) 
-
-        # self.module_collapser_layout.addWidget(top_line)
         self.module_collapser_layout.addWidget(self.module_collapser)
-        # self.module_collapser_layout.addWidget(bottom_line)
 
     def setup_xfstep_collapser(self):
         self.xfstep_collapser_layout = qw.QVBoxLayout()
-
-        # top_line = qw.QFrame()
-        # top_line.setFrameShape(qw.QFrame.VLine)
-        # top_line.setFrameShadow(qw.QFrame.Sunken)
 
         self.xfstep_collapser = qw.QToolButton(self)
         self.xfstep_collapser.setMaximumWidth(15)
         self.xfstep_collapser.clicked.connect(self.toggle_xfstep_controls)
         self.xfstep_collapser.setArrowType(qc.Qt.RightArrow)
+        policy = qw.QSizePolicy()
+        policy.setVerticalPolicy(qw.QSizePolicy.Expanding)
+        self.xfstep_collapser.setSizePolicy(policy)
 
-        # bottom_line = qw.QFrame()
-        # bottom_line.setFrameShape(qw.QFrame.VLine)
-        # bottom_line.setFrameShadow(qw.QFrame.Sunken)
-
-        # self.xfstep_collapser_layout.addWidget(top_line)
         self.xfstep_collapser_layout.addWidget(self.xfstep_collapser)
-        # self.xfstep_collapser_layout.addWidget(bottom_line)
 
     def setup_bottom_collapser(self):
         self.bottom_collapser_layout = qw.QHBoxLayout()
-
-        # left_line = qw.QFrame()
-        # left_line.setFrameShape(qw.QFrame.HLine)
-        # left_line.setFrameShadow(qw.QFrame.Sunken)
 
         self.bottom_collapser = qw.QToolButton(self)
         self.bottom_collapser.setMaximumHeight(15)
         self.bottom_collapser.clicked.connect(self.toggle_bottom_controls)
         self.bottom_collapser.setArrowType(qc.Qt.DownArrow)
+        policy = qw.QSizePolicy()
+        policy.setHorizontalPolicy(qw.QSizePolicy.Expanding)
+        self.bottom_collapser.setSizePolicy(policy)
 
-        # right_line = qw.QFrame()
-        # right_line.setFrameShape(qw.QFrame.HLine)
-        # right_line.setFrameShadow(qw.QFrame.Sunken)
-
-        # self.bottom_collapser_layout.addWidget(left_line)
         self.bottom_collapser_layout.addWidget(self.bottom_collapser)
-        # self.bottom_collapser_layout.addWidget(right_line)
 
     def toggle_module_controls(self):
         if self.modules_collapsed:
@@ -457,10 +439,8 @@ class ModuleControls(qw.QWidget):
         self.module_data = copy.deepcopy(
                 self.module.parent.modelspec[self.mod_index]
                 )
-        #self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Sunken)
 
         self.layout = qw.QVBoxLayout()
-        self.layout.setContentsMargins(0, 0, 0, 0)
 
         name = self.module_data['fn']
         self.label = qw.QLabel(name)
