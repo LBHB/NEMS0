@@ -42,18 +42,12 @@ _FIT_FNS = [
         'nems.analysis.fit_iteratively.fit_iteratively'
         ]
 
-
-# TODO: epochs display above plots
-
 # TODO: add backwards compatibility shim to add plot_fns, plot_fn_idx etc to
 #       old modelspecs if none of the modules have those specified.
 
 # TODO: Switch modelspec, xfspec etc. references to all just point to EditorWidget copy
 #       instead of making separate copies. Then all updates can use the most convenient
 #       pointer instead of needing to call parent.parent.parent.modelspec
-
-# TODO: enable stepping through fits N evals at a time.
-#       --Sort of working so far...
 
 
 class EditorWindow(qw.QMainWindow):
@@ -105,6 +99,10 @@ class EditorWidget(qw.QWidget):
         self.fit_editor = FitEditor(self)
 
         self.modelspec_editor.setup_layout()
+        # Have to set up these plots afterward to get
+        # canvases to fill the layout properly.
+        self.modelspec_editor.adjust_initial_plots()
+        self.modelspec_editor.epochs.setup_figure()
 
         self.setup_module_collapser()
         self.setup_xfstep_collapser()
@@ -263,10 +261,12 @@ class ModelspecEditor(qw.QWidget):
         j = 0
         for col, cnt, m in widgets:
             if j == 0:
-                self.epochs = EpochCanvas(
+                self.epochs = EpochsWrapper(
                     recording=self.rec,
                     parent=self.parent.global_controls
                     )
+                self.epochs_collapser = EpochsCollapser(self.epochs, self)
+                self.layout.addWidget(self.epochs_collapser, 0, 0)
                 self.layout.addWidget(self.epochs, 0, 2)
                 j += 1
 
@@ -277,6 +277,10 @@ class ModelspecEditor(qw.QWidget):
 
         self.layout.setAlignment(qc.Qt.AlignTop)
         self.setLayout(self.layout)
+
+    def adjust_initial_plots(self):
+        for m in self.modules:
+            m.new_plot()
 
     def evaluate_model(self, first_changed_module=0):
         # TODO: Fix issues with first_changed_module.
@@ -296,32 +300,35 @@ class ModelspecEditor(qw.QWidget):
         temp.setLayout(self.layout)
 
 
-class ModuleEditor(qw.QWidget):
+# TODO: This shouldn't really be called ModuleEditor anymore.
+#       ModuleCanvas might be more appropriate.
+class ModuleEditor(qw.QFrame):
     def __init__(self, mod_index, data, parent):
-        super(qw.QWidget, self).__init__()
+        super(qw.QFrame, self).__init__()
         self.mod_index = mod_index
         self.parent = parent
+        self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Sunken)
 
         # Default plot options - set them up here then change w/ controller
         self.plot_fn_idx = data.get('plot_fn_idx', 0)
         self.fit_index = parent.modelspec.fit_index
-        # TODO: Need to do something smarter with this
+        # TODO: Need to do something smarter for signal name
         self.sig_name = 'pred'
         self.scrollable = self.check_scrollable()
 
         self.layout = qw.QHBoxLayout()
-        self.canvas = MyMplCanvas(parent=self)
+        self.canvas = qw.QWidget()
         self.layout.addWidget(self.canvas)
         self.layout.setAlignment(qc.Qt.AlignTop)
         self.setLayout(self.layout)
 
-        # Draw initial plot
-        self.plot_on_axes()
+        #self.new_plot()
 
     def new_plot(self):
         self.layout.removeWidget(self.canvas)
         self.canvas.close()
         self.canvas = MyMplCanvas(parent=self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
         self.plot_on_axes()
         self.layout.addWidget(self.canvas)
         self.scrollable = self.check_scrollable()
@@ -353,6 +360,25 @@ class ModuleEditor(qw.QWidget):
             self.canvas.draw()
         else:
             pass
+
+
+class EpochsWrapper(qw.QFrame):
+    def __init__(self, recording=None, parent=None):
+        super(qw.QFrame, self).__init__()
+        self.recording = recording
+        self.epoch_parent = parent
+
+    def setup_figure(self):
+        self.layout = qw.QVBoxLayout()
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.epochs = EpochCanvas(recording=self.recording,
+                                  parent=self.epoch_parent)
+        self.layout.addWidget(self.epochs)
+        self.setLayout(self.layout)
+        self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Sunken)
+
+    def update_figure(self):
+        self.epochs.update_figure()
 
 
 class ModuleCollapser(qw.QWidget):
@@ -395,15 +421,41 @@ class ModuleCollapser(qw.QWidget):
         self.module.layout.setContentsMargins(10,10,10,10)
 
 
-class ModuleControls(qw.QWidget):
-    def __init__(self, module, parent=None):
+class EpochsCollapser(qw.QWidget):
+    def __init__(self, epochs, parent):
         super(qw.QWidget, self).__init__()
+        self.epochs = epochs
+        self.parent = parent
+        self.collapsed = False
+
+        layout = qw.QVBoxLayout()
+        self.toggle = qw.QPushButton('-', self)
+        self.toggle.setFixedSize(12, 12)
+        self.toggle.clicked.connect(self.toggle_collapsed)
+        layout.addWidget(self.toggle)
+        layout.setAlignment(qc.Qt.AlignTop)
+        self.setLayout(layout)
+
+    def toggle_collapsed(self):
+        if self.collapsed:
+            self.epochs.show()
+            self.toggle.setText('-')
+        else:
+            self.epochs.hide()
+            self.toggle.setText('+')
+        self.collapsed = not self.collapsed
+
+
+class ModuleControls(qw.QFrame):
+    def __init__(self, module, parent=None):
+        super(qw.QFrame, self).__init__()
         self.module = module
         self.parent = parent
         self.mod_index = self.module.mod_index
         self.module_data = copy.deepcopy(
                 self.module.parent.modelspec[self.mod_index]
                 )
+        #self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Sunken)
 
         self.layout = qw.QVBoxLayout()
 

@@ -22,7 +22,14 @@ class MyMplCanvas(FigureCanvas):
         FigureCanvas.setSizePolicy(self, qw.QSizePolicy.Expanding,
                                    qw.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
-
+        self.setContentsMargins(0, 0, 0, 0)
+        #self.figure.tight_layout()
+        self.figure.subplots_adjust(left=0, bottom=0, right=1,
+                                    top=1, wspace=0, hspace=0)
+        self.axes.spines['right'].set_visible(False)
+        self.axes.spines['top'].set_visible(False)
+        self.axes.spines['bottom'].set_visible(False)
+        self.axes.spines['left'].set_visible(False)
 
 class EpochCanvas(MyMplCanvas):
 
@@ -114,12 +121,3 @@ class EpochCanvas(MyMplCanvas):
         self.axes.set_ylim([-0.5, i+0.5])
         ax_remove_box(self.axes)
         self.draw()
-
-        # xtick_labels = self.axes.get_xticklabels()
-        # ytick_labels = self.axes.get_yticklabels()
-        # new_xlabels = ['']*len(xtick_labels)
-        # new_ylabels = ['']*len(ytick_labels)
-        # self.axes.set_xticklabels(new_xlabels)
-        # self.axes.set_yticklabels(new_ylabels)
-        # self.axes.set_ylabel('epochs')
-        # self.draw()
