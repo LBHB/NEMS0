@@ -134,62 +134,62 @@ class EditorWidget(qw.QWidget):
     def setup_module_collapser(self):
         self.module_collapser_layout = qw.QVBoxLayout()
 
-        top_line = qw.QFrame()
-        top_line.setFrameShape(qw.QFrame.VLine)
-        top_line.setFrameShadow(qw.QFrame.Sunken)
+        # top_line = qw.QFrame()
+        # top_line.setFrameShape(qw.QFrame.VLine)
+        # top_line.setFrameShadow(qw.QFrame.Sunken)
 
         self.module_collapser = qw.QToolButton(self)
         self.module_collapser.setMaximumWidth(15)
         self.module_collapser.clicked.connect(self.toggle_module_controls)
         self.module_collapser.setArrowType(qc.Qt.LeftArrow)
 
-        bottom_line = qw.QFrame()
-        bottom_line.setFrameShape(qw.QFrame.VLine)
-        bottom_line.setFrameShadow(qw.QFrame.Sunken) 
+        # bottom_line = qw.QFrame()
+        # bottom_line.setFrameShape(qw.QFrame.VLine)
+        # bottom_line.setFrameShadow(qw.QFrame.Sunken) 
 
-        self.module_collapser_layout.addWidget(top_line)
+        # self.module_collapser_layout.addWidget(top_line)
         self.module_collapser_layout.addWidget(self.module_collapser)
-        self.module_collapser_layout.addWidget(bottom_line)
+        # self.module_collapser_layout.addWidget(bottom_line)
 
     def setup_xfstep_collapser(self):
         self.xfstep_collapser_layout = qw.QVBoxLayout()
 
-        top_line = qw.QFrame()
-        top_line.setFrameShape(qw.QFrame.VLine)
-        top_line.setFrameShadow(qw.QFrame.Sunken)
+        # top_line = qw.QFrame()
+        # top_line.setFrameShape(qw.QFrame.VLine)
+        # top_line.setFrameShadow(qw.QFrame.Sunken)
 
         self.xfstep_collapser = qw.QToolButton(self)
         self.xfstep_collapser.setMaximumWidth(15)
         self.xfstep_collapser.clicked.connect(self.toggle_xfstep_controls)
         self.xfstep_collapser.setArrowType(qc.Qt.RightArrow)
 
-        bottom_line = qw.QFrame()
-        bottom_line.setFrameShape(qw.QFrame.VLine)
-        bottom_line.setFrameShadow(qw.QFrame.Sunken) 
+        # bottom_line = qw.QFrame()
+        # bottom_line.setFrameShape(qw.QFrame.VLine)
+        # bottom_line.setFrameShadow(qw.QFrame.Sunken)
 
-        self.xfstep_collapser_layout.addWidget(top_line)
+        # self.xfstep_collapser_layout.addWidget(top_line)
         self.xfstep_collapser_layout.addWidget(self.xfstep_collapser)
-        self.xfstep_collapser_layout.addWidget(bottom_line)
+        # self.xfstep_collapser_layout.addWidget(bottom_line)
 
     def setup_bottom_collapser(self):
         self.bottom_collapser_layout = qw.QHBoxLayout()
 
-        left_line = qw.QFrame()
-        left_line.setFrameShape(qw.QFrame.HLine)
-        left_line.setFrameShadow(qw.QFrame.Sunken)
+        # left_line = qw.QFrame()
+        # left_line.setFrameShape(qw.QFrame.HLine)
+        # left_line.setFrameShadow(qw.QFrame.Sunken)
 
         self.bottom_collapser = qw.QToolButton(self)
         self.bottom_collapser.setMaximumHeight(15)
         self.bottom_collapser.clicked.connect(self.toggle_bottom_controls)
         self.bottom_collapser.setArrowType(qc.Qt.DownArrow)
 
-        right_line = qw.QFrame()
-        right_line.setFrameShape(qw.QFrame.HLine)
-        right_line.setFrameShadow(qw.QFrame.Sunken)
+        # right_line = qw.QFrame()
+        # right_line.setFrameShape(qw.QFrame.HLine)
+        # right_line.setFrameShadow(qw.QFrame.Sunken)
 
-        self.bottom_collapser_layout.addWidget(left_line)
+        # self.bottom_collapser_layout.addWidget(left_line)
         self.bottom_collapser_layout.addWidget(self.bottom_collapser)
-        self.bottom_collapser_layout.addWidget(right_line)
+        # self.bottom_collapser_layout.addWidget(right_line)
 
     def toggle_module_controls(self):
         if self.modules_collapsed:
@@ -390,6 +390,7 @@ class ModuleCollapser(qw.QWidget):
         self.collapsed = False
 
         layout = qw.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
         self.toggle = qw.QPushButton('-', self)
         self.toggle.setFixedSize(12, 12)
         self.toggle.clicked.connect(self.toggle_collapsed)
@@ -429,6 +430,7 @@ class EpochsCollapser(qw.QWidget):
         self.collapsed = False
 
         layout = qw.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
         self.toggle = qw.QPushButton('-', self)
         self.toggle.setFixedSize(12, 12)
         self.toggle.clicked.connect(self.toggle_collapsed)
@@ -446,9 +448,9 @@ class EpochsCollapser(qw.QWidget):
         self.collapsed = not self.collapsed
 
 
-class ModuleControls(qw.QFrame):
+class ModuleControls(qw.QWidget):
     def __init__(self, module, parent=None):
-        super(qw.QFrame, self).__init__()
+        super(qw.QWidget, self).__init__()
         self.module = module
         self.parent = parent
         self.mod_index = self.module.mod_index
@@ -458,6 +460,7 @@ class ModuleControls(qw.QFrame):
         #self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Sunken)
 
         self.layout = qw.QVBoxLayout()
+        self.layout.setContentsMargins(0, 0, 0, 0)
 
         name = self.module_data['fn']
         self.label = qw.QLabel(name)
@@ -611,26 +614,30 @@ class XfStepEditor(qw.QWidget):
         self.checked = not self.checked
 
 
-class GlobalControls(qw.QWidget):
+class GlobalControls(qw.QFrame):
     start_time = 0
     display_duration = 10.0
     minimum_duration = 0.001
     stop_time = 10
+    slider_scaling = 6
+    max_time = 10000
 
     def __init__(self, parent):
-        super(qw.QWidget, self).__init__()
+        super(qw.QFrame, self).__init__()
         self.parent = parent
         self.collapsed = False
+        self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Raised)
 
         # Slider for plot view windows
-        self._update_max_time()
         self.time_slider = qw.QScrollBar(orientation=1)
         policy = qw.QSizePolicy()
         policy.setHorizontalPolicy(qw.QSizePolicy.Expanding)
         self.time_slider.setSizePolicy(policy)
-        self.time_slider.setRange(0, self.max_time-self.display_duration)
+        self._update_max_time()
+        self.time_slider.setRange(0, self.max_time)
         self.time_slider.setRepeatAction(200, 2)
         self.time_slider.setSingleStep(1)
+        #self.time_slider.setTickInterval(1)  # for use with QSlider
         self.time_slider.valueChanged.connect(self.scroll_all)
 
         # Set zoom / display range for plot views
@@ -679,22 +686,25 @@ class GlobalControls(qw.QWidget):
 
     # Plot window adjustments
     def scroll_all(self):
-        self.start_time = self.time_slider.value()
+        self.start_time = self.time_slider.value()/self.slider_scaling
         self.stop_time = self.start_time + self.display_duration
 
         # don't go past the latest time of the biggest plot
         # (should all have the same max most of the time)
         self._update_max_time()
-        if self.stop_time >= self.max_time:
-            self.stop_time = self.max_time
-            self.start_time = max(0, self.max_time - self.display_duration)
+        if self.stop_time >= self.max_signal_time:
+            self.stop_time = self.max_signal_time
+            self.start_time = max(0, self.max_signal_time - self.display_duration)
 
         [m.update_plot() for m in self.parent.modelspec_editor.modules]
         self.parent.modelspec_editor.epochs.update_figure()
 
     def _update_max_time(self):
         resp = self.parent.rec.apply_mask()['resp']
-        self.max_time = resp.as_continuous().shape[-1] / resp.fs
+        #self.max_time = resp.as_continuous().shape[-1] / resp.fs
+        self.max_signal_time = resp.as_continuous().shape[-1] / resp.fs
+        #self.time_slider.setTickInterval(self.max_time/100)
+        self.slider_scaling = self.max_time/(self.max_signal_time - self.display_duration)
 
     def tap_right(self):
         self.time_slider.set_value(
@@ -774,10 +784,11 @@ class GlobalControls(qw.QWidget):
         self.collapsed = not self.collapsed
 
 
-class FitEditor(qw.QWidget):
+class FitEditor(qw.QFrame):
     def __init__(self, parent):
-        super(qw.QWidget, self).__init__()
+        super(qw.QFrame, self).__init__()
         self.parent = parent
+        self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Raised)
 
         self.outer_layout = qw.QVBoxLayout()
         self.outer_layout.setAlignment(qc.Qt.AlignTop)
