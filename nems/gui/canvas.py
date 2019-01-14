@@ -13,114 +13,23 @@ class MyMplCanvas(FigureCanvas):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
         fig = plt.figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
-        self.axes.set_position([0.175, 0.175, 0.775, 0.7])
+        self.axes.get_yaxis().set_visible(False)
+        self.axes.get_xaxis().set_visible(False)
+        #self.axes.set_position([0.175, 0.175, 0.775, 0.7])
 
         super(FigureCanvas, self).__init__(fig)
         self.setParent(parent)
         FigureCanvas.setSizePolicy(self, qw.QSizePolicy.Expanding,
                                    qw.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
-
-
-class NemsCanvas(MyMplCanvas):
-
-    def __init__(self, recording=None, signal='stim', parent=None,
-                 *args, **kwargs):
-        MyMplCanvas.__init__(self, *args, **kwargs)
-        if 'mask' in recording.signals:
-            self.recording = recording.apply_mask()
-        else:
-            self.recording = recording
-        self.signal = signal
-        self.signal_obj = self.recording[self.signal]
-        self.fs = self.signal_obj.fs
-        self.parent = parent
-        print("creating canvas: {}".format(signal))
-
-        sig_array = self.signal_obj.as_continuous()
-        # Chop off end of array (where it's all nan'd out after processing)
-        # TODO: Make this smarter incase there are intermediate nans?
-        self.max_time = sig_array.shape[-1] / self.recording[self.signal].fs
-
-        point = (isinstance(self.recording[self.signal],
-                            nems.signal.PointProcess))
-        tiled = (isinstance(self.recording[self.signal],
-                            nems.signal.TiledSignal)
-                 or 'stim' in self.recording[self.signal].name
-                 or 'contrast' in self.recording[self.signal].name)
-
-        if (not point) and (not tiled):
-            self.ymax = np.nanmax(sig_array)*1.25
-            self.ymin = min(0, np.nanmin(sig_array)*1.25)
-
-        self.point = point
-        self.tiled = tiled
-
-        # skip some channels, get names
-        c_count = self.recording[self.signal].shape[0]
-        if self.recording[self.signal].chans is None:
-            channel_names = [''] * c_count
-        else:
-            channel_names=self.recording[self.signal].chans[:c_count]
-        skip_channels = ['baseline']
-        if channel_names is not None:
-            keep = np.array([(n not in skip_channels) for n in channel_names])
-            channel_names = [channel_names[i] for i in range(c_count) if keep[i]]
-        else:
-            keep = np.ones(c_count, dtype=bool)
-            channel_names = None
-        self.keep = keep
-        self.channel_names = channel_names
-
-        p = self.parent
-
-        d = sig_array[self.keep, :]
-
-        if self.point:
-            self.axes.imshow(d, aspect='auto', cmap='Greys',
-                             interpolation='nearest', origin='lower')
-            self.axes.get_yaxis().set_visible(False)
-        elif self.tiled:
-            self.axes.imshow(d, aspect='auto', origin='lower')
-        else:
-            self.axes.plot(d.T)
-            if self.channel_names is not None:
-                if len(self.channel_names) > 1:
-                    self.axes.legend(self.channel_names, frameon=False)
-            self.axes.set_ylim(ymin=self.ymin, ymax=self.ymax)
-
-        self.axes.set_xlim(p.start_time*self.fs, p.stop_time*self.fs)
-        self.axes.set_ylabel(self.signal)
-        ax_remove_box(self.axes)
-        self.draw()
-
-        tick_labels = self.axes.get_xticklabels()
-        if self.point or self.tiled:
-            new_labels = ['']*len(tick_labels)
-            self.axes.set_xticklabels(new_labels)
-            self.draw()
-        else:
-            # TODO: Still not working... Should turn bins to seconds
-            fmt = tkr.FuncFormatter(self.seconds_formatter())
-            self.axes.yaxis.set_major_formatter(fmt)
-            self.draw()
-
-    def compute_initial_figure(self):
-        pass
-
-    def seconds_formatter(self):
-        def fmt(x, pos):
-            s = '{}'.format(x / self.fs)
-            return s
-        return fmt
-
-    def update_figure(self):
-        p = self.parent
-        self.axes.set_xlim(p.start_time*self.fs, p.stop_time*self.fs)
-        if not (self.point or self.tiled):
-            self.axes.set_ylim(ymin=self.ymin, ymax=self.ymax)
-        self.draw()
-
+        self.setContentsMargins(0, 0, 0, 0)
+        #self.figure.tight_layout()
+        self.figure.subplots_adjust(left=0, bottom=0, right=1,
+                                    top=1, wspace=0, hspace=0)
+        self.axes.spines['right'].set_visible(False)
+        self.axes.spines['top'].set_visible(False)
+        self.axes.spines['bottom'].set_visible(False)
+        self.axes.spines['left'].set_visible(False)
 
 class EpochCanvas(MyMplCanvas):
 
@@ -130,9 +39,9 @@ class EpochCanvas(MyMplCanvas):
         self.recording = recording
         self.signal = signal
         self.parent = parent
-        print("creating epoch canvas: {}".format(signal))
         self.max_time = 0
         self.epoch_groups = {}
+        self.update_figure()
 
     def update_figure(self):
         self.axes.cla()
@@ -141,6 +50,7 @@ class EpochCanvas(MyMplCanvas):
         p = self.parent
         valid_epochs = epochs[(epochs['start'] >= p.start_time) &
                               (epochs['end'] < p.stop_time)]
+
         if valid_epochs.size == 0:
             print('no valid epochs')
             # valid_epochs = valid_epochs.append([{'name': 'EXPT', 'start': p.start_time, 'end': p.stop_time}])
@@ -210,13 +120,4 @@ class EpochCanvas(MyMplCanvas):
         self.axes.set_xlim([p.start_time, p.stop_time])
         self.axes.set_ylim([-0.5, i+0.5])
         ax_remove_box(self.axes)
-        self.draw()
-
-        xtick_labels = self.axes.get_xticklabels()
-        ytick_labels = self.axes.get_yticklabels()
-        new_xlabels = ['']*len(xtick_labels)
-        new_ylabels = ['']*len(ytick_labels)
-        self.axes.set_xticklabels(new_xlabels)
-        self.axes.set_yticklabels(new_ylabels)
-        self.axes.set_ylabel('epochs')
         self.draw()
