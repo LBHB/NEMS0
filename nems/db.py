@@ -423,7 +423,7 @@ def enqueue_single_model_duplicate(
 def add_job_to_queue(args, note, force_rerun=False,
                    user="nems", codeHash="master", jerbQuery='',
                    executable_path=None, script_path=None,
-                   priority=1):
+                   priority=1, GPU_job=0):
     """
     Low level interaction with tQueue to run single generic job on cluster
 
@@ -482,11 +482,14 @@ def add_job_to_queue(args, note, force_rerun=False,
         script_path = get_setting('DEFAULT_SCRIPT_PATH')
 
     # Unpack args into command prompt
-    for i, arg in enumerate(args):
-        if i == 0:
-            commandPrompt = "{0} {1} {2}".format(executable_path, script_path, arg)
-        else:
-            commandPrompt += " {}".format(arg)
+    if len(args) == 0:
+        commandPrompt = "{0} {1}".format(executable_path, script_path)
+    elif len(args) > 0:
+        for i, arg in enumerate(args):
+            if i == 0:
+                commandPrompt = "{0} {1} {2}".format(executable_path, script_path, arg)
+            else:
+                commandPrompt += " {}".format(arg)
 
     queueids = []
     messages = []
@@ -527,12 +530,12 @@ def add_job_to_queue(args, note, force_rerun=False,
         # new job
         sql = "INSERT INTO tQueue (rundataid,progname,priority," +\
                "parmstring,allowqueuemaster,user," +\
-               "linux_user,note,waitid,codehash,queuedate) VALUES"+\
+               "linux_user,note,waitid,codehash,GPU_job,queuedate) VALUES"+\
                " ({},'{}',{}," +\
                "'{}',{},'{}'," +\
-               "'{}','{}',{},'{}',NOW())"
+               "'{}','{}',{},'{}',{},NOW())"
         sql = sql.format(rundataid, commandPrompt, priority, parmstring,
-              allowqueuemaster, user, linux_user, note, waitid, codeHash)
+              allowqueuemaster, user, linux_user, note, waitid, codeHash, GPU_job)
         r = conn.execute(sql)
         queueid = r.lastrowid
         message = "Added new entry for: %s.\n"  % note
