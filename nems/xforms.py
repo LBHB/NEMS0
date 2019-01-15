@@ -682,12 +682,6 @@ def fit_state_init(modelspec, est, fit_sig='resp', tolerance=1e-4,
     if not IsReload:
         metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
 
-        if type(est) is not list:
-            # make est a list so that this function can handle standard
-            # or n-fold fits
-            est = [est]
-
-        modelspecs_out = []
         for i, d in enumerate(est.views()):
             log.info("Initializing modelspec %d/%d state-free",
                      i+1, len(modelspec))
@@ -711,7 +705,7 @@ def fit_state_init(modelspec, est, fit_sig='resp', tolerance=1e-4,
             fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
             modelspec = nems.analysis.api.fit_basic(
                     dc, modelspec, fit_kwargs=fit_kwargs, metric=metric_fn,
-                    fitter=scipy_minimize)[0]
+                    fitter=scipy_minimize)
             rep_idx = find_module('replicate_channels', modelspec)
             mrg_idx = find_module('merge_channels', modelspec)
             if rep_idx is not None:
