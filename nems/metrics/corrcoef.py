@@ -162,7 +162,7 @@ def r_floor(result, pred_name='pred', resp_name='resp'):
     return r_floor
 
 
-def _r_single(X, N=100):
+def _r_single(X, N=100,limit=0.01):
     """
     Assume X is trials X time raster (channel removed)
 
@@ -212,16 +212,20 @@ def _r_single(X, N=100):
             ff = np.isfinite(X1) & np.isfinite(X2)
             X1 = X1[ff]
             X2 = X2[ff]
-            if (np.sum(X1) > 0) and (np.sum(X2) > 0):
-                rac[nn] = np.corrcoef(X1, X2)[0, 1]
-            else:
+            #if (np.sum(X1) > 0) and (np.sum(X2) > 0):
+            if    (np.sum(X1) == 0) or (np.sum(X2) == 0) or \
+                   (len(np.unique(X1)) == 1) or \
+                   (len(np.unique(X2)) == 1):
                 rac[nn] = 0
+            else:
+                rac[nn] = np.corrcoef(X1, X2)[0, 1]
+                
 
     # hard limit on single-trial correlation to prevent explosion
     # TODO: better logic for this
     rac = np.mean(rac)
-    if rac < 0.01:
-        rac = 0.01
+    if rac < limit:
+        rac = limit
 
     return rac
 

@@ -45,9 +45,9 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
             gidx = np.isfinite(v[:,idx])
             plt.plot(t[gidx], v[gidx,idx], linestyle=linestyle, linewidth=linewidth, **opt)
         cc += 1
-        mintime = np.min((mintime, np.min(t[gidx])))
-        maxtime = np.max((maxtime, np.max(t[gidx])))
-
+        if gidx.sum() > 0:
+            mintime = np.min((mintime, np.min(t[gidx])))
+            maxtime = np.max((maxtime, np.max(t[gidx])))
     plt.margins(x=0)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
