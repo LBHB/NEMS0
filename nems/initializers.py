@@ -159,7 +159,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
     # fit without STP module first (if there is one)
     modelspec = prefit_to_target(est, modelspec, fit_basic,
                                  target_module=['levelshift', 'relu'],
-                                 extra_exclude=['stp', 'rdt_gain'],
+                                 extra_exclude=['stp', 'rdt_gain','state_dc_gain','state_gain'],
                                  fitter=fitter,
                                  metric=metric,
                                  fit_kwargs=fit_kwargs)
