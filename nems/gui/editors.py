@@ -683,7 +683,7 @@ class GlobalControls(qw.QFrame):
 
     def _update_max_time(self):
         resp = self.parent.rec.apply_mask()['resp']
-        #self.max_time = resp.as_continuous().shape[-1] / resp.fs
+        self.max_time = resp.as_continuous().shape[-1] / resp.fs
         self.max_signal_time = resp.as_continuous().shape[-1] / resp.fs
         #self.time_slider.setTickInterval(self.max_time/100)
         self.slider_scaling = self.max_time/(self.max_signal_time - self.display_duration)
