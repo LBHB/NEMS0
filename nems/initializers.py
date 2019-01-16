@@ -26,6 +26,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
     registry. You may provide your own keyword registry using the
     registry={...} argument.
     '''
+
     if registry is None:
         registry = default_kws
     keywords = keyword_string.split('-')
@@ -69,12 +70,14 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
 
         else:
             log.info('kw: %s', kw)
+
         if registry.kw_head(kw) not in registry:
             raise ValueError("unknown keyword: {}".format(kw))
 
         d = copy.deepcopy(registry[kw])
         d['id'] = kw
-        d = priors.set_mean_phi([d])[0]  # Inits phi for 1 module
+        if init_phi_to_mean_prior:
+            d = priors.set_mean_phi([d])[0]  # Inits phi for 1 module
 
         modelspec.append(d)
 
@@ -91,7 +94,10 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
                 modelspec[i]['fn_kwargs']['i'] = 'psth'
             else:
                 modelspec[i]['fn_kwargs']['i'] = 'stim'
-            first_input_to_stim = True
+
+        # if correction is not in first module, then assume the modelspec can handle things?
+        # fix for BNB's RDT model
+        first_input_to_stim = True
         i += 1
 
     # insert metadata, if provided
@@ -100,10 +106,17 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
             (type(rec.meta['cellid']) is list)):
             meta['cellids'] = rec.meta['cellid']
 
-    if 'meta' not in modelspec[0].keys():
-        modelspec[0]['meta'] = meta
-    else:
-        modelspec[0]['meta'].update(meta)
+    # for modelspec object, we know that meta must exist, so just update
+    modelspec.meta.update(meta)
+
+    if modelspec.meta.get('modelpath') is None:
+        results_dir = get_setting('NEMS_RESULTS_DIR')
+        batch = modelspec.meta.get('batch', 0)
+        cellid = modelspec.meta.get('cellid', 'CELL')
+        destination = '{0}/{1}/{2}/{3}/'.format(
+            results_dir, batch, cellid, modelspec.get_longname())
+        modelspec.meta['modelpath'] = destination
+        modelspec.meta['figurefile'] = destination+'figure.0000.png'
 
     return modelspec
 
@@ -135,7 +148,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
     TODO -- make sure this works generally or create alternatives
 
     '''
-
+    log.info('prefit_LN parameters: tol=%.2e max_iter=%d', tolerance, max_iter)
     fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
 
     # Instead of using FIR prior, initialize to random coefficients then
@@ -145,8 +158,8 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
 
     # fit without STP module first (if there is one)
     modelspec = prefit_to_target(est, modelspec, fit_basic,
-                                 target_module='levelshift',
-                                 extra_exclude=['stp'],
+                                 target_module=['levelshift', 'relu'],
+                                 extra_exclude=['stp', 'rdt_gain','state_dc_gain','state_gain'],
                                  fitter=fitter,
                                  metric=metric,
                                  fit_kwargs=fit_kwargs)
@@ -159,7 +172,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
             break
 
     # pre-fit static NL if it exists
-    for m in modelspec:
+    for m in modelspec.modules:
         if 'double_exponential' in m['fn']:
             modelspec = init_dexp(est, modelspec, nl_mode=nl_mode)
             modelspec = prefit_mod_subset(
@@ -215,8 +228,12 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
 
     # figure out last modelspec module to fit
     target_i = None
-    for i, m in enumerate(modelspec):
-        if target_module in m['fn']:
+    if type(target_module) is not list:
+        target_module = [target_module]
+    for i, m in enumerate(modelspec.modules):
+        tlist = [True for t in target_module if t in m['fn']]
+
+        if len(tlist):
             target_i = i + 1
             break
 
@@ -313,7 +330,7 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
         fit_idx = fit_set
     else:
         fit_idx = []
-        for i, m in enumerate(modelspec):
+        for i, m in enumerate(modelspec.modules):
             for fn in fit_set:
                 if fn in m['fn']:
                     fit_idx.append(i)
@@ -371,9 +388,9 @@ def init_dexp(rec, modelspec, nl_mode=2):
         return modelspec
 
     if target_i == len(modelspec):
-        fit_portion = modelspec
+        fit_portion = modelspec.modules
     else:
-        fit_portion = modelspec[:target_i]
+        fit_portion = modelspec.modules[:target_i]
 
     # ensures all previous modules have their phi initialized
     # choose prior mean if not found
@@ -461,9 +478,9 @@ def init_logsig(rec, modelspec):
         return modelspec
 
     if target_i == len(modelspec):
-        fit_portion = modelspec
+        fit_portion = modelspec.modules
     else:
-        fit_portion = modelspec[:target_i]
+        fit_portion = modelspec.modules[:target_i]
 
     # generate prediction from module preceeding dexp
     ms.fit_mode_on(fit_portion)

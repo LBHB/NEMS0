@@ -24,6 +24,22 @@ def state_dc_gain(rec, i='pred', o='pred', s='state', g=None, d=0):
 
     return [rec[i].transform(fn, o)]
 
+def state_gain(rec, i='pred', o='pred', s='state', g=None):
+    '''
+    Linear gain for each state applied to each predicted channel
+
+    Parameters
+    ----------
+    i name of input
+    o name of output signal
+    s name of state signal
+    g - gain to scale s by
+    '''
+
+    fn = lambda x: np.matmul(g, rec[s]._data) * x
+
+    return [rec[i].transform(fn, o)]
+
 
 def state_segmented(rec, i='pred', o='pred', s='state'):
     '''

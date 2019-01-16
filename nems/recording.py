@@ -11,6 +11,7 @@ import copy
 import tempfile
 import shutil
 import json
+import warnings
 
 from nems.uri import local_uri, http_uri, targz_uri
 import nems.epoch as ep
@@ -1073,7 +1074,8 @@ class Recording:
         with only data specified mask. To make mask, see "create_epoch_mask"
         '''
         if 'mask' not in self.signals.keys():
-            raise ValueError('Need to create a mask signal first')
+            warnings.warn("No mask specified, apply_mask() simply copying recording.")
+            return self.copy()
 
         rec = self.copy()
         sig = rec['mask']

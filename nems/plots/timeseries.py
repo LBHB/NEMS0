@@ -48,9 +48,9 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
                         linewidth=linewidth, **opt)
             h = h + h_
         cc += 1
-        mintime = np.min((mintime, np.min(t[gidx])))
-        maxtime = np.max((maxtime, np.max(t[gidx])))
-
+        if gidx.sum() > 0:
+            mintime = np.min((mintime, np.min(t[gidx])))
+            maxtime = np.max((maxtime, np.max(t[gidx])))
     plt.margins(x=0)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
@@ -84,7 +84,7 @@ def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
 
 def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
                             linestyle='-', linewidth=1,
-                            ax=None, title=None):
+                            ax=None, title=None, no_legend=False):
     """TODO: doc"""
     channels = pad_to_signals(signals, channels)
 
@@ -101,6 +101,8 @@ def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
         if s.chans is not None:
             legend.append(s.name+' '+s.chans[c])
 
+    if no_legend:
+        legend = None
     plot_timeseries(times, values, xlabel, ylabel, legend=legend,
                     linestyle=linestyle, linewidth=linewidth,
                     ax=ax, title=title)
@@ -129,16 +131,21 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
     times = []
     values = []
     for s, o, c in zip(signals, occurrences, channels):
-        # Get occurrences x chans x time
-        extracted = s.extract_epoch(epoch)
-        # Get values from specified occurrence and channel
-        value_vector = extracted[o][c]
+        if epoch is None:
+            # just get the entire signal for this channel
+            value_vector = s.as_continuous()[c]
+        else:
+            # Get occurrences x chans x time
+            extracted = s.extract_epoch(epoch)
+            # Get values from specified occurrence and channel
+            value_vector = extracted[o][c]
+
         # Convert bins to time (relative to start of epoch)
         # TODO: want this to be absolute time relative to start of data?
         time_vector = np.arange(0, len(value_vector)) / s.fs - PreStimSilence
 
         # limit time range if specified
-        good_bins = (time_vector >= -PreStimSilence)
+        good_bins = (time_vector >= -pre_dur)
         if dur is not None:
             good_bins[time_vector > dur] = False
 
@@ -270,7 +277,8 @@ def mod_output(rec, modelspec, sig_name='pred', ax=None, title=None, idx=0,
     return ax
 
 def pred_resp(rec, modelspec, ax=None, title=None,
-              channels=0, xlabel='Time', ylabel='Value', **options):
+              channels=0, xlabel='Time', ylabel='Value',
+              no_legend=False, **options):
     '''
     Plots a time series of prediction overlaid on response.
 
@@ -290,5 +298,5 @@ def pred_resp(rec, modelspec, ax=None, title=None,
     sigs = [rec[s] for s in sig_list]
     ax = timeseries_from_signals(sigs, channels=channels,
                             xlabel=xlabel, ylabel=ylabel, ax=ax,
-                            title=title)
+                            title=title, no_legend=no_legend)
     return ax

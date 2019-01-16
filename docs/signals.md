@@ -1,3 +1,5 @@
+[Contents](README.md)
+
 # Signals
 
 `Signals` are the fundamental NEMS objects for storing timeseries data. The represent a value that changes in time, like the volume level of a speaker, the voltage across the membrane of a neuron, or the coordinates of a moving insect. 

@@ -110,8 +110,11 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     elif rec.get_epoch_indices('SIGNAL').shape[0]:
         log.info('quickplot for SIGNAL epochs')
         epoch = 'SIGNAL'
+    elif rec.get_epoch_indices('SEQUENCE1').shape[0]:
+        log.info('quickplot for SEQUENCE1 epochs')
+        epoch = 'SEQUENCE1'
     else:
-        raise ValueError('No epochs matching ' + epoch)
+        log.info('No epochs matching %s. Plotting entire signal', epoch)
 
     if epoch is None:
         extracted = rec['resp'].as_continuous()
@@ -128,8 +131,9 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
         occurrence = occurrences[occurrence]
 
     # determine if 'stim' signal exists
-    show_spectrogram = ('stim' in rec.signals.keys() and
-                        'state' not in rec.signals.keys())
+    show_spectrogram = ('stim' in rec.signals.keys())
+    # show_spectrogram = ('stim' in rec.signals.keys() and
+    #                     'state' not in rec.signals.keys())
 
     plot_fns = _get_plot_fns(rec, modelspec, occurrence=occurrence, epoch=epoch)
 
@@ -347,8 +351,8 @@ def _get_plot_fns(rec, modelspec, default='val', epoch='TRIAL', occurrence=0, m_
         else:
             if ('fir' in fname) and not strf_done:
                 chans = rec['stim'].chans
-                print('CHANS: ')
-                print(chans)
+                # print('CHANS: ')
+                # print(chans)
                 if m['phi']['coefficients'].shape[0]<=2:
                     fn = partial(strf_timeseries, modelspec, chans=chans,show_fir_only=False)
                 else:

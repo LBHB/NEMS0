@@ -8,7 +8,7 @@ import nems.recording as recording
 from nems.utils import find_module
 
 
-def generate_prediction(est, val, modelspec):
+def generate_prediction(est, val, modelspec, **context):
 
     list_val = (type(val) is list)
     list_modelspec = (type(modelspec) is list)
@@ -17,59 +17,46 @@ def generate_prediction(est, val, modelspec):
     else:
         modelspecs = modelspec.fits()
 
-    if ~list_val:
-        # Evaluate estimation and validation data
-
-        # SVD adding support for views, rather than list of recordings
-        if est.view_count() == 1:
-            new_est = est.tile_views(len(modelspecs))
-            new_val = val.tile_views(len(modelspecs))
-        else:
-            # assume est and val have view_count() == len(modelspecs)
-            new_est = est.copy()
-            new_val = val.copy()
-
-        for i, m in enumerate(modelspecs):
-            # update each view with prediction from corresponding modelspec
-            new_est = ms.evaluate(new_est.set_view(i), m)
-            new_val = ms.evaluate(new_val.set_view(i), m)
-
-            # this seems kludgy. but where should mask be handled?
-            if 'mask' in new_val.signals.keys():
-                m = new_val['mask'].as_continuous()
-                x = new_val['pred'].as_continuous().copy()
-                x[..., m[0,:] == 0] = np.nan
-                new_val['pred'] = new_val['pred']._modified_copy(x)
-
-        if new_val.view_count() > 1:
-            new_val = new_val.jackknife_inverse_merge()
-
-        return new_est, new_val
-
-    new_est = []
-    new_val = []
-    for m, e, v in zip(modelspecs, est, val):
-        # nan-out periods outside of mask
-        e = ms.evaluate(e, m)
-        v = ms.evaluate(v, m)
-        if 'mask' in v.signals.keys():
-            m = v['mask'].as_continuous()
-            x = v['pred'].as_continuous().copy()
-            x[..., m[0,:] == 0] = np.nan
-            v['pred'] = v['pred']._modified_copy(x)
-        new_est.append(e)
-        new_val.append(v)
-
-    #new_est = [ms.evaluate(d, m) for m, d in zip(modelspecs, est)]
-    #new_val = [ms.evaluate(d, m) for m, d in zip(modelspecs, val)]
-
     if list_val:
-        new_val = [recording.jackknife_inverse_merge(new_val)]
+        raise ValueError("list type val recordings no longer supported")
+
+    # Evaluate estimation and validation data
+
+    # three scenarios:
+    # 1 fit, 1 est set - standard
+    # n fits, n est sets - nfold
+    # n fits, 1 est set - multiple initial conditions
+
+    if est.view_count() == 1:
+        new_est = est.tile_views(len(modelspecs))
+        new_val = val.tile_views(len(modelspecs))
+        do_inverse_merge = False
+    else:
+        # assume est and val have view_count() == len(modelspecs)
+        new_est = est.copy()
+        new_val = val.copy()
+        do_inverse_merge = True
+
+    for i, m in enumerate(modelspecs):
+        # update each view with prediction from corresponding modelspec
+        new_est = ms.evaluate(new_est.set_view(i), m)
+        new_val = ms.evaluate(new_val.set_view(i), m)
+
+        # this seems kludgy. but where should mask be handled?
+        if 'mask' in new_val.signals.keys():
+            m = new_val['mask'].as_continuous()
+            x = new_val['pred'].as_continuous().copy()
+            x[..., m[0,:] == 0] = np.nan
+            new_val['pred'] = new_val['pred']._modified_copy(x)
+
+    if do_inverse_merge:
+        new_val = new_val.jackknife_inverse_merge()
 
     return new_est, new_val
 
 
-def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None, use_mask=True):
+def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
+                         use_mask=True):
     # use_mask: mask before computing metrics (if mask exists)
     # Compute scores for validation dat
     r_ceiling = 0
@@ -98,13 +85,18 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None, us
         else:
             v = val
             e = est
+            use_mask = False
 
         r_test, se_test = nmet.j_corrcoef(v, 'pred', 'resp')
         r_fit, se_fit = nmet.j_corrcoef(e, 'pred', 'resp')
         r_floor = nmet.r_floor(v, 'pred', 'resp')
         if rec is not None:
+            if 'mask' in rec.signals.keys() and use_mask:
+                r = rec.apply_mask()
+            else:
+                r = rec
             # print('running r_ceiling')
-            r_ceiling = nmet.r_ceiling(v, rec, 'pred', 'resp')
+            r_ceiling = nmet.r_ceiling(v, r, 'pred', 'resp')
 
         mse_test, se_mse_test = nmet.j_nmse(v, 'pred', 'resp')
         mse_fit, se_mse_fit = nmet.j_nmse(e, 'pred', 'resp')
@@ -113,6 +105,8 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None, us
         ll_fit = nmet.likelihood_poisson(e, 'pred', 'resp')
 
     elif len(val) == 1:
+        # does this ever run?
+        raise ValueError("val as list not supported any more?")
         if ('mask' in val[0].signals.keys()) and use_mask:
             v = val[0].apply_mask()
             e = est[0].apply_mask()
@@ -236,7 +230,7 @@ def standard_correlation_by_epochs(est,val,modelspec=None,modelspecs=None,epochs
     #For example, ['A', 'B', ['A', 'B']] will measure correlations separately
     # for all epochs marked 'A', all epochs marked 'B', and all epochs marked
     # 'A'or 'B'
-  
+
     if modelspecs is None:
         list_modelspec = (type(modelspec) is list)
         if modelspec is None:

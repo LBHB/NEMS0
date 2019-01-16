@@ -18,35 +18,53 @@ import matplotlib.pyplot as plt
 
 class ModelSpec:
     """
-    key attribute: raw --- equivalent of old model spec
-    is raw everything you need to specify the model? Or should we un-embed meta?
+    Defines a model based on a NEMS modelspec.
+
+    Attributes
+    ----------
+    raw : nested list of dictionaries
+        Equialent of old NEMS modelspec.
+        The first level is a list of cells, each of which is a list of
+        lists.
+        The second level is a list of fits, each of which is a list of
+        dictionaries.
+        Each dictionary specifies a module, or one step in the model.
+        For example,
+    fit_index : int
+        Integer index of which fit to reference when multiple are present,
+        default 0, when jacknifing et cetera.
+    cell_index : int
+        Integer index of which "cell" to reference when multiple are present,
+        default 0.
+
     """
-    def __init__(self, raw=None, fit_index=None):
-        if raw is None:
-            self.raw = [[]]
-        else:
-            self.raw = raw
+
+    def __init__(self, raw=None, phis=None, fit_index=0, cell_index=0,
+                 recording=None):
+
+        self.raw = [[]] if raw is None else raw
+        self.phis = [] if phis is None else phis
 
         # a Model can have multiple fits, each of which contains a different
-        # set of phi values. fit_index references the default phi
-        if fit_index is None:
-            self.fit_index = 0
-        else:
-            self.fit_index = fit_index
+        # set of phi values. fit_index re
+        # rerences the default phi
+        self.fit_index = fit_index
+        self.cell_index = cell_index
         self.mod_index = 0
         self.plot_epoch = 'REFERENCE'
         self.plot_occurrence = 0
-        self.recording = None  # default recording for evaluation & plotting
+        self.recording = recording  # default recording for evaluation & plotting
 
     def __getitem__(self, key):
         try:
             return self.get_module(key)
         except:
             if type(key) is slice:
-                return [self.raw[self.fit_index][ii] for ii in range(*key.indices(len(self)))]
-            elif key=='meta':
+                return [self.raw[self.fit_index][ii]
+                        for ii in range(*key.indices(len(self)))]
+            elif key == 'meta':
                 return self.meta
-            elif key=='phi':
+            elif key == 'phi':
                 return self.phi()
             else:
                 raise ValueError('key {} not supported'.format(key))
@@ -62,6 +80,10 @@ class ModelSpec:
         self.mod_index = -1
         return self
 
+    # TODO: Something funny is going on when iterating oveer modules directly
+    #       using these methods. The last couple modules were being excluded.
+    #       Temp fix: use .modules instead and then iterate over the list
+    #       returned by that.
     def __next__(self):
         if self.mod_index < len(self.raw[self.fit_index])-1:
             self.mod_index += 1
@@ -88,6 +110,14 @@ class ModelSpec:
             mod_index = self.mod_index
         return self.raw[self.fit_index][mod_index]
 
+    @property
+    def modules(self):
+        return self.raw[self.fit_index]
+
+    @property
+    def modelspecname(self):
+        return '-'.join([m.get('id', 'BLANKID') for m in self.modules])
+
     def copy(self, lb=None, ub=None, fit_index=None):
         """
         :param lb: start module (default 0)
@@ -95,12 +125,13 @@ class ModelSpec:
         :return: A deep copy of the modelspec (subset of modules if specified)
         """
         raw = [copy.deepcopy(m[lb:ub]) for m in self.raw]
-        m = ModelSpec(raw)
         if fit_index is not None:
-            m.fit_index = fit_index
+            raw = [raw[fit_index]]
+        m = ModelSpec(raw)
 
         return m
 
+    @property
     def fit_count(self):
         """Number of fits in this modelspec"""
         return len(self.raw)
@@ -115,11 +146,8 @@ class ModelSpec:
     def fits(self):
         """List of modelspecs, one for each fit, for compatibility with some
            old functions"""
-        m_list = []
-        for f in range(len(self.raw)):
-            m_list += [ModelSpec(self.raw, f)]
-
-        return m_list
+        return [ModelSpec(self.raw, fit_index=f)
+                for f, _ in enumerate(self.raw)]
 
     @property
     def meta(self):
@@ -130,14 +158,18 @@ class ModelSpec:
     def fn(self):
         return [m['fn'] for m in self.raw[0]]
 
-    def phi(self, fit_index=None):
+    @property
+    def phi(self, fit_index=None, mod_idx=None):
         """
         :param fit_index: which model fit to use (default use self.fit_index
         :return: list of phi dictionaries, or None for modules with no phi
         """
         if fit_index is None:
             fit_index = self.fit_index
-        return [m.get('phi') for m in self.raw[fit_index]]
+        if mod_idx is None:
+            return [m.get('phi') for m in self.raw[fit_index]]
+        else:
+            return self.raw[fit_index][mod_idx].get('phi')
 
     def plot_fn(self, mod_index=None, plot_fn_idx=None, fit_index=None):
         """get function for plotting something about a module"""
@@ -157,7 +189,7 @@ class ModelSpec:
         return _lookup_fn_at(fn_path)
 
     def plot(self, mod_index=None, rec=None, ax=None, plot_fn_idx=None,
-             fit_index=None, sig_name='pred'):
+             fit_index=None, sig_name='pred', **options):
         """generate plot for a single module"""
 
         if rec is None:
@@ -165,7 +197,8 @@ class ModelSpec:
 
         plot_fn = self.plot_fn(mod_index=mod_index, plot_fn_idx=plot_fn_idx,
                                fit_index=fit_index)
-        plot_fn(rec=rec, modelspec=self, sig_name=sig_name, idx=mod_index, ax=ax)
+        plot_fn(rec=rec, modelspec=self, sig_name=sig_name, idx=mod_index,
+                ax=ax, **options)
 
     def quickplot(self, rec=None):
 
@@ -451,12 +484,15 @@ def evaluate(rec, modelspec, start=None, stop=None):
     for m in modelspec[start:stop]:
         fn = _lookup_fn_at(m['fn'])
         fn_kwargs = m.get('fn_kwargs', {})
-        kwargs = {**fn_kwargs, **m['phi']}  # Merges both dicts
+        phi = m.get('phi', {})
+        kwargs = {**fn_kwargs, **phi}  # Merges both dicts
         new_signals = fn(rec=d, **kwargs)
-        if type(new_signals) is not list:
-            raise ValueError('Fn did not return list of signals: {}'.format(m))
+
+        #if type(new_signals) is not list:
+        #    raise ValueError('Fn did not return list of signals: {}'.format(m))
 
         # testing normalization
+        """
         if 'norm' in m.keys():
             s = new_signals[0]
             k = s.name
@@ -476,6 +512,7 @@ def evaluate(rec, modelspec, start=None, stop=None):
 
             fn = lambda x: (x - m['norm']['d']) / m['norm']['g']
             new_signals = [s.transform(fn, k)]
+        """
 
         for s in new_signals:
             d.add_signal(s)
@@ -646,6 +683,7 @@ def try_scalar(x):
     except ValueError:
         pass
     return x
+
 
 # TODO: Check that the word 'phi' is not used in fn_kwargs
 # TODO: Error checking the modelspec before execution;

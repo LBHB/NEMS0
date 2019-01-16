@@ -9,6 +9,8 @@ log = logging.getLogger(__name__)
 
 class XformsModel(qw.QWidget):
     def __init__(self, parent, xfspec):
+        raise NotImplementedError
+
         super(qw.QWidget, self).__init__(parent)
         self.xfspec = xfspec
         self.original_xfspec = copy.deepcopy(xfspec)
@@ -42,6 +44,8 @@ class XformsModel(qw.QWidget):
 
 class MspecModel(qw.QWidget):
     def __init__(self, parent, modelspec):
+        raise NotImplementedError
+
         super(qw.QWidget, self).__init__(parent)
         self.modelspec = modelspec
         self.original_modelspec = copy.deepcopy(modelspec)
@@ -75,13 +79,44 @@ class MspecModel(qw.QWidget):
             return True
 
 
-class ArrayModel(qw.QWidget):
+class ArrayModel(qw.QTableWidget):
     def __init__(self, parent, array):
-        super(qw.QWidget, self).__init__(parent)
+        super(qw.QTableWidget, self).__init__(parent)
         self.array = array
         self.original_array = copy.deepcopy(array)
-        self.shape = array.shape
-        self.ndims = len(self.shape)
+        while self.array.ndim < 2:
+            self.array = np.expand_dims(self.array, 0)
+        self.shape = self.array.shape
+        self.ndims = self.array.ndim
+
+        self._populate_table()
+        self.itemChanged.connect(self._update_array)
+
+    def _populate_table(self):
+        nrows = self.shape[0]
+        ncols = self.shape[1]
+        self.setRowCount(nrows)
+        self.setColumnCount(ncols)
+        # Not the most efficient, but the arrays are generally going to be
+        # pretty small so not going to bother with something more sophisticated.
+        for i in range(nrows):
+            for j in range(ncols):
+                v = self.array[i, j]
+                self.setItem(i, j, qw.QTableWidgetItem(str(v)))
+
+    def _update_array(self, item):
+        row = item.row()
+        col = item.column()
+        data = float(item.text())
+        self.set(data, row, col)
+
+    def _check_valid_coordinates(self, coords):
+        for i, c in enumerate(coords):
+            if (i > self.ndims-1) or (c > self.shape[i]):
+                log.warning('coordinate #%s exceeded array dimensions', i)
+                return False
+
+        return True
 
     def set(self, value, *coords):
         if not self._check_valid_coordinates(coords):
@@ -97,11 +132,11 @@ class ArrayModel(qw.QWidget):
         if self._check_valid_coordinates(coords):
             return self.array[coords]
 
-    def _check_valid_coordinates(self, coords):
-        for i, c in enumerate(coords):
-            if (i > self.ndims-1) or (c > self.shape[i]):
-                log.warning('coordinate #%s exceeded array dimensions', i)
-                return False
+    def print(self):
+        print(str(self.array))
 
-        return True
-
+    def export_array(self):
+        if self.array.shape != self.original_array.shape:
+            return np.full_like(self.original_array, self.array)
+        else:
+            return self.array

@@ -16,6 +16,10 @@ from nems.modelspec import set_modelspec_metadata, get_modelspec_metadata,\
 import nems.plots.api as nplt
 import nems.preprocessing as preproc
 import nems.priors as priors
+from nems import get_setting
+from nems.registry import KeywordRegistry
+from nems.plugins import (default_keywords, default_loaders, default_fitters,
+                          default_initializers)
 from nems.signal import RasterizedSignal
 from nems.uri import save_resource, load_resource
 from nems.utils import iso8601_datestring, find_module, recording_filename_hash
@@ -154,6 +158,19 @@ def evaluate(xformspec, context={}, start=0, stop=None):
 ###############################################################################
 
 
+def init_context(kw_kwargs=None, **context):
+    #if kw_kwargs is None:
+    #    keyword_lib = KeywordRegistry()
+    #else:
+    #    keyword_lib = KeywordRegistry(**kw_kwargs)
+
+    #keyword_lib.register_module(default_keywords)
+    #keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
+    #context['registry'] = keyword_lib
+
+    return context
+
+
 def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
                            save_cache=True, IsReload=False, modelspecs=None,
                            modelspec=None, **context):
@@ -289,6 +306,11 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
     return {'rec': rec}
 
 
+def normalize_stim(rec=None, norm_method='meanstd', **context):
+    rec['stim'] = rec['stim'].rasterize().normalize(norm_method)
+    return {'rec': rec}
+
+
 def init_from_keywords(keywordstring, meta={}, IsReload=False,
                        registry=None, rec=None, **context):
     if not IsReload:
@@ -316,7 +338,7 @@ def load_modelspecs(modelspecs, uris,
 def set_random_phi(modelspecs, IsReload=False, **context):
     ''' Starts all modelspecs at random phi sampled from the priors. '''
     if not IsReload:
-        for fit_idx in modelspec.fit_count():
+        for fit_idx in modelspec.fit_count:
             modelspec.fit_index = fit_idx
             for i, m in enumerate(modelspec):
                 modelspec[i] = priors.set_random_phi(m)
@@ -616,11 +638,24 @@ def fit_basic_init(modelspec, est, IsReload=False, metric='nmse',
         else:
             metric_fn = metric
 
-        for fit_idx in range(modelspec.fit_count()):
-            #modelspec.fit_index = fit_idx
+        # TODO : handle multiple fits for single est
 
+        # TODO : make structure here parallel to fit_basic?
+        if jackknifed_fit:
+            nfolds = est.view_count()
+            if modelspec.fit_count < est.view_count():
+                modelspec.tile_fits(nfolds)
+
+            for fit_idx, e in enumerate(est.views()):
+
+                modelspec = nems.initializers.prefit_LN(
+                        e, modelspec.set_fit(fit_idx),
+                        analysis_function=nems.analysis.api.fit_basic,
+                        fitter=scipy_minimize, metric=metric_fn,
+                        tolerance=tolerance, max_iter=700, norm_fir=norm_fir)
+        else:
             modelspec = nems.initializers.prefit_LN(
-                    est, modelspec.set_fit(fit_idx),
+                    est, modelspec,
                     analysis_function=nems.analysis.api.fit_basic,
                     fitter=scipy_minimize, metric=metric_fn,
                     tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
@@ -649,12 +684,6 @@ def fit_state_init(modelspec, est, fit_sig='resp', tolerance=1e-4,
     if not IsReload:
         metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
 
-        if type(est) is not list:
-            # make est a list so that this function can handle standard
-            # or n-fold fits
-            est = [est]
-
-        modelspecs_out = []
         for i, d in enumerate(est.views()):
             log.info("Initializing modelspec %d/%d state-free",
                      i+1, len(modelspec))
@@ -678,7 +707,7 @@ def fit_state_init(modelspec, est, fit_sig='resp', tolerance=1e-4,
             fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
             modelspec = nems.analysis.api.fit_basic(
                     dc, modelspec, fit_kwargs=fit_kwargs, metric=metric_fn,
-                    fitter=scipy_minimize)[0]
+                    fitter=scipy_minimize)
             rep_idx = find_module('replicate_channels', modelspec)
             mrg_idx = find_module('merge_channels', modelspec)
             if rep_idx is not None:
@@ -719,7 +748,7 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
 
         if jackknifed_fit:
             nfolds = est.view_count()
-            if modelspec.fit_count() < est.view_count():
+            if modelspec.fit_count < est.view_count():
                 modelspec.tile_fits(nfolds)
             for fit_idx, e in enumerate(est.views()):
                 log.info("Fitting fold %d/%d", fit_idx + 1, nfolds)
@@ -738,7 +767,7 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
                         )
         else:
             # standard single shot
-            for fit_idx in range(modelspec.fit_count()):
+            for fit_idx in range(modelspec.fit_count):
                 modelspec = nems.analysis.api.fit_basic(
                     est, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
                     metric=metric_fn, fitter=fitter_fn)
@@ -746,7 +775,7 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
     return {'modelspec': modelspec}
 
 
-def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
+def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
                     module_sets=None, invert=False, tolerances=[1e-4],
                     metric='nmse', fitter='scipy_minimize', fit_kwargs={},
                     jackknifed_fit=False, random_sample_fit=False,
@@ -757,7 +786,7 @@ def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
 
     if not IsReload:
         if jackknifed_fit:
-            return fit_nfold(modelspecs, est, tol_iter=tol_iter,
+            return fit_nfold(modelspec, est, tol_iter=tol_iter,
                              fit_iter=fit_iter, module_sets=module_sets,
                              tolerances=tolerances, metric=metric,
                              fitter=fitter, fit_kwargs=fit_kwargs,
@@ -769,23 +798,21 @@ def fit_iteratively(modelspecs, est, tol_iter=100, fit_iter=20, IsReload=False,
                            'module_sets': module_sets, 'metric': metric_fn,
                            'fitter': fitter_fn, 'fit_kwargs': fit_kwargs}
             return fit_n_times_from_random_starts(
-                        modelspecs, est, ntimes=n_random_samples,
+                        modelspec, est, ntimes=n_random_samples,
                         subset=random_fit_subset,
                         analysis='fit_iteratively', iter_kwargs=iter_kwargs,
                         )
 
         else:
-            modelspecs = [
-                    nems.analysis.api.fit_iteratively(
-                            est, modelspec, fit_kwargs=fit_kwargs,
+            for fit_idx in range(modelspec.fit_count):
+                modelspec = nems.analysis.api.fit_iteratively(
+                            est, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
                             fitter=fitter_fn, module_sets=module_sets,
                             invert=invert, tolerances=tolerances,
                             tol_iter=tol_iter, fit_iter=fit_iter,
-                            metric=metric_fn)[0]
-                    for modelspec in modelspecs
-                    ]
+                            metric=metric_fn)
 
-    return {'modelspecs': modelspecs}
+    return {'modelspec': modelspec}
 
 
 def fit_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
@@ -793,6 +820,7 @@ def fit_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
               analysis='fit_basic', tolerances=None, module_sets=None,
               tol_iter=100, fit_iter=20, **context):
     ''' fitting n fold, one from each entry in est '''
+    raise Warning("DEPRECATED?")
     if not IsReload:
         metric = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
         fitter_fn = getattr(nems.fitters.api, fitter)
@@ -862,7 +890,8 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
         modelspec.meta['state_mod'] = s
         modelspec.meta['j_state_mod'] = j_s
         modelspec.meta['se_state_mod'] = ee
-        modelspec.meta
+        modelspec.meta['state_chans'] = val['state'].chans
+
         # Charlie testing diff ways to calculate mod index
 
         # try using resp
@@ -999,21 +1028,22 @@ def save_analysis(destination,
 
 def load_analysis(filepath, eval_model=True, only=None):
     """
-    load xforms and modelspec(s) from a specified directory
-    if eval_mode is True, reevalueates all steps, this is time consuming but gives an exact copy of the
+    load xforms spec and context dictionary for a model fit
+    :param filepath: URI of saved xforms model
+    :param eval_model: if True, re-evaluates all steps. Time consuming but gives an exact copy of the
     original context
-    only can be ither an int, usually 0, to evaluate the first step of loading a recording, or an slice
+    :param only: either an int, usually 0, to evaluate the first step of loading a recording, or a slice
     object, which gives more flexibility over what steps of the original xfspecs to run again.
-
+    :return: (xfspec, ctx) tuple
     """
-    log.info('Loading modelspec from %s...', filepath)
+    log.info('Loading xfspec and context from %s...', filepath)
 
-    xfspec = load_xform(filepath + 'xfspec.json')
+    xfspec = load_xform(os.path.join(filepath, 'xfspec.json'))
 
     mspaths = []
     for file in os.listdir(filepath):
         if file.startswith("modelspec"):
-            mspaths.append(filepath + "/" + file)
+            mspaths.append(os.path.join(filepath, file))
     ctx = load_modelspecs([], uris=mspaths, IsReload=False)
     ctx['IsReload'] = True
 

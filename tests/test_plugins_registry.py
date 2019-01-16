@@ -17,6 +17,7 @@ def loader_registry():
 def model_registry():
     models = KeywordRegistry()
     models.register_module(default_keywords)
+    models.register_plugins(['resources/plugin1.py'])
     return models
 
 
@@ -66,8 +67,31 @@ def test_fitter_registry(fitter_registry):
         x = fitter_registry[t]
 
 
+def test_register_plugins():
+    registry = KeywordRegistry()
+    registry.register_plugins(['resources/plugin1.py'])
+    registry['firstkw']
+    with pytest.raises(KeyError):
+        registry['secondkw']
+    registry.register_plugins(['resources/plugin2.py'])
+    registry['secondkw']
+
+    # Hack to test importable module names
+    import sys
+    import os
+    sys.path.append(os.path.dirname(__file__))
+    registry = KeywordRegistry()
+    registry.register_plugins(['resources.plugin1'])
+    registry['firstkw']
+    with pytest.raises(KeyError):
+        registry['secondkw']
+
+    registry.register_plugins(['resources'])
+    registry['firstkw']
+    registry['secondkw']
+
+
 def test_jsonify(model_registry):
     json = model_registry.to_json()
     unjson = KeywordRegistry.from_json(json)
     unjson.keywords == model_registry.keywords
-    return json, unjson

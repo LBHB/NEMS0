@@ -164,7 +164,7 @@ def state_var_psth(rec, psth_name='resp', var_name='pupil', ax=None,
     timeseries_from_vectors([low, high], fs=fs, title=var_name, ax=ax)
 
 
-def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
+def state_var_psth_from_epoch(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pred',
                               state_sig='state_raw', state_chan='pupil', ax=None,
                               colors=None, channel=None, decimate_by=1, **options):
     """
@@ -232,7 +232,7 @@ def state_var_psth_from_epoch(rec, epoch, psth_name='resp', psth_name2='pred',
         ax.set_xlabel(epoch)
 
 
-def state_vars_psth_all(rec, epoch, psth_name='resp', psth_name2='pred',
+def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pred',
                         state_sig='state_raw', ax=None,
                         colors=None, channel=None, decimate_by=1,
                         files_only=False, modelspec=None, **options):

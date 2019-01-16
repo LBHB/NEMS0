@@ -121,6 +121,50 @@ def basic(fitkey):
     return xfspec
 
 
+def tf(fitkey):
+    '''
+    Perform a Tensorflow fit, using Sam Norman-Haignere's CNN library
+
+    Parameters
+    ----------
+    fitkey : str
+        Expected format: tf.f<fitter>.i<max_iter>.s<start_conditions>
+        Example: tf.fAdam.i1000.s20
+        Example translation:
+            Use Adam fitter, max 1000 iterations, starting from 20 random
+            initial condition
+
+    Options
+    -------
+    f<fitter> : string specifying fitter, passed through to TF
+    i<N> : Set maximum iterations to N, any positive integer.
+    s<S> : Initialize with S random seeds, pick the best performer across
+           the entire fit set.
+
+    '''
+
+    options = _extract_options(fitkey)
+
+    max_iter = 1000
+    fitter = 'Adam'
+    init_count = 1
+
+    for op in options:
+        if op[:1] == 'i':
+            max_iter = int(op[1:])
+        elif op[:1] == 'f':
+            fitter = op[1:]
+        elif op[:1] == 's':
+            init_count = int(op[1:])
+
+    xfspec = [['nems.tf.cnnlink.fit_tf',
+               {'max_iter': max_iter,
+                'optimizer': fitter,
+                'init_count': init_count}]]
+
+    return xfspec
+
+
 def iter(fitkey):
     '''
     Perform a fit_iteratively analysis on a model.
@@ -169,7 +213,7 @@ def iter(fitkey):
 
 def _extract_options(fitkey):
     if fitkey == 'basic' or fitkey == 'iter':
-        # empty options (i.e. just use defualts)
+        # empty options (i.e. just use defaults)
         options = []
     else:
         chunks = escaped_split(fitkey, '.')

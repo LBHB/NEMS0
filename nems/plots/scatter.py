@@ -31,7 +31,7 @@ def plot_nl_io(module=None, xbounds=None, ax=None):
 
 def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
                  xlabel=None, ylabel=None, legend=True, text=None,
-                 force_square=False, module=None):
+                 force_square=False, module=None, **options):
     '''
     Uses the channels of sig1 to place points along the x axis, and channels of
     sig2 for distances along the y axis. If sig1 has one channel but sig2 has
@@ -139,7 +139,7 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
 
 def nl_scatter(rec, modelspec, idx, sig_name='pred',
                compare='resp', smoothing_bins=False,
-               xlabel1=None, ylabel1=None, ax=None):
+               xlabel1=None, ylabel1=None, ax=None, **options):
 
     # HACK: shouldn't hardcode 'stim', might be named something else
     #       or not present at all. Need to figure out a better solution
@@ -174,5 +174,5 @@ def nl_scatter(rec, modelspec, idx, sig_name='pred',
 
     plot_scatter(before_sig, compare_to, title=title1,
                  smoothing_bins=smoothing_bins, xlabel=xlabel1,
-                 ylabel=ylabel1, text=text1, module=module, ax=ax)
-
+                 ylabel=ylabel1, text=text1, module=module, ax=ax,
+                 **options)
