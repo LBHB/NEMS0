@@ -63,7 +63,7 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
 def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
                             linestyle='-', linewidth=1, legend=None,
                             ax=None, title=None, time_offset=0,
-                            colors=None):
+                            colors=None, **options):
     """TODO: doc"""
     times = []
     values = []
@@ -73,15 +73,14 @@ def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
             times.append(np.arange(0, len(v)) - time_offset)
         else:
             times.append(np.arange(0, len(v))/fs - time_offset)
-    plot_timeseries(times, values, xlabel, ylabel,
+    ax = plot_timeseries(times, values, xlabel, ylabel,
                     legend=legend,
                     linestyle=linestyle, linewidth=linewidth,
                     ax=ax, title=title, colors=colors)
+    return ax
 
-
-def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
-                            linestyle='-', linewidth=1,
-                            ax=None, title=None, no_legend=False):
+def timeseries_from_signals(signals, channels=0,
+                            no_legend=False, **options):
     """TODO: doc"""
     channels = pad_to_signals(signals, channels)
 
@@ -100,9 +99,9 @@ def timeseries_from_signals(signals, channels=0, xlabel='Time', ylabel='Value',
 
     if no_legend:
         legend = None
-    plot_timeseries(times, values, xlabel, ylabel, legend=legend,
-                    linestyle=linestyle, linewidth=linewidth,
-                    ax=ax, title=title)
+
+    ax = plot_timeseries(times, values, legend=legend, **options)
+
     return ax
 
 def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
@@ -190,9 +189,26 @@ def before_and_after_stp(modelspec, sig_name='pred', ax=None, title=None,
     signals.append(pred)
     channels.append(0)
 
+    if c == 1:
+        colors = [[0, 0, 0],
+                  [128/255, 128/255, 128/255]]
+    elif c == 2:
+        colors = [[254 / 255, 15 / 255, 6 / 255],
+                  [129 / 255, 201 / 255, 224 / 255],
+                  [128/255, 128/255, 128/255]
+                  ]
+    elif c == 3:
+        colors = [[254/255, 15/255, 6/255],
+                  [217/255, 217/255, 217/255],
+                  [129/255, 201/255, 224/255],
+                  [128/255, 128/255, 128/255]
+                  ]
+    else:
+        colors = None
+
     timeseries_from_signals(signals, channels=channels,
                             xlabel=xlabel, ylabel=ylabel, ax=ax,
-                            title=title)
+                            title=title, colors=colors)
 
 
 def before_and_after(rec, modelspec, sig_name, ax=None, title=None, idx=0,
@@ -224,7 +240,8 @@ def before_and_after(rec, modelspec, sig_name, ax=None, title=None, idx=0,
     #       or not present at all. Need to figure out a better solution
     #       for special case of idx = 0
     if idx == 0:
-        before = rec['stim'].copy()
+        input_name = modelspec[0]['fn_kwargs']['i']
+        before = rec[input_name].copy()
         before.name += ' before**'
     else:
         before = ms.evaluate(rec.copy(), modelspec, start=None, stop=idx)[sig_name]

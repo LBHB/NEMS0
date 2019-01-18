@@ -27,7 +27,7 @@ import scipy.ndimage.filters as sf
 import nems_lbhb.plots as lplt
 import nems.db as nd
 from nems.gui.recording_browser import (browse_recording)
-from nems.gui.editors import EditorWidget
+from nems.gui.editors import EditorWidget, browse_xform_fit
 from configparser import ConfigParser
 import nems
 
@@ -235,6 +235,7 @@ class model_browser(qw.QWidget):
     def view_model(self):
         aw = self
         xf, ctx = aw.get_current_selection()
+        #browse_xform_fit(ctx, xf)
         ex = EditorWidget(modelspec=ctx['modelspec'], rec=ctx['val'], xfspec=xf,
                           ctx=ctx, parent=self)
         ex.show()

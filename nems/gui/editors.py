@@ -22,6 +22,7 @@ log = logging.getLogger(__name__)
 # by the slider.
 _SCROLLABLE_PLOT_FNS = [
     'nems.plots.api.strf_timeseries',
+    'nems.plots.api.state_vars_timeseries',
     'nems.plots.api.before_and_after',
     'nems.plots.api.pred_resp',
     'nems.plots.api.spectrogram_output',
@@ -48,7 +49,6 @@ _FIT_FNS = [
 # TODO: Switch modelspec, xfspec etc. references to all just point to EditorWidget copy
 #       instead of making separate copies. Then all updates can use the most convenient
 #       pointer instead of needing to call parent.parent.parent.modelspec
-
 
 class EditorWindow(qw.QMainWindow):
     def __init__(self, modelspec=None, xfspec=None, rec=None, ctx=None,

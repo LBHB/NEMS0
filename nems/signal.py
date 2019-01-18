@@ -197,7 +197,10 @@ class SignalBase:
         else:
             max_event_times = [data.shape[1] / fs]
         max_time = max(max_epoch_time, *max_event_times)
-        self.ntimes = np.int(np.ceil(fs*max_time))
+
+        # svd - kludge warning! rounding to prevent accidental increase in duration
+        # due to floating point limits
+        self.ntimes = np.int(np.round(fs*max_time))
 
         if segments is None:
             segments = np.array([[0, self.ntimes]])
@@ -565,7 +568,8 @@ class SignalBase:
             ti = signal.epochs.copy()
             ti['end'] += offset
             ti['start'] += offset
-            offset += signal.ntimes/signal.fs
+            #offset += signal.ntimes/signal.fs
+            offset += signal.epochs['end'].max()
             epochs.append(ti)
         return pd.concat(epochs, ignore_index=True)
 
@@ -1782,7 +1786,7 @@ class PointProcess(SignalBase):
         recording
         """
         if not fs:
-            fs=self.fs
+            fs = self.fs
 
         if self.epochs is not None:
             max_epoch_time = self.epochs["end"].max()
@@ -1795,7 +1799,7 @@ class PointProcess(SignalBase):
         else:
             max_time=max_epoch_time
 
-        max_bin = np.int(np.ceil(fs*max_time))
+        max_bin = np.int(np.round(fs*max_time))
         unit_count = len(self._data.keys())
         raster = np.zeros([unit_count, max_bin])
 
@@ -1938,8 +1942,8 @@ class PointProcess(SignalBase):
                     data[key]=np.concatenate((data[key],(signal._data[key]+offset)))
 
             # increment offset by duration (sec) of current signal
-            offset += signal.ntimes / signal.fs
-
+            #offset += signal.ntimes / signal.fs
+            offset += signal.epochs['end'].max()
 
         # basically do the same thing for epochs, using the Base routine
         epochs = _merge_epochs(signals)
@@ -1975,7 +1979,10 @@ class PointProcess(SignalBase):
         # the preceeding signals
         new_data=copy.deepcopy(self._data)
         cellids = sorted(self._data)
-        offset = self.ntimes / self.fs
+        #offset = self.ntimes / self.fs
+        #offset = np.round(self.epochs['end'].max() * self.fs) / self.fs
+        offset = self.epochs['end'].max()
+        log.info('concatenate offset: %.15f', offset)
 
         for key in cellids:
             # append new data to list, after adding offset
@@ -2378,6 +2385,7 @@ def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
                     fs=js['fs'],
                     meta=js['meta'],
                     data=data)
+        max_time=epochs['end'].max()
 
     elif 'TiledSignal' in signal_type:
         with h5py.File(data_stream, 'r') as f:

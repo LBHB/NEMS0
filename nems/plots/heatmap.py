@@ -230,9 +230,8 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
             plt.text(0, i + nchans + 1, c, verticalalignment='center')
 
 
-def strf_timeseries(modelspec, ax=None, clim=None, show_factorized=True,
-                    show_fir_only=True,
-                    title=None, fs=1, chans=None, **options):
+def strf_timeseries(modelspec, ax=None, show_fir_only=True,
+                    title=None, fs=1, chans=None, colors=None, **options):
     """
     chans: list
        if not None, label each row of the strf with the corresponding
@@ -256,8 +255,22 @@ def strf_timeseries(modelspec, ax=None, clim=None, show_factorized=True,
         else:
             strf = fir_coefs
 
-    times = np.arange(strf.shape[1])/fs
-    plot_timeseries([times], [strf.T], xlabel='Time lag', ylabel='Gain',
+    times = [np.arange(strf.shape[1])/fs] * strf.shape[0]
+    filters = [strf[i] for i in range(strf.shape[0])]
+    if colors is None:
+        if strf.shape[0] == 1:
+            colors = [[0, 0, 0]]
+        elif strf.shape[0] == 2:
+            colors = [[254 / 255, 15 / 255, 6 / 255],
+                      [129 / 255, 201 / 255, 224 / 255]
+                      ]
+        elif strf.shape[0] == 3:
+            colors = [[254/255, 15/255, 6/255],
+                      [217/255, 217/255, 217/255],
+                      [129/255, 201/255, 224/255]
+                      ]
+
+    plot_timeseries(times, filters, xlabel='Time lag', ylabel='Gain',
                     legend=chans, linestyle='-', linewidth=1,
-                    ax=ax, title=title)
-    plt.plot(times[[0, len(times)-1]], np.array([0, 0]), linewidth=0.5, color='gray')
+                    ax=ax, title=title, colors=colors)
+    plt.plot(times[0][[0, len(times[0])-1]], np.array([0, 0]), linewidth=0.5, color='gray')
