@@ -132,7 +132,7 @@ def _get_db_uri():
     return db_uri
 
 
-def pd_query(sql=None, params=()):
+def pd_query(sql=None, params=None):
     """
     execture an SQL command and return the results in a dataframe
     params:
@@ -150,7 +150,10 @@ def pd_query(sql=None, params=()):
     engine = Engine()
     # print(sql)
     # print(params)
-    d = pd.read_sql(sql=sql, con=engine, params=params)
+    if params is not None:
+        sql= sql % params
+    #d = pd.read_sql_query(sql=sql, con=engine, params=params)
+    d = pd.read_sql_query(sql=sql, con=engine)
 
     return d
 
@@ -731,12 +734,26 @@ def update_results_table(modelspec, preview=None,
                          username="svd", labgroup="lbhb"):
     db_tables = Tables()
     NarfResults = db_tables['NarfResults']
+    NarfBatches = db_tables['NarfBatches']
     session = Session()
     cellids = modelspec.meta.get('cellids', [modelspec.meta['cellid']])
 
     for cellid in cellids:
         batch = modelspec.meta['batch']
         modelname = modelspec.meta['modelname']
+        r = (
+            session.query(NarfBatches)
+            .filter(NarfBatches.cellid == cellid)
+            .filter(NarfBatches.batch == batch)
+            .first()
+        )
+        if not r:
+            # add cell/batch to NarfData
+            log.info("Adding (%s/%d) to NarfBatches", cellid, batch)
+            r = NarfBatches()
+            r.cellid = cellid
+            r.batch = batch
+            session.add(r)
 
         r = (
             session.query(NarfResults)
@@ -893,18 +910,21 @@ def get_batch_cells(batch=None, cellid=None, rawid=None):
     params = ()
     sql = "SELECT DISTINCT cellid,batch FROM NarfData WHERE 1"
     if batch is not None:
-        sql += " AND batch=%s"
+        sql += " AND batch=%d"
         params = params+(batch,)
 
     if cellid is not None:
-       sql += " AND cellid like %s"
+       sql += " AND cellid like '%s'"
        params = params+(cellid+"%",)
 
     if rawid is not None:
-        sql+= " AND rawid = %s"
+        sql+= " AND rawid = %d"
         params=params+(rawid,)
 
-    d = pd.read_sql(sql=sql, con=engine, params=params)
+    #d = pd.read_sql(sql=sql, con=engine, params=params)
+    sql = sql % params
+    print(sql)
+    d = pd.read_sql_query(sql=sql, con=engine)
 
     return d
 

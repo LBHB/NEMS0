@@ -11,6 +11,7 @@ from nems.plots.utils import ax_remove_box
 
 class MyMplCanvas(FigureCanvas):
     def __init__(self, parent=None, width=5, height=4, dpi=100):
+        plt.ioff()
         fig = plt.figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
         self.axes.get_yaxis().set_visible(False)
