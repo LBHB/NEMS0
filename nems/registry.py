@@ -89,6 +89,10 @@ class KeywordRegistry():
         kw_head = self.kw_head(kw_string)
         return self.keywords[kw_head]
 
+    def source(self, kw_string):
+        kw_head = self.kw_head(kw_string)
+        return self.keywords[kw_head].source_string
+
     def register_plugin(self, location):
         '''
         Registers a plugin

@@ -1,6 +1,3 @@
-# NEMS-specific
-modelspecs/
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -102,7 +99,10 @@ ENV/
 # mypy
 .mypy_cache/
 
-# nems-specific
+# NEMS-specific
+modelspecs/
+gui.ini
+
 #signals/
 *~
 .DS_Store
