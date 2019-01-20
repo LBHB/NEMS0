@@ -276,6 +276,8 @@ class ModelspecEditor(qw.QWidget):
         self.modelspec = copy.deepcopy(self.original_modelspec)
         self.clear_layout()
         self.setup_layout()
+        self.adjust_initial_plots()
+        self.epochs.setup_figure()
 
     def clear_layout(self):
         temp = qw.QWidget()
