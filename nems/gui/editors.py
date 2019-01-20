@@ -379,7 +379,6 @@ class ModuleCollapser(qw.QWidget):
         layout.addWidget(self.toggle)
         layout.setAlignment(qc.Qt.AlignTop)
         self.setLayout(layout)
-        self.expand_margins()
 
     def toggle_collapsed(self):
         if self.collapsed:
