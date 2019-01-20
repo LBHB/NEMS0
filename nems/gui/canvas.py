@@ -9,8 +9,10 @@ import nems.signal
 from nems.plots.utils import ax_remove_box
 
 
-class MyMplCanvas(FigureCanvas):
+class NemsCanvas(FigureCanvas):
+
     def __init__(self, parent=None, width=5, height=4, dpi=100):
+        '''QWidget for displaying a matplotlib axes.'''
         plt.ioff()
         fig = plt.figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
@@ -30,11 +32,12 @@ class MyMplCanvas(FigureCanvas):
         self.axes.spines['bottom'].set_visible(False)
         self.axes.spines['left'].set_visible(False)
 
-class EpochCanvas(MyMplCanvas):
+class EpochCanvas(NemsCanvas):
 
     def __init__(self, recording=None, signal='stim', parent=None,
                  *args, **kwargs):
-        MyMplCanvas.__init__(self, *args, **kwargs)
+        '''QWidget for displaying epochs timestamps in a matplotlib axes.'''
+        NemsCanvas.__init__(self, *args, **kwargs)
         self.recording = recording
         self.signal = signal
         self.parent = parent
