@@ -102,8 +102,6 @@ class EditorWidget(qw.QWidget):
         # canvases to fill the layout properly.
         self.modelspec_editor.adjust_initial_plots()
         self.modelspec_editor.epochs.setup_figure()
-        # for c in self.modelspec_editor.controllers:
-        #     c.layout.setContentsMargins(0, 0, 0, 0)
 
         self.setup_module_collapser()
         self.setup_xfstep_collapser()
@@ -389,21 +387,11 @@ class ModuleCollapser(qw.QWidget):
             if not self.parent.parent.modules_collapsed:
                 self.controller.show()
             self.toggle.setText('-')
-            #self.expand_margins()
         else:
             self.module.hide()
             self.controller.hide()
             self.toggle.setText('+')
-            #self.shrink_margins()
         self.collapsed = not self.collapsed
-
-    def shrink_margins(self):
-        self.controller.layout.setContentsMargins(0,0,0,0)
-        self.module.layout.setContentsMargins(0,0,0,0)
-
-    def expand_margins(self):
-        self.controller.layout.setContentsMargins(10,10,10,10)
-        self.module.layout.setContentsMargins(10,10,10,10)
 
 
 class EpochsCollapser(qw.QWidget):
@@ -604,7 +592,7 @@ class GlobalControls(qw.QFrame):
     minimum_duration = 0.001
     stop_time = 10
     slider_scaling = 6
-    max_time = 10000
+    max_time = 1000
 
     def __init__(self, parent):
         super(qw.QFrame, self).__init__()
@@ -621,7 +609,6 @@ class GlobalControls(qw.QFrame):
         self.time_slider.setRange(0, self.max_time)
         self.time_slider.setRepeatAction(200, 2)
         self.time_slider.setSingleStep(1)
-        #self.time_slider.setTickInterval(1)  # for use with QSlider
         self.time_slider.valueChanged.connect(self.scroll_all)
 
         # Set zoom / display range for plot views
@@ -666,8 +653,6 @@ class GlobalControls(qw.QFrame):
         layout.addLayout(self.buttons_layout)
         self.setLayout(layout)
 
-        #self._update_range()
-
     # Plot window adjustments
     def scroll_all(self):
         self.start_time = self.time_slider.value()/self.slider_scaling
@@ -687,7 +672,6 @@ class GlobalControls(qw.QFrame):
         resp = self.parent.rec.apply_mask()['resp']
         self.max_time = resp.as_continuous().shape[-1] / resp.fs
         self.max_signal_time = resp.as_continuous().shape[-1] / resp.fs
-        #self.time_slider.setTickInterval(self.max_time/100)
         self.slider_scaling = self.max_time/(self.max_signal_time - self.display_duration)
 
     def tap_right(self):

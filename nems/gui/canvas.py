@@ -16,7 +16,6 @@ class MyMplCanvas(FigureCanvas):
         self.axes = fig.add_subplot(111)
         self.axes.get_yaxis().set_visible(False)
         self.axes.get_xaxis().set_visible(False)
-        #self.axes.set_position([0.175, 0.175, 0.775, 0.7])
 
         super(FigureCanvas, self).__init__(fig)
         self.setParent(parent)
@@ -24,7 +23,6 @@ class MyMplCanvas(FigureCanvas):
                                    qw.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
         self.setContentsMargins(0, 0, 0, 0)
-        #self.figure.tight_layout()
         self.figure.subplots_adjust(left=0, bottom=0, right=1,
                                     top=1, wspace=0, hspace=0)
         self.axes.spines['right'].set_visible(False)
