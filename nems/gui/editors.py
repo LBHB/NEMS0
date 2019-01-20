@@ -46,13 +46,42 @@ _FIT_FNS = [
 # TODO: add backwards compatibility shim to add plot_fns, plot_fn_idx etc to
 #       old modelspecs if none of the modules have those specified.
 
-# TODO: Switch modelspec, xfspec etc. references to all just point to EditorWidget copy
-#       instead of making separate copies. Then all updates can use the most convenient
+# TODO: Switch modelspec, xfspec etc. references to all just point to
+#       EditorWidget copy instead of making separate copies.
+#       Then all updates can use the most convenient
 #       pointer instead of needing to call parent.parent.parent.modelspec
 
 class EditorWindow(qw.QMainWindow):
+
     def __init__(self, modelspec=None, xfspec=None, rec=None, ctx=None,
                  rec_name='val'):
+        '''
+        Main Window wrapper for NEMS model editor GUI.
+        Allows browsing and editing of fitted model parameters,
+        xforms spec options (TODO), plotting data on a per-module
+        basis, and manual initializion & fitting with adjustable
+        iteration counts.
+
+        Parameters
+        ----------
+        modelspec : ModelSpec
+            A NEMS ModelSpec containing at least one module.
+        xfspec : nested list
+            A NEMS xforms spec (see nems.xforms) containing at least one step.
+        rec : Recording
+            A NEMS recording, generally expected to contain at least these signals:
+            'est', 'val', 'stim', and 'resp'
+        ctx : dict
+            A NEMS context dictionary (see nems.xforms)
+        rec_name : str
+            Key used to set rec from ctx instead of passing rec directly,
+            e.x. 'val' or 'est'.
+
+        Returns
+        -------
+        None
+
+        '''
         super(qw.QMainWindow, self).__init__()
         self.title = 'NEMS Model Browser'
         if (modelspec is None) and (ctx is not None):
@@ -66,8 +95,28 @@ class EditorWindow(qw.QMainWindow):
 
 
 class EditorWidget(qw.QWidget):
+
     def __init__(self, modelspec=None, xfspec=None, rec=None, ctx=None,
                  parent=None):
+        '''
+        Parameters
+        ----------
+        modelspec : ModelSpec
+            A NEMS ModelSpec containing at least one module.
+        xfspec : nested list
+            A NEMS xforms spec (see nems.xforms) containing at least one step.
+        rec : Recording
+            A NEMS recording, generally expected to contain at least these signals:
+            'est', 'val', 'stim', and 'resp'
+        ctx : dict
+            A NEMS context dictionary (see nems.xforms)
+        parent : QtWidget*
+            See Qt/PyQt documentation. 
+
+        Returns
+        -------
+        None
+        '''
         super(qw.QWidget, self).__init__()
         self.xfspec = xfspec
         self.modelspec = modelspec
