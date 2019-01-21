@@ -9,14 +9,15 @@ import nems.signal
 from nems.plots.utils import ax_remove_box
 
 
-class MyMplCanvas(FigureCanvas):
+class NemsCanvas(FigureCanvas):
+
     def __init__(self, parent=None, width=5, height=4, dpi=100):
+        '''QWidget for displaying a matplotlib axes.'''
         plt.ioff()
         fig = plt.figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
         self.axes.get_yaxis().set_visible(False)
         self.axes.get_xaxis().set_visible(False)
-        #self.axes.set_position([0.175, 0.175, 0.775, 0.7])
 
         super(FigureCanvas, self).__init__(fig)
         self.setParent(parent)
@@ -24,7 +25,6 @@ class MyMplCanvas(FigureCanvas):
                                    qw.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
         self.setContentsMargins(0, 0, 0, 0)
-        #self.figure.tight_layout()
         self.figure.subplots_adjust(left=0, bottom=0, right=1,
                                     top=1, wspace=0, hspace=0)
         self.axes.spines['right'].set_visible(False)
@@ -32,11 +32,12 @@ class MyMplCanvas(FigureCanvas):
         self.axes.spines['bottom'].set_visible(False)
         self.axes.spines['left'].set_visible(False)
 
-class EpochCanvas(MyMplCanvas):
+class EpochCanvas(NemsCanvas):
 
     def __init__(self, recording=None, signal='stim', parent=None,
                  *args, **kwargs):
-        MyMplCanvas.__init__(self, *args, **kwargs)
+        '''QWidget for displaying epochs timestamps in a matplotlib axes.'''
+        NemsCanvas.__init__(self, *args, **kwargs)
         self.recording = recording
         self.signal = signal
         self.parent = parent
