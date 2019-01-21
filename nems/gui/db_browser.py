@@ -18,10 +18,8 @@ import PyQt5.QtGui as qg
 import PyQt5.QtWidgets as qw
 
 import nems.db as nd
-
-import nems_db.xform_wrappers as nw
 import nems.plots.api as nplt
-import nems.xforms as xforms
+import nems.xform_helper as xhelp
 import nems.epoch as ep
 from nems.utils import find_module
 import pandas as pd
@@ -236,7 +234,7 @@ class model_browser(qw.QWidget):
             xf = aw.last_loaded[3]
             ctx = aw.last_loaded[4]
         else:
-            xf, ctx = nw.load_model_baphy_xform(cellid, batch, modelname, eval_model=True)
+            xf, ctx = xhelp.load_model_xform(cellid, batch, modelname, eval_model=True)
             aw.last_loaded=[cellid,modelname,batch,xf,ctx]
         return xf, ctx
 

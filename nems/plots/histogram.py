@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from nems.plots.utils import ax_remove_box
 
 
 def plot_histogram(x, bins=None):

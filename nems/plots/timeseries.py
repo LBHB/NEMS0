@@ -60,6 +60,7 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
     ax_remove_box(ax)
     return ax
 
+
 def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
                             linestyle='-', linewidth=1, legend=None,
                             ax=None, title=None, time_offset=0,
@@ -78,6 +79,7 @@ def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
                     linestyle=linestyle, linewidth=linewidth,
                     ax=ax, title=title, colors=colors)
     return ax
+
 
 def timeseries_from_signals(signals, channels=0,
                             no_legend=False, **options):
@@ -103,6 +105,7 @@ def timeseries_from_signals(signals, channels=0,
     ax = plot_timeseries(times, values, legend=legend, **options)
 
     return ax
+
 
 def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
                           xlabel='Time', ylabel='Value',
@@ -310,7 +313,8 @@ def pred_resp(rec, modelspec, ax=None, title=None,
     '''
     sig_list = ['pred', 'resp']
     sigs = [rec[s] for s in sig_list]
+    print(channels)
     ax = timeseries_from_signals(sigs, channels=channels,
-                            xlabel=xlabel, ylabel=ylabel, ax=ax,
-                            title=title, no_legend=no_legend)
+                                 xlabel=xlabel, ylabel=ylabel, ax=ax,
+                                 title=title, no_legend=no_legend)
     return ax

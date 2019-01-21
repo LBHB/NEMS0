@@ -432,6 +432,8 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     # compute spont rate during valid (non-masked) trials
     if 'mask' in newrec.signals.keys():
         mask = newrec['mask']
+    else:
+        mask = None
 
     prestimsilence = resp.extract_epoch('PreStimSilence', mask=mask)
 

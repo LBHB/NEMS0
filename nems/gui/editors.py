@@ -231,6 +231,7 @@ class ModelspecEditor(qw.QWidget):
         self.original_modelspec = copy.deepcopy(modelspec)
         self.rec = rec
         self.parent = parent
+        self.modules = []
 
     def setup_layout(self):
         self.layout = qw.QGridLayout()
@@ -622,6 +623,14 @@ class GlobalControls(qw.QFrame):
         #self.time_slider.setTickInterval(1)  # for use with QSlider
         self.time_slider.valueChanged.connect(self.scroll_all)
 
+        # Set stim/resp channel to display for population models
+        self.display_channel = qw.QLineEdit()
+        self.display_channel.setValidator(
+                qg.QIntValidator(0, 1000)
+                )
+        self.display_channel.editingFinished.connect(self.set_display_range)
+        self.display_channel.setText(str(self.parent.modelspec.plot_channel))
+
         # Set zoom / display range for plot views
         self.display_range = qw.QLineEdit()
         self.display_range.setValidator(
@@ -637,7 +646,7 @@ class GlobalControls(qw.QFrame):
         minus.clicked.connect(self.decrement_display_range)
         self.range_layout = qw.QHBoxLayout()
         self.range_layout.setAlignment(qc.Qt.AlignTop)
-        [self.range_layout.addWidget(w) for w in [self.display_range, plus, minus]]
+        [self.range_layout.addWidget(w) for w in [self.display_channel, self.display_range, plus, minus]]
 
         self.buttons_layout = qw.QHBoxLayout()
         self.buttons_layout.setAlignment(qc.Qt.AlignTop)
@@ -665,28 +674,36 @@ class GlobalControls(qw.QFrame):
         self.setLayout(layout)
 
         #self._update_range()
+        self.time_slider.setRange(0, self.max_time-self.display_duration)
+        self.time_slider.setSingleStep(int(np.ceil(self.display_duration/10)))
+        self.time_slider.setPageStep(int(self.display_duration))
 
     # Plot window adjustments
     def scroll_all(self):
-        self.start_time = self.time_slider.value()/self.slider_scaling
+        #self.start_time = self.time_slider.value()/self.slider_scaling
+        self.start_time = self.time_slider.value()
         self.stop_time = self.start_time + self.display_duration
 
         # don't go past the latest time of the biggest plot
         # (should all have the same max most of the time)
-        self._update_max_time()
-        if self.stop_time >= self.max_signal_time:
-            self.stop_time = self.max_signal_time
-            self.start_time = max(0, self.max_signal_time - self.display_duration)
+        #self._update_max_time()
+        #if self.stop_time >= self.max_signal_time:
+        #    self.stop_time = self.max_signal_time
+        #    self.start_time = max(0, self.max_signal_time - self.display_duration)
+        #    #self.time_slider.setValue(0)
 
         [m.update_plot() for m in self.parent.modelspec_editor.modules]
-        self.parent.modelspec_editor.epochs.update_figure()
+        if len(self.parent.modelspec_editor.modules):
+            self.parent.modelspec_editor.epochs.update_figure()
 
     def _update_max_time(self):
         resp = self.parent.rec.apply_mask()['resp']
         self.max_time = resp.as_continuous().shape[-1] / resp.fs
-        self.max_signal_time = resp.as_continuous().shape[-1] / resp.fs
+        self.max_signal_time = self.max_time
+        self._update_range()
         #self.time_slider.setTickInterval(self.max_time/100)
-        self.slider_scaling = self.max_time/(self.max_signal_time - self.display_duration)
+        #self.time_slider.setRange(0, self.max_time-self.display_duration)
+        #self.slider_scaling = self.max_time/(self.max_signal_time - self.display_duration)
 
     def tap_right(self):
         self.time_slider.set_value(
@@ -704,6 +721,7 @@ class GlobalControls(qw.QFrame):
             print("Duration not set to a valid value. Please enter a"
                   "a number > 0")
             return
+        self.parent.modelspec.plot_channel = int(self.display_channel.text())
         self.display_duration = duration
         self._update_range()
 

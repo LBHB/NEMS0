@@ -791,6 +791,8 @@ def relu(kw):
                       'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
                      'nems.plots.api.pred_resp',
+                     'nems.plots.api.resp_spectrogram',
+                     'nems.plots.api.pred_spectrogram',
                      'nems.plots.api.before_and_after'],
         'plot_fn_idx': 1
     }
