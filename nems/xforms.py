@@ -621,8 +621,9 @@ def jack_subset(est, val, modelspec=None, IsReload=False,
 ###############################################################################
 
 
-def fit_basic_init(modelspec, est, IsReload=False, metric='nmse',
-                   tolerance=10**-5.5, norm_fir=False, nl_mode=2, **context):
+def fit_basic_init(modelspec, est, tolerance=10**-5.5, 
+                   metric='nmse',IsReload=False, jackknifed_fit=False, 
+                    norm_fir=False, nl_mode=2, **context):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
     local minima.
