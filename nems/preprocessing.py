@@ -418,7 +418,7 @@ def generate_stim_from_epochs(rec, new_signal_name='stim',
     return rec
 
 
-def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
+def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_resp=False):
     '''
     Estimates a PSTH from all responses to each regex match in a recording
 
@@ -427,7 +427,7 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
     if rec['mask'] exists, uses rec['mask'] == True to determine valid epochs
     '''
     newrec = rec.copy()
-    resp = newrec['resp'].rasterize()
+    resp = newrec[resp_sig].rasterize()
 
     # compute spont rate during valid (non-masked) trials
     if 'mask' in newrec.signals.keys():
@@ -631,14 +631,13 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
         PreStimSilence = 0
     prestimbins = int(PreStimSilence * resp.fs)
 
-
-    # compute PCs only on valid (unmasked) times
+    # compute PCs only on valid (masked) times
     rec0[resp_sig] = rec0[resp_sig].rasterize()
-    rec0 = generate_psth_from_resp(rec0)
     if 'mask' in rec0.signals:
         rec_masked = rec0.apply_mask()
     else:
         rec_masked = rec0
+    rec_masked = generate_psth_from_resp(rec_masked, resp_sig=resp_sig)
 
     if pc_source=='all':
         D_ref = rec_masked[resp_sig].as_continuous().T
@@ -652,10 +651,10 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
         raise ValueError('pc_source {} not supported'.format(pc_source))
 
     # project full response dataset to preserve time
-    D = rec0['resp'].as_continuous().T
+    D = rec0[resp_sig].as_continuous().T
 
     if pc_count is None:
-        pc_count=D_ref.shape[1]
+        pc_count = D_ref.shape[1]
 
     if False:
         # use sklearn. maybe someday
@@ -678,10 +677,10 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
         rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
 
         r = rec0[pc_sig].extract_epoch('REFERENCE', mask=rec0['mask'])
-        mr=np.mean(r,axis=0)
-        spont=np.mean(mr[:,:prestimbins],axis=1,keepdims=True)
+        mr = np.mean(r, axis=0)
+        spont = np.mean(mr[:,:prestimbins],axis=1,keepdims=True)
         mr -= spont
-        vs = np.sign(np.sum(mr[:,prestimbins:(prestimbins+10)], axis=1, keepdims=True))
+        vs = np.sign(np.sum(mr[:, prestimbins:(prestimbins+10)], axis=1, keepdims=True))
         v *= vs
         X = (D-m) / sd @ v.T
 
@@ -696,6 +695,7 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
 #    plt.legend(('1','2','3','4','5'))
 
     rec0.meta['pc_weights'] = v
+    rec0.meta['pc_mag'] = s
     if overwrite_resp:
         rec0[resp_sig] = rec0[resp_sig]._modified_copy(X[:, pc_idx].T)
         rec0.meta['pc_idx'] = pc_idx

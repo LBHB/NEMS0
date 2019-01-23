@@ -143,14 +143,17 @@ def pd_query(sql=None, params=None):
     """
 
     if sql is None:
-        raise ValueError ("parameter sql required")
+        raise ValueError("parameter sql required")
     engine = Engine()
     # print(sql)
     # print(params)
-    if params is not None:
-        sql= sql % params
-    #d = pd.read_sql_query(sql=sql, con=engine, params=params)
-    d = pd.read_sql_query(sql=sql, con=engine)
+    sql_engine = get_setting('SQL_ENGINE')
+    if sql_engine == 'sqlite':
+        if params is not None:
+            sql = sql % params
+        d = pd.read_sql_query(sql=sql, con=engine)
+    else:
+        d = pd.read_sql_query(sql=sql, con=engine, params=params)
 
     return d
 
@@ -902,15 +905,15 @@ def get_batch(name=None, batchid=None):
 
 def get_batch_cells(batch=None, cellid=None, rawid=None):
     # eg, sql="SELECT * from NarfBatches WHERE batch=301"
-    engine = Engine()
+    #engine = Engine()
     params = ()
     sql = "SELECT DISTINCT cellid,batch FROM NarfData WHERE 1"
     if batch is not None:
-        sql += " AND batch=%d"
+        sql += " AND batch=%s"
         params = params+(batch,)
 
     if cellid is not None:
-       sql += " AND cellid like '%s'"
+       sql += " AND cellid like %s"
        params = params+(cellid+"%",)
 
     if rawid is not None:
@@ -918,9 +921,12 @@ def get_batch_cells(batch=None, cellid=None, rawid=None):
         params=params+(rawid,)
 
     #d = pd.read_sql(sql=sql, con=engine, params=params)
-    sql = sql % params
+
+    #sql = sql % params
     print(sql)
-    d = pd.read_sql_query(sql=sql, con=engine)
+    print(params)
+
+    d = pd_query(sql=sql, params=params)
 
     return d
 
@@ -1184,6 +1190,7 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
             rawid = [rawid]
         rawid=tuple([str(i) for i in rawid])
         params = params+(rawid,)
+        print(sql)
         print(params)
         d = pd.read_sql(sql=sql, con=engine, params=params)
 

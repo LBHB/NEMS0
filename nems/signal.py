@@ -2059,7 +2059,7 @@ class TiledSignal(SignalBase):
         maxtime = np.max(self.epochs["end"])
         maxbin = self.shape[1]
         if self.fs*maxtime > maxbin:
-            maxbin = self.fs*maxtime
+            maxbin = int(self.fs*maxtime)
         tags = list(self._data.keys())
         chancount = self._data[tags[0]].shape[0]
 

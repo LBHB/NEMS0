@@ -25,6 +25,8 @@ _SCROLLABLE_PLOT_FNS = [
     'nems.plots.api.pred_resp',
     'nems.plots.api.spectrogram_output',
     'nems.plots.api.spectrogram',
+    'nems.plots.api.pred_spectrogram',
+    'nems.plots.api.resp_spectrogram',
     'nems.plots.api.mod_output'
 ]
 
@@ -49,6 +51,8 @@ _FIT_FNS = [
 #       Then all updates can use the most convenient
 #       pointer instead of needing to call parent.parent.parent.modelspec
 
+
+
 class EditorWindow(qw.QMainWindow):
 
     def __init__(self, modelspec=None, xfspec=None, rec=None, ctx=None,
@@ -57,7 +61,7 @@ class EditorWindow(qw.QMainWindow):
         Main Window wrapper for NEMS model editor GUI.
         Allows browsing and editing of fitted model parameters,
         xforms spec options (TODO), plotting data on a per-module
-        basis, and manual initializion & fitting with adjustable
+        basis, and manual initialization & fitting with adjustable
         iteration counts.
 
         Parameters
@@ -147,7 +151,7 @@ class EditorWidget(qw.QWidget):
         self.modelspec_editor.setup_layout()
         # Have to set up these plots afterward to get
         # canvases to fill the layout properly.
-        self.modelspec_editor.adjust_initial_plots()
+        self.modelspec_editor.refresh_plots()
         self.modelspec_editor.epochs.setup_figure()
 
         self.setup_module_collapser()
@@ -339,7 +343,7 @@ class ModelspecEditor(qw.QWidget):
         self.layout.setAlignment(qc.Qt.AlignTop)
         self.setLayout(self.layout)
 
-    def adjust_initial_plots(self):
+    def refresh_plots(self):
         '''Regenerate plot for each module.'''
         for m in self.modules:
             m.new_plot()
@@ -349,15 +353,14 @@ class ModelspecEditor(qw.QWidget):
         new_rec = self.parent.modelspec.evaluate()
         self.parent.modelspec.recording = new_rec
         self.modelspec.recording = new_rec
-        for m in self.modules:
-            m.new_plot()
+        self.refresh_plots()
 
     def reset_model(self):
         '''Reassign modelspec to original copy and regenerate layout.'''
         self.modelspec = copy.deepcopy(self.original_modelspec)
         self.clear_layout()
         self.setup_layout()
-        self.adjust_initial_plots()
+        self.refresh_plots()
         self.epochs.setup_figure()
 
     def clear_layout(self):
@@ -744,14 +747,6 @@ class GlobalControls(qw.QFrame):
         self.time_slider.setSingleStep(1)
         self.time_slider.valueChanged.connect(self.scroll_all)
 
-        # Set stim/resp channel to display for population models
-        self.display_channel = qw.QLineEdit()
-        self.display_channel.setValidator(
-                qg.QIntValidator(0, 1000)
-                )
-        self.display_channel.editingFinished.connect(self.set_display_range)
-        self.display_channel.setText(str(self.parent.modelspec.plot_channel))
-
         # Set zoom / display range for plot views
         self.display_range = qw.QLineEdit()
         self.display_range.setValidator(
@@ -767,20 +762,24 @@ class GlobalControls(qw.QFrame):
         minus.clicked.connect(self.decrement_display_range)
         self.range_layout = qw.QHBoxLayout()
         self.range_layout.setAlignment(qc.Qt.AlignTop)
-        [self.range_layout.addWidget(w) for w in [self.display_channel, self.display_range, plus, minus]]
+        [self.range_layout.addWidget(w) for w in [self.display_range, plus, minus]]
 
         self.buttons_layout = qw.QHBoxLayout()
         self.buttons_layout.setAlignment(qc.Qt.AlignTop)
         self.reset_model_btn = qw.QPushButton('Reset Model')
         self.reset_model_btn.clicked.connect(self.reset_model)
+
         self.fit_index_label = qw.QLabel('Fit Index')
         self.fit_index_line = qw.QLineEdit()
         self.fit_index_line.editingFinished.connect(self.update_fit_index)
         self.fit_index_line.setText(str(self.parent.modelspec_editor.modelspec.fit_index))
+
         self.cell_index_label = qw.QLabel('Cell Index')
         self.cell_index_line = qw.QLineEdit()
         self.cell_index_line.editingFinished.connect(self.update_cell_index)
-        self.cell_index_line.setText(str(self.parent.modelspec_editor.modelspec.cell_index))
+        self.cell_index_line.setText(str(self.parent.modelspec.plot_channel))
+        #self.cell_index_line.setText(str(self.parent.modelspec_editor.modelspec.cell_index))
+
         self.buttons_layout.addWidget(self.reset_model_btn)
         self.buttons_layout.addWidget(self.fit_index_label)
         self.buttons_layout.addWidget(self.fit_index_line)
@@ -843,7 +842,6 @@ class GlobalControls(qw.QFrame):
             print("Duration not set to a valid value. Please enter a"
                   "a number > 0")
             return
-        self.parent.modelspec.plot_channel = int(self.display_channel.text())
         self.display_duration = duration
         self._update_range()
 
@@ -882,19 +880,22 @@ class GlobalControls(qw.QFrame):
         self.parent.modelspec_editor.evaluate_model()
 
     def update_cell_index(self):
-        i = int(self.cell_index_line.text())
-        j = self.parent.modelspec_editor.modelspec.cell_index
+        self.parent.modelspec.plot_channel = int(self.cell_index_line.text())
+        self.parent.modelspec_editor.refresh_plots()
 
-        if i == j:
-            return
+        #i = int(self.cell_index_line.text())
+        #j = self.parent.modelspec_editor.modelspec.cell_index
 
-        if i > len(self.parent.modelspec_editor.modelspec.phis):
-            # TODO: Flash red or something to indicate error
-            self.cell_index_line.setText(str(j))
-            return
+        #if i == j:
+        #    return
 
-        self.parent.modelspec_editor.modelspec.cell_index = i
-        self.parent.modelspec_editor.evaluate_model()
+        #if i > len(self.parent.modelspec_editor.modelspec.phis):
+        #    # TODO: Flash red or something to indicate error
+        #    self.cell_index_line.setText(str(j))
+        #    return
+
+        #self.parent.modelspec_editor.modelspec.cell_index = i
+        #self.parent.modelspec_editor.evaluate_model()
 
     def toggle_controls(self):
         if self.collapsed:

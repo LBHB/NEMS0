@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 import os.path
+import importlib
 
 import PyQt5.QtCore as qc
 import PyQt5.QtGui as qg
@@ -25,8 +26,8 @@ from nems.utils import find_module
 import pandas as pd
 import scipy.ndimage.filters as sf
 import nems_lbhb.plots as lplt
-from nems.gui.recording_browser import (browse_recording)
-from nems.gui.editors import EditorWidget, browse_xform_fit
+import nems.gui.recording_browser as browser
+import nems.gui.editors as editor
 from configparser import ConfigParser
 import nems
 
@@ -140,12 +141,12 @@ class model_browser(qw.QWidget):
         self.modelLE = qw.QLineEdit(self)
         self.modelLE.setText(model_search_string)
         self.modelLE.returnPressed.connect(self.update_widgets)
-        self.modelLE.setMaximumWidth(200)
+        # self.modelLE.setMaximumWidth(500)
         formLayout.addRow(modellabel,self.modelLE)
 
         vLayout = qw.QVBoxLayout(self)
-        self.updateBtn = qw.QPushButton("Update lists", self)
-        self.updateBtn.clicked.connect(self.update_widgets)
+        self.updateBtn = qw.QPushButton("Re-import", self)
+        self.updateBtn.clicked.connect(self.reimport_libs)
         vLayout.addWidget(self.updateBtn)
         self.updateBtn.setMaximumWidth(150)
 
@@ -173,6 +174,11 @@ class model_browser(qw.QWidget):
         self.show()
         self.raise_()
 
+    def reimport_libs(self):
+        print('Re-importing GUI libraries')
+        importlib.reload(browser)
+        importlib.reload(editor)
+
     def resizeEvent(self, event):
         save_settings(self)
 
@@ -194,11 +200,11 @@ class model_browser(qw.QWidget):
 
         #self.d_cells = nd.get_batch_cells(self.batch, cellid=cellmask)
         self.d_cells = nd.pd_query("SELECT DISTINCT cellid FROM NarfResults" +
-                               " WHERE batch=%s AND cellid like '%s'" +
+                               " WHERE batch=%s AND cellid like %s" +
                                " ORDER BY cellid",
                                (self.batch, cellmask))
         self.d_models = nd.pd_query("SELECT DISTINCT modelname FROM NarfResults" +
-                               " WHERE batch=%s AND modelname like '%s'" +
+                               " WHERE batch=%s AND modelname like %s" +
                                " ORDER BY modelname",
                                (self.batch, modelmask))
 
@@ -257,7 +263,7 @@ class model_browser(qw.QWidget):
         else:
             rec = ctx[recname].copy()
 
-        aw2 = browse_recording(rec, signals=signals,
+        aw2 = browser.browse_recording(rec, signals=signals,
                                cellid=cellid, modelname=modelname)
 
         self._cached_windows.append(aw2)
@@ -270,8 +276,8 @@ class model_browser(qw.QWidget):
             return
 
         #browse_xform_fit(ctx, xf)
-        ex = EditorWidget(modelspec=ctx['modelspec'], rec=ctx['val'], xfspec=xf,
-                          ctx=ctx, parent=self)
+        ex = editor.EditorWidget(modelspec=ctx['modelspec'], rec=ctx['val'], xfspec=xf,
+                                 ctx=ctx, parent=self)
         ex.show()
         #nplt.quickplot(ctx)
 
@@ -286,8 +292,8 @@ def view_model_recording(cellid="TAR010c-18-2", batch=289,
     signals = ['stim','psth','state','resp','pred','mask']
     #rec = ctx[recname][0].apply_mask()
     rec = ctx[recname][0]
-    aw = browse_recording(rec, signals=signals,
-                         cellid=cellid, modelname=modelname)
+    aw = browser.browse_recording(rec, signals=signals,
+                                  cellid=cellid, modelname=modelname)
     return aw
 
 if __name__ == '__main__':
