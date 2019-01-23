@@ -653,7 +653,8 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5,
                         e, modelspec.set_fit(fit_idx),
                         analysis_function=nems.analysis.api.fit_basic,
                         fitter=scipy_minimize, metric=metric_fn,
-                        tolerance=tolerance, max_iter=700, norm_fir=norm_fir)
+                        tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+                        nl_mode=nl_mode)
         else:
             modelspec = nems.initializers.prefit_LN(
                     est, modelspec,
