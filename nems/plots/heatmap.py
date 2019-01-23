@@ -7,18 +7,21 @@ from scipy.ndimage import zoom
 from nems.plots.timeseries import plot_timeseries
 from nems.utils import find_module
 from nems.modules.fir import pz_coefficients, fir_dexp_coefficients
+from nems.plots.utils import ax_remove_box
 
 log = logging.getLogger(__name__)
 
 
 def plot_heatmap(array, xlabel='Time', ylabel='Channel',
                  ax=None, cmap=None, clim=None, skip=0, title=None, fs=None,
-                 interpolation='none'):
+                 interpolation='none', **options):
     '''
     A wrapper for matplotlib's plt.imshow() to ensure consistent formatting.
     '''
     if ax is not None:
         plt.sca(ax)
+    else:
+        ax = plt.gca()
 
     # Make sure array is converted to ndarray if passed as list
     array = np.array(array)
@@ -53,6 +56,9 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
     # cbar.set_label('Gain')
     if title is not None:
         plt.title(title)
+
+    ax_remove_box(ax)
+    return ax
 
 
 def _get_wc_coefficients(modelspec, idx=0):
@@ -96,24 +102,38 @@ def _get_fir_coefficients(modelspec, idx=0):
     return None
 
 
-def weight_channels_heatmap(modelspec, mod_index=None, ax=None, clim=None, title=None,
+def weight_channels_heatmap(modelspec, idx=None, ax=None, clim=None, title=None,
                             chans=None, wc_idx=0, **options):
-    if mod_index is not None:
+    """
+    :param modelspec: modelspec object
+    :param idx: index into modelspec
+    :param ax:
+    :param clim:
+    :param title:
+    :param chans:
+    :param wc_idx:
+    :param options:
+    :return:
+    """
+    if idx is not None:
         # module has been specified
-        coefficients = _get_wc_coefficients(modelspec[mod_index:], idx=0)
+        coefficients = _get_wc_coefficients(modelspec[idx:], idx=0)
     else:
         # weird old way: get the idx-th set of coefficients
         coefficients = _get_wc_coefficients(modelspec, idx=wc_idx)
+
+    # make bigger dimension horizontal
     if coefficients.shape[0]>coefficients.shape[1]:
-        plot_heatmap(coefficients.T, xlabel='Channel Out', ylabel='Channel In',
+        ax = plot_heatmap(coefficients.T, xlabel='Channel Out', ylabel='Channel In',
                      ax=ax, clim=clim, title=title, cmap='bwr')
     else:
-        plot_heatmap(coefficients, xlabel='Channel In', ylabel='Channel Out',
+        ax = plot_heatmap(coefficients, xlabel='Channel In', ylabel='Channel Out',
                      ax=ax, clim=clim, title=title, cmap='bwr')
     if chans is not None:
         for i, c in enumerate(chans):
             plt.text(i, 0, c)
 
+    return ax
 
 def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None,
                 fir_idx=0, **options):
@@ -230,9 +250,9 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
             plt.text(0, i + nchans + 1, c, verticalalignment='center')
 
 
-def strf_timeseries(modelspec, ax=None, clim=None, show_factorized=True,
+def strf_timeseries(modelspec, ax=None, show_factorized=True,
                     show_fir_only=True,
-                    title=None, fs=1, chans=None, **options):
+                    title=None, fs=1, chans=None, colors=None, **options):
     """
     chans: list
        if not None, label each row of the strf with the corresponding
@@ -255,11 +275,25 @@ def strf_timeseries(modelspec, ax=None, clim=None, show_factorized=True,
         else:
             strf = fir_coefs
 
-    times = np.arange(strf.shape[1])/fs
-    _,strf_h=plot_timeseries([times], [strf.T], xlabel='Time lag', ylabel='Gain',
+    times = [np.arange(strf.shape[1])/fs] * strf.shape[0]
+    filters = [strf[i] for i in range(strf.shape[0])]
+    if colors is None:
+        if strf.shape[0] == 1:
+            colors = [[0, 0, 0]]
+        elif strf.shape[0] == 2:
+            colors = [[254 / 255, 15 / 255, 6 / 255],
+                      [129 / 255, 201 / 255, 224 / 255]
+                      ]
+        elif strf.shape[0] == 3:
+            colors = [[254/255, 15/255, 6/255],
+                      [217/255, 217/255, 217/255],
+                      [129/255, 201/255, 224/255]
+                      ]
+
+    _,strf_h=plot_timeseries(times, filters, xlabel='Time lag', ylabel='Gain',
                     legend=chans, linestyle='-', linewidth=1,
-                    ax=ax, title=title)
-    plt.plot(times[[0, len(times)-1]], np.array([0, 0]), linewidth=0.5, color='gray')
+                    ax=ax, title=title, colors=colors)
+    plt.plot(times[0][[0, len(times[0])-1]], np.array([0, 0]), linewidth=0.5, color='gray')
     
     if show_factorized and not show_fir_only:
         wcN=wcc.shape[0]
@@ -277,5 +311,4 @@ def strf_timeseries(modelspec, ax=None, clim=None, show_factorized=True,
         plt.legend(strf_h+fir_h,strf_l+fir_l, loc=1,fontsize='x-small')
         ax.set_xticks(np.hstack((np.arange(-1*wcN,0),np.arange(0,len(times)+1,2))))
         ax.set_xticklabels(np.hstack((np.arange(1,wcN+1),np.arange(0,len(times)+1,2))))
-        
 

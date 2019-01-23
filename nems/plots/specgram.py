@@ -3,6 +3,7 @@ import scipy as scp
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from nems.plots.utils import ax_remove_box
 
 
 def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
@@ -43,6 +44,7 @@ def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
     if title:
         ax.set_title(title)
 
+    ax_remove_box(ax)
     return ax
 
 def spectrogram_from_signal(signal, title=None, ax=None):
@@ -89,11 +91,20 @@ def spectrogram(rec, stim_name='stim', ax=None, title=None, **options):
 def pred_spectrogram(stim_name='pred', **options):
     """
     wrapper for spectrogram, forces stim_name to be pred. other **options passed through
-    :param rec:
     :param stim_name:
-    :param ax:
-    :param title:
-    :param options:
+    :param options: passed through to spectrogram
+    :return:
+    """
+    ax = spectrogram(stim_name=stim_name, **options)
+
+    return ax
+
+
+def resp_spectrogram(stim_name='resp', **options):
+    """
+    wrapper for spectrogram, forces stim_name to be resp. other **options passed through
+    :param stim_name:
+    :param options: passed through to spectrogram
     :return:
     """
     ax = spectrogram(stim_name=stim_name, **options)

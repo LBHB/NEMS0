@@ -1,5 +1,3 @@
-#import matplotlib
-#matplotlib.use('Qt5Agg')
 import sys
 import copy
 import json
@@ -12,7 +10,7 @@ import PyQt5.QtGui as qg
 
 from nems import xforms
 from nems.gui.models import ArrayModel
-from nems.gui.canvas import MyMplCanvas, EpochCanvas
+from nems.gui.canvas import NemsCanvas, EpochCanvas
 from nems.modelspec import _lookup_fn_at
 import nems.db as nd
 
@@ -22,6 +20,7 @@ log = logging.getLogger(__name__)
 # by the slider.
 _SCROLLABLE_PLOT_FNS = [
     'nems.plots.api.strf_timeseries',
+    'nems.plots.api.state_vars_timeseries',
     'nems.plots.api.before_and_after',
     'nems.plots.api.pred_resp',
     'nems.plots.api.spectrogram_output',
@@ -45,14 +44,39 @@ _FIT_FNS = [
 # TODO: add backwards compatibility shim to add plot_fns, plot_fn_idx etc to
 #       old modelspecs if none of the modules have those specified.
 
-# TODO: Switch modelspec, xfspec etc. references to all just point to EditorWidget copy
-#       instead of making separate copies. Then all updates can use the most convenient
+# TODO: Switch modelspec, xfspec etc. references to all just point to
+#       EditorWidget copy instead of making separate copies.
+#       Then all updates can use the most convenient
 #       pointer instead of needing to call parent.parent.parent.modelspec
 
-
 class EditorWindow(qw.QMainWindow):
+
     def __init__(self, modelspec=None, xfspec=None, rec=None, ctx=None,
                  rec_name='val'):
+        '''
+        Main Window wrapper for NEMS model editor GUI.
+        Allows browsing and editing of fitted model parameters,
+        xforms spec options (TODO), plotting data on a per-module
+        basis, and manual initializion & fitting with adjustable
+        iteration counts.
+
+        Parameters
+        ----------
+        modelspec : ModelSpec
+            A NEMS ModelSpec containing at least one module.
+        xfspec : nested list
+            A NEMS xforms spec (see nems.xforms) containing at least one step.
+        rec : Recording
+            A NEMS Recording, generally expected to contain 'stim', 'resp',
+            and 'pred' signals.
+        ctx : dict
+            A NEMS context dictionary (see nems.xforms)
+        rec_name : str
+            Key used to set rec from ctx instead of passing rec directly,
+            e.x. 'val' or 'est'.
+
+
+        '''
         super(qw.QMainWindow, self).__init__()
         self.title = 'NEMS Model Browser'
         if (modelspec is None) and (ctx is not None):
@@ -66,8 +90,25 @@ class EditorWindow(qw.QMainWindow):
 
 
 class EditorWidget(qw.QWidget):
+
     def __init__(self, modelspec=None, xfspec=None, rec=None, ctx=None,
                  parent=None):
+        '''
+        Parameters
+        ----------
+        modelspec : ModelSpec
+            A NEMS ModelSpec containing at least one module.
+        xfspec : nested list
+            A NEMS xforms spec (see nems.xforms) containing at least one step.
+        rec : Recording
+            A NEMS Recording, generally expected to contain 'stim', 'resp',
+            and 'pred' signals.
+        ctx : dict
+            A NEMS context dictionary (see nems.xforms).
+        parent : QWidget*
+            Expected to be an instance of EditorWindow.
+
+        '''
         super(qw.QWidget, self).__init__()
         self.xfspec = xfspec
         self.modelspec = modelspec
@@ -81,10 +122,16 @@ class EditorWidget(qw.QWidget):
         self.modelspec = modelspec
         self.rec = rec
         self.title = 'NEMS Model Browser'
+        # By default, start with xfspec steps hidden but all other
+        # controls showing.
         self.modules_collapsed = False
         self.xfsteps_collapsed = True
         self.bottom_collapsed = False
 
+        # Layout is split up into:
+        # First row: ModelspecEditor (left), XfspecEditor (right)
+        # Second row: GlobalControls (left), FitEditor (right)
+        # Third row: Bottom collapser
         outer_layout = qw.QVBoxLayout()
         row_one_layout = qw.QHBoxLayout()
         row_two_layout = qw.QHBoxLayout()
@@ -102,8 +149,6 @@ class EditorWidget(qw.QWidget):
         # canvases to fill the layout properly.
         self.modelspec_editor.adjust_initial_plots()
         self.modelspec_editor.epochs.setup_figure()
-        # for c in self.modelspec_editor.controllers:
-        #     c.layout.setContentsMargins(0, 0, 0, 0)
 
         self.setup_module_collapser()
         self.setup_xfstep_collapser()
@@ -127,6 +172,7 @@ class EditorWidget(qw.QWidget):
         self.show()
 
     def set_new_modelspec(self, new):
+        '''Update modelspec references to new and evaluate it.'''
         self.modelspec = new
         self.ctx['modelspec'] = new
         self.modelspec.recording = self.rec
@@ -135,6 +181,7 @@ class EditorWidget(qw.QWidget):
         self.modelspec_editor.evaluate_model()
 
     def setup_module_collapser(self):
+        '''Add button to left of ModelspecEditor for hiding module controls.'''
         self.module_collapser_layout = qw.QVBoxLayout()
 
         self.module_collapser = qw.QToolButton(self)
@@ -148,6 +195,7 @@ class EditorWidget(qw.QWidget):
         self.module_collapser_layout.addWidget(self.module_collapser)
 
     def setup_xfstep_collapser(self):
+        '''Add button to right of XfspecEditor for hiding xfstep controls.'''
         self.xfstep_collapser_layout = qw.QVBoxLayout()
 
         self.xfstep_collapser = qw.QToolButton(self)
@@ -161,6 +209,7 @@ class EditorWidget(qw.QWidget):
         self.xfstep_collapser_layout.addWidget(self.xfstep_collapser)
 
     def setup_bottom_collapser(self):
+        '''Add button to bottom of window for hiding Global and Fit controls.'''
         self.bottom_collapser_layout = qw.QHBoxLayout()
 
         self.bottom_collapser = qw.QToolButton(self)
@@ -174,6 +223,7 @@ class EditorWidget(qw.QWidget):
         self.bottom_collapser_layout.addWidget(self.bottom_collapser)
 
     def toggle_module_controls(self):
+        '''Hide module controls if visible, or show them if hidden.'''
         if self.modules_collapsed:
             self.show_module_controls()
         else:
@@ -181,6 +231,7 @@ class EditorWidget(qw.QWidget):
         self.modules_collapsed = not self.modules_collapsed
 
     def hide_module_controls(self):
+        '''Make module controls invisible.'''
         collapsers = self.modelspec_editor.collapsers
         controllers = self.modelspec_editor.controllers
         for col, con in zip(collapsers, controllers):
@@ -188,6 +239,7 @@ class EditorWidget(qw.QWidget):
         self.module_collapser.setArrowType(qc.Qt.RightArrow)
 
     def show_module_controls(self):
+        '''Make module controls visible.'''
         collapsers = self.modelspec_editor.collapsers
         controllers = self.modelspec_editor.controllers
         for col, con in zip(collapsers, controllers):
@@ -196,6 +248,7 @@ class EditorWidget(qw.QWidget):
         self.module_collapser.setArrowType(qc.Qt.LeftArrow)
     
     def toggle_xfstep_controls(self):
+        '''Hide xfstep controls if visible, or show them if hidden.'''
         if self.xfsteps_collapsed:
             self.show_xfstep_controls()
         else:
@@ -203,16 +256,19 @@ class EditorWidget(qw.QWidget):
         self.xfsteps_collapsed = not self.xfsteps_collapsed
 
     def hide_xfstep_controls(self):
+        '''Make xfstep controls invisible.'''
         for s in self.xfspec_editor.steps:
             s.hide()
         self.xfstep_collapser.setArrowType(qc.Qt.LeftArrow)
 
     def show_xfstep_controls(self):
+        '''Make xfstep controls visible.'''
         for s in self.xfspec_editor.steps:
             s.show()
         self.xfstep_collapser.setArrowType(qc.Qt.RightArrow)
 
     def toggle_bottom_controls(self):
+        '''Hide Global and Fit controls if visible, or show them if hidden.'''
         if self.bottom_collapsed:
             self.fit_editor.show()
             self.global_controls.toggle_controls()
@@ -226,15 +282,38 @@ class EditorWidget(qw.QWidget):
 
 class ModelspecEditor(qw.QWidget):
     def __init__(self, modelspec, rec, parent=None):
+        '''
+        QWidget for displaying per-module plots and editing model parameters.
+
+        modelspec : ModelSpec
+            A NEMS ModelSpec containing at least one module.
+        rec : Recording
+            A NEMS Recording, generally expected to contain 'stim', 'resp',
+            and 'pred' signals.
+        parent : QWidget*
+            Expected to be an instance of EditorWidget.
+
+        '''
         super(qw.QWidget, self).__init__()
         self.modelspec = modelspec
         self.original_modelspec = copy.deepcopy(modelspec)
         self.rec = rec
         self.parent = parent
+        self.modules = []
 
     def setup_layout(self):
+        '''
+        Create a new layout with collapsers, controllers and plots
+
+        Start a grid layout with an EpochsCollapser and EpochsWrapper
+        on the first row.
+        Then, for each module in self.modelspec, create a row with:
+        [ModuleCollapser, ModuleController, ModuleCanvas],
+        and add it to the grid layout.
+
+        '''
         self.layout = qw.QGridLayout()
-        self.modules = [ModuleEditor(i, m, self)
+        self.modules = [ModuleCanvas(i, m, self)
                         for i, m in enumerate(self.modelspec.modules)]
         self.controllers = [ModuleControls(m, self) for m in self.modules]
         self.collapsers = [ModuleCollapser(m, self) for m in self.modules]
@@ -261,31 +340,59 @@ class ModelspecEditor(qw.QWidget):
         self.setLayout(self.layout)
 
     def adjust_initial_plots(self):
+        '''Regenerate plot for each module.'''
         for m in self.modules:
             m.new_plot()
 
-    def evaluate_model(self, first_changed_module=0):
-        # TODO: Fix issues with first_changed_module.
-        new_rec = self.parent.modelspec.evaluate()#start=first_changed_module)
+    def evaluate_model(self):
+        '''Evaluate modelspec and regenerate plots using updated recording.'''
+        new_rec = self.parent.modelspec.evaluate()
         self.parent.modelspec.recording = new_rec
         self.modelspec.recording = new_rec
         for m in self.modules:
             m.new_plot()
 
     def reset_model(self):
+        '''Reassign modelspec to original copy and regenerate layout.'''
         self.modelspec = copy.deepcopy(self.original_modelspec)
         self.clear_layout()
         self.setup_layout()
+        self.adjust_initial_plots()
+        self.epochs.setup_figure()
 
     def clear_layout(self):
         temp = qw.QWidget()
         temp.setLayout(self.layout)
 
 
-# TODO: This shouldn't really be called ModuleEditor anymore.
-#       ModuleCanvas might be more appropriate.
-class ModuleEditor(qw.QFrame):
+class ModuleCanvas(qw.QFrame):
+
     def __init__(self, mod_index, data, parent):
+        '''
+        QWidget for dispalying a module plot
+
+        Parameters
+        ----------
+        mod_index : int
+            Index of this canvas's module within parent editor's ModelSpec
+        data : dict
+            A single module from a NEMS ModelSpec.
+        parent : QWidget*
+            Expected to be an instance of ModelspecEditor.
+
+        Attributes
+        ----------
+        plot_fn_idx : int
+            Index for plot_fns list in data to use for choosing a plot type.
+        fit_index : int
+            fit_index from parent editor's modelspec.
+        sig_name : str
+            Name of signal to use for plotting.
+        scrollable : boolean
+            Determines whether or not plot can be scrolled in time by
+            the GlobalControls slider.
+
+        '''
         super(qw.QFrame, self).__init__()
         self.mod_index = mod_index
         self.parent = parent
@@ -304,12 +411,11 @@ class ModuleEditor(qw.QFrame):
         self.layout.setAlignment(qc.Qt.AlignTop)
         self.setLayout(self.layout)
 
-        #self.new_plot()
-
     def new_plot(self):
+        '''Remove plot from layout and replace it with a new one.'''
         self.layout.removeWidget(self.canvas)
         self.canvas.close()
-        self.canvas = MyMplCanvas(parent=self)
+        self.canvas = NemsCanvas(parent=self)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.plot_on_axes()
         self.layout.addWidget(self.canvas)
@@ -317,6 +423,7 @@ class ModuleEditor(qw.QFrame):
         self.update_plot()
 
     def plot_on_axes(self):
+        '''Draw plot on current canvas axes.'''
         ax = self.canvas.figure.add_subplot(111)
         rec = self.parent.modelspec.recording
         self.parent.modelspec.plot(self.mod_index, rec, ax,
@@ -325,6 +432,7 @@ class ModuleEditor(qw.QFrame):
         self.canvas.draw()
 
     def check_scrollable(self):
+        '''Set self.scrollable based on if current plot type is scrollable.'''
         plots = self.parent.modelspec[self.mod_index].get(
                 'plot_fns', ['nems.plots.api.mod_output']
                 )
@@ -336,6 +444,7 @@ class ModuleEditor(qw.QFrame):
         return scrollable
 
     def update_plot(self):
+        '''Shift xlimits of current plot if it's scrollable.'''
         if self.scrollable:
             gc = self.parent.parent.global_controls
             self.canvas.axes.set_xlim(gc.start_time, gc.stop_time)
@@ -345,12 +454,15 @@ class ModuleEditor(qw.QFrame):
 
 
 class EpochsWrapper(qw.QFrame):
+
     def __init__(self, recording=None, parent=None):
+        '''Adds a layout around an EpochCanvas to match ModuleCanvas.'''
         super(qw.QFrame, self).__init__()
         self.recording = recording
         self.epoch_parent = parent
 
     def setup_figure(self):
+        '''Create a layout and add an EpochCanvas.'''
         self.layout = qw.QVBoxLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.epochs = EpochCanvas(recording=self.recording,
@@ -360,11 +472,14 @@ class EpochsWrapper(qw.QFrame):
         self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Sunken)
 
     def update_figure(self):
+        '''Shifts xlim of epoch plot according to GlobalControls slider.'''
         self.epochs.update_figure()
 
 
 class ModuleCollapser(qw.QWidget):
+
     def __init__(self, module, parent):
+        '''Button for controlling visibility of associated module in editor.'''
         super(qw.QWidget, self).__init__()
         self.module = module
         self.controller = parent.controllers[module.mod_index]
@@ -379,33 +494,25 @@ class ModuleCollapser(qw.QWidget):
         layout.addWidget(self.toggle)
         layout.setAlignment(qc.Qt.AlignTop)
         self.setLayout(layout)
-        self.expand_margins()
 
     def toggle_collapsed(self):
+        '''Toggle visibility of ModuleCanvas and ModuleController.'''
         if self.collapsed:
             self.module.show()
             if not self.parent.parent.modules_collapsed:
                 self.controller.show()
             self.toggle.setText('-')
-            #self.expand_margins()
         else:
             self.module.hide()
             self.controller.hide()
             self.toggle.setText('+')
-            #self.shrink_margins()
         self.collapsed = not self.collapsed
-
-    def shrink_margins(self):
-        self.controller.layout.setContentsMargins(0,0,0,0)
-        self.module.layout.setContentsMargins(0,0,0,0)
-
-    def expand_margins(self):
-        self.controller.layout.setContentsMargins(10,10,10,10)
-        self.module.layout.setContentsMargins(10,10,10,10)
 
 
 class EpochsCollapser(qw.QWidget):
+
     def __init__(self, epochs, parent):
+        '''Button for controlling visibility of EpochsWrapper.'''
         super(qw.QWidget, self).__init__()
         self.epochs = epochs
         self.parent = parent
@@ -421,6 +528,7 @@ class EpochsCollapser(qw.QWidget):
         self.setLayout(layout)
 
     def toggle_collapsed(self):
+        '''Toggle visibility of EpochsWrapper.'''
         if self.collapsed:
             self.epochs.show()
             self.toggle.setText('-')
@@ -431,7 +539,9 @@ class EpochsCollapser(qw.QWidget):
 
 
 class ModuleControls(qw.QFrame):
+
     def __init__(self, module, parent=None):
+        '''QWidget for choosing module plot type and editing parameters.'''
         super(qw.QFrame, self).__init__()
         self.module = module
         self.parent = parent
@@ -479,14 +589,17 @@ class ModuleControls(qw.QFrame):
         self.setLayout(self.layout)
 
     def change_plot(self, index):
+        '''Change plot type according to plot_fn_idx and regenerate plot.'''
         self.module.plot_fn_idx = int(index)
         self.module.new_plot()
 
     def edit_phi(self):
+        '''Show PhiEditor and 'Save Phi' button.'''
         self.phi_editor.show()
         self.save_phi_btn.show()
 
     def save_phi(self):
+        '''Save phi values in PhiEditor and hide 'Save Phi' button.'''
         new_phi = self.phi_editor.export_phi()
         if not self.phi_equal(new_phi):
             need_evaluate = True
@@ -497,15 +610,18 @@ class ModuleControls(qw.QFrame):
         self.phi_editor.hide()
         self.save_phi_btn.hide()
 
+        # Only re-evaluate if phi has changed from previous version.
         if need_evaluate:
-            self.parent.evaluate_model(first_changed_module=self.mod_index)
+            self.parent.evaluate_model()
             self.module_data['phi'] = copy.deepcopy(new_phi)
 
     def reset_phi(self):
+        '''Set all phi for this module to original values.'''
         self.phi_editor.reset_phi()
         self.save_phi()
 
     def phi_equal(self, phi2):
+        '''Test equality of module phi and phi2.'''
         equal = True
         phi1 = self.parent.modelspec[self.mod_index]['phi']
         for v1, v2 in zip(phi1.values(), phi2.values()):
@@ -516,7 +632,9 @@ class ModuleControls(qw.QFrame):
 
 
 class PhiEditor(qw.QWidget):
+
     def __init__(self, phi, parent):
+        '''QWidget for editing module parameters.'''
         super(qw.QWidget, self).__init__(parent)
         self.phi = phi
         self.original_phi = copy.deepcopy(phi)
@@ -525,6 +643,7 @@ class PhiEditor(qw.QWidget):
         self.setup_layout()
 
     def setup_layout(self):
+        '''Add a layout with an ArrayModel for each phi entry.'''
         self.layout = qw.QFormLayout()
         self.arrays = {}
         for k, v in self.phi.items():
@@ -537,6 +656,7 @@ class PhiEditor(qw.QWidget):
         self.setLayout(self.layout)
 
     def reset_phi(self):
+        '''Reset all phi entries to their original values.'''
         self.phi = copy.deepcopy(self.original_phi)
         # remove old layout
         temp = qw.QWidget()
@@ -545,11 +665,14 @@ class PhiEditor(qw.QWidget):
         self.setup_layout()
 
     def export_phi(self):
+        '''Return all phi entries and their current values as a dict.'''
         return {k: v.export_array() for k, v in self.arrays.items()}
 
 
 class XfspecEditor(qw.QWidget):
+
     def __init__(self, xfspec, parent=None):
+        '''(TODO)QWidget for editing xfspec options and toggling steps.'''
         super(qw.QWidget, self).__init__()
         self.xfspec = xfspec
         self.original_xfspec = copy.deepcopy(xfspec)
@@ -566,24 +689,22 @@ class XfspecEditor(qw.QWidget):
         self.setLayout(self.outer_layout)
 
     def filtered_xfspec(self):
+        '''Return a nested list containing only xfsteps that are checked.'''
         checks = [s.checked for s in self.steps]
         x = [s for s, c in zip(self.xfspec, checks) if c]
         return x
 
 
 class XfStepEditor(qw.QFrame):
+
     def __init__(self, index, step, parent):
+        '''(TODO)QWidget for editing the parameters of one xforms step.'''
         super(qw.QFrame, self).__init__()
         self.index = index
         self.step = step
         self.parent = parent
         self.checked = True
         self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Raised)
-
-        # need to be able to turn steps on and off
-        # need to be able to get and set values from the step (which should
-        # be a list of either 2 or 4 items)
-        # need to propagate updates back to parent xfspec
 
         layout = qw.QVBoxLayout()
         self.checkbox = qw.QCheckBox(self.step[0], self)
@@ -597,14 +718,16 @@ class XfStepEditor(qw.QFrame):
 
 
 class GlobalControls(qw.QFrame):
+
     start_time = 0
     display_duration = 10.0
     minimum_duration = 0.001
     stop_time = 10
     slider_scaling = 6
-    max_time = 10000
+    max_time = 5000  # Larger value -> smoother scrolling
 
     def __init__(self, parent):
+        '''QWidget for controlling cell_index, fit_index, and plot xlims.'''
         super(qw.QFrame, self).__init__()
         self.parent = parent
         self.collapsed = False
@@ -619,8 +742,15 @@ class GlobalControls(qw.QFrame):
         self.time_slider.setRange(0, self.max_time)
         self.time_slider.setRepeatAction(200, 2)
         self.time_slider.setSingleStep(1)
-        #self.time_slider.setTickInterval(1)  # for use with QSlider
         self.time_slider.valueChanged.connect(self.scroll_all)
+
+        # Set stim/resp channel to display for population models
+        self.display_channel = qw.QLineEdit()
+        self.display_channel.setValidator(
+                qg.QIntValidator(0, 1000)
+                )
+        self.display_channel.editingFinished.connect(self.set_display_range)
+        self.display_channel.setText(str(self.parent.modelspec.plot_channel))
 
         # Set zoom / display range for plot views
         self.display_range = qw.QLineEdit()
@@ -637,7 +767,7 @@ class GlobalControls(qw.QFrame):
         minus.clicked.connect(self.decrement_display_range)
         self.range_layout = qw.QHBoxLayout()
         self.range_layout.setAlignment(qc.Qt.AlignTop)
-        [self.range_layout.addWidget(w) for w in [self.display_range, plus, minus]]
+        [self.range_layout.addWidget(w) for w in [self.display_channel, self.display_range, plus, minus]]
 
         self.buttons_layout = qw.QHBoxLayout()
         self.buttons_layout.setAlignment(qc.Qt.AlignTop)
@@ -665,28 +795,37 @@ class GlobalControls(qw.QFrame):
         self.setLayout(layout)
 
         #self._update_range()
+        self.time_slider.setRange(0, self.max_time-self.display_duration)
+        self.time_slider.setSingleStep(int(np.ceil(self.display_duration/10)))
+        self.time_slider.setPageStep(int(self.display_duration))
 
-    # Plot window adjustments
+
     def scroll_all(self):
-        self.start_time = self.time_slider.value()/self.slider_scaling
+        '''Update xlims for all plots based on slider value.'''
+        #self.start_time = self.time_slider.value()/self.slider_scaling
+        self.start_time = self.time_slider.value()
         self.stop_time = self.start_time + self.display_duration
 
         # don't go past the latest time of the biggest plot
         # (should all have the same max most of the time)
-        self._update_max_time()
-        if self.stop_time >= self.max_signal_time:
-            self.stop_time = self.max_signal_time
-            self.start_time = max(0, self.max_signal_time - self.display_duration)
+        #self._update_max_time()
+        #if self.stop_time >= self.max_signal_time:
+        #    self.stop_time = self.max_signal_time
+        #    self.start_time = max(0, self.max_signal_time - self.display_duration)
+        #    #self.time_slider.setValue(0)
 
         [m.update_plot() for m in self.parent.modelspec_editor.modules]
-        self.parent.modelspec_editor.epochs.update_figure()
+        if len(self.parent.modelspec_editor.modules):
+            self.parent.modelspec_editor.epochs.update_figure()
 
     def _update_max_time(self):
         resp = self.parent.rec.apply_mask()['resp']
         self.max_time = resp.as_continuous().shape[-1] / resp.fs
-        self.max_signal_time = resp.as_continuous().shape[-1] / resp.fs
+        self.max_signal_time = self.max_time
+        self._update_range()
         #self.time_slider.setTickInterval(self.max_time/100)
-        self.slider_scaling = self.max_time/(self.max_signal_time - self.display_duration)
+        #self.time_slider.setRange(0, self.max_time-self.display_duration)
+        #self.slider_scaling = self.max_time/(self.max_signal_time - self.display_duration)
 
     def tap_right(self):
         self.time_slider.set_value(
@@ -704,6 +843,7 @@ class GlobalControls(qw.QFrame):
             print("Duration not set to a valid value. Please enter a"
                   "a number > 0")
             return
+        self.parent.modelspec.plot_channel = int(self.display_channel.text())
         self.display_duration = duration
         self._update_range()
 
@@ -767,7 +907,9 @@ class GlobalControls(qw.QFrame):
 
 
 class FitEditor(qw.QFrame):
+
     def __init__(self, parent):
+        '''QWidget for manually initializing and fitting modelspec.'''
         super(qw.QFrame, self).__init__()
         self.parent = parent
         self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Raised)

@@ -431,21 +431,22 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
 
     # compute spont rate during valid (non-masked) trials
     if 'mask' in newrec.signals.keys():
-        prestimsilence = resp.extract_epoch('PreStimSilence',
-                                            mask=newrec['mask'])
+        mask = newrec['mask']
     else:
-        prestimsilence = resp.extract_epoch('PreStimSilence')
+        mask = None
+
+    prestimsilence = resp.extract_epoch('PreStimSilence', mask=mask)
 
     if len(prestimsilence.shape) == 3:
         spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
     else:
         spont_rate = np.nanmean(prestimsilence)
 
-    preidx = resp.get_epoch_indices('PreStimSilence')
+    preidx = resp.get_epoch_indices('PreStimSilence', mask=mask)
     dpre=preidx[:,1]-preidx[:,0]
     minpre=np.min(dpre)
     prebins = preidx[0][1] - preidx[0][0]
-    posidx = resp.get_epoch_indices('PostStimSilence')
+    posidx = resp.get_epoch_indices('PostStimSilence', mask=mask)
     dpos=posidx[:,1]-posidx[:,0]
     minpos=np.min(dpre)
     postbins = posidx[0][1] - posidx[0][0]
@@ -463,7 +464,7 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', smooth_resp=False):
 
     for ename in epochs_to_extract:
         ematch = np.argwhere(resp.epochs['name']==ename)
-        ff = resp.get_epoch_indices(ename)
+        ff = resp.get_epoch_indices(ename, mask=mask)
         for i,fe in enumerate(ff):
             re = ((resp.epochs['name']=='REFERENCE') &
                   (resp.epochs['start']==fe[0]/resp.fs))

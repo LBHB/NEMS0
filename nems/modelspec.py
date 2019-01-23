@@ -53,6 +53,7 @@ class ModelSpec:
         self.mod_index = 0
         self.plot_epoch = 'REFERENCE'
         self.plot_occurrence = 0
+        self.plot_channel = 0   # channel of pred/resp to plot in timeseries (for population models)
         self.recording = recording  # default recording for evaluation & plotting
 
     def __getitem__(self, key):
@@ -194,11 +195,10 @@ class ModelSpec:
 
         if rec is None:
             rec = self.recording
-
         plot_fn = self.plot_fn(mod_index=mod_index, plot_fn_idx=plot_fn_idx,
                                fit_index=fit_index)
         plot_fn(rec=rec, modelspec=self, sig_name=sig_name, idx=mod_index,
-                ax=ax, **options)
+                channels=self.plot_channel, ax=ax, **options)
 
     def quickplot(self, rec=None):
 

@@ -552,7 +552,7 @@ def dexp(kw):
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.nl_scatter'],
-        'plot_fn_idx': 1,
+        'plot_fn_idx': 3,
         'prior': {'base': ('Normal', {'mean': base_mean, 'sd': base_sd}),
                   'amplitude': ('Normal', {'mean': amp_mean, 'sd': amp_sd}),
                   'shift': ('Normal', {'mean': shift_mean, 'sd': shift_sd}),
@@ -791,6 +791,8 @@ def relu(kw):
                       'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
                      'nems.plots.api.pred_resp',
+                     'nems.plots.api.resp_spectrogram',
+                     'nems.plots.api.pred_spectrogram',
                      'nems.plots.api.before_and_after'],
         'plot_fn_idx': 1
     }
@@ -819,17 +821,25 @@ def stategain(kw):
 
     Options
     -------
+        .g -- gain only (no dc term)
     None
     '''
     options = kw.split('.')
     in_out_pattern = re.compile(r'^(\d{1,})x(\d{1,})$')
+
     try:
         parsed = re.match(in_out_pattern, options[1])
-        n_vars = int(parsed.group(1))
-        if len(parsed.groups())>1:
-            n_chans = int(parsed.group(2))
-        else:
+        if parsed is None:
+            # backward compatible parsing if R not specified
+            n_vars = int(options[1])
             n_chans = 1
+
+        else:
+            n_vars = int(parsed.group(1))
+            if len(parsed.groups())>1:
+                n_chans = int(parsed.group(2))
+            else:
+                n_chans = 1
 
 #    pattern = re.compile(r'^stategain\.?(\d{1,})x(\d{1,})$')
 #    parsed = re.match(pattern, kw)
@@ -846,7 +856,7 @@ def stategain(kw):
     except TypeError:
         raise ValueError("Got TypeError when parsing stategain keyword.\n"
                          "Make sure keyword is of the form: \n"
-                         "stategain.{n_variables} \n"
+                         "stategain.{n_variables} or stategain.{n_variables}x{n_chans} \n"
                          "keyword given: %s" % kw)
 
     gain_only=False

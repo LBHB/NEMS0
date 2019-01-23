@@ -112,7 +112,9 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
     if modelspec.meta.get('modelpath') is None:
         results_dir = get_setting('NEMS_RESULTS_DIR')
         batch = modelspec.meta.get('batch', 0)
-        cellid = modelspec.meta.get('cellid', 'CELL')
+        exptid = modelspec.meta.get('exptid', 'DATA')
+        siteid = modelspec.meta.get('siteid', exptid)
+        cellid = modelspec.meta.get('cellid', siteid)
         destination = '{0}/{1}/{2}/{3}/'.format(
             results_dir, batch, cellid, modelspec.get_longname())
         modelspec.meta['modelpath'] = destination

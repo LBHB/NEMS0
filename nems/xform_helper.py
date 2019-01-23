@@ -1,9 +1,10 @@
 import logging
-import importlib as imp
+import os
 
 import nems.xforms as xforms
+import nems.db as nd
 from nems import get_setting
-from nems.utils import escaped_split
+from nems.utils import escaped_split, escaped_join
 from nems.registry import KeywordRegistry
 from nems.plugins import (default_keywords, default_loaders, default_fitters,
                           default_initializers)
@@ -126,6 +127,120 @@ def fit_xfspec(xfspec):
     # (all packaged up in the ctx dictionary).
     ctx, log_xf = xforms.evaluate(xfspec)
     return ctx
+
+
+def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False):
+    """
+    Fit a single NEMS model using data stored in database. First generates an xforms
+    script based on modelname parameter and then evaluates it.
+    :param cellid: cellid and batch specific dataset in database
+    :param batch:
+    :param modelname: string specifying model architecture, preprocessing
+    and fit method
+    :param autoPlot: generate summary plot when complete
+    :param saveInDB: save results to Results table
+    :return: savepath = path to saved results
+    """
+
+    log.info('Initializing modelspec(s) for cell/batch %s/%d...',
+             cellid, int(batch))
+
+    # Segment modelname for meta information
+    kws = escaped_split(modelname, '_')
+
+    modelspecname = escaped_join(kws[1:-1], '-')
+    loadkey = kws[0]
+    fitkey = kws[-1]
+
+    meta = {'batch': batch, 'cellid': cellid, 'modelname': modelname,
+            'loader': loadkey, 'fitkey': fitkey, 'modelspecname': modelspecname,
+            'username': 'nems', 'labgroup': 'lbhb', 'public': 1,
+            'githash': os.environ.get('CODEHASH', ''),
+            'recording': loadkey}
+
+    # registry_args = {'cellid': cellid, 'batch': int(batch)}
+    registry_args = {}
+    xforms_init_context = {'cellid': cellid, 'batch': int(batch)}
+
+    log.info("TODO: simplify generate_xforms_spec parameters")
+    xfspec = generate_xforms_spec(recording_uri=None, modelname=modelname,
+                                  meta=meta,  xforms_kwargs=registry_args,
+                                  xforms_init_context=xforms_init_context)
+    log.info(xfspec)
+
+    # actually do the loading, preprocessing, fit
+    ctx, log_xf = xforms.evaluate(xfspec)
+
+    # save some extra metadata
+    modelspec = ctx['modelspec']
+
+    # this code may not be necessary any more.
+    destination = '{0}/{1}/{2}/{3}'.format(
+        get_setting('NEMS_RESULTS_DIR'), batch, cellid, modelspec.get_longname())
+    modelspec.meta['modelpath'] = destination
+    modelspec.meta['figurefile'] = destination+'figure.0000.png'
+    modelspec.meta.update(meta)
+
+    # save results
+    log.info('Saving modelspec(s) to {0} ...'.format(destination))
+    save_data = xforms.save_analysis(destination,
+                                     recording=ctx['rec'],
+                                     modelspec=modelspec,
+                                     xfspec=xfspec,
+                                     figures=ctx['figures'],
+                                     log=log_xf)
+
+    # save in database as well
+    if saveInDB:
+        nd.update_results_table(modelspec)
+
+    return save_data['savepath']
+
+
+def load_model_xform(cellid, batch=271,
+        modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",
+        eval_model=True, only=None):
+    '''
+    Load a model that was previously fit via fit_model_xforms
+
+    Parameters
+    ----------
+    cellid : str
+        cellid in celldb database
+    batch : int
+        batch number in celldb database
+    modelname : str
+        modelname in celldb database
+    eval_model : boolean
+        If true, the entire xfspec will be re-evaluated after loading.
+    only : int
+        Index of single xfspec step to evaluate if eval_model is False.
+        For example, only=0 will typically just load the recording.
+
+    Returns
+    -------
+    xfspec, ctx : nested list, dictionary
+
+    '''
+
+    kws = escaped_split(modelname, '_')
+    old = False
+    if (len(kws) > 3) or ((len(kws) == 3) and kws[1].startswith('stategain')
+                          and not kws[1].startswith('stategain.')):
+        # Check if modelname uses old format.
+        log.info("Using old modelname format ... ")
+        old = True
+
+    d = nd.get_results_file(batch, [modelname], [cellid])
+    filepath = d['modelpath'][0]
+
+    if old:
+        raise NotImplementedError("need to use oxf library.")
+        xfspec, ctx = oxf.load_analysis(filepath, eval_model=eval_model)
+    else:
+        xfspec, ctx = xforms.load_analysis(filepath, eval_model=eval_model,
+                                           only=only)
+    return xfspec, ctx
 
 
 def _parse_kw_string(kw_string, registry):

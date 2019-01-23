@@ -14,10 +14,8 @@ from sqlalchemy.ext.automap import automap_base
 import pandas.io.sql as psql
 import sqlite3
 
-#import nems_db.util
 import nems
 from nems import get_setting
-#from nems_db import get_setting
 from nems.utils import recording_filename_hash
 
 log = logging.getLogger(__name__)
@@ -26,7 +24,6 @@ __ENGINE__ = None
 
 ###### Functions for establishing connectivity, starting a session, or
 ###### referencing a database table
-
 
 def Engine():
     '''Returns a mysql engine object. Creates the engine if necessary.
@@ -132,7 +129,7 @@ def _get_db_uri():
     return db_uri
 
 
-def pd_query(sql=None, params=()):
+def pd_query(sql=None, params=None):
     """
     execture an SQL command and return the results in a dataframe
     params:
@@ -150,7 +147,10 @@ def pd_query(sql=None, params=()):
     engine = Engine()
     # print(sql)
     # print(params)
-    d = pd.read_sql(sql=sql, con=engine, params=params)
+    if params is not None:
+        sql= sql % params
+    #d = pd.read_sql_query(sql=sql, con=engine, params=params)
+    d = pd.read_sql_query(sql=sql, con=engine)
 
     return d
 
@@ -668,19 +668,18 @@ def update_job_tick(queueid=None):
             log.warning("queueid not specified or found in os.environ")
             return 0
 
-    path = nems_db.util.__file__
-    i = path.find('nems_db/util')
-    qsetload_path = (path[:i] + 'bin/qsetload')
-    result = subprocess.run(qsetload_path, stdout=subprocess.PIPE)
-    r = result.returncode
+    qsetload_path = get_setting('QUEUE_TICK_EXTERNAL_CMD')
+    if len(qsetload_path) & os.path.exists(qsetload_path):
+        result = subprocess.run(qsetload_path, stdout=subprocess.PIPE)
+        r = result.returncode
 
-    if r:
-        log.warning('Error executing qsetload')
-        log.warning(result.stdout.decode('utf-8'))
+        if r:
+            log.warning('Error executing qsetload')
+            log.warning(result.stdout.decode('utf-8'))
 
     engine = Engine()
     conn = engine.connect()
-    # tick off progress, job is live
+    # tick off progress, tell daemon that job is live
     sql = ("UPDATE tQueue SET progress=progress+1 WHERE id={}"
            .format(queueid))
     r = conn.execute(sql)
@@ -731,12 +730,26 @@ def update_results_table(modelspec, preview=None,
                          username="svd", labgroup="lbhb"):
     db_tables = Tables()
     NarfResults = db_tables['NarfResults']
+    NarfBatches = db_tables['NarfBatches']
     session = Session()
     cellids = modelspec.meta.get('cellids', [modelspec.meta['cellid']])
 
     for cellid in cellids:
         batch = modelspec.meta['batch']
         modelname = modelspec.meta['modelname']
+        r = (
+            session.query(NarfBatches)
+            .filter(NarfBatches.cellid == cellid)
+            .filter(NarfBatches.batch == batch)
+            .first()
+        )
+        if not r:
+            # add cell/batch to NarfData
+            log.info("Adding (%s/%d) to NarfBatches", cellid, batch)
+            r = NarfBatches()
+            r.cellid = cellid
+            r.batch = batch
+            session.add(r)
 
         r = (
             session.query(NarfResults)
@@ -893,18 +906,21 @@ def get_batch_cells(batch=None, cellid=None, rawid=None):
     params = ()
     sql = "SELECT DISTINCT cellid,batch FROM NarfData WHERE 1"
     if batch is not None:
-        sql += " AND batch=%s"
+        sql += " AND batch=%d"
         params = params+(batch,)
 
     if cellid is not None:
-       sql += " AND cellid like %s"
+       sql += " AND cellid like '%s'"
        params = params+(cellid+"%",)
 
     if rawid is not None:
-        sql+= " AND rawid = %s"
+        sql+= " AND rawid = %d"
         params=params+(rawid,)
 
-    d = pd.read_sql(sql=sql, con=engine, params=params)
+    #d = pd.read_sql(sql=sql, con=engine, params=params)
+    sql = sql % params
+    print(sql)
+    d = pd.read_sql_query(sql=sql, con=engine)
 
     return d
 
