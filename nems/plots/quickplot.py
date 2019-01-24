@@ -21,6 +21,7 @@ from nems.plots.heatmap import weight_channels_heatmap, fir_heatmap, strf_heatma
 from nems.plots.histogram import pred_error_hist
 from nems.plots.state import (state_vars_timeseries, state_var_psth_from_epoch,
                     state_var_psth, state_gain_plot, state_vars_psth_all)
+from nems.plots.summary import perf_per_cell
 from nems.utils import find_module
 
 log = logging.getLogger(__name__)
@@ -250,10 +251,13 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
             plot_scatter, pred, resp, text=text, smoothing_bins=100,
             title='Smoothed, bins={}'.format(100), force_square=False
             )
-    not_smoothed = partial(
-            plot_scatter, pred, resp, text=text, smoothing_bins=False,
-            title='Unsmoothed', force_square=False,
-            )
+    if resp.shape[0] > 1:
+        not_smoothed = partial(perf_per_cell, modelspec)
+    else:
+        not_smoothed = partial(
+                plot_scatter, pred, resp, text=text, smoothing_bins=False,
+                title='Unsmoothed', force_square=False,
+                )
     _plot_axes([1, 1], [smoothed, not_smoothed], -1)
 
     # TODO: Pred Error histogram too? Or was that not useful?

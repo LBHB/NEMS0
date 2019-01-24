@@ -15,6 +15,15 @@ import nems.modelspec as ms
 
 log = logging.getLogger(__name__)
 
+def perf_per_cell(modelspec, ax=None, title=None, **options):
+
+    if ax is None:
+        ax = plt.gca()
+
+    ax.plot(modelspec.meta['r_fit'])
+    ax.plot(modelspec.meta['r_test'], ls='--')
+
+    return ax
 
 def plot_summary(rec, modelspecs, stimidx=0):
     '''
