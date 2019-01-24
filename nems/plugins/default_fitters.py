@@ -1,7 +1,7 @@
 import logging
 import re
 
-from nems.utils import escaped_split
+from nems.utils import escaped_split, keyword_extract_options
 
 log = logging.getLogger(__name__)
 
@@ -202,10 +202,17 @@ def iter(fitkey):
     options = _extract_options(fitkey)
     tolerances, module_sets, fit_iter, tol_iter, fitter = _parse_iter(options)
 
-    xfspec = [['nems.xforms.fit_iteratively',
-               {'module_sets': module_sets, 'fitter': fitter,
-                'tolerances': tolerances, 'tol_iter': tol_iter,
-                'fit_iter': fit_iter}]]
+    if 'pop' in options:
+        xfspec = [['nems.analysis.fit_pop_model.fit_population_iteratively',
+                   {'module_sets': module_sets, 'fitter': fitter,
+                    'tolerances': tolerances, 'tol_iter': tol_iter,
+                    'fit_iter': fit_iter}]]
+
+    else:
+        xfspec = [['nems.xforms.fit_iteratively',
+                   {'module_sets': module_sets, 'fitter': fitter,
+                    'tolerances': tolerances, 'tol_iter': tol_iter,
+                    'fit_iter': fit_iter}]]
 
     return xfspec
 

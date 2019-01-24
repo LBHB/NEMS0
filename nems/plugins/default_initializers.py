@@ -1,7 +1,7 @@
 import logging
 import re
 
-from nems.utils import escaped_split
+from nems.utils import escaped_split, keyword_extract_options
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +33,22 @@ def init(kw):
     else:
         return [['nems.xforms.fit_basic_init', {'tolerance': tolerance,
                                                 'norm_fir': norm_fir}]]
+
+
+def initpop(kw):
+    options = keyword_extract_options(kw)
+
+    rnd = ('rnd' in options)
+    usepcs = ('pc' in options)
+    flip_pcs = ('nflip' not in options)
+
+    if rnd:
+        xfspec = [['nems.analysis.fit_pop_model.init_pop_rand',
+                   {'pc_signal': 'rand_resp'}]]
+    else:
+        xfspec = [['nems.analysis.fit_pop_model.init_pop_pca',
+                   {'flip_pcs': flip_pcs}]]
+    return xfspec
 
 
 # TOOD: Maybe these should go in fitters instead?

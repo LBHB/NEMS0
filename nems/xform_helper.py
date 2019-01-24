@@ -175,10 +175,12 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False):
     modelspec = ctx['modelspec']
 
     # this code may not be necessary any more.
-    destination = '{0}/{1}/{2}/{3}'.format(
-        get_setting('NEMS_RESULTS_DIR'), batch, cellid, modelspec.get_longname())
+    #destination = '{0}/{1}/{2}/{3}'.format(
+    #    get_setting('NEMS_RESULTS_DIR'), batch, cellid, modelspec.get_longname())
+    destination = os.path.join(
+        get_setting('NEMS_RESULTS_DIR'), str(batch), cellid, modelspec.get_longname())
     modelspec.meta['modelpath'] = destination
-    modelspec.meta['figurefile'] = destination+'figure.0000.png'
+    modelspec.meta['figurefile'] = os.path.join(destination, 'figure.0000.png')
     modelspec.meta.update(meta)
 
     # save results

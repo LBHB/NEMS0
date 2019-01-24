@@ -289,8 +289,10 @@ class ModelSpec:
         recording_name = meta.get('exptid')
         if recording_name is None:
             recording_name = meta.get('recording', 'unknown_recording')
-
-        keyword_string = get_modelspec_shortname(self)
+        if 'modelspecname' in self.meta:
+            keyword_string = self.meta['modelspecname']
+        else:
+            keyword_string = get_modelspec_shortname(self)
         fitter_name = meta.get('fitkey', meta.get('fitter', 'unknown_fitter'))
         date = nems.utils.iso8601_datestring()
         guess = '.'.join([recording_name, keyword_string, fitter_name, date])
