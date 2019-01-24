@@ -135,7 +135,7 @@ def from_keywords_as_list(keyword_string, registry=None, meta={}):
 
 def prefit_LN(est, modelspec, analysis_function=fit_basic,
               fitter=scipy_minimize, metric=None, norm_fir=False,
-              tolerance=10**-5.5, max_iter=700, nl_mode=2):
+              tolerance=10**-5.5, max_iter=700, nl_kw={}):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
     local minima.
@@ -176,7 +176,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
     # pre-fit static NL if it exists
     for m in modelspec.modules:
         if 'double_exponential' in m['fn']:
-            modelspec = init_dexp(est, modelspec, nl_mode=nl_mode)
+            modelspec = init_dexp(est, modelspec, **nl_kw)
             modelspec = prefit_mod_subset(
                     est, modelspec, fit_basic,
                     fit_set=['double_exponential'],
@@ -380,7 +380,15 @@ def init_dexp(rec, modelspec, nl_mode=2):
     """
     choose initial values for dexp applied after preceeding fir is
     initialized
-    """
+    nl_mode must be in {1,2} (default is 2), 
+            pre 11/29/18 models were fit with v1
+            1: amp = np.nanstd(resp) * 3
+               kappa = np.log(2 / (np.max(pred) - np.min(pred) + 1))
+            2:
+               amp = resp[pred>np.percentile(pred,90)].mean()
+               kappa = np.log(2 / (np.std(pred)*3))
+               
+   """
     # preserve input modelspec
     modelspec = copy.deepcopy(modelspec)
 

@@ -621,9 +621,9 @@ def jack_subset(est, val, modelspec=None, IsReload=False,
 ###############################################################################
 
 
-def fit_basic_init(modelspec, est, tolerance=10**-5.5, 
-                   metric='nmse',IsReload=False, jackknifed_fit=False, 
-                    norm_fir=False, nl_mode=2, **context):
+def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
+                   IsReload=False, norm_fir=False, nl_kw={},
+                   jackknifed_fit=False, **context):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
     local minima.
@@ -654,14 +654,14 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5,
                         analysis_function=nems.analysis.api.fit_basic,
                         fitter=scipy_minimize, metric=metric_fn,
                         tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
-                        nl_mode=nl_mode)
+                        nl_kw=nl_kw)
         else:
             modelspec = nems.initializers.prefit_LN(
                     est, modelspec,
                     analysis_function=nems.analysis.api.fit_basic,
                     fitter=scipy_minimize, metric=metric_fn,
                     tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
-                    nl_mode=nl_mode)
+                    nl_kw=nl_kw)
 
     return {'modelspec': modelspec}
 
@@ -672,8 +672,10 @@ def _set_zero(x):
     return y
 
 
-def fit_state_init(modelspec, est, fit_sig='resp', tolerance=1e-4,
-                   IsReload=False, metric='nmse', **context):
+def fit_state_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
+                   IsReload=False, norm_fir=False, nl_kw = {},
+                   fit_sig='resp', **context):
+    
     '''
     Initialize modelspecs in an attempt to avoid getting stuck in
     local minima. Remove state replication/merging first.
@@ -703,7 +705,8 @@ def fit_state_init(modelspec, est, fit_sig='resp', tolerance=1e-4,
                     dc, modelspec,
                     analysis_function=nems.analysis.api.fit_basic,
                     fitter=scipy_minimize, metric=metric_fn,
-                    tolerance=tolerance, max_iter=700)
+                    tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+                    nl_kw=nl_kw)
             # fit a bit more to settle in STP variables and anything else
             # that might have been excluded
             fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
