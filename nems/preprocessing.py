@@ -426,6 +426,7 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
 
     if rec['mask'] exists, uses rec['mask'] == True to determine valid epochs
     '''
+
     newrec = rec.copy()
     resp = newrec[resp_sig].rasterize()
 
@@ -720,14 +721,18 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     resp = newrec['resp'].rasterize()
 
     # normalize mean/std of pupil trace if being used
-    if ('pupil' in state_signals) or ('pupil_ev' in state_signals) or \
-       ('pupil_bs' in state_signals):
+    if ('pupil' in state_signals) or ('pupil2' in state_signals) or \
+        ('pupil_ev' in state_signals) or ('pupil_bs' in state_signals):
         # normalize min-max
         p = newrec["pupil"].as_continuous().copy()
         # p[p < np.nanmax(p)/5] = np.nanmax(p)/5
         p -= np.nanmean(p)
         p /= np.nanstd(p)
         newrec["pupil"] = newrec["pupil"]._modified_copy(p)
+
+        if ('pupil2') in state_signals:
+            newrec["pupil2"] = newrec["pupil"]._modified_copy(p ** 2)
+            newrec["pupil2"].chans = ['pupil2']
 
     if ('pupil_psd') in state_signals:
         pup = newrec['pupil'].as_continuous().copy()

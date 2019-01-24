@@ -15,13 +15,20 @@ import nems.modelspec as ms
 
 log = logging.getLogger(__name__)
 
-def perf_per_cell(modelspec, ax=None, title=None, **options):
+def perf_per_cell(modelspec, channels=0, ax=None, title=None, **options):
 
     if ax is None:
         ax = plt.gca()
 
-    ax.plot(modelspec.meta['r_fit'])
-    ax.plot(modelspec.meta['r_test'], ls='--')
+    cellids = modelspec.meta.get('cellids', [modelspec.meta['cellid']])
+    cellcount = len(cellids)
+    ax.plot(modelspec.meta['r_test'])
+    ax.plot(modelspec.meta['r_fit'], ls='--')
+    ax.plot(channels, modelspec.meta['r_test'][channels], 'o')
+    ax.set_xticks(np.arange(cellcount))
+    ax.set_xticklabels(cellids)
+    ylim = ax.get_ylim()
+    ax.text(0, ylim[1], 'mean r={:.3f}'.format(np.mean(modelspec.meta['r_test'])))
 
     return ax
 

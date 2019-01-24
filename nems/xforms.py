@@ -457,7 +457,7 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_',
     split.
     '''
 
-    rec = preproc.generate_psth_from_resp(rec, epoch_regex,
+    rec = preproc.generate_psth_from_resp(rec, epoch_regex=epoch_regex,
                                           smooth_resp=smooth_resp)
 
     return {'rec': rec}

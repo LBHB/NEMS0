@@ -2,7 +2,7 @@ import logging
 
 import copy
 import numpy as np
-
+import os
 from nems.registry import KeywordRegistry
 from nems.plugins import default_keywords
 from nems.utils import find_module
@@ -115,10 +115,11 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
         exptid = modelspec.meta.get('exptid', 'DATA')
         siteid = modelspec.meta.get('siteid', exptid)
         cellid = modelspec.meta.get('cellid', siteid)
-        destination = '{0}/{1}/{2}/{3}/'.format(
-            results_dir, batch, cellid, modelspec.get_longname())
+        destination = os.path.join(results_dir, str(batch), cellid, modelspec.get_longname())
+        #destination = '{0}/{1}/{2}/{3}/'.format(
+        #    results_dir, batch, cellid, modelspec.get_longname())
         modelspec.meta['modelpath'] = destination
-        modelspec.meta['figurefile'] = destination+'figure.0000.png'
+        modelspec.meta['figurefile'] = os.path.join(destination,'figure.0000.png')
 
     return modelspec
 

@@ -160,6 +160,17 @@ def escaped_join(list, delimiter):
     return final_join
 
 
+def keyword_extract_options(kw):
+    if kw == 'basic' or kw == 'iter':
+        # empty options (i.e. just use defaults)
+        options = []
+    else:
+        chunks = escaped_split(kw, '.')
+        options = chunks[1:]
+    return options
+
+
+
 def get_channel_number(sig, channel=None):
     """
     find number of channel in signal sig that matches channel name or number
