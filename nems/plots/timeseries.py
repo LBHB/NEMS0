@@ -92,15 +92,16 @@ def timeseries_from_signals(signals, channels=0,
     times = []
     values = []
     legend = []
-    for s, c in zip(signals, channels):
-        # Get values from specified channel
-        value_vector = s.as_continuous()[c]
-        # Convert indices to absolute time based on sampling frequency
-        time_vector = np.arange(0, len(value_vector)) / s.fs
-        times.append(time_vector)
-        values.append(value_vector)
-        if s.chans is not None:
-            legend.append(s.name+' '+s.chans[c])
+    for s in signals:
+        for c in channels:
+            # Get values from specified channel
+            value_vector = s.as_continuous()[c]
+            # Convert indices to absolute time based on sampling frequency
+            time_vector = np.arange(0, len(value_vector)) / s.fs
+            times.append(time_vector)
+            values.append(value_vector)
+            if s.chans is not None:
+                legend.append(s.name+' '+s.chans[c])
 
     if no_legend:
         legend = None
@@ -294,6 +295,38 @@ def mod_output(rec, modelspec, sig_name='pred', ax=None, title=None, idx=0,
     ax = timeseries_from_signals(sigs, channels=channels,
                                  xlabel=xlabel, ylabel=ylabel, ax=ax,
                                  title=title)
+    return ax
+
+def mod_output_all(rec, modelspec, sig_name='pred', idx=0, **options):
+    '''
+    Plots a time series of specified signal output by step in the modelspec.
+
+    Arguments:
+    ----------
+    rec : recording object
+        The dataset to use. See nems/recording.py.
+
+    modelspec : list of dicts
+        The transformations to perform. See nems/modelspec.py.
+
+    sig_name : str or list of strings
+        Specifies the signal in 'rec' to be examined.
+
+    idx : int
+        An index into the modelspec. rec[sig_name] will be plotted
+        as it exists after step idx-1 and after step idx.
+
+    Returns:
+    --------
+    ax : axis containing plot
+    '''
+
+    trec = modelspec.evaluate(rec, stop=idx+1)
+    if 'mask' in trec.signals.keys():
+        trec = trec.apply_mask()
+
+    options['channels']=np.arange(trec[sig_name].shape[0])
+    ax = timeseries_from_signals([trec[sig_name]],**options)
     return ax
 
 def pred_resp(rec, modelspec, ax=None, title=None,
