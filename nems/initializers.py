@@ -136,7 +136,7 @@ def from_keywords_as_list(keyword_string, registry=None, meta={}):
 
 def prefit_LN(est, modelspec, analysis_function=fit_basic,
               fitter=scipy_minimize, metric=None, norm_fir=False,
-              tolerance=10**-5.5, max_iter=700):
+              tolerance=10**-5.5, max_iter=700, nl_kw={}):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
     local minima.
@@ -177,7 +177,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
     # pre-fit static NL if it exists
     for m in modelspec.modules:
         if 'double_exponential' in m['fn']:
-            modelspec = init_dexp(est, modelspec)
+            modelspec = init_dexp(est, modelspec, **nl_kw)
             modelspec = prefit_mod_subset(
                     est, modelspec, fit_basic,
                     fit_set=['double_exponential'],
@@ -377,11 +377,19 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
     return modelspec
 
 
-def init_dexp(rec, modelspec):
+def init_dexp(rec, modelspec, nl_mode=2):
     """
     choose initial values for dexp applied after preceeding fir is
     initialized
-    """
+    nl_mode must be in {1,2} (default is 2), 
+            pre 11/29/18 models were fit with v1
+            1: amp = np.nanstd(resp) * 3
+               kappa = np.log(2 / (np.max(pred) - np.min(pred) + 1))
+            2:
+               amp = resp[pred>np.percentile(pred,90)].mean()
+               kappa = np.log(2 / (np.std(pred)*3))
+               
+   """
     # preserve input modelspec
     modelspec = copy.deepcopy(modelspec)
 
@@ -436,14 +444,30 @@ def init_dexp(rec, modelspec):
         # base = meanr - stdr * 3
 
         # amp = np.max(resp) - np.min(resp)
-        amp[i, 0] = stdr * 3
-
+        if nl_mode == 1:
+            amp[i, 0] = stdr * 3
+            predrange = 2 / (np.max(pred) - np.min(pred) + 1)
+        elif nl_mode == 2:
+            mask=np.zeros_like(pred,dtype=bool)
+            pct=91
+            while sum(mask)<.01*pred.shape[0]:
+                pct-=1
+                mask=pred>np.percentile(pred,pct)
+            if pct !=90:
+                log.warning('Init dexp: Default for init mode 2 is to find mean '
+                         'of responses for times where pred>pctile(pred,90). '
+                         '\nNo times were found so this was lowered to '
+                         'pred>pctile(pred,%d).', pct)
+            amp[i, 0] = resp[mask].mean()
+            predrange = 2 / (np.std(pred)*3)
+        else:
+            raise ValueError('nl mode = {} not valid'.format(nl_mode))
+        
         shift[i, 0] = np.mean(pred)
         # shift = (np.max(pred) + np.min(pred)) / 2
 
-        predrange = 2 / (np.max(pred) - np.min(pred) + 1)
         kappa[i, 0] = np.log(predrange)
-
+        
     modelspec[target_i]['phi'] = {'amplitude': amp, 'base': base,
                                   'kappa': kappa, 'shift': shift}
     log.info("Init dexp: %s", modelspec[target_i]['phi'])

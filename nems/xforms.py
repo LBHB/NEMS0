@@ -66,6 +66,7 @@ def evaluate_step(xfa, context={}):
       but now xfa can be len 4, where xfa[2] indicates context in keys and
       xfa[3] is context out keys
     '''
+    
     if not(len(xfa) == 2 or len(xfa) == 4):
         raise ValueError('Got non 2- or 4-tuple for xform: {}'.format(xfa))
     xf = xfa[0]
@@ -620,8 +621,9 @@ def jack_subset(est, val, modelspec=None, IsReload=False,
 ###############################################################################
 
 
-def fit_basic_init(modelspec, est, IsReload=False, metric='nmse',
-                   tolerance=10**-5.5, norm_fir=False, **context):
+def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
+                   IsReload=False, norm_fir=False, nl_kw={},
+                   jackknifed_fit=False, **context):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
     local minima.
@@ -651,13 +653,15 @@ def fit_basic_init(modelspec, est, IsReload=False, metric='nmse',
                         e, modelspec.set_fit(fit_idx),
                         analysis_function=nems.analysis.api.fit_basic,
                         fitter=scipy_minimize, metric=metric_fn,
-                        tolerance=tolerance, max_iter=700, norm_fir=norm_fir)
+                        tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+                        nl_kw=nl_kw)
         else:
             modelspec = nems.initializers.prefit_LN(
                     est, modelspec,
                     analysis_function=nems.analysis.api.fit_basic,
                     fitter=scipy_minimize, metric=metric_fn,
-                    tolerance=tolerance, max_iter=700, norm_fir=norm_fir)
+                    tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+                    nl_kw=nl_kw)
 
     return {'modelspec': modelspec}
 
@@ -668,8 +672,10 @@ def _set_zero(x):
     return y
 
 
-def fit_state_init(modelspec, est, fit_sig='resp', tolerance=1e-4,
-                   IsReload=False, metric='nmse', **context):
+def fit_state_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
+                   IsReload=False, norm_fir=False, nl_kw = {},
+                   fit_sig='resp', **context):
+    
     '''
     Initialize modelspecs in an attempt to avoid getting stuck in
     local minima. Remove state replication/merging first.
@@ -699,7 +705,8 @@ def fit_state_init(modelspec, est, fit_sig='resp', tolerance=1e-4,
                     dc, modelspec,
                     analysis_function=nems.analysis.api.fit_basic,
                     fitter=scipy_minimize, metric=metric_fn,
-                    tolerance=tolerance, max_iter=700)
+                    tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+                    nl_kw=nl_kw)
             # fit a bit more to settle in STP variables and anything else
             # that might have been excluded
             fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}

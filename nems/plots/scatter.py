@@ -166,6 +166,7 @@ def nl_scatter(rec, modelspec, idx, sig_name='pred',
         log.warning('corr coef expects single-dim predictions')
 
     compare_to = before[compare]
+
     module = modelspec[idx]
     mod_name = module['fn'].replace('nems.modules','')
     title1 = mod_name

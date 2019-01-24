@@ -34,6 +34,7 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
 
     cc = 0
     opt = {}
+    h=[]
     mintime = np.inf
     maxtime = 0
     for t, v in zip(times, values):
@@ -43,7 +44,9 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
             v=v[:,np.newaxis]
         for idx in range(v.shape[1]):
             gidx = np.isfinite(v[:,idx])
-            plt.plot(t[gidx], v[gidx,idx], linestyle=linestyle, linewidth=linewidth, **opt)
+            h_=plt.plot(t[gidx], v[gidx,idx], linestyle=linestyle, 
+                        linewidth=linewidth, **opt)
+            h = h + h_
         cc += 1
         if gidx.sum() > 0:
             mintime = np.min((mintime, np.min(t[gidx])))
@@ -58,7 +61,7 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
         plt.title(title, fontsize=8)
 
     ax_remove_box(ax)
-    return ax
+    return ax, h
 
 
 def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,

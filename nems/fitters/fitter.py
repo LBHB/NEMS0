@@ -145,6 +145,9 @@ def scipy_minimize(sigma, cost_fn, tolerance=None, max_iter=None,
 
     log.info("Starting sigma: %s\n", sigma)
 
+    if np.isnan(np.array(sigma)).any():
+        raise ValueError('Sigma contains NaN!')
+
     # convert to format requried by scipy
     bounds = list(zip(*bounds))
     result = scp.optimize.minimize(cost_fn, sigma, method=method,

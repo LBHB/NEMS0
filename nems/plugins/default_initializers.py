@@ -7,17 +7,52 @@ log = logging.getLogger(__name__)
 
 
 def init(kw):
+    '''
+    Initialize modelspecs in an attempt to avoid getting stuck in
+    local minima.
+    Written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
+    optional modules in (parens)
+    
+    Parameter
+    ---------
+    kw : string
+        A string of the form: init.option1.option2...
+
+    Options
+    -------
+    tN : Set tolerance to 10**-N, where N is any positive integer.
+    st : Remove state replication/merging before initializing.
+    psth : Initialize by fitting to 'psth' intead of 'resp' (default)
+    nlN : Initialize nonlinearity with verion N 
+        For dexp, options are {1,2} (default is 2), 
+            pre 11/29/18 models were fit with v1
+            1: amp = np.nanstd(resp) * 3
+               kappa = np.log(2 / (np.max(pred) - np.min(pred) + 1))
+            2:
+               amp = resp[pred>np.percentile(pred,90)].mean()
+               kappa = np.log(2 / (np.std(pred)*3))
+        For other nonlinearities, mode is not specified yet
+    L2f : normalize fir (default false)
+    
+    
+    TODO: Optimize more, make testbed to check how well future changes apply 
+    to disparate datasets.
+    
+    '''
+    
     ops = escaped_split(kw, '.')[1:]
     st = False
     tolerance = 10**-5.5
     norm_fir = False
     fit_sig = 'resp'
-
+    nl_kw = {}
     for op in ops:
         if op == 'st':
             st = True
         elif op=='psth':
             fit_sig = 'psth'
+        elif op.startswith('nl'):
+            nl_kw = {'nl_mode': int(op[2:])}
         elif op.startswith('t'):
             # Should use \ to escape going forward, but keep d-sub in
             # for backwards compatibility.
@@ -29,11 +64,13 @@ def init(kw):
 
     if st:
         return [['nems.xforms.fit_state_init', {'tolerance': tolerance,
+                                                'norm_fir': norm_fir,
+                                                'nl_kw': nl_kw,
                                                 'fit_sig': fit_sig}]]
     else:
         return [['nems.xforms.fit_basic_init', {'tolerance': tolerance,
-                                                'norm_fir': norm_fir}]]
-
+                                                'norm_fir': norm_fir,
+                                                'nl_kw': nl_kw}]]
 
 def initpop(kw):
     options = keyword_extract_options(kw)

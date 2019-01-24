@@ -187,13 +187,14 @@ def iter(fitkey):
     -------
     cd : Use coordinate_descent for fitting (default is scipy_minimize)
     TN,N,... : Use tolerance levels 10**-N for each N given, where N is
-               any positive integer.
+               any positive integer. Default=[10**-4]
     SN,N,... : Fit model indices N, N... for each N given,
                where N is any positive integer or zero. May be provided
                multiple times to iterate over several successive subsets.
     tiN : Perform N per-tolerance-level iterations, where N is any
-          positive integer.
-    fiN : Perform N per-fit iterations, where N is any positive integer.
+          positive integer. Default=50
+    fiN : Perform N per-fit iterations, where N is any positive integer. 
+          Default=10
 
     '''
 

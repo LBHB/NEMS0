@@ -338,7 +338,6 @@ def _get_plot_fns(rec, modelspec, default='val', epoch='TRIAL', occurrence=0, m_
                 wc_idx += 1
 
             elif 'fir' in fname:
-
                 if 'fir.basic' in fname:
                     if m['phi']['coefficients'].shape[0]<=3:
                         fn = partial(strf_timeseries, modelspec, chans=chans)
@@ -358,7 +357,10 @@ def _get_plot_fns(rec, modelspec, default='val', epoch='TRIAL', occurrence=0, m_
                 chans = rec['stim'].chans
                 # print('CHANS: ')
                 # print(chans)
-                fn = partial(strf_heatmap, modelspec, title='STRF', chans=chans)
+                if m['phi']['coefficients'].shape[0]<=2:
+                    fn = partial(strf_timeseries, modelspec, chans=chans,show_fir_only=False)
+                else:
+                    fn = partial(strf_heatmap, modelspec, title='STRF', chans=chans)
                 plot = (fn, 1)
                 plot_fns.append(plot)
                 strf_done = True
