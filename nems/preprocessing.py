@@ -723,6 +723,8 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     # normalize mean/std of pupil trace if being used
     if ('pupil' in state_signals) or ('pupil2' in state_signals) or \
         ('pupil_ev' in state_signals) or ('pupil_bs' in state_signals):
+        # save raw pupil trace
+        newrec["pupil_raw"] = newrec["pupil"].copy()
         # normalize min-max
         p = newrec["pupil"].as_continuous().copy()
         # p[p < np.nanmax(p)/5] = np.nanmax(p)/5
