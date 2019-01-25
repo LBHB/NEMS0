@@ -6,6 +6,7 @@ from .specgram import (plot_spectrogram, spectrogram_from_signal,
                        spectrogram_from_epoch, spectrogram, pred_spectrogram,
                        resp_spectrogram, spectrogram_output)
 from .timeseries import (plot_timeseries, mod_output, mod_output_all,
+                         fir_output_all,
                          timeseries_from_signals, timeseries_from_epoch,
                          before_and_after, timeseries_from_vectors,
                          before_and_after_stp, pred_resp)

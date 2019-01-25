@@ -222,7 +222,8 @@ def fir(kw):
             'fn_kwargs': {'i': 'pred', 'o': 'pred'},
             'plot_fns': ['nems.plots.api.mod_output',
                          'nems.plots.api.strf_heatmap',
-                         'nems.plots.api.strf_timeseries'],
+                         'nems.plots.api.strf_timeseries',
+                         'nems.plots.api.fir_output_all'],
             'plot_fn_idx': 1,
             'prior': {
                 'coefficients': ('Normal', p_coefficients),

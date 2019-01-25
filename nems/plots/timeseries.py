@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import copy
 
 from nems.plots.assemble import pad_to_signals
 import nems.modelspec as ms
@@ -12,7 +13,7 @@ from nems.plots.utils import ax_remove_box
 
 def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
                     linestyle='-', linewidth=1,
-                    ax=None, title=None, colors=None):
+                    ax=None, title=None, colors=None, **options):
     '''
     Plots a simple timeseries with one line for each pair of
     time and value vectors.
@@ -61,6 +62,7 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
         plt.title(title, fontsize=8)
 
     ax_remove_box(ax)
+
     return ax, h
 
 
@@ -328,6 +330,50 @@ def mod_output_all(rec, modelspec, sig_name='pred', idx=0, **options):
     options['channels']=np.arange(trec[sig_name].shape[0])
     ax = timeseries_from_signals([trec[sig_name]],**options)
     return ax
+
+
+def before_and_after_signal(rec, modelspec, idx, sig_name='pred'):
+    # HACK: shouldn't hardcode 'stim', might be named something else
+    #       or not present at all. Need to figure out a better solution
+    #       for special case of idx = 0
+    if idx == 0:
+        # Can't have anything before index 0, so use input stimulus
+        before = rec
+        before_sig = copy.deepcopy(rec['stim'])
+    else:
+        before = ms.evaluate(rec, modelspec, start=None, stop=idx)
+        before_sig = copy.deepcopy(before[sig_name])
+
+    before_sig.name = 'before'
+
+    after = ms.evaluate(before.copy(), modelspec, start=idx, stop=idx+1)
+    after_sig = copy.deepcopy(after[sig_name])
+    after_sig.name = 'after'
+
+    return before_sig, after_sig
+
+
+def fir_output_all(rec, modelspec, sig_name='pred', idx=0, **options):
+    """ plot output of fir filter channels separately"""
+    # now evaluate next module step
+
+    if 'fir.basic' not in modelspec[idx]['fn']:
+        raise ValueError("only works for fir.basic")
+
+    ms2 = copy.deepcopy(modelspec)
+    ms2[idx]['fn'] = 'nems.modules.fir.filter_bank'
+    chan_count = ms2[idx]['phi']['coefficients'].shape[0]
+    ms2[idx]['fn_kwargs']['bank_count'] = chan_count
+    before2, after2 = before_and_after_signal(rec, ms2, idx, sig_name)
+    value_vector = after2.as_continuous().T
+    legend = ['ch'+str(c) for c in range(chan_count)]
+
+    time_vector = np.arange(0, value_vector.shape[0]) / after2.fs
+
+    ax, h = plot_timeseries([time_vector], [value_vector],
+                            legend=legend, **options)
+    return ax
+
 
 def pred_resp(rec, modelspec, ax=None, title=None,
               channels=0, xlabel='Time', ylabel='Value',
