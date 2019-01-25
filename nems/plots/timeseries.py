@@ -94,8 +94,12 @@ def timeseries_from_signals(signals, channels=0,
     times = []
     values = []
     legend = []
-    for s in signals:
-        for c in channels:
+    for i, s in enumerate(signals):
+        if len(signals) > 1:
+            chanset = [channels[i]]
+        else:
+            chanset = channels
+        for c in chanset:
             # Get values from specified channel
             value_vector = s.as_continuous()[c]
             # Convert indices to absolute time based on sampling frequency
