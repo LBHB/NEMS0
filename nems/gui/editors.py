@@ -27,7 +27,8 @@ _SCROLLABLE_PLOT_FNS = [
     'nems.plots.api.spectrogram',
     'nems.plots.api.pred_spectrogram',
     'nems.plots.api.resp_spectrogram',
-    'nems.plots.api.mod_output'
+    'nems.plots.api.mod_output',
+    'nems.plots.api.mod_output_all'
 ]
 
 # These are used as click-once operations

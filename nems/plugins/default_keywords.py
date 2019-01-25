@@ -872,18 +872,20 @@ def stategain(kw):
     d_mean = zeros
     d_sd = ones
 
+    plot_fns = ['nems.plots.api.mod_output_all',
+                 'nems.plots.api.mod_output',
+                 'nems.plots.api.before_and_after',
+                 'nems.plots.api.pred_resp',
+                 'nems.plots.api.state_vars_timeseries',
+                 'nems.plots.api.state_vars_psth_all']
     if gain_only:
         template = {
             'fn': 'nems.modules.state.state_gain',
             'fn_kwargs': {'i': 'pred',
                           'o': 'pred',
                           's': 'state'},
-            'plot_fns': ['nems.plots.api.mod_output',
-                         'nems.plots.api.before_and_after',
-                         'nems.plots.api.pred_resp',
-                         'nems.plots.api.state_vars_timeseries',
-                         'nems.plots.api.state_vars_psth_all'],
-            'plot_fn_idx': 3,
+            'plot_fns': plot_fns,
+            'plot_fn_idx': 4,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd})}
             }
     else:
@@ -892,12 +894,8 @@ def stategain(kw):
             'fn_kwargs': {'i': 'pred',
                           'o': 'pred',
                           's': 'state'},
-            'plot_fns': ['nems.plots.api.mod_output',
-                         'nems.plots.api.before_and_after',
-                         'nems.plots.api.pred_resp',
-                         'nems.plots.api.state_vars_timeseries',
-                         'nems.plots.api.state_vars_psth_all'],
-            'plot_fn_idx': 3,
+            'plot_fns': plot_fns,
+            'plot_fn_idx': 4,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
                       'd': ('Normal', {'mean': d_mean, 'sd': d_sd})}
             }
