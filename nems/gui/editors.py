@@ -119,14 +119,13 @@ class EditorWidget(qw.QWidget):
         self.xfspec = xfspec
         self.modelspec = modelspec
         self.rec = rec
+        self.rec=self.rec.apply_mask(reset_epochs=True)
+        self.modelspec.recording=self.rec
         if ctx is None:
             self.ctx = {}
         else:
             self.ctx = ctx
 
-        self.xfspec = xfspec
-        self.modelspec = modelspec
-        self.rec = rec
         self.title = 'NEMS Model Browser'
         # By default, start with xfspec steps hidden but all other
         # controls showing.
@@ -143,8 +142,7 @@ class EditorWidget(qw.QWidget):
         row_two_layout = qw.QHBoxLayout()
         row_three_layout = qw.QHBoxLayout()
 
-        self.modelspec.recording = rec
-        self.modelspec_editor = ModelspecEditor(modelspec, rec, self)
+        self.modelspec_editor = ModelspecEditor(modelspec, self.rec, self)
         if self.xfspec is not None:
             self.xfspec_editor = XfspecEditor(self.xfspec, self)
         self.global_controls = GlobalControls(self)
