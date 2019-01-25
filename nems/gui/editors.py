@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 # Only module plots included here will be scrolled in time
 # by the slider.
 _SCROLLABLE_PLOT_FNS = [
-    'nems.plots.api.strf_timeseries',
+    #'nems.plots.api.strf_timeseries',
     'nems.plots.api.state_vars_timeseries',
     'nems.plots.api.before_and_after',
     'nems.plots.api.pred_resp',
