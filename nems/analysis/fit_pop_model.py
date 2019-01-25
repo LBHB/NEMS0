@@ -568,6 +568,34 @@ def fit_population_iteratively(
             slist = list(range(slice_count))
             #random.shuffle(slist)
 
+            log.info('Updating pop-wide parameters')
+            for i, m in enumerate(modelspec):
+                if i in fit_set_all:
+                    print(m['fn'] + ": fitting")
+                else:
+                    print(m['fn'] + ": frozen")
+
+            # data2 = data.copy()
+            # big_slice += 1
+            # sl = np.zeros(big_n, dtype=bool)
+            # sl[:big_slice_size]=True
+            # sl = np.roll(sl, big_step*big_slice)
+            # log.info('Sampling temporal subset %d (size=%d/%d)', big_step, big_slice_size, big_n)
+            # for s in data2.signals.values():
+            #    e = s._modified_copy(s._data[:,sl])
+            #    data2[e.name] = e
+
+            # improved_modelspec = init.prefit_mod_subset(
+            #        data, improved_modelspec, analysis.fit_basic,
+            #        metric=metric,
+            #        fit_set=fit_set_all,
+            #        fit_kwargs=sp_kwargs)
+            improved_modelspec = fit_population_channel_fast(
+                data, improved_modelspec, fit_set_all, fit_set_slice,
+                analysis_function=analysis.fit_basic,
+                metric=metric,
+                fitter=scipy_minimize, fit_kwargs=sp_kwargs)
+
             for s in slist:
                 log.info('Slice %d set %s' % (s, fit_set_slice))
                 improved_modelspec = fit_population_slice(
@@ -580,34 +608,6 @@ def fit_population_iteratively(
 
                 cc += 1
                 # if (cc % 8 == 0) or (cc == slice_count):
-                if (cc == slice_count):
-                    log.info('Slice %d updating pop-wide parameters', s)
-                    for i, m in enumerate(modelspec):
-                        if i in fit_set_all:
-                            print(m['fn'] + ": fitting")
-                        else:
-                            print(m['fn'] + ": frozen")
-
-                    #data2 = data.copy()
-                    #big_slice += 1
-                    #sl = np.zeros(big_n, dtype=bool)
-                    #sl[:big_slice_size]=True
-                    #sl = np.roll(sl, big_step*big_slice)
-                    #log.info('Sampling temporal subset %d (size=%d/%d)', big_step, big_slice_size, big_n)
-                    #for s in data2.signals.values():
-                    #    e = s._modified_copy(s._data[:,sl])
-                    #    data2[e.name] = e
-
-                    #improved_modelspec = init.prefit_mod_subset(
-                    #        data, improved_modelspec, analysis.fit_basic,
-                    #        metric=metric,
-                    #        fit_set=fit_set_all,
-                    #        fit_kwargs=sp_kwargs)
-                    improved_modelspec = fit_population_channel_fast(
-                            data, improved_modelspec, fit_set_all, fit_set_slice,
-                            analysis_function=analysis.fit_basic,
-                            metric=metric,
-                            fitter=scipy_minimize, fit_kwargs=sp_kwargs)
 
             data = ms.evaluate(data, improved_modelspec)
             new_error = metric(data)
