@@ -37,8 +37,15 @@ log = logging.getLogger(__name__)
 
 def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
                  pc_signal='pca', **context):
-    """ fit up through the fir module of a population model using the pca
-    signal"""
+    """
+    fit up through the fir module of a population model using the pca signal
+    :param est: recording object with fit data
+    :param modelspec: un-fit modelspec
+    :param flip_pcs: use each pc to fit two channels, one with sign flipped
+    :param IsReload: don't fit if IsReload=True
+    :param context: dictionary of other context variables
+    :return: initialized modelspec
+ """
 
     if IsReload:
         return {}
@@ -140,12 +147,12 @@ def init_pop_rand(est, modelspec, IsReload=False,
     initialize population model with random combinations of responses.
     generates random response combinations and passes them through to
     init_pop_pca()
-    :param est:
-    :param modelspec:
-    :param IsReload:
-    :param pc_signal:
-    :param context:
-    :return:
+    :param est: recording object with fit data
+    :param modelspec: un-fit modelspec
+    :param IsReload: don't fit if IsReload=True
+    :param pc_signal: name of signal to generate with random combinations of responses
+    :param context: dictionary of other context variables
+    :return: initialized modelspec
     """
     if IsReload:
         return {}

@@ -794,7 +794,8 @@ def relu(kw):
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.resp_spectrogram',
                      'nems.plots.api.pred_spectrogram',
-                     'nems.plots.api.before_and_after'],
+                     'nems.plots.api.before_and_after',
+                     'nems.plots.api.perf_per_cell'],
         'plot_fn_idx': 1
     }
 
@@ -874,11 +875,11 @@ def stategain(kw):
     d_sd = ones
 
     plot_fns = ['nems.plots.api.mod_output_all',
-                 'nems.plots.api.mod_output',
-                 'nems.plots.api.before_and_after',
-                 'nems.plots.api.pred_resp',
-                 'nems.plots.api.state_vars_timeseries',
-                 'nems.plots.api.state_vars_psth_all']
+                'nems.plots.api.mod_output',
+                'nems.plots.api.before_and_after',
+                'nems.plots.api.pred_resp',
+                'nems.plots.api.state_vars_timeseries',
+                'nems.plots.api.state_vars_psth_all']
     if gain_only:
         template = {
             'fn': 'nems.modules.state.state_gain',

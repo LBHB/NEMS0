@@ -18,6 +18,7 @@ import nems.xforms as xforms
 import nems.db as nd
 import nems.recording as recording
 from nems.fitters.api import scipy_minimize, coordinate_descent
+from nems.gui.editors import browse_xform_fit
 
 from nems.recording import Recording
 from nems.fitters.api import scipy_minimize
@@ -115,3 +116,5 @@ xforms.save_analysis(modelspec.meta['modelpath'],
 # save summary of results to a database
 log.info('Saving metadata to db  ...')
 nd.update_results_table(modelspec)
+
+# browse_xform_fit(ctx, xfspec, recname='val')
