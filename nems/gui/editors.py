@@ -28,7 +28,8 @@ _SCROLLABLE_PLOT_FNS = [
     'nems.plots.api.pred_spectrogram',
     'nems.plots.api.resp_spectrogram',
     'nems.plots.api.mod_output',
-    'nems.plots.api.mod_output_all'
+    'nems.plots.api.mod_output_all',
+    'nems.plots.api.fir_output_all'
 ]
 
 # These are used as click-once operations
@@ -1007,9 +1008,9 @@ def browse_xform_fit(ctx, xfspec, recname='val'):
 
     modelspec=ctx['modelspec']
     rec=ctx[recname]
-    app = qw.QApplication(sys.argv)
     ex = EditorWindow(modelspec=modelspec, xfspec=xfspec, rec=rec, ctx=ctx)
-    sys.exit(app.exec_())
+
+    return ex
 
 
 _DEBUG = False

@@ -296,8 +296,11 @@ def view_model_recording(cellid="TAR010c-18-2", batch=289,
                                   cellid=cellid, modelname=modelname)
     return aw
 
+
 if __name__ == '__main__':
-    app = qw.QApplication(sys.argv)
-    m = model_browser()
-    sys.exit(app.exec_())
+    print(sys.argv[0])
+    if sys.argv[0] != '':
+        app = qw.QApplication(sys.argv)
+        m = model_browser()
+        sys.exit(app.exec_())
 

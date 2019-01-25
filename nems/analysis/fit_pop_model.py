@@ -79,6 +79,7 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
     else:
         pc_fit_count = chan_count
     for pc_idx in range(pc_fit_count):
+        log.info('Initializing filter %d', pc_idx)
         r = rec[pc_signal].extract_channels([rec[pc_signal].chans[pc_idx]])
         m = np.nanmean(r.as_continuous())
         d = np.nanstd(r.as_continuous())
@@ -151,11 +152,11 @@ def init_pop_rand(est, modelspec, IsReload=False,
 
     # guess at number of subspace dimensions
     fit_set_all, fit_set_slice = _figure_out_mod_split(modelspec)
-    dim_count = modelspec[fit_set_slice[0]]['phi']['coefficients'].shape[0]
+    dim_count = modelspec[fit_set_slice[0]]['phi']['coefficients'].shape[1]
     resp_count = est['resp'].shape[0]
 
     log.info('Initializing %d x %d random weight matrix', dim_count, resp_count)
-    weights = np.random.randn((dim_count,resp_count))
+    weights = np.random.randn(dim_count, resp_count)
 
     d = est['resp'].as_continuous()
     d_rand = weights @ d
