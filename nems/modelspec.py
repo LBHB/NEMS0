@@ -194,15 +194,17 @@ class ModelSpec:
         return _lookup_fn_at(fn_path)
 
     def plot(self, mod_index=None, rec=None, ax=None, plot_fn_idx=None,
-             fit_index=None, sig_name='pred', **options):
+             fit_index=None, sig_name='pred', channels=None, **options):
         """generate plot for a single module"""
 
         if rec is None:
             rec = self.recording
+        if channels is None:
+            channels = self.plot_channel
         plot_fn = self.plot_fn(mod_index=mod_index, plot_fn_idx=plot_fn_idx,
                                fit_index=fit_index)
         plot_fn(rec=rec, modelspec=self, sig_name=sig_name, idx=mod_index,
-                channels=self.plot_channel, ax=ax, **options)
+                channels=channels, ax=ax, **options)
 
     def quickplot(self, rec=None):
 
