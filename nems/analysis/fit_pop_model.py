@@ -59,7 +59,8 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
     chan_count=modelspec[ifir]['fn_kwargs']['bank_count']
     chan_per_bank = int(modelspec[iwc]['prior']['mean'][1]['mean'].shape[0]/chan_count)
     rec = est.copy()
-    tmodelspec = copy.deepcopy(modelspec)
+
+    log.info('Intializing %d subspace channels with signal %s', chan_count, pc_signal)
 
     kw=[m['id'] for m in modelspec[:iwc]]
 
@@ -113,7 +114,7 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
                 #    v/=100 # kludge
                 modelspec[ifir]['phi'][k]=np.concatenate((modelspec[ifir]['phi'][k],v))
 
-        if flip_pcs and (pc_idx*2 < chan_count):
+        if flip_pcs and (pc_idx*2 < chan_count-1):
             # add negative flipped version of fit
             for k, v in tmodelspec[iwc]['phi'].items():
                 modelspec[iwc]['phi'][k]=np.concatenate((modelspec[iwc]['phi'][k],v))
@@ -122,14 +123,15 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
                 #    v/=100 # kludge
                 modelspec[ifir]['phi'][k]=np.concatenate((-modelspec[ifir]['phi'][k],v))
 
-    respcount=est['resp'].shape[0]
+    # now fit weights for each neuron separately, using the initial subspace
+    respcount = est['resp'].shape[0]
     fit_set_all, fit_set_slice = _figure_out_mod_split(modelspec)
     cd_kwargs = {}
     cd_kwargs.update({'tolerance': tolerance, 'max_iter': 100,
                       'step_size': 0.1})
 
     for s in range(respcount):
-        log.info('Pre-fit slice %d' , s)
+        log.info('First fit per cell slice %d' , s)
         modelspec = fit_population_slice(
                 est, modelspec, slice=s,
                 fit_set=fit_set_slice,
@@ -142,7 +144,7 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
 
 
 def init_pop_rand(est, modelspec, IsReload=False,
-                  pc_signal='rand_resp', **context):
+                  pc_signal='rand_resp', whiten=True, **context):
     """
     initialize population model with random combinations of responses.
     generates random response combinations and passes them through to
@@ -166,6 +168,10 @@ def init_pop_rand(est, modelspec, IsReload=False,
     weights = np.random.randn(dim_count, resp_count)
 
     d = est['resp'].as_continuous()
+    if whiten:
+        d -= np.mean(d, axis=1, keepdims=True)
+        d /= np.std(d, axis=1, keepdims=True)
+
     d_rand = weights @ d
     est[pc_signal] = est['resp']._modified_copy(data=d_rand)
 
@@ -234,7 +240,7 @@ def fit_population_channel(rec, modelspec,
                            fitter=scipy_minimize, fit_kwargs={}):
 
     # guess at number of subspace dimensions
-    dim_count = modelspec[fit_set_slice[0]]['phi']['coefficients'].shape[0]
+    dim_count = modelspec[fit_set_slice[0]]['phi']['coefficients'].shape[1]
 
     # invert cell-specific modules
     trec = _invert_slice(rec, modelspec, fit_set_slice)
@@ -273,7 +279,6 @@ def fit_population_channel_fast(rec, modelspec,
                              population_channel=d)
 
         tmodelspec = ms.ModelSpec()
-
         for i in fit_set_all:
             m = copy.deepcopy(modelspec[i])
             for k, v in m['phi'].items():
@@ -307,6 +312,7 @@ def fit_population_channel_fast(rec, modelspec,
                     modelspec[i]['phi'][k][x1:x2] = v
                 else:
                     modelspec[i]['phi'][k] = v
+        print([modelspec.phi[f] for f in fit_set_all])
 
     return modelspec
 

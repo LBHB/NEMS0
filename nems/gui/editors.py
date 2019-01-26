@@ -84,11 +84,11 @@ class EditorWindow(qw.QMainWindow):
 
         '''
         super(qw.QMainWindow, self).__init__()
-        self.title = 'NEMS Model Browser'
         if (modelspec is None) and (ctx is not None):
             modelspec = ctx.get('modelspec', None)
         if (rec is None) and (ctx is not None):
             rec = ctx.get(rec_name, None)
+        self.title = modelspec.meta['modelname']
         self.editor = EditorWidget(modelspec, xfspec, rec, ctx, self)
         self.setCentralWidget(self.editor)
         self.setWindowTitle(self.title)

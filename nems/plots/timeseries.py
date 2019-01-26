@@ -361,8 +361,8 @@ def fir_output_all(rec, modelspec, sig_name='pred', idx=0, **options):
     """ plot output of fir filter channels separately"""
     # now evaluate next module step
 
-    if 'fir.basic' not in modelspec[idx]['fn']:
-        raise ValueError("only works for fir.basic")
+    if 'fir' not in modelspec[idx]['fn']:
+        raise ValueError("only works for fir modules")
 
     ms2 = copy.deepcopy(modelspec)
     ms2[idx]['fn'] = 'nems.modules.fir.filter_bank'

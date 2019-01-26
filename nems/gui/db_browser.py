@@ -77,6 +77,68 @@ def save_settings(m):
         config.write(f)
 
 
+class PandasModel(qc.QAbstractTableModel):
+    """
+    Thanks to this link!
+    https://github.com/eyllanesc/stackoverflow/tree/master/questions/44603119
+    """
+    def __init__(self, df = pd.DataFrame(), parent=None):
+        qc.QAbstractTableModel.__init__(self, parent=parent)
+        self._df = df
+
+    def headerData(self, section, orientation, role=qc.Qt.DisplayRole):
+        if role != qc.Qt.DisplayRole:
+            return qc.QVariant()
+
+        if orientation == qc.Qt.Horizontal:
+            try:
+                return self._df.columns.tolist()[section]
+            except (IndexError, ):
+                return qc.QVariant()
+        elif orientation == qc.Qt.Vertical:
+            try:
+                # return self.df.index.tolist()
+                return self._df.index.tolist()[section]
+            except (IndexError, ):
+                return qc.QVariant()
+
+    def data(self, index, role=qc.Qt.DisplayRole):
+        if role != qc.Qt.DisplayRole:
+            return qc.QVariant()
+
+        if not index.isValid():
+            return qc.QVariant()
+
+        return qc.QVariant(str(self._df.ix[index.row(), index.column()]))
+
+    def setData(self, index, value, role):
+        row = self._df.index[index.row()]
+        col = self._df.columns[index.column()]
+        if hasattr(value, 'toPyObject'):
+            # PyQt4 gets a QVariant
+            value = value.toPyObject()
+        else:
+            # PySide gets an unicode
+            dtype = self._df[col].dtype
+            if dtype != object:
+                value = None if value == '' else dtype.type(value)
+        self._df.set_value(row, col, value)
+        return True
+
+    def rowCount(self, parent=qc.QModelIndex()):
+        return len(self._df.index)
+
+    def columnCount(self, parent=qc.QModelIndex()):
+        return len(self._df.columns)
+
+    def sort(self, column, order):
+        colname = self._df.columns.tolist()[column]
+        self.layoutAboutToBeChanged.emit()
+        self._df.sort_values(colname, ascending= order == qc.Qt.AscendingOrder, inplace=True)
+        self._df.reset_index(inplace=True, drop=True)
+        self.layoutChanged.emit()
+
+
 class model_browser(qw.QWidget):
     """
     For a given batch, list all cellids and modelnames matching in
@@ -111,8 +173,12 @@ class model_browser(qw.QWidget):
         self.models = qw.QListWidget(self)
         self.models.setSelectionMode(qw.QAbstractItemView.ExtendedSelection)
 
+        self.data_model = PandasModel(parent=self)
+        self.data_table = qw.QTableView(self)
+        #self.data_table.setModel(self.data_model)
         hLayout1.addWidget(self.cells)
         hLayout1.addWidget(self.models)
+        hLayout1.addWidget(self.data_table)
 
         hLayout2 = qw.QHBoxLayout(self)
 
@@ -203,9 +269,9 @@ class model_browser(qw.QWidget):
                                " WHERE batch=%s AND cellid like %s" +
                                " ORDER BY cellid",
                                (self.batch, cellmask))
-        self.d_models = nd.pd_query("SELECT DISTINCT modelname FROM NarfResults" +
+        self.d_models = nd.pd_query("SELECT modelname, count(*) as n, max(lastmod) as last_mod FROM NarfResults" +
                                " WHERE batch=%s AND modelname like %s" +
-                               " ORDER BY modelname",
+                               " GROUP BY modelname ORDER BY modelname",
                                (self.batch, modelmask))
 
         self.cells.clear()
@@ -215,6 +281,8 @@ class model_browser(qw.QWidget):
         self.models.clear()
         for m in list(self.d_models['modelname']):
             list_item = qw.QListWidgetItem(m, self.models)
+        self.data_model._df = self.d_models
+        self.data_table.setModel(self.data_model)
 
         print('updated list widgets')
 
