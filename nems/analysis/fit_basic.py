@@ -52,7 +52,7 @@ def fit_basic(data, modelspec,
     if require_phi:
         # Ensure that phi exists for all modules;
         # choose prior mean if not found
-        for i, m in enumerate(modelspec):
+        for i, m in enumerate(modelspec.modules):
             if ('phi' not in m.keys()) and ('prior' in m.keys()):
                 log.debug('Phi not found for module, using mean of prior: %s',
                           m)
