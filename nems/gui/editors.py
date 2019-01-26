@@ -28,7 +28,8 @@ _SCROLLABLE_PLOT_FNS = [
     'nems.plots.api.pred_spectrogram',
     'nems.plots.api.resp_spectrogram',
     'nems.plots.api.mod_output',
-    'nems.plots.api.mod_output_all'
+    'nems.plots.api.mod_output_all',
+    'nems.plots.api.fir_output_all'
 ]
 
 # These are used as click-once operations
@@ -83,11 +84,11 @@ class EditorWindow(qw.QMainWindow):
 
         '''
         super(qw.QMainWindow, self).__init__()
-        self.title = 'NEMS Model Browser'
         if (modelspec is None) and (ctx is not None):
             modelspec = ctx.get('modelspec', None)
         if (rec is None) and (ctx is not None):
             rec = ctx.get(rec_name, None)
+        self.title = modelspec.meta['modelname']
         self.editor = EditorWidget(modelspec, xfspec, rec, ctx, self)
         self.setCentralWidget(self.editor)
         self.setWindowTitle(self.title)
@@ -118,14 +119,13 @@ class EditorWidget(qw.QWidget):
         self.xfspec = xfspec
         self.modelspec = modelspec
         self.rec = rec
+        self.rec=self.rec.apply_mask(reset_epochs=True)
+        self.modelspec.recording=self.rec
         if ctx is None:
             self.ctx = {}
         else:
             self.ctx = ctx
 
-        self.xfspec = xfspec
-        self.modelspec = modelspec
-        self.rec = rec
         self.title = 'NEMS Model Browser'
         # By default, start with xfspec steps hidden but all other
         # controls showing.
@@ -142,8 +142,7 @@ class EditorWidget(qw.QWidget):
         row_two_layout = qw.QHBoxLayout()
         row_three_layout = qw.QHBoxLayout()
 
-        self.modelspec.recording = rec
-        self.modelspec_editor = ModelspecEditor(modelspec, rec, self)
+        self.modelspec_editor = ModelspecEditor(modelspec, self.rec, self)
         if self.xfspec is not None:
             self.xfspec_editor = XfspecEditor(self.xfspec, self)
         self.global_controls = GlobalControls(self)
@@ -1007,9 +1006,9 @@ def browse_xform_fit(ctx, xfspec, recname='val'):
 
     modelspec=ctx['modelspec']
     rec=ctx[recname]
-    app = qw.QApplication(sys.argv)
     ex = EditorWindow(modelspec=modelspec, xfspec=xfspec, rec=rec, ctx=ctx)
-    sys.exit(app.exec_())
+
+    return ex
 
 
 _DEBUG = False

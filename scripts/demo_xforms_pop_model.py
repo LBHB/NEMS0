@@ -18,6 +18,7 @@ import nems.xforms as xforms
 import nems.db as nd
 import nems.recording as recording
 from nems.fitters.api import scipy_minimize, coordinate_descent
+from nems.gui.editors import browse_xform_fit
 
 from nems.recording import Recording
 from nems.fitters.api import scipy_minimize
@@ -70,8 +71,8 @@ xfspec.append(['nems.xforms.init_from_keywords', {}])
 
 #xfspec.append(['nems.xforms.fit_basic_init', {}])
 #xfspec.append(['nems.xforms.fit_basic', {}])
-xfspec.append(['nems_lbhb.fit_wrappers.init_pop_pca', {'flip_pcs': True}])
-xfspec.append(['nems_lbhb.fit_wrappers.fit_population_iteratively',
+xfspec.append(['nems.analysis.fit_pop_model.init_pop_pca', {'flip_pcs': True}])
+xfspec.append(['nems.analysis.fit_pop_model.fit_population_iteratively',
                {'fitter': 'scipy_minimize', 'tolerances': [1e-4, 3e-5],
                 'tol_iter': 100, 'fit_iter': 10}])
 # xfspec.append(['nems.xforms.fit_basic_shrink', {}])
@@ -115,3 +116,5 @@ xforms.save_analysis(modelspec.meta['modelpath'],
 # save summary of results to a database
 log.info('Saving metadata to db  ...')
 nd.update_results_table(modelspec)
+
+# browse_xform_fit(ctx, xfspec, recname='val')

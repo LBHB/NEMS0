@@ -122,6 +122,9 @@ def weight_channels_heatmap(modelspec, idx=None, ax=None, clim=None, title=None,
         # weird old way: get the idx-th set of coefficients
         coefficients = _get_wc_coefficients(modelspec, idx=wc_idx)
 
+    # normalize per channel:
+    coefficients /= np.std(coefficients, axis=0, keepdims=True)
+
     # make bigger dimension horizontal
     if coefficients.shape[0]>coefficients.shape[1]:
         ax = plot_heatmap(coefficients.T, xlabel='Channel Out', ylabel='Channel In',

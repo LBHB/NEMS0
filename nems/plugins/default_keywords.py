@@ -52,6 +52,7 @@ def wc(kw):
     -------
     c : Used when n_outputs is greater than n_inputs (overwrites g)
     g : For gaussian coefficients (overwrites c)
+    z : initialize all coefficients to zero
     n : To apply normalization
     o : include offset paramater, a constant ("bias") added to each output
 
@@ -98,7 +99,12 @@ def wc(kw):
     coefs = None
 
     for op in options[2:]:  # will be empty if only wc and {in}x{out}
-        if op == 'c':
+        if op == 'z':
+            p_coefficients = {'mean': np.zeros((n_outputs, n_inputs)),
+                              'sd': np.ones((n_outputs, n_inputs))}
+            prior = {'coefficients': ('Normal', p_coefficients)}
+
+        elif op == 'c':
 
             if n_outputs == 1:
                 p_coefficients = {
@@ -222,7 +228,8 @@ def fir(kw):
             'fn_kwargs': {'i': 'pred', 'o': 'pred'},
             'plot_fns': ['nems.plots.api.mod_output',
                          'nems.plots.api.strf_heatmap',
-                         'nems.plots.api.strf_timeseries'],
+                         'nems.plots.api.strf_timeseries',
+                         'nems.plots.api.fir_output_all'],
             'plot_fn_idx': 1,
             'prior': {
                 'coefficients': ('Normal', p_coefficients),
@@ -235,7 +242,8 @@ def fir(kw):
                           'bank_count': n_banks},
             'plot_fns': ['nems.plots.api.mod_output',
                          'nems.plots.api.strf_heatmap',
-                         'nems.plots.api.strf_timeseries'],
+                         'nems.plots.api.strf_timeseries',
+                         'nems.plots.api.fir_output_all'],
             'plot_fn_idx': 1,
             'prior': {
                 'coefficients': ('Normal', p_coefficients),
@@ -846,7 +854,8 @@ def relu(kw):
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.resp_spectrogram',
                      'nems.plots.api.pred_spectrogram',
-                     'nems.plots.api.before_and_after'],
+                     'nems.plots.api.before_and_after',
+                     'nems.plots.api.perf_per_cell'],
         'plot_fn_idx': 1
     }
 
@@ -926,11 +935,11 @@ def stategain(kw):
     d_sd = ones
 
     plot_fns = ['nems.plots.api.mod_output_all',
-                 'nems.plots.api.mod_output',
-                 'nems.plots.api.before_and_after',
-                 'nems.plots.api.pred_resp',
-                 'nems.plots.api.state_vars_timeseries',
-                 'nems.plots.api.state_vars_psth_all']
+                'nems.plots.api.mod_output',
+                'nems.plots.api.before_and_after',
+                'nems.plots.api.pred_resp',
+                'nems.plots.api.state_vars_timeseries',
+                'nems.plots.api.state_vars_psth_all']
     if gain_only:
         template = {
             'fn': 'nems.modules.state.state_gain',

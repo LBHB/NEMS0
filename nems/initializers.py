@@ -62,7 +62,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
             kw = kw.replace(".R", ".{}".format(R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        elif kw.endswith("xR") and (rec is not None):
+        elif ("xR" in kw) and (rec is not None):
             R = rec['resp'].nchans
             kw_old = kw
             kw = kw.replace("xR", "x{}".format(R))
@@ -254,6 +254,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
     tmodelspec = ms.ModelSpec()
     for i in range(len(modelspec)):
         m = copy.deepcopy(modelspec[i])
+
         for fn in extra_exclude:
             # log.info('exluding '+fn)
             # log.info(m['fn'])
@@ -269,9 +270,11 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
                 m['phi'] = {}
                 exclude_idx.append(i)
                 # log.info(m)
+        if ('relu' in m['fn']):
+            log.info('found relu')
 
-        if ('levelshift' in m['fn']):
-            m = priors.set_mean_phi([m])[0]
+        elif ('levelshift' in m['fn']):
+            #m = priors.set_mean_phi([m])[0]
             try:
                 mean_resp = np.nanmean(rec['resp'].as_continuous(), axis=1, keepdims=True)
             except NotImplementedError:
@@ -281,7 +284,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
                      i, m['fn'], mean_resp[0])
             log.info('resp has %d channels', len(mean_resp))
             m['phi']['level'][:] = mean_resp
-
+        i
         if (i < target_i) or ('merge_channels' in m['fn']):
             tmodelspec.append(m)
 
