@@ -96,7 +96,9 @@ def _set_phi_in_module(module, prior_to_phi_fn):
     new_module = deepcopy(module)
     prior = _get_module_prior(module)
     if not prior:
-        if 'phi' in new_module:
+        if new_module.get('phi', False):
+            # Changes this so that empty phi {} won't trigger it
+            # for modules that have no parameters, like dlog.f
             m = 'Phi exists w/o prior: ' + str(module)
             log.warn(m)
     else:

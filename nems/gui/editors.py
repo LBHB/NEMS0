@@ -251,7 +251,7 @@ class EditorWidget(qw.QWidget):
             if not col.collapsed:
                 con.show()
         self.module_collapser.setArrowType(qc.Qt.LeftArrow)
-    
+
     def toggle_xfstep_controls(self):
         '''Hide xfstep controls if visible, or show them if hidden.'''
         if self.xfsteps_collapsed:
@@ -1031,5 +1031,16 @@ if __name__ == '__main__':
         xfspec, ctx = xforms.load_analysis(filename)
         modelspec = ctx['modelspec']
         rec = ctx['val']
+    else:
+        # If modelspec or rec aren't defined, set to None and let
+        # EditorWindow try to set them based on ctx
+        try:
+            temp1 = modelspec
+        except NameError:
+            modelspec = None
+        try:
+            temp2 = rec
+        except NameError:
+            rec = None
 
     run(modelspec, xfspec, rec, ctx)
