@@ -166,16 +166,21 @@ def init_pop_rand(est, modelspec, IsReload=False,
 
     log.info('Initializing %d x %d random weight matrix', dim_count, resp_count)
     weights = np.random.randn(dim_count, resp_count)
-
-    d = est['resp'].as_continuous()
+    rec = est.copy()
+    d = rec['resp'].as_continuous()
     if whiten:
         d -= np.mean(d, axis=1, keepdims=True)
         d /= np.std(d, axis=1, keepdims=True)
 
-    d_rand = weights @ d
-    est[pc_signal] = est['resp']._modified_copy(data=d_rand)
+    d_rand = np.matmul(weights, d)
+    print('d shape', d.shape)
+    print('d_rand shape', d_rand.shape)
+    rec[pc_signal] = rec['resp']._modified_copy(data=d_rand)
+    rec[pc_signal].chans = ['n'+str(i) for i in range(dim_count)]
+    print('rec signal: ', pc_signal)
+    print('shape: ', rec[pc_signal].shape)
 
-    return init_pop_pca(est, modelspec, IsReload=False,
+    return init_pop_pca(rec, modelspec, IsReload=False,
                         pc_signal=pc_signal, **context)
 
 
