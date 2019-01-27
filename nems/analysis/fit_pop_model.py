@@ -127,7 +127,7 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
     respcount = est['resp'].shape[0]
     fit_set_all, fit_set_slice = _figure_out_mod_split(modelspec)
     cd_kwargs = {}
-    cd_kwargs.update({'tolerance': tolerance, 'max_iter': 100,
+    cd_kwargs.update({'tolerance': tolerance, 'max_iter': 20,
                       'step_size': 0.1})
 
     for s in range(respcount):
@@ -475,7 +475,7 @@ def fit_population_iteratively(
         metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp'),
         metaname='fit_basic', fit_kwargs={},
         module_sets=None, invert=False, tolerances=None, tol_iter=50,
-        fit_iter=10, IsReload=False, **context
+        fit_iter=5, IsReload=False, **context
         ):
     '''
     Required Arguments:
