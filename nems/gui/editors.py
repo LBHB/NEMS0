@@ -1,3 +1,67 @@
+'''
+Contains relevant classes for contsructing the NEMS model editor.
+
+The different parts of the editor are layed out as follows:
+
+------------------------------EditorWindow--------------------------------------
+: :------------------------------ EditorWidget--------------------------------::
+: : :-------------------ModelspecEditor-----------------: :---XfspecEditor---:::
+: : : EpochsCollapser |                  | EpochsCanvas : :                  :::
+: : :                                                   : :                  :::
+: : : ModuleCollapser |-ModuleController-| ModuleCanvas : :   XfstepEditor   :::
+: : :      [+/-]        :  PhiEditor   :      [Plot]    : :                  :::
+: : :                   :..............:                : :                  :::
+: : :          (1 of each per module in modelspec)      : :  (1 per step in  :::
+: : :                                                   : :     the xfspec)  :::
+: : :                         ...                       : :        ...       :::
+: : :                                                   : :                  :::
+: : :...................................................: :..................:::
+: :                                                                           ::
+: : ---------GlobalControls-----------------------------: :------FitEditor---:::
+: : :  <----------------Plot Scrollbar--------------->  : :[Init Fn][Do Init]:::
+: : : [Plot Display Duration]    [Zoom Out]   [Zoom In] : :[Fit Fn] [#] [Fit]:::
+: : : [Reset Modelspec] [Set Fit index] [Set Cell Index]: :                  :::
+: : :...................................................: :..................:::
+: :...........................................................................::
+:..............................................................................:
+
+There are also buttons along the left, right, and bottom edges for toggling
+the visibility of the ModelspecEditor, XfspecEditor, and the GlobalControls
+& FitEditor, respectively.
+
+Most modules will only need to refer to their immediate parent. However,
+ModuleCollapsers reference the ModuleController and ModuleCanvas within
+the same row in order to toggle their visibility. Additionally, GlobalControls
+needs to reference many distantly related modules.
+
+Classes
+-------
+EditorWindow(QMainWindow): Unpacks ctx if necessary and contains EditorWidget.
+EditorWidget(QWidget): Keeps a reference to all data and lays out the
+                       ModelspecEditor, XfspecEditor, GlobalControls, and
+                       FitEditor.
+ModelspecEditor(QWidget): Handles evaluation of modelspec and lays out a
+                          ModuleCollapser, ModuleController, and ModuleCanvas
+                          for each module in the modelspec.
+ModuleCollapser(QWidget): Toggles visibility of one module.
+ModuleController(QWidget): Controls for changing plot type, editing phi, etc.
+                           for one module.
+ModuleCanvas(QWidget): Plot display for one module.
+EpochsCollapser(QWidget): Toggles visibilty of the epochs display.
+EpochsWrapper(QWidget): Contains the EpochCanvas. Simple layout to maintain
+                        consistency of appearance with module canvases.
+XfspecEditor(QWidget): Handles evaluation of xfspec and lays out an XfstepEditor
+                       for each step in the xfspec. Hidden by default.
+                       (more features to be added later).
+GlobalControls(QWidget): Provides user controls for adjusting plot limits and
+                         changing fit and cell indices for modelspec
+                         (more features to be added later)
+FitEditor(QWidget): Provides user controls for re-initializing the modelspec
+                    as well as incremental fitting
+                    (more features to be added later).
+
+'''
+
 import sys
 import copy
 import json
