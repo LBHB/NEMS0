@@ -353,6 +353,8 @@ class ModelspecEditor(qw.QWidget):
         '''
         QWidget for displaying per-module plots and editing model parameters.
 
+        Parameters:
+        -----------
         modelspec : ModelSpec
             A NEMS ModelSpec containing at least one module.
         rec : Recording
@@ -360,6 +362,16 @@ class ModelspecEditor(qw.QWidget):
             and 'pred' signals.
         parent : QWidget*
             Expected to be an instance of EditorWidget.
+
+        Methods:
+        --------
+        refresh_plots: Re-generate all module plots.
+        evaluate_model: Use modelspec.evaluate() to update modelspec's recording,
+                        then re-generate module plots and update EditorWidget's
+                        modelspec recording as well.
+        reset_model: Assign copy of original modelspec (whatever was present
+                     when the application was launched), then refresh
+                     module plots and update EditorWidget's modelspec.
 
         '''
         super(qw.QWidget, self).__init__()
@@ -423,6 +435,7 @@ class ModelspecEditor(qw.QWidget):
     def reset_model(self):
         '''Reassign modelspec to original copy and regenerate layout.'''
         self.modelspec = copy.deepcopy(self.original_modelspec)
+        self.parent.modelspec = self.modelspec
         self.clear_layout()
         self.setup_layout()
         self.refresh_plots()
