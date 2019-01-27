@@ -221,8 +221,14 @@ def _invert_slice(rec, modelspec, fit_set_slice, population_channel=None):
             data += m['phi']['offset']
         elif 'weight_channels' in m['fn']:
             C = m['phi']['coefficients']
-            Cinv = np.linalg.pinv(C)
-            data = np.matmul(Cinv, data)
+            #Cinv = np.linalg.pinv(C)
+            #data = np.matmul(Cinv, data)
+            dim_count = C.shape[1]
+            data2 = np.zeros((dim_count, data.shape[1]))
+            for ch in range(dim_count):
+                Cinv = np.linalg.pinv(C[:,[ch]])
+                data2[ch,:] = np.matmul(Cinv, data)
+            data = data2
 
     # extract only the channel of interest
     if population_channel is not None:
