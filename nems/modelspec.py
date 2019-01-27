@@ -43,6 +43,8 @@ class ModelSpec:
                  recording=None):
 
         self.raw = [[]] if raw is None else raw
+        if nems.utils.depth(self.raw) != 2:
+            raise ValueError('ModelSpec.raw should be a list of lists of dicts')
         self.phis = [] if phis is None else phis
 
         # a Model can have multiple fits, each of which contains a different
@@ -71,9 +73,11 @@ class ModelSpec:
                 raise ValueError('key {} not supported'.format(key))
 
     def __setitem__(self, key, val):
-        if type(key) is int:
-            self.raw[self.fit_index][key] = val
-        else:
+        try:
+            # Try converting types like np.int64 instead of just
+            # throwing an error.
+            self.raw[self.fit_index][int(key)] = val
+        except ValueError:
             raise ValueError('key {} not supported'.format(key))
         return self
 
@@ -190,15 +194,17 @@ class ModelSpec:
         return _lookup_fn_at(fn_path)
 
     def plot(self, mod_index=None, rec=None, ax=None, plot_fn_idx=None,
-             fit_index=None, sig_name='pred', **options):
+             fit_index=None, sig_name='pred', channels=None, **options):
         """generate plot for a single module"""
 
         if rec is None:
             rec = self.recording
+        if channels is None:
+            channels = self.plot_channel
         plot_fn = self.plot_fn(mod_index=mod_index, plot_fn_idx=plot_fn_idx,
                                fit_index=fit_index)
         plot_fn(rec=rec, modelspec=self, sig_name=sig_name, idx=mod_index,
-                channels=self.plot_channel, ax=ax, **options)
+                channels=channels, ax=ax, **options)
 
     def quickplot(self, rec=None):
 

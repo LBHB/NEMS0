@@ -333,7 +333,7 @@ def fird(kw):
     Parameters
     ----------
     kw : str
-        A string of the form: fir.{n_outputs}x{n_coefs}x{n_banks}
+        A string of the form: fird.{n_outputs}x{n_coefs}x{n_banks}
 
     Options
     -------
@@ -349,7 +349,7 @@ def fird(kw):
     except TypeError:
         raise ValueError("Got a TypeError when parsing fir keyword. Make sure "
                          "keyword has the form: \n"
-                         "pz.{n_outputs}x{n_coefs}x{n_banks} (banks optional)"
+                         "fird.{n_outputs}x{n_coefs}x{n_banks} (banks optional)"
                          "\nkeyword given: %s" % kw)
     if n_banks is None:
         n_banks = 1
@@ -371,6 +371,59 @@ def fird(kw):
         'prior': {
             'phi': ('Normal', p_phi),
         }
+    }
+
+    return template
+
+
+def firexp(kw):
+    '''
+    Generate and register default modulespec for fir_exp filters
+
+    Parameters
+    ----------
+    kw : str
+        A string of the form: firexp.{n_outputs}x{n_coefs}
+
+    Options
+    -------
+    s : Fix a and b as constants (1, and 0, respectively).
+        Reduces firexp to a one-parameter exponential e^(-x/tau)
+
+    '''
+    options = kw.split('.')
+    pattern = re.compile(r'^(\d{1,})x(\d{1,})?$')
+    parsed = re.match(pattern, options[1])
+    try:
+        n_chans = int(parsed.group(1))
+        n_coefs = int(parsed.group(2))
+    except TypeError:
+        raise ValueError("Got a TypeError when parsing fir keyword. Make sure "
+                         "keyword has the form: \n"
+                         "firexp.{n_outputs}x{n_coefs}"
+                         "\nkeyword given: %s" % kw)
+
+    tau = np.ones(n_chans)
+    prior = {'tau': ('Normal', {'mean': tau, 'sd': np.ones(n_chans)})}
+    fn_kwargs = {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs}
+    if 's' not in options:
+        a = np.ones(n_chans)
+        b = np.zeros(n_chans)
+        prior.update({
+                'a': ('Normal', {'mean': a, 'sd': np.ones(n_chans)}),
+                'b': ('Normal', {'mean': b, 'sd': np.ones(n_chans)})
+                })
+    else:
+        fn_kwargs.update({'a': a, 'b': b})
+
+    template = {
+        'fn': 'nems.modules.fir.fir_exp',
+        'fn_kwargs': fn_kwargs,
+        'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.strf_heatmap',
+                     'nems.plots.api.strf_timeseries'],
+        'plot_fn_idx': 1,
+        'prior': prior
     }
 
     return template
@@ -872,7 +925,7 @@ def stategain(kw):
     for op in options[2:]:
         if op == 'g':
             gain_only=True
-        
+
     zeros = np.zeros([n_chans, n_vars])
     ones = np.ones([n_chans, n_vars])
     g_mean = zeros.copy()

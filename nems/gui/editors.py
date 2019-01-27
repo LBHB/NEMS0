@@ -1,3 +1,67 @@
+'''
+Contains relevant classes for contsructing the NEMS model editor.
+
+The different parts of the editor are layed out as follows:
+
+------------------------------EditorWindow--------------------------------------
+: :------------------------------ EditorWidget--------------------------------::
+: : :-------------------ModelspecEditor-----------------: :---XfspecEditor---:::
+: : : EpochsCollapser |                  | EpochsCanvas : :                  :::
+: : :                                                   : :                  :::
+: : : ModuleCollapser |-ModuleController-| ModuleCanvas : :   XfstepEditor   :::
+: : :      [+/-]        :  PhiEditor   :      [Plot]    : :                  :::
+: : :                   :..............:                : :                  :::
+: : :          (1 of each per module in modelspec)      : :  (1 per step in  :::
+: : :                                                   : :     the xfspec)  :::
+: : :                         ...                       : :        ...       :::
+: : :                                                   : :                  :::
+: : :...................................................: :..................:::
+: :                                                                           ::
+: : ---------GlobalControls-----------------------------: :------FitEditor---:::
+: : :  <----------------Plot Scrollbar--------------->  : :[Init Fn][Do Init]:::
+: : : [Plot Display Duration]    [Zoom Out]   [Zoom In] : :[Fit Fn] [#] [Fit]:::
+: : : [Reset Modelspec] [Set Fit index] [Set Cell Index]: :                  :::
+: : :...................................................: :..................:::
+: :...........................................................................::
+:..............................................................................:
+
+There are also buttons along the left, right, and bottom edges for toggling
+the visibility of the ModelspecEditor, XfspecEditor, and the GlobalControls
+& FitEditor, respectively.
+
+Most modules will only need to refer to their immediate parent. However,
+ModuleCollapsers reference the ModuleController and ModuleCanvas within
+the same row in order to toggle their visibility. Additionally, GlobalControls
+needs to reference many distantly related modules.
+
+Classes
+-------
+EditorWindow(QMainWindow): Unpacks ctx if necessary and contains EditorWidget.
+EditorWidget(QWidget): Keeps a reference to all data and lays out the
+                       ModelspecEditor, XfspecEditor, GlobalControls, and
+                       FitEditor.
+ModelspecEditor(QWidget): Handles evaluation of modelspec and lays out a
+                          ModuleCollapser, ModuleController, and ModuleCanvas
+                          for each module in the modelspec.
+ModuleCollapser(QWidget): Toggles visibility of one module.
+ModuleController(QWidget): Controls for changing plot type, editing phi, etc.
+                           for one module.
+ModuleCanvas(QWidget): Plot display for one module.
+EpochsCollapser(QWidget): Toggles visibilty of the epochs display.
+EpochsWrapper(QWidget): Contains the EpochCanvas. Simple layout to maintain
+                        consistency of appearance with module canvases.
+XfspecEditor(QWidget): Handles evaluation of xfspec and lays out an XfstepEditor
+                       for each step in the xfspec. Hidden by default.
+                       (more features to be added later).
+GlobalControls(QWidget): Provides user controls for adjusting plot limits and
+                         changing fit and cell indices for modelspec
+                         (more features to be added later)
+FitEditor(QWidget): Provides user controls for re-initializing the modelspec
+                    as well as incremental fitting
+                    (more features to be added later).
+
+'''
+
 import sys
 import copy
 import json
@@ -250,7 +314,7 @@ class EditorWidget(qw.QWidget):
             if not col.collapsed:
                 con.show()
         self.module_collapser.setArrowType(qc.Qt.LeftArrow)
-    
+
     def toggle_xfstep_controls(self):
         '''Hide xfstep controls if visible, or show them if hidden.'''
         if self.xfsteps_collapsed:
@@ -341,6 +405,7 @@ class ModelspecEditor(qw.QWidget):
             j += 1
 
         self.layout.setAlignment(qc.Qt.AlignTop)
+        self.layout.setColumnStretch(2, 4)
         self.setLayout(self.layout)
 
     def refresh_plots(self):
@@ -403,6 +468,7 @@ class ModuleCanvas(qw.QFrame):
 
         # Default plot options - set them up here then change w/ controller
         self.plot_fn_idx = data.get('plot_fn_idx', 0)
+        self.plot_channel = parent.modelspec.plot_channel
         self.fit_index = parent.modelspec.fit_index
         # TODO: Need to do something smarter for signal name
         self.sig_name = 'pred'
@@ -431,7 +497,8 @@ class ModuleCanvas(qw.QFrame):
         rec = self.parent.modelspec.recording
         self.parent.modelspec.plot(self.mod_index, rec, ax,
                                    self.plot_fn_idx, self.fit_index,
-                                   self.sig_name, no_legend=True)
+                                   self.sig_name, no_legend=True,
+                                   channels=self.plot_channel)
         self.canvas.draw()
 
     def check_scrollable(self):
@@ -454,6 +521,10 @@ class ModuleCanvas(qw.QFrame):
             self.canvas.draw()
         else:
             pass
+
+    def change_channel(self, value):
+        self.plot_channel = int(value)
+        self.new_plot()
 
 
 class EpochsWrapper(qw.QFrame):
@@ -558,8 +629,11 @@ class ModuleControls(qw.QFrame):
 
         name = self.module_data['fn']
         self.label = qw.QLabel(name)
+        self.label.setFixedSize(330, 20)
         self.label.setStyleSheet("background-color: rgb(255, 255, 255);")
         self.layout.addWidget(self.label)
+
+        plot_layout = qw.QHBoxLayout()
 
         plot_list = self.module_data.get('plot_fns', [])
         self.plot_functions_menu = qw.QComboBox()
@@ -568,7 +642,25 @@ class ModuleControls(qw.QFrame):
         if initial_index is None:
             initial_index = 0
         self.plot_functions_menu.setCurrentIndex(initial_index)
-        self.layout.addWidget(self.plot_functions_menu)
+        self.plot_functions_menu.setFixedSize(250, 24)
+
+        plot_channel_layout = qw.QHBoxLayout()
+        self.decrease_channel_btn = qw.QPushButton('-')
+        self.decrease_channel_btn.clicked.connect(self.decrease_channel)
+        self.decrease_channel_btn.setFixedSize(15, 15)
+        self.channel_entry = qw.QLineEdit(str(self.module.plot_channel))
+        self.channel_entry.textChanged.connect(self.change_channel)
+        self.channel_entry.setFixedSize(30, 15)
+        self.increase_channel_btn = qw.QPushButton('+')
+        self.increase_channel_btn.clicked.connect(self.increase_channel)
+        self.increase_channel_btn.setFixedSize(15, 15)
+        plot_channel_layout.addWidget(self.decrease_channel_btn)
+        plot_channel_layout.addWidget(self.channel_entry)
+        plot_channel_layout.addWidget(self.increase_channel_btn)
+
+        plot_layout.addWidget(self.plot_functions_menu)
+        plot_layout.addLayout(plot_channel_layout)
+        self.layout.addLayout(plot_layout)
         self.plot_functions_menu.currentIndexChanged.connect(self.change_plot)
 
         button_layout = qw.QHBoxLayout()
@@ -632,6 +724,29 @@ class ModuleControls(qw.QFrame):
                 equal = False
                 break
         return equal
+
+    def change_channel(self):
+        old_channel = self.module.plot_channel
+        new_channel = self.channel_entry.text()
+        try:
+            self.module.change_channel(int(new_channel))
+        except:
+            # Leaving this bare b/c not clear what exception type it will be.
+            # But reason is if plot channel is not valid for whichever
+            # plot function the module is using.
+            log.warning("Invalid plot channel: %s for module: %s"
+                        % (new_channel, self.mod_index))
+            self.channel_entry.setText(str(old_channel))
+
+    def decrease_channel(self):
+        old_channel = self.module.plot_channel
+        self.channel_entry.setText(str(max(0, old_channel-1)))
+
+    def increase_channel(self):
+        # TODO: Would be nice to know a valid channel range but
+        #       I'm not sure how to extract that information from the modules.
+        old_channel = self.module.plot_channel
+        self.channel_entry.setText(str((old_channel+1)))
 
 
 class PhiEditor(qw.QWidget):
@@ -880,22 +995,19 @@ class GlobalControls(qw.QFrame):
         self.parent.modelspec_editor.evaluate_model()
 
     def update_cell_index(self):
-        self.parent.modelspec.plot_channel = int(self.cell_index_line.text())
-        self.parent.modelspec_editor.refresh_plots()
+        i = int(self.cell_index_line.text())
+        j = self.parent.modelspec_editor.modelspec.cell_index
 
-        #i = int(self.cell_index_line.text())
-        #j = self.parent.modelspec_editor.modelspec.cell_index
+        if i == j:
+           return
 
-        #if i == j:
-        #    return
+        if i > len(self.parent.modelspec_editor.modelspec.phis):
+           # TODO: Flash red or something to indicate error
+           self.cell_index_line.setText(str(j))
+           return
 
-        #if i > len(self.parent.modelspec_editor.modelspec.phis):
-        #    # TODO: Flash red or something to indicate error
-        #    self.cell_index_line.setText(str(j))
-        #    return
-
-        #self.parent.modelspec_editor.modelspec.cell_index = i
-        #self.parent.modelspec_editor.evaluate_model()
+        self.parent.modelspec_editor.modelspec.cell_index = i
+        self.parent.modelspec_editor.evaluate_model()
 
     def toggle_controls(self):
         if self.collapsed:
@@ -1030,5 +1142,16 @@ if __name__ == '__main__':
         xfspec, ctx = xforms.load_analysis(filename)
         modelspec = ctx['modelspec']
         rec = ctx['val']
+    else:
+        # If modelspec or rec aren't defined, set to None and let
+        # EditorWindow try to set them based on ctx
+        try:
+            temp1 = modelspec
+        except NameError:
+            modelspec = None
+        try:
+            temp2 = rec
+        except NameError:
+            rec = None
 
     run(modelspec, xfspec, rec, ctx)
