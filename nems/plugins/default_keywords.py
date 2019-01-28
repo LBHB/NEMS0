@@ -404,11 +404,11 @@ def firexp(kw):
                          "\nkeyword given: %s" % kw)
 
     tau = np.ones(n_chans)
+    a = np.ones(n_chans)
+    b = np.zeros(n_chans)
     prior = {'tau': ('Normal', {'mean': tau, 'sd': np.ones(n_chans)})}
     fn_kwargs = {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs}
     if 's' not in options:
-        a = np.ones(n_chans)
-        b = np.zeros(n_chans)
         prior.update({
                 'a': ('Normal', {'mean': a, 'sd': np.ones(n_chans)}),
                 'b': ('Normal', {'mean': b, 'sd': np.ones(n_chans)})
@@ -423,7 +423,8 @@ def firexp(kw):
                      'nems.plots.api.strf_heatmap',
                      'nems.plots.api.strf_timeseries'],
         'plot_fn_idx': 1,
-        'prior': prior
+        'prior': prior,
+        'bounds': {'tau': (1e-15, None)}
     }
 
     return template
