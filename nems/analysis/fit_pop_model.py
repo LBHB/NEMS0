@@ -285,6 +285,90 @@ def fit_population_channel_fast(rec, modelspec,
         # fit each dim separately
         log.info('Updating dim %d/%d', d+1, dim_count)
 
+        # fit to residual
+        trec = rec.copy()
+        trec = ms.evaluate(trec, modelspec)
+        r = trec['resp'].as_continuous().copy()
+        p = trec['pred'].as_continuous().copy()
+
+        tmodelspec = ms.ModelSpec()
+        for i in fit_set_all:
+            m = copy.deepcopy(modelspec[i])
+            for k, v in m['phi'].items():
+                x = v.shape[0]
+                if x >= dim_count:
+                    x1 = int(x/dim_count) * d
+                    x2 = int(x/dim_count) * (d+1)
+
+                    m['phi'][k] = v[x1:x2]
+                    if 'bank_count' in m['fn_kwargs'].keys():
+                        m['fn_kwargs']['bank_count'] = 1
+                else:
+                    # single model-wide parameter, only fit for d==0
+                    if d==0:
+                        m['phi'][k] = v
+                    else:
+                        m['fn_kwargs'][k] = v  # keep fixed for d>0
+            tmodelspec.append(m)
+
+        for i in fit_set_slice:
+            m = copy.deepcopy(modelspec[i])
+            for k, v in m['phi'].items():
+                # just applies to wc module?
+                if v.shape[1] >= dim_count:
+                    m['fn_kwargs'][k] = v[:, [d]]
+                else:
+                    m['fn_kwargs'][k] = v
+                #print(k)
+                #print(m['fn_kwargs'][k])
+            del m['phi']
+            del m['prior']
+            tmodelspec.append(m)
+            #print(tmodelspec[-1]['fn_kwargs'])
+
+        trec = ms.evaluate(trec, tmodelspec)
+        p2 = trec['pred'].as_continuous().copy()
+        trec['resp'] = trec['resp']._modified_copy(data=r-p+p2)
+
+        #import pdb;
+        #pdb.set_trace()
+        tmodelspec = analysis_function(trec, tmodelspec, fitter=fitter,
+                                       metric=metric, fit_kwargs=fit_kwargs)
+
+        for i in fit_set_all:
+            for k, v in tmodelspec[i]['phi'].items():
+                x = modelspec[i]['phi'][k].shape[0]
+                if x >= dim_count:
+                    x1 = int(x/dim_count) * d
+                    x2 = int(x/dim_count) * (d+1)
+
+                    modelspec[i]['phi'][k][x1:x2] = v
+                else:
+                    modelspec[i]['phi'][k] = v
+
+        #for i in fit_set_slice:
+        #    for k, v in tmodelspec[i]['phi'].items():
+        #        if modelspec[i]['phi'][k].shape[0] >= dim_count:
+        #            modelspec[i]['phi'][k][d,:] = v
+
+        print([modelspec.phi[f] for f in fit_set_all])
+
+    return modelspec
+
+
+def fit_population_channel_fast_old(rec, modelspec,
+                               fit_set_all, fit_set_slice,
+                               analysis_function=analysis.fit_basic,
+                               metric=metrics.nmse,
+                               fitter=scipy_minimize, fit_kwargs={}):
+
+    # guess at number of subspace dimensions
+    dim_count = modelspec[fit_set_slice[0]]['phi']['coefficients'].shape[1]
+
+    for d in range(dim_count):
+        # fit each dim separately
+        log.info('Updating dim %d/%d', d+1, dim_count)
+
         # invert cell-specific modules
         trec = _invert_slice(rec, modelspec, fit_set_slice,
                              population_channel=d)
