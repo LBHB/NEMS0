@@ -15,12 +15,13 @@ import nems.modelspec as ms
 
 log = logging.getLogger(__name__)
 
-def perf_per_cell(modelspec, channels=0, ax=None, title=None, **options):
+
+def perf_per_cell(modelspec, channels=0, ax=None, **options):
 
     if ax is None:
         ax = plt.gca()
 
-    cellids = modelspec.meta.get('cellids', [modelspec.meta['cellid']])
+    cellids = modelspec.meta.get('cellids', [modelspec.meta.get('cellid', None)])
     cellcount = len(cellids)
     ax.plot(modelspec.meta['r_test'])
     ax.plot(modelspec.meta['r_fit'], ls='--')

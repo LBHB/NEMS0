@@ -52,6 +52,7 @@ def wc(kw):
     -------
     c : Used when n_outputs is greater than n_inputs (overwrites g)
     g : For gaussian coefficients (overwrites c)
+    z : initialize all coefficients to zero
     n : To apply normalization
     o : include offset paramater, a constant ("bias") added to each output
 
@@ -98,7 +99,12 @@ def wc(kw):
     coefs = None
 
     for op in options[2:]:  # will be empty if only wc and {in}x{out}
-        if op == 'c':
+        if op == 'z':
+            p_coefficients = {'mean': np.zeros((n_outputs, n_inputs)),
+                              'sd': np.ones((n_outputs, n_inputs))}
+            prior = {'coefficients': ('Normal', p_coefficients)}
+
+        elif op == 'c':
 
             if n_outputs == 1:
                 p_coefficients = {
@@ -222,7 +228,8 @@ def fir(kw):
             'fn_kwargs': {'i': 'pred', 'o': 'pred'},
             'plot_fns': ['nems.plots.api.mod_output',
                          'nems.plots.api.strf_heatmap',
-                         'nems.plots.api.strf_timeseries'],
+                         'nems.plots.api.strf_timeseries',
+                         'nems.plots.api.fir_output_all'],
             'plot_fn_idx': 1,
             'prior': {
                 'coefficients': ('Normal', p_coefficients),
@@ -235,7 +242,8 @@ def fir(kw):
                           'bank_count': n_banks},
             'plot_fns': ['nems.plots.api.mod_output',
                          'nems.plots.api.strf_heatmap',
-                         'nems.plots.api.strf_timeseries'],
+                         'nems.plots.api.strf_timeseries',
+                         'nems.plots.api.fir_output_all'],
             'plot_fn_idx': 1,
             'prior': {
                 'coefficients': ('Normal', p_coefficients),
@@ -325,7 +333,7 @@ def fird(kw):
     Parameters
     ----------
     kw : str
-        A string of the form: fir.{n_outputs}x{n_coefs}x{n_banks}
+        A string of the form: fird.{n_outputs}x{n_coefs}x{n_banks}
 
     Options
     -------
@@ -341,7 +349,7 @@ def fird(kw):
     except TypeError:
         raise ValueError("Got a TypeError when parsing fir keyword. Make sure "
                          "keyword has the form: \n"
-                         "pz.{n_outputs}x{n_coefs}x{n_banks} (banks optional)"
+                         "fird.{n_outputs}x{n_coefs}x{n_banks} (banks optional)"
                          "\nkeyword given: %s" % kw)
     if n_banks is None:
         n_banks = 1
@@ -363,6 +371,60 @@ def fird(kw):
         'prior': {
             'phi': ('Normal', p_phi),
         }
+    }
+
+    return template
+
+
+def firexp(kw):
+    '''
+    Generate and register default modulespec for fir_exp filters
+
+    Parameters
+    ----------
+    kw : str
+        A string of the form: firexp.{n_outputs}x{n_coefs}
+
+    Options
+    -------
+    s : Fix a and b as constants (1, and 0, respectively).
+        Reduces firexp to a one-parameter exponential e^(-x/tau)
+
+    '''
+    options = kw.split('.')
+    pattern = re.compile(r'^(\d{1,})x(\d{1,})?$')
+    parsed = re.match(pattern, options[1])
+    try:
+        n_chans = int(parsed.group(1))
+        n_coefs = int(parsed.group(2))
+    except TypeError:
+        raise ValueError("Got a TypeError when parsing fir keyword. Make sure "
+                         "keyword has the form: \n"
+                         "firexp.{n_outputs}x{n_coefs}"
+                         "\nkeyword given: %s" % kw)
+
+    tau = np.ones(n_chans)
+    a = np.ones(n_chans)
+    b = np.zeros(n_chans)
+    prior = {'tau': ('Normal', {'mean': tau, 'sd': np.ones(n_chans)})}
+    fn_kwargs = {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs}
+    if 's' not in options:
+        prior.update({
+                'a': ('Normal', {'mean': a, 'sd': np.ones(n_chans)}),
+                'b': ('Normal', {'mean': b, 'sd': np.ones(n_chans)})
+                })
+    else:
+        fn_kwargs.update({'a': a, 'b': b})
+
+    template = {
+        'fn': 'nems.modules.fir.fir_exp',
+        'fn_kwargs': fn_kwargs,
+        'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.strf_heatmap',
+                     'nems.plots.api.strf_timeseries'],
+        'plot_fn_idx': 1,
+        'prior': prior,
+        'bounds': {'tau': (1e-15, None)}
     }
 
     return template
@@ -793,7 +855,8 @@ def relu(kw):
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.resp_spectrogram',
                      'nems.plots.api.pred_spectrogram',
-                     'nems.plots.api.before_and_after'],
+                     'nems.plots.api.before_and_after',
+                     'nems.plots.api.perf_per_cell'],
         'plot_fn_idx': 1
     }
 
@@ -863,7 +926,7 @@ def stategain(kw):
     for op in options[2:]:
         if op == 'g':
             gain_only=True
-        
+
     zeros = np.zeros([n_chans, n_vars])
     ones = np.ones([n_chans, n_vars])
     g_mean = zeros.copy()
@@ -873,11 +936,11 @@ def stategain(kw):
     d_sd = ones
 
     plot_fns = ['nems.plots.api.mod_output_all',
-                 'nems.plots.api.mod_output',
-                 'nems.plots.api.before_and_after',
-                 'nems.plots.api.pred_resp',
-                 'nems.plots.api.state_vars_timeseries',
-                 'nems.plots.api.state_vars_psth_all']
+                'nems.plots.api.mod_output',
+                'nems.plots.api.before_and_after',
+                'nems.plots.api.pred_resp',
+                'nems.plots.api.state_vars_timeseries',
+                'nems.plots.api.state_vars_psth_all']
     if gain_only:
         template = {
             'fn': 'nems.modules.state.state_gain',

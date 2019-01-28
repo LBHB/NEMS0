@@ -208,3 +208,29 @@ def filter_bank(rec, i='pred', o='pred', coefficients=[], bank_count=1):
 
     fn = lambda x: per_channel(x, coefficients, bank_count)
     return [rec[i].transform(fn, o)]
+
+
+def fir_exp_coefficients(tau, a=1, b=0, n_coefs=15):
+    '''
+    Generate coefficient matrix using a three-parameter exponential equation.
+    y = a*e^(-x/tau) + b
+    '''
+    n_chans = tau.shape[0]
+    coefs = np.zeros((n_chans, n_coefs))
+    t = np.arange(0, n_coefs)
+    for c in range(n_chans):
+        coefs[c, :] = a[c]*np.exp(-t/tau[c]) + b[c]
+
+    return coefs
+
+
+def fir_exp(rec, tau, a=1, b=0, i='pred', o='pred', n_coefs=15):
+    '''
+    Calculate coefficients based on three-parameter exponential equation
+    y = a*e^(-x/tau) + b,
+    then call as basic fir.
+
+    '''
+    coefficients = fir_exp_coefficients(tau, a, b, n_coefs)
+    fn = lambda x: per_channel(x, coefficients)
+    return [rec[i].transform(fn, o)]

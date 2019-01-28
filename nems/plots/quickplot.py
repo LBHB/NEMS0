@@ -312,9 +312,8 @@ def _get_plot_fns(rec, modelspec, default='val', epoch='TRIAL', occurrence=0, m_
     for idx, m in enumerate(modelspec):
         fname = m['fn']
 
-        # STRF is a special case that relies on multiple modules, so
-        # the dependent modules are wrapped here
-        # in a separate logic heirarchy.
+        # STRF is a special case that relies on multiple modules, so the
+        # dependent modules are wrapped here in a separate logic hierarchy.
         if not do_strf:
             if rec['stim'] is not None:
                 chans = rec['stim'].chans
@@ -357,10 +356,10 @@ def _get_plot_fns(rec, modelspec, default='val', epoch='TRIAL', occurrence=0, m_
                 chans = rec['stim'].chans
                 # print('CHANS: ')
                 # print(chans)
-                if m['phi']['coefficients'].shape[0]<=2:
-                    fn = partial(strf_timeseries, modelspec, chans=chans,show_fir_only=False)
-                else:
-                    fn = partial(strf_heatmap, modelspec, title='STRF', chans=chans)
+                #if m['phi']['coefficients'].shape[0]<=2:
+                #    fn = partial(strf_timeseries, modelspec, chans=chans,show_fir_only=False)
+                #else:
+                fn = partial(strf_heatmap, modelspec, title='STRF', chans=chans)
                 plot = (fn, 1)
                 plot_fns.append(plot)
                 strf_done = True

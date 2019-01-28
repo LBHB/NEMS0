@@ -37,8 +37,15 @@ log = logging.getLogger(__name__)
 
 def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
                  pc_signal='pca', **context):
-    """ fit up through the fir module of a population model using the pca
-    signal"""
+    """
+    fit up through the fir module of a population model using the pca signal
+    :param est: recording object with fit data
+    :param modelspec: un-fit modelspec
+    :param flip_pcs: use each pc to fit two channels, one with sign flipped
+    :param IsReload: don't fit if IsReload=True
+    :param context: dictionary of other context variables
+    :return: initialized modelspec
+ """
 
     if IsReload:
         return {}
@@ -52,7 +59,8 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
     chan_count=modelspec[ifir]['fn_kwargs']['bank_count']
     chan_per_bank = int(modelspec[iwc]['prior']['mean'][1]['mean'].shape[0]/chan_count)
     rec = est.copy()
-    tmodelspec = copy.deepcopy(modelspec)
+
+    log.info('Intializing %d subspace channels with signal %s', chan_count, pc_signal)
 
     kw=[m['id'] for m in modelspec[:iwc]]
 
@@ -79,6 +87,7 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
     else:
         pc_fit_count = chan_count
     for pc_idx in range(pc_fit_count):
+        log.info('Initializing filter %d', pc_idx)
         r = rec[pc_signal].extract_channels([rec[pc_signal].chans[pc_idx]])
         m = np.nanmean(r.as_continuous())
         d = np.nanstd(r.as_continuous())
@@ -105,7 +114,7 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
                 #    v/=100 # kludge
                 modelspec[ifir]['phi'][k]=np.concatenate((modelspec[ifir]['phi'][k],v))
 
-        if flip_pcs and (pc_idx*2 < chan_count):
+        if flip_pcs and (pc_idx*2 < chan_count-1):
             # add negative flipped version of fit
             for k, v in tmodelspec[iwc]['phi'].items():
                 modelspec[iwc]['phi'][k]=np.concatenate((modelspec[iwc]['phi'][k],v))
@@ -114,14 +123,15 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
                 #    v/=100 # kludge
                 modelspec[ifir]['phi'][k]=np.concatenate((-modelspec[ifir]['phi'][k],v))
 
-    respcount=est['resp'].shape[0]
+    # now fit weights for each neuron separately, using the initial subspace
+    respcount = est['resp'].shape[0]
     fit_set_all, fit_set_slice = _figure_out_mod_split(modelspec)
     cd_kwargs = {}
-    cd_kwargs.update({'tolerance': tolerance, 'max_iter': 100,
+    cd_kwargs.update({'tolerance': tolerance, 'max_iter': 20,
                       'step_size': 0.1})
 
     for s in range(respcount):
-        log.info('Pre-fit slice %d' , s)
+        log.info('First fit per cell slice %d' , s)
         modelspec = fit_population_slice(
                 est, modelspec, slice=s,
                 fit_set=fit_set_slice,
@@ -134,30 +144,34 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
 
 
 def init_pop_rand(est, modelspec, IsReload=False,
-                  pc_signal='rand_resp', **context):
+                  pc_signal='rand_resp', whiten=True, **context):
     """
     initialize population model with random combinations of responses.
     generates random response combinations and passes them through to
     init_pop_pca()
-    :param est:
-    :param modelspec:
-    :param IsReload:
-    :param pc_signal:
-    :param context:
-    :return:
+    :param est: recording object with fit data
+    :param modelspec: un-fit modelspec
+    :param IsReload: don't fit if IsReload=True
+    :param pc_signal: name of signal to generate with random combinations of responses
+    :param context: dictionary of other context variables
+    :return: initialized modelspec
     """
     if IsReload:
         return {}
 
     # guess at number of subspace dimensions
     fit_set_all, fit_set_slice = _figure_out_mod_split(modelspec)
-    dim_count = modelspec[fit_set_slice[0]]['phi']['coefficients'].shape[0]
+    dim_count = modelspec[fit_set_slice[0]]['phi']['coefficients'].shape[1]
     resp_count = est['resp'].shape[0]
 
     log.info('Initializing %d x %d random weight matrix', dim_count, resp_count)
-    weights = np.random.randn((dim_count,resp_count))
+    weights = np.random.randn(dim_count, resp_count)
 
     d = est['resp'].as_continuous()
+    if whiten:
+        d -= np.mean(d, axis=1, keepdims=True)
+        d /= np.std(d, axis=1, keepdims=True)
+
     d_rand = weights @ d
     est[pc_signal] = est['resp']._modified_copy(data=d_rand)
 
@@ -207,8 +221,14 @@ def _invert_slice(rec, modelspec, fit_set_slice, population_channel=None):
             data += m['phi']['offset']
         elif 'weight_channels' in m['fn']:
             C = m['phi']['coefficients']
-            Cinv = np.linalg.pinv(C)
-            data = np.matmul(Cinv, data)
+            #Cinv = np.linalg.pinv(C)
+            #data = np.matmul(Cinv, data)
+            dim_count = C.shape[1]
+            data2 = np.zeros((dim_count, data.shape[1]))
+            for ch in range(dim_count):
+                Cinv = np.linalg.pinv(C[:,[ch]])
+                data2[ch,:] = np.matmul(Cinv, data)
+            data = data2
 
     # extract only the channel of interest
     if population_channel is not None:
@@ -226,7 +246,7 @@ def fit_population_channel(rec, modelspec,
                            fitter=scipy_minimize, fit_kwargs={}):
 
     # guess at number of subspace dimensions
-    dim_count = modelspec[fit_set_slice[0]]['phi']['coefficients'].shape[0]
+    dim_count = modelspec[fit_set_slice[0]]['phi']['coefficients'].shape[1]
 
     # invert cell-specific modules
     trec = _invert_slice(rec, modelspec, fit_set_slice)
@@ -260,12 +280,95 @@ def fit_population_channel_fast(rec, modelspec,
         # fit each dim separately
         log.info('Updating dim %d/%d', d+1, dim_count)
 
+        # fit to residual
+        trec = rec.copy()
+        trec = ms.evaluate(trec, modelspec)
+        r = trec['resp'].as_continuous().copy()
+        p = trec['pred'].as_continuous().copy()
+
+        tmodelspec = ms.ModelSpec()
+        for i in fit_set_all:
+            m = copy.deepcopy(modelspec[i])
+            for k, v in m['phi'].items():
+                x = v.shape[0]
+                if x >= dim_count:
+                    x1 = int(x/dim_count) * d
+                    x2 = int(x/dim_count) * (d+1)
+
+                    m['phi'][k] = v[x1:x2]
+                    if 'bank_count' in m['fn_kwargs'].keys():
+                        m['fn_kwargs']['bank_count'] = 1
+                else:
+                    # single model-wide parameter, only fit for d==0
+                    if d==0:
+                        m['phi'][k] = v
+                    else:
+                        m['fn_kwargs'][k] = v  # keep fixed for d>0
+            tmodelspec.append(m)
+
+        for i in fit_set_slice:
+            m = copy.deepcopy(modelspec[i])
+            for k, v in m['phi'].items():
+                # just applies to wc module?
+                if v.shape[1] >= dim_count:
+                    m['fn_kwargs'][k] = v[:, [d]]
+                else:
+                    m['fn_kwargs'][k] = v
+                #print(k)
+                #print(m['fn_kwargs'][k])
+            del m['phi']
+            del m['prior']
+            tmodelspec.append(m)
+            #print(tmodelspec[-1]['fn_kwargs'])
+
+        trec = ms.evaluate(trec, tmodelspec)
+        p2 = trec['pred'].as_continuous().copy()
+        trec['resp'] = trec['resp']._modified_copy(data=r-p+p2)
+
+        #import pdb;
+        #pdb.set_trace()
+        tmodelspec = analysis_function(trec, tmodelspec, fitter=fitter,
+                                       metric=metric, fit_kwargs=fit_kwargs)
+
+        for i in fit_set_all:
+            for k, v in tmodelspec[i]['phi'].items():
+                x = modelspec[i]['phi'][k].shape[0]
+                if x >= dim_count:
+                    x1 = int(x/dim_count) * d
+                    x2 = int(x/dim_count) * (d+1)
+
+                    modelspec[i]['phi'][k][x1:x2] = v
+                else:
+                    modelspec[i]['phi'][k] = v
+
+        #for i in fit_set_slice:
+        #    for k, v in tmodelspec[i]['phi'].items():
+        #        if modelspec[i]['phi'][k].shape[0] >= dim_count:
+        #            modelspec[i]['phi'][k][d,:] = v
+
+        print([modelspec.phi[f] for f in fit_set_all])
+
+    return modelspec
+
+
+def fit_population_channel_fast_old(rec, modelspec,
+                               fit_set_all, fit_set_slice,
+                               analysis_function=analysis.fit_basic,
+                               metric=metrics.nmse,
+                               fitter=scipy_minimize, fit_kwargs={}):
+
+    # guess at number of subspace dimensions
+    dim_count = modelspec[fit_set_slice[0]]['phi']['coefficients'].shape[1]
+
+    for d in range(dim_count):
+        # fit each dim separately
+        log.info('Updating dim %d/%d', d+1, dim_count)
+
         # invert cell-specific modules
         trec = _invert_slice(rec, modelspec, fit_set_slice,
                              population_channel=d)
 
         tmodelspec = ms.ModelSpec()
-
         for i in fit_set_all:
             m = copy.deepcopy(modelspec[i])
             for k, v in m['phi'].items():
@@ -299,6 +402,7 @@ def fit_population_channel_fast(rec, modelspec,
                     modelspec[i]['phi'][k][x1:x2] = v
                 else:
                     modelspec[i]['phi'][k] = v
+        print([modelspec.phi[f] for f in fit_set_all])
 
     return modelspec
 
@@ -455,7 +559,7 @@ def fit_population_iteratively(
         metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp'),
         metaname='fit_basic', fit_kwargs={},
         module_sets=None, invert=False, tolerances=None, tol_iter=50,
-        fit_iter=10, IsReload=False, **context
+        fit_iter=5, IsReload=False, **context
         ):
     '''
     Required Arguments:
@@ -568,6 +672,34 @@ def fit_population_iteratively(
             slist = list(range(slice_count))
             #random.shuffle(slist)
 
+            log.info('Updating pop-wide parameters')
+            for i, m in enumerate(modelspec):
+                if i in fit_set_all:
+                    print(m['fn'] + ": fitting")
+                else:
+                    print(m['fn'] + ": frozen")
+
+            # data2 = data.copy()
+            # big_slice += 1
+            # sl = np.zeros(big_n, dtype=bool)
+            # sl[:big_slice_size]=True
+            # sl = np.roll(sl, big_step*big_slice)
+            # log.info('Sampling temporal subset %d (size=%d/%d)', big_step, big_slice_size, big_n)
+            # for s in data2.signals.values():
+            #    e = s._modified_copy(s._data[:,sl])
+            #    data2[e.name] = e
+
+            # improved_modelspec = init.prefit_mod_subset(
+            #        data, improved_modelspec, analysis.fit_basic,
+            #        metric=metric,
+            #        fit_set=fit_set_all,
+            #        fit_kwargs=sp_kwargs)
+            improved_modelspec = fit_population_channel_fast(
+                data, improved_modelspec, fit_set_all, fit_set_slice,
+                analysis_function=analysis.fit_basic,
+                metric=metric,
+                fitter=scipy_minimize, fit_kwargs=sp_kwargs)
+
             for s in slist:
                 log.info('Slice %d set %s' % (s, fit_set_slice))
                 improved_modelspec = fit_population_slice(
@@ -580,34 +712,6 @@ def fit_population_iteratively(
 
                 cc += 1
                 # if (cc % 8 == 0) or (cc == slice_count):
-                if (cc == slice_count):
-                    log.info('Slice %d updating pop-wide parameters', s)
-                    for i, m in enumerate(modelspec):
-                        if i in fit_set_all:
-                            print(m['fn'] + ": fitting")
-                        else:
-                            print(m['fn'] + ": frozen")
-
-                    #data2 = data.copy()
-                    #big_slice += 1
-                    #sl = np.zeros(big_n, dtype=bool)
-                    #sl[:big_slice_size]=True
-                    #sl = np.roll(sl, big_step*big_slice)
-                    #log.info('Sampling temporal subset %d (size=%d/%d)', big_step, big_slice_size, big_n)
-                    #for s in data2.signals.values():
-                    #    e = s._modified_copy(s._data[:,sl])
-                    #    data2[e.name] = e
-
-                    #improved_modelspec = init.prefit_mod_subset(
-                    #        data, improved_modelspec, analysis.fit_basic,
-                    #        metric=metric,
-                    #        fit_set=fit_set_all,
-                    #        fit_kwargs=sp_kwargs)
-                    improved_modelspec = fit_population_channel_fast(
-                            data, improved_modelspec, fit_set_all, fit_set_slice,
-                            analysis_function=analysis.fit_basic,
-                            metric=metric,
-                            fitter=scipy_minimize, fit_kwargs=sp_kwargs)
 
             data = ms.evaluate(data, improved_modelspec)
             new_error = metric(data)

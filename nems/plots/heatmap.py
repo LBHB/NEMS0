@@ -6,7 +6,8 @@ from scipy.ndimage import zoom
 
 from nems.plots.timeseries import plot_timeseries
 from nems.utils import find_module
-from nems.modules.fir import pz_coefficients, fir_dexp_coefficients
+from nems.modules.fir import (pz_coefficients, fir_dexp_coefficients,
+                              fir_exp_coefficients)
 from nems.plots.utils import ax_remove_box
 
 log = logging.getLogger(__name__)
@@ -95,6 +96,22 @@ def _get_fir_coefficients(modelspec, idx=0):
                 c = fir_dexp_coefficients(phi=m['phi']['phi'],
                                     n_coefs=m['fn_kwargs']['n_coefs'])
                 return c
+            elif 'exp' in m['fn']:
+                tau = m['phi']['tau']
+
+                if 'a' in m['phi']:
+                    a = m['phi']['a']
+                else:
+                    a = m['fn_kwargs']['a']
+
+                if 'b' in m['phi']:
+                    b = m['phi']['b']
+                else:
+                    b = m['fn_kwargs']['b']
+
+                c = fir_exp_coefficients(tau, a=a, b=b,
+                                         n_coefs=m['fn_kwargs']['n_coefs'])
+                return c
             elif i == idx:
                 return m['phi']['coefficients']
             else:
@@ -121,6 +138,9 @@ def weight_channels_heatmap(modelspec, idx=None, ax=None, clim=None, title=None,
     else:
         # weird old way: get the idx-th set of coefficients
         coefficients = _get_wc_coefficients(modelspec, idx=wc_idx)
+
+    # normalize per channel:
+    coefficients /= np.std(coefficients, axis=0, keepdims=True)
 
     # make bigger dimension horizontal
     if coefficients.shape[0]>coefficients.shape[1]:
@@ -294,13 +314,13 @@ def strf_timeseries(modelspec, ax=None, show_factorized=True,
                     legend=chans, linestyle='-', linewidth=1,
                     ax=ax, title=title, colors=colors)
     plt.plot(times[0][[0, len(times[0])-1]], np.array([0, 0]), linewidth=0.5, color='gray')
-    
+
     if show_factorized and not show_fir_only:
         wcN=wcc.shape[0]
-        
+
         ax.set_prop_cycle(None)
         _,fir_h=plot_timeseries([times], [firc.T], xlabel='Time lag', ylabel='Gain',legend=chans, linestyle='--', linewidth=1,ax=ax, title=title)
-        
+
         ax.set_prop_cycle(None)
         weight_x=np.arange(-1*wcN,0)
         w_h=ax.plot(weight_x, wcc)
