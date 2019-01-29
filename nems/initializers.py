@@ -205,14 +205,6 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
 #                    modelspec[i]['prior'] = old_prior
             break
 
-#                modelspecs = [prefit_to_target(
-#                        est, modelspec, fit_basic,
-#                        target_module='double_exponential',
-#                        extra_exclude=['stp'],
-#                        fitter=scipy_minimize,
-#                        fit_kwargs={'tolerance': 1e-6, 'max_iter': 500})
-#                        for modelspec in modelspecs]
-
     return modelspec
 
 

@@ -264,7 +264,7 @@ def epoch_intersection(a, b, precision=6):
     lb_b, ub_b = b.pop()
 
     while True:
-        if lb > ub_b:
+        if lb >= ub_b:
             #           [ a ]
             #     [ b ]
             # Current epoch in b ends before current epoch in a. Move onto
@@ -317,7 +317,7 @@ def epoch_intersection(a, b, precision=6):
                 lb, ub = a.pop()
             except IndexError:
                 break
-        elif (ub > lb_b) and (lb <= ub_b):
+        elif (lb > lb_b) and (lb <= ub_b):
             #   [  a    ]
             # [       b     ]
             # Current epoch in a is fully contained in b

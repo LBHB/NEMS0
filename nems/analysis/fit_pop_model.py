@@ -249,7 +249,19 @@ def fit_population_channel(rec, modelspec,
                            analysis_function=analysis.fit_basic,
                            metric=metrics.nmse,
                            fitter=scipy_minimize, fit_kwargs={}):
-
+    """
+    Fit all the population channels, but only trying to predict the
+    responses inverted through the weight_channels of layer 2
+    :param rec:
+    :param modelspec:
+    :param fit_set_all:
+    :param fit_set_slice:
+    :param analysis_function:
+    :param metric:
+    :param fitter:
+    :param fit_kwargs:
+    :return:
+    """
     # guess at number of subspace dimensions
     dim_count = modelspec[fit_set_slice[0]]['phi']['coefficients'].shape[1]
 
@@ -285,12 +297,7 @@ def fit_population_channel_fast(rec, modelspec,
         # fit each dim separately
         log.info('Updating dim %d/%d', d+1, dim_count)
 
-        # fit to residual
-        trec = rec.copy()
-        trec = ms.evaluate(trec, modelspec)
-        r = trec['resp'].as_continuous().copy()
-        p = trec['pred'].as_continuous().copy()
-
+        # create modelspec with single population subspace filter
         tmodelspec = ms.ModelSpec()
         for i in fit_set_all:
             m = copy.deepcopy(modelspec[i])
@@ -311,6 +318,7 @@ def fit_population_channel_fast(rec, modelspec,
                         m['fn_kwargs'][k] = v  # keep fixed for d>0
             tmodelspec.append(m)
 
+        # append full-population layer as non-free parameters
         for i in fit_set_slice:
             m = copy.deepcopy(modelspec[i])
             for k, v in m['phi'].items():
@@ -326,8 +334,14 @@ def fit_population_channel_fast(rec, modelspec,
             tmodelspec.append(m)
             #print(tmodelspec[-1]['fn_kwargs'])
 
+        # compute residual from prediction by the rest of the pop model
+        trec = rec.copy()
+        trec = ms.evaluate(trec, modelspec)
+        r = trec['resp'].as_continuous()
+        p = trec['pred'].as_continuous()
+
         trec = ms.evaluate(trec, tmodelspec)
-        p2 = trec['pred'].as_continuous().copy()
+        p2 = trec['pred'].as_continuous()
         trec['resp'] = trec['resp']._modified_copy(data=r-p+p2)
 
         #import pdb;
@@ -351,7 +365,7 @@ def fit_population_channel_fast(rec, modelspec,
         #        if modelspec[i]['phi'][k].shape[0] >= dim_count:
         #            modelspec[i]['phi'][k][d,:] = v
 
-        print([modelspec.phi[f] for f in fit_set_all])
+        #print([modelspec.phi[f] for f in fit_set_all])
 
     return modelspec
 
@@ -684,6 +698,8 @@ def fit_population_iteratively(
                 else:
                     print(m['fn'] + ": frozen")
 
+            # partially implemented: select temporal subset of data for fitting
+            # on current loop.
             # data2 = data.copy()
             # big_slice += 1
             # sl = np.zeros(big_n, dtype=bool)
@@ -739,8 +755,16 @@ def fit_population_iteratively(
             log.info('Restoring NL module after first tol loop')
             modelspec.append(saved_modelspec[-1])
             fit_set_slice = saved_fit_set_slice
-            modelspec = init.init_dexp(data, modelspec)
-
+            if 'double_exponential' in saved_modelspec[-1]['fn']:
+                modelspec = init.init_dexp(data, modelspec)
+            elif 'logistic_sigmoid' in saved_modelspec[-1]['fn']:
+                modelspec = init.init_logsig(data, modelspec)
+            elif 'relu' in saved_modelspec[-1]['fn']:
+                # just keep initialized to zero
+                pass
+            else:
+                raise ValueError("Output NL %s not supported",
+                                 saved_modelspec[-1]['fn'])
             # just fit the NL
             improved_modelspec = copy.deepcopy(modelspec)
 
