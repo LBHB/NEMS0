@@ -32,7 +32,7 @@ def Engine():
 
     uri = _get_db_uri()
     if not __ENGINE__:
-        __ENGINE__ = create_engine(uri, pool_recycle=7200)
+        __ENGINE__ = create_engine(uri, pool_recycle=1600)
 
     return __ENGINE__
 
