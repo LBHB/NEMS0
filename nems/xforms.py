@@ -66,7 +66,7 @@ def evaluate_step(xfa, context={}):
       but now xfa can be len 4, where xfa[2] indicates context in keys and
       xfa[3] is context out keys
     '''
-    
+
     if not(len(xfa) == 2 or len(xfa) == 4):
         raise ValueError('Got non 2- or 4-tuple for xform: {}'.format(xfa))
     xf = xfa[0]
@@ -675,7 +675,7 @@ def _set_zero(x):
 def fit_state_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
                    IsReload=False, norm_fir=False, nl_kw = {},
                    fit_sig='resp', **context):
-    
+
     '''
     Initialize modelspecs in an attempt to avoid getting stuck in
     local minima. Remove state replication/merging first.
