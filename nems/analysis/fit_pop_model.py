@@ -132,6 +132,7 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
 
     for s in range(respcount):
         log.info('First fit per cell slice %d' , s)
+        # TODO : don't fit static NL ? just weight channels... plus?
         modelspec = fit_population_slice(
                 est, modelspec, slice=s,
                 fit_set=fit_set_slice,
@@ -173,12 +174,12 @@ def init_pop_rand(est, modelspec, IsReload=False,
         d /= np.std(d, axis=1, keepdims=True)
 
     d_rand = np.matmul(weights, d)
-    print('d shape', d.shape)
-    print('d_rand shape', d_rand.shape)
+    log.info('d shape', d.shape)
+    log.info('d_rand shape', d_rand.shape)
     rec[pc_signal] = rec['resp']._modified_copy(data=d_rand)
     rec[pc_signal].chans = ['n'+str(i) for i in range(dim_count)]
-    print('rec signal: ', pc_signal)
-    print('shape: ', rec[pc_signal].shape)
+    log.info('rec signal: ', pc_signal)
+    log.info('shape: ', rec[pc_signal].shape)
 
     return init_pop_pca(rec, modelspec, IsReload=False,
                         pc_signal=pc_signal, **context)
@@ -316,6 +317,8 @@ def fit_population_channel_fast(rec, modelspec,
                         m['phi'][k] = v
                     else:
                         m['fn_kwargs'][k] = v  # keep fixed for d>0
+                        del m['phi']
+                        del m['prior']
             tmodelspec.append(m)
 
         # append full-population layer as non-free parameters
@@ -421,7 +424,7 @@ def fit_population_channel_fast_old(rec, modelspec,
                     modelspec[i]['phi'][k][x1:x2] = v
                 else:
                     modelspec[i]['phi'][k] = v
-        print([modelspec.phi[f] for f in fit_set_all])
+        #print([modelspec.phi[f] for f in fit_set_all])
 
     return modelspec
 
@@ -578,7 +581,7 @@ def fit_population_iteratively(
         metric=lambda data: nems.metrics.api.nmse(data, 'pred', 'resp'),
         metaname='fit_basic', fit_kwargs={},
         module_sets=None, invert=False, tolerances=None, tol_iter=50,
-        fit_iter=5, IsReload=False, **context
+        fit_iter=10, IsReload=False, **context
         ):
     '''
     Required Arguments:
@@ -663,8 +666,6 @@ def fit_population_iteratively(
 
         log.info("Fitting subsets with tol: %.2E fit_iter %d tol_iter %d",
                  tol, fit_iter, tol_iter)
-        print("Fitting subsets with tol: %.2E fit_iter %d tol_iter %d" %
-              (tol, fit_iter, tol_iter))
         cd_kwargs = fit_kwargs.copy()
         cd_kwargs.update({'tolerance': tol, 'max_iter': fit_iter,
                            'step_size': step_size})
@@ -674,29 +675,32 @@ def fit_population_iteratively(
         if (toli==0) and skip_nl_first:
             log.info('skipping nl on first tolerance loop')
             saved_modelspec = copy.deepcopy(modelspec)
-            saved_fit_set_slice = fit_set_slice
-            modelspec = modelspec[:-1]
+            saved_fit_set_slice = fit_set_slice.copy()
+            #import pdb;
+            #pdb.set_trace()
+            modelspec.pop_module()
             fit_set_slice = fit_set_slice[:-1]
 
-        i = 0
+        inner_i = 0
         error_reduction = np.inf
         big_slice = 0
         big_n = data['resp'].ntimes
         big_step = int(big_n/10)
         big_slice_size = int(big_n/2)
-        while (error_reduction >= tol) and (i < tol_iter):
+        while (error_reduction >= tol) and (inner_i < tol_iter):
 
+            log.info("(%d) Tol %.2e: Loop %d/%d (max)",
+                 toli, tol, inner_i, tol_iter)
             improved_modelspec = copy.deepcopy(modelspec)
             cc = 0
             slist = list(range(slice_count))
             #random.shuffle(slist)
 
-            log.info('Updating pop-wide parameters')
             for i, m in enumerate(modelspec):
                 if i in fit_set_all:
-                    print(m['fn'] + ": fitting")
+                    log.info(m['fn'] + ": fitting")
                 else:
-                    print(m['fn'] + ": frozen")
+                    log.info(m['fn'] + ": frozen")
 
             # partially implemented: select temporal subset of data for fitting
             # on current loop.
@@ -739,21 +743,18 @@ def fit_population_iteratively(
             error_reduction = error - new_error
             error = new_error
             log.info("tol=%.2E, iter=%d/%d: deltaE=%.6E",
-                     tol, i, tol_iter, error_reduction)
-            print("tol=%.2E, iter=%d/%d: max deltaE=%.6E" %
-                  (tol, i, tol_iter, error_reduction))
-            i += 1
+                     tol, inner_i, tol_iter, error_reduction)
+            inner_i += 1
             if error_reduction > 0:
                 modelspec = improved_modelspec
 
         log.info("Done with tol %.2E (i=%d, max_error_reduction %.7f)",
-                 tol, i, error_reduction)
-        print("Done with tol %.2E (i=%d, max_error_reduction %.7f)" %
-              (tol, i, error_reduction))
+                 tol, inner_i, error_reduction)
 
         if (toli == 0) and skip_nl_first:
             log.info('Restoring NL module after first tol loop')
             modelspec.append(saved_modelspec[-1])
+
             fit_set_slice = saved_fit_set_slice
             if 'double_exponential' in saved_modelspec[-1]['fn']:
                 modelspec = init.init_dexp(data, modelspec)
@@ -786,6 +787,7 @@ def fit_population_iteratively(
             log.info('Init NL fit error change %.5f-%.5f = %.5f',
                      old_error, new_error, old_error-new_error)
             modelspec = improved_modelspec
+
 
         else:
             step_size *= 0.25

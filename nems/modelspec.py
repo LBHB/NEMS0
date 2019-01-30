@@ -220,6 +220,9 @@ class ModelSpec:
     def append(self, module):
         self.raw[0].append(module)
 
+    def pop_module(self):
+        del self.raw[self.fit_index][-1]
+
     def tile_fits(self, fit_count):
         self.raw = [self.raw[0].copy() for i in range(fit_count)]
         return self
