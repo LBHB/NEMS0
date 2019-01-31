@@ -316,11 +316,124 @@ def fit_population_channel(rec, modelspec,
     return modelspec
 
 
-def fit_population_channel_fast(rec, modelspec,
+def fit_population_channel_fast2(rec, modelspec,
                                fit_set_all, fit_set_slice,
                                analysis_function=analysis.fit_basic,
                                metric=metrics.nmse,
                                fitter=scipy_minimize, fit_kwargs={}):
+
+    # guess at number of subspace dimensions
+    dim_count = modelspec[fit_set_slice[0]]['phi']['coefficients'].shape[1]
+    wi = [i for i in fit_set_slice if 'weight_channels' in modelspec[i]['fn'] ]
+    wi = wi[0]
+    li = [i for i in fit_set_slice if 'levelshift' in modelspec[i]['fn'] ]
+    li = li[0]
+
+    for d in range(dim_count):
+        # fit each dim separately
+        log.info('Updating dim %d/%d', d+1, dim_count)
+
+        # create modelspec with single population subspace filter
+        tmodelspec = ms.ModelSpec()
+        for i in fit_set_all:
+            m = copy.deepcopy(modelspec[i])
+            for k, v in m['phi'].items():
+                x = v.shape[0]
+                if x >= dim_count:
+                    x1 = int(x/dim_count) * d
+                    x2 = int(x/dim_count) * (d+1)
+
+                    m['phi'][k] = v[x1:x2]
+                    if 'bank_count' in m['fn_kwargs'].keys():
+                        m['fn_kwargs']['bank_count'] = 1
+                else:
+                    # single model-wide parameter, only fit for d==0
+                    if d==0:
+                        m['phi'][k] = v
+                    else:
+                        m['fn_kwargs'][k] = v  # keep fixed for d>0
+                        del m['phi']
+                        del m['prior']
+            tmodelspec.append(m)
+
+        # temp append full-population layer as non-free parameters
+        tmodelspec2 = copy.deepcopy(tmodelspec)
+        for i in fit_set_slice:
+            m = copy.deepcopy(modelspec[i])
+            for k, v in m['phi'].items():
+                # just applies to wc module?
+                if v.shape[1] >= dim_count:
+                    m['phi'][k] = v[:, [d]]
+                else:
+                    m['phi'][k] = v
+            tmodelspec2.append(m)
+
+        # compute residual from prediction by the rest of the pop model
+        trec = rec.copy()
+        trec = ms.evaluate(trec, modelspec)
+        r = trec['resp'].as_continuous()
+        p = trec['pred'].as_continuous().copy()
+        respstd = np.nanstd(r) # std of actual response
+
+        trec = ms.evaluate(trec, tmodelspec2)
+        p2 = trec['pred'].as_continuous()
+
+        trec = ms.evaluate(trec, tmodelspec)
+
+        # residual we're trying to predict with tmodelspec
+        r = r - p + p2
+
+        # calculate streamlined nMSE function for single pop channel model
+        # by inverting neuron-specific gains and level shifts
+        a = modelspec[wi]['phi']['coefficients'][:, [d]]
+        b = modelspec[li]['phi']['level']
+
+        r -= b # subtract level shift from residual
+        A1 = np.sum(a ** 2)
+        A2 = np.sum(2 * a * r, axis=0, keepdims=True)
+        A3 = np.sum(r**2, axis=0, keepdims=True)
+
+        def my_nmse(result):
+            '''
+            hacked from nems.metrics.mse.nmse. optimized nMSE for situation when a single
+            population channel is predicting responses with fixed per-neuron gains and levelshifts
+            A1, A2, A3, respstd defined outside of function
+            result :  recording object updated by fitter, prediction response of single pop channel
+            '''
+            X1 = result['pred'].as_continuous()
+
+            squared_errors = A1 * (X1**2) - A2 * X1 + A3
+            mean_sq_err = np.sum(squared_errors) / (r.shape[0]*r.shape[1])
+
+            mse = np.sqrt(mean_sq_err)
+            return mse / respstd
+
+        #import pdb
+        #pdb.set_trace()
+
+        tmodelspec = analysis_function(trec, tmodelspec, fitter=fitter,
+                                       metric=my_nmse, fit_kwargs=fit_kwargs)
+
+        for i in fit_set_all:
+            for k, v in tmodelspec[i]['phi'].items():
+                x = modelspec[i]['phi'][k].shape[0]
+                if x >= dim_count:
+                    x1 = int(x/dim_count) * d
+                    x2 = int(x/dim_count) * (d+1)
+
+                    modelspec[i]['phi'][k][x1:x2] = v
+                else:
+                    modelspec[i]['phi'][k] = v
+
+        #print([modelspec.phi[f] for f in fit_set_all])
+
+    return modelspec
+
+def fit_population_channel_fast(rec, modelspec,
+                                fit_set_all, fit_set_slice,
+                                analysis_function=analysis.fit_basic,
+                                metric=metrics.nmse,
+                                fitter=scipy_minimize, fit_kwargs={}):
 
     # guess at number of subspace dimensions
     dim_count = modelspec[fit_set_slice[0]]['phi']['coefficients'].shape[1]
@@ -750,7 +863,7 @@ def fit_population_iteratively(
             #        metric=metric,
             #        fit_set=fit_set_all,
             #        fit_kwargs=sp_kwargs)
-            improved_modelspec = fit_population_channel_fast(
+            improved_modelspec = fit_population_channel_fast2(
                 data, improved_modelspec, fit_set_all, fit_set_slice,
                 analysis_function=analysis.fit_basic,
                 metric=metric,

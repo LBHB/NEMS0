@@ -170,7 +170,7 @@ def nl_scatter(rec, modelspec, idx, sig_name='pred',
     module = modelspec[idx]
     mod_name = module['fn'].replace('nems.modules','')
     title1 = mod_name
-    text1 = "r = {0:.5f}".format(corr1)
+    text1 = "r = {0:.5f}".format(np.mean(corr1))
 
     plot_scatter(before_sig, compare_to, title=title1,
                  smoothing_bins=smoothing_bins, xlabel=xlabel1,
