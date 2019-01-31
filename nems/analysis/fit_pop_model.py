@@ -221,8 +221,11 @@ def _invert_slice(rec, modelspec, fit_set_slice, population_channel=None):
             data += m['phi']['offset']
         elif 'weight_channels' in m['fn']:
             C = m['phi']['coefficients']
+            # first way to invert slice - matrix inverse
             #Cinv = np.linalg.pinv(C)
             #data = np.matmul(Cinv, data)
+
+            # second way, just inverse of the one channel
             dim_count = C.shape[1]
             data2 = np.zeros((dim_count, data.shape[1]))
             for ch in range(dim_count):
