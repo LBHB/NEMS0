@@ -5,6 +5,7 @@ import sys
 import logging
 import itertools
 import json
+import socket
 
 import pandas as pd
 import numpy as np
@@ -32,7 +33,7 @@ def Engine():
 
     uri = _get_db_uri()
     if not __ENGINE__:
-        __ENGINE__ = create_engine(uri, pool_recycle=7200)
+        __ENGINE__ = create_engine(uri, pool_recycle=1600)
 
     return __ENGINE__
 
@@ -163,7 +164,7 @@ def pd_query(sql=None, params=None):
 def enqueue_models(celllist, batch, modellist, force_rerun=False,
                    user="nems", codeHash="master", jerbQuery='',
                    executable_path=None, script_path=None,
-                   priority=1):
+                   priority=1, reserve_gb=0):
     """Call enqueue_single_model for every combination of cellid and modelname
     contained in the user's selections.
 
@@ -279,13 +280,14 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
         else:
             # new job
             sql = "INSERT INTO tQueue (rundataid,progname,priority," +\
-                   "parmstring,allowqueuemaster,user," +\
+                   "reserve_gb,parmstring,allowqueuemaster,user," +\
                    "linux_user,note,waitid,codehash,queuedate) VALUES"+\
                    " ({},'{}',{}," +\
-                   "'{}',{},'{}'," +\
+                   "{},'{}',{},'{}'," +\
                    "'{}','{}',{},'{}',NOW())"
-            sql = sql.format(rundataid, commandPrompt, priority, parmstring,
-                  allowqueuemaster, user, linux_user, note, waitid, codeHash)
+            sql = sql.format(rundataid, commandPrompt, priority, reserve_gb,
+                             parmstring, allowqueuemaster, user, linux_user,
+                             note, waitid, codeHash)
             r = conn.execute(sql)
             queueid = r.lastrowid
             message = "Added new entry for: %s.\n"  % note
@@ -300,11 +302,12 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
 
 def enqueue_single_model(cellid, batch, modelname, user=None,
                          force_rerun=False, codeHash="master", jerbQuery='',
-                         executable_path=None, script_path=None):
+                         executable_path=None, script_path=None,
+                         priority=1, reserve_gb=0):
 
     zipped = enqueue_models([cellid], batch, [modelname], force_rerun,
                             user, codeHash, jerbQuery, executable_path,
-                            script_path)
+                            script_path, priority, reserve_gb)
 
     queueid, message = next(zipped)
     return queueid, message
@@ -333,6 +336,8 @@ def enqueue_single_model_duplicate(
         description of the action taken, to be reported to the console by
         the calling enqueue_models function.
     """
+    raise NotImplementedError("DEPRECATED?")
+
     if session is None:
         session = Session()
 
@@ -423,10 +428,11 @@ def enqueue_single_model_duplicate(
 
     return queueid, message
 
+
 def add_job_to_queue(args, note, force_rerun=False,
                    user="nems", codeHash="master", jerbQuery='',
                    executable_path=None, script_path=None,
-                   priority=1, GPU_job=0):
+                   priority=1, GPU_job=0, reserve_gb=0):
     """
     Low level interaction with tQueue to run single generic job on cluster
 
@@ -532,13 +538,14 @@ def add_job_to_queue(args, note, force_rerun=False,
     else:
         # new job
         sql = "INSERT INTO tQueue (rundataid,progname,priority," +\
-               "parmstring,allowqueuemaster,user," +\
+               "reserve_gb,parmstring,allowqueuemaster,user," +\
                "linux_user,note,waitid,codehash,GPU_job,queuedate) VALUES"+\
                " ({},'{}',{}," +\
-               "'{}',{},'{}'," +\
+               "{},'{}',{},'{}'," +\
                "'{}','{}',{},'{}',{},NOW())"
-        sql = sql.format(rundataid, commandPrompt, priority, parmstring,
-              allowqueuemaster, user, linux_user, note, waitid, codeHash, GPU_job)
+        sql = sql.format(rundataid, commandPrompt, priority, reserve_gb,
+                         parmstring, allowqueuemaster, user, linux_user,
+                         note, waitid, codeHash, GPU_job)
         r = conn.execute(sql)
         queueid = r.lastrowid
         message = "Added new entry for: %s.\n"  % note
@@ -671,21 +678,33 @@ def update_job_tick(queueid=None):
             log.warning("queueid not specified or found in os.environ")
             return 0
 
-    qsetload_path = get_setting('QUEUE_TICK_EXTERNAL_CMD')
-    if len(qsetload_path) & os.path.exists(qsetload_path):
-        result = subprocess.run(qsetload_path, stdout=subprocess.PIPE)
-        r = result.returncode
-
-        if r:
-            log.warning('Error executing qsetload')
-            log.warning(result.stdout.decode('utf-8'))
+    #qsetload_path = get_setting('QUEUE_TICK_EXTERNAL_CMD')
+    #if len(qsetload_path) & os.path.exists(qsetload_path):
+    #    result = subprocess.run(qsetload_path, stdout=subprocess.PIPE)
+    #    r = result.returncode
+    #    if r:
+    #        log.warning('Error executing qsetload')
+    #        log.warning(result.stdout.decode('utf-8'))
 
     engine = Engine()
     conn = engine.connect()
+
+    try:
+        # update computer load
+        l1, l5, l15 = os.getloadavg()
+        hostname = socket.gethostname()
+        sql = ("UPDATE tComputer set load1={},load5={}+second(now())/6000,"+
+               "load15={},pingcount=0 where name='{}'").format(
+                       l1, l5, l15, hostname)
+        r = conn.execute(sql)
+    except:
+        pass
+
     # tick off progress, tell daemon that job is live
     sql = ("UPDATE tQueue SET progress=progress+1 WHERE id={}"
            .format(queueid))
     r = conn.execute(sql)
+
     conn.close()
 
     return r

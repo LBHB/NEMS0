@@ -1024,7 +1024,6 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         newrec = concatenate_state_channel(
                 newrec, newrec[x], state_signal_name=new_signalname+"_raw")
 
-
     return newrec
 
 

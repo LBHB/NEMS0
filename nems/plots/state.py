@@ -261,7 +261,7 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
     else:
         PostStimSilence = 0
 
-    state_chan_list = rec['state'].chans
+    state_chan_list = rec[state_sig].chans
     low = np.zeros([0,1])
     high = np.zeros([0,1])
     lowE = np.zeros([0,1])
@@ -271,10 +271,10 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
     _high2 = None
     limitset = []
     if files_only: #state_chan_list =['a','p','PASSIVE_1']
+        #print(state_chan_list)
         state_chan_list = [s for s in state_chan_list
                            if (s.startswith('FILE') | s.startswith('ACTIVE') |
                                s.startswith('PASSIVE')) ]
-
     for state_chan in state_chan_list:
 
         _low, _high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
@@ -349,11 +349,11 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
     ylim = ax.get_ylim()
 
     for ls, s in zip(limitset, state_chan_list):
-        if modelspec is not None:
+        try:
             sc = modelspec[0]['meta']['state_chans']
             mi = modelspec[0]['meta']['state_mod']
             sn = "{} ({:.2f})".format(s,mi[sc.index(s)])
-        else:
+        except:
             sn = s
         ax.plot(ls, [ylim[1], ylim[1]], 'k-', linewidth=2)
         lc = np.mean(ls)
