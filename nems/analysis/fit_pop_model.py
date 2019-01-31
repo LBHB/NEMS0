@@ -36,13 +36,17 @@ log = logging.getLogger(__name__)
 
 
 def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
-                 pc_signal='pca', **context):
+                 pc_signal='pca', tolerance=1e-4, **context):
     """
     fit up through the fir module of a population model using the pca signal
     :param est: recording object with fit data
-    :param modelspec: un-fit modelspec
+    :param modelspec: modelspec to be fit
     :param flip_pcs: use each pc to fit two channels, one with sign flipped
     :param IsReload: don't fit if IsReload=True
+    :param pc_signal: string, name of signal to use for fitting population filters
+       (by default PCs in 'pca')
+    :param tolerance: tolerance for fitting each subspace filter and
+       subsequent neural filter weights
     :param context: dictionary of other context variables
     :return: initialized modelspec
  """
@@ -88,13 +92,27 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
         pc_fit_count = chan_count
     for pc_idx in range(pc_fit_count):
         log.info('Initializing filter %d', pc_idx)
-        r = rec[pc_signal].extract_channels([rec[pc_signal].chans[pc_idx]])
+        if pc_idx < rec[pc_signal].shape[0]:
+            r = rec[pc_signal].extract_channels([rec[pc_signal].chans[pc_idx]])
+        else:
+            log.info("Out of PCs, generating random signal")
+            r = _random_resp_combos(rec['resp'], dim_count=1, whiten=True)
+
         m = np.nanmean(r.as_continuous())
         d = np.nanstd(r.as_continuous())
         rec['resp'] = r._modified_copy((r._data-m) / d)
         tmodelspec = init.from_keywords(keyword_string=keywordstring,
                                         meta={}, registry=keyword_lib, rec=rec)
-        tolerance=1e-4
+        if pc_idx > 0:
+            # fix parameters that are shared across subspace filters
+            # (ie, log compression)
+            for tm, mm in zip(tmodelspec[:iwc], modelspec[:iwc]):
+                for k, v in mm['phi'].items():
+                    log.info('fixing module %s key %s=%s', mm['fn'], k, v)
+                    tm['fn_kwargs'][k] = v
+                del tm['phi']
+                del tm['prior']
+
         tmodelspec = init.prefit_LN(rec, tmodelspec,
                                     tolerance=tolerance, max_iter=700)
 
@@ -126,9 +144,9 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
     # now fit weights for each neuron separately, using the initial subspace
     respcount = est['resp'].shape[0]
     fit_set_all, fit_set_slice = _figure_out_mod_split(modelspec)
-    cd_kwargs = {}
-    cd_kwargs.update({'tolerance': tolerance, 'max_iter': 20,
-                      'step_size': 0.1})
+    cd_kwargs = {'tolerance': tolerance, 'max_iter': 20,
+                 'step_size': 0.1}
+    sp_kwargs = {'tolerance': tolerance, 'max_iter': 20}
 
     for s in range(respcount):
         log.info('First fit per cell slice %d' , s)
@@ -138,10 +156,30 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
                 fit_set=fit_set_slice,
                 analysis_function=analysis.fit_basic,
                 metric=metrics.nmse,
-                fitter=coordinate_descent,
-                fit_kwargs=cd_kwargs)
-
+                fitter=scipy_minimize,
+                fit_kwargs=sp_kwargs)
+        #coordinate_descent
     return {'modelspec': modelspec}
+
+
+def _random_resp_combos(resp, dim_count=1, whiten=True):
+
+    resp_count = resp.shape[0]
+    log.info('Initializing %d x %d random weight matrix', dim_count, resp_count)
+    weights = np.random.randn(dim_count, resp_count)
+    d = resp.as_continuous().copy()
+    if whiten:
+        d -= np.mean(d, axis=1, keepdims=True)
+        d /= np.std(d, axis=1, keepdims=True)
+        d -= np.min(d, axis=1, keepdims=True)
+
+    d_rand = np.matmul(weights, d)
+    log.info('d shape: (%d, %d)', d.shape[0], d.shape[1])
+    log.info('d_rand shape: (%d, %d)', d_rand.shape[0], d_rand.shape[1])
+    rand_resp = resp._modified_copy(data=d_rand)
+    rand_resp.chans = ['n'+str(i) for i in range(dim_count)]
+
+    return rand_resp
 
 
 def init_pop_rand(est, modelspec, IsReload=False,
@@ -163,21 +201,11 @@ def init_pop_rand(est, modelspec, IsReload=False,
     # guess at number of subspace dimensions
     fit_set_all, fit_set_slice = _figure_out_mod_split(modelspec)
     dim_count = modelspec[fit_set_slice[0]]['phi']['coefficients'].shape[1]
-    resp_count = est['resp'].shape[0]
 
-    log.info('Initializing %d x %d random weight matrix', dim_count, resp_count)
-    weights = np.random.randn(dim_count, resp_count)
     rec = est.copy()
-    d = rec['resp'].as_continuous()
-    if whiten:
-        d -= np.mean(d, axis=1, keepdims=True)
-        d /= np.std(d, axis=1, keepdims=True)
+    rec[pc_signal] = _random_resp_combos(
+        rec['resp'], dim_count=dim_count, whiten=whiten)
 
-    d_rand = np.matmul(weights, d)
-    log.info('d shape', d.shape)
-    log.info('d_rand shape', d_rand.shape)
-    rec[pc_signal] = rec['resp']._modified_copy(data=d_rand)
-    rec[pc_signal].chans = ['n'+str(i) for i in range(dim_count)]
     log.info('rec signal: ', pc_signal)
     log.info('shape: ', rec[pc_signal].shape)
 
@@ -732,8 +760,10 @@ def fit_population_iteratively(
                         fit_set=fit_set_slice,
                         analysis_function=analysis.fit_basic,
                         metric=metric,
-                        fitter=coordinate_descent,
-                        fit_kwargs=cd_kwargs)
+                        fitter=scipy_minimize,
+                        fit_kwargs=sp_kwargs)
+                #fitter = coordinate_descent,
+                #fit_kwargs = cd_kwargs)
 
                 cc += 1
                 # if (cc % 8 == 0) or (cc == slice_count):
@@ -778,8 +808,10 @@ def fit_population_iteratively(
                         fit_set=fit_set_slice,
                         analysis_function=analysis.fit_basic,
                         metric=metric,
-                        fitter=coordinate_descent,
-                        fit_kwargs=kwa)
+                        fitter=scipy_minimize,
+                        fit_kwargs=sp_kwargs)
+                # fitter = coordinate_descent,
+                # fit_kwargs = cd_kwargs)
             data = ms.evaluate(data, modelspec)
             old_error = metric(data)
             data = ms.evaluate(data, improved_modelspec)
