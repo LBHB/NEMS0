@@ -44,8 +44,8 @@ siteid = "TAR010c"
 
 # MODEL SPEC
 #modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
-modelspecname = 'dlog-wc.18x6.g-fir.2x10x3-relu.3-wc.3xR-lvl.R'
-#modelspecname = 'dlog-wc.18x1.g-stp.1-fir.1x15-lvl.1-dexp.1'
+modelspecname = 'dlog-wc.18x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
+#modelspecname = 'dlog-wc.18x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
 
 meta = {'siteid': siteid, 'batch': batch, 'modelname': modelspecname,
         'recording': exptid}
@@ -74,7 +74,7 @@ xfspec.append(['nems.xforms.init_from_keywords', {}])
 xfspec.append(['nems.analysis.fit_pop_model.init_pop_pca', {'flip_pcs': True}])
 xfspec.append(['nems.analysis.fit_pop_model.fit_population_iteratively',
                {'fitter': 'scipy_minimize', 'tolerances': [1e-4, 3e-5],
-                'tol_iter': 100, 'fit_iter': 10}])
+                'tol_iter': 50, 'fit_iter': 10}])
 # xfspec.append(['nems.xforms.fit_basic_shrink', {}])
 #xfspec.append(['nems.xforms.fit_basic_cd', {}])
 # xfspec.append(['nems.xforms.fit_iteratively', {}])

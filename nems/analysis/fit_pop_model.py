@@ -116,6 +116,8 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
         tmodelspec = init.prefit_LN(rec, tmodelspec,
                                     tolerance=tolerance, max_iter=700)
 
+        # TODO : fit other parts of the subspace filter here. *Like STP modules*!
+
         # save results back into main modelspec
         itfir=find_module('fir', tmodelspec)
         itwc=find_module('weight_channels', tmodelspec)
@@ -275,6 +277,69 @@ def _invert_slice(rec, modelspec, fit_set_slice, population_channel=None):
     rec['resp'] = rec['resp']._modified_copy(data=data)
     return rec
 
+def _extract_pop_channel(modelspec, d, fit_set_all,
+                         freeze_idx=[]):
+    """
+    extract mini model from modelspec, just for channel d
+    over the modules indexed by fit_set_all
+    :param modelspec:
+    :param fit_set_all:
+    :param d:
+    :param freeze_idx: list of module indices to freeze (move phi to fn_kwargs)
+    :return: tmodelspec - subspace model
+    """
+
+    # create modelspec with single population subspace filter
+    dim_count = modelspec[fit_set_all[-1]+1]['phi']['coefficients'].shape[1]
+    tmodelspec = ms.ModelSpec()
+    for i in fit_set_all:
+        m = copy.deepcopy(modelspec[i])
+        for k, v in m['phi'].items():
+            x = v.shape[0]
+            if x >= dim_count:
+                x1 = int(x/dim_count) * d
+                x2 = int(x/dim_count) * (d+1)
+
+                m['phi'][k] = v[x1:x2]
+                if 'bank_count' in m['fn_kwargs'].keys():
+                    m['fn_kwargs']['bank_count'] = 1
+
+            else:
+                # single model-wide parameter, only fit for d==0
+                if d==0:
+                    m['phi'][k] = v
+                else:
+                    m['fn_kwargs'][k] = v  # keep fixed for d>0
+                    del m['phi']
+                    del m['prior']
+        tmodelspec.append(m)
+
+    return tmodelspec
+
+def _update_pop_channel(tmodelspec, modelspec, d, fit_set_all):
+    """
+    paste subspace model back into full model
+    :param tmodelspec:
+    :param modelspec:
+    :param d:
+    :param fit_set_all:
+    :return:
+    """
+    dim_count = modelspec[fit_set_all[-1]+1]['phi']['coefficients'].shape[1]
+    for i in fit_set_all:
+        for k, v in tmodelspec[i]['phi'].items():
+            x = modelspec[i]['phi'][k].shape[0]
+            if x >= dim_count:
+                x1 = int(x / dim_count) * d
+                x2 = int(x / dim_count) * (d + 1)
+
+                modelspec[i]['phi'][k][x1:x2] = v
+            else:
+                modelspec[i]['phi'][k] = v
+
+    # print([modelspec.phi[f] for f in fit_set_all])
+    return modelspec
+
 
 def fit_population_channel(rec, modelspec,
                            fit_set_all, fit_set_slice,
@@ -282,6 +347,7 @@ def fit_population_channel(rec, modelspec,
                            metric=metrics.nmse,
                            fitter=scipy_minimize, fit_kwargs={}):
     """
+    DEPRECATED?
     Fit all the population channels, but only trying to predict the
     responses inverted through the weight_channels of layer 2
     :param rec:
@@ -334,27 +400,7 @@ def fit_population_channel_fast2(rec, modelspec,
         log.info('Updating dim %d/%d', d+1, dim_count)
 
         # create modelspec with single population subspace filter
-        tmodelspec = ms.ModelSpec()
-        for i in fit_set_all:
-            m = copy.deepcopy(modelspec[i])
-            for k, v in m['phi'].items():
-                x = v.shape[0]
-                if x >= dim_count:
-                    x1 = int(x/dim_count) * d
-                    x2 = int(x/dim_count) * (d+1)
-
-                    m['phi'][k] = v[x1:x2]
-                    if 'bank_count' in m['fn_kwargs'].keys():
-                        m['fn_kwargs']['bank_count'] = 1
-                else:
-                    # single model-wide parameter, only fit for d==0
-                    if d==0:
-                        m['phi'][k] = v
-                    else:
-                        m['fn_kwargs'][k] = v  # keep fixed for d>0
-                        del m['phi']
-                        del m['prior']
-            tmodelspec.append(m)
+        tmodelspec = _extract_pop_channel(modelspec, d, fit_set_all)
 
         # temp append full-population layer as non-free parameters
         tmodelspec2 = copy.deepcopy(tmodelspec)
@@ -414,20 +460,10 @@ def fit_population_channel_fast2(rec, modelspec,
         tmodelspec = analysis_function(trec, tmodelspec, fitter=fitter,
                                        metric=my_nmse, fit_kwargs=fit_kwargs)
 
-        for i in fit_set_all:
-            for k, v in tmodelspec[i]['phi'].items():
-                x = modelspec[i]['phi'][k].shape[0]
-                if x >= dim_count:
-                    x1 = int(x/dim_count) * d
-                    x2 = int(x/dim_count) * (d+1)
-
-                    modelspec[i]['phi'][k][x1:x2] = v
-                else:
-                    modelspec[i]['phi'][k] = v
-
-        #print([modelspec.phi[f] for f in fit_set_all])
+        modelspec = _update_pop_channel(tmodelspec, modelspec, d, fit_set_all)
 
     return modelspec
+
 
 def fit_population_channel_fast(rec, modelspec,
                                 fit_set_all, fit_set_slice,

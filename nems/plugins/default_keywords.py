@@ -535,8 +535,8 @@ def stp(kw):
 
     for op in options:
         if op == 'z':
-            u_mean = [0.02]*n_synapse
-            tau_mean = [0.05]*n_synapse
+            u_mean = [0.1]*n_synapse
+            tau_mean = [0.01]*n_synapse
         elif op == 'n':
             normalize = True
         elif op == 'b':
