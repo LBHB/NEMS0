@@ -77,6 +77,14 @@ from nems.gui.models import ArrayModel
 from nems.gui.canvas import NemsCanvas, EpochCanvas
 from nems.modelspec import _lookup_fn_at
 import nems.db as nd
+from nems.registry import KeywordRegistry
+from nems.plugins import (default_keywords, default_loaders,
+                          default_initializers, default_fitters)
+from nems import get_setting
+
+keyword_lib = KeywordRegistry()
+keyword_lib.register_module(default_keywords)
+keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
 log = logging.getLogger(__name__)
 
@@ -479,12 +487,22 @@ class ModuleCanvas(qw.QFrame):
         self.parent = parent
         self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Sunken)
 
+        # define plot_list here rather than in ModuleControls
+        self.plot_list = self.parent.modelspec[self.mod_index].get('plot_fns', [])
+        mod_id = self.parent.modelspec[self.mod_index].get('id', [])
+        template = keyword_lib[mod_id]
+        registry_plot_fns = template.get('plot_fns', [])
+        for a in registry_plot_fns:
+            if a not in self.plot_list:
+                self.plot_list.append(a)
+        self.parent.modelspec[self.mod_index]['plot_fns'] = self.plot_list
+
         # Default plot options - set them up here then change w/ controller
         self.plot_fn_idx = data.get('plot_fn_idx', 0)
         self.plot_channel = parent.modelspec.plot_channel
         self.fit_index = parent.modelspec.fit_index
         # TODO: Need to do something smarter for signal name
-        self.sig_name = 'pred'
+        self.sig_name = self.parent.modelspec[self.mod_index]['fn_kwargs'].get('o','pred')
         self.scrollable = self.check_scrollable()
 
         self.layout = qw.QHBoxLayout()
@@ -516,11 +534,11 @@ class ModuleCanvas(qw.QFrame):
 
     def check_scrollable(self):
         '''Set self.scrollable based on if current plot type is scrollable.'''
-        plots = self.parent.modelspec[self.mod_index].get(
-                'plot_fns', ['nems.plots.api.mod_output']
-                )
+        #plots = self.parent.modelspec[self.mod_index].get(
+        #        'plot_fns', ['nems.plots.api.mod_output']
+        #        )
 
-        if plots[self.plot_fn_idx] in _SCROLLABLE_PLOT_FNS:
+        if self.plot_list[self.plot_fn_idx] in _SCROLLABLE_PLOT_FNS:
             scrollable = True
         else:
             scrollable = False
@@ -648,9 +666,8 @@ class ModuleControls(qw.QFrame):
 
         plot_layout = qw.QHBoxLayout()
 
-        plot_list = self.module_data.get('plot_fns', [])
         self.plot_functions_menu = qw.QComboBox()
-        self.plot_functions_menu.addItems(plot_list)
+        self.plot_functions_menu.addItems(self.module.plot_list)
         initial_index = self.module.plot_fn_idx
         if initial_index is None:
             initial_index = 0

@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import importlib
 import nems.modelspec as ms
 import nems.metrics.api as nm
+from nems.plots.utils import ax_remove_box
 
 import logging
 log = logging.getLogger(__name__)
@@ -16,6 +17,8 @@ def plot_nl_io(module=None, xbounds=None, ax=None):
         xbounds = np.array([-1, 1])
     if ax:
         plt.sca(ax)
+    else:
+        ax=plt.gca()
 
     module_name, function_name = module['fn'].rsplit('.', 1)
     mod = importlib.import_module(module_name)
@@ -27,6 +30,10 @@ def plot_nl_io(module=None, xbounds=None, ax=None):
         d_in = np.tile(d_in, (chancount, 1))
     d_out = fn(d_in, **module['phi'])
     plt.plot(d_in.T, d_out.T)
+
+    ax_remove_box(ax)
+
+    return ax
 
 
 def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
@@ -112,7 +119,7 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
     plt.ylabel(ylabel)
 
     if legend and sig2.nchans > 1:
-        plt.legend(loc='best')
+        plt.legend(loc='lower right')
 
     if title:
         plt.title(title)
@@ -136,6 +143,9 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
         xmin, xmax = axes.get_xlim()
         axes.set_aspect(abs(xmax-xmin)/abs(ymax-ymin))
 
+    ax_remove_box(ax)
+
+    return ax
 
 def nl_scatter(rec, modelspec, idx, sig_name='pred',
                compare='resp', smoothing_bins=False,

@@ -12,6 +12,7 @@ from nems.plots.specgram import spectrogram_from_epoch
 from nems.plots.timeseries import timeseries_from_epoch
 from nems.plots.histogram import pred_error_hist
 import nems.modelspec as ms
+from nems.plots.utils import ax_remove_box
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +32,10 @@ def perf_per_cell(modelspec, channels=0, ax=None, **options):
     ylim = ax.get_ylim()
     ax.text(0, ylim[1], 'mean r={:.3f}'.format(np.mean(modelspec.meta['r_test'])))
 
+    ax_remove_box(ax)
+
     return ax
+
 
 def plot_summary(rec, modelspecs, stimidx=0):
     '''

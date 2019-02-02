@@ -344,9 +344,9 @@ class model_browser(qw.QWidget):
             return
 
         #browse_xform_fit(ctx, xf)
-        ex = editor.EditorWidget(modelspec=ctx['modelspec'], rec=ctx['val'], xfspec=xf,
+        self.ex = editor.EditorWidget(modelspec=ctx['modelspec'], rec=ctx['val'], xfspec=xf,
                                  ctx=ctx, parent=self)
-        ex.show()
+        self.ex.show()
         #nplt.quickplot(ctx)
 
 

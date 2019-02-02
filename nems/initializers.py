@@ -169,7 +169,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
 
     # then initialize the STP module (if there is one)
     for i, m in enumerate(modelspec):
-        if 'stp' in m['fn']:
+        if 'stp' in m['fn'] and m.get('phi') is None:
             m = priors.set_mean_phi([m])[0]  # Init phi for module
             modelspec[i] = m
             break
@@ -259,7 +259,8 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
                     log.info('Mod %d (%s) fixing phi', i, fn)
 
                 m['fn_kwargs'].update(m['phi'])
-                m['phi'] = {}
+                del m['phi']
+                del m['prior']
                 exclude_idx.append(i)
                 # log.info(m)
         if ('relu' in m['fn']):
@@ -276,7 +277,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
                      i, m['fn'], mean_resp[0])
             log.info('resp has %d channels', len(mean_resp))
             m['phi']['level'][:] = mean_resp
-        i
+
         if (i < target_i) or ('merge_channels' in m['fn']):
             tmodelspec.append(m)
 
@@ -293,7 +294,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
 
     # reassemble the full modelspec with updated phi values from tmodelspec
     #print(modelspec[0])
-    #print(tmodelspec[0])
+    #print(modelspec.phi[2])
     for i in np.setdiff1d(np.arange(target_i), np.array(exclude_idx)).tolist():
         modelspec[int(i)] = tmodelspec[int(i)]
 
@@ -336,8 +337,6 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
 
     tmodelspec = copy.deepcopy(modelspec)
 
-
-
     if len(fit_idx) == 0:
         log.info('No modules matching fit_set for subset prefit')
         return modelspec
@@ -365,7 +364,6 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
                                        metric=metric, fit_kwargs=fit_kwargs)
 
     # reassemble the full modelspec with updated phi values from tmodelspec
-
     for i in fit_idx:
         modelspec[i] = tmodelspec[i]
 

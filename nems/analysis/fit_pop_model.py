@@ -58,14 +58,18 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
     modelspec = copy.deepcopy(modelspec)
 
     ifir=find_module('filter_bank', modelspec)
-    iwc=find_module('weight_channels', modelspec)
 
-    chan_count=modelspec[ifir]['fn_kwargs']['bank_count']
-    chan_per_bank = int(modelspec[iwc]['prior']['mean'][1]['mean'].shape[0]/chan_count)
+    dim_count = modelspec[ifir]['fn_kwargs']['bank_count']
+
     rec = est.copy()
+    respcount = est['resp'].shape[0]
+    fit_set_all, fit_set_slice = _figure_out_mod_split(modelspec)
 
-    log.info('Intializing %d subspace channels with signal %s', chan_count, pc_signal)
+    log.info('Initializing %d subspace channels with signal %s', dim_count, pc_signal)
 
+    """
+    iwc=find_module('weight_channels', modelspec)
+    chan_per_bank = int(modelspec[iwc]['prior']['mean'][1]['mean'].shape[0]/dim_count)
     kw=[m['id'] for m in modelspec[:iwc]]
 
     wc = modelspec[iwc]['id'].split(".")
@@ -86,10 +90,12 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
     keyword_lib = KeywordRegistry()
     keyword_lib.register_module(default_keywords)
     keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
+    """
+
     if flip_pcs:
-        pc_fit_count = int(np.ceil(chan_count/2))
+        pc_fit_count = int(np.ceil(dim_count/2))
     else:
-        pc_fit_count = chan_count
+        pc_fit_count = dim_count
     for pc_idx in range(pc_fit_count):
         log.info('Initializing filter %d', pc_idx)
         if pc_idx < rec[pc_signal].shape[0]:
@@ -101,54 +107,94 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
         m = np.nanmean(r.as_continuous())
         d = np.nanstd(r.as_continuous())
         rec['resp'] = r._modified_copy((r._data-m) / d)
-        tmodelspec = init.from_keywords(keyword_string=keywordstring,
-                                        meta={}, registry=keyword_lib, rec=rec)
-        if pc_idx > 0:
-            # fix parameters that are shared across subspace filters
-            # (ie, log compression)
-            for tm, mm in zip(tmodelspec[:iwc], modelspec[:iwc]):
-                for k, v in mm['phi'].items():
-                    log.info('fixing module %s key %s=%s', mm['fn'], k, v)
-                    tm['fn_kwargs'][k] = v
-                del tm['phi']
-                del tm['prior']
 
-        tmodelspec = init.prefit_LN(rec, tmodelspec,
-                                    tolerance=tolerance, max_iter=700)
+        if flip_pcs:
+            d = pc_idx * 2
+        else:
+            d = pc_idx
 
-        # TODO : fit other parts of the subspace filter here. *Like STP modules*!
+        tmodelspec = _extract_pop_channel(modelspec, d, fit_set_all)
+
+        if 'relu' in tmodelspec[-1]['fn']:
+            m_save = copy.deepcopy(tmodelspec[-1])
+            tmodelspec[-1]['fn'] = 'nems.modules.levelshift.levelshift'
+            tmodelspec[-1]['phi'] = {'level': np.array([[0]])}
+            tmodelspec = init.prefit_LN(rec, tmodelspec,
+                                        tolerance=tolerance, max_iter=700)
+            m_save['phi']['offset'] = -tmodelspec[-1]['phi']['level']
+            tmodelspec[-1] = m_save
+        else:
+            tmodelspec = init.prefit_LN(rec, tmodelspec,
+                                        tolerance=tolerance, max_iter=700)
+
+        #tmodelspec = init.from_keywords(keyword_string=keywordstring,
+        #                               meta={}, registry=keyword_lib, rec=rec)
+        #if pc_idx > 0:
+        #    # fix parameters that are shared across subspace filters
+        #    # (ie, log compression)
+        #    for tm, mm in zip(tmodelspec[:iwc], modelspec[:iwc]):
+        #        for k, v in mm['phi'].items():
+        #            log.info('fixing module %s key %s=%s', mm['fn'], k, v)
+        #            tm['fn_kwargs'][k] = v
+        #        del tm['phi']
+        #        del tm['prior']
+
+        #tmodelspec = init.prefit_LN(rec, tmodelspec,
+        #                            tolerance=tolerance, max_iter=700)
+
+        #import pdb
+        #pdb.set_trace()
+
+        # save subspace model back to main modelspec. If flipping PC dim fits,
+        # save back to two channels in the main model, once flipped.
+        if flip_pcs:
+            d = pc_idx * 2
+            modelspec = _update_pop_channel(tmodelspec, modelspec, d, fit_set_all)
+            if (pc_idx * 2 < dim_count - 1):
+                itfir = find_module('fir', tmodelspec)
+                tmodelspec.phi[itfir]['coefficients'] *= -1
+                if 'offset' in tmodelspec.phi[itfir+1].keys():
+                    tmodelspec.phi[itfir+1]['offset'] *= -1
+                elif 'level' in tmodelspec.phi[itfir+1].keys():
+                    tmodelspec.phi[itfir + 1]['level'] *= -1
+
+                d = pc_idx * 2 + 1
+                modelspec = _update_pop_channel(tmodelspec, modelspec, d, fit_set_all)
+        else:
+            d = pc_idx
+            modelspec = _update_pop_channel(tmodelspec, modelspec, d, fit_set_all)
 
         # save results back into main modelspec
-        itfir=find_module('fir', tmodelspec)
-        itwc=find_module('weight_channels', tmodelspec)
+        #itfir=find_module('fir', tmodelspec)
+        #itwc=find_module('weight_channels', tmodelspec)
 
-        if pc_idx==0:
-            for tm, m in zip(tmodelspec[:(iwc+1)], modelspec[:(iwc+1)]):
-                m['phi']=tm['phi'].copy()
-            modelspec[ifir]['phi']=tmodelspec[itfir]['phi'].copy()
-        else:
-            for k, v in tmodelspec[iwc]['phi'].items():
-                modelspec[iwc]['phi'][k]=np.concatenate((modelspec[iwc]['phi'][k],v))
-            for k, v in tmodelspec[itfir]['phi'].items():
-                #if k=='coefficients':
-                #    v/=100 # kludge
-                modelspec[ifir]['phi'][k]=np.concatenate((modelspec[ifir]['phi'][k],v))
+        #if pc_idx==0:
+        #    for tm, m in zip(tmodelspec[:(iwc+1)], modelspec[:(iwc+1)]):
+        #        m['phi']=tm['phi'].copy()
+        #    modelspec[ifir]['phi']=tmodelspec[itfir]['phi'].copy()
+        #else:
+        #    for k, v in tmodelspec[iwc]['phi'].items():
+        #        modelspec[iwc]['phi'][k]=np.concatenate((modelspec[iwc]['phi'][k],v))
+        #    for k, v in tmodelspec[itfir]['phi'].items():
+        #        #if k=='coefficients':
+        #        #    v/=100 # kludge
+        #        modelspec[ifir]['phi'][k]=np.concatenate((modelspec[ifir]['phi'][k],v))
 
-        if flip_pcs and (pc_idx*2 < chan_count-1):
-            # add negative flipped version of fit
-            for k, v in tmodelspec[iwc]['phi'].items():
-                modelspec[iwc]['phi'][k]=np.concatenate((modelspec[iwc]['phi'][k],v))
-            for k, v in tmodelspec[itfir]['phi'].items():
-                #if k=='coefficients':
-                #    v/=100 # kludge
-                modelspec[ifir]['phi'][k]=np.concatenate((-modelspec[ifir]['phi'][k],v))
+        #if flip_pcs and (pc_idx*2 < dim_count-1):
+        #    # add negative flipped version of fit
+        #    for k, v in tmodelspec[iwc]['phi'].items():
+        #        modelspec[iwc]['phi'][k]=np.concatenate((modelspec[iwc]['phi'][k],v))
+        #    for k, v in tmodelspec[itfir]['phi'].items():
+        #        #if k=='coefficients':
+        #        #    v/=100 # kludge
+        #        modelspec[ifir]['phi'][k]=np.concatenate((-modelspec[ifir]['phi'][k],v))
 
     # now fit weights for each neuron separately, using the initial subspace
-    respcount = est['resp'].shape[0]
-    fit_set_all, fit_set_slice = _figure_out_mod_split(modelspec)
-    cd_kwargs = {'tolerance': tolerance, 'max_iter': 20,
-                 'step_size': 0.1}
+    slice_fitter = scipy_minimize
     sp_kwargs = {'tolerance': tolerance, 'max_iter': 20}
+    #slice_fitter = coordinate_descent
+    #cd_kwargs = {'tolerance': tolerance, 'max_iter': 20,
+    #             'step_size': 0.1}
 
     for s in range(respcount):
         log.info('First fit per cell slice %d' , s)
@@ -160,7 +206,7 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
                 metric=metrics.nmse,
                 fitter=scipy_minimize,
                 fit_kwargs=sp_kwargs)
-        #coordinate_descent
+
     return {'modelspec': modelspec}
 
 
