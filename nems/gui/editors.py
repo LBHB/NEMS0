@@ -486,6 +486,7 @@ class ModuleCanvas(qw.QFrame):
         self.mod_index = mod_index
         self.parent = parent
         self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Sunken)
+        self.highlight_obj = None
 
         # define plot_list here rather than in ModuleControls
         self.plot_list = self.parent.modelspec[self.mod_index].get('plot_fns', [])
@@ -522,6 +523,15 @@ class ModuleCanvas(qw.QFrame):
         self.scrollable = self.check_scrollable()
         self.update_plot()
 
+    def onclick(self, event):
+        #print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+        #      ('double' if event.dblclick else 'single', event.button,
+        #       event.x, event.y, event.xdata, event.ydata))
+        t = round(event.xdata,3)
+        #self.parent.parent.global_controls.cursor_time = t
+        #self.parent.parent.global_controls.cursor_time_line.setText(str(t))
+        self.parent.parent.global_controls.update_cursor_time(t)
+
     def plot_on_axes(self):
         '''Draw plot on current canvas axes.'''
         ax = self.canvas.figure.add_subplot(111)
@@ -530,6 +540,9 @@ class ModuleCanvas(qw.QFrame):
                                    self.plot_fn_idx, self.fit_index,
                                    self.sig_name, no_legend=True,
                                    channels=self.plot_channel)
+        if self.scrollable:
+            cid = self.canvas.mpl_connect('button_press_event', self.onclick)
+
         self.canvas.draw()
 
     def check_scrollable(self):
@@ -537,7 +550,6 @@ class ModuleCanvas(qw.QFrame):
         #plots = self.parent.modelspec[self.mod_index].get(
         #        'plot_fns', ['nems.plots.api.mod_output']
         #        )
-
         if self.plot_list[self.plot_fn_idx] in _SCROLLABLE_PLOT_FNS:
             scrollable = True
         else:
@@ -546,10 +558,21 @@ class ModuleCanvas(qw.QFrame):
 
     def update_plot(self):
         '''Shift xlimits of current plot if it's scrollable.'''
+
         if self.scrollable:
             gc = self.parent.parent.global_controls
+            print('update plot {} cursor time={:.3f}'.format(self.mod_index, gc.cursor_time))
             self.canvas.axes.set_xlim(gc.start_time, gc.stop_time)
+
+            h_times = np.ones(2) * gc.cursor_time
+            if self.highlight_obj is None:
+                ylim = self.canvas.axes.get_ylim()
+                self.highlight_obj = self.canvas.axes.plot(h_times, ylim, 'r-')[0]
+            else:
+                self.highlight_obj.set_xdata(h_times)
+
             self.canvas.draw()
+
         else:
             pass
 
@@ -919,17 +942,25 @@ class GlobalControls(qw.QFrame):
         self.fit_index_line.editingFinished.connect(self.update_fit_index)
         self.fit_index_line.setText(str(self.parent.modelspec_editor.modelspec.fit_index))
 
-        self.cell_index_label = qw.QLabel('Cell Index')
+        self.cell_index_label = qw.QLabel('Cell')
         self.cell_index_line = qw.QLineEdit()
         self.cell_index_line.editingFinished.connect(self.update_cell_index)
         self.cell_index_line.setText(str(self.parent.modelspec.plot_channel))
         #self.cell_index_line.setText(str(self.parent.modelspec_editor.modelspec.cell_index))
+
+        self.cursor_time = 0
+        self.cursor_time_label = qw.QLabel('Cursor')
+        self.cursor_time_line = qw.QLineEdit()
+        self.cursor_time_line.editingFinished.connect(self.update_cursor_time)
+        self.cursor_time_line.setText(str(self.cursor_time))
 
         self.buttons_layout.addWidget(self.reset_model_btn)
         self.buttons_layout.addWidget(self.fit_index_label)
         self.buttons_layout.addWidget(self.fit_index_line)
         self.buttons_layout.addWidget(self.cell_index_label)
         self.buttons_layout.addWidget(self.cell_index_line)
+        self.buttons_layout.addWidget(self.cursor_time_label)
+        self.buttons_layout.addWidget(self.cursor_time_line)
 
         layout = qw.QVBoxLayout()
         layout.setAlignment(qc.Qt.AlignTop)
@@ -942,7 +973,6 @@ class GlobalControls(qw.QFrame):
         self.time_slider.setRange(0, self.max_time-self.display_duration)
         self.time_slider.setSingleStep(int(np.ceil(self.display_duration/10)))
         self.time_slider.setPageStep(int(self.display_duration))
-
 
     def scroll_all(self):
         '''Update xlims for all plots based on slider value.'''
@@ -1038,6 +1068,20 @@ class GlobalControls(qw.QFrame):
 
         self.parent.modelspec_editor.modelspec.cell_index = i
         self.parent.modelspec_editor.evaluate_model()
+
+    def update_cursor_time(self, t=None):
+        if t is None:
+            t = float(self.cursor_time_line.text())
+        else:
+            self.cursor_time_line.setText(str(t))
+
+        # TODO : check for valid time
+
+        if t == self.cursor_time:
+            return
+
+        self.cursor_time = t
+        self.scroll_all()
 
     def toggle_controls(self):
         if self.collapsed:
