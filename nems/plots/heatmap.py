@@ -285,13 +285,14 @@ def strf_local_lin(rec, modelspec, cursor_time=20, channels=0,
     strf = np.zeros((chan_count, tbin_count))
     _p1 = rec['pred']._data[resp_chan, tbin]
     eps = np.nanstd(d) / 100
+    eps = 0.01
     #print('eps: {}'.format(eps))
     for c in range(chan_count):
         #eps = np.std(d[c, :])/100
         for t in range(tbin_count):
 
             _d = d.copy()
-            _d[c, tbin - t] += eps
+            _d[c, tbin - t] *= 1+eps
             rec['stim'] = rec['stim']._modified_copy(data=_d)
             rec = modelspec.evaluate(rec)
             _p2 = rec['pred']._data[resp_chan, tbin]
