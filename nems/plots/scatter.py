@@ -148,8 +148,8 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
     return ax
 
 def nl_scatter(rec, modelspec, idx, sig_name='pred',
-               compare='resp', smoothing_bins=False,
-               xlabel1=None, ylabel1=None, ax=None, **options):
+               compare='resp', smoothing_bins=False, cursor_time=None,
+               xlabel1=None, ylabel1=None, **options):
 
     # HACK: shouldn't hardcode 'stim', might be named something else
     #       or not present at all. Need to figure out a better solution
@@ -182,7 +182,13 @@ def nl_scatter(rec, modelspec, idx, sig_name='pred',
     title1 = mod_name
     text1 = "r = {0:.5f}".format(np.mean(corr1))
 
-    plot_scatter(before_sig, compare_to, title=title1,
+    ax = plot_scatter(before_sig, compare_to, title=title1,
                  smoothing_bins=smoothing_bins, xlabel=xlabel1,
-                 ylabel=ylabel1, text=text1, module=module, ax=ax,
+                 ylabel=ylabel1, text=text1, module=module,
                  **options)
+
+    if cursor_time is not None:
+        tbin = int(cursor_time * rec[sig_name].fs)
+        x = before_sig.as_continuous()[0,tbin]
+        ylim=ax.get_ylim()
+        ax.plot([x,x],ylim,'r-')

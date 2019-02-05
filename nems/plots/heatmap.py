@@ -270,6 +270,37 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
             plt.text(0, i + nchans + 1, c, verticalalignment='center')
 
 
+def strf_local_lin(rec, modelspec, cursor_time=20, channels=0,
+                   **options):
+    rec = rec.copy()
+
+    tbin = int(cursor_time * rec['resp'].fs)
+
+    chan_count = rec['stim'].shape[0]
+    firmod = find_module('fir', modelspec)
+    tbin_count = modelspec.phi[firmod]['coefficients'].shape[1]+2
+
+    resp_chan = channels
+    d = rec['stim']._data.copy()
+    strf = np.zeros((chan_count, tbin_count))
+    _p1 = rec['pred']._data[resp_chan, tbin]
+    eps = np.nanstd(d) / 100
+    #print('eps: {}'.format(eps))
+    for c in range(chan_count):
+        #eps = np.std(d[c, :])/100
+        for t in range(tbin_count):
+
+            _d = d.copy()
+            _d[c, tbin - t] += eps
+            rec['stim'] = rec['stim']._modified_copy(data=_d)
+            rec = modelspec.evaluate(rec)
+            _p2 = rec['pred']._data[resp_chan, tbin]
+            strf[c, t] = (_p2 - _p1) / eps
+    print('strf min: {} max: {}'.format(np.min(strf), np.max(strf)))
+    options['clim'] = np.array([-np.max(np.abs(strf)), np.max(np.abs(strf))])
+    plot_heatmap(strf, **options)
+
+
 def strf_timeseries(modelspec, ax=None, show_factorized=True,
                     show_fir_only=True,
                     title=None, fs=1, chans=None, colors=None, **options):

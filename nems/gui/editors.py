@@ -103,6 +103,10 @@ _SCROLLABLE_PLOT_FNS = [
     'nems.plots.api.mod_output_all',
     'nems.plots.api.fir_output_all'
 ]
+_CURSOR_PLOT_FNS = [
+    'nems.plots.api.strf_local_lin',
+    'nems.plots.api.nl_scatter'
+]
 
 # These are used as click-once operations
 # TODO: separate initialization from prefitting
@@ -515,12 +519,14 @@ class ModuleCanvas(qw.QFrame):
     def new_plot(self):
         '''Remove plot from layout and replace it with a new one.'''
         self.layout.removeWidget(self.canvas)
+        self.highlight_obj = None
         self.canvas.close()
         self.canvas = NemsCanvas(parent=self)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.plot_on_axes()
         self.layout.addWidget(self.canvas)
         self.scrollable = self.check_scrollable()
+
         self.update_plot()
 
     def onclick(self, event):
@@ -534,12 +540,14 @@ class ModuleCanvas(qw.QFrame):
 
     def plot_on_axes(self):
         '''Draw plot on current canvas axes.'''
+        gc = self.parent.parent.global_controls
         ax = self.canvas.figure.add_subplot(111)
         rec = self.parent.modelspec.recording
         self.parent.modelspec.plot(self.mod_index, rec, ax,
                                    self.plot_fn_idx, self.fit_index,
                                    self.sig_name, no_legend=True,
-                                   channels=self.plot_channel)
+                                   channels=self.plot_channel,
+                                   cursor_time=gc.cursor_time)
         if self.scrollable:
             cid = self.canvas.mpl_connect('button_press_event', self.onclick)
 
@@ -561,7 +569,16 @@ class ModuleCanvas(qw.QFrame):
 
         if self.scrollable:
             gc = self.parent.parent.global_controls
-            print('update plot {} cursor time={:.3f}'.format(self.mod_index, gc.cursor_time))
+            self.canvas.axes.set_xlim(gc.start_time, gc.stop_time)
+            self.canvas.draw()
+        else:
+            pass
+
+    def update_cursor(self):
+        '''plot/move cursor bar on scrollable plots, adjust other plots that depend on cursor value.'''
+        gc = self.parent.parent.global_controls
+
+        if self.scrollable:
             self.canvas.axes.set_xlim(gc.start_time, gc.stop_time)
 
             h_times = np.ones(2) * gc.cursor_time
@@ -572,7 +589,10 @@ class ModuleCanvas(qw.QFrame):
                 self.highlight_obj.set_xdata(h_times)
 
             self.canvas.draw()
-
+        elif self.plot_list[self.plot_fn_idx] in _CURSOR_PLOT_FNS:
+            print('update plot {}: {} cursor time={:.3f}'.format(
+                self.mod_index, self.plot_list[self.plot_fn_idx], gc.cursor_time))
+            self.new_plot()
         else:
             pass
 
@@ -1081,7 +1101,7 @@ class GlobalControls(qw.QFrame):
             return
 
         self.cursor_time = t
-        self.scroll_all()
+        [m.update_cursor() for m in self.parent.modelspec_editor.modules]
 
     def toggle_controls(self):
         if self.collapsed:

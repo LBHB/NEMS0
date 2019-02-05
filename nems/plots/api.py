@@ -11,7 +11,7 @@ from .timeseries import (plot_timeseries, mod_output, mod_output_all,
                          before_and_after, timeseries_from_vectors,
                          before_and_after_stp, pred_resp)
 from .heatmap import (weight_channels_heatmap, fir_heatmap, strf_heatmap,
-                      strf_timeseries)
+                      strf_timeseries, strf_local_lin)
 from .file import save_figure, load_figure_img, load_figure_bytes, fig2BytesIO
 from .histogram import pred_error_hist
 from .state import (state_vars_timeseries, state_var_psth,
