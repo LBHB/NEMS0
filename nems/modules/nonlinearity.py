@@ -62,6 +62,12 @@ def double_exponential(rec, i, o, base, amplitude, shift, kappa):
 
 
 def _dlog(x, offset):
+    """
+    Log compression helper function
+    :param x: input, needs to be >0, works best if x values range approximately (0, 1)
+    :param offset: threshold (d = 10**offset). offset compressed for |offset|>2
+    :return: y = np.log((x + d) / d)
+    """
 
     # soften effects of more extreme offsets
     inflect = 2
@@ -69,37 +75,38 @@ def _dlog(x, offset):
     if isinstance(offset, int):
         offset = np.array([[offset]])
 
-    adjoffset=offset.copy()
+    adjoffset = offset.copy()
     adjoffset[offset > inflect] = inflect + (offset[offset > inflect]-inflect) / 50
     adjoffset[offset < -inflect] = -inflect + (offset[offset < -inflect]+inflect) / 50
 
     d = 10.0**adjoffset
 
-    # deprecated:
-    #zeroer = 0
-    #zbt = 0
-    #y = x.copy()
-
-    # avoid nan-related warning
-    #out = ~np.isnan(y)
-    #out[out] = y[out] < zbt
-
-    #y[out] = zbt
-    #y = y - zbt
-    #return np.log((y + d) / d) + zeroer
-
     return np.log((x + d) / d)
 
 
 def dlog(rec, i, o, offset):
+    """
+    Log compression with variable offset
+    :param rec: recording object with signals i and o.
+    :param i: input signal name (x)
+    :param o: output signal name (y)
+    :param offset: threshold (d)
+    :return: y = np.log((x + d) / d)
+    """
 
-    fn = lambda x : _dlog(x, offset)
+    fn = lambda x: _dlog(x, offset)
 
     return [rec[i].transform(fn, o)]
 
 
 def _relu(x, offset):
-
+    """
+    Linear rectifier helper function
+    :param x: input
+    :param offset: threshold
+    :return:  y= x-offset , if x>offset
+               = 0 otherwise
+    """
     y = x - offset
     y[y < 0] = 0
 
@@ -107,8 +114,16 @@ def _relu(x, offset):
 
 
 def relu(rec, i, o, offset):
-
-    fn = lambda x : _relu(x, offset)
+    """
+    Simple linear rectifier
+    :param rec: recording object with signals i and o.
+    :param i: input signal name (x)
+    :param o: output signal name (y)
+    :param offset: threshold (d)
+    :return: y = x - d , if x>d
+               = 0 otherwise
+    """
+    fn = lambda x: _relu(x, offset)
 
     return [rec[i].transform(fn, o)]
 

@@ -471,7 +471,10 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
                   (resp.epochs['start']==fe[0]/resp.fs))
             pe = ep.epoch_contained(preidx, [fe])
             thispdur = np.diff(preidx[pe])
-            if thispdur.shape and thispdur>minpre:
+            #import pdb
+            #pdb.set_trace()
+
+            if np.sum(pe)==1 and thispdur>minpre:
                 print('adjust {} to {}'.format(thispdur, minpre))
                 print(resp.epochs.loc[ematch[i]])
                 resp.epochs.loc[ematch[i],'start'] += (thispdur[0,0]-minpre)/resp.fs

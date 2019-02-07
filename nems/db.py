@@ -942,8 +942,8 @@ def get_batch_cells(batch=None, cellid=None, rawid=None):
     #d = pd.read_sql(sql=sql, con=engine, params=params)
 
     #sql = sql % params
-    print(sql)
-    print(params)
+    #print(sql)
+    #print(params)
 
     d = pd_query(sql=sql, params=params)
 

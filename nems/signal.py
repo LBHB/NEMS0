@@ -541,7 +541,7 @@ class SignalBase:
             lepochs = self.epochs.loc[mask]
             mask = self.epochs['end'] > split_time
             repochs = self.epochs.loc[mask]
-            repochs[['start', 'end']] -= split_time
+            repochs.loc[:, ['start', 'end']] -= split_time
 
             # If epochs were present initially but missing after split,
             # raise a warning.
@@ -1457,8 +1457,11 @@ class RasterizedSignal(SignalBase):
         else:
             ii = 0
             for lb, ub in indices:
-                n = ub-lb
-                data[:, lb:ub] = epoch_data[ii, :, :n]
+                if ub <= data.shape[1]:
+                    n = ub-lb
+                    data[:, lb:ub] = epoch_data[ii, :, :n]
+                else:
+                    log.info("Skipping epoch that falls outside of data time window")
                 ii += 1
 
         if preserve_nan:
@@ -1515,7 +1518,8 @@ class RasterizedSignal(SignalBase):
 #                        ub -= (ub-lb)-epoch_data.shape[1]
                     if ub-lb > epoch_data.shape[1]:
                         ub = lb + epoch_data.shape[1]
-                        #epoch_data = epoch_data[:, 0:(ub-lb)]
+                    if ub > data.shape[1]:
+                        ub = data.shape[1]
                     #print(ub-lb)
                     #print(epoch_data.shape)
                     data[:, lb:ub] = epoch_data[:, :(ub-lb)]
@@ -1525,6 +1529,8 @@ class RasterizedSignal(SignalBase):
                 # (assume epoch_data.shape[1] == len(indices))
                 ii = 0
                 for lb, ub in indices:
+                    if ub > data.shape[1]:
+                        ub = data.shape[1]
                     n = ub-lb
                     data[:, lb:ub] = epoch_data[ii, :, :n]
                     ii += 1

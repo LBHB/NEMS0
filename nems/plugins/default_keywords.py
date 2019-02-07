@@ -243,6 +243,7 @@ def fir(kw):
                           'bank_count': n_banks},
             'plot_fns': ['nems.plots.api.mod_output',
                          'nems.plots.api.strf_heatmap',
+                         'nems.plots.api.strf_local_lin',
                          'nems.plots.api.strf_timeseries',
                          'nems.plots.api.fir_output_all'],
             'plot_fn_idx': 1,
@@ -517,7 +518,7 @@ def stp(kw):
     b : Set bounds on 'tau' to be greater than or equal to 0
     n : Apply normalization
     '''
-    pattern = re.compile(r'^stp\.?(\d{1,})\.?([z,b,n,\.]*)$')
+    pattern = re.compile(r'^stp\.?(\d{1,})\.?([z,b,n,s,\.]*)$')
     parsed = re.match(pattern, kw)
     try:
         n_synapse = int(parsed.group(1))
@@ -538,6 +539,9 @@ def stp(kw):
         if op == 'z':
             u_mean = [0.1]*n_synapse
             tau_mean = [0.01]*n_synapse
+        elif op == 's':
+            u_mean = [0.1]*n_synapse
+            tau_mean = [0.05]*n_synapse
         elif op == 'n':
             normalize = True
         elif op == 'b':

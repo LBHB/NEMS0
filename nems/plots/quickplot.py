@@ -279,8 +279,12 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
     # TODO: More dynamic way to determine the y-max for suptitle?
     # y_max = 1.00 - (height_mult+1)/100
     y_max = 0.955
-    gs_outer.tight_layout(fig, rect=[0, 0, 1, y_max],
-                          pad=1.5, w_pad=1.0, h_pad=2.5)
+    try:
+        gs_outer.tight_layout(fig, rect=[0, 0, 1, y_max],
+                              pad=1.5, w_pad=1.0, h_pad=2.5)
+    except:
+        log.info("tight_layout error")
+
     return fig
 
 

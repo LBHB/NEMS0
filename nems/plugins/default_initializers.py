@@ -75,14 +75,22 @@ def init(kw):
 def initpop(kw):
     options = keyword_extract_options(kw)
 
-    rnd = ('rnd' in options)
-    usepcs = ('pc' in options)
-    flip_pcs = ('nflip' not in options)
+    rnd = False
+    flip_pcs = True
+    start_count = 1
+    usepcs = True
+    for op in options:
+        if op.startswith("rnd"):
+            rnd = True
+            if len(op)>3:
+                start_count=int(op[3:])
+        elif op=='nflip':
+            flip_pcs = False
 
     if rnd:
         xfspec = [['nems.analysis.fit_pop_model.init_pop_rand',
-                   {'pc_signal': 'rand_resp'}]]
-    else:
+                   {'pc_signal': 'rand_resp', 'start_count': start_count}]]
+    elif usepcs:
         xfspec = [['nems.analysis.fit_pop_model.init_pop_pca',
                    {'flip_pcs': flip_pcs}]]
     return xfspec

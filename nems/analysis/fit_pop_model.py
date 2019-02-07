@@ -115,17 +115,33 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
 
         tmodelspec = _extract_pop_channel(modelspec, d, fit_set_all)
 
-        if 'relu' in tmodelspec[-1]['fn']:
-            m_save = copy.deepcopy(tmodelspec[-1])
-            tmodelspec[-1]['fn'] = 'nems.modules.levelshift.levelshift'
-            tmodelspec[-1]['phi'] = {'level': np.array([[0]])}
+        iwcg = find_module('weight_channels.gaussian', modelspec)
+        relumod = find_module('relu',modelspec)
+        stpidx = find_module('stp', tmodelspec)
+
+        if iwcg is not None:
+            n_outputs = tmodelspec.phi[iwcg]['mean'].shape[0]
+            mean = np.arange(n_outputs+1)/(n_outputs*2+2) + 0.25
+            tmodelspec.phi[iwcg]['mean'] = mean[1:]
+
+        if relumod is not None:
+            log.info('Temporarily converting relu to lvl')
+            m_save = copy.deepcopy(tmodelspec[relumod])
+            tmodelspec[relumod]['fn'] = 'nems.modules.levelshift.levelshift'
+            tmodelspec[relumod]['phi'] = {'level': np.array([[0]])}
             tmodelspec = init.prefit_LN(rec, tmodelspec,
                                         tolerance=tolerance, max_iter=700)
-            m_save['phi']['offset'] = -tmodelspec[-1]['phi']['level']
-            tmodelspec[-1] = m_save
+            m_save['phi']['offset'] = -tmodelspec[relumod]['phi']['level']
+            tmodelspec[relumod] = m_save
         else:
             tmodelspec = init.prefit_LN(rec, tmodelspec,
                                         tolerance=tolerance, max_iter=700)
+
+        # now fit STP if it's in the model:
+        if stpidx is not None:
+            sp_kwargs = {'tolerance': tolerance, 'max_iter': 100}
+            tmodelspec = analysis.fit_basic(rec, tmodelspec, fitter=scipy_minimize,
+                                            fit_kwargs=sp_kwargs)
 
         #tmodelspec = init.from_keywords(keyword_string=keywordstring,
         #                               meta={}, registry=keyword_lib, rec=rec)
@@ -230,7 +246,7 @@ def _random_resp_combos(resp, dim_count=1, whiten=True):
     return rand_resp
 
 
-def init_pop_rand(est, modelspec, IsReload=False,
+def init_pop_rand(est, modelspec, IsReload=False, start_count=1,
                   pc_signal='rand_resp', whiten=True, **context):
     """
     initialize population model with random combinations of responses.
@@ -250,15 +266,27 @@ def init_pop_rand(est, modelspec, IsReload=False,
     fit_set_all, fit_set_slice = _figure_out_mod_split(modelspec)
     dim_count = modelspec[fit_set_slice[0]]['phi']['coefficients'].shape[1]
 
-    rec = est.copy()
-    rec[pc_signal] = _random_resp_combos(
-        rec['resp'], dim_count=dim_count, whiten=whiten)
+    mset = []
+    E = np.ones(start_count)
+    for i in range(start_count):
+        log.info('Rand init: %d/%d', i, start_count)
+        rec = est.copy()
+        rec[pc_signal] = _random_resp_combos(
+            rec['resp'], dim_count=dim_count, whiten=whiten)
 
-    log.info('rec signal: ', pc_signal)
-    log.info('shape: ', rec[pc_signal].shape)
+        log.info('rec signal: %s (%d x %d)', pc_signal,
+                 rec[pc_signal].shape[0], rec[pc_signal].shape[1])
 
-    return init_pop_pca(rec, modelspec, IsReload=False,
-                        pc_signal=pc_signal, **context)
+        mset.append(init_pop_pca(rec, modelspec, pc_signal=pc_signal, **context))
+        rec = mset[-1]['modelspec'].evaluate(rec)
+        E[i] = metrics.nmse(rec)
+
+    imax = np.argmin(E)
+    for i in range(start_count):
+        ss = "**" if (i == imax) else ""
+        log.info('i=%d E=%.3e %s', i, E[i], ss)
+
+    return mset[imax]
 
 
 def _figure_out_mod_split(modelspec):
