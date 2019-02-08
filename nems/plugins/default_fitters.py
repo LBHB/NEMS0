@@ -148,6 +148,7 @@ def tf(fitkey):
     max_iter = 1000
     fitter = 'Adam'
     init_count = 1
+    use_modelspec_init = False
 
     for op in options:
         if op[:1] == 'i':
@@ -159,6 +160,7 @@ def tf(fitkey):
 
     xfspec = [['nems.tf.cnnlink.fit_tf',
                {'max_iter': max_iter,
+                'use_modelspec_init': use_modelspec_init,
                 'optimizer': fitter,
                 'init_count': init_count}]]
 
@@ -193,7 +195,7 @@ def iter(fitkey):
                multiple times to iterate over several successive subsets.
     tiN : Perform N per-tolerance-level iterations, where N is any
           positive integer. Default=50
-    fiN : Perform N per-fit iterations, where N is any positive integer. 
+    fiN : Perform N per-fit iterations, where N is any positive integer.
           Default=10
 
     '''

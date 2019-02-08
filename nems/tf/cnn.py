@@ -159,7 +159,11 @@ class Net:
     def initialize(self):
 
         print('Initialize session')
-        self.sess = tf.Session()
+        session_conf = tf.ConfigProto(
+             intra_op_parallelism_threads=1,
+             inter_op_parallelism_threads=1)
+        self.sess = tf.Session(config=session_conf)
+        #self.sess = tf.Session()
         print('Initialize variables')
         self.sess.run(tf.global_variables_initializer())
         print('Initialize saver')
@@ -225,7 +229,7 @@ class Net:
                 if self.layers[i].get('init_u', None) is not None:
                     self.layers[i]['u'] = tf.Variable(self.layers[i]['init_u'])
                     self.layers[i]['tau'] = tf.Variable(self.layers[i]['init_tau'])
-               else:
+                else:
                     self.layers[i]['u'] = kern2D(1, 1, self.layers[i]['n_kern'],
                                                  self.weight_scale, seed=seed_to_randint(self.seed) + i + self.n_layers,
                                                  distr='uniform')
