@@ -72,6 +72,7 @@ xfspec.append(['nems.xforms.init_from_keywords', {}])
 #xfspec.append(['nems.xforms.fit_basic_init', {}])
 #xfspec.append(['nems.xforms.fit_basic', {}])
 xfspec.append(['nems.analysis.fit_pop_model.init_pop_pca', {'flip_pcs': True}])
+
 xfspec.append(['nems.analysis.fit_pop_model.fit_population_iteratively',
                {'fitter': 'scipy_minimize', 'tolerances': [1e-4, 3e-5],
                 'tol_iter': 50, 'fit_iter': 10}])

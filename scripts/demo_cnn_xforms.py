@@ -22,7 +22,6 @@ import nems.utils
 import nems.uri
 import nems.recording as recording
 import nems.xforms as xforms
-from nems.gui.recording_browser import browse_recording, browse_context
 import nems.tf.cnn as cnn
 import nems.tf.cnnlink as cnnlink
 
@@ -48,7 +47,7 @@ cellid = "TAR010c-18-1"
 #modelspecname = 'dlog-wc.18x1.g-stp.1-fir.1x15-lvl.1-dexp.1'
 #modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
 #modelspecname = 'dlog-wc.18x1.g-fir.1x15-lvl.1'
-modelspecname = 'wc.18x1.g-fir.1x15-relu.1'
+modelspecname = 'dlog-wc.18x2.g-fir.2x15-relu.1'
 
 meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
         'recording': exptid, 'temp_path': results_dir}
@@ -64,15 +63,16 @@ xfspec.append(['nems.xforms.load_recording_wrapper',
                {'load_command': load_command,
                 'exptid': exptid,
                 'datafile': datafile}])
-xfspec.append(['nems.xforms.normalize_stim', {'norm_method': 'meanstd'}])
+xfspec.append(['nems.xforms.normalize_stim', {'norm_method': 'minmax'}])
 xfspec.append(['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}])
 xfspec.append(['nems.xforms.average_away_stim_occurrences', {}])
 
 xfspec.append(['nems.xforms.init_from_keywords',
                {'keywordstring': modelspecname, 'meta': meta}])
 
-xfspec.append(['nems.tf.cnnlink.fit_tf', {'init_count': 5}])
-#xfspec.append(['nems.xforms.fit_basic_init', {}])
+xfspec.append(['nems.xforms.fit_basic_init', {'tolerance': 1e-4}])
+xfspec.append(['nems.tf.cnnlink.fit_tf', {'init_count': 1, 'max_iter': 1000, 'use_modelspec_init': True}])
+
 #xfspec.append(['nems.xforms.fit_basic', {}])
 # xfspec.append(['nems.xforms.fit_basic_shrink', {}])
 #xfspec.append(['nems.xforms.fit_basic_cd', {}])
@@ -91,6 +91,18 @@ ctx = {}
 for xfa in xfspec:
     ctx = xforms.evaluate_step(xfa, ctx)
 #ctx, log_xf = xforms.evaluate(xfspec)
+
+modelspec = ctx['modelspec']
+val = ctx['val']
+print(modelspec.phi)
+
+if False:
+    modelspec.quickplot(val)
+    import nems.gui.editors as gui
+    ex = gui.browse_xform_fit(ctx, xfspec)
+    #from nems.gui.db_browser import model_browser
+    #aw = browse_context(ctx, signals=['stim', 'pred', 'resp'])
+    #from nems.gui.recording_browser import browse_recording, browse_context
 
 
 """
