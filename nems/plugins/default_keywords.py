@@ -212,8 +212,8 @@ def fir(kw):
         }
 
     if n_coefs > 2:
-        # p_coefficients['mean'][:, 1] = 1
-        # p_coefficients['mean'][:, 2] = -0.5
+        #p_coefficients['mean'][:, 1] = 0.1
+        # p_coefficients['mean'][:, 2] = -0.05
         pass
     else:
         p_coefficients['mean'][:, 0] = 1
@@ -221,6 +221,8 @@ def fir(kw):
     for op in ops:
         if op == 'fl':
             p_coefficients['mean'][:] = 1/(n_outputs*n_coefs)
+        elif op == 'z':
+            p_coefficients['mean'][:] = 0
 
     if n_banks is None:
         template = {
