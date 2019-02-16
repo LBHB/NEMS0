@@ -1,4 +1,4 @@
-"""code from Sam Norman-Haignere's cnn library"""
+"""code for fitting LN network models based on Sam Norman-Haignere's cnn library"""
 
 import numpy as np
 import scipy.io as sio
@@ -30,6 +30,11 @@ def weights_uniform(shape, minval=0, maxval=1, sig=0.1, seed=0):
     W = tf.Variable(tf.random_uniform(shape, minval=minval, maxval=maxval, seed=seed))
     return W
 
+def weights_matrix(d):
+    """ variable with specified initial values """
+    W = tf.Variable(d)
+    return W
+
 def poisson(response, prediction):
     return tf.reduce_mean(prediction - response * tf.log(prediction + 1e-5), name='poisson')
 
@@ -59,7 +64,9 @@ def kern2D(n_x, n_y, n_kern, sig, rank=None, seed=0, distr='tnorm'):
 
     print(distr)
 
-    if distr == 'tnorm':
+    if type(distr) is np.ndarray:
+        fn = weights_matrix
+    elif distr == 'tnorm':
         fn = weights_tnorm
     elif distr == 'norm':
         fn = weights_norm
@@ -70,7 +77,10 @@ def kern2D(n_x, n_y, n_kern, sig, rank=None, seed=0, distr='tnorm'):
     else:
         raise NameError('No matching distribution')
 
-    if rank is None:
+    if type(distr) is np.ndarray:
+        # TODO : break out to separate kern
+        W = weights_matrix(distr)
+    elif rank is None:
         print('seed:',seed_to_randint(seed))
         W = fn([n_x, n_y, n_kern], sig=sig, seed=seed_to_randint(seed))
     else:
@@ -89,6 +99,7 @@ def kern2D(n_x, n_y, n_kern, sig, rank=None, seed=0, distr='tnorm'):
     print(W.shape)
 
     return W
+
 
 
 class Net:
@@ -148,7 +159,11 @@ class Net:
     def initialize(self):
 
         print('Initialize session')
-        self.sess = tf.Session()
+        session_conf = tf.ConfigProto(
+             intra_op_parallelism_threads=1,
+             inter_op_parallelism_threads=1)
+        self.sess = tf.Session(config=session_conf)
+        #self.sess = tf.Session()
         print('Initialize variables')
         self.sess.run(tf.global_variables_initializer())
         print('Initialize saver')
@@ -180,33 +195,85 @@ class Net:
                     np.floor(self.layers[i]['time_win_smp'] / 2))
                 X_pad = tf.pad(X, [[0, 0], [pad_size, 0], [0, 0]])
 
-                self.layers[i]['W'] = kern2D(self.layers[i]['time_win_smp'], n_input_feats, self.layers[i]['n_kern'],
-                                             self.weight_scale, seed=seed_to_randint(self.seed)+i, rank=self.layers[i]['rank'], 
-                                             distr='norm')
-                self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
-                                                    self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
-                                                 distr='norm'))
+                if self.layers[i].get('init_W', None) is not None:
+                    self.layers[i]['W'] = tf.Variable(self.layers[i]['init_W'])
+                    self.layers[i]['b'] = tf.Variable(self.layers[i]['init_b'])
+                else:
+                    self.layers[i]['W'] = kern2D(self.layers[i]['time_win_smp'], n_input_feats, self.layers[i]['n_kern'],
+                                                 self.weight_scale, seed=seed_to_randint(self.seed)+i, rank=self.layers[i]['rank'],
+                                                 distr='norm')
+                    self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
+                                                        self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
+                                                        distr='norm'))
+
                 self.layers[i]['Y'] = act(self.layers[i]['act'])(conv1d(X_pad, self.layers[i]['W']) + self.layers[i]['b'])
 
             elif self.layers[i]['type'] == 'dlog':
 
                 print('Loc dlog')
+                if self.layers[i].get('init_b', None) is not None:
+                    self.layers[i]['b'] = tf.Variable(self.layers[i]['init_b'])
+                    #self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
+                    #                                    self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
+                    #                                    distr=self.layers[i]['init_b']))
+                else:
+                    self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
+                                                        self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
+                                                        distr='tnorm'))
+                self.layers[i]['eb'] = tf.exp(self.layers[i]['b'])
+                self.layers[i]['Y'] = tf.log((X + self.layers[i]['eb']) / self.layers[i]['eb'])
 
-                self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
-                                                    self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
-                                                    distr='tnorm'))
-                self.layers[i]['Y'] = tf.log((X + self.layers[i]['b']) / self.layers[i]['b'])
+            elif self.layers[i]['type'] == 'stp':
+                print('Loc stp')
+
+                if self.layers[i].get('init_u', None) is not None:
+                    self.layers[i]['u'] = tf.Variable(self.layers[i]['init_u'])
+                    self.layers[i]['tau'] = tf.Variable(self.layers[i]['init_tau'])
+                else:
+                    self.layers[i]['u'] = kern2D(1, 1, self.layers[i]['n_kern'],
+                                                 self.weight_scale, seed=seed_to_randint(self.seed) + i + self.n_layers,
+                                                 distr='uniform')
+                    self.layers[i]['tau'] = kern2D(1, 1, self.layers[i]['n_kern'],
+                                                 self.weight_scale,
+                                                 seed=seed_to_randint(self.seed) + 20 + i + self.n_layers,
+                                                 distr='uniform')
+
+                # input (X) is output (Y) of previous layer
+                # di[i, tt - 1]  # previous time bin depression
+                # delta[tt] = (1 - di[i, tt - 1]) / tau[i] - u[i] * di[i, tt - 1] * X[i, tt - 1]
+                # delta[tt] = 1/tau[i] + di[i, tt-1] * (-1/tau[i] - u[i] * X[i, tt-1])
+                # di[i, tt] = di[i, tt - 1] + delta[tt]
+                # di[i, tt] = di[i, tt - 2] + delta[tt-1] + delta[tt]
+                # if di[i, tt] < 0:
+                #    di[i, tt] = 0
+                # Y[i, tt] *= X[i, tt] * di[i, tt]
+                self.layers[i]['Wraw'] = tf.exp(-0.5 * tf.square((tf.reshape(
+                    tf.range(0, 1, 1 / n_input_feats, dtype=tf.float32), [1, n_input_feats, 1]) - self.layers[i]['m']) /
+                                                                 (self.layers[i]['s'] / 10)))
+                self.layers[i]['W'] = self.layers[i]['Wraw'] / tf.reduce_sum(self.layers[i]['Wraw'], axis=1)
+                self.layers[i]['Y'] = act(self.layers[i]['act'])(conv1d(X, self.layers[i]['W']))
+
 
             elif self.layers[i]['type'] == 'reweight':
 
                 print('Loc reweight')
 
-                self.layers[i]['W'] = kern2D(1, n_input_feats, self.layers[i]['n_kern'],
-                                             self.weight_scale, seed=seed_to_randint(self.seed)+i,
-                                             distr='norm')
-                self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
-                                                    self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
-                                                    distr='norm'))
+                if self.layers[i].get('init_W', None) is not None:
+                    self.layers[i]['W'] = tf.Variable(self.layers[i]['init_W'])
+                    self.layers[i]['b'] = tf.Variable(self.layers[i]['init_b'])
+                    #self.layers[i]['W'] = kern2D(1, n_input_feats, self.layers[i]['n_kern'],
+                    #                             self.weight_scale, seed=seed_to_randint(self.seed)+i,
+                    #                             distr=self.layers[i]['init_W'])
+                    #self.layers[i]['b'] = kern2D(1, 1, self.layers[i]['n_kern'],
+                    #                             self.weight_scale, seed=seed_to_randint(self.seed) + i,
+                    #                             distr=self.layers[i]['init_b'])
+                else:
+                    self.layers[i]['W'] = kern2D(1, n_input_feats, self.layers[i]['n_kern'],
+                                                 self.weight_scale, seed=seed_to_randint(self.seed)+i,
+                                                 distr='norm')
+                    self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
+                                                        self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
+                                                        distr='norm'))
                 self.layers[i]['Y'] = act(self.layers[i]['act'])(conv1d(X, self.layers[i]['W']) + self.layers[i]['b'])
 
             elif self.layers[i]['type'] == 'reweight-positive':
@@ -217,32 +284,40 @@ class Net:
                                                     self.weight_scale, seed=seed_to_randint(self.seed)+i,
                                                     distr='norm'))
                 self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
-                                                    self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
+                                                    self.weight_scale, seed=seed_to_randint(self.seed)+i,
                                                     distr='norm'))
                 self.layers[i]['Y'] = act(self.layers[i]['act'])(conv1d(X, self.layers[i]['W']) + self.layers[i]['b'])
 
             elif self.layers[i]['type'] == 'reweight-positive-zero':
 
                 print('Loc reweight-positive-zero')
-
                 self.layers[i]['W'] = tf.abs(kern2D(1, n_input_feats, self.layers[i]['n_kern'],
                                                     self.weight_scale, seed=seed_to_randint(self.seed)+i,
                                                     distr='tnorm'))
-                #self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
-                #                                    self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
-                #                                    distr='zeros'))
-                #self.layers[i]['Y'] = act(self.layers[i]['act'])(conv1d(X, self.layers[i]['W']) + self.layers[i]['b'])
                 self.layers[i]['Y'] = act(self.layers[i]['act'])(conv1d(X, self.layers[i]['W']))
 
             elif self.layers[i]['type'] == 'reweight-gaussian':
 
                 print('Loc reweight-gaussian')
-                self.layers[i]['m'] = kern2D(1, 1, self.layers[i]['n_kern'],
-                                             self.weight_scale, seed=seed_to_randint(self.seed) + i + self.n_layers,
-                                             distr='uniform')
-                self.layers[i]['s'] = kern2D(1, 1, self.layers[i]['n_kern'],
-                                             self.weight_scale, seed=seed_to_randint(self.seed) + 20 + i + self.n_layers,
-                                             distr='uniform')
+
+                if self.layers[i].get('init_m', None) is not None:
+                    self.layers[i]['m'] = tf.Variable(self.layers[i]['init_m'])
+                    self.layers[i]['s'] = tf.Variable(self.layers[i]['init_s'])
+                    #self.layers[i]['m'] = kern2D(1, 1, self.layers[i]['n_kern'],
+                    #                             self.weight_scale,
+                    #                             seed=seed_to_randint(self.seed) + i + self.n_layers,
+                    #                             distr=self.layers[i]['init_m'])
+                    #self.layers[i]['s'] = kern2D(1, 1, self.layers[i]['n_kern'],
+                    #                             self.weight_scale,
+                    #                             seed=seed_to_randint(self.seed) + i + self.n_layers,
+                    #                             distr=self.layers[i]['init_s'])
+                else:
+                    self.layers[i]['m'] = kern2D(1, 1, self.layers[i]['n_kern'],
+                                                 self.weight_scale, seed=seed_to_randint(self.seed) + i + self.n_layers,
+                                                 distr='uniform')
+                    self.layers[i]['s'] = kern2D(1, 1, self.layers[i]['n_kern'],
+                                                 self.weight_scale, seed=seed_to_randint(self.seed) + 20 + i + self.n_layers,
+                                                 distr='uniform')
                 self.layers[i]['Wraw'] = tf.exp(-0.5 * tf.square((tf.reshape(tf.range(0, 1, 1/n_input_feats, dtype=tf.float32), [1, n_input_feats, 1])-self.layers[i]['m'])/
                                                 (self.layers[i]['s'] / 10)))
                 self.layers[i]['W'] = self.layers[i]['Wraw'] / tf.reduce_sum(self.layers[i]['Wraw'], axis=1)

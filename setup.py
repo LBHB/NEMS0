@@ -11,7 +11,7 @@ with codecs.open('README.md', encoding='utf-8') as f:
 
 GENERAL_REQUIRES = ['numpy', 'scipy', 'matplotlib', 'pandas', 'requests',
                     'h5py', 'sqlalchemy', 'configparser']
-
+# also requires: tensorflow, tornado
 setup(
     name=NAME,
     version=VERSION,

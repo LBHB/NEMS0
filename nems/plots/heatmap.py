@@ -75,7 +75,7 @@ def _get_wc_coefficients(modelspec, idx=0):
                     i += 1
             else:
                 if i == idx:
-                    return m['phi']['coefficients']
+                    return m['phi']['coefficients'].copy()
                 else:
                     i += 1
     return None
@@ -140,7 +140,7 @@ def weight_channels_heatmap(modelspec, idx=None, ax=None, clim=None, title=None,
         coefficients = _get_wc_coefficients(modelspec, idx=wc_idx)
 
     # normalize per channel:
-    coefficients /= np.std(coefficients, axis=0, keepdims=True)
+    #coefficients /= np.std(coefficients, axis=0, keepdims=True)
 
     # make bigger dimension horizontal
     if coefficients.shape[0]>coefficients.shape[1]:

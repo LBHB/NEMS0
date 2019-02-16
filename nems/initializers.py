@@ -370,26 +370,34 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
     return modelspec
 
 
-def init_dexp(rec, modelspec, nl_mode=2):
+def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
     """
     choose initial values for dexp applied after preceeding fir is
     initialized
-    nl_mode must be in {1,2} (default is 2), 
+    nl_mode must be in {1,2} (default is 2),
             pre 11/29/18 models were fit with v1
             1: amp = np.nanstd(resp) * 3
                kappa = np.log(2 / (np.max(pred) - np.min(pred) + 1))
             2:
                amp = resp[pred>np.percentile(pred,90)].mean()
                kappa = np.log(2 / (np.std(pred)*3))
-               
+
+   override_target_i should be an integer index into the modelspec.
+   This replaces the normal behavior of the function which would look up
+   the index of the 'double_exponential' module. Use this if you want
+   to use dexp's initialization procedure for a similar nonlinearity module.
+
    """
     # preserve input modelspec
     modelspec = copy.deepcopy(modelspec)
 
-    target_i = find_module('double_exponential', modelspec)
-    if target_i is None:
-        log.warning("No dexp module was found, can't initialize.")
-        return modelspec
+    if override_target_i is None:
+        target_i = find_module('double_exponential', modelspec)
+        if target_i is None:
+            log.warning("No dexp module was found, can't initialize.")
+            return modelspec
+    else:
+        target_i = override_target_i
 
     if target_i == len(modelspec):
         fit_portion = modelspec.modules
@@ -455,12 +463,12 @@ def init_dexp(rec, modelspec, nl_mode=2):
             predrange = 2 / (np.std(pred)*3)
         else:
             raise ValueError('nl mode = {} not valid'.format(nl_mode))
-        
+
         shift[i, 0] = np.mean(pred)
         # shift = (np.max(pred) + np.min(pred)) / 2
 
         kappa[i, 0] = np.log(predrange)
-        
+
     modelspec[target_i]['phi'] = {'amplitude': amp, 'base': base,
                                   'kappa': kappa, 'shift': shift}
     log.info("Init dexp: %s", modelspec[target_i]['phi'])
