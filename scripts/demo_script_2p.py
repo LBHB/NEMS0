@@ -35,6 +35,9 @@ log = logging.getLogger(__name__)
 results_dir = nems.get_setting('NEMS_RESULTS_DIR')
 recordings_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
 
+save_results = True
+browse_results = True
+
 # 2p data from Polley Lab at EPL
 respfile = os.path.join(recordings_dir, 'data_nems_2p/neurons.csv')
 stimfile = os.path.join(recordings_dir, 'data_nems_2p/stim_spectrogram.csv')
@@ -78,27 +81,31 @@ ctx, log_xf = xforms.evaluate(xfspec)
 # for xfa in xfspec:
 #     ctx = xforms.evaluate_step(xfa, ctx)
 
+if browse_results:
+    import nems.gui.editors as gui
+    ex = gui.browse_xform_fit(ctx, xfspec)
 
-# ----------------------------------------------------------------------------
-# SAVE YOUR RESULTS
+if save_results:
+    # ----------------------------------------------------------------------------
+    # SAVE YOUR RESULTS
 
-# save results to file
-destination = os.path.join(results_dir, str(batch), xforms.get_meta(ctx)['cellid'],
-                           ms.get_modelspec_longname(ctx['modelspec']))
-log.info('Saving modelspec(s) to {0} ...'.format(destination))
-xforms.save_analysis(destination,
-                     recording=ctx['rec'],
-                     modelspec=ctx['modelspec'],
-                     xfspec=xfspec,
-                     figures=ctx['figures'],
-                     log=log_xf)
+    # save results to file
+    destination = os.path.join(results_dir, str(batch), xforms.get_meta(ctx)['cellid'],
+                               ms.get_modelspec_longname(ctx['modelspec']))
+    log.info('Saving modelspec(s) to {0} ...'.format(destination))
+    xforms.save_analysis(destination,
+                         recording=ctx['rec'],
+                         modelspec=ctx['modelspec'],
+                         xfspec=xfspec,
+                         figures=ctx['figures'],
+                         log=log_xf)
 
-# save summary of results to a database
-log.info('Saving metadata to db  ...')
-modelspec = ctx['modelspec']
-modelspec.meta['modelpath'] = destination
-modelspec.meta['figurefile'] = destination + 'figure.0000.png'
-nd.update_results_table(modelspec)
+    # save summary of results to a database
+    log.info('Saving metadata to db  ...')
+    modelspec = ctx['modelspec']
+    modelspec.meta['modelpath'] = destination
+    modelspec.meta['figurefile'] = destination + 'figure.0000.png'
+    nd.update_results_table(modelspec)
 
 # reload using:
 """
@@ -122,5 +129,5 @@ xfspec, ctx = xforms.load_analysis(filepath, eval_model=True)
 
 # ----------------------------------------------------------------------------
 # BROWSE YOUR VALIDATION DATA
-aw = browse_context(ctx)
+#aw = browse_context(ctx)
 

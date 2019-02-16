@@ -44,6 +44,7 @@ def demo_loader(datafile=None, **context):
     res['fs'] = fs
     res['resp'] = Y
     res['stim'] = X
+    # res['state'] = State_matrix
     res['epochs'] = epochs
 
     res['resp_labels'] = [cellid]

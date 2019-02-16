@@ -146,12 +146,13 @@ def pd_query(sql=None, params=None):
     if sql is None:
         raise ValueError("parameter sql required")
     engine = Engine()
-    # print(sql)
-    # print(params)
     sql_engine = get_setting('SQL_ENGINE')
     if sql_engine == 'sqlite':
+        # print(sql)
+        # print(params)
         if params is not None:
             sql = sql % params
+        print(sql)
         d = pd.read_sql_query(sql=sql, con=engine)
     else:
         d = pd.read_sql_query(sql=sql, con=engine, params=params)
@@ -932,7 +933,7 @@ def get_batch_cells(batch=None, cellid=None, rawid=None):
         params = params+(batch,)
 
     if cellid is not None:
-       sql += " AND cellid like %s"
+       sql += " AND cellid like '%s'"
        params = params+(cellid+"%",)
 
     if rawid is not None:

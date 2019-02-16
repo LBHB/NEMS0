@@ -5,7 +5,7 @@ import logging
 import numpy as np
 import pandas as pd
 from scipy.signal import convolve2d
-from scipy import interpolate
+from scipy.integrate import cumtrapz
 import scipy.signal as ss
 
 import nems.epoch as ep
@@ -416,6 +416,47 @@ def generate_stim_from_epochs(rec, new_signal_name='stim',
     rec.add_signal(stim)
 
     return rec
+
+
+def integrate_signal_per_epoch(rec, sig='stim', sig_out='stim_int', epoch_regex='^STIM_'):
+    '''
+    Calculates integral for each epoch of a signal
+
+    if rec['mask'] exists, uses rec['mask'] == True to determine valid epochs
+    '''
+
+    newrec = rec.copy()
+    sig = newrec[sig].rasterize()
+
+    # compute PSTH response during valid trials
+    if type(epoch_regex) == list:
+        epochs_to_extract = []
+        for rx in epoch_regex:
+            eps = ep.epoch_names_matching(sig.epochs, rx)
+            epochs_to_extract += eps
+
+    elif type(epoch_regex) == str:
+        epochs_to_extract = ep.epoch_names_matching(sig.epochs, epoch_regex)
+
+    folded_matrices = sig.extract_epochs(epochs_to_extract,
+                                         mask=newrec['mask'])
+
+    # 2. Average across reps and integrate each stim
+    for k, v in folded_matrices.items():
+        v = np.nanmean(v, axis=0)
+        v = cumtrapz(v, dx=1/sig.fs, initial=0)
+        folded_matrices[k] = v
+
+    # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
+    #   replacing all epochs in the signal with their average (psth)
+    new_sig = sig._modified_copy(data=np.zeros_like(sig._data))
+    new_sig = new_sig.replace_epochs(folded_matrices)
+    new_sig.name = sig_out
+
+    # add the new signals to the recording
+    newrec.add_signal(new_sig)
+
+    return newrec
 
 
 def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_resp=False):
