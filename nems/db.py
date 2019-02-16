@@ -65,6 +65,9 @@ def Tables():
             'tQueue': Base.classes.tQueue,
             'tComputer': Base.classes.tComputer,
             }
+    sql_engine = get_setting('SQL_ENGINE')
+    if sql_engine == 'mysql':
+        tables['sBatch'] = Base.classes.sBatch
     return tables
 
 
