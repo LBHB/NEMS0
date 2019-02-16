@@ -587,7 +587,8 @@ def mask_for_jackknife(rec, modelspec=None, epoch_name='REFERENCE',
     if IsReload:
         return {'est': est_out, 'val': val_out}
     else:
-        return {'est': est_out, 'val': val_out, 'modelspec': modelspec_out}
+        return {'est': est_out, 'val': val_out,
+                'jackknifed_fit': True, 'modelspec': modelspec_out}
 
 
 def jack_subset(est, val, modelspec=None, IsReload=False,

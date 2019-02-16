@@ -307,11 +307,13 @@ class SignalBase:
 
         Parameters
         ----------
-        epoch : {string, Nx2 array}
+        epoch : {string, Nx2 array, pandas series}
             If string, name of epoch (as stored in internal dataframe) to
-            extract. If Nx2 array, the first column indicates the start time (in
+            extract.
+            If Nx2 array, the first column indicates the start time (in
             seconds) and the second column indicates the end time (in seconds)
             to extract.
+            If pandas series, pull out bounds of epochs where epoch==True
         boundary_mode : {'exclude', 'trim'}
             If 'exclude', discard all epochs where the boundaries are not fully
             contained within the range of the signal. If 'trim', epochs with
@@ -345,6 +347,8 @@ class SignalBase:
             mask = self.epochs['name'] == epoch
             bounds = self.epochs.loc[mask, ['start', 'end']].values
             bounds = np.round(bounds.astype(float) * self.fs) / self.fs
+        elif isinstance(epoch, pd.core.series.Series):
+            bounds = self.epochs.loc[epoch, ['start', 'end']].values
         else:
             bounds = epoch
 
@@ -385,11 +389,14 @@ class SignalBase:
 
         Parameters
         ----------
-        epoch : {string, Nx2 array}
+        epoch : {string, Nx2 array, pandas series}
+            passed through to get_epoch_bounds
             If string, name of epoch (as stored in internal dataframe) to
-            extract. If Nx2 array, the first column indicates the start time
+            extract.
+            If Nx2 array, the first column indicates the start time
             (in seconds) and the second column indicates the end time
             (in seconds) to extract.
+            If pandas series, pull out bounds of epochs where epoch==True
         boundary_mode : {None, 'exclude', 'trim'}
             If 'exclude', discard all epochs where the boundaries are not fully
             contained within the range of the signal. If 'trim', epochs with
@@ -677,23 +684,23 @@ class SignalBase:
                 mask[:, lb:ub] = True
 
         elif (type(epoch) is list) and (type(epoch[0]) is tuple):
-            #epoch is a list of indicies
+            # epoch is a list of indices
             for (lb, ub) in epoch:
                 mask[:, lb:ub] = True
                 
         elif (type(epoch) is list) and (type(epoch[0]) is str):
-            #epoch is a list of epochs
+            # epoch is a list of epochs
             mask = self.generate_epoch_mask(epoch[0])
             for e in epoch [1:]:
                 mask = mask | self.generate_epoch_mask(e)
                 
-        elif (type(epoch) is np.ndarray) and (epoch.ndim==2):
-            #epoch is an array of indicies
+        elif (type(epoch) is np.ndarray) and (epoch.ndim ==2):
+            # epoch is an array of indices
             for (lb, ub) in epoch:
                 mask[:, lb:ub] = True
 
-        elif (type(epoch) is np.ndarray) and (epoch.ndim==1):
-            #epoch is an 1darray
+        elif (type(epoch) is np.ndarray) and (epoch.ndim == 1):
+            # epoch is an 1d array, set mask to True at all times when array is nonzero
             mask[0, epoch] = True
 
         elif epoch == True:

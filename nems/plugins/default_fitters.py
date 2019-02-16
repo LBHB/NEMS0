@@ -157,6 +157,8 @@ def tf(fitkey):
             fitter = op[1:]
         elif op[:1] == 's':
             init_count = int(op[1:])
+        elif op[:1] == 'n':
+            use_modelspec_init = True
 
     xfspec = [['nems.tf.cnnlink.fit_tf',
                {'max_iter': max_iter,
