@@ -20,6 +20,7 @@ class NemsCanvas(FigureCanvas):
         self.axes.get_xaxis().set_visible(False)
 
         super(FigureCanvas, self).__init__(fig)
+        self._bbox_queue = []
         self.setParent(parent)
         FigureCanvas.setSizePolicy(self, qw.QSizePolicy.Expanding,
                                    qw.QSizePolicy.Expanding)
