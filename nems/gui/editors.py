@@ -68,6 +68,7 @@ import json
 import logging
 
 import numpy as np
+import matplotlib
 import PyQt5.QtWidgets as qw
 import PyQt5.QtCore as qc
 import PyQt5.QtGui as qg
@@ -219,8 +220,9 @@ class EditorWidget(qw.QWidget):
         row_three_layout = qw.QHBoxLayout()
 
         self.modelspec_editor = ModelspecEditor(modelspec, self.rec, self)
-        if self.xfspec is not None:
-            self.xfspec_editor = XfspecEditor(self.xfspec, self)
+        if self.xfspec is None:
+            self.xfspec = []
+        self.xfspec_editor = XfspecEditor(self.xfspec, self)
         self.global_controls = GlobalControls(self)
         self.fit_editor = FitEditor(self)
 
