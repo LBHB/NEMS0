@@ -268,11 +268,11 @@ class model_browser(qw.QWidget):
         #self.d_cells = nd.get_batch_cells(self.batch, cellid=cellmask)
 
         self.d_cells = nd.pd_query("SELECT DISTINCT cellid FROM NarfResults" +
-                               " WHERE batch=%s AND cellid like '%s'" +
+                               " WHERE batch=%s AND cellid like %s" +
                                " ORDER BY cellid",
                                (self.batch, cellmask))
         self.d_models = nd.pd_query("SELECT modelname, count(*) as n, max(lastmod) as last_mod FROM NarfResults" +
-                               " WHERE batch=%s AND modelname like '%s'" +
+                               " WHERE batch=%s AND modelname like %s" +
                                " GROUP BY modelname ORDER BY modelname",
                                (self.batch, modelmask))
 

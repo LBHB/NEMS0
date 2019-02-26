@@ -35,6 +35,7 @@ signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
 
 # ----------------------------------------------------------------------------
 # DATA LOADING & PRE-PROCESSING
+"""
 recording.get_demo_recordings(name="TAR010c-18-1.pkl")
 
 datafile = os.path.join(signals_dir, "TAR010c-18-1.pkl")
@@ -42,36 +43,61 @@ load_command = 'nems.demo.loaders.demo_loader'
 exptid = "TAR010c"
 batch = 271
 cellid = "TAR010c-18-1"
+"""
 
-# MODEL SPEC
-#modelspecname = 'dlog-wc.18x1.g-stp.1-fir.1x15-lvl.1-dexp.1'
-#modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
-#modelspecname = 'dlog-wc.18x1.g-fir.1x15-lvl.1'
-modelspecname = 'dlog-wc.18x2.g-fir.2x15-relu.1'
+datafile = os.path.join(signals_dir, "TAR010c_272b438ce3a5643e3e474206861096ce3ffdc000.tgz")
+load_command = 'nems.demo.loaders.demo_loader'
+exptid = "TAR010c"
+batch = 271
+siteid = "TAR010c"
 
-meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
-        'recording': exptid, 'temp_path': results_dir}
+# SINGLE MODEL SPEC
+#cellids = ["TAR010c-18-2"]
+#modelspecname = 'dlog-wc.18x2.g-fir.2x15-relu.1'
+
+# POP MODEL SPEC
+cellids = ["TAR010c-09-2", "TAR010c-18-2"]
+modelspecname = 'dlog-wc.18x2.g-fir.1x10x2-relu.2-wc.2xR-lvl.R'
+
+meta = {'siteid': siteid, 'batch': batch, 'modelname': modelspecname,
+        'recording': exptid, 'cellids': cellids}
+
+xforms_init_context = {'siteid': siteid, 'batch': int(batch),
+                       'cellid': cellids}
+xforms_init_context['keywordstring'] = modelspecname
+xforms_init_context['meta'] = meta
+xforms_init_context['recording_uri_list'] = [datafile]
 
 # generate modelspec
 xfspec = []
 # load internally:
-#xfspec.append(['nems.xforms.load_recordings',
-#               {'recording_uri_list': [recording_uri]}])
+xfspec.append(['nems.xforms.init_context', xforms_init_context])
+
+
+meta = {'cellid': cellids, 'batch': batch, 'modelname': modelspecname,
+        'recording': exptid, 'temp_path': results_dir}
+
+# generate xfspec
+xfspec = []
+
+# load internally:
+xfspec.append(['nems.xforms.init_context', xforms_init_context])
+xfspec.append(['nems.xforms.load_recordings', {}])
 
 # load from external format
-xfspec.append(['nems.xforms.load_recording_wrapper',
-               {'load_command': load_command,
-                'exptid': exptid,
-                'datafile': datafile}])
+#xfspec.append(['nems.xforms.load_recordings', {}])xfspec.append(['nems.xforms.load_recording_wrapper',
+#               {'load_command': load_command,
+#                'exptid': exptid,
+#                'datafile': datafile}])
 xfspec.append(['nems.xforms.normalize_stim', {'norm_method': 'minmax'}])
 xfspec.append(['nems.xforms.split_by_occurrence_counts', {'epoch_regex': '^STIM_'}])
 xfspec.append(['nems.xforms.average_away_stim_occurrences', {}])
 
-xfspec.append(['nems.xforms.init_from_keywords',
-               {'keywordstring': modelspecname, 'meta': meta}])
+xfspec.append(['nems.xforms.init_from_keywords', {}])
 
-xfspec.append(['nems.xforms.fit_basic_init', {'tolerance': 1e-4}])
-xfspec.append(['nems.tf.cnnlink.fit_tf', {'init_count': 1, 'max_iter': 1000, 'use_modelspec_init': True}])
+#xfspec.append(['nems.xforms.fit_basic_init', {'tolerance': 1e-4}])
+#xfspec.append(['nems.tf.cnnlink.fit_tf', {'init_count': 1, 'max_iter': 1000, 'use_modelspec_init': True}])
+xfspec.append(['nems.tf.cnnlink.fit_tf', {'init_count': 1, 'max_iter': 1000, 'use_modelspec_init': False}])
 
 #xfspec.append(['nems.xforms.fit_basic', {}])
 # xfspec.append(['nems.xforms.fit_basic_shrink', {}])

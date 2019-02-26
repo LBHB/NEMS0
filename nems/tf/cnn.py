@@ -61,7 +61,16 @@ def seed_to_randint(seed):
     return np.random.randint(1e9)
 
 def kern2D(n_x, n_y, n_kern, sig, rank=None, seed=0, distr='tnorm'):
-
+    """
+    :param n_x: temporal bins (earliest to most recent)
+    :param n_y: spectral bins (input channels)
+    :param n_kern: number of filters
+    :param sig:
+    :param rank:
+    :param seed:
+    :param distr:
+    :return:
+    """
     print(distr)
 
     if type(distr) is np.ndarray:
@@ -199,14 +208,58 @@ class Net:
                     self.layers[i]['W'] = tf.Variable(self.layers[i]['init_W'])
                     self.layers[i]['b'] = tf.Variable(self.layers[i]['init_b'])
                 else:
-                    self.layers[i]['W'] = kern2D(self.layers[i]['time_win_smp'], n_input_feats, self.layers[i]['n_kern'],
-                                                 self.weight_scale, seed=seed_to_randint(self.seed)+i, rank=self.layers[i]['rank'],
+                    self.layers[i]['W'] = kern2D(self.layers[i]['time_win_smp'], n_input_feats,
+                                                 self.layers[i]['n_kern'],
+                                                 self.weight_scale, seed=seed_to_randint(self.seed) + i,
+                                                 rank=self.layers[i]['rank'],
                                                  distr='norm')
+                    self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
+                                                        self.weight_scale,
+                                                        seed=seed_to_randint(self.seed) + i + self.n_layers,
+                                                        distr='norm'))
+
+                print("W shape: ", self.layers[i]['W'].shape)
+                print("X_pad shape: ", X_pad.shape)
+                self.layers[i]['Y'] = act(self.layers[i]['act'])(
+                    conv1d(X_pad, self.layers[i]['W']) + self.layers[i]['b'])
+                print("Y shape: ", self.layers[i]['Y'].shape)
+            elif self.layers[i]['type'] == 'conv_bank':
+
+                print('Loc conv_bank')
+                # split inputs into the different kernels
+                n_input_chans = int(n_input_feats / self.layers[i]['n_kern'])
+
+                # pad input to ensure causality
+                #print(tf.shape(X)[0])
+                #print(X.shape[1])
+
+                #new_shape = tf.TensorShape([None, X.shape[1], n_input_chans, self.layers[i]['n_kern']])
+                #print(new_shape)
+                pad_size = np.int32(
+                    np.floor(self.layers[i]['time_win_smp'] / 2))
+                X_pad = tf.expand_dims(tf.pad(X, [[0, 0], [pad_size, 0], [0, 0]]), 2)
+
+                if self.layers[i].get('init_W', None) is not None:
+                    self.layers[i]['W'] = tf.Variable(self.layers[i]['init_W'])
+                    self.layers[i]['b'] = tf.Variable(self.layers[i]['init_b'])
+                else:
+                    #self.layers[i]['W'] = kern2D(self.layers[i]['time_win_smp'], n_input_chans, self.layers[i]['n_kern'],
+                    #                             self.weight_scale, seed=seed_to_randint(self.seed)+i, rank=self.layers[i]['rank'],
+                    #                             distr='norm')
+                    self.layers[i]['W'] = weights_norm([1, self.layers[i]['time_win_smp'],
+                                                self.layers[i]['n_kern'], n_input_chans], sig=self.weight_scale,
+                                                seed=seed_to_randint(self.seed)+i)
                     self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
                                                         self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
                                                         distr='norm'))
+                print("W shape: ", self.layers[i]['W'].shape)
+                print("X_pad shape: ", X_pad.shape)
+                self.layers[i]['Y'] = act(self.layers[i]['act'])(
+                    tf.squeeze(tf.nn.conv2d(X_pad, self.layers[i]['W'],
+                                            strides=[1, 1, self.layers[i]['n_kern'], 1], padding='SAME'),
+                               axis=2) + self.layers[i]['b'])
 
-                self.layers[i]['Y'] = act(self.layers[i]['act'])(conv1d(X_pad, self.layers[i]['W']) + self.layers[i]['b'])
+                print("Y shape: ", self.layers[i]['Y'].shape)
 
             elif self.layers[i]['type'] == 'dlog':
 

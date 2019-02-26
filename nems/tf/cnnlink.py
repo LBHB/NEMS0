@@ -38,6 +38,9 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
         if m['fn'] == 'nems.modules.nonlinearity.relu':
             pass # already handled
 
+        elif 'levelshift' in m['fn']:
+            pass # already handled
+
         elif m['fn'] in ['nems.modules.nonlinearity.dlog']:
             layer = {}
             layer['type'] = 'dlog'
@@ -53,7 +56,8 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
 
         elif m['fn'] in ['nems.modules.fir.basic', 'nems.modules.fir.filter_bank']:
             layer = {}
-            layer['type'] = 'conv'
+
+
             layer['time_win_sec'] = m['phi']['coefficients'].shape[1] / fs
             if next_fn == 'nems.modules.nonlinearity.relu':
                 layer['act'] = 'relu'
@@ -70,14 +74,22 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
                 if use_modelspec_init:
                     c = np.zeros((1,1)).astype('float32')
                     layer['init_b'] = np.reshape(c, (1, c.shape[0], c.shape[1]))
-            layer['n_kern'] = 1 # m['prior']['coefficients'][1]['mean'].shape[0]
-            layer['rank'] = None  # P['rank']
 
-            #m['phi']['coefficients'] = np.fliplr(net_layer_vals[current_layer]['W'][:,:,0].T)
+            layer['rank'] = None  # we're handling rank with explicit spectral filters
+            if 'filter_bank' in m['fn']:
+                layer['type'] = 'conv_bank'
+                bank_count = m['fn_kwargs']['bank_count']
+                layer['n_kern'] = bank_count
+            else:
+                layer['type'] = 'conv'
+                bank_count = 1
+                layer['n_kern'] = 1
 
             if use_modelspec_init:
                 c = np.fliplr(m['phi']['coefficients']).astype('float32').T
-                layer['init_W'] = np.reshape(c,(c.shape[0],c.shape[1], 1))
+                chan_count = int(c.shape[1]/bank_count)
+                layer['init_W'] = np.reshape(c, (c.shape[0], chan_count, bank_count))
+
             layers.append(layer)
 
         elif m['fn'] in ['nems.modules.weight_channels.basic']:
@@ -162,16 +174,31 @@ def cnn2modelspec(net, modelspec):
         if m['fn'] == 'nems.modules.nonlinearity.relu':
             pass # already handled
 
-        elif m['fn'] in ['nems.modules.fir.basic', 'nems.modules.fir.filter_bank']:
+        elif 'levelshift' in m['fn']:
+            pass # already handled
+
+        elif m['fn'] in ['nems.modules.fir.basic']:
             m['phi']['coefficients'] = np.fliplr(net_layer_vals[current_layer]['W'][:,:,0].T)
             if next_fn == 'nems.modules.nonlinearity.relu':
                 modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
+            elif next_fn == 'nems.modules.nonlinearity.relu':
+                modelspec[i+1]['phi']['level'] = net_layer_vals[current_layer]['b'][0,:,:].T
+            current_layer += 1
+
+        elif m['fn'] in ['nems.modules.fir.filter_bank']:
+            m['phi']['coefficients'] = np.fliplr(net_layer_vals[current_layer]['W'][:,0,:].T)
+            if next_fn == 'nems.modules.nonlinearity.relu':
+                modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
+            elif next_fn == 'nems.modules.nonlinearity.relu':
+                modelspec[i+1]['phi']['level'] = net_layer_vals[current_layer]['b'][0,:,:].T
             current_layer += 1
 
         elif m['fn'] in ['nems.modules.weight_channels.basic']:
             m['phi']['coefficients'] = net_layer_vals[current_layer]['W'][0,:,:].T
             if next_fn == 'nems.modules.nonlinearity.relu':
                 modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
+            elif next_fn == 'nems.modules.nonlinearity.relu':
+                modelspec[i+1]['phi']['level'] = net_layer_vals[current_layer]['b'][0,:,:].T
             current_layer += 1
 
         elif m['fn'] in ['nems.modules.nonlinearity.dlog']:
@@ -184,6 +211,8 @@ def cnn2modelspec(net, modelspec):
             modelspec[i]['phi']['sd'] = net_layer_vals[current_layer]['s'][0, 0, :].T / 10
             if next_fn == 'nems.modules.nonlinearity.relu':
                 modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
+            elif next_fn == 'nems.modules.nonlinearity.relu':
+                modelspec[i+1]['phi']['level'] = net_layer_vals[current_layer]['b'][0,:,:].T
             print(net_layer_vals[current_layer])
             current_layer += 1
         else:
@@ -226,7 +255,8 @@ def fit_tf(est=None, modelspec=None,
     # before: hard coded as n_tps_per_stim = 550
 
     n_stim = int(est['stim'].shape[1] / n_tps_per_stim)
-    n_resp = 1
+    n_resp = est['resp'].shape[0]
+
     feat_dims = [n_stim, n_tps_per_stim, n_feats]
     data_dims = [n_stim, n_tps_per_stim, n_resp]
     net1_seed = 50

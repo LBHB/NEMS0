@@ -539,7 +539,6 @@ def stp(kw):
 
     for op in options:
         if op == 'z':
-            u_mean = [0.1]*n_synapse
             tau_mean = [0.01]*n_synapse
         elif op == 's':
             u_mean = [0.1]*n_synapse
@@ -562,7 +561,8 @@ def stp(kw):
         'fn': 'nems.modules.stp.short_term_plasticity',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
-                      'crosstalk': 0},
+                      'crosstalk': 0,
+                      'reset_signal': 'epoch_onsets'},
         'plot_fns': ['nems.plots.api.mod_output',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.before_and_after_stp'],

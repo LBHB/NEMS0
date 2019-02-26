@@ -303,6 +303,10 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
                 arr[inds] = arr[~inds][-1]
                 rec['pupil'] = rec['pupil']._modified_copy(arr)
 
+    rec = preproc.generate_stim_from_epochs(rec, new_signal_name='epoch_onsets',
+                                            epoch_regex='TRIAL', onsets_only=True)
+
+
     return {'rec': rec}
 
 

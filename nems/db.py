@@ -929,6 +929,7 @@ def get_batch(name=None, batchid=None):
 def get_batch_cells(batch=None, cellid=None, rawid=None):
     # eg, sql="SELECT * from NarfBatches WHERE batch=301"
     #engine = Engine()
+    SQL_ENGINE = get_setting('SQL_ENGINE')
     params = ()
     sql = "SELECT DISTINCT cellid,batch FROM NarfData WHERE 1"
     if batch is not None:
@@ -936,8 +937,11 @@ def get_batch_cells(batch=None, cellid=None, rawid=None):
         params = params+(batch,)
 
     if cellid is not None:
-       sql += " AND cellid like '%s'"
-       params = params+(cellid+"%",)
+        if SQL_ENGINE == 'sqlite':
+            sql += " AND cellid like '%s'"
+        else:
+            sql += " AND cellid like %s"
+        params = params+(cellid+"%",)
 
     if rawid is not None:
         sql+= " AND rawid = %d"

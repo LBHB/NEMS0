@@ -711,7 +711,8 @@ class SignalBase:
         return mask
 
     def epoch_to_signal(self, epoch, indices=None, boundary_mode='exclude',
-                        fix_overlap='merge', onsets_only=False, shift=0):
+                        fix_overlap=None, onsets_only=False, shift=0,
+                        point_process=False):
         '''
         Convert an epoch to a RasterizedSignal using the same sampling rate
         and duration as this signal.
@@ -723,7 +724,13 @@ class SignalBase:
         indices : ndarray or None
             if not None, use this Nx2 array to specify epoch times
             otherwise find indices matching epoch
-
+        onsets_only : boolean
+            only return 1 at the start of each epoch
+        point_process : boolean
+            TODO
+            if onsets_only==True, return PointProcess signal
+            (need to get masking/splitting worked out for this signal type
+            in order for it to be useful)
         Returns
         -------
         signal : instance of Signal

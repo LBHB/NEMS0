@@ -448,6 +448,8 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
         if nl_mode == 1:
             amp[i, 0] = stdr * 3
             predrange = 2 / (np.max(pred) - np.min(pred) + 1)
+            shift[i, 0] = np.mean(pred)
+            kappa[i, 0] = np.log(predrange)
         elif nl_mode == 2:
             mask=np.zeros_like(pred,dtype=bool)
             pct=91
@@ -461,13 +463,17 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
                          'pred>pctile(pred,%d).', pct)
             amp[i, 0] = resp[mask].mean()
             predrange = 2 / (np.std(pred)*3)
+            shift[i, 0] = np.mean(pred)
+            kappa[i, 0] = np.log(predrange)
+        elif nl_mode == 3:
+            base[i, 0] = np.min(resp)-stdr
+            amp[i, 0] = stdr * 4
+            predrange = 1 / (np.std(pred)*3)
+
+            shift[i, 0] = np.mean(pred)
+            kappa[i, 0] = np.log(predrange)
         else:
             raise ValueError('nl mode = {} not valid'.format(nl_mode))
-
-        shift[i, 0] = np.mean(pred)
-        # shift = (np.max(pred) + np.min(pred)) / 2
-
-        kappa[i, 0] = np.log(predrange)
 
     modelspec[target_i]['phi'] = {'amplitude': amp, 'base': base,
                                   'kappa': kappa, 'shift': shift}

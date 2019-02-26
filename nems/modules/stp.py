@@ -3,19 +3,25 @@ from numpy import exp
 from scipy.integrate import cumtrapz
 from scipy.signal import boxcar
 
-def short_term_plasticity(rec, i, o, u, tau, crosstalk=0):
+def short_term_plasticity(rec, i, o, u, tau, crosstalk=0, reset_signal=None):
     '''
     STP applied to each input channel.
     parameterized by Markram-Todyks model:
         u (release probability)
         tau (recovery time constant)
     '''
-    fn = lambda x : _stp(x, u, tau, crosstalk, rec[i].fs)
+
+    r = None
+    if reset_signal is not None:
+        if reset_signal in rec.signals.keys():
+            r = rec[reset_signal].as_continuous()
+
+    fn = lambda x : _stp(x, u, tau, crosstalk, rec[i].fs, r)
 
     return [rec[i].transform(fn, o)]
 
 
-def _stp(X, u, tau, crosstalk=0, fs=1):
+def _stp(X, u, tau, crosstalk=0, fs=1, reset_signal=None):
     """
     STP core function
     """
@@ -30,7 +36,7 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
     # TODO: move bounds to fitter? slow
 
     # limits, assumes input (X) range is approximately -1 to +1
-    ui = u.copy()
+    ui = np.abs(u.copy())
 
     #ui[ui > 1] = 1
     #ui[ui < -0.4] = -0.4
@@ -57,55 +63,33 @@ def _stp(X, u, tau, crosstalk=0, fs=1):
     stim_out = tstim  # allocate scaling term
     alt=False
     for i in range(0, s[0]):
-        if alt:
+        if reset_signal is not None:
+        #if False:
 
-            #cumstim = np.cumsum(tstim[i,:])/fs
-            #t = np.arange(tstim.shape[1])/fs
-            #u = exp(t/tau[i] + u[i]*cumstim)
-            #td = 1/mu * np.cumsum(mu/tau[i])/fs
-            #td = 1 - exp(-t/tau[i] + ui[i]*cumstim)
+            a = 1 / taui[i]
+            x = ui[i] * tstim[i, :] / fs
 
-            a = 1 / tau[i]
-            x = 100 * u[i] * tstim[i, :]
+            if reset_signal is None:
+                reset_times = np.array([0, len(x)])
+            else:
+                reset_times = np.argwhere(reset_signal[0, :])[:, 0]
+                reset_times = np.append(reset_times, len(x))
 
-            box = np.ones(int(tau[i]*fs*2))
-            cx=np.where(np.convolve(x, box, mode='same')==0)
+            mu = np.zeros_like(x)
+            imu = np.zeros_like(x)
+            for j in range(len(reset_times)-1):
+                si = slice(reset_times[j], reset_times[j+1])
 
+                ix = cumtrapz(a + x[si], dx=1, initial=0)
 
-            ix = cumtrapz(a + x, dx=1/fs, initial=0)
+                mu[si] = np.exp(ix)
+                imu[si] = cumtrapz(mu[si]*x[si], dx=1, initial=0)
 
-            mu = np.exp(ix)
-            imu = cumtrapz(mu*x, dx=1/fs, initial=0)
+            td = np.ones_like(x)
+            ff = np.bitwise_and(mu>0, imu>0)
+            td[ff] = 1 - np.exp(np.log(imu[ff]) - np.log(mu[ff]))
+            #td[mu>0] = 1 - imu[mu>0]/mu[mu>0]
 
-            #mu = np.roll(np.exp(np.cumsum(a + x)), 1)
-            #mu[0] = 1
-            #mu = np.exp(np.cumsum(a+x) - a)
-
-            #imu = np.roll(np.cumsum(a*mu), 1)
-            #imu[0]=0
-            #imu += 1
-
-            #imu = np.cumsum(a*mu) + (1-a)
-            #imu += (1-imu[0])
-            td = 1 - (1/mu * imu)
-
-            #import pdb
-            #pdb.set_trace()
-            #import matplotlib.pyplot as plt
-            #print('mu[0]: ', mu[0])
-            #print('imu[0]: ', imu[0])
-            #print('mu[end]: ', mu[-1])
-            #print('imu[end]: ', imu[-1])
-            #plt.figure()
-            #plt.subplot(2, 1, 1)
-            ##plt.plot(x)
-            #plt.plot(np.log(1/mu) + np.log(imu))
-            #plt.plot(np.log(mu))
-            ##plt.plot((-t/tau[i] + ui[i]*cumstim))
-            #plt.plot(np.log(imu))
-
-            ##plt.plot(td)
-            #plt.legend(('log(d)','log mu','log imu'))
             stim_out[i, :] *= td
         else:
 

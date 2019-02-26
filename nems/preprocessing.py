@@ -157,6 +157,7 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
 
         averaged_signal = signal._modified_copy(data, epochs=new_epochs)
         averaged_recording.add_signal(averaged_signal)
+
 #        # TODO: Eventually need a smarter check for this in case it's named
 #        #       something else. Basically just want to preserve spike data.
 #        if signal.name == 'resp':
