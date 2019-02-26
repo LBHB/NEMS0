@@ -235,9 +235,12 @@ class Net:
 
                 #new_shape = tf.TensorShape([None, X.shape[1], n_input_chans, self.layers[i]['n_kern']])
                 #print(new_shape)
-                pad_size = np.int32(
-                    np.floor(self.layers[i]['time_win_smp'] / 2))
-                X_pad = tf.expand_dims(tf.pad(X, [[0, 0], [pad_size, 0], [0, 0]]), 2)
+                #pad_size = np.int32(
+                #    np.floor(self.layers[i]['time_win_smp'] / 2))
+                #X_pad = tf.expand_dims(tf.pad(X, [[0, 0], [pad_size, 0], [0, 0]]), 2)
+                pad_size = np.int32(self.layers[i]['time_win_smp'] - 1)
+                X_pad = tf.expand_dims(tf.pad(X, [[0, 0], [pad_size,0], [0, 0]]), 2)
+                #X_pad = tf.expand_dims(X, 2)
 
                 if self.layers[i].get('init_W', None) is not None:
                     self.layers[i]['W'] = tf.Variable(self.layers[i]['init_W'])
@@ -246,18 +249,18 @@ class Net:
                     #self.layers[i]['W'] = kern2D(self.layers[i]['time_win_smp'], n_input_chans, self.layers[i]['n_kern'],
                     #                             self.weight_scale, seed=seed_to_randint(self.seed)+i, rank=self.layers[i]['rank'],
                     #                             distr='norm')
-                    self.layers[i]['W'] = weights_norm([1, self.layers[i]['time_win_smp'],
+                    self.layers[i]['W'] = weights_norm([self.layers[i]['time_win_smp'], 1,
                                                 self.layers[i]['n_kern'], n_input_chans], sig=self.weight_scale,
                                                 seed=seed_to_randint(self.seed)+i)
                     self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
                                                         self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
                                                         distr='norm'))
+
                 print("W shape: ", self.layers[i]['W'].shape)
                 print("X_pad shape: ", X_pad.shape)
                 self.layers[i]['Y'] = act(self.layers[i]['act'])(
-                    tf.squeeze(tf.nn.conv2d(X_pad, self.layers[i]['W'],
-                                            strides=[1, 1, self.layers[i]['n_kern'], 1], padding='SAME'),
-                               axis=2) + self.layers[i]['b'])
+                    tf.reverse(tf.squeeze(tf.nn.conv2d(X_pad, self.layers[i]['W'], strides=[1, 1, 1, 1], padding='VALID'),
+                               axis=3), axis=[2]) + self.layers[i]['b'])
 
                 print("Y shape: ", self.layers[i]['Y'].shape)
 
@@ -555,7 +558,11 @@ class Net:
             return self.Y.eval(feed_dict=self.feed_dict(F))
 
     def layer_vals(self, sess=None):
-
+        """
+        get matrix values out TF variables
+        :param sess:
+        :return:
+        """
         if sess is None:
             sess = self.sess
 

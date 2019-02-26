@@ -53,11 +53,14 @@ siteid = "TAR010c"
 
 # SINGLE MODEL SPEC
 #cellids = ["TAR010c-18-2"]
-#modelspecname = 'dlog-wc.18x2.g-fir.2x15-relu.1'
+modelspecname = 'dlog-wc.18x1.g-fir.1x15-relu.1'
 
 # POP MODEL SPEC
 cellids = ["TAR010c-09-2", "TAR010c-18-2"]
-modelspecname = 'dlog-wc.18x2.g-fir.1x10x2-relu.2-wc.2xR-lvl.R'
+#modelspecname = 'wc.18x2.g-fir.1x10x2-relu.2-wc.2xR-lvl.R'
+#modelspecname = 'wc.18x1.g-fir.1x10x1-relu.1-lvl.R'
+#modelspecname = 'dlog-wc.18x1.g-fir.1x15x1-relu.1'
+modelspecname = 'wc.18x2.g-fir.1x10x2-relu.2'
 
 meta = {'siteid': siteid, 'batch': batch, 'modelname': modelspecname,
         'recording': exptid, 'cellids': cellids}
@@ -97,7 +100,7 @@ xfspec.append(['nems.xforms.init_from_keywords', {}])
 
 #xfspec.append(['nems.xforms.fit_basic_init', {'tolerance': 1e-4}])
 #xfspec.append(['nems.tf.cnnlink.fit_tf', {'init_count': 1, 'max_iter': 1000, 'use_modelspec_init': True}])
-xfspec.append(['nems.tf.cnnlink.fit_tf', {'init_count': 1, 'max_iter': 1000, 'use_modelspec_init': False}])
+xfspec.append(['nems.tf.cnnlink.fit_tf', {'init_count': 1, 'max_iter': 200, 'use_modelspec_init': False}])
 
 #xfspec.append(['nems.xforms.fit_basic', {}])
 # xfspec.append(['nems.xforms.fit_basic_shrink', {}])

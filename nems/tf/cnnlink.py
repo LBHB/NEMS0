@@ -86,7 +86,7 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
                 layer['n_kern'] = 1
 
             if use_modelspec_init:
-                c = np.fliplr(m['phi']['coefficients']).astype('float32').T
+                c = np.fliplr(m['phi']['coefficients']).astype('float32')
                 chan_count = int(c.shape[1]/bank_count)
                 layer['init_W'] = np.reshape(c, (c.shape[0], chan_count, bank_count))
 
@@ -181,15 +181,16 @@ def cnn2modelspec(net, modelspec):
             m['phi']['coefficients'] = np.fliplr(net_layer_vals[current_layer]['W'][:,:,0].T)
             if next_fn == 'nems.modules.nonlinearity.relu':
                 modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
-            elif next_fn == 'nems.modules.nonlinearity.relu':
+            elif next_fn == 'nems.modules.levelshift.levelshift':
                 modelspec[i+1]['phi']['level'] = net_layer_vals[current_layer]['b'][0,:,:].T
             current_layer += 1
 
         elif m['fn'] in ['nems.modules.fir.filter_bank']:
-            m['phi']['coefficients'] = np.fliplr(net_layer_vals[current_layer]['W'][:,0,:].T)
+            #m['phi']['coefficients'] = np.flipud(np.fliplr(net_layer_vals[current_layer]['W'][0,:,:,0]))
+            m['phi']['coefficients'] = np.flipud(np.fliplr(net_layer_vals[current_layer]['W'][:,0,:,0].T))
             if next_fn == 'nems.modules.nonlinearity.relu':
                 modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
-            elif next_fn == 'nems.modules.nonlinearity.relu':
+            elif next_fn == 'nems.modules.levelshift.levelshift':
                 modelspec[i+1]['phi']['level'] = net_layer_vals[current_layer]['b'][0,:,:].T
             current_layer += 1
 
@@ -197,7 +198,7 @@ def cnn2modelspec(net, modelspec):
             m['phi']['coefficients'] = net_layer_vals[current_layer]['W'][0,:,:].T
             if next_fn == 'nems.modules.nonlinearity.relu':
                 modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
-            elif next_fn == 'nems.modules.nonlinearity.relu':
+            elif next_fn == 'nems.modules.levelshift.levelshift':
                 modelspec[i+1]['phi']['level'] = net_layer_vals[current_layer]['b'][0,:,:].T
             current_layer += 1
 
@@ -211,7 +212,7 @@ def cnn2modelspec(net, modelspec):
             modelspec[i]['phi']['sd'] = net_layer_vals[current_layer]['s'][0, 0, :].T / 10
             if next_fn == 'nems.modules.nonlinearity.relu':
                 modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
-            elif next_fn == 'nems.modules.nonlinearity.relu':
+            elif next_fn == 'nems.modules.levelshift.levelshift':
                 modelspec[i+1]['phi']['level'] = net_layer_vals[current_layer]['b'][0,:,:].T
             print(net_layer_vals[current_layer])
             current_layer += 1
@@ -275,7 +276,7 @@ def fit_tf(est=None, modelspec=None,
     #F /= s_stim
 
     new_est = est.tile_views(init_count)
-    r_fit = np.zeros(init_count, dtype=np.float)
+    r_fit = np.zeros((init_count, n_resp), dtype=np.float)
     print('fitting from {} initial conditions'.format(init_count))
     modelspec0 = copy.deepcopy(modelspec)
 
@@ -307,10 +308,9 @@ def fit_tf(est=None, modelspec=None,
         train_val_test[val_n:] = 1
         train_val_test = np.roll(train_val_test, int(data_dims[0]/init_count*i))
 
-        #import pdb
-        #pdb.set_trace()
-
         net2.train(F, D, max_iter=max_iter, train_val_test=train_val_test, learning_rate=0.01)
+        y=net2.predict(F)
+
         modelspec = cnn2modelspec(net2, modelspec)
 
         new_est = modelspec.evaluate(new_est)
@@ -318,10 +318,18 @@ def fit_tf(est=None, modelspec=None,
 
         nems.utils.progress_fun()
 
+        import matplotlib.pyplot as plt
+        plt.figure()
+        ax1=plt.subplot(1,1,1)
+        ax1.plot(y[0,:,0])
+        ax1.plot(new_est['pred'].as_continuous()[0,:550].T)
+        plt.show()
+
     # figure out which modelspec does best on fit data
     print('r_fit range: ', r_fit)
-    ibest = np.argmax(r_fit)
-    print("Best fit_index is {} r_fit={:.3f}".format(ibest, r_fit[ibest]))
+    mean_r_fit = np.mean(r_fit,axis=1)
+    ibest = np.argmax(mean_r_fit)
+    print("Best fit_index is {} mean r_fit={:.3f}".format(ibest, mean_r_fit[ibest]))
     modelspec = modelspec.copy(fit_index=ibest)
 
     elapsed_time = (time.time() - start_time)
@@ -330,7 +338,7 @@ def fit_tf(est=None, modelspec=None,
     # ms.set_modelspec_metadata(modelspec, 'n_parms',
     #                           len(improved_sigma))
 
-    # import pdb
-    # pdb.set_trace()
+    import pdb
+    pdb.set_trace()
 
     return {'modelspec': modelspec, 'new_est': new_est}
