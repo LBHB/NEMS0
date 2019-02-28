@@ -10,6 +10,8 @@ from matplotlib import pyplot as plt
 import importlib
 import inspect
 from copy import deepcopy
+import logging
+log = logging.getLogger(__name__)
 
 
 def weights_tnorm(shape, sig=0.1, seed=0):
@@ -71,7 +73,7 @@ def kern2D(n_x, n_y, n_kern, sig, rank=None, seed=0, distr='tnorm'):
     :param distr:
     :return:
     """
-    print(distr)
+    log.info(distr)
 
     if type(distr) is np.ndarray:
         fn = weights_matrix
@@ -90,12 +92,12 @@ def kern2D(n_x, n_y, n_kern, sig, rank=None, seed=0, distr='tnorm'):
         # TODO : break out to separate kern
         W = weights_matrix(distr)
     elif rank is None:
-        print('seed:',seed_to_randint(seed))
+        log.info('seed: %d',seed_to_randint(seed))
         W = fn([n_x, n_y, n_kern], sig=sig, seed=seed_to_randint(seed))
     else:
         W_list = []
         for i in range(n_kern):
-            print('seed for kern', i, ':', seed_to_randint(seed))
+            log.info('seed for kern', i, ':', seed_to_randint(seed))
             W_list.append(tf.matmul(fn([n_x, rank], sig=sig, seed=seed_to_randint(seed)+i),
                                     fn([rank, n_y], sig=sig, seed=seed_to_randint(seed)+i+n_kern)))
             # A = tf.Variable(tf.orthogonal_initializer(gain=sig/10, dtype=tf.float32)([int(n_x), int(rank)]))
@@ -105,7 +107,7 @@ def kern2D(n_x, n_y, n_kern, sig, rank=None, seed=0, distr='tnorm'):
 
         W = tf.concat(W_list, 2)
 
-    print(W.shape)
+    log.info("W: %s", W.shape)
 
     return W
 
@@ -167,20 +169,20 @@ class Net:
 
     def initialize(self):
 
-        print('Initialize session')
+        log.info('Initialize session')
         session_conf = tf.ConfigProto(
              intra_op_parallelism_threads=1,
              inter_op_parallelism_threads=1)
         self.sess = tf.Session(config=session_conf)
         #self.sess = tf.Session()
-        print('Initialize variables')
+        log.info('Initialize variables')
         self.sess.run(tf.global_variables_initializer())
-        print('Initialize saver')
+        log.info('Initialize saver')
         self.saver = tf.train.Saver(max_to_keep=1)
 
     def build(self, initialize=True):
 
-        print('Loc 0')
+        log.info('Loc 0')
 
         self.W = []
         self.b = []
@@ -197,7 +199,7 @@ class Net:
 
             if self.layers[i]['type'] == 'conv':
 
-                print('Loc conv')
+                log.info('Loc conv')
 
                 # pad input to ensure causality
                 pad_size = np.int32(
@@ -218,55 +220,91 @@ class Net:
                                                         seed=seed_to_randint(self.seed) + i + self.n_layers,
                                                         distr='norm'))
 
-                print("W shape: ", self.layers[i]['W'].shape)
-                print("X_pad shape: ", X_pad.shape)
+                log.info("W shape: %s", self.layers[i]['W'].shape)
+                log.info("X_pad shape: %s", X_pad.shape)
+                #self.layers[i]['Y'] = act(self.layers[i]['act'])(
+                #    conv1d(X_pad, self.layers[i]['W']) + self.layers[i]['b'])
                 self.layers[i]['Y'] = act(self.layers[i]['act'])(
-                    conv1d(X_pad, self.layers[i]['W']) + self.layers[i]['b'])
-                print("Y shape: ", self.layers[i]['Y'].shape)
-            elif self.layers[i]['type'] == 'conv_bank':
+                    tf.nn.conv1d(X_pad, self.layers[i]['W'], stride=1, padding='SAME') + self.layers[i]['b'])
+                log.info("Y shape: %s", self.layers[i]['Y'].shape)
+            elif self.layers[i]['type'] == 'conv_bank_1d':
 
-                print('Loc conv_bank')
+                log.info('Loc conv_bank')
                 # split inputs into the different kernels
                 n_input_chans = int(n_input_feats / self.layers[i]['n_kern'])
 
                 # pad input to ensure causality
-                #print(tf.shape(X)[0])
-                #print(X.shape[1])
-
-                #new_shape = tf.TensorShape([None, X.shape[1], n_input_chans, self.layers[i]['n_kern']])
-                #print(new_shape)
-                #pad_size = np.int32(
-                #    np.floor(self.layers[i]['time_win_smp'] / 2))
-                #X_pad = tf.expand_dims(tf.pad(X, [[0, 0], [pad_size, 0], [0, 0]]), 2)
                 pad_size = np.int32(self.layers[i]['time_win_smp'] - 1)
-                X_pad = tf.expand_dims(tf.pad(X, [[0, 0], [pad_size,0], [0, 0]]), 2)
-                #X_pad = tf.expand_dims(X, 2)
+                X_pad = tf.expand_dims(tf.transpose(tf.pad(X, [[0, 0], [pad_size,0], [0, 0]]),
+                                                    perm=[2, 0, 1]), 3)
 
                 if self.layers[i].get('init_W', None) is not None:
                     self.layers[i]['W'] = tf.Variable(self.layers[i]['init_W'])
                     self.layers[i]['b'] = tf.Variable(self.layers[i]['init_b'])
                 else:
-                    #self.layers[i]['W'] = kern2D(self.layers[i]['time_win_smp'], n_input_chans, self.layers[i]['n_kern'],
-                    #                             self.weight_scale, seed=seed_to_randint(self.seed)+i, rank=self.layers[i]['rank'],
-                    #                             distr='norm')
-                    self.layers[i]['W'] = weights_norm([self.layers[i]['time_win_smp'], 1,
-                                                self.layers[i]['n_kern'], n_input_chans], sig=self.weight_scale,
+                    self.layers[i]['W'] = weights_norm([self.layers[i]['n_kern'],
+                                                        self.layers[i]['time_win_smp'],
+                                                        1, 1], sig=self.weight_scale,
                                                 seed=seed_to_randint(self.seed)+i)
                     self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
                                                         self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
                                                         distr='norm'))
 
-                print("W shape: ", self.layers[i]['W'].shape)
-                print("X_pad shape: ", X_pad.shape)
-                self.layers[i]['Y'] = act(self.layers[i]['act'])(
-                    tf.reverse(tf.squeeze(tf.nn.conv2d(X_pad, self.layers[i]['W'], strides=[1, 1, 1, 1], padding='VALID'),
-                               axis=3), axis=[2]) + self.layers[i]['b'])
+                log.info("W shape: %s", self.layers[i]['W'].shape)
+                log.info("X_pad shape: %s", X_pad.shape)
 
-                print("Y shape: ", self.layers[i]['Y'].shape)
+                def c_chan(inputs):
+                    return tf.gather(tf.nn.conv1d(inputs[0], inputs[1], stride=1, padding='VALID'),[0])
+
+                elems = (X_pad, self.layers[i]['W'])
+                import pdb
+                pdb.set_trace()
+
+                tY = tf.map_fn(c_chan, elems)
+
+                self.layers[i]['Y'] = act(self.layers[i]['act'])(
+                    tf.transpose(tY, perm=[1, 2, 0]) + self.layers[i]['b'])
+
+                log.info("Y shape: %s", self.layers[i]['Y'].shape)
+
+            elif self.layers[i]['type'] == 'conv_bank':
+
+                log.info('Loc conv_bank')
+                # split inputs into the different kernels
+                n_input_chans = int(n_input_feats / self.layers[i]['n_kern'])
+
+                # pad input to ensure causality
+                pad_size = np.int32(self.layers[i]['time_win_smp'] - 1)
+                X_pad = tf.expand_dims(tf.pad(X, [[0, 0], [pad_size,0], [0, 0]]), 3)
+
+                if self.layers[i].get('init_W', None) is not None:
+                    self.layers[i]['W'] = tf.Variable(self.layers[i]['init_W'])
+                    self.layers[i]['b'] = tf.Variable(self.layers[i]['init_b'])
+                else:
+                    self.layers[i]['W'] = weights_norm([self.layers[i]['time_win_smp'], 1,
+                                                1, self.layers[i]['n_kern']], sig=self.weight_scale,
+                                                seed=seed_to_randint(self.seed)+i)
+                    self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
+                                                        self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
+                                                        distr='norm'))
+
+                log.info("W shape: %s", self.layers[i]['W'].shape)
+                log.info("X_pad shape: %s", X_pad.shape)
+                #self.layers[i]['Y'] = act(self.layers[i]['act'])(
+                #    tf.reverse(tf.squeeze(tf.nn.conv2d(X_pad, self.layers[i]['W'], strides=[1, 1, 1, 1], padding='VALID'),
+                #               axis=3), axis=[2]) + self.layers[i]['b'])
+                tY = tf.matrix_diag_part(
+                    tf.nn.conv2d(X_pad, self.layers[i]['W'], strides=[1, 1, 1, 1], padding='VALID'))
+
+                log.info("tY shape: %s", tY.shape)
+
+                self.layers[i]['Y'] = act(self.layers[i]['act'])(tY + self.layers[i]['b'])
+
+                log.info("Y shape: %s", self.layers[i]['Y'].shape)
 
             elif self.layers[i]['type'] == 'dlog':
 
-                print('Loc dlog')
+                log.info('Loc dlog')
                 if self.layers[i].get('init_b', None) is not None:
                     self.layers[i]['b'] = tf.Variable(self.layers[i]['init_b'])
                     #self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
@@ -280,7 +318,7 @@ class Net:
                 self.layers[i]['Y'] = tf.log((X + self.layers[i]['eb']) / self.layers[i]['eb'])
 
             elif self.layers[i]['type'] == 'stp':
-                print('Loc stp')
+                log.info('Loc stp')
 
                 if self.layers[i].get('init_u', None) is not None:
                     self.layers[i]['u'] = tf.Variable(self.layers[i]['init_u'])
@@ -312,7 +350,7 @@ class Net:
 
             elif self.layers[i]['type'] == 'reweight':
 
-                print('Loc reweight')
+                log.info('Loc reweight')
 
                 if self.layers[i].get('init_W', None) is not None:
                     self.layers[i]['W'] = tf.Variable(self.layers[i]['init_W'])
@@ -334,7 +372,7 @@ class Net:
 
             elif self.layers[i]['type'] == 'reweight-positive':
 
-                print('Loc reweight-positive')
+                log.info('Loc reweight-positive')
 
                 self.layers[i]['W'] = tf.abs(kern2D(1, n_input_feats, self.layers[i]['n_kern'],
                                                     self.weight_scale, seed=seed_to_randint(self.seed)+i,
@@ -346,7 +384,7 @@ class Net:
 
             elif self.layers[i]['type'] == 'reweight-positive-zero':
 
-                print('Loc reweight-positive-zero')
+                log.info('Loc reweight-positive-zero')
                 self.layers[i]['W'] = tf.abs(kern2D(1, n_input_feats, self.layers[i]['n_kern'],
                                                     self.weight_scale, seed=seed_to_randint(self.seed)+i,
                                                     distr='tnorm'))
@@ -354,7 +392,7 @@ class Net:
 
             elif self.layers[i]['type'] == 'reweight-gaussian':
 
-                print('Loc reweight-gaussian')
+                log.info('Loc reweight-gaussian')
 
                 if self.layers[i].get('init_m', None) is not None:
                     self.layers[i]['m'] = tf.Variable(self.layers[i]['init_m'])
@@ -399,11 +437,11 @@ class Net:
 
         # remove padding-induced extensions
 
-        print('Loc 1')
+        log.info('Loc 1')
         self.Y = self.layers[self.n_layers - 1]['Y'][:, 0:self.n_tps_input, :]
 
         # loss
-        print('Loc 2')
+        log.info('Loc 2')
         if self.loss_type == 'squared_error':
             self.loss = tf.reduce_mean(tf.square(self.D - self.Y))
         elif self.loss_type == 'poisson':
@@ -412,7 +450,7 @@ class Net:
             raise NameError('Loss must be squared_error or poisson')
 
         # gradient optimizer
-        print('Loc 3')
+        log.info('Loc 3')
         if self.optimizer == 'Adam':
             self.train_step = tf.train.AdamOptimizer(
                 self.learning_rate).minimize(self.loss)
@@ -426,7 +464,7 @@ class Net:
             raise NameError('No matching optimizer')
 
         # initialize global variables
-        print('Loc 4')
+        log.info('Loc 4')
         if initialize:
             self.initialize()
 
@@ -504,7 +542,7 @@ class Net:
                     self.iteration.append(
                         self.iteration[len(self.iteration) - 1] + eval_interval)
                     if print_iter:
-                        print(self.iteration[len(self.iteration) - 1])
+                        log.info(self.iteration[len(self.iteration) - 1])
                     train_loss = self.loss.eval(feed_dict=train_dict)
                     self.train_loss.append(train_loss)
                     if len(val_inds) > 0:

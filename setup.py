@@ -10,8 +10,9 @@ with codecs.open('README.md', encoding='utf-8') as f:
     long_description = f.read()
 
 GENERAL_REQUIRES = ['numpy', 'scipy', 'matplotlib', 'pandas', 'requests',
-                    'h5py', 'sqlalchemy', 'configparser']
-# also requires: tensorflow, tornado
+                    'h5py', 'sqlalchemy', 'configparser', 'tensorflow']
+# pycharm also requires: tornado
+
 setup(
     name=NAME,
     version=VERSION,

@@ -511,12 +511,12 @@ def find_common_epochs(epochs, epoch_name, d=12):
         Epochs common to all occurances of `epoch_name`. The start and end
         times will reflect the time relative to the onset of the epoch.
     '''
-    # First, loop through all occurances of `epoch_name` and find all the
-    # epochs contained within that occurance. Be sure to adjust the start/end
-    # time so that they are relative to the beginning of the occurance of that
+    # First, loop through all occurrence of `epoch_name` and find all the
+    # epochs contained within that occurrence. Be sure to adjust the start/end
+    # time so that they are relative to the beginning of the occurrence of that
     # epoch.
     epoch_subsets = []
-    matches =  epochs.query('name == "{}"'.format(epoch_name))
+    matches = epochs.query('name == "{}"'.format(epoch_name))
     for lb, ub in matches[['start', 'end']].values:
         m = (epochs['start'] >= lb) & (epochs['end'] <= ub)
         epoch_subset = epochs.loc[m].copy()
@@ -526,7 +526,7 @@ def find_common_epochs(epochs, epoch_name, d=12):
                            in epoch_subset[['name', 'start', 'end']].values)
         epoch_subsets.append(epoch_subset)
 
-    # Now, determine which epochs are common to all occurances.
+    # Now, determine which epochs are common to all occurrences.
     common_epochs = epoch_subsets[0].copy()
     for other_epoch in epoch_subsets[1:]:
         common_epochs.intersection_update(other_epoch)

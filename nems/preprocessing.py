@@ -10,6 +10,7 @@ import scipy.signal as ss
 
 import nems.epoch as ep
 import nems.signal
+from nems.recording import Recording
 
 log = logging.getLogger(__name__)
 
@@ -98,16 +99,19 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
     (based on stimulus and behaviorial state, for example) and then match
     the epoch_regex to those.
     '''
-    epochs = recording.epochs
+    epochs = recording['resp'].epochs
     epoch_names = sorted(set(ep.epoch_names_matching(epochs, epoch_regex)))
 
     offset = 0
-    new_epochs = []
+    new_epochs = [] # pd.DataFrame()
     fs = recording[list(recording.signals.keys())[0]].fs
     d = int(np.ceil(np.log10(fs))+1)
     for epoch_name in epoch_names:
         common_epochs = ep.find_common_epochs(epochs, epoch_name, d=d)
+        common_epochs = common_epochs[common_epochs['name']!='TRIAL']
         query = 'name == "{}"'.format(epoch_name)
+        #import pdb
+        #pdb.set_trace()
         end = common_epochs.query(query).iloc[0]['end']
         common_epochs[['start', 'end']] += offset
         offset += end
@@ -115,8 +119,8 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
 
     new_epochs = pd.concat(new_epochs, ignore_index=True)
 
-    averaged_recording = recording.copy()
-
+    #averaged_recording = recording.copy()
+    averaged_signals = {}
     for signal_name, signal in recording.signals.items():
         # TODO: this may be better done as a method in signal subclasses since
         # some subclasses may have more efficient approaches (e.g.,
@@ -156,7 +160,7 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
             raise ValueError('Misalignment issue in averaging signal')
 
         averaged_signal = signal._modified_copy(data, epochs=new_epochs)
-        averaged_recording.add_signal(averaged_signal)
+        averaged_signals[signal_name] = averaged_signal
 
 #        # TODO: Eventually need a smarter check for this in case it's named
 #        #       something else. Basically just want to preserve spike data.
@@ -164,7 +168,9 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
 #            spikes = signal.copy()
 #            spikes.name = signal.name + ' spikes'
 #            averaged_recording.add_signal(spikes)
-
+    averaged_recording = Recording(averaged_signals,
+                                   meta=recording.meta,
+                                   name=recording.name)
     return averaged_recording
 
 
@@ -505,6 +511,8 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
     elif type(epoch_regex) == str:
         epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
 
+    #import pdb
+    #pdb.set_trace()
     for ename in epochs_to_extract:
         ematch = np.argwhere(resp.epochs['name']==ename)
         ff = resp.get_epoch_indices(ename, mask=mask)
@@ -513,6 +521,7 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
                   (resp.epochs['start']==fe[0]/resp.fs))
             pe = ep.epoch_contained(preidx, [fe])
             thispdur = np.diff(preidx[pe])
+
             #import pdb
             #pdb.set_trace()
 
@@ -683,6 +692,7 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
         rec_masked = rec0.apply_mask()
     else:
         rec_masked = rec0
+
     rec_masked = generate_psth_from_resp(rec_masked, resp_sig=resp_sig)
 
     if pc_source=='all':

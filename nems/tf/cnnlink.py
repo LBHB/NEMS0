@@ -13,6 +13,8 @@ import nems.modelspec as ms
 import nems.tf.cnn as cnn
 import nems.metrics.api as nmet
 import nems.utils
+import logging
+log = logging.getLogger(__name__)
 
 modelspecs_dir = nems.get_setting('NEMS_RESULTS_DIR')
 
@@ -29,7 +31,7 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
     """
     layers = []
     for i, m in enumerate(modelspec):
-        print(m['fn'])
+        log.info(m['fn'])
         if i < len(modelspec)-1:
             next_fn = modelspec[i+1]['fn']
         else:
@@ -57,7 +59,6 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
         elif m['fn'] in ['nems.modules.fir.basic', 'nems.modules.fir.filter_bank']:
             layer = {}
 
-
             layer['time_win_sec'] = m['phi']['coefficients'].shape[1] / fs
             if next_fn == 'nems.modules.nonlinearity.relu':
                 layer['act'] = 'relu'
@@ -80,15 +81,19 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
                 layer['type'] = 'conv_bank'
                 bank_count = m['fn_kwargs']['bank_count']
                 layer['n_kern'] = bank_count
+                c = np.fliplr(m['phi']['coefficients']).astype('float32').T
+                chan_count = int(c.shape[1]/bank_count)
+                c = np.reshape(c, (c.shape[0], chan_count, 1, bank_count))
             else:
                 layer['type'] = 'conv'
                 bank_count = 1
                 layer['n_kern'] = 1
+                c = np.fliplr(m['phi']['coefficients']).astype('float32').T
+                chan_count = int(c.shape[1]/bank_count)
+                c = np.reshape(c, (c.shape[0], chan_count, bank_count))
 
             if use_modelspec_init:
-                c = np.fliplr(m['phi']['coefficients']).astype('float32')
-                chan_count = int(c.shape[1]/bank_count)
-                layer['init_W'] = np.reshape(c, (c.shape[0], chan_count, bank_count))
+                layer['init_W'] = c
 
             layers.append(layer)
 
@@ -144,8 +149,7 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
                 layer['init_m'] = np.reshape(c, (1, 1, c.shape[0]))
                 c = m['phi']['sd'].astype('float32')
                 layer['init_s'] = np.reshape(c, (1, 1, c.shape[0]))
-                #modelspec[i]['phi']['mean'] = net_layer_vals[current_layer]['m'][0, 0, :].T
-                #modelspec[i]['phi']['sd'] = net_layer_vals[current_layer]['s'][0, 0, :].T / 10
+
             #layer['rank'] = None  # P['rank']
             layers.append(layer)
 
@@ -166,7 +170,7 @@ def cnn2modelspec(net, modelspec):
     net_layer_vals = net.layer_vals()
     current_layer = 0
     for i, m in enumerate(modelspec):
-        print(m['fn'])
+        log.info(m['fn'])
         if i < len(modelspec)-1:
             next_fn = modelspec[i+1]['fn']
         else:
@@ -186,8 +190,8 @@ def cnn2modelspec(net, modelspec):
             current_layer += 1
 
         elif m['fn'] in ['nems.modules.fir.filter_bank']:
-            #m['phi']['coefficients'] = np.flipud(np.fliplr(net_layer_vals[current_layer]['W'][0,:,:,0]))
-            m['phi']['coefficients'] = np.flipud(np.fliplr(net_layer_vals[current_layer]['W'][:,0,:,0].T))
+            #m['phi']['coefficients'] = np.fliplr(net_layer_vals[current_layer]['W'][:,0,0,:].T)
+            m['phi']['coefficients'] = np.fliplr(net_layer_vals[current_layer]['W'][:,0,0,:].T)
             if next_fn == 'nems.modules.nonlinearity.relu':
                 modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
             elif next_fn == 'nems.modules.levelshift.levelshift':
@@ -204,7 +208,7 @@ def cnn2modelspec(net, modelspec):
 
         elif m['fn'] in ['nems.modules.nonlinearity.dlog']:
             modelspec[i]['phi']['offset'] = np.log10(np.exp(net_layer_vals[current_layer]['b'][0, :, :].T))
-            print(net_layer_vals[current_layer])
+            log.info(net_layer_vals[current_layer])
             current_layer += 1
 
         elif m['fn'] in ['nems.modules.weight_channels.gaussian']:
@@ -214,7 +218,7 @@ def cnn2modelspec(net, modelspec):
                 modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
             elif next_fn == 'nems.modules.levelshift.levelshift':
                 modelspec[i+1]['phi']['level'] = net_layer_vals[current_layer]['b'][0,:,:].T
-            print(net_layer_vals[current_layer])
+            log.info(net_layer_vals[current_layer])
             current_layer += 1
         else:
             raise ValueError("fn %s not supported", m['fn'])
@@ -261,8 +265,8 @@ def fit_tf(est=None, modelspec=None,
     feat_dims = [n_stim, n_tps_per_stim, n_feats]
     data_dims = [n_stim, n_tps_per_stim, n_resp]
     net1_seed = 50
-    print('feat_dims ', feat_dims)
-    print('data_dims ', data_dims)
+    log.info('feat_dims: %s', feat_dims)
+    log.info('data_dims: %s', data_dims)
 
     # extract stimulus matrix
     F = np.reshape(est['stim'].as_continuous().copy().T, feat_dims)
@@ -277,7 +281,7 @@ def fit_tf(est=None, modelspec=None,
 
     new_est = est.tile_views(init_count)
     r_fit = np.zeros((init_count, n_resp), dtype=np.float)
-    print('fitting from {} initial conditions'.format(init_count))
+    log.info('fitting from {} initial conditions'.format(init_count))
     modelspec0 = copy.deepcopy(modelspec)
 
     for i in range(init_count):
@@ -301,7 +305,7 @@ def fit_tf(est=None, modelspec=None,
 
         net2.build()
         # net2_layer_init = net2.layer_vals()
-        # print(net2_layer_init)
+        # log.info(net2_layer_init)
 
         train_val_test = np.zeros(data_dims[0])
         val_n = int(0.9 * data_dims[0])
@@ -315,21 +319,21 @@ def fit_tf(est=None, modelspec=None,
 
         new_est = modelspec.evaluate(new_est)
         r_fit[i], se_fit = nmet.j_corrcoef(new_est, 'pred', 'resp')
-
+        log.info('r_fit this iteration (%d/%d): %s', i+1, init_count, r_fit[i])
         nems.utils.progress_fun()
 
-        import matplotlib.pyplot as plt
-        plt.figure()
-        ax1=plt.subplot(1,1,1)
-        ax1.plot(y[0,:,0])
-        ax1.plot(new_est['pred'].as_continuous()[0,:550].T)
-        plt.show()
+        #import matplotlib.pyplot as plt
+        #plt.figure()
+        #ax1=plt.subplot(1,1,1)
+        #ax1.plot(y[0,:,0])
+        #ax1.plot(new_est['pred'].as_continuous()[0,:550].T)
+        #plt.show()
 
     # figure out which modelspec does best on fit data
-    print('r_fit range: ', r_fit)
+    log.info('r_fit range: %s', r_fit)
     mean_r_fit = np.mean(r_fit,axis=1)
     ibest = np.argmax(mean_r_fit)
-    print("Best fit_index is {} mean r_fit={:.3f}".format(ibest, mean_r_fit[ibest]))
+    log.info("Best fit_index is {} mean r_fit={:.3f}".format(ibest, mean_r_fit[ibest]))
     modelspec = modelspec.copy(fit_index=ibest)
 
     elapsed_time = (time.time() - start_time)
@@ -338,7 +342,7 @@ def fit_tf(est=None, modelspec=None,
     # ms.set_modelspec_metadata(modelspec, 'n_parms',
     #                           len(improved_sigma))
 
-    import pdb
-    pdb.set_trace()
+    #import pdb
+    #pdb.set_trace()
 
     return {'modelspec': modelspec, 'new_est': new_est}

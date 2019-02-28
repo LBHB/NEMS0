@@ -172,13 +172,14 @@ class model_browser(qw.QWidget):
         self.cells.setSelectionMode(qw.QAbstractItemView.ExtendedSelection)
         self.models = qw.QListWidget(self)
         self.models.setSelectionMode(qw.QAbstractItemView.ExtendedSelection)
-
         self.data_model = PandasModel(parent=self)
+        """
         self.data_table = qw.QTableView(self)
         #self.data_table.setModel(self.data_model)
+        """
         hLayout1.addWidget(self.cells)
         hLayout1.addWidget(self.models)
-        hLayout1.addWidget(self.data_table)
+        #hLayout1.addWidget(self.data_table)
 
         hLayout2 = qw.QHBoxLayout(self)
 
@@ -215,6 +216,11 @@ class model_browser(qw.QWidget):
         self.updateBtn.clicked.connect(self.reimport_libs)
         vLayout.addWidget(self.updateBtn)
         self.updateBtn.setMaximumWidth(150)
+
+        self.sumBtn = qw.QPushButton("Pred sum", self)
+        self.sumBtn.clicked.connect(self.run_fun)
+        vLayout.addWidget(self.sumBtn)
+        self.sumBtn.setMaximumWidth(150)
 
         self.viewBtn = qw.QPushButton("View recording", self)
         self.viewBtn.clicked.connect(self.view_recording)
@@ -283,10 +289,28 @@ class model_browser(qw.QWidget):
         self.models.clear()
         for m in list(self.d_models['modelname']):
             list_item = qw.QListWidgetItem(m, self.models)
-        self.data_model._df = self.d_models
-        self.data_table.setModel(self.data_model)
+        #self.data_model._df = self.d_models
+        #self.data_table.setModel(self.data_model)
 
         print('updated list widgets')
+
+    def _selected_modelnames(self):
+        items = [a.text() for a in self.models.selectedItems()]
+        return items
+
+    def _selected_cells(self):
+        items = [a.text() for a in self.cells.selectedItems()]
+        return items
+
+    def run_fun(self):
+        cellids = self._selected_cells()
+        modelnames = self._selected_modelnames()
+        batch = self.batch
+        #print(cellids)
+        d = nd.batch_comp(batch=batch, modelnames=modelnames, cellids=cellids, stat='r_test')
+
+        for m in modelnames:
+            print("{} (n={}): {:.3f}".format(m, d[m].count(), d[m].mean()))
 
     def get_current_selection(self):
         aw = self
@@ -372,5 +396,5 @@ if __name__ == '__main__':
     if sys.argv[0] != '':
         app = qw.QApplication(sys.argv)
         m = model_browser()
-        sys.exit(app.exec_())
+        #sys.exit(app.exec_())
 
