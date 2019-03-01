@@ -31,7 +31,7 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
     """
     layers = []
     for i, m in enumerate(modelspec):
-        log.info(m['fn'])
+        log.info('modelspec2cnn: ' + m['fn'])
         if i < len(modelspec)-1:
             next_fn = modelspec[i+1]['fn']
         else:
@@ -51,7 +51,7 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
             layer['n_kern'] = 1  # m['prior']['coefficients'][1]['mean'].shape[0]
             layer['rank'] = None  # P['rank']
             if use_modelspec_init:
-                c = np.log(10 ** m['phi']['offset'].astype('float32').T)
+                c = m['phi']['offset'].astype('float32').T
                 layer['init_b'] = np.reshape(c, (1, c.shape[0], c.shape[1]))
 
             layers.append(layer)
@@ -148,7 +148,7 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
                 c = m['phi']['mean'].astype('float32')
                 layer['init_m'] = np.reshape(c, (1, 1, c.shape[0]))
                 c = m['phi']['sd'].astype('float32')
-                layer['init_s'] = np.reshape(c, (1, 1, c.shape[0]))
+                layer['init_s'] = np.reshape(c, (1, 1, c.shape[0])) * 10
 
             #layer['rank'] = None  # P['rank']
             layers.append(layer)
@@ -164,22 +164,22 @@ def cnn2modelspec(net, modelspec):
     """
     pass TF cnn fit back into modelspec phi.
     TODO: Generate new modelspec if not provided
-    TODO: Make sure that the dimension mappings work reliably for filterbanks and such
+    TODO: Make sure that the dimension mappings work reliably for filter banks and such
     """
 
     net_layer_vals = net.layer_vals()
     current_layer = 0
     for i, m in enumerate(modelspec):
-        log.info(m['fn'])
+        log.info('cnn2modelspec: ' + m['fn'])
         if i < len(modelspec)-1:
             next_fn = modelspec[i+1]['fn']
         else:
             next_fn = None
         if m['fn'] == 'nems.modules.nonlinearity.relu':
-            pass # already handled
+            pass  # already handled
 
         elif 'levelshift' in m['fn']:
-            pass # already handled
+            pass  # already handled
 
         elif m['fn'] in ['nems.modules.fir.basic']:
             m['phi']['coefficients'] = np.fliplr(net_layer_vals[current_layer]['W'][:,:,0].T)
@@ -207,8 +207,8 @@ def cnn2modelspec(net, modelspec):
             current_layer += 1
 
         elif m['fn'] in ['nems.modules.nonlinearity.dlog']:
-            modelspec[i]['phi']['offset'] = np.log10(np.exp(net_layer_vals[current_layer]['b'][0, :, :].T))
-            log.info(net_layer_vals[current_layer])
+            modelspec[i]['phi']['offset'] = net_layer_vals[current_layer]['b'][0, :, :].T
+            #log.info(net_layer_vals[current_layer])
             current_layer += 1
 
         elif m['fn'] in ['nems.modules.weight_channels.gaussian']:
@@ -218,7 +218,7 @@ def cnn2modelspec(net, modelspec):
                 modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
             elif next_fn == 'nems.modules.levelshift.levelshift':
                 modelspec[i+1]['phi']['level'] = net_layer_vals[current_layer]['b'][0,:,:].T
-            log.info(net_layer_vals[current_layer])
+            #log.info(net_layer_vals[current_layer])
             current_layer += 1
         else:
             raise ValueError("fn %s not supported", m['fn'])
@@ -226,9 +226,40 @@ def cnn2modelspec(net, modelspec):
     return modelspec
 
 
+def _fit_net(F, D, modelspec, seed, fs, train_val_test, optimizer='Adam',
+             max_iter=1000, learning_rate=0.01, use_modelspec_init=False):
+
+    n_feats = F.shape[2]
+    data_dims = D.shape
+    sr_Hz = fs
+
+    layers = modelspec2cnn(modelspec, n_inputs=n_feats, fs=fs, use_modelspec_init=use_modelspec_init)
+    # layers = [{'act': 'identity', 'n_kern': 1,
+    #  'time_win_sec': 0.01, 'type': 'reweight-positive'},
+    # {'act': 'relu', 'n_kern': 1, 'rank': None,
+    #  'time_win_sec': 0.15, 'type': 'conv'}]
+    tf.reset_default_graph()
+
+    net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=modelspec.meta['modelpath'])
+    net2.optimizer = optimizer
+
+    net2.build()
+    # net2_layer_init = net2.layer_vals()
+    # log.info(net2_layer_init)
+
+    log.info('Train set: %d  Test set (early stopping): %d',
+             np.sum(train_val_test == 0),np.sum(train_val_test == 1))
+    net2.train(F, D, max_iter=max_iter, train_val_test=train_val_test,
+               learning_rate=learning_rate)
+
+    modelspec = cnn2modelspec(net2, modelspec)
+
+    return modelspec
+
+
 def fit_tf(est=None, modelspec=None,
            use_modelspec_init=True, init_count=1,
-           optimizer='Adam', max_iter=1000, cost_function='mse',
+           optimizer='Adam', max_iter=1000, cost_function='mse', IsReload=False,
            **context):
     """
     :param est: A recording object
@@ -242,6 +273,9 @@ def fit_tf(est=None, modelspec=None,
     :param context:
     :return: dictionary with modelspec, compatible with xforms
     """
+    if IsReload:
+        return {}
+
     start_time = time.time()
 
     if (modelspec is None) or (est is None):
@@ -272,17 +306,9 @@ def fit_tf(est=None, modelspec=None,
     F = np.reshape(est['stim'].as_continuous().copy().T, feat_dims)
     D = np.reshape(est['resp'].as_continuous().copy().T, data_dims)
 
-    # SKIP ? normalize to mean 0, variannce 1
-    # should be taken care of in earlier normalization of stimulus
-    #m_stim = np.mean(F, axis=(0, 1), keepdims=True)
-    #s_stim = np.std(F, axis=(0, 1), keepdims=True)
-    #F -= m_stim
-    #F /= s_stim
-
     new_est = est.tile_views(init_count)
     r_fit = np.zeros((init_count, n_resp), dtype=np.float)
     log.info('fitting from {} initial conditions'.format(init_count))
-    modelspec0 = copy.deepcopy(modelspec)
 
     for i in range(init_count):
         if i > 0:
@@ -292,30 +318,16 @@ def fit_tf(est=None, modelspec=None,
 
         modelspec.set_fit(i)
 
-        layers = modelspec2cnn(modelspec, n_inputs=n_feats, fs=est['resp'].fs, use_modelspec_init=use_modelspec_init)
-        # layers = [{'act': 'identity', 'n_kern': 1,
-        #  'time_win_sec': 0.01, 'type': 'reweight-positive'},
-        # {'act': 'relu', 'n_kern': 1, 'rank': None,
-        #  'time_win_sec': 0.15, 'type': 'conv'}]
-        tf.reset_default_graph()
-
-        seed = net1_seed + i
-        net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=modelspec.meta['modelpath'])
-        net2.optimizer = optimizer
-
-        net2.build()
-        # net2_layer_init = net2.layer_vals()
-        # log.info(net2_layer_init)
-
         train_val_test = np.zeros(data_dims[0])
         val_n = int(0.9 * data_dims[0])
         train_val_test[val_n:] = 1
         train_val_test = np.roll(train_val_test, int(data_dims[0]/init_count*i))
+        seed = net1_seed + i
 
-        net2.train(F, D, max_iter=max_iter, train_val_test=train_val_test, learning_rate=0.01)
-        y=net2.predict(F)
-
-        modelspec = cnn2modelspec(net2, modelspec)
+        modelspec = _fit_net(F, D, modelspec, seed, est['resp'].fs,
+                             train_val_test=train_val_test,
+                             optimizer=optimizer, max_iter=800,
+                             use_modelspec_init=use_modelspec_init)
 
         new_est = modelspec.evaluate(new_est)
         r_fit[i], se_fit = nmet.j_corrcoef(new_est, 'pred', 'resp')
@@ -323,6 +335,7 @@ def fit_tf(est=None, modelspec=None,
         nems.utils.progress_fun()
 
         #import matplotlib.pyplot as plt
+        #y = net2.predict(F)
         #plt.figure()
         #ax1=plt.subplot(1,1,1)
         #ax1.plot(y[0,:,0])
@@ -335,6 +348,23 @@ def fit_tf(est=None, modelspec=None,
     ibest = np.argmax(mean_r_fit)
     log.info("Best fit_index is {} mean r_fit={:.3f}".format(ibest, mean_r_fit[ibest]))
     modelspec = modelspec.copy(fit_index=ibest)
+
+    # now continue fitting the best model!
+    log.info('Now running final fit on best pre-fit')
+    train_val_test = np.zeros(data_dims[0])
+    val_n = int(0.9 * data_dims[0])
+    train_val_test[val_n:] = 1
+    train_val_test = np.roll(train_val_test, int(data_dims[0]/init_count*ibest))
+    seed = net1_seed + ibest
+    modelspec = _fit_net(F, D, modelspec, seed, est['resp'].fs,
+                         train_val_test=train_val_test,
+                         optimizer=optimizer, max_iter=max_iter,
+                         use_modelspec_init=True)
+    new_est = modelspec.evaluate(new_est)
+    r_fit_final, se_fit = nmet.j_corrcoef(new_est, 'pred', 'resp')
+    log.info('r_fit_final: %s', r_fit_final)
+
+    nems.utils.progress_fun()
 
     elapsed_time = (time.time() - start_time)
     modelspec.meta['fitter'] = 'fit_tf'

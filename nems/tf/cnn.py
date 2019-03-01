@@ -314,7 +314,7 @@ class Net:
                     self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
                                                         self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
                                                         distr='tnorm'))
-                self.layers[i]['eb'] = tf.exp(self.layers[i]['b'])
+                self.layers[i]['eb'] = tf.pow(tf.constant(10, dtype=tf.float32), self.layers[i]['b'])
                 self.layers[i]['Y'] = tf.log((X + self.layers[i]['eb']) / self.layers[i]['eb'])
 
             elif self.layers[i]['type'] == 'stp':

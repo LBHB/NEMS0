@@ -22,7 +22,7 @@ import nems.db as nd
 import nems.plots.api as nplt
 import nems.xform_helper as xhelp
 import nems.epoch as ep
-from nems.utils import find_module
+from nems.utils import find_common
 import pandas as pd
 import scipy.ndimage.filters as sf
 import nems_lbhb.plots as lplt
@@ -163,9 +163,9 @@ class model_browser(qw.QWidget):
         # selection parameters
         self.batch = batch
 
+        # main layout
         vLayout2 = qw.QVBoxLayout(self)
-
-        hLayout1 = qw.QHBoxLayout(self)
+        hLayout1 = qw.QHBoxLayout()
 
         self.cells = qw.QListWidget(self)
         self.cells.setMaximumSize(qc.QSize(130, 1000))
@@ -181,7 +181,7 @@ class model_browser(qw.QWidget):
         hLayout1.addWidget(self.models)
         #hLayout1.addWidget(self.data_table)
 
-        hLayout2 = qw.QHBoxLayout(self)
+        hLayout2 = qw.QHBoxLayout()
 
         formLayout = qw.QFormLayout(self)
         batchlabel = qw.QLabel(self)
@@ -211,7 +211,7 @@ class model_browser(qw.QWidget):
         # self.modelLE.setMaximumWidth(500)
         formLayout.addRow(modellabel,self.modelLE)
 
-        vLayout = qw.QVBoxLayout(self)
+        vLayout = qw.QVBoxLayout()
         self.updateBtn = qw.QPushButton("Re-import", self)
         self.updateBtn.clicked.connect(self.reimport_libs)
         vLayout.addWidget(self.updateBtn)
@@ -234,7 +234,6 @@ class model_browser(qw.QWidget):
 
         hLayout2.addLayout(formLayout)
         hLayout2.addLayout(vLayout)
-
         vLayout2.addLayout(hLayout1)
         vLayout2.addLayout(hLayout2)
 
@@ -306,11 +305,44 @@ class model_browser(qw.QWidget):
         cellids = self._selected_cells()
         modelnames = self._selected_modelnames()
         batch = self.batch
-        #print(cellids)
+
         d = nd.batch_comp(batch=batch, modelnames=modelnames, cellids=cellids, stat='r_test')
 
-        for m in modelnames:
-            print("{} (n={}): {:.3f}".format(m, d[m].count(), d[m].mean()))
+        cellids = d.index
+        siteids = [c.split("-")[0] for c in cellids]
+
+        d['siteids'] = siteids
+        mean_r_test = d[modelnames].mean().values
+
+        shortened, prefix, suffix = find_common(modelnames)
+        modelcount=len(modelnames)
+        plt.figure()
+        ax = plt.subplot(1,1,1)
+        site_r_test = d.groupby(['siteids']).mean().values.T
+
+        usiteids=d.groupby(['siteids']).groups.keys()
+
+        ax.bar(np.arange(len(mean_r_test)), mean_r_test, color='lightgray')
+        ax.plot(site_r_test)
+        print('{} -- {}'.format(prefix, suffix))
+        for i,m in enumerate(modelnames):
+
+            print("{} (n={}): {:.3f}".format(shortened[i], d[m].count(), d[m].mean()))
+            r = d[m].values
+            #plt.plot(np.random.uniform(low=-0.25, high=0.25, size=r.shape)+i,
+            #         r, '.', color='gray')
+            s = shortened[i].replace("_","\n") + "\n{:.3f}".format(mean_r_test[i])
+            ax.text(i, 0, s, rotation=90, color='black',
+                    ha='left', va='bottom', fontsize=7)
+
+        for i, s in enumerate(usiteids):
+            ax.text(modelcount-0.2, site_r_test[-1,i], s)
+
+        plt.title('{} -- {}'.format(prefix, suffix))
+        ax.set_xticks(np.arange(modelcount))
+        ax.set_xticklabels([])
+
+        nplt.ax_remove_box(ax)
 
     def get_current_selection(self):
         aw = self
@@ -319,10 +351,10 @@ class model_browser(qw.QWidget):
         try:
             cellid = aw.cells.currentItem().text()
             modelname = aw.models.currentItem().text()
-            print(cellid)
-            print("Model(s) selected")
-            for index in range(aw.models.count()):
-                print(aw.models.item(index).text())
+            #print(cellid)
+            #print("Model(s) selected")
+            #for index in range(aw.models.count()):
+                #print(aw.models.item(index).text())
         except AttributeError:
             print("You must select a cellid and modelname first")
             return None, None
@@ -396,5 +428,5 @@ if __name__ == '__main__':
     if sys.argv[0] != '':
         app = qw.QApplication(sys.argv)
         m = model_browser()
-        #sys.exit(app.exec_())
+        sys.exit(app.exec_())
 

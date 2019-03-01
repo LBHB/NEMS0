@@ -145,7 +145,7 @@ def tf(fitkey):
 
     options = _extract_options(fitkey)
 
-    max_iter = 1000
+    max_iter = 2000
     fitter = 'Adam'
     init_count = 1
     use_modelspec_init = False

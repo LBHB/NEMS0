@@ -30,7 +30,14 @@ def perf_per_cell(modelspec, channels=0, ax=None, **options):
     ax.set_xticks(np.arange(cellcount))
     ax.set_xticklabels(cellids)
     ylim = ax.get_ylim()
-    ax.text(0, ylim[1], 'mean r={:.3f}'.format(np.mean(modelspec.meta['r_test'])))
+    if channels == 0:
+        hoffset = 0
+    else:
+        hoffset = 1
+    ax.text(0.1+hoffset, 0.1,
+            'mean r={:.3f}'.format(np.mean(modelspec.meta['r_test'])))
+    ax.text(channels+0.1, modelspec.meta['r_test'][channels],
+            '{:.3f}'.format(modelspec.meta['r_test'][channels]))
 
     ax_remove_box(ax)
 

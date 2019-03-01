@@ -202,9 +202,13 @@ def norm(kw):
     """
     Normalize stim and response before splitting/fitting to support
     fitters that can't deal with big variations in values
+
+    default is to normalize minmax (norm.mm) to fall in the range 0 to 1 (keep values
+    positive to support log compression)
+    norm.ms will normalize to (mean=0, std=1)
     """
     ops = kw.split('.')[1:]
-    norm_method = 'meanstd'
+    norm_method = 'minmax'
     for op in ops:
         if op == 'ms':
             norm_method = 'meanstd'

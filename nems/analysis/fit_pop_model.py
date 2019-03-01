@@ -281,7 +281,7 @@ def init_pop_rand(est, modelspec, IsReload=False, start_count=1,
         rec = mset[-1]['modelspec'].evaluate(rec)
         E[i] = metrics.nmse(rec)
 
-    imax = np.argmin(E)
+    imax = np.nanargmin(E)
     for i in range(start_count):
         ss = "**" if (i == imax) else ""
         log.info('i=%d E=%.3e %s', i, E[i], ss)
