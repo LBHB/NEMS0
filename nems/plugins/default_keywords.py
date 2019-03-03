@@ -447,8 +447,10 @@ def lvl(kw):
     -------
     None
     '''
+    options = kw.split('.')
+    required = '.'.join(options[:2])
     pattern = re.compile(r'^lvl\.?(\d{1,})$')
-    parsed = re.match(pattern, kw)
+    parsed = re.match(pattern, required)
     try:
         n_shifts = int(parsed.group(1))
     except TypeError:
