@@ -287,7 +287,6 @@ class model_browser(qw.QWidget):
             modelquery += 'modelname like %s OR '
         modelquery = modelquery[:-3]  # drop the trailing OR
         modelquery += 'GROUP BY modelname ORDER BY modelname'
-        print('modelquery ended up being: %s'%modelquery%(self.batch, *modelmask))
         self.d_models = nd.pd_query(modelquery, (self.batch, *modelmask))
 
 #        self.d_models = nd.pd_query("SELECT modelname, count(*) as n, max(lastmod) as last_mod FROM NarfResults" +
