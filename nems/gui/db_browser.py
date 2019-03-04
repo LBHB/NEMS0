@@ -260,7 +260,11 @@ class model_browser(qw.QWidget):
 
         batch = int(self.batchLE.text())
         cellmask = self.cellLE.text() + "%"
-        modelmask = "%" + self.modelLE.text() + "%"
+        # strip white spaces and split by semicolon
+        modeltext = self.modelLE.text().replace(' ', '').split(';')
+        # attach % wildcard before and after modelstring
+        modelmask = ['%' + m + '%' for m in modeltext]
+        #modelmask = "%" + self.modelLE.text() + "%"
 
         save_settings(self)
 
@@ -276,10 +280,19 @@ class model_browser(qw.QWidget):
                                " WHERE batch=%s AND cellid like %s" +
                                " ORDER BY cellid",
                                (self.batch, cellmask))
-        self.d_models = nd.pd_query("SELECT modelname, count(*) as n, max(lastmod) as last_mod FROM NarfResults" +
-                               " WHERE batch=%s AND modelname like %s" +
-                               " GROUP BY modelname ORDER BY modelname",
-                               (self.batch, modelmask))
+
+        modelquery = ("SELECT modelname, count(*) as n, max(lastmod) as "
+                      "last_mod FROM NarfResults WHERE batch=%s AND ")
+        for i, m in enumerate(modelmask):
+            modelquery += 'modelname like %s OR '
+        modelquery = modelquery[:-3]  # drop the trailing OR
+        modelquery += 'GROUP BY modelname ORDER BY modelname'
+        self.d_models = nd.pd_query(modelquery, (self.batch, *modelmask))
+
+#        self.d_models = nd.pd_query("SELECT modelname, count(*) as n, max(lastmod) as last_mod FROM NarfResults" +
+#                               " WHERE batch=%s AND modelname like %s" +
+#                               " GROUP BY modelname ORDER BY modelname",
+#                               (self.batch, modelmask))
 
         self.cells.clear()
         for c in list(self.d_cells['cellid']):
