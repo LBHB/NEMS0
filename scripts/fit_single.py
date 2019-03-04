@@ -7,7 +7,7 @@ import sys
 import logging
 log = logging.getLogger(__name__)
 
-force_SDB=False
+force_SDB=True
 try:
     if sys.argv[3][:4] == 'SDB-':
         force_SDB=True
