@@ -303,8 +303,12 @@ def fit_tf(est=None, modelspec=None,
     log.info('data_dims: %s', data_dims)
 
     # extract stimulus matrix
-    F = np.reshape(est['stim'].as_continuous().copy().T, feat_dims)
-    D = np.reshape(est['resp'].as_continuous().copy().T, data_dims)
+    try:
+        F = np.reshape(est['stim'].as_continuous().copy().T, feat_dims)
+        D = np.reshape(est['resp'].as_continuous().copy().T, data_dims)
+    except:
+        import pdb
+        pdb.set_trace()
 
     new_est = est.tile_views(init_count)
     r_fit = np.zeros((init_count, n_resp), dtype=np.float)
@@ -333,7 +337,7 @@ def fit_tf(est=None, modelspec=None,
         r_fit[i], se_fit = nmet.j_corrcoef(new_est, 'pred', 'resp')
         log.info('r_fit this iteration (%d/%d): %s', i+1, init_count, r_fit[i])
         nems.utils.progress_fun()
-
+        log.info(modelspec.phi)
         #import matplotlib.pyplot as plt
         #y = net2.predict(F)
         #plt.figure()
@@ -343,8 +347,8 @@ def fit_tf(est=None, modelspec=None,
         #plt.show()
 
     # figure out which modelspec does best on fit data
-    log.info('r_fit range: %s', r_fit)
-    mean_r_fit = np.mean(r_fit,axis=1)
+    mean_r_fit = np.mean(r_fit, axis=1)
+    log.info('mean r_fit per init: %s', mean_r_fit)
     ibest = np.argmax(mean_r_fit)
     log.info("Best fit_index is {} mean r_fit={:.3f}".format(ibest, mean_r_fit[ibest]))
     modelspec = modelspec.copy(fit_index=ibest)
