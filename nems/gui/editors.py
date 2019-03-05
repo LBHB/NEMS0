@@ -102,7 +102,9 @@ _SCROLLABLE_PLOT_FNS = [
     'nems.plots.api.resp_spectrogram',
     'nems.plots.api.mod_output',
     'nems.plots.api.mod_output_all',
-    'nems.plots.api.fir_output_all'
+    'nems.plots.api.fir_output_all',
+    'nems_lbhb.gcmodel.guiplots.contrast_kernel_output',
+    'nems_lbhb.gcmodel.guiplots.contrast_spectrogram'
 ]
 _CURSOR_PLOT_FNS = [
     'nems.plots.api.strf_local_lin',
