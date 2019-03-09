@@ -169,20 +169,20 @@ class Net:
 
     def initialize(self):
 
-        log.info('Initialize session')
+        log.info('Initialize TF session for fit')
         session_conf = tf.ConfigProto(
              intra_op_parallelism_threads=1,
              inter_op_parallelism_threads=1)
         self.sess = tf.Session(config=session_conf)
         #self.sess = tf.Session()
-        log.info('Initialize variables')
+        #log.info('Initialize variables')
         self.sess.run(tf.global_variables_initializer())
-        log.info('Initialize saver')
+        #log.info('Initialize saver')
         self.saver = tf.train.Saver(max_to_keep=1)
 
     def build(self, initialize=True):
 
-        log.info('Loc 0')
+        log.info('Building CNN Model (Loc 0)')
 
         self.W = []
         self.b = []
@@ -199,7 +199,7 @@ class Net:
 
             if self.layers[i]['type'] == 'conv':
 
-                log.info('Loc conv')
+                log.info('Adding conv layer')
 
                 # pad input to ensure causality
                 pad_size = np.int32(
@@ -229,22 +229,20 @@ class Net:
                 log.info("Y shape: %s", self.layers[i]['Y'].shape)
             elif self.layers[i]['type'] == 'conv_bank_1d':
 
-                log.info('Loc conv_bank')
+                log.info('Adding conv_bank (alt) layer')
                 # split inputs into the different kernels
                 n_input_chans = int(n_input_feats / self.layers[i]['n_kern'])
 
-                # pad input to ensure causality
+                # pad input to ensure causality, insert placeholder dim on axis=1
                 pad_size = np.int32(self.layers[i]['time_win_smp'] - 1)
-                X_pad = tf.expand_dims(tf.transpose(tf.pad(X, [[0, 0], [pad_size,0], [0, 0]]),
-                                                    perm=[2, 0, 1]), 3)
+                X_pad = tf.expand_dims(tf.pad(X, [[0, 0], [pad_size,0], [0, 0]]), 1)
 
                 if self.layers[i].get('init_W', None) is not None:
                     self.layers[i]['W'] = tf.Variable(self.layers[i]['init_W'])
                     self.layers[i]['b'] = tf.Variable(self.layers[i]['init_b'])
                 else:
-                    self.layers[i]['W'] = weights_norm([self.layers[i]['n_kern'],
-                                                        self.layers[i]['time_win_smp'],
-                                                        1, 1], sig=self.weight_scale,
+                    self.layers[i]['W'] = weights_norm([1, self.layers[i]['time_win_smp'],
+                                                        self.layers[i]['n_kern'], 1], sig=self.weight_scale,
                                                 seed=seed_to_randint(self.seed)+i)
                     self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
                                                         self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
@@ -253,23 +251,21 @@ class Net:
                 log.info("W shape: %s", self.layers[i]['W'].shape)
                 log.info("X_pad shape: %s", X_pad.shape)
 
-                def c_chan(inputs):
-                    return tf.gather(tf.nn.conv1d(inputs[0], inputs[1], stride=1, padding='VALID'),[0])
+                #import pdb
+                #pdb.set_trace()
 
-                elems = (X_pad, self.layers[i]['W'])
-                import pdb
-                pdb.set_trace()
+                tY = tf.squeeze(
+                    tf.nn.depthwise_conv2d(X_pad, self.layers[i]['W'], strides=[1, 1, 1, 1], padding='VALID'),
+                    axis=1)
 
-                tY = tf.map_fn(c_chan, elems)
-
-                self.layers[i]['Y'] = act(self.layers[i]['act'])(
-                    tf.transpose(tY, perm=[1, 2, 0]) + self.layers[i]['b'])
+                log.info("tY shape: %s", tY.shape)
+                self.layers[i]['Y'] = act(self.layers[i]['act'])(tY + self.layers[i]['b'])
 
                 log.info("Y shape: %s", self.layers[i]['Y'].shape)
 
             elif self.layers[i]['type'] == 'conv_bank':
 
-                log.info('Loc conv_bank')
+                log.info('Adding conv_bank layer')
                 # split inputs into the different kernels
                 n_input_chans = int(n_input_feats / self.layers[i]['n_kern'])
 
@@ -304,7 +300,7 @@ class Net:
 
             elif self.layers[i]['type'] == 'dlog':
 
-                log.info('Loc dlog')
+                log.info('Adding dlog layer')
                 if self.layers[i].get('init_b', None) is not None:
                     self.layers[i]['b'] = tf.Variable(self.layers[i]['init_b'])
                     #self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
@@ -352,7 +348,7 @@ class Net:
 
             elif self.layers[i]['type'] == 'reweight':
 
-                log.info('Loc reweight')
+                log.info('Adding reweight layer')
 
                 if self.layers[i].get('init_W', None) is not None:
                     self.layers[i]['W'] = tf.Variable(self.layers[i]['init_W'])
@@ -394,7 +390,7 @@ class Net:
 
             elif self.layers[i]['type'] == 'reweight-gaussian':
 
-                log.info('Loc reweight-gaussian')
+                log.info('Adding reweight-gaussian layer')
 
                 if self.layers[i].get('init_m', None) is not None:
                     self.layers[i]['m'] = tf.Variable(self.layers[i]['init_m'])

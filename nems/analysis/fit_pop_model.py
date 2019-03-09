@@ -116,6 +116,7 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
         tmodelspec = _extract_pop_channel(modelspec, d, fit_set_all)
 
         iwcg = find_module('weight_channels.gaussian', modelspec)
+        iwc = find_module('weight_channels', modelspec, find_all_matches=True)
         relumod = find_module('relu',modelspec)
         stpidx = find_module('stp', tmodelspec)
 
@@ -211,17 +212,17 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
     #slice_fitter = coordinate_descent
     #cd_kwargs = {'tolerance': tolerance, 'max_iter': 20,
     #             'step_size': 0.1}
-
-    for s in range(respcount):
-        log.info('First fit per cell slice %d' , s)
-        # TODO : don't fit static NL ? just weight channels... plus?
-        modelspec = fit_population_slice(
-                est, modelspec, slice=s,
-                fit_set=fit_set_slice,
-                analysis_function=analysis.fit_basic,
-                metric=metrics.nmse,
-                fitter=scipy_minimize,
-                fit_kwargs=sp_kwargs)
+    if len(iwc)<3:
+        for s in range(respcount):
+            log.info('First fit per cell slice %d' , s)
+            # TODO : don't fit static NL ? just weight channels... plus?
+            modelspec = fit_population_slice(
+                    est, modelspec, slice=s,
+                    fit_set=fit_set_slice,
+                    analysis_function=analysis.fit_basic,
+                    metric=metrics.nmse,
+                    fitter=scipy_minimize,
+                    fit_kwargs=sp_kwargs)
 
     return {'modelspec': modelspec}
 
@@ -298,7 +299,7 @@ def _figure_out_mod_split(modelspec):
     bank_mod=find_module('filter_bank', modelspec, find_all_matches=True)
     wc_mod=find_module('weight_channels', modelspec, find_all_matches=True)
 
-    if len(wc_mod)==2:
+    if len(wc_mod)>=2:
         fit_set_all = list(range(wc_mod[1]))
         fit_set_slice = list(range(wc_mod[1], len(modelspec)))
     elif len(bank_mod)==1:
@@ -368,6 +369,7 @@ def _extract_pop_channel(modelspec, d, fit_set_all,
     tmodelspec = ms.ModelSpec()
     for i in fit_set_all:
         m = copy.deepcopy(modelspec[i])
+        print(m['fn'])
         for k, v in m['phi'].items():
             x = v.shape[0]
             if x >= dim_count:

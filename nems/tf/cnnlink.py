@@ -78,12 +78,21 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
 
             layer['rank'] = None  # we're handling rank with explicit spectral filters
             if 'filter_bank' in m['fn']:
-                layer['type'] = 'conv_bank'
                 bank_count = m['fn_kwargs']['bank_count']
                 layer['n_kern'] = bank_count
-                c = np.fliplr(m['phi']['coefficients']).astype('float32').T
-                chan_count = int(c.shape[1]/bank_count)
-                c = np.reshape(c, (c.shape[0], chan_count, 1, bank_count))
+
+                if True:
+                    # temporary testing
+                    layer['type'] = 'conv_bank_1d'
+                    log.info('using conv_bank_1d')
+                    c = np.fliplr(m['phi']['coefficients']).astype('float32').T
+                    chan_count = int(c.shape[1]/bank_count)
+                    c = np.reshape(c, (1, c.shape[0], bank_count, chan_count))
+                else:
+                    layer['type'] = 'conv_bank'
+                    c = np.fliplr(m['phi']['coefficients']).astype('float32').T
+                    chan_count = int(c.shape[1]/bank_count)
+                    c = np.reshape(c, (c.shape[0], chan_count, 1, bank_count))
             else:
                 layer['type'] = 'conv'
                 bank_count = 1
@@ -103,13 +112,13 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
             if next_fn == 'nems.modules.nonlinearity.relu':
                 layer['type'] = 'reweight'
                 layer['act'] = 'relu'
-                if use_modelspec_init:
+                if use_modelspec_init & (np.sum(np.abs(modelspec[i + 1]['phi']['offset']))>0):
                     c = -modelspec[i + 1]['phi']['offset'].astype('float32').T
                     layer['init_b'] = np.reshape(c, (1, c.shape[0], c.shape[1]))
             elif next_fn == 'nems.modules.levelshift.levelshift':
                 layer['type'] = 'reweight'
                 layer['act'] = 'identity'
-                if use_modelspec_init:
+                if use_modelspec_init & (np.sum(np.abs(modelspec[i + 1]['phi']['level']))>0):
                     c = modelspec[i + 1]['phi']['level'].astype('float32').T
                     layer['init_b'] = np.reshape(c, (1, c.shape[0], c.shape[1]))
             else:
@@ -120,7 +129,7 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
                     layer['init_b'] = np.reshape(c, (1, c.shape[0], c.shape[1]))
 
             layer['n_kern'] = m['phi']['coefficients'].shape[0]
-            if use_modelspec_init:
+            if use_modelspec_init & (np.sum(np.abs(m['phi']['coefficients']))>0):
                 #m['phi']['coefficients'] = net_layer_vals[current_layer]['W'][0, :, :].T
                 c = m['phi']['coefficients'].astype('float32').T
                 layer['init_W'] = np.reshape(c,(1,c.shape[0],c.shape[1]))
@@ -191,7 +200,12 @@ def cnn2modelspec(net, modelspec):
 
         elif m['fn'] in ['nems.modules.fir.filter_bank']:
             #m['phi']['coefficients'] = np.fliplr(net_layer_vals[current_layer]['W'][:,0,0,:].T)
-            m['phi']['coefficients'] = np.fliplr(net_layer_vals[current_layer]['W'][:,0,0,:].T)
+            if net_layer_vals[current_layer]['W'].shape[1]>1:
+                # new depthwise_conv2d
+                m['phi']['coefficients'] = np.fliplr(net_layer_vals[current_layer]['W'][0,:,:,0].T)
+            else:
+                # inefficient conv2d
+                m['phi']['coefficients'] = np.fliplr(net_layer_vals[current_layer]['W'][:,0,0,:].T)
             if next_fn == 'nems.modules.nonlinearity.relu':
                 modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
             elif next_fn == 'nems.modules.levelshift.levelshift':
@@ -254,7 +268,7 @@ def _fit_net(F, D, modelspec, seed, fs, train_val_test, optimizer='Adam',
 
     modelspec = cnn2modelspec(net2, modelspec)
 
-    return modelspec
+    return modelspec, net2
 
 
 def fit_tf(est=None, modelspec=None,
@@ -314,12 +328,13 @@ def fit_tf(est=None, modelspec=None,
     r_fit = np.zeros((init_count, n_resp), dtype=np.float)
     log.info('fitting from {} initial conditions'.format(init_count))
 
-    for i in range(init_count):
-        if i > 0:
-            # add a new set of fit parameters
-            modelspec.raw.append(copy.deepcopy(modelspec.raw[0]))
-            new_est = new_est.set_view(i)
+    for i in range(init_count-1):
+        # add a new set of fit parameters
+        modelspec.raw.append(copy.deepcopy(modelspec.raw[0]))
 
+    for i in range(init_count):
+
+        new_est = new_est.set_view(i)
         modelspec.set_fit(i)
 
         train_val_test = np.zeros(data_dims[0])
@@ -328,12 +343,17 @@ def fit_tf(est=None, modelspec=None,
         train_val_test = np.roll(train_val_test, int(data_dims[0]/init_count*i))
         seed = net1_seed + i
 
-        modelspec = _fit_net(F, D, modelspec, seed, est['resp'].fs,
+        modelspec, net = _fit_net(F, D, modelspec, seed, est['resp'].fs,
                              train_val_test=train_val_test,
                              optimizer=optimizer, max_iter=800,
                              use_modelspec_init=use_modelspec_init)
 
-        new_est = modelspec.evaluate(new_est)
+        try:
+            new_est = modelspec.evaluate(new_est)
+        except:
+            import pdb
+            pdb.set_trace()
+
         r_fit[i], se_fit = nmet.j_corrcoef(new_est, 'pred', 'resp')
         log.info('r_fit this iteration (%d/%d): %s', i+1, init_count, r_fit[i])
         nems.utils.progress_fun()
@@ -360,7 +380,7 @@ def fit_tf(est=None, modelspec=None,
     train_val_test[val_n:] = 1
     train_val_test = np.roll(train_val_test, int(data_dims[0]/init_count*ibest))
     seed = net1_seed + ibest
-    modelspec = _fit_net(F, D, modelspec, seed, est['resp'].fs,
+    modelspec, net = _fit_net(F, D, modelspec, seed, est['resp'].fs,
                          train_val_test=train_val_test,
                          optimizer=optimizer, max_iter=max_iter,
                          use_modelspec_init=True)
