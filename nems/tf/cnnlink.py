@@ -345,7 +345,7 @@ def fit_tf(est=None, modelspec=None,
 
         modelspec, net = _fit_net(F, D, modelspec, seed, est['resp'].fs,
                              train_val_test=train_val_test,
-                             optimizer=optimizer, max_iter=800,
+                             optimizer=optimizer, max_iter=np.min([800,max_iter]),
                              use_modelspec_init=use_modelspec_init)
 
         try:

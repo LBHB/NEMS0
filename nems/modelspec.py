@@ -187,7 +187,7 @@ class ModelSpec:
             fit_index = self.fit_index
         m = self.copy(fit_index)
         packer, unpacker, bounds = simple_vector(m)
-        return unpacker(self)
+        return packer(self)
 
     def plot_fn(self, mod_index=None, plot_fn_idx=None, fit_index=None):
         """get function for plotting something about a module"""
