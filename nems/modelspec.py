@@ -7,6 +7,7 @@ import numpy as np
 import scipy.stats as st
 import nems.utils
 import nems.uri
+from nems.fitters.mappers import simple_vector
 import matplotlib.pyplot as plt
 
 # Functions for saving, loading, and evaluating modelspecs
@@ -175,6 +176,18 @@ class ModelSpec:
             return [m.get('phi') for m in self.raw[fit_index]]
         else:
             return self.raw[fit_index][mod_idx].get('phi')
+
+    @property
+    def phi_vector(self, fit_index=None):
+        """
+        :param fit_index: which model fit to use (default use self.fit_index
+        :return: vector of phi values from all modules
+        """
+        if fit_index is None:
+            fit_index = self.fit_index
+        m = self.copy(fit_index)
+        packer, unpacker, bounds = simple_vector(m)
+        return unpacker()
 
     def plot_fn(self, mod_index=None, plot_fn_idx=None, fit_index=None):
         """get function for plotting something about a module"""

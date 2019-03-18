@@ -99,7 +99,7 @@ xfspec.append(['nems.xforms.init_from_keywords', {}])
 
 #xfspec.append(['nems.xforms.fit_basic_init', {'tolerance': 1e-4}])
 #xfspec.append(['nems.tf.cnnlink.fit_tf', {'init_count': 1, 'max_iter': 1000, 'use_modelspec_init': True}])
-xfspec.append(['nems.tf.cnnlink.fit_tf', {'init_count': 10, 'max_iter': 200, 'use_modelspec_init': False}])
+xfspec.append(['nems.tf.cnnlink.fit_tf', {'init_count': 1, 'max_iter': 200, 'use_modelspec_init': False}])
 
 #xfspec.append(['nems.xforms.fit_basic', {}])
 # xfspec.append(['nems.xforms.fit_basic_shrink', {}])

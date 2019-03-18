@@ -1106,7 +1106,7 @@ def get_data_parms(rawid=None, parmfile=None):
     return d
 
 
-def batch_comp(batch=301, modelnames=None, cellids=['%'], stat='r_test'):
+def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test'):
     NarfResults = Tables()['NarfResults']
     if modelnames is None:
         modelnames = ['parm100pt_wcg02_fir15_pupgainctl_fit01_nested5',
@@ -1117,14 +1117,12 @@ def batch_comp(batch=301, modelnames=None, cellids=['%'], stat='r_test'):
     session = Session()
     results=None
     for mn in modelnames:
-        #     .filter(NarfResults.cellid.in_(cellids))
-        tr = psql.read_sql_query(
-                session.query(NarfResults)
-                .filter(NarfResults.batch == batch)
-                .filter(NarfResults.modelname == mn)
-                .statement,
-                session.bind
-                )
+        q = (session.query(NarfResults)
+             .filter(NarfResults.batch == batch)
+             .filter(NarfResults.modelname == mn))
+        if cellids is not None:
+            q = q.filter(NarfResults.cellid.in_(cellids))
+        tr = psql.read_sql_query(q.statement, session.bind)
         tc=tr[['cellid',stat]]
         tc=tc.set_index('cellid')
         tc.columns=[mn]

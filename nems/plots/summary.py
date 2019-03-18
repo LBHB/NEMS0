@@ -44,6 +44,31 @@ def perf_per_cell(modelspec, channels=0, ax=None, **options):
     return ax
 
 
+def pareto(d, modelnames=None, groupby="fir", ax=None, **options):
+
+    if ax is None:
+        ax = plt.gca()
+
+    parm_count = d['parm_count']
+    if modelnames is None:
+        modelnames = d.columns
+
+    del d['parm_count']
+
+    mean_score = d.mean()
+
+    ax.plot(parm_count, mean_score, '.')
+
+    #ax.text(0.1+hoffset, 0.1,
+    #        'mean r={:.3f}'.format(np.mean(modelspec.meta['r_test'])))
+    #ax.text(channels+0.1, modelspec.meta['r_test'][channels],
+    #        '{:.3f}'.format(modelspec.meta['r_test'][channels]))
+
+    ax_remove_box(ax)
+
+    return ax
+
+
 def plot_summary(rec, modelspecs, stimidx=0):
     '''
     Plots a summary of the modelspecs and their performance predicting on rec.

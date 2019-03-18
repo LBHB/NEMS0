@@ -393,8 +393,7 @@ def fit_tf(est=None, modelspec=None,
     elapsed_time = (time.time() - start_time)
     modelspec.meta['fitter'] = 'fit_tf'
     modelspec.meta['fit_time'] = elapsed_time
-    # ms.set_modelspec_metadata(modelspec, 'n_parms',
-    #                           len(improved_sigma))
+    modelspec.meta['n_parms'] = len(modelspec.phi_vector)
 
     #import pdb
     #pdb.set_trace()
