@@ -33,6 +33,16 @@ class NemsCanvas(FigureCanvas):
         self.axes.spines['bottom'].set_visible(False)
         self.axes.spines['left'].set_visible(False)
 
+
+class ComparisonCanvas(NemsCanvas):
+    def __init__(self, signals, names, parent=None, *args, **kwargs):
+        NemsCanvas.__init__(self, *args, **kwargs)
+        plt.sca(self.axes)
+        for s in signals:
+            plt.plot(s)
+        plt.legend(names)
+
+
 class EpochCanvas(NemsCanvas):
 
     def __init__(self, recording=None, signal='stim', parent=None,

@@ -28,6 +28,7 @@ import scipy.ndimage.filters as sf
 import nems_lbhb.plots as lplt
 import nems.gui.recording_browser as browser
 import nems.gui.editors as editor
+import nems.gui.model_comparison as comparison
 from configparser import ConfigParser
 import nems
 
@@ -232,6 +233,11 @@ class model_browser(qw.QWidget):
         vLayout.addWidget(self.modelBtn)
         self.modelBtn.setMaximumWidth(150)
 
+        self.compareBtn = qw.QPushButton("Compare models", self)
+        self.compareBtn.clicked.connect(self.compare_models)
+        vLayout.addWidget(self.compareBtn)
+        self.compareBtn.setMaximumWidth(150)
+
         hLayout2.addLayout(formLayout)
         hLayout2.addLayout(vLayout)
         vLayout2.addLayout(hLayout1)
@@ -419,6 +425,14 @@ class model_browser(qw.QWidget):
                                  ctx=ctx, parent=self)
         self.ex.show()
         #nplt.quickplot(ctx)
+
+    def compare_models(self):
+        models = self._selected_modelnames()
+        cells = self._selected_cells()
+        batch = self.batch
+
+        self.cx = comparison.ComparisonWidget(batch, cells, models, parent=self)
+        self.cx.show()
 
 
 def view_model_recording(cellid="TAR010c-18-2", batch=289,
