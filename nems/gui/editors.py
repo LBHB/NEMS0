@@ -167,8 +167,8 @@ class EditorWindow(qw.QMainWindow):
             modelspec = ctx.get('modelspec', None)
         if (rec is None) and (ctx is not None):
             rec = ctx.get(rec_name, None)
-        self.title = modelspec.meta['modelname']
         self.editor = EditorWidget(modelspec, xfspec, rec, ctx, self)
+        self.title = 'NEMS Model Browser'
         self.setCentralWidget(self.editor)
         self.setWindowTitle(self.title)
         self.show()
@@ -200,12 +200,17 @@ class EditorWidget(qw.QWidget):
         self.rec = rec
         self.rec=self.rec.apply_mask(reset_epochs=True)
         self.modelspec.recording=self.rec
+        if ctx is not None:
+            meta = ctx['modelspec'].meta
+            modelname = meta['modelname']
+            batch = meta['batch']
+            cellid = meta['cellid']
+            self.title = "%s  ||  %s  ||  %s  " % (modelname, cellid, batch)
         if ctx is None:
             self.ctx = {}
         else:
             self.ctx = ctx
 
-        self.title = 'NEMS Model Browser'
         # By default, start with xfspec steps hidden but all other
         # controls showing.
         self.modules_collapsed = False
