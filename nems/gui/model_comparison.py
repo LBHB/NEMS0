@@ -65,9 +65,14 @@ class ComparisonWidget(qw.QWidget):
         for c in cellids:
             cell_contexts = {}
             for m in modelnames:
-                filepath = d[d.cellid == c][d.modelname == m]['modelpath'].values[0] + '/'
-                xfspec, ctx = xforms.load_analysis(filepath, eval_model=True)
-                cell_contexts[m] = ctx
+                try:
+                    filepath = d[d.cellid == c][d.modelname == m]['modelpath'].values[0] + '/'
+                    xfspec, ctx = xforms.load_analysis(filepath, eval_model=True)
+                    cell_contexts[m] = ctx
+                except IndexError:
+                    print("Coudln't find modelpath for cell: %s model: %s"
+                          % (c, m))
+                    pass
             contexts[c] = cell_contexts
         self.contexts = contexts
         self.batch = batch
@@ -82,13 +87,19 @@ class ComparisonWidget(qw.QWidget):
         for k, v in self.contexts.items():
             names = list(v.keys())
             names.insert(0, 'Response')
-            signals = [v[m]['val']['pred'].as_continuous().T for m in v]
-            resp = v[m]['val']['resp']
-            times = np.linspace(0, resp.shape[-1] / resp.fs, resp.shape[-1])
-            signals.insert(0, resp.as_continuous().T)
-            tab = ComparisonFrame(signals, names, times, self)
-            self.comparison_tabs.append(tab)
-            self.tabs.addTab(tab, k)
+            signals = []
+            for i, m in enumerate(v):
+                if i == 0:
+                    resp = resp = v[list(v.keys())[0]]['val']['resp']
+                    times = np.linspace(0, resp.shape[-1] / resp.fs, resp.shape[-1])
+                    signals.append(resp.as_continuous().T)
+                signals.append(v[m]['val']['pred'].as_continuous().T)
+            if signals:
+                tab = ComparisonFrame(signals, names, times, self)
+                self.comparison_tabs.append(tab)
+                self.tabs.addTab(tab, k)
+            else:
+                pass
 
         self.time_scroller._update_max_time()
 
