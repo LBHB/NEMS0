@@ -15,7 +15,21 @@ def get_zi(b, x):
     return scipy.signal.lfilter(b, [1], null_data, zi=zi)[1]
 
 
-def per_channel(x, coefficients, bank_count=1):
+def _insert_zeros(coefficients, rate=1):
+    if rate<=1:
+        return coefficients
+
+    d1 = int(np.ceil((rate-1)/2))
+    d0 = int(rate-1-d1)
+    s = coefficients.shape
+    new_c = np.concatenate((np.zeros((s[0],s[1],d0)),
+                            np.expand_dims(coefficients, axis=2),
+                            np.zeros((s[0],s[1],d1))), axis=2)
+    new_c = np.reshape(new_c, (s[0],s[1]*rate))
+    return new_c
+
+
+def per_channel(x, coefficients, bank_count=1, rate=1):
     '''Private function used by fir_filter().
 
     Parameters
@@ -43,6 +57,9 @@ def per_channel(x, coefficients, bank_count=1):
     # provided (we have a separate filter for each channel). The `zip` function
     # doesn't require the iterables to be the same length.
     n_in = len(x)
+    if rate > 1:
+        coefficients = _insert_zeros(coefficients, rate)
+        print(coefficients)
     n_filters = len(coefficients)
     n_banks = int(n_filters / bank_count)
     if n_filters == n_in:
@@ -78,7 +95,7 @@ def per_channel(x, coefficients, bank_count=1):
     return out
 
 
-def basic(rec, i='pred', o='pred', coefficients=[]):
+def basic(rec, i='pred', o='pred', coefficients=[], rate=1):
     """
     apply fir filters of the same size in parallel. convolve in time, then
     sum across channels
@@ -94,7 +111,7 @@ def basic(rec, i='pred', o='pred', coefficients=[]):
         nems signal in 'o' will be 1 x time singal (single channel)
     """
 
-    fn = lambda x: per_channel(x, coefficients)
+    fn = lambda x: per_channel(x, coefficients, rate=1)
     return [rec[i].transform(fn, o)]
 
 
@@ -120,7 +137,7 @@ def pz_coefficients(poles=None, zeros=None, delays=None,
 
 
 def pole_zero(rec, i='pred', o='pred', poles=None, zeros=None, delays=None,
-              gains=None, n_coefs=10):
+              gains=None, n_coefs=10, rate=1):
     """
     apply pole_zero -defined filter
     generate impulse response and then call as if basic fir filter
@@ -135,7 +152,7 @@ def pole_zero(rec, i='pred', o='pred', poles=None, zeros=None, delays=None,
     coefficients = pz_coefficients(poles=poles, zeros=zeros, delays=delays,
                                    gains=gains, n_coefs=n_coefs, fs=rec[i].fs)
 
-    fn = lambda x: per_channel(x, coefficients)
+    fn = lambda x: per_channel(x, coefficients, rate=1)
     return [rec[i].transform(fn, o)]
 
 def fir_dexp_coefficients(phi=None, n_coefs=20):
@@ -166,7 +183,7 @@ def fir_dexp_coefficients(phi=None, n_coefs=20):
     return coefs
 
 
-def fir_dexp(rec, i='pred', o='pred', phi=None, n_coefs=10):
+def fir_dexp(rec, i='pred', o='pred', phi=None, n_coefs=10, rate=1):
     """
     apply pole_zero -defined filter
     generate impulse response and then call as if basic fir filter
@@ -180,11 +197,11 @@ def fir_dexp(rec, i='pred', o='pred', phi=None, n_coefs=10):
 
     coefficients = fir_dexp_coefficients(phi, n_coefs)
 
-    fn = lambda x: per_channel(x, coefficients)
+    fn = lambda x: per_channel(x, coefficients, rate=1)
     return [rec[i].transform(fn, o)]
 
 
-def filter_bank(rec, i='pred', o='pred', coefficients=[], bank_count=1):
+def filter_bank(rec, i='pred', o='pred', coefficients=[], bank_count=1, rate=1):
     """
     apply multiple basic fir filters of the same size in parallel, producing
     one output channel per filter.
@@ -206,7 +223,7 @@ def filter_bank(rec, i='pred', o='pred', coefficients=[], bank_count=1):
     TODO: test, optimize. maybe structure coefficients more logically?
     """
 
-    fn = lambda x: per_channel(x, coefficients, bank_count)
+    fn = lambda x: per_channel(x, coefficients, bank_count, rate=rate)
     return [rec[i].transform(fn, o)]
 
 
@@ -224,7 +241,7 @@ def fir_exp_coefficients(tau, a=1, b=0, n_coefs=15):
     return coefs
 
 
-def fir_exp(rec, tau, a=1, b=0, i='pred', o='pred', n_coefs=15):
+def fir_exp(rec, tau, a=1, b=0, i='pred', o='pred', n_coefs=15, rate=1):
     '''
     Calculate coefficients based on three-parameter exponential equation
     y = a*e^(-x/tau) + b,
@@ -232,5 +249,5 @@ def fir_exp(rec, tau, a=1, b=0, i='pred', o='pred', n_coefs=15):
 
     '''
     coefficients = fir_exp_coefficients(tau, a, b, n_coefs)
-    fn = lambda x: per_channel(x, coefficients)
+    fn = lambda x: per_channel(x, coefficients, rate=rate)
     return [rec[i].transform(fn, o)]

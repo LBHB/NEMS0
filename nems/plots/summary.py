@@ -13,6 +13,7 @@ from nems.plots.timeseries import timeseries_from_epoch
 from nems.plots.histogram import pred_error_hist
 import nems.modelspec as ms
 from nems.plots.utils import ax_remove_box
+import re
 
 log = logging.getLogger(__name__)
 
@@ -44,20 +45,26 @@ def perf_per_cell(modelspec, channels=0, ax=None, **options):
     return ax
 
 
-def pareto(d, modelnames=None, groupby="fir", ax=None, **options):
+def pareto(d, modelnames=None, groups=None, ax=None, **options):
 
     if ax is None:
         ax = plt.gca()
 
-    parm_count = d['parm_count']
+    n_parms = d.loc['n_parms']
     if modelnames is None:
         modelnames = d.columns
 
-    del d['parm_count']
+    mean_score = d.drop(index='n_parms').mean()
 
-    mean_score = d.mean()
+    for g in groups:
+        r = re.compile(g)
+        m = [i for i in mean_score.index if r.match(i)]
+        xc = np.array([mean_score.loc[i] for i in m])
+        n = np.array([n_parms[i] for i in m])
+        xc = xc[np.argsort(n)]
+        n = np.sort(n)
 
-    ax.plot(parm_count, mean_score, '.')
+        ax.plot(n, xc, '-')
 
     #ax.text(0.1+hoffset, 0.1,
     #        'mean r={:.3f}'.format(np.mean(modelspec.meta['r_test'])))

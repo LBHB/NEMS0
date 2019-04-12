@@ -82,17 +82,26 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
         s = None
         g = None
         d = None
+        sp = None
         for m in modelspec:
-            if 'state_dc_gain' in m['fn']:
+            if ('state_dc_gain' in m['fn']):
                 g = np.array(m['phi']['g'])
                 d = np.array(m['phi']['d'])
-                if len(g) < 10:
-                    s = ",".join(rec["state"].chans)
-                    g_string = np.array2string(g, precision=3)
-                    d_string = np.array2string(d, precision=3)
-                    s += " g={} d={} ".format(g_string, d_string)
-                else:
-                    s = None
+            elif ('state_sp_dc_gain' in m['fn']):
+                g = np.array(m['phi']['g'])
+                d = np.array(m['phi']['d'])
+                sp = np.array(m['phi']['sp'])
+            elif ('state_gain' in m['fn']):
+                g = np.array(m['phi']['g'])
+
+        if g is not None:
+            if len(g) < 10:
+                s = ",".join(rec["state"].chans)
+                g_string = np.array2string(g, precision=3)
+                d_string = np.array2string(d, precision=3)
+                s += " g={} d={} ".format(g_string, d_string)
+            else:
+                s = None
 
         num_vars = rec['state'].shape[0]
         ts = rec['state'].as_continuous().copy()
@@ -117,7 +126,14 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
             else:
                 # non-binary variable, plot in own row
                 # figure out gain
-                if g is not None:
+                if sp is not None:
+                    if g.ndim == 1:
+                        tstr = "{} (sp={:.3f},d={:.3f},g={:.3f})".format(
+                                rec['state'].chans[i], sp[i], d[i], g[i])
+                    else:
+                        tstr = "{} (sp={:.3f},d={:.3f},g={:.3f})".format(
+                                rec['state'].chans[i], sp[0, i], d[0, i], g[0, i])
+                elif g is not None:
                     if g.ndim == 1:
                         tstr = "{} (d={:.3f},g={:.3f})".format(
                                 rec['state'].chans[i], d[i], g[i])

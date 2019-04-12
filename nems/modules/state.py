@@ -41,6 +41,27 @@ def state_gain(rec, i='pred', o='pred', s='state', g=None):
     return [rec[i].transform(fn, o)]
 
 
+def state_sp_dc_gain(rec, i='pred', o='pred', s='state', g=None, d=0, sp=0):
+    '''
+    Linear spont/DC/gain for each state applied to each predicted channel
+
+    Parameters
+    ----------
+    i name of input
+    o name of output signal
+    s name of state signal
+    g - gain to scale s by
+    d - dc to offset by
+    sp - spont to offset by
+    '''
+
+    fn = lambda x: np.matmul(g, rec[s]._data * rec['sp_mask']._data) * x + \
+                   np.matmul(d, rec[s]._data* rec['ev_mask']._data) + \
+                   np.matmul(sp, rec[s]._data* rec['sp_mask']._data)
+
+    return [rec[i].transform(fn, o)]
+
+
 def state_segmented(rec, i='pred', o='pred', s='state'):
     '''
     2-segment linear DC/gain for each state applied to each predicted channel

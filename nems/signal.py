@@ -710,7 +710,7 @@ class SignalBase:
             raise RuntimeError('Invalid epoch passed to generate_epoch_mask')
         return mask
 
-    def epoch_to_signal(self, epoch, indices=None, boundary_mode='exclude',
+    def epoch_to_signal(self, epoch='epoch', indices=None, boundary_mode='exclude',
                         fix_overlap=None, onsets_only=False, shift=0,
                         point_process=False):
         '''

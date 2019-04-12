@@ -80,6 +80,7 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
             if 'filter_bank' in m['fn']:
                 bank_count = m['fn_kwargs']['bank_count']
                 layer['n_kern'] = bank_count
+                layer['rate'] = m['fn_kwargs'].get('rate', 1)
 
                 if True:
                     # temporary testing
@@ -101,7 +102,10 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
                 chan_count = int(c.shape[1]/bank_count)
                 c = np.reshape(c, (c.shape[0], chan_count, bank_count))
 
-            if use_modelspec_init:
+            if use_modelspec_init & (np.sum(np.abs(c))>0):
+                layer['init_W'] = c
+            elif use_modelspec_init:
+                c[0, 0, :, :]=1
                 layer['init_W'] = c
 
             layers.append(layer)
@@ -345,7 +349,7 @@ def fit_tf(est=None, modelspec=None,
 
         modelspec, net = _fit_net(F, D, modelspec, seed, est['resp'].fs,
                              train_val_test=train_val_test,
-                             optimizer=optimizer, max_iter=np.min([800,max_iter]),
+                             optimizer=optimizer, max_iter=np.min([500, max_iter]),
                              use_modelspec_init=use_modelspec_init)
 
         try:
@@ -357,7 +361,8 @@ def fit_tf(est=None, modelspec=None,
         r_fit[i], se_fit = nmet.j_corrcoef(new_est, 'pred', 'resp')
         log.info('r_fit this iteration (%d/%d): %s', i+1, init_count, r_fit[i])
         nems.utils.progress_fun()
-        log.info(modelspec.phi)
+        #log.info(modelspec.phi)
+        
         #import matplotlib.pyplot as plt
         #y = net2.predict(F)
         #plt.figure()
@@ -374,7 +379,8 @@ def fit_tf(est=None, modelspec=None,
     modelspec = modelspec.copy(fit_index=ibest)
 
     # now continue fitting the best model!
-    log.info('Now running final fit on best pre-fit')
+    log.info('Now running final fit on best pre-fit. Pre phi:')
+    log.info(modelspec.phi)
     train_val_test = np.zeros(data_dims[0])
     val_n = int(0.9 * data_dims[0])
     train_val_test[val_n:] = 1
@@ -386,6 +392,8 @@ def fit_tf(est=None, modelspec=None,
                          use_modelspec_init=True)
     new_est = modelspec.evaluate(new_est)
     r_fit_final, se_fit = nmet.j_corrcoef(new_est, 'pred', 'resp')
+    log.info('Final phi:')
+    log.info(modelspec.phi)
     log.info('r_fit_final: %s', r_fit_final)
 
     nems.utils.progress_fun()

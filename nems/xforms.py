@@ -436,14 +436,15 @@ def remove_all_but_correct_references(rec, **context):
 
 
 def mask_all_but_correct_references(rec, balance_rep_count=False,
-                                    include_incorrect=False, **context):
+                                    include_incorrect=False, generate_evoked_mask=False,
+                                    **context):
     '''
     find REFERENCE epochs spanned by either PASSIVE_EXPERIMENT or
     HIT_TRIAL epochs. mask out all other segments from signals in rec
     '''
     rec = preproc.mask_all_but_correct_references(
             rec, balance_rep_count=balance_rep_count,
-            include_incorrect=include_incorrect)
+            include_incorrect=include_incorrect, generate_evoked_mask=generate_evoked_mask)
 
     return {'rec': rec}
 

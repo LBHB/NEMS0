@@ -94,7 +94,7 @@ def progress_fun():
     pass
 
 
-def find_module(query, modelspec, find_all_matches=False, key='fn'):
+def find_module(query: object, modelspec: object, find_all_matches: object = False, key: object = 'fn') -> object:
     """
     name : string
     modelspec : NEMS modelspec (list of dictionaries)

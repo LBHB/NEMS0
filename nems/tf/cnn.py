@@ -232,9 +232,10 @@ class Net:
                 log.info('Adding conv_bank (alt) layer')
                 # split inputs into the different kernels
                 n_input_chans = int(n_input_feats / self.layers[i]['n_kern'])
+                rate = self.layers[i].get('rate', 1)
 
                 # pad input to ensure causality, insert placeholder dim on axis=1
-                pad_size = np.int32(self.layers[i]['time_win_smp'] - 1)
+                pad_size = np.int32((self.layers[i]['time_win_smp']-1)*rate)
                 X_pad = tf.expand_dims(tf.pad(X, [[0, 0], [pad_size,0], [0, 0]]), 1)
 
                 if self.layers[i].get('init_W', None) is not None:
@@ -254,8 +255,8 @@ class Net:
                 #import pdb
                 #pdb.set_trace()
 
-                tY = tf.squeeze(
-                    tf.nn.depthwise_conv2d(X_pad, self.layers[i]['W'], strides=[1, 1, 1, 1], padding='VALID'),
+                tY = tf.squeeze(tf.nn.depthwise_conv2d(
+                    X_pad, self.layers[i]['W'], strides=[1, 1, 1, 1], padding='VALID', rate=[1, rate]),
                     axis=1)
 
                 log.info("tY shape: %s", tY.shape)

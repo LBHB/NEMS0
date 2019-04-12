@@ -44,7 +44,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
             kw_old = kw
             kw = kw.replace("stategain.N", "stategain.{}".format(N))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
-        elif (kw.endswith(".S") or ".Sx" in kw) and (rec is not None):
+        elif (".S" in kw or ".Sx" in kw) and (rec is not None):
             S = rec['state'].nchans
             kw_old = kw
             kw = kw.replace(".S", ".{}".format(S))

@@ -219,14 +219,13 @@ def remove_invalid_segments(rec):
 
 
 def mask_all_but_correct_references(rec, balance_rep_count=False,
-                                    include_incorrect=False):
+                                    include_incorrect=False, generate_evoked_mask=False):
     """
     Specialized function for removing incorrect trials from data
     collected using baphy during behavior.
 
     TODO: Migrate to nems_lbhb and/or make a more generic version
     """
-
     newrec = rec.copy()
     newrec['resp'] = newrec['resp'].rasterize()
     if 'stim' in newrec.signals.keys():
@@ -304,6 +303,24 @@ def mask_all_but_correct_references(rec, balance_rep_count=False,
                 str[i, mask] /= sd
         newrec['state'] = newrec['state']._modified_copy(st)
         newrec['state_raw'] = newrec['state_raw']._modified_copy(str)
+
+    if generate_evoked_mask:
+        mask = newrec['mask'].as_continuous().copy()
+        padbins=int(np.round(newrec['resp'].fs * 0.1))
+
+        preidx = resp.get_epoch_indices('PreStimSilence', mask=newrec['mask'])
+        posidx = resp.get_epoch_indices('PostStimSilence', mask=newrec['mask'])
+        for i,p in enumerate(posidx):
+            posidx[i]=(p[0]+padbins, p[1])
+
+        post_mask = newrec['resp'].epoch_to_signal(indices=posidx)
+        pre_mask = newrec['resp'].epoch_to_signal(indices=preidx)
+        #mask[post_mask.as_continuous()] = False
+        ev_mask = mask.copy()
+        ev_mask[pre_mask.as_continuous()] = False
+        ev_mask[post_mask.as_continuous()] = False
+        newrec['sp_mask'] = newrec['mask']._modified_copy(data=mask)
+        newrec['ev_mask'] = newrec['mask']._modified_copy(data=ev_mask)
 
     return newrec
 
@@ -777,7 +794,8 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
 
     # normalize mean/std of pupil trace if being used
     if ('pupil' in state_signals) or ('pupil2' in state_signals) or \
-        ('pupil_ev' in state_signals) or ('pupil_bs' in state_signals):
+        ('pupil_ev' in state_signals) or ('pupil_bs' in state_signals) or \
+        ('pupil_stim' in state_signals):
         # save raw pupil trace
         newrec["pupil_raw"] = newrec["pupil"].copy()
         # normalize min-max
@@ -837,7 +855,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         newrec['pupil_ev'].chans=['pupil_ev']
         newrec['pupil_bs'] = newrec["pupil"].replace_epoch('TRIAL', pupil_bs)
         newrec['pupil_bs'].chans=['pupil_bs']
-
+        
     if ('each_passive' in state_signals):
         file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
         pset = []

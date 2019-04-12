@@ -218,11 +218,14 @@ def fir(kw):
     else:
         p_coefficients['mean'][:, 0] = 1
 
+    rate = 1
     for op in ops:
         if op == 'fl':
             p_coefficients['mean'][:] = 1/(n_outputs*n_coefs)
         elif op == 'z':
             p_coefficients['mean'][:] = 0
+        elif op.startswith('r'):
+            rate = int(op[1:])
 
     if n_banks is None:
         template = {
@@ -253,6 +256,8 @@ def fir(kw):
                 'coefficients': ('Normal', p_coefficients),
             }
         }
+    if rate > 1:
+        template['fn_kwargs']['rate'] = rate
 
     return template
 
@@ -932,9 +937,12 @@ def stategain(kw):
                          "keyword given: %s" % kw)
 
     gain_only=False
+    include_spont=False
     for op in options[2:]:
         if op == 'g':
             gain_only=True
+        if op == 's':
+            include_spont=True
 
     zeros = np.zeros([n_chans, n_vars])
     ones = np.ones([n_chans, n_vars])
@@ -959,6 +967,18 @@ def stategain(kw):
             'plot_fns': plot_fns,
             'plot_fn_idx': 4,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd})}
+            }
+    elif include_spont:
+        template = {
+           'fn': 'nems.modules.state.state_sp_dc_gain',
+            'fn_kwargs': {'i': 'pred',
+                          'o': 'pred',
+                          's': 'state'},
+            'plot_fns': plot_fns,
+            'plot_fn_idx': 4,
+            'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
+                      'd': ('Normal', {'mean': d_mean, 'sd': d_sd}),
+                      'sp': ('Normal', {'mean': d_mean, 'sd': d_sd})}
             }
     else:
         template = {
