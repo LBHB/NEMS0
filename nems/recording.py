@@ -621,7 +621,8 @@ class Recording:
 
         elif len(groups)==1:
             k = list(groups.keys())[0]
-            g1 = groups[k]
+            g1 = groups[k].copy()
+            g1.sort()
             n = len(g1)
             vset = np.int(np.floor(n*0.8))
 
