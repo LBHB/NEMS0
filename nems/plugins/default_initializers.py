@@ -33,8 +33,7 @@ def init(kw):
                kappa = np.log(2 / (np.std(pred)*3))
         For other nonlinearities, mode is not specified yet
     L2f : normalize fir (default false)
-    
-    
+
     TODO: Optimize more, make testbed to check how well future changes apply 
     to disparate datasets.
     

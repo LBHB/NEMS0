@@ -526,8 +526,9 @@ def stp(kw):
     z : Change prior conditions (see function body)
     b : Set bounds on 'tau' to be greater than or equal to 0
     n : Apply normalization
+    t : Threshold inputs to synapse
     '''
-    pattern = re.compile(r'^stp\.?(\d{1,})\.?([z,b,n,s,\.]*)$')
+    pattern = re.compile(r'^stp\.?(\d{1,})\.?([z,b,n,s,t,\.]*)$')
     parsed = re.match(pattern, kw)
     try:
         n_synapse = int(parsed.group(1))
@@ -539,19 +540,23 @@ def stp(kw):
     options = parsed.group(2).split('.')
 
     # Default values, may be overwritten by options
-    u_mean = [0.01]*n_synapse
-    tau_mean = [0.05]*n_synapse
+    u_mean = [0.01] * n_synapse
+    tau_mean = [0.05] * n_synapse
+    x0_mean = [0] * n_synapse
+
     normalize = False
     bounds = False
+    threshold = False
 
     for op in options:
         if op == 'z':
-            tau_mean = [0.01]*n_synapse
+            tau_mean = [0.01] * n_synapse
         elif op == 's':
-            u_mean = [0.1]*n_synapse
-            tau_mean = [0.05]*n_synapse
+            u_mean = [0.1] * n_synapse
         elif op == 'n':
             normalize = True
+        elif op == 't':
+            threshold = True
         elif op == 'b':
             bounds = True
 
@@ -585,6 +590,9 @@ def stp(kw):
 
     if bounds:
         template['bounds'] = {'tau': (0, None)}
+
+    if threshold:
+        template['prior']['x0'] = ('Normal', {'mean': x0_mean, 'sd': u_sd})
 
     return template
 

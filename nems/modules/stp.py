@@ -3,7 +3,7 @@ from numpy import exp
 from scipy.integrate import cumtrapz
 from scipy.signal import boxcar
 
-def short_term_plasticity(rec, i, o, u, tau, crosstalk=0, reset_signal=None):
+def short_term_plasticity(rec, i, o, u, tau, x0=None, crosstalk=0, reset_signal=None):
     '''
     STP applied to each input channel.
     parameterized by Markram-Todyks model:
@@ -16,24 +16,26 @@ def short_term_plasticity(rec, i, o, u, tau, crosstalk=0, reset_signal=None):
         if reset_signal in rec.signals.keys():
             r = rec[reset_signal].as_continuous()
 
-    fn = lambda x : _stp(x, u, tau, crosstalk, rec[i].fs, r)
+    fn = lambda x : _stp(x, u, tau, x0, crosstalk, rec[i].fs, r)
 
     return [rec[i].transform(fn, o)]
 
 
-def _stp(X, u, tau, crosstalk=0, fs=1, reset_signal=None):
+def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None):
     """
     STP core function
     """
     s = X.shape
     tstim = X.copy()
     tstim[np.isnan(tstim)] = 0
+    if x0 is not None:
+        tstim -= np.expand_dims(x0, axis=1)
+
     tstim[tstim < 0] = 0
 
     # TODO: deal with upper and lower bounds on dep and facilitation parms
     #       need to know something about magnitude of inputs???
-
-    # TODO: move bounds to fitter? slow
+    #       move bounds to fitter? slow
 
     # limits, assumes input (X) range is approximately -1 to +1
     ui = np.abs(u.copy())
@@ -63,8 +65,7 @@ def _stp(X, u, tau, crosstalk=0, fs=1, reset_signal=None):
     stim_out = tstim  # allocate scaling term
     alt=False
     for i in range(0, s[0]):
-        if reset_signal is not None:
-        #if False:
+        if alt and (reset_signal is not None):
 
             a = 1 / taui[i]
             x = ui[i] * tstim[i, :] / fs
@@ -123,8 +124,9 @@ def _stp(X, u, tau, crosstalk=0, fs=1, reset_signal=None):
                     # td = np.min([td, 1])
                     stim_out[i, tt] *= td
     if np.sum(np.isnan(stim_out)):
-        import pdb
-        pdb.set_trace()
+    #    import pdb
+    #    pdb.set_trace()
+        log.info('nan value in stp stim_out')
 
     # print("(u,tau)=({0},{1})".format(ui,taui))
 
