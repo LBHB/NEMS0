@@ -323,10 +323,13 @@ def normalize_stim(rec=None, sig='stim', norm_method='meanstd', **context):
 
 
 def init_from_keywords(keywordstring, meta={}, IsReload=False,
-                       registry=None, rec=None, **context):
+                       registry=None, rec=None, input_name='stim',
+                       output_name='resp', **context):
     if not IsReload:
         modelspec = init.from_keywords(keyword_string=keywordstring,
-                                       meta=meta, registry=registry, rec=rec)
+                                       meta=meta, registry=registry, rec=rec,
+                                       input_name=input_name,
+                                       output_name=output_name)
 
         return {'modelspec': modelspec}
     else:
@@ -636,7 +639,7 @@ def jack_subset(est, val, modelspec=None, IsReload=False,
 
 def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
                    IsReload=False, norm_fir=False, nl_kw={},
-                   jackknifed_fit=False, **context):
+                   jackknifed_fit=False, output_name='resp', **context):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
     local minima.
@@ -648,7 +651,7 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
     # only run if fitting
     if not IsReload:
         if isinstance(metric, str):
-            metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
+            metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
         else:
             metric_fn = metric
 
@@ -687,7 +690,7 @@ def _set_zero(x):
 
 def fit_state_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
                    IsReload=False, norm_fir=False, nl_kw = {},
-                   fit_sig='resp', **context):
+                   fit_sig='resp', output_name='resp', **context):
 
     '''
     Initialize modelspecs in an attempt to avoid getting stuck in
@@ -699,7 +702,7 @@ def fit_state_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
     assumption -- est['state'] signal is being used for merge
     '''
     if not IsReload:
-        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
+        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
 
         for i, d in enumerate(est.views()):
             log.info("Initializing modelspec %d/%d state-free",
@@ -756,11 +759,12 @@ def fit_state_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
 def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
               metric='nmse', IsReload=False, fitter='scipy_minimize',
               jackknifed_fit=False, random_sample_fit=False,
-              n_random_samples=0, random_fit_subset=None, **context):
+              n_random_samples=0, random_fit_subset=None,
+              output_name='resp', **context):
     ''' A basic fit that optimizes every input modelspec. '''
 
     if not IsReload:
-        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
+        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
         fitter_fn = getattr(nems.fitters.api, fitter)
         fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
 
@@ -797,10 +801,11 @@ def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
                     module_sets=None, invert=False, tolerances=[1e-4],
                     metric='nmse', fitter='scipy_minimize', fit_kwargs={},
                     jackknifed_fit=False, random_sample_fit=False,
-                    n_random_samples=0, random_fit_subset=None, **context):
+                    n_random_samples=0, random_fit_subset=None,
+                    output_name='resp', **context):
 
     fitter_fn = getattr(nems.fitters.api, fitter)
-    metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
+    metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
 
     if not IsReload:
         if jackknifed_fit:
@@ -836,7 +841,7 @@ def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
 def fit_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
               IsReload=False, metric='nmse', fitter='scipy_minimize',
               analysis='fit_basic', tolerances=None, module_sets=None,
-              tol_iter=100, fit_iter=20, **context):
+              tol_iter=100, fit_iter=20, output_name='resp', **context):
     ''' fitting n fold, one from each entry in est '''
     raise Warning("DEPRECATED?")
     if not IsReload:

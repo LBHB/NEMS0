@@ -56,7 +56,6 @@ def nmse(result, pred_name='pred', resp_name='resp'):
     #    return 1
     #X1 = X1[keepidx]
     #X2 = X2[keepidx]
-
     respstd = np.nanstd(X2)
     squared_errors = (X1-X2)**2
     mse = np.sqrt(np.nanmean(squared_errors))

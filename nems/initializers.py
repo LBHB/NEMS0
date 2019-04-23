@@ -19,7 +19,9 @@ default_kws.register_module(default_keywords)
 default_kws.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
 
-def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_mean_prior=True):
+def from_keywords(keyword_string, registry=None, rec=None, meta={},
+                  init_phi_to_mean_prior=True, input_name='stim',
+                  output_name='resp'):
     '''
     Returns a modelspec created by splitting keyword_string on underscores
     and replacing each keyword with what is found in the nems.keywords.defaults
@@ -35,7 +37,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
     modelspec = ms.ModelSpec()
     for kw in keywords:
         if kw.startswith("fir.Nx") and (rec is not None):
-            N = rec['stim'].nchans
+            N = rec[input_name].nchans
             kw_old = kw
             kw = kw.replace("fir.N", "fir.{}".format(N))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
@@ -51,19 +53,19 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
         elif kw.endswith(".N") and (rec is not None):
-            N = rec['stim'].nchans
+            N = rec[input_name].nchans
             kw_old = kw
             kw = kw.replace(".N", ".{}".format(N))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
         elif kw.endswith(".R") and (rec is not None):
-            R = rec['resp'].nchans
+            R = rec[output_name].nchans
             kw_old = kw
             kw = kw.replace(".R", ".{}".format(R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
         elif ("xR" in kw) and (rec is not None):
-            R = rec['resp'].nchans
+            R = rec[output_name].nchans
             kw_old = kw
             kw = kw.replace("xR", "x{}".format(R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
@@ -93,7 +95,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, init_phi_to_
             if 'state' in modelspec[i]['fn']:
                 modelspec[i]['fn_kwargs']['i'] = 'psth'
             else:
-                modelspec[i]['fn_kwargs']['i'] = 'stim'
+                modelspec[i]['fn_kwargs']['i'] = input_name
 
         # if correction is not in first module, then assume the modelspec can handle things?
         # fix for BNB's RDT model
@@ -268,13 +270,14 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
 
         elif ('levelshift' in m['fn']):
             #m = priors.set_mean_phi([m])[0]
+            output_name = modelspec.meta.get('output_name', 'resp')
             try:
-                mean_resp = np.nanmean(rec['resp'].as_continuous(), axis=1, keepdims=True)
+                mean_resp = np.nanmean(rec[output_name].as_continuous(), axis=1, keepdims=True)
             except NotImplementedError:
-                # as_continous only available for RasterizedSignal
-                mean_resp = np.nanmean(rec['resp'].rasterize().as_continuous(), axis=1, keepdims=True)
-            log.info('Mod %d (%s) fixing level to response mean %.3f',
-                     i, m['fn'], mean_resp[0])
+                # as_continuous only available for RasterizedSignal
+                mean_resp = np.nanmean(rec[output_name].rasterize().as_continuous(), axis=1, keepdims=True)
+            log.info('Mod %d (%s) fixing level to %s mean %.3f',
+                     i, m['fn'], output_name, mean_resp[0])
             log.info('resp has %d channels', len(mean_resp))
             m['phi']['level'][:] = mean_resp
 
