@@ -116,6 +116,23 @@ class ModelSpec:
             mod_index = self.mod_index
         return self.raw[self.fit_index][mod_index]
 
+    def drop_module(self, mod_index=None, in_place=False):
+        if mod_index is None:
+            mod_index = self.mod_index
+
+        if in_place:
+            for fit in self.raw:
+                del fit[mod_index]
+            return None
+
+        else:
+            raw_copy = copy.deepcopy(self.raw)
+            for fit in raw_copy:
+                del fit[mod_index]
+            new_spec = ModelSpec(raw_copy)
+            new_spec.recording = self.recording
+            return new_spec
+
     @property
     def modules(self):
         return self.raw[self.fit_index]

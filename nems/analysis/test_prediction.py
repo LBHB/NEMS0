@@ -1,11 +1,17 @@
 # For testing the predcitive accuracy of a set of modelspecs
 import numpy as np
 import copy
+import logging
 
 import nems.modelspec as ms
 import nems.metrics.api as nmet
-import nems.recording as recording
-from nems.utils import find_module
+from nems.analysis.cost_functions import basic_cost
+import nems.priors
+import nems.fitters.mappers
+import nems.segmentors
+import nems.utils
+
+log = logging.getLogger(__name__)
 
 
 def generate_prediction(est, val, modelspec, **context):
@@ -321,3 +327,33 @@ def standard_correlation_by_set(est, val, modelspecs):
         modelspecs[i][0]['meta']['ll_fit'] = ll_fit[i]
 
     return modelspecs
+
+
+def basic_error(data, modelspec, cost_function=None,
+                segmentor=nems.segmentors.use_all_data,
+                mapper=nems.fitters.mappers.simple_vector,
+                metric=lambda data: nmet.nmse(data, 'pred', 'resp')):
+    '''
+    Similar to fit_basic except that it just returns the error for the fitting
+    process instead of a modelspec. Intended to be called after a model
+    has already been fit.
+    '''
+    modelspec = copy.deepcopy(modelspec)
+    if cost_function is None:
+        # Use the cost function defined in this module by default
+        cost_function = basic_cost
+
+    # apply mask to remove invalid portions of signals and allow fit to
+    # only evaluate the model on the valid portion of the signals
+    if 'mask' in data.signals.keys():
+        log.info("Data len pre-mask: %d", data['mask'].shape[1])
+        data = data.apply_mask()
+        log.info("Data len post-mask: %d", data['mask'].shape[1])
+
+    packer, unpacker, pack_bounds = mapper(modelspec)
+    evaluator = nems.modelspec.evaluate
+    sigma = packer(modelspec)
+    error = cost_function(sigma, unpacker, modelspec, data, segmentor,
+                          evaluator, metric)
+
+    return error
