@@ -50,6 +50,9 @@ modelspecname = 'dlog-wc.55x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
 # modelspecname = 'wc.55x3-fir.3x5x18'
 # or 'fir.55x5x18'
 
+modelspecname = 'wc.55x3-fir.3x5x18'
+modelspecname = 'fir.55x5x18'
+
 meta = {'siteid': siteid, 'batch': batch, 'modelname': modelspecname,
         'recording': exptid, 'input_name': 'resp', 'output_name': 'stim'}
 
@@ -89,7 +92,8 @@ xfspec.append(['nems.xforms.fit_basic', {}])
 xfspec.append(['nems.xforms.predict', {}])
 # xfspec.append(['nems.xforms.add_summary_statistics',    {}])
 xfspec.append(['nems.analysis.api.standard_correlation', {},
-               ['est', 'val', 'modelspec', 'rec'], ['modelspec']])
+               ['est', 'val', 'modelspec', 'rec', 'output_name'],
+               ['modelspec']])
 
 # GENERATE PLOTS
 xfspec.append(['nems.xforms.plot_summary', {}])

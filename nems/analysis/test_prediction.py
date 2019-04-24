@@ -62,7 +62,7 @@ def generate_prediction(est, val, modelspec, **context):
 
 
 def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
-                         use_mask=True):
+                         output_name='resp', use_mask=True):
     # use_mask: mask before computing metrics (if mask exists)
     # Compute scores for validation dat
     r_ceiling = 0
@@ -93,22 +93,22 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
             e = est
             use_mask = False
 
-        r_test, se_test = nmet.j_corrcoef(v, 'pred', 'resp')
-        r_fit, se_fit = nmet.j_corrcoef(e, 'pred', 'resp')
-        r_floor = nmet.r_floor(v, 'pred', 'resp')
+        r_test, se_test = nmet.j_corrcoef(v, 'pred', output_name)
+        r_fit, se_fit = nmet.j_corrcoef(e, 'pred', output_name)
+        r_floor = nmet.r_floor(v, 'pred', output_name)
         if rec is not None:
             if 'mask' in rec.signals.keys() and use_mask:
                 r = rec.apply_mask()
             else:
                 r = rec
             # print('running r_ceiling')
-            r_ceiling = nmet.r_ceiling(v, r, 'pred', 'resp')
+            r_ceiling = nmet.r_ceiling(v, r, 'pred', output_name)
 
-        mse_test, se_mse_test = nmet.j_nmse(v, 'pred', 'resp')
-        mse_fit, se_mse_fit = nmet.j_nmse(e, 'pred', 'resp')
+        mse_test, se_mse_test = nmet.j_nmse(v, 'pred', output_name)
+        mse_fit, se_mse_fit = nmet.j_nmse(e, 'pred', output_name)
 
-        ll_test = nmet.likelihood_poisson(v, 'pred', 'resp')
-        ll_fit = nmet.likelihood_poisson(e, 'pred', 'resp')
+        ll_test = nmet.likelihood_poisson(v, 'pred', output_name)
+        ll_fit = nmet.likelihood_poisson(e, 'pred', output_name)
 
     elif len(val) == 1:
         # does this ever run?
@@ -120,47 +120,47 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
             v = val[0]
             e = est[0]
 
-        r_test, se_test = nmet.j_corrcoef(v, 'pred', 'resp')
-        r_fit, se_fit = nmet.j_corrcoef(e, 'pred', 'resp')
-        r_floor = nmet.r_floor(v, 'pred', 'resp')
+        r_test, se_test = nmet.j_corrcoef(v, 'pred', output_name)
+        r_fit, se_fit = nmet.j_corrcoef(e, 'pred', output_name)
+        r_floor = nmet.r_floor(v, 'pred', output_name)
         if rec is not None:
             try:
                 # print('running r_ceiling')
-                r_ceiling = nmet.r_ceiling(v, rec, 'pred', 'resp')
+                r_ceiling = nmet.r_ceiling(v, rec, 'pred', output_name)
             except:
                 r_ceiling = 0
 
-        mse_test, se_mse_test = nmet.j_nmse(v, 'pred', 'resp')
-        mse_fit, se_mse_fit = nmet.j_nmse(e, 'pred', 'resp')
+        mse_test, se_mse_test = nmet.j_nmse(v, 'pred', output_name)
+        mse_fit, se_mse_fit = nmet.j_nmse(e, 'pred', output_name)
 
-        ll_test = nmet.likelihood_poisson(v, 'pred', 'resp')
-        ll_fit = nmet.likelihood_poisson(e, 'pred', 'resp')
+        ll_test = nmet.likelihood_poisson(v, 'pred', output_name)
+        ll_fit = nmet.likelihood_poisson(e, 'pred', output_name)
 
     else:
         # unclear if this ever excutes since jackknifed val sets are
         # typically already merged
         raise ValueError("no support for val list of recordings len>1")
-        r = [nmet.corrcoef(p, 'pred', 'resp') for p in val]
+        r = [nmet.corrcoef(p, 'pred', output_name) for p in val]
         r_test = np.mean(r)
         se_test = np.std(r) / np.sqrt(len(val))
-        r = [nmet.corrcoef(p, 'pred', 'resp') for p in est]
+        r = [nmet.corrcoef(p, 'pred', output_name) for p in est]
         r_fit = np.mean(r)
         se_fit = np.std(r) / np.sqrt(len(val))
-        r_floor = [nmet.r_floor(p, 'pred', 'resp') for p in val]
+        r_floor = [nmet.r_floor(p, 'pred', output_name) for p in val]
 
         # TODO compute r_ceiling for multiple val sets
         r_ceiling = 0
 
-        mse_test = [nmet.nmse(p, 'pred', 'resp') for p in val]
-        mse_fit = [nmet.nmse(p, 'pred', 'resp') for p in est]
+        mse_test = [nmet.nmse(p, 'pred', output_name) for p in val]
+        mse_fit = [nmet.nmse(p, 'pred', output_name) for p in est]
 
         se_mse_test = np.std(mse_test) / np.sqrt(len(val))
         se_mse_fit = np.std(mse_fit) / np.sqrt(len(est))
         mse_test = np.mean(mse_test)
         mse_fit = np.mean(mse_fit)
 
-        ll_test = np.mean([nmet.likelihood_poisson(p, 'pred', 'resp') for p in val])
-        ll_fit = np.mean([nmet.likelihood_poisson(p, 'pred', 'resp') for p in est])
+        ll_test = np.mean([nmet.likelihood_poisson(p, 'pred', output_name) for p in val])
+        ll_fit = np.mean([nmet.likelihood_poisson(p, 'pred', output_name) for p in est])
 
     modelspecs[0][0]['meta']['r_test'] = r_test
     modelspecs[0][0]['meta']['se_test'] = se_test
