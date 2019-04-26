@@ -347,7 +347,7 @@ def _get_plot_fns(rec, modelspec, default='val', epoch='TRIAL', occurrence=0, m_
                     plot = (fn, 1)
                     plot_fns.append(plot)
                 elif 'fir.filter_bank' in fname:
-                    fns = [partial(fir_heatmap, m) for m in ctx['modelspec'].fits()]
+                    fns = [partial(fir_heatmap, m) for m in modelspec.fits()]
                     plot = (fns, [1]*len(fns))
                     plot_fns.append(plot)
                 else:

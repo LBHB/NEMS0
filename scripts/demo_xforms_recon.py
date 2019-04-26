@@ -44,24 +44,30 @@ siteid = "TAR010c"
 
 # MODEL SPEC
 #modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
-modelspecname = 'dlog-wc.55x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
+#modelspecname = 'dlog-wc.55x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
 #modelspecname = 'dlog-wc.18x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
 
 # modelspecname = 'wc.55x3-fir.3x5x18'
 # or 'fir.55x5x18'
 
-modelspecname = 'wc.55x3-fir.3x5x18-lvl.18'
+#modelspecname = 'wc.55x3-fir.3x5x18-lvl.18'
 #modelspecname = 'fir.55x5x18-lvl.18'
-modelspecname = 'fir.18x20x55-lvl.55'
+#modelspecname = 'fir.18x20x55-lvl.55'
+modelspecname = 'fir.18x10x1-lvl.1'
 
 # reverse model...
 #meta = {'siteid': siteid, 'batch': batch, 'modelname': modelspecname,
 #        'recording': exptid, 'input_name': 'resp', 'output_name': 'stim'}
 # forward model...
-meta = {'siteid': siteid, 'batch': batch, 'modelname': modelspecname,
-        'recording': exptid, 'input_name': 'stim', 'output_name': 'resp'}
+#meta = {'siteid': siteid, 'batch': batch, 'modelname': modelspecname,
+#        'recording': exptid, 'input_name': 'stim', 'output_name': 'resp'}
+#xforms_init_context = {'siteid': siteid, 'batch': int(batch)}
 
-xforms_init_context = {'siteid': siteid, 'batch': int(batch)}
+# single cell
+meta = {'cellid': 'TAR010c-18-2', 'batch': batch, 'modelname': modelspecname,
+        'recording': exptid, 'input_name': 'stim', 'output_name': 'resp'}
+xforms_init_context = {'cellid': 'TAR010c-18-2', 'batch': int(batch)}
+
 xforms_init_context['keywordstring'] = modelspecname
 xforms_init_context['meta'] = meta
 xforms_init_context['recording_uri_list'] = [datafile]
