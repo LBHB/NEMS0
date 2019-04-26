@@ -10,3 +10,4 @@ from .test_prediction import (generate_prediction,
                               standard_correlation_by_set,
                               standard_correlation_by_epochs,
                               correlation_per_model, basic_error)
+from .reverse_correlation import reverse_correlation
