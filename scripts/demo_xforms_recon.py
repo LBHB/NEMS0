@@ -44,22 +44,28 @@ siteid = "TAR010c"
 
 # MODEL SPEC
 #modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
-modelspecname = 'dlog-wc.55x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
+#modelspecname = 'dlog-wc.55x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
 #modelspecname = 'dlog-wc.18x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
 
 # modelspecname = 'wc.55x3-fir.3x5x18'
 # or 'fir.55x5x18'
 
+#modelspecname = 'wc.55x3-fir.3x5x18-lvl.18'
+modelspecname = 'fir.55x5x18-lvl.18'
+#modelspecname = 'fir.18x20x55-lvl.55'
+#modelspecname = 'fir.18x10x1-lvl.1'
+
+# reverse model...
 meta = {'siteid': siteid, 'batch': batch, 'modelname': modelspecname,
         'recording': exptid}
 
 xforms_init_context = {'siteid': siteid, 'batch': int(batch)}
+
 xforms_init_context['keywordstring'] = modelspecname
 xforms_init_context['meta'] = meta
 xforms_init_context['recording_uri_list'] = [datafile]
 #xforms_init_context['input_name'] = meta['input_name']
 #xforms_init_context['output_name'] = meta['output_name']
-
 
 # generate modelspec
 xfspec = []
@@ -76,7 +82,9 @@ xfspec.append(['nems.xforms.average_away_stim_occurrences', {}])
 xfspec.append(['nems.xforms.init_from_keywords', {}])
 
 #xfspec.append(['nems.xforms.fit_basic_init', {}])
+xfspec.append(['nems.xforms.reverse_correlation', {}])
 xfspec.append(['nems.xforms.fit_basic', {}])
+#xfspec.append(['nems.xforms.reverse_correlation', {}])
 
 #xfspec.append(['nems.analysis.fit_pop_model.init_pop_pca', {'flip_pcs': True}])
 #xfspec.append(['nems.analysis.fit_pop_model.fit_population_iteratively',
@@ -89,7 +97,8 @@ xfspec.append(['nems.xforms.fit_basic', {}])
 xfspec.append(['nems.xforms.predict', {}])
 # xfspec.append(['nems.xforms.add_summary_statistics',    {}])
 xfspec.append(['nems.analysis.api.standard_correlation', {},
-               ['est', 'val', 'modelspec', 'rec'], ['modelspec']])
+               ['est', 'val', 'modelspec', 'rec', 'output_name'],
+               ['modelspec']])
 
 # GENERATE PLOTS
 xfspec.append(['nems.xforms.plot_summary', {}])

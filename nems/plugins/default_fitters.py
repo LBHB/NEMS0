@@ -121,6 +121,22 @@ def basic(fitkey):
     return xfspec
 
 
+def nrc(fitkey):
+    '''
+    Use normalized reverse correlation to fit phi. Right now, pretty dumb.
+    Expects two modules (fir and lvl). Will fit both simultaneously. Can stack
+    this with fit basic in order to initialize a full rank model with the reverse
+    correlation solution.
+    '''
+
+    xfspec = []
+
+    options = _extract_options(fitkey)
+    max_iter, tolerance, fitter = _parse_basic(options)
+    xfspec = [['nems.xforms.reverse_correlation', {}]]
+
+    return xfspec
+
 def tf(fitkey):
     '''
     Perform a Tensorflow fit, using Sam Norman-Haignere's CNN library

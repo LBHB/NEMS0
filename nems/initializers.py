@@ -36,7 +36,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
     # Lookup the modelspec fragments in the registry
     modelspec = ms.ModelSpec()
     for kw in keywords:
-        if (kw.startswith("fir.Nx") or kw.startswith("wc.Nx")) and
+        if (kw.startswith("fir.Nx") or kw.startswith("wc.Nx")) and \
                 (rec is not None):
             N = rec[input_name].nchans
             kw_old = kw

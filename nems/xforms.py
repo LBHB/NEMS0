@@ -799,6 +799,30 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
     return {'modelspec': modelspec}
 
 
+def reverse_correlation(modelspec, est, IsReload=False, jackknifed_fit=False,
+                input_name='stim', output_name='resp', **context):
+    ''' Perform basic normalized reverse correlation between input '''
+
+    if not IsReload:
+
+        if jackknifed_fit:
+            nfolds = est.view_count()
+            if modelspec.fit_count < est.view_count():
+                modelspec.tile_fits(nfolds)
+            for fit_idx, e in enumerate(est.views()):
+                log.info("Fitting fold %d/%d", fit_idx + 1, nfolds)
+                modelspec = nems.analysis.api.reverse_correlation(
+                        e, modelspec.set_fit(fit_idx), input_name)
+
+        else:
+            # standard single shot
+            for fit_idx in range(modelspec.fit_count):
+                modelspec = nems.analysis.api.reverse_correlation(
+                    est, modelspec.set_fit(fit_idx), input_name)
+
+    return {'modelspec': modelspec}
+
+
 def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
                     module_sets=None, invert=False, tolerances=[1e-4],
                     metric='nmse', fitter='scipy_minimize', fit_kwargs={},
