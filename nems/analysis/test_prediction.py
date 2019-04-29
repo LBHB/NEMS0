@@ -62,7 +62,7 @@ def generate_prediction(est, val, modelspec, **context):
 
 
 def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
-                         output_name='resp', use_mask=True):
+                         use_mask=True):
     # use_mask: mask before computing metrics (if mask exists)
     # Compute scores for validation dat
     r_ceiling = 0
@@ -80,6 +80,8 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
             modelspecs = modelspec.fits()
     else:
         list_modelspec = True
+
+    output_name = modelspecs[0]['meta']['output_name']
 
     if type(val) is not list:
 
