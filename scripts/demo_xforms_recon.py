@@ -51,21 +51,21 @@ modelspecname = 'dlog-wc.55x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
 # or 'fir.55x5x18'
 
 meta = {'siteid': siteid, 'batch': batch, 'modelname': modelspecname,
-        'recording': exptid, 'input_name': 'resp', 'output_name': 'stim'}
+        'recording': exptid}
 
 xforms_init_context = {'siteid': siteid, 'batch': int(batch)}
 xforms_init_context['keywordstring'] = modelspecname
 xforms_init_context['meta'] = meta
 xforms_init_context['recording_uri_list'] = [datafile]
-xforms_init_context['input_name'] = meta['input_name']
-xforms_init_context['output_name'] = meta['output_name']
+#xforms_init_context['input_name'] = meta['input_name']
+#xforms_init_context['output_name'] = meta['output_name']
 
 
 # generate modelspec
 xfspec = []
 # load internally:
 xfspec.append(['nems.xforms.init_context', xforms_init_context])
-xfspec.append(['nems.xforms.load_recordings', {}])
+xfspec.append(['nems.xforms.load_recordings', {'input_name': 'resp', 'output_name': 'stim'}])
 #xfspec.append(['nems.preprocessing.resp_to_pc',
 #              {'pc_source': 'psth', 'overwrite_resp': False,
 #               'pc_count': 2}])

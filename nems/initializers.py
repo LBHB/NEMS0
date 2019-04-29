@@ -36,7 +36,8 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
     # Lookup the modelspec fragments in the registry
     modelspec = ms.ModelSpec()
     for kw in keywords:
-        if kw.startswith("fir.Nx") and (rec is not None):
+        if (kw.startswith("fir.Nx") or kw.startswith("wc.Nx")) and
+                (rec is not None):
             N = rec[input_name].nchans
             kw_old = kw
             kw = kw.replace("fir.N", "fir.{}".format(N))
@@ -107,6 +108,9 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
         if ((rec['resp'].shape[0] > 1) and ('cellids' not in meta.keys()) and
             (type(rec.meta['cellid']) is list)):
             meta['cellids'] = rec.meta['cellid']
+
+    meta['input_name'] = input_name
+    meta['output_name'] = output_name
 
     # for modelspec object, we know that meta must exist, so just update
     modelspec.meta.update(meta)

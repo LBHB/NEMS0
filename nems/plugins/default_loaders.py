@@ -10,6 +10,11 @@ def ld(loadkey, recording_uri=None, cellid=None):
     d['normalize'] = normalize
     if cellid is not None:
         d['cellid'] = cellid
+    if 'popstim' in options:
+        d['save_other_cells_to_state'] = 'stim'
+    if 'revrec' in options:
+        d['input_name'] = 'resp'
+        d['output_name'] = 'stim'
 
     xfspec = [['nems.xforms.load_recordings', d]]
 

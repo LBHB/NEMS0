@@ -255,7 +255,8 @@ def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
 
 
 def load_recordings(recording_uri_list, normalize=False, cellid=None,
-                    save_other_cells_to_state=False, **context):
+                    save_other_cells_to_state=None, input_name='stim',
+                    output_name='resp', **context):
     '''
     Load one or more recordings into memory given a list of URIs.
     '''
@@ -270,28 +271,30 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
 
     # if cellid is provided, use it to select channel or subset of channels
     # from resp signal.
+    if type(cellid) is str:
+        if cellid in rec['resp'].chans:
+            cellid = [cellid]
+        else:
+            log.info('No cellid match, keeping all resp channels')
+
     if cellid is None:
         pass
 
     elif type(cellid) is list:
         log.info('Extracting channels %s', cellid)
         excluded_cells = [cell for cell in rec['resp'].chans if cell in cellid]
-        if save_other_cells_to_state is True:
+
+        if save_other_cells_to_state is not None:
+            if type(save_other_cells_to_state) is str:
+                pop_var = save_other_cells_to_state
+            else:
+                pop_var = 'state'
             s = rec['resp'].extract_channels(excluded_cells).rasterize()
-            rec = preproc.concatenate_state_channel(rec, s, 'state')
-            rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
+            rec = preproc.concatenate_state_channel(rec, s, pop_var)
+            if pop_var == 'state':
+                rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
+
         rec['resp'] = rec['resp'].extract_channels(cellid)
-
-    elif cellid in rec['resp'].chans:
-        log.info('Extracting channel %s', cellid)
-        excluded_cells = rec['resp'].chans.copy()
-        excluded_cells.remove(cellid)
-        if save_other_cells_to_state is True:
-            s = rec['resp'].extract_channels(excluded_cells).rasterize()
-            rec = preproc.concatenate_state_channel(rec, s, 'state')
-            rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
-        rec['resp'] = rec['resp'].extract_channels([cellid])
-
     else:
         log.info('No cellid match, keeping all resp channels')
 
@@ -306,8 +309,7 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
     rec = preproc.generate_stim_from_epochs(rec, new_signal_name='epoch_onsets',
                                             epoch_regex='TRIAL', onsets_only=True)
 
-
-    return {'rec': rec}
+    return {'rec': rec, 'input_name': input_name, 'output_name': output_name}
 
 
 def normalize_stim(rec=None, sig='stim', norm_method='meanstd', **context):
