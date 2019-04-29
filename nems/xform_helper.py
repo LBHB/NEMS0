@@ -165,7 +165,8 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False):
     log.info("TODO: simplify generate_xforms_spec parameters")
     xfspec = generate_xforms_spec(recording_uri=None, modelname=modelname,
                                   meta=meta,  xforms_kwargs=registry_args,
-                                  xforms_init_context=xforms_init_context)
+                                  xforms_init_context=xforms_init_context,
+                                  autoPlot=autoPlot)
     log.info(xfspec)
 
     # actually do the loading, preprocessing, fit
@@ -185,11 +186,15 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False):
 
     # save results
     log.info('Saving modelspec(s) to {0} ...'.format(destination))
+    if 'figures' in ctx.keys():
+        figs = ctx['figures']
+    else:
+        figs = []
     save_data = xforms.save_analysis(destination,
                                      recording=ctx['rec'],
                                      modelspec=modelspec,
                                      xfspec=xfspec,
-                                     figures=ctx['figures'],
+                                     figures=figs,
                                      log=log_xf)
 
     # save in database as well
