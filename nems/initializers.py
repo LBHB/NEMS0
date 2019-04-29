@@ -105,7 +105,9 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
 
     # insert metadata, if provided
     if rec is not None:
-        if ((rec['resp'].shape[0] > 1) and ('cellids' not in meta.keys()) and
+        if 'cellid' in meta.keys():
+            meta['cellids'] = [meta['cellid']]
+        elif ((rec['resp'].shape[0] > 1) and ('cellids' not in meta.keys()) and
             (type(rec.meta['cellid']) is list)):
             meta['cellids'] = rec.meta['cellid']
 
