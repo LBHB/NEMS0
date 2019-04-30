@@ -40,26 +40,37 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
                 (rec is not None):
             N = rec[input_name].nchans
             kw_old = kw
-            kw = kw.replace("fir.N", "fir.{}".format(N))
+            kw = kw.replace(".N", ".{}".format(N))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
         elif kw.startswith("stategain.N") and (rec is not None):
             N = rec['state'].nchans
             kw_old = kw
             kw = kw.replace("stategain.N", "stategain.{}".format(N))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
-        elif (".S" in kw or ".Sx" in kw) and (rec is not None):
+        elif (kw.endswith(".N")) and (rec is not None):
+            N = rec[input_name].nchans
+            kw_old = kw
+            kw = kw.replace(".N", ".{}".format(N))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+        elif (kw.endswith(".nN")) and (rec is not None):
+            N = rec[input_name].nchans
+            kw_old = kw
+            kw = kw.replace(".nN", ".n{}".format(N))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+
+        elif (kw.endswith("xN")) and (rec is not None):
+            N = rec[input_name].nchans
+            kw_old = kw
+            kw = kw.replace("xN", "x{}".format(N))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+
+        if (".S" in kw or ".Sx" in kw) and (rec is not None):
             S = rec['state'].nchans
             kw_old = kw
             kw = kw.replace(".S", ".{}".format(S))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        elif kw.endswith(".N") and (rec is not None):
-            N = rec[input_name].nchans
-            kw_old = kw
-            kw = kw.replace(".N", ".{}".format(N))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
-
-        elif kw.endswith(".R") and (rec is not None):
+        if kw.endswith(".R") and (rec is not None):
             R = rec[output_name].nchans
             kw_old = kw
             kw = kw.replace(".R", ".{}".format(R))

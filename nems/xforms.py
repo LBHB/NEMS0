@@ -282,7 +282,7 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
 
     elif type(cellid) is list:
         log.info('Extracting channels %s', cellid)
-        excluded_cells = [cell for cell in rec['resp'].chans if cell in cellid]
+        excluded_cells = [cell for cell in rec['resp'].chans if cell not in cellid]
 
         if save_other_cells_to_state is not None:
             if type(save_other_cells_to_state) is str:
