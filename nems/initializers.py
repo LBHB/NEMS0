@@ -110,7 +110,9 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
     while not first_input_to_stim and i < len(modelspec):
         if 'i' in modelspec[i]['fn_kwargs'].keys() and \
            modelspec[i]['fn_kwargs']['i'] == 'pred':
-            if 'state' in modelspec[i]['fn']:
+            if input_name != 'stim':
+                modelspec[i]['fn_kwargs']['i'] = input_name
+            elif 'state' in modelspec[i]['fn']:
                 modelspec[i]['fn_kwargs']['i'] = 'psth'
             else:
                 modelspec[i]['fn_kwargs']['i'] = input_name
