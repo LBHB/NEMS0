@@ -7,6 +7,14 @@ def reverse_correlation(rec, modelspec, input_name, tol=1e-5):
     return a new modelspec with updated phi for fir coefficients and level shift
     """
 
+    # figure out which modules are the fir filter and the level adjustment
+    fns = []
+    for m in modelspec:
+        fns.append(m['fn'])
+    fns = np.array(fns)
+    ind1 = np.argwhere(fns == 'nems.modules.fir.filter_bank')[0][0]
+    ind2 = np.argwhere(fns == 'nems.modules.levelshift.levelshift')[0][0]
+
     # apply mask, if it exists
     if 'mask' in rec.signals.keys():
         log.info("Data len pre-mask: %d", rec['mask'].shape[1])
@@ -29,7 +37,7 @@ def reverse_correlation(rec, modelspec, input_name, tol=1e-5):
     S = S - S_mean
 
     # create delay lines
-    ndelays = modelspec[0]['phi']['coefficients'].shape[1]
+    ndelays = modelspec[ind1]['phi']['coefficients'].shape[1]
     for i in range(0, ndelays):
         if input_name == 'stim':
             roll = i
@@ -44,7 +52,7 @@ def reverse_correlation(rec, modelspec, input_name, tol=1e-5):
 
     # perform normalized reverse correlation
     Rs = np.matmul(S, R_delay.T)
-    CC = np.matmul(R_delay, R_delay.T) 
+    CC = np.matmul(R_delay, R_delay.T)
     h = np.matmul(np.linalg.pinv(CC, tol), Rs.T)
 
     # predict the new stimulus
@@ -55,10 +63,10 @@ def reverse_correlation(rec, modelspec, input_name, tol=1e-5):
     d2 = S.shape[0]
     h = h.reshape(ndelays, d1, d2).transpose(0, 2, 1).reshape(ndelays, d1*d2).T
 
-    modelspec[0]['phi']['coefficients'] = h
-    modelspec[1]['phi']['level'] = S_mean
+    modelspec[ind1]['phi']['coefficients'] = h
+    modelspec[ind2]['phi']['level'] = S_mean
 
     # add a field holding the prediction, for testing purposes
-    modelspec[0]['pred'] = S_hat
+    # modelspec[0]['pred'] = S_hat
 
     return modelspec
