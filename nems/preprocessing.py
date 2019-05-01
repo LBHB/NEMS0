@@ -615,6 +615,9 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
     # add the new signals to the recording
     newrec.add_signal(respavg)
     newrec.add_signal(respavg_with_spont)
+    if 'stim' in newrec.signals.keys():
+        # add as channel to stim signal if it exists
+        newrec = concatenate_state_channel(newrec, respavg, 'stim')
 
     if smooth_resp:
         log.info('Replacing resp with smoothed resp')

@@ -227,8 +227,11 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
                           colors=None, channel=None, decimate_by=1)
             _plot_axes(1, fn2, -2)
         else:
+            colors = ((0.7, 0.7, 0.7),
+                      (44/255, 125/255, 61/255),
+                      (129/255, 64/255, 138/255))
 
-            fn2 = partial(state_gain_plot, modelspec)
+            fn2 = partial(state_gain_plot, modelspec, colors=colors)
             _plot_axes(1, fn2, -2)
 
     else:
@@ -451,19 +454,15 @@ def _get_plot_fns(rec, modelspec, default='val', epoch='TRIAL', occurrence=0, m_
               ('state.state_sp_dc_gain' in fname) or
               ('state_dexp' in fname) or
               ('state.state_weight' in fname)):
-            fn1 = partial(state_vars_timeseries, rec, modelspec)
-            plot1 = (fn1, 1)
 
-            #if len(m['phi']['g']) > 5:
-            #    fn2 = partial(state_gain_plot, modelspec)
-            #    plot2 = (fn2, 1)
-            #
-            #else:
-            #    fns = state_vars_psths(rec, epoch, psth_name='resp',
-            #                           occurrence=occurrence)
-            #    plot2 = (fns, [1]*len(fns))
-            # plot_fns.extend([plot1, plot2])
-            plot_fns.append(plot1)
+            if len(m['phi']['g']) > 5:
+                fn1 = partial(state_gain_plot, modelspec)
+                plot1 = (fn1, 1)
+                plot_fns.append(plot1)
+            else:
+                fn1 = partial(state_vars_timeseries, rec, modelspec)
+                plot1 = (fn1, 1)
+                plot_fns.append(plot1)
 
         elif 'dynamic_sigmoid' in fname:
             #if rec['contrast'].shape[0] > 1:

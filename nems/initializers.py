@@ -52,10 +52,10 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
             kw_old = kw
             kw = kw.replace(".N", ".{}".format(N))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
-        elif (kw.endswith(".nN")) and (rec is not None):
+        elif (kw.endswith(".cN")) and (rec is not None):
             N = rec[input_name].nchans
             kw_old = kw
-            kw = kw.replace(".nN", ".n{}".format(N))
+            kw = kw.replace(".cN", ".c{}".format(N))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
         elif (kw.endswith("xN")) and (rec is not None):

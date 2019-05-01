@@ -111,7 +111,7 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
         for i in range(1, num_vars):
 
             st = ts[i, :].T
-            if len(np.unique(st)) == 2:
+            if (len(np.unique(st)) == 2) and num_vars > 3:
                 # special, binary variable, keep in one row
                 m = np.array([np.min(st)])
                 st = np.concatenate((m, st, m))
@@ -378,24 +378,25 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
     ax_remove_box(ax)
 
 
-def state_gain_plot(modelspec, ax=None, clim=None, title=None):
+def state_gain_plot(modelspec, ax=None, colors=None, clim=None, title=None, **options):
     for m in modelspec:
-        if ('state_dc_gain' in m['fn']):
-            g = m['phi']['g'][0, :]
-            d = m['phi']['d'][0, :]
-        elif ('state_dexp' in m['fn']):
-            # hack, sdexp currently only supports single output channel
+        if ('state' in m['fn']):
             g = m['phi']['g']
             d = m['phi']['d']
+
     MI = modelspec[0]['meta']['state_mod']
     state_chans = modelspec[0]['meta']['state_chans']
     if ax is not None:
         plt.sca(ax)
-    plt.plot(d)
-    plt.plot(g)
-    plt.plot(MI)
-    plt.xticks(np.arange(len(state_chans)), state_chans, fontsize=6)
-    plt.legend(('baseline', 'gain', 'MI'))
+    opt={}
+    for cc in range(d.shape[1]):
+        if colors is not None:
+            opt = {'color': colors[cc]}
+        plt.plot(d[:,cc],'--', **opt)
+        plt.plot(g[:,cc], **opt)
+    #plt.plot(MI)
+    #plt.xticks(np.arange(len(state_chans)), state_chans, fontsize=6)
+    plt.legend(('baseline', 'gain'))
     plt.plot(np.arange(len(state_chans)),np.zeros(len(state_chans)),'k--',
              linewidth=0.5)
     if title:
