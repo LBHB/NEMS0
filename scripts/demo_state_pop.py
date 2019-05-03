@@ -42,11 +42,11 @@ batch = 307
 cellid = "TAR010c-06-1"
 
 # MODEL SPEC
-modelspecname = 'dlog.nN-stategain.SxN-wc.Nx1-lvl.1'
+modelspecname = 'stategain.SxN'
 
 meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
         'recording': exptid}
-state_signals = ['pupil','active']
+state_signals = ["pupil", "active", "population", "pupil_x_population", "active_x_population"]
 jk_kwargs = {'njacks': 5}
 xforms_init_context = {'cellid': cellid, 'batch': int(batch)}
 xforms_init_context['keywordstring'] = modelspecname
@@ -57,16 +57,18 @@ xforms_init_context['recording_uri_list'] = [datafile]
 xfspec = []
 # load internally:
 xfspec.append(['nems.xforms.init_context', xforms_init_context])
-xfspec.append(['nems.xforms.load_recordings', {'save_other_cells_to_state': 'stim'}])
+xfspec.append(['nems.xforms.load_recordings', {"save_other_cells_to_state": "population"}])
 xfspec.append(['nems.xforms.make_state_signal',
-              {'state_signals': state_signals, 'permute_signals': [],
-               'new_signalname': 'state'}])
-
+              {'state_signals': state_signals, 'permute_signals': []}])
+xfspec.append(["nems.xforms.mask_all_but_correct_references", {}])
+xfspec.append(["nems.xforms.generate_psth_from_resp", {"smooth_resp": False, "use_as_input": True, "epoch_regex": "^STIM_"}])
 xfspec.append(['nems.xforms.init_from_keywords', {}])
 xfspec.append(['nems.xforms.mask_for_jackknife', jk_kwargs])
-xfspec.append(['nems.xforms.fit_state_init', {}])
+#xfspec.append(['nems.xforms.fit_state_init', {}])
 xfspec.append(['nems.xforms.fit_basic', {}])
 
+xfspec.append(['nems.xforms.predict', {}])
+xfspec.append(['nems.xforms.add_summary_statistics', {}])
 # GENERATE PLOTS
 xfspec.append(['nems.xforms.plot_summary', {}])
 
@@ -81,10 +83,8 @@ for xfa in xfspec:
 # SAVE YOUR RESULTS
 
 # save results to file
-cellids=ctx['rec'].meta['cellid']
 modelspec = ctx['modelspec']
-modelspec.meta['cellid'] = siteid
-modelspec.meta['cellids'] = cellids
+modelspec.meta['cellid'] = cellid
 #destination = os.path.join(results_dir, str(batch), modelspec.meta['cellid'],
 #                           modelspec.get_longname())
 #modelspec.meta['modelpath'] = destination

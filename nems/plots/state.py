@@ -5,7 +5,7 @@ import scipy
 from .timeseries import (timeseries_from_signals, timeseries_from_vectors,
                          ax_remove_box)
 import nems.modelspec as ms
-from nems.utils import get_channel_number
+from nems.utils import get_channel_number, find_module
 from nems.metrics.state import state_mod_split
 from nems.plots.utils import ax_remove_box
 
@@ -79,7 +79,7 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
 
     plt.plot(t, r1, linewidth=1, color='gray')
     plt.plot(t, p1, linewidth=1, color='black')
-    print(p1.shape)
+    #print(p1.shape)
     mmax = np.nanmax(p1) * 0.8
 
     if 'state' in rec.signals.keys():
@@ -112,7 +112,7 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
 
         if num_vars > 6:
             #ts = scipy.signal.decimate(ts, q=10, axis=1)
-            print(np.nanmax(ts, axis=1, keepdims=True))
+            #print(np.nanmax(ts, axis=1, keepdims=True))
             ts = ts / np.nanmax(ts, axis=1, keepdims=True)
             plt.imshow(ts, extent=(0, t[-1], -100, 0))
         else:
@@ -389,10 +389,12 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
 
 
 def state_gain_plot(modelspec, ax=None, colors=None, clim=None, title=None, **options):
-    for m in modelspec:
-        if ('state' in m['fn']):
-            g = m['phi']['g']
-            d = m['phi']['d']
+
+    state_idx = find_module('state', modelspec)
+    g = modelspec.phi_mean[state_idx]['g']
+    d = modelspec.phi_mean[state_idx]['d']
+    ge = modelspec.phi_sem[state_idx]['g']
+    de = modelspec.phi_sem[state_idx]['d']
 
     MI = modelspec[0]['meta']['state_mod']
     state_chans = modelspec[0]['meta']['state_chans']
@@ -406,8 +408,9 @@ def state_gain_plot(modelspec, ax=None, colors=None, clim=None, title=None, **op
             plt.plot(d[:,cc],'--', **opt)
             plt.plot(g[:,cc], **opt)
     else:
-        plt.plot(d[0,:],'o-')
-        plt.plot(g[0,:],'o-')
+        plt.errorbar(np.arange(len(d[0,:])),d[0,:],de[0,:])
+        plt.errorbar(np.arange(len(g[0,:])),g[0,:],ge[0,:])
+        #plt.plot(g[0,:],'o-')
 
     #plt.plot(MI)
     #plt.xticks(np.arange(len(state_chans)), state_chans, fontsize=6)
