@@ -64,6 +64,12 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
             kw = kw.replace("xN", "x{}".format(N))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
+        elif ("xN" in kw) and (rec is not None):
+            N = rec[input_name].nchans
+            kw_old = kw
+            kw = kw.replace("xN", "x{}".format(N))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+
         if (".S" in kw or ".Sx" in kw) and (rec is not None):
             S = rec['state'].nchans
             kw_old = kw

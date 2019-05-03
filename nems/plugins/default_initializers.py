@@ -12,7 +12,7 @@ def init(kw):
     local minima.
     Written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
     optional modules in (parens)
-    
+
     Parameter
     ---------
     kw : string
@@ -23,8 +23,8 @@ def init(kw):
     tN : Set tolerance to 10**-N, where N is any positive integer.
     st : Remove state replication/merging before initializing.
     psth : Initialize by fitting to 'psth' intead of 'resp' (default)
-    nlN : Initialize nonlinearity with verion N 
-        For dexp, options are {1,2} (default is 2), 
+    nlN : Initialize nonlinearity with verion N
+        For dexp, options are {1,2} (default is 2),
             pre 11/29/18 models were fit with v1
             1: amp = np.nanstd(resp) * 3
                kappa = np.log(2 / (np.max(pred) - np.min(pred) + 1))
@@ -34,11 +34,11 @@ def init(kw):
         For other nonlinearities, mode is not specified yet
     L2f : normalize fir (default false)
 
-    TODO: Optimize more, make testbed to check how well future changes apply 
+    TODO: Optimize more, make testbed to check how well future changes apply
     to disparate datasets.
-    
+
     '''
-    
+
     ops = escaped_split(kw, '.')[1:]
     st = False
     tolerance = 10**-5.5
@@ -130,6 +130,14 @@ def sev(kw):
     return xfspec
 
 
+def sevst(kw):
+    ops = kw.split('.')[1:]
+    epoch_regex = '^STIM' if not ops else ops[0]
+    xfspec = [['nems.xforms.split_by_occurrence_counts',
+               {'epoch_regex': epoch_regex}]]
+    return xfspec
+    
+
 def tev(kw):
     ops = kw.split('.')[1:]
 
@@ -215,4 +223,3 @@ def norm(kw):
             norm_method = 'minmax'
 
     return [['nems.xforms.normalize_stim', {'norm_method': norm_method}]]
-
