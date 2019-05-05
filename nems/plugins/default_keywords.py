@@ -219,6 +219,7 @@ def fir(kw):
         p_coefficients['mean'][:, 0] = 1
 
     rate = 1
+    non_causal = False
     for op in ops:
         if op == 'fl':
             p_coefficients['mean'][:] = 1/(n_outputs*n_coefs)
@@ -226,11 +227,14 @@ def fir(kw):
             p_coefficients['mean'][:] = 0
         elif op.startswith('r'):
             rate = int(op[1:])
+        elif op == 'nc':
+            # noncausal fir implementation (for reverse model)
+            non_causal = True
 
     if n_banks is None:
         template = {
             'fn': 'nems.modules.fir.basic',
-            'fn_kwargs': {'i': 'pred', 'o': 'pred'},
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 'non_causal': non_causal},
             'plot_fns': ['nems.plots.api.mod_output',
                          'nems.plots.api.strf_heatmap',
                          'nems.plots.api.strf_local_lin',
@@ -244,7 +248,7 @@ def fir(kw):
     else:
         template = {
             'fn': 'nems.modules.fir.filter_bank',
-            'fn_kwargs': {'i': 'pred', 'o': 'pred',
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 'non_causal': non_causal,
                           'bank_count': n_banks},
             'plot_fns': ['nems.plots.api.mod_output',
                          'nems.plots.api.strf_heatmap',

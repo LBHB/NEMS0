@@ -29,7 +29,7 @@ def _insert_zeros(coefficients, rate=1):
     return new_c
 
 
-def per_channel(x, coefficients, bank_count=1, rate=1):
+def per_channel(x, coefficients, bank_count=1, non_causal=False, rate=1):
     '''Private function used by fir_filter().
 
     Parameters
@@ -86,6 +86,10 @@ def per_channel(x, coefficients, bank_count=1, rate=1):
         for i_bank in range(n_banks):
             x_ = next(all_x)
             c = next(c_iter)
+            if non_causal:
+                # reverse model (using future values of input to predict)
+                x_ = np.roll(x_, -(len(c) - 1))
+
             # It is slightly more "correct" to use lfilter than convolve at
             # edges, but but also about 25% slower (Measured on Intel Python
             # Dist, using i5-4300M)
@@ -95,7 +99,7 @@ def per_channel(x, coefficients, bank_count=1, rate=1):
     return out
 
 
-def basic(rec, i='pred', o='pred', coefficients=[], rate=1):
+def basic(rec, i='pred', o='pred', non_causal=False, coefficients=[], rate=1):
     """
     apply fir filters of the same size in parallel. convolve in time, then
     sum across channels
@@ -111,7 +115,7 @@ def basic(rec, i='pred', o='pred', coefficients=[], rate=1):
         nems signal in 'o' will be 1 x time singal (single channel)
     """
 
-    fn = lambda x: per_channel(x, coefficients, rate=1)
+    fn = lambda x: per_channel(x, coefficients, non_causal=non_causal, rate=1)
     return [rec[i].transform(fn, o)]
 
 
@@ -201,7 +205,8 @@ def fir_dexp(rec, i='pred', o='pred', phi=None, n_coefs=10, rate=1):
     return [rec[i].transform(fn, o)]
 
 
-def filter_bank(rec, i='pred', o='pred', coefficients=[], bank_count=1, rate=1):
+def filter_bank(rec, i='pred', o='pred', non_causal=False, coefficients=[],
+                bank_count=1, rate=1):
     """
     apply multiple basic fir filters of the same size in parallel, producing
     one output channel per filter.
@@ -223,7 +228,8 @@ def filter_bank(rec, i='pred', o='pred', coefficients=[], bank_count=1, rate=1):
     TODO: test, optimize. maybe structure coefficients more logically?
     """
 
-    fn = lambda x: per_channel(x, coefficients, bank_count, rate=rate)
+    fn = lambda x: per_channel(x, coefficients, bank_count,
+                               non_causal=non_causal, rate=rate)
     return [rec[i].transform(fn, o)]
 
 
