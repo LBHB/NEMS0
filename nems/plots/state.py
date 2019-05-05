@@ -5,7 +5,7 @@ import scipy
 from .timeseries import (timeseries_from_signals, timeseries_from_vectors,
                          ax_remove_box)
 import nems.modelspec as ms
-from nems.utils import get_channel_number
+from nems.utils import get_channel_number, find_module
 from nems.metrics.state import state_mod_split
 from nems.plots.utils import ax_remove_box
 
@@ -54,6 +54,10 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
 
     if ax is not None:
         plt.sca(ax)
+    else:
+        ax = plt.gca()
+
+    rec = rec.apply_mask()
     pred = rec['pred']
     resp = rec['resp']
     fs = resp.fs
@@ -75,7 +79,7 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
 
     plt.plot(t, r1, linewidth=1, color='gray')
     plt.plot(t, p1, linewidth=1, color='black')
-    print(p1.shape)
+    #print(p1.shape)
     mmax = np.nanmax(p1) * 0.8
 
     if 'state' in rec.signals.keys():
@@ -105,55 +109,61 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
 
         num_vars = rec['state'].shape[0]
         ts = rec['state'].as_continuous().copy()
-        if state_colors is None:
-            state_colors = [None] * num_vars
-        offset = -1.25 * mmax
-        for i in range(1, num_vars):
 
-            st = ts[i, :].T
-            if (len(np.unique(st)) == 2) and num_vars > 3:
-                # special, binary variable, keep in one row
-                m = np.array([np.min(st)])
-                st = np.concatenate((m, st, m))
-                dinc = np.argwhere(np.diff(st) > 0)
-                ddec = np.argwhere(np.diff(st) < 0)
-                for x0, x1 in zip(dinc, ddec):
-                    plt.plot([x0/fs, x1/fs], [offset, offset],
-                             lw=2, color=state_colors[i-1])
-                tstr = "{}".format(rec['state'].chans[i])
-                plt.text(x0/fs, offset, tstr, fontsize=6)
-                #print("{} {} {}".format(rec['state'].chans[i], x0/fs, offset))
-            else:
-                # non-binary variable, plot in own row
-                # figure out gain
-                if sp is not None:
-                    if g.ndim == 1:
-                        tstr = "{} (sp={:.3f},d={:.3f},g={:.3f})".format(
-                                rec['state'].chans[i], sp[i], d[i], g[i])
-                    else:
-                        tstr = "{} (sp={:.3f},d={:.3f},g={:.3f})".format(
-                                rec['state'].chans[i], sp[0, i], d[0, i], g[0, i])
-                elif g is not None:
-                    if g.ndim == 1:
-                        tstr = "{} (d={:.3f},g={:.3f})".format(
-                                rec['state'].chans[i], d[i], g[i])
-                    else:
-                        tstr = "{} (d={:.3f},g={:.3f})".format(
-                                rec['state'].chans[i], d[0, i], g[0, i])
-                else:
+        if num_vars > 6:
+            #ts = scipy.signal.decimate(ts, q=10, axis=1)
+            #print(np.nanmax(ts, axis=1, keepdims=True))
+            ts = ts / np.nanmax(ts, axis=1, keepdims=True)
+            plt.imshow(ts, extent=(0, t[-1], -100, 0))
+        else:
+            if state_colors is None:
+                state_colors = [None] * num_vars
+            offset = -1.25 * mmax
+            for i in range(1, num_vars):
+
+                st = ts[i, :].T
+                if (len(np.unique(st)) == 2) and num_vars > 3:
+                    # special, binary variable, keep in one row
+                    m = np.array([np.min(st)])
+                    st = np.concatenate((m, st, m))
+                    dinc = np.argwhere(np.diff(st) > 0)
+                    ddec = np.argwhere(np.diff(st) < 0)
+                    for x0, x1 in zip(dinc, ddec):
+                        plt.plot([x0/fs, x1/fs], [offset, offset],
+                                 lw=2, color=state_colors[i-1])
                     tstr = "{}".format(rec['state'].chans[i])
-                if decimate_by > 1:
-                    st = scipy.signal.decimate(st[nnidx], q=decimate_by, axis=0)
+                    plt.text(x0/fs, offset, tstr, fontsize=6)
+                    #print("{} {} {}".format(rec['state'].chans[i], x0/fs, offset))
                 else:
-                    st = st[nnidx]
+                    # non-binary variable, plot in own row
+                    # figure out gain
+                    if sp is not None:
+                        if g.ndim == 1:
+                            tstr = "{} (sp={:.3f},d={:.3f},g={:.3f})".format(
+                                    rec['state'].chans[i], sp[i], d[i], g[i])
+                        else:
+                            tstr = "{} (sp={:.3f},d={:.3f},g={:.3f})".format(
+                                    rec['state'].chans[i], sp[0, i], d[0, i], g[0, i])
+                    elif g is not None:
+                        if g.ndim == 1:
+                            tstr = "{} (d={:.3f},g={:.3f})".format(
+                                    rec['state'].chans[i], d[i], g[i])
+                        else:
+                            tstr = "{} (d={:.3f},g={:.3f})".format(
+                                    rec['state'].chans[i], d[0, i], g[0, i])
+                    else:
+                        tstr = "{}".format(rec['state'].chans[i])
+                    if decimate_by > 1:
+                        st = scipy.signal.decimate(st[nnidx], q=decimate_by, axis=0)
+                    else:
+                        st = st[nnidx]
 
-                st = st / np.nanmax(st) * mmax + offset
-                plt.plot(t, st, linewidth=1, color=state_colors[i-1])
-                plt.text(t[0], offset, tstr, fontsize=6)
+                    st = st / np.nanmax(st) * mmax + offset
+                    plt.plot(t, st, linewidth=1, color=state_colors[i-1])
+                    plt.text(t[0], offset, tstr, fontsize=6)
 
-                offset -= 1.25*mmax
+                    offset -= 1.25*mmax
 
-        ax = plt.gca()
         # plt.text(0.5, 0.9, s, transform=ax.transAxes,
         #         horizontalalignment='center')
         # if s:
@@ -379,24 +389,32 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
 
 
 def state_gain_plot(modelspec, ax=None, colors=None, clim=None, title=None, **options):
-    for m in modelspec:
-        if ('state' in m['fn']):
-            g = m['phi']['g']
-            d = m['phi']['d']
+
+    state_idx = find_module('state', modelspec)
+    g = modelspec.phi_mean[state_idx]['g']
+    d = modelspec.phi_mean[state_idx]['d']
+    ge = modelspec.phi_sem[state_idx]['g']
+    de = modelspec.phi_sem[state_idx]['d']
 
     MI = modelspec[0]['meta']['state_mod']
     state_chans = modelspec[0]['meta']['state_chans']
     if ax is not None:
         plt.sca(ax)
-    opt={}
-    for cc in range(d.shape[1]):
-        if colors is not None:
-            opt = {'color': colors[cc]}
-        plt.plot(d[:,cc],'--', **opt)
-        plt.plot(g[:,cc], **opt)
+    if d.shape[0] > 1:
+        opt={}
+        for cc in range(d.shape[1]):
+            if colors is not None:
+                opt = {'color': colors[cc]}
+            plt.plot(d[:,cc],'--', **opt)
+            plt.plot(g[:,cc], **opt)
+    else:
+        plt.errorbar(np.arange(len(d[0,:])),d[0,:],de[0,:])
+        plt.errorbar(np.arange(len(g[0,:])),g[0,:],ge[0,:])
+        #plt.plot(g[0,:],'o-')
+
     #plt.plot(MI)
     #plt.xticks(np.arange(len(state_chans)), state_chans, fontsize=6)
-    plt.legend(('baseline', 'gain'))
+    plt.legend(('baseline', 'gain'), frameon=False)
     plt.plot(np.arange(len(state_chans)),np.zeros(len(state_chans)),'k--',
              linewidth=0.5)
     if title:

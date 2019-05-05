@@ -289,8 +289,10 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
                 pop_var = save_other_cells_to_state
             else:
                 pop_var = 'state'
-            s = rec['resp'].extract_channels(excluded_cells).rasterize()
-            rec = preproc.concatenate_state_channel(rec, s, pop_var)
+            s = rec['resp'].extract_channels(excluded_cells, name=pop_var).rasterize()
+            #s.name = pop_var
+            rec.add_signal(s)
+            #rec = preproc.concatenate_state_channel(rec, s, pop_var)
             if pop_var == 'state':
                 rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
 
@@ -463,7 +465,7 @@ def mask_all_but_targets(rec, **context):
     return {'rec': rec}
 
 
-def generate_psth_from_resp(rec, epoch_regex='^STIM_',
+def generate_psth_from_resp(rec, epoch_regex='^STIM_', use_as_input=True,
                             smooth_resp=False, **context):
     '''
     generate PSTH prediction from rec['resp'] (before est/val split). Could
@@ -476,8 +478,10 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_',
 
     rec = preproc.generate_psth_from_resp(rec, epoch_regex=epoch_regex,
                                           smooth_resp=smooth_resp)
-
-    return {'rec': rec}
+    if use_as_input:
+        return {'rec': rec, 'input_name': 'psth'}
+    else:
+        return {'rec': rec}
 
 
 def generate_psth_from_est_for_both_est_and_val_nfold(

@@ -618,6 +618,7 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
     if 'stim' in newrec.signals.keys():
         # add as channel to stim signal if it exists
         newrec = concatenate_state_channel(newrec, respavg, 'stim')
+        newrec['stim'].chans[-1] = 'psth'
 
     if smooth_resp:
         log.info('Replacing resp with smoothed resp')
@@ -798,7 +799,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     # normalize mean/std of pupil trace if being used
     if ('pupil' in state_signals) or ('pupil2' in state_signals) or \
         ('pupil_ev' in state_signals) or ('pupil_bs' in state_signals) or \
-        ('pupil_stim' in state_signals):
+        ('pupil_stim' in state_signals) or ('pupil_x_population' in state_signals):
         # save raw pupil trace
         newrec["pupil_raw"] = newrec["pupil"].copy()
         # normalize min-max
@@ -1059,6 +1060,20 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         a = newrec["active"].as_continuous()
         newrec["p_x_a"] = newrec["pupil"]._modified_copy(p * a)
         newrec["p_x_a"].chans = ["p_x_a"]
+
+    if ('pupil_x_population' in state_signals):
+        # normalize min-max
+        p = newrec["pupil"].as_continuous()
+        a = newrec["population"].as_continuous()
+        newrec["pupil_x_population"] = newrec["population"]._modified_copy(p * a)
+        newrec["pupil_x_population"].chans = ["px"+c for c in newrec["pupil_x_population"].chans]
+
+    if ('active_x_population' in state_signals):
+        # normalize min-max
+        a = newrec["active"].as_continuous()
+        p = newrec["population"].as_continuous()
+        newrec["active_x_population"] = newrec["population"]._modified_copy(p * a)
+        newrec["active_x_population"].chans = ["ax"+c for c in newrec["active_x_population"].chans]
 
     if ('prw' in state_signals):
         # add channel two of the resp to state and delete it from resp

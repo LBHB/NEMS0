@@ -101,22 +101,24 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
 
         modelspec.append(d)
 
-    # first module that takes input='pred' should take 'stim' instead.
-    # can't hard code in keywords, since we don't know which keyword will be
-    # first. and can't assume that it will be module[0] because those might be
-    # state manipulations
+    # first module that takes input='pred' should take ctx['input_name']
+    # instead. can't hard-code in keywords, since we don't know which
+    # keyword will be first. and can't assume that it will be module[0]
+    # because those might be state manipulations
     first_input_to_stim = False
     i = 0
     while not first_input_to_stim and i < len(modelspec):
         if 'i' in modelspec[i]['fn_kwargs'].keys() and \
            modelspec[i]['fn_kwargs']['i'] == 'pred':
+            modelspec[i]['fn_kwargs']['i'] = input_name
+            """ OLD
             if input_name != 'stim':
                 modelspec[i]['fn_kwargs']['i'] = input_name
             elif 'state' in modelspec[i]['fn']:
                 modelspec[i]['fn_kwargs']['i'] = 'psth'
             else:
                 modelspec[i]['fn_kwargs']['i'] = input_name
-
+            """
         # if correction is not in first module, then assume the modelspec can handle things?
         # fix for BNB's RDT model
         first_input_to_stim = True

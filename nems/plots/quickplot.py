@@ -217,7 +217,7 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
        (find_module('state_dc_gain', modelspec) is not None) or
        (find_module('state_weight', modelspec) is not None) or
        (find_module('state_dexp', modelspec) is not None)):
-        if rec['state'].shape[0]<=15:
+        if rec['state'].shape[0]<=10:
             #fns = state_vars_psths(rec, epoch, psth_name='resp',
             #                       occurrence=occurrence)
             #
@@ -231,7 +231,7 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
                       (44/255, 125/255, 61/255),
                       (129/255, 64/255, 138/255))
 
-            fn2 = partial(state_gain_plot, modelspec, colors=colors)
+            fn2 = partial(state_gain_plot, modelspec)
             _plot_axes(1, fn2, -2)
 
     else:

@@ -766,7 +766,7 @@ class SignalBase:
     def split_at_time(self, fraction):
         raise NotImplementedError
 
-    def extract_channels(self, chans):
+    def extract_channels(self, chans, name=None):
         raise NotImplementedError
 
     def extract_epoch(self, epoch, allow_empty=True,
@@ -1439,7 +1439,7 @@ class RasterizedSignal(SignalBase):
                                 epochs=epochs, chans=chans,
                                 safety_checks=False, **attr)
 
-    def extract_channels(self, chans):
+    def extract_channels(self, chans, name=None):
         '''
         Returns a new signal object containing only the specified
         channel indices.
@@ -1447,7 +1447,9 @@ class RasterizedSignal(SignalBase):
         array = self.as_continuous()
         # s is shorthand for slice. Return a 2D array.
         s = [self.chans.index(c) for c in chans]
-        return self._modified_copy(array[s], chans=chans)
+        if name is None:
+            name = self.name
+        return self._modified_copy(array[s], chans=chans, name=name)
 
     def replace_epoch(self, epoch, epoch_data, preserve_nan=True, mask=None):
         '''
@@ -2023,15 +2025,16 @@ class PointProcess(SignalBase):
         )
 
 
-    def extract_channels(self, chans):
+    def extract_channels(self, chans, name=None):
         '''
         Returns a new signal object containing only the specified
         channel indices.
         '''
         # s is shorthand for slice. Return a 2D array.
         s = {c: self._data[c] for c in chans}
-
-        return self._modified_copy(s, chans=chans)
+        if name is None:
+            name = self.name
+        return self._modified_copy(s, chans=chans, name=name)
 
 
 class TiledSignal(SignalBase):

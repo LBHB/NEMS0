@@ -127,8 +127,9 @@ class EpochCanvas(NemsCanvas):
                 y = np.array([i, i])
 
                 self.axes.plot(x, y, '-', color=colors[i % len(colors)])
-                self.axes.text(s, i, n, va='bottom', fontsize='small',
-                               color=colors[i % len(colors)])
+                if len(self.epoch_groups[g]) < 5:
+                    self.axes.text(s, i, n, va='bottom', fontsize='small',
+                                   color=colors[i % len(colors)])
 
         self.axes.set_xlim([p.start_time, p.stop_time])
         self.axes.set_ylim([-0.5, i+0.5])

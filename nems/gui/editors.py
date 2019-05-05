@@ -6,7 +6,7 @@ The different parts of the editor are layed out as follows:
 ------------------------------EditorWindow--------------------------------------
 : :------------------------------ EditorWidget--------------------------------::
 : : :-------------------ModelspecEditor-----------------: :---XfspecEditor---:::
-: : : EpochsCollapser |                  | EpochsCanvas : :                  :::
+: : : EpochsCollapser |                  | EpochCanvas  : :                  :::
 : : :                                                   : :                  :::
 : : : ModuleCollapser |-ModuleController-| ModuleCanvas : :   XfstepEditor   :::
 : : :      [+/-]        :  PhiEditor   :      [Plot]    : :                  :::

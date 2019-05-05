@@ -195,6 +195,64 @@ class ModelSpec:
             return self.raw[fit_index][mod_idx].get('phi')
 
     @property
+    def phi_mean(self, mod_idx=None):
+        """
+        Returns mean of phi across fit_indexes
+        :param mod_idx: which module to use (default all modules)
+        :return: list of phi dictionaries, mean of each value
+        """
+        if len(self.raw) == 1:
+            return self.phi(mod_idx=mod_idx)
+
+        phi = []
+        if type(mod_idx) is list:
+            mod_range = mod_idx
+        elif mod_idx is not None:
+            mod_range = [mod_idx]
+        else:
+            mod_range = range(len(self.raw[0]))
+
+        for mod_idx in mod_range:
+            p = {}
+            for k in self.raw[0][mod_idx]['phi'].keys():
+                maxdim = len(self.raw[0][mod_idx]['phi'][k].shape)
+                p[k] = np.mean(np.concatenate([np.expand_dims(f[mod_idx]['phi'][k], axis=maxdim)
+                                               for f in self.raw], axis=maxdim), axis=maxdim, keepdims=False)
+            phi.append(p)
+
+        return phi
+
+    @property
+    def phi_sem(self, mod_idx=None):
+        """
+        Returns SEM of phi across fit_indexes
+        :param mod_idx: which module to use (default all modules)
+        :return: list of phi dictionaries, jackknife sem of each value
+        """
+        fit_count = len(self.raw)
+        if fit_count == 1:
+            return self.phi(mod_idx=mod_idx)
+
+        phi = []
+        if type(mod_idx) is list:
+            mod_range = mod_idx
+        elif mod_idx is not None:
+            mod_range = [mod_idx]
+        else:
+            mod_range = range(len(self.raw[0]))
+
+        for mod_idx in mod_range:
+            p = {}
+            for k in self.raw[0][mod_idx]['phi'].keys():
+                maxdim = len(self.raw[0][mod_idx]['phi'][k].shape)
+                p[k] = np.std(np.concatenate([np.expand_dims(f[mod_idx]['phi'][k], axis=maxdim)
+                                              for f in self.raw], axis=maxdim), axis=maxdim, keepdims=False) * \
+                    np.sqrt(fit_count-1)
+            phi.append(p)
+
+        return phi
+
+    @property
     def phi_vector(self, fit_index=None):
         """
         :param fit_index: which model fit to use (default use self.fit_index
