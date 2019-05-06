@@ -111,8 +111,7 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
         ts = rec['state'].as_continuous().copy()
 
         if num_vars > 6:
-            #ts = scipy.signal.decimate(ts, q=10, axis=1)
-            #print(np.nanmax(ts, axis=1, keepdims=True))
+            ts = scipy.signal.decimate(ts, q=10, axis=1)
             ts = ts / np.nanmax(ts, axis=1, keepdims=True)
             plt.imshow(ts, extent=(0, t[-1], -100, 0))
         else:
@@ -400,6 +399,8 @@ def state_gain_plot(modelspec, ax=None, colors=None, clim=None, title=None, **op
     state_chans = modelspec[0]['meta']['state_chans']
     if ax is not None:
         plt.sca(ax)
+    else:
+        ax=plt.gca()
     if d.shape[0] > 1:
         opt={}
         for cc in range(d.shape[1]):
@@ -408,9 +409,17 @@ def state_gain_plot(modelspec, ax=None, colors=None, clim=None, title=None, **op
             plt.plot(d[:,cc],'--', **opt)
             plt.plot(g[:,cc], **opt)
     else:
-        plt.errorbar(np.arange(len(d[0,:])),d[0,:],de[0,:])
-        plt.errorbar(np.arange(len(g[0,:])),g[0,:],ge[0,:])
-        #plt.plot(g[0,:],'o-')
+        plt.errorbar(np.arange(len(d[0, :])), d[0, :], de[0, :], color='blue')
+        plt.errorbar(np.arange(len(g[0, :])), g[0, :], ge[0, :], color='red')
+        dz = np.abs(d[0, :] / de[0, :])
+        gz = np.abs(g[0, :] / ge[0, :])
+        for i in range(len(gz)):
+            if gz[i] > 2:
+                ax.text(i, g[0, i] + np.sign(g[0, i]) * ge[0, i], state_chans[i],
+                        color='red', ha='center', fontsize=6)
+            elif dz[i] > 2:
+                ax.text(i, d[0,i]+np.sign(d[0,i])*de[0,i], state_chans[i],
+                        color='blue', ha='center', fontsize=6)
 
     #plt.plot(MI)
     #plt.xticks(np.arange(len(state_chans)), state_chans, fontsize=6)

@@ -81,7 +81,8 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
     else:
         list_modelspec = True
 
-    output_name = modelspecs[0]['meta']['output_name']
+    # svd - fix to have default value for backward compatibility
+    output_name = modelspecs[0]['meta'].get('output_name', 'resp')
 
     if type(val) is not list:
 
