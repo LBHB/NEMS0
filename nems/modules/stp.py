@@ -3,7 +3,8 @@ from numpy import exp
 from scipy.integrate import cumtrapz
 from scipy.signal import boxcar
 
-def short_term_plasticity(rec, i, o, u, tau, x0=None, crosstalk=0, reset_signal=None):
+def short_term_plasticity(rec, i, o, u, tau, x0=None, crosstalk=0,
+                          reset_signal=None, quick_eval=False):
     '''
     STP applied to each input channel.
     parameterized by Markram-Todyks model:
@@ -16,12 +17,12 @@ def short_term_plasticity(rec, i, o, u, tau, x0=None, crosstalk=0, reset_signal=
         if reset_signal in rec.signals.keys():
             r = rec[reset_signal].as_continuous()
 
-    fn = lambda x : _stp(x, u, tau, x0, crosstalk, rec[i].fs, r)
+    fn = lambda x : _stp(x, u, tau, x0, crosstalk, rec[i].fs, r, quick_eval)
 
     return [rec[i].transform(fn, o)]
 
 
-def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None):
+def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None, quick_eval=False):
     """
     STP core function
     """
@@ -63,9 +64,8 @@ def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None):
 
     # go through each stimulus channel
     stim_out = tstim  # allocate scaling term
-    alt=False
     for i in range(0, s[0]):
-        if alt and (reset_signal is not None):
+        if quick_eval and (reset_signal is not None):
 
             a = 1 / taui[i]
             x = ui[i] * tstim[i, :] / fs

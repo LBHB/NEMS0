@@ -334,14 +334,17 @@ def init_from_keywords(keywordstring, meta={}, IsReload=False,
                                        meta=meta, registry=registry, rec=rec,
                                        input_name=input_name,
                                        output_name=output_name)
-
-        return {'modelspec': modelspec}
     else:
-        return {}
+        modelspec=context['modelspec']
+        if modelspec is not None:
+            if modelspec.meta.get('input_name', None) is None:
+                modelspec.meta['input_name'] = input_name
+                modelspec.meta['output_name'] = output_name
+
+    return {'modelspec': modelspec}
 
 
-def load_modelspecs(modelspecs, uris,
-                    IsReload=False, **context):
+def load_modelspecs(modelspecs, uris, IsReload=False, **context):
     '''
     i.e. Load a modelspec from a specific place. This is not
     the same as reloading a model for later inspection; it would be more

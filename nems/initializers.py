@@ -20,8 +20,7 @@ default_kws.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
 
 def from_keywords(keyword_string, registry=None, rec=None, meta={},
-                  init_phi_to_mean_prior=True, input_name='stim',
-                  output_name='resp'):
+                  init_phi_to_mean_prior=True, input_name='stim', output_name='resp'):
     '''
     Returns a modelspec created by splitting keyword_string on underscores
     and replacing each keyword with what is found in the nems.keywords.defaults

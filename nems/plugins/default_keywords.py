@@ -531,6 +531,7 @@ def stp(kw):
     b : Set bounds on 'tau' to be greater than or equal to 0
     n : Apply normalization
     t : Threshold inputs to synapse
+    q : quick version of STP, fits differently for some reason? so not default
     '''
     pattern = re.compile(r'^stp\.?(\d{1,})\.?([z,b,n,s,t,\.]*)$')
     parsed = re.match(pattern, kw)
@@ -548,21 +549,16 @@ def stp(kw):
     tau_mean = [0.05] * n_synapse
     x0_mean = [0] * n_synapse
 
-    normalize = False
-    bounds = False
-    threshold = False
+    quick_eval = ('q' in options)
+    normalize = ('n' in options)
+    threshold = ('t' in options)
+    bounds = ('b' in options)
 
     for op in options:
         if op == 'z':
             tau_mean = [0.01] * n_synapse
         elif op == 's':
             u_mean = [0.1] * n_synapse
-        elif op == 'n':
-            normalize = True
-        elif op == 't':
-            threshold = True
-        elif op == 'b':
-            bounds = True
 
     u_sd = u_mean
     if n_synapse == 1:
@@ -577,7 +573,7 @@ def stp(kw):
         'fn': 'nems.modules.stp.short_term_plasticity',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred',
-                      'crosstalk': 0,
+                      'crosstalk': 0, 'quick_eval': quick_eval,
                       'reset_signal': 'epoch_onsets'},
         'plot_fns': ['nems.plots.api.mod_output',
                      'nems.plots.api.before_and_after',
