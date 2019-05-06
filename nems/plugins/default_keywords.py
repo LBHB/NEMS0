@@ -533,7 +533,7 @@ def stp(kw):
     t : Threshold inputs to synapse
     q : quick version of STP, fits differently for some reason? so not default
     '''
-    pattern = re.compile(r'^stp\.?(\d{1,})\.?([z,b,n,s,t,\.]*)$')
+    pattern = re.compile(r'^stp\.?(\d{1,})\.?([z,b,n,s,t,q.\.]*)$')
     parsed = re.match(pattern, kw)
     try:
         n_synapse = int(parsed.group(1))
