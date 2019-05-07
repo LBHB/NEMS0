@@ -507,6 +507,13 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     return {'rec': rec}
 
 
+def concatenate_input_channels(rec, input_signals=[], **context):
+    input_name = context.get('input_name', 'stim')
+    rec = preproc.concatenate_input_channels(rec, input_signals=input_signals,
+                                             input_name=input_name)
+
+    return {'rec': rec}
+
 def make_mod_signal(rec, signal='resp'):
     """
     Make new signal called mod that can be used for calculating an unbiased

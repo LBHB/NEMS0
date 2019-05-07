@@ -999,7 +999,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         newrec['pupil_ev'].chans=['pupil_ev']
         newrec['pupil_bs'] = newrec["pupil"].replace_epoch('TRIAL', pupil_bs)
         newrec['pupil_bs'].chans=['pupil_bs']
-        
+
     if ('each_passive' in state_signals):
         file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
         pset = []
@@ -1283,6 +1283,20 @@ def concatenate_state_channel(rec, sig, state_signal_name='state'):
 
     return newrec
 
+
+def concatenate_input_channels(rec, input_signals=[], input_name=None):
+    newrec = rec.copy()
+    input_sig_list = []
+    input_sig_list.append(newrec[input_name].rasterize())
+    for s in input_signals:
+        input_sig_list.append(newrec[s])
+
+    input = nems.signal.RasterizedSignal.concatenate_channels(input_sig_list)
+    input.name = input_name
+
+    newrec.add_signal(input)
+
+    return newrec
 
 def signal_select_channels(rec, sig_name="resp", chans=None):
 
