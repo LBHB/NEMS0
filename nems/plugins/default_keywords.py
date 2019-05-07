@@ -944,13 +944,9 @@ def stategain(kw):
                          "stategain.{n_variables} or stategain.{n_variables}x{n_chans} \n"
                          "keyword given: %s" % kw)
 
-    gain_only=False
-    include_spont=False
-    for op in options[2:]:
-        if op == 'g':
-            gain_only=True
-        if op == 's':
-            include_spont=True
+    gain_only=('g' in options[2:])
+    include_spont=('s' in options[2:])
+    dc_only=('d' in options[2:])
 
     zeros = np.zeros([n_chans, n_vars])
     ones = np.ones([n_chans, n_vars])
@@ -966,7 +962,18 @@ def stategain(kw):
                 'nems.plots.api.pred_resp',
                 'nems.plots.api.state_vars_timeseries',
                 'nems.plots.api.state_vars_psth_all']
-    if gain_only:
+    if dc_only:
+        template = {
+            'fn': 'nems.modules.state.state_dc_gain',
+            'fn_kwargs': {'i': 'pred',
+                          'o': 'pred',
+                          's': 'state',
+                          'g': g_mean},
+            'plot_fns': plot_fns,
+            'plot_fn_idx': 4,
+            'prior': {'d': ('Normal', {'mean': d_mean, 'sd': d_sd})}
+        }
+    elif gain_only:
         template = {
             'fn': 'nems.modules.state.state_gain',
             'fn_kwargs': {'i': 'pred',

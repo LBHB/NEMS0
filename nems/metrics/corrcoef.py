@@ -132,6 +132,8 @@ def r_floor(result, pred_name='pred', resp_name='resp'):
     r_floor = np.zeros(channel_count)
 
     for i in range(channel_count):
+        #import pdb
+        #pdb.set_trace()
         X1 = X1mat[i, :]
         X2 = X2mat[i, :]
 

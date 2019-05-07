@@ -88,8 +88,10 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
         d = None
         sp = None
         for m in modelspec:
-            if ('state_dc_gain' in m['fn']):
+            if ('state_dc_gain' in m['fn']) and ('g' in m['phi'].keys()):
                 g = np.array(m['phi']['g'])
+                d = np.array(m['phi']['d'])
+            elif ('state_dc_gain' in m['fn']):
                 d = np.array(m['phi']['d'])
             elif ('state_sp_dc_gain' in m['fn']):
                 g = np.array(m['phi']['g'])

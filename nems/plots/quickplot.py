@@ -222,7 +222,7 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
             #                       occurrence=occurrence)
             #
             #_plot_axes([1]*len(fns), fns, -2)
-            fn2 = partial(state_vars_psth_all, rec, epoch, psth_name='resp',
+            fn2 = partial(state_vars_psth_all, rec, epoch, psth_name=modelspec.meta['output_name'],
                           psth_name2='pred', state_sig='state_raw',
                           colors=None, channel=None, decimate_by=1)
             _plot_axes(1, fn2, -2)
@@ -235,7 +235,7 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
             _plot_axes(1, fn2, -2)
 
     else:
-        sigs = [rec['resp'], rec['pred']]
+        sigs = [modelspec.meta['output_name'], rec['pred']]
         title = 'Prediction vs Response, {} #{}'.format(epoch, occurrence)
         timeseries = partial(timeseries_from_epoch, sigs, epoch, title=title,
                              occurrences=occurrence)
@@ -455,7 +455,7 @@ def _get_plot_fns(rec, modelspec, default='val', epoch='TRIAL', occurrence=0, m_
               ('state_dexp' in fname) or
               ('state.state_weight' in fname)):
 
-            if len(m['phi']['g']) > 5:
+            if len(m['phi'].get('g', m['phi']['d'])) > 5:
                 fn1 = partial(state_gain_plot, modelspec)
                 plot1 = (fn1, 1)
                 plot_fns.append(plot1)
