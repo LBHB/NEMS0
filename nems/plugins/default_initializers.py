@@ -136,7 +136,7 @@ def sevst(kw):
     xfspec = [['nems.xforms.split_by_occurrence_counts',
                {'epoch_regex': epoch_regex}]]
     return xfspec
-    
+
 
 def tev(kw):
     ops = kw.split('.')[1:]
