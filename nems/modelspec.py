@@ -312,7 +312,14 @@ class ModelSpec:
         del self.raw[self.fit_index][-1]
 
     def tile_fits(self, fit_count):
-        self.raw = [self.raw[0].copy() for i in range(fit_count)]
+        """
+        create <fit_count> sets of fit parameters to allow for multiple fits,
+        useful for n-fold cross validation or starting from multiple intial
+        conditions. values of each phi are copied from the existing first
+        value.
+        Applied in-place.
+        """
+        self.raw = [copy.deepcopy(self.raw[0]) for i in range(fit_count)]
         return self
 
     def get_priors(self, data):

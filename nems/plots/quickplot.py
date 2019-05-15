@@ -235,7 +235,7 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
             _plot_axes(1, fn2, -2)
 
     else:
-        sigs = [modelspec.meta['output_name'], rec['pred']]
+        sigs = [rec[modelspec.meta['output_name']], rec['pred']]
         title = 'Prediction vs Response, {} #{}'.format(epoch, occurrence)
         timeseries = partial(timeseries_from_epoch, sigs, epoch, title=title,
                              occurrences=occurrence)
@@ -548,8 +548,14 @@ def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
     if idx == 0:
         # Can't have anything before index 0, so use input stimulus
         before = rec.copy()
-        before_sig = rec['stim']
-        before.name = '**stim'
+        if 'stim' in rec.signals.keys():
+            before_sig = rec['stim']
+            before.name = '**stim'
+        elif 'state' in rec.signals.keys():
+            before_sig = rec['state']
+            before.name = '**state'
+        else:
+            ValueError("Don't know how to choose before signal")
     else:
         before = ms.evaluate(rec.copy(), modelspec, start=None, stop=idx)
         before_sig = before[sig_name]
