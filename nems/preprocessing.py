@@ -1287,10 +1287,9 @@ def concatenate_state_channel(rec, sig, state_signal_name='state'):
 def concatenate_input_channels(rec, input_signals=[], input_name=None):
     newrec = rec.copy()
     input_sig_list = []
-    input_sig_list.append(newrec[input_name].rasterize())
     for s in input_signals:
         input_sig_list.append(newrec[s])
-
+    input_sig_list.append(newrec[input_name].rasterize())
     input = nems.signal.RasterizedSignal.concatenate_channels(input_sig_list)
     input.name = input_name
 
