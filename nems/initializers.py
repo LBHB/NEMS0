@@ -143,7 +143,10 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
         exptid = modelspec.meta.get('exptid', 'DATA')
         siteid = modelspec.meta.get('siteid', exptid)
         cellid = modelspec.meta.get('cellid', siteid)
-        destination = os.path.join(results_dir, str(batch), cellid, modelspec.get_longname())
+        if type(cellid) is list:
+            destination = os.path.join(results_dir, str(batch), siteid, modelspec.get_longname())
+        else:
+            destination = os.path.join(results_dir, str(batch), cellid, modelspec.get_longname())
         #destination = '{0}/{1}/{2}/{3}/'.format(
         #    results_dir, batch, cellid, modelspec.get_longname())
         modelspec.meta['modelpath'] = destination

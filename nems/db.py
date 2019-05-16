@@ -1331,6 +1331,50 @@ def get_rawid(cellid, run_num):
 
     return [d['rawid'].values[0]]
 
+def get_pen_location(cellid):
+    """
+    Cellid can be string or list. For every channel in the list, return the
+    well position. For example, if cellid = ['AMT024a-01-2', 'AMT024a-03-2']
+    then this code expects there to be at least 3 well positions in the db,
+    it will return the 0th and 2nd positions.
+
+    DO NOT pass list of cellids from different sites. This will not work
+
+    If recording with a single probe array, there is only one well position for
+    all 64 channels. For this reason, it doesn't make sense for cellid to be a
+    list
+    """
+    engine = Engine()
+    params = ()
+    sql = "SELECT wellposition FROM gPenetration WHERE penname like '{}'"
+
+    if type(cellid) is list:
+        penname = cellid[0][:6]
+    if type(cellid is np.ndarray):
+        penname = cellid[0][:6]
+    if type(cellid) is str:
+        penname = cellid[:6]
+
+    sql = sql.format(penname)
+
+    d = pd.read_sql(sql=sql, con=engine)
+    xy = d.values[0][0].split('+')
+    # return table of x y values
+    if type(cellid) is str:
+        table_xy = pd.DataFrame(index=[cellid], columns=['x', 'y'])
+    else:
+        # only keep unique chans
+        cellid = np.unique([c[:10] for c in cellid])
+        table_xy = pd.DataFrame(index=cellid, columns=['x', 'y'])
+
+    for i, pos in enumerate(xy):
+        vals = pos.split(',')
+        if (len(vals) > 1) & (i < len(cellid)):
+            table_xy['x'][i] = int(vals[0])
+            table_xy['y'][i] = int(vals[1])
+
+    return table_xy
+
 
 #### NarfData management
 
