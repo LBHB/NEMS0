@@ -33,12 +33,12 @@ def generate_prediction(est, val, modelspec, **context):
     # n fits, n est sets - nfold
     # n fits, 1 est set - multiple initial conditions
 
-    if est.view_count() == 1:
+    if est.view_count == 1:
         new_est = est.tile_views(len(modelspecs))
         new_val = val.tile_views(len(modelspecs))
         do_inverse_merge = False
     else:
-        # assume est and val have view_count() == len(modelspecs)
+        # assume est and val have .view_count == len(modelspecs)
         new_est = est.copy()
         new_val = val.copy()
         do_inverse_merge = True
@@ -62,7 +62,7 @@ def generate_prediction(est, val, modelspec, **context):
 
 
 def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
-                         use_mask=True):
+                         use_mask=True, **context):
     # use_mask: mask before computing metrics (if mask exists)
     # Compute scores for validation dat
     r_ceiling = 0
@@ -87,18 +87,37 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
     if type(val) is not list:
 
         # TODO: support for views
+        view_count = val.view_count
+        r_test = np.zeros(view_count)
+        se_test = np.zeros(view_count)
+        r_fit = np.zeros(view_count)
+        se_fit = np.zeros(view_count)
+        r_floor = np.zeros(view_count)
+        mse_test = np.zeros(view_count)
+        se_mse_test = np.zeros(view_count)
+        mse_fit = np.zeros(view_count)
+        se_mse_fit = np.zeros(view_count)
+        ll_test = np.zeros(view_count)
+        ll_fit = np.zeros(view_count)
+        for i in range(view_count):
+            if ('mask' in val.signals.keys()) and use_mask:
+                v = val.set_view(i).apply_mask()
+                e = est.set_view(i).apply_mask()
+            else:
+                v = val.set_view(i)
+                e = est.set_view(i)
+                use_mask = False
 
-        if ('mask' in val.signals.keys()) and use_mask:
-            v = val.apply_mask()
-            e = est.apply_mask()
-        else:
-            v = val
-            e = est
-            use_mask = False
+            r_test[i], se_test[i] = nmet.j_corrcoef(v, 'pred', output_name)
+            r_fit[i], se_fit[i] = nmet.j_corrcoef(e, 'pred', output_name)
+            r_floor[i] = nmet.r_floor(v, 'pred', output_name)
 
-        r_test, se_test = nmet.j_corrcoef(v, 'pred', output_name)
-        r_fit, se_fit = nmet.j_corrcoef(e, 'pred', output_name)
-        r_floor = nmet.r_floor(v, 'pred', output_name)
+            mse_test[i], se_mse_test[i] = nmet.j_nmse(v, 'pred', output_name)
+            mse_fit[i], se_mse_fit[i] = nmet.j_nmse(e, 'pred', output_name)
+
+            ll_test[i] = nmet.likelihood_poisson(v, 'pred', output_name)
+            ll_fit[i] = nmet.likelihood_poisson(e, 'pred', output_name)
+
         if rec is not None:
             if 'mask' in rec.signals.keys() and use_mask:
                 r = rec.apply_mask()
@@ -106,12 +125,6 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
                 r = rec
             # print('running r_ceiling')
             r_ceiling = nmet.r_ceiling(v, r, 'pred', output_name)
-
-        mse_test, se_mse_test = nmet.j_nmse(v, 'pred', output_name)
-        mse_fit, se_mse_fit = nmet.j_nmse(e, 'pred', output_name)
-
-        ll_test = nmet.likelihood_poisson(v, 'pred', output_name)
-        ll_fit = nmet.likelihood_poisson(e, 'pred', output_name)
 
     elif len(val) == 1:
         # does this ever run?
@@ -360,3 +373,22 @@ def basic_error(data, modelspec, cost_function=None,
                           evaluator, metric)
 
     return error
+
+def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit', **context):
+    """
+    for models with multiple fits (eg, based on multiple initial conditions), find the best prediction
+    for the recording provided (presumably est data, though possibly something held out)
+
+    :param modelspec: should have fit_count>0
+    :param est: view_count should match fit_count, ie, after generate_prediction is called
+    :param context: extra context stuff for xforms compatibility.
+    :return: modelspec with fit_count==1
+    """
+
+    new_est, new_val = generate_prediction(est, val, modelspec)
+
+    new_modelspec = standard_correlation(est=new_est, val=new_val, modelspec=modelspec)
+
+    x = new_modelspec.meta[criterion]
+
+

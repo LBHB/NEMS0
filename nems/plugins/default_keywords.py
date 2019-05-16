@@ -133,7 +133,7 @@ def wc(kw):
 
             mean_prior_coefficients = {
                 'mean': mean,
-                'sd': np.ones_like(mean),
+                'sd': np.full_like(mean, 0.4),
             }
             sd_prior_coefficients = {'sd': sd}
             prior = {'mean': ('Normal', mean_prior_coefficients),
@@ -608,30 +608,36 @@ def dexp(kw):
 
     Options
     -------
-    None
+       <n> : n dimensions
+       s : apply to state rather than pred (pred==default in/out)
     '''
-    pattern = re.compile(r'^dexp\.?(\d{1,})$')
-    parsed = re.match(pattern, kw)
-    try:
-        n_dims = int(parsed.group(1))
-    except TypeError:
-        raise ValueError("Got TypeError while parsing dexp keyword,\n"
-                         "make sure keyword is of the form: \n"
-                         "dexp.{n_dims}\nkeyword given: %s" % kw)
+    #pattern = re.compile(r'^dexp\.?(\d{1,})$')
+    #parsed = re.match(pattern, kw)
+    ops = kw.split(".")
+    if len(ops) == 1:
+        raise ValueError("required parameter dexp.<n>")
+
+    n_dims = int(ops[1]) 
+    inout_name = 'pred'
+    for op in ops[2:]:
+        if op == 's':
+            inout_name = 'state'
+        else:
+            raise ValueError('dexp keyword: invalid option %s' % op)
 
     base_mean = np.zeros([n_dims, 1]) if n_dims > 1 else np.array([0])
     base_sd = np.ones([n_dims, 1]) if n_dims > 1 else np.array([1])
-    amp_mean = base_mean + 0.2
-    amp_sd = base_mean + 0.1
+    amp_mean = base_mean + 1
+    amp_sd = base_mean + 0.5
     shift_mean = base_mean
     shift_sd = base_sd
-    kappa_mean = base_mean
+    kappa_mean = base_mean + 1
     kappa_sd = amp_sd
 
     template = {
         'fn': 'nems.modules.nonlinearity.double_exponential',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred'},
+        'fn_kwargs': {'i': inout_name,
+                      'o': inout_name},
         'plot_fns': ['nems.plots.api.mod_output',
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.before_and_after',
@@ -807,15 +813,13 @@ def dlog(kw):
     options = kw.split(".")
     chans = 1
     nchans = 0
-    offset = False
 
+    offset = ('f' in options)
     for op in options:
         if op.startswith('c'):
             chans = int(op[1:])
         elif op.startswith('n'):
             nchans = int(op[1:])
-        elif op == 'f':
-            offset = True
 
     template = {
         'fn': 'nems.modules.nonlinearity.dlog',
@@ -838,7 +842,7 @@ def dlog(kw):
     else:
         template['prior'] = {'offset': ('Normal', {
                 'mean': np.zeros((chans, 1)),
-                'sd': np.ones((chans, 1))*2})}
+                'sd': np.full((chans, 1), 0.5)})}
 
     return template
 

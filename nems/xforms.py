@@ -675,8 +675,8 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
 
         # TODO : make structure here parallel to fit_basic?
         if jackknifed_fit:
-            nfolds = est.view_count()
-            if modelspec.fit_count < est.view_count():
+            nfolds = est.view_count
+            if modelspec.fit_count < est.view_count:
                 modelspec.tile_fits(nfolds)
 
             for fit_idx, e in enumerate(est.views()):
@@ -688,12 +688,14 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
                         tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
                         nl_kw=nl_kw)
         else:
-            modelspec = nems.initializers.prefit_LN(
-                    est, modelspec,
-                    analysis_function=nems.analysis.api.fit_basic,
-                    fitter=scipy_minimize, metric=metric_fn,
-                    tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
-                    nl_kw=nl_kw)
+            for fit_idx in range(modelspec.fit_count):
+                log.info("Init fit for fold %d/%d", fit_idx + 1, nfolds)
+                modelspec = nems.initializers.prefit_LN(
+                        est, modelspec.set_fit(fit_idx),
+                        analysis_function=nems.analysis.api.fit_basic,
+                        fitter=scipy_minimize, metric=metric_fn,
+                        tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+                        nl_kw=nl_kw)
 
     return {'modelspec': modelspec}
 
@@ -785,8 +787,8 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
         fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
 
         if jackknifed_fit:
-            nfolds = est.view_count()
-            if modelspec.fit_count < est.view_count():
+            nfolds = est.view_count
+            if modelspec.fit_count < est.view_count:
                 modelspec.tile_fits(nfolds)
             for fit_idx, e in enumerate(est.views()):
                 log.info("Fitting fold %d/%d", fit_idx + 1, nfolds)
@@ -820,8 +822,8 @@ def reverse_correlation(modelspec, est, IsReload=False, jackknifed_fit=False,
     if not IsReload:
 
         if jackknifed_fit:
-            nfolds = est.view_count()
-            if modelspec.fit_count < est.view_count():
+            nfolds = est.view_count
+            if modelspec.fit_count < est.view_count:
                 modelspec.tile_fits(nfolds)
             for fit_idx, e in enumerate(est.views()):
                 log.info("Fitting fold %d/%d", fit_idx + 1, nfolds)

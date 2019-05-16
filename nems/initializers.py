@@ -104,11 +104,11 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
     # instead. can't hard-code in keywords, since we don't know which
     # keyword will be first. and can't assume that it will be module[0]
     # because those might be state manipulations
-    first_input_to_stim = False
+    first_input_found = False
     i = 0
-    while not first_input_to_stim and i < len(modelspec):
-        if 'i' in modelspec[i]['fn_kwargs'].keys() and \
-           modelspec[i]['fn_kwargs']['i'] == 'pred':
+    while (not first_input_found) and (i < len(modelspec)):
+        if ('i' in modelspec[i]['fn_kwargs'].keys()) and (modelspec[i]['fn_kwargs']['i'] == 'pred'):
+            log.info("Setting modelspec[%d] input to %s", i, input_name)
             modelspec[i]['fn_kwargs']['i'] = input_name
             """ OLD
             if input_name != 'stim':
@@ -118,9 +118,9 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
             else:
                 modelspec[i]['fn_kwargs']['i'] = input_name
             """
-        # if correction is not in first module, then assume the modelspec can handle things?
-        # fix for BNB's RDT model
-        first_input_to_stim = True
+
+            # 'i' key found
+            first_input_found = True
         i += 1
 
     # insert metadata, if provided
@@ -163,6 +163,20 @@ def from_keywords_as_list(keyword_string, registry=None, meta={}):
     if registry is None:
         registry = default_kws
     return [from_keywords(keyword_string, registry, meta)]
+
+
+def rand_phi(modelspec, rand_count=10, **context):
+    """ initialize modelspec phi to random values based on priors """
+    modelspec = copy.deepcopy(modelspec)
+
+
+    modelspec.tile_fits(rand_count)
+
+    for i in range(rand_count):
+        modelspec.set_fit(i)
+        modelspec = priors.set_random_phi(modelspec)
+
+    return {'modelspec': modelspec}
 
 
 def prefit_LN(est, modelspec, analysis_function=fit_basic,
