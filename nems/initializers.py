@@ -162,6 +162,20 @@ def from_keywords_as_list(keyword_string, registry=None, meta={}):
     return [from_keywords(keyword_string, registry, meta)]
 
 
+def rand_phi(modelspec, rand_count=10, **context):
+    """ initialize modelspec phi to random values based on priors """
+    modelspec = copy.deepcopy(modelspec)
+
+
+    modelspec.tile_fits(rand_count)
+
+    for i in range(rand_count):
+        modelspec.set_fit(i)
+        modelspec = priors.set_random_phi(modelspec)
+
+    return {'modelspec': modelspec}
+
+
 def prefit_LN(est, modelspec, analysis_function=fit_basic,
               fitter=scipy_minimize, metric=None, norm_fir=False,
               tolerance=10**-5.5, max_iter=700, nl_kw={}):

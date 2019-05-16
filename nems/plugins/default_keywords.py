@@ -133,7 +133,7 @@ def wc(kw):
 
             mean_prior_coefficients = {
                 'mean': mean,
-                'sd': np.ones_like(mean),
+                'sd': np.full_like(mean, 0.4),
             }
             sd_prior_coefficients = {'sd': sd}
             prior = {'mean': ('Normal', mean_prior_coefficients),
@@ -813,15 +813,13 @@ def dlog(kw):
     options = kw.split(".")
     chans = 1
     nchans = 0
-    offset = False
 
+    offset = ('f' in options)
     for op in options:
         if op.startswith('c'):
             chans = int(op[1:])
         elif op.startswith('n'):
             nchans = int(op[1:])
-        elif op == 'f':
-            offset = True
 
     template = {
         'fn': 'nems.modules.nonlinearity.dlog',
@@ -844,7 +842,7 @@ def dlog(kw):
     else:
         template['prior'] = {'offset': ('Normal', {
                 'mean': np.zeros((chans, 1)),
-                'sd': np.ones((chans, 1))*2})}
+                'sd': np.full((chans, 1), 0.5)})}
 
     return template
 

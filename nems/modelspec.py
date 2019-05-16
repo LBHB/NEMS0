@@ -156,7 +156,7 @@ class ModelSpec:
 
     @property
     def fit_count(self):
-        """Number of fits in this modelspec"""
+        """Number of fits (sets of phi values) in this modelspec"""
         return len(self.raw)
 
     def set_fit(self, fit_index=None):

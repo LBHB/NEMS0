@@ -118,8 +118,9 @@ class Recording:
                 rec.signal_views = rec.signal_views[view_range]
 
         """return a list of all views of this recording"""
-        return [rec.set_view(i) for i in range(rec.view_count())]
+        return [rec.set_view(i) for i in range(rec.view_count)]
 
+    @property
     def view_count(self):
         """return how many views exist in this recording"""
         return len(self.signal_views)
@@ -890,7 +891,7 @@ class Recording:
         currently two different approaches, depending on whether mask signal
         is present.
         '''
-        if self.view_count() == 1:
+        if self.view_count == 1:
             raise ValueError('Expecting recording with multiple views')
 
         sig_list = list(self.signals.keys())

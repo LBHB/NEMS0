@@ -1203,19 +1203,19 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
 
     if ('pupil_x_population' in state_signals):
         # normalize min-max
-        p = newrec["pupil"].as_continuous()
-        p -= np.mean(p, axis=1)
-        a = newrec["population"].as_continuous()
-        a -= np.mean(a, axis=1)
+        p = newrec["pupil"].as_continuous().copy()
+        p -= np.mean(p, axis=1, keepdims=True)
+        a = newrec["population"].as_continuous().copy()
+        a -= np.mean(a, axis=1, keepdims=True)
         newrec["pupil_x_population"] = newrec["population"]._modified_copy(p * a)
         newrec["pupil_x_population"].chans = ["px"+c for c in newrec["pupil_x_population"].chans]
 
     if ('active_x_population' in state_signals):
         # normalize min-max
-        a = newrec["active"].as_continuous()
-        a -= np.mean(a, axis=1)
-        p = newrec["population"].as_continuous()
-        p -= np.mean(p, axis=1)
+        a = newrec["active"].as_continuous().copy()
+        a -= np.mean(a, axis=1, keepdims=True)
+        p = newrec["population"].as_continuous().copy()
+        p -= np.mean(p, axis=1, keepdims=True)
         newrec["active_x_population"] = newrec["population"]._modified_copy(p * a)
         newrec["active_x_population"].chans = ["ax"+c for c in newrec["active_x_population"].chans]
 
