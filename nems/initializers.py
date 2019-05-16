@@ -505,10 +505,9 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
             pct = 91
             while (sum(mask) < .01*pred.shape[0]) and (pct > 1):
                 pct -= 1
-                try:
-                    mask = pred > np.percentile(pred, pct)
-                except:
-                    print(pct)
+                mask = pred > np.percentile(pred, pct)
+            if np.sum(mask) == 0:
+                mask = np.ones_like(pred, dtype=bool)
 
             if pct !=90:
                 log.warning('Init dexp: Default for init mode 2 is to find mean '
@@ -517,6 +516,8 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
                          'pred>pctile(pred,%d).', pct)
             amp[i, 0] = resp[mask].mean()
             predrange = 2 / (np.std(pred)*3)
+            if not np.isfinite(predrange):
+                predrange = 1
             shift[i, 0] = np.mean(pred)
             kappa[i, 0] = np.log(predrange)
         elif nl_mode == 3:
