@@ -662,45 +662,45 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
 
     written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
     optional modules in (parens)
-
     '''
     # only run if fitting
-    if not IsReload:
-        if isinstance(metric, str):
-            metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
-        else:
-            metric_fn = metric
+    if IsReload:
+        return {}
 
-        # TODO : handle multiple fits for single est
+    if isinstance(metric, str):
+        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
+    else:
+        metric_fn = metric
 
-        # TODO : make structure here parallel to fit_basic?
-        if jackknifed_fit:
-            nfolds = est.view_count
-            if modelspec.fit_count < est.view_count:
-                modelspec.tile_fits(nfolds)
+    # TODO : make structure here parallel to fit_basic?
+    if jackknifed_fit:
+        nfolds = est.view_count
+        if modelspec.fit_count < est.view_count:
+            modelspec.tile_fits(nfolds)
 
-            for fit_idx, e in enumerate(est.views()):
+        for fit_idx, e in enumerate(est.views()):
 
-                modelspec = nems.initializers.prefit_LN(
-                        e, modelspec.set_fit(fit_idx),
-                        analysis_function=nems.analysis.api.fit_basic,
-                        fitter=scipy_minimize, metric=metric_fn,
-                        tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
-                        nl_kw=nl_kw)
-        else:
-            for fit_idx in range(modelspec.fit_count):
-                log.info("Init fit for fold %d/%d", fit_idx + 1, nfolds)
-                modelspec = nems.initializers.prefit_LN(
-                        est, modelspec.set_fit(fit_idx),
-                        analysis_function=nems.analysis.api.fit_basic,
-                        fitter=scipy_minimize, metric=metric_fn,
-                        tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
-                        nl_kw=nl_kw)
+            modelspec = nems.initializers.prefit_LN(
+                    e, modelspec.set_fit(fit_idx),
+                    analysis_function=nems.analysis.api.fit_basic,
+                    fitter=scipy_minimize, metric=metric_fn,
+                    tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+                    nl_kw=nl_kw)
+    else:
+        for fit_idx in range(modelspec.fit_count):
+            log.info("Init fit for fold %d/%d", fit_idx + 1, modelspec.fit_count)
+            modelspec = nems.initializers.prefit_LN(
+                    est, modelspec.set_fit(fit_idx),
+                    analysis_function=nems.analysis.api.fit_basic,
+                    fitter=scipy_minimize, metric=metric_fn,
+                    tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+                    nl_kw=nl_kw)
 
     return {'modelspec': modelspec}
 
 
 def _set_zero(x):
+    """ fill x with zeros, except preserve nans """
     y = x.copy()
     y[np.isfinite(y)] = 0
     return y

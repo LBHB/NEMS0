@@ -14,7 +14,7 @@ import nems.utils
 log = logging.getLogger(__name__)
 
 
-def generate_prediction(est, val, modelspec, **context):
+def generate_prediction(est, val, modelspec, jackknifed_fit=False, **context):
 
     list_val = (type(val) is list)
     list_modelspec = (type(modelspec) is list)
@@ -33,15 +33,16 @@ def generate_prediction(est, val, modelspec, **context):
     # n fits, n est sets - nfold
     # n fits, 1 est set - multiple initial conditions
 
+    do_inverse_merge = False
     if est.view_count == 1:
         new_est = est.tile_views(len(modelspecs))
         new_val = val.tile_views(len(modelspecs))
-        do_inverse_merge = False
     else:
         # assume est and val have .view_count == len(modelspecs)
         new_est = est.copy()
         new_val = val.copy()
-        do_inverse_merge = True
+        if jackknifed_fit:
+            do_inverse_merge = True
 
     for i, m in enumerate(modelspecs):
         # update each view with prediction from corresponding modelspec
@@ -386,9 +387,13 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit', **con
     """
 
     new_est, new_val = generate_prediction(est, val, modelspec)
-
     new_modelspec = standard_correlation(est=new_est, val=new_val, modelspec=modelspec)
 
     x = new_modelspec.meta[criterion]
+    best_idx = np.argmin(x)
 
+    log.info('best phi (fit_idx=%d) has %s=%.5f', best_idx, criterion, x[best_idx])
 
+    new_modelspec = new_modelspec.copy(fit_index=best_idx)
+
+    return {'modelspec': new_modelspec}

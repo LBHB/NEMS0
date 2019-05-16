@@ -67,7 +67,10 @@ meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
 xfspec.append(['nems.xforms.init_from_keywords',
                {'keywordstring': modelspecname, 'meta': meta}])
 
+xfspec.append(['nems.initializers.rand_phi', {'rand_count': 5}])
 xfspec.append(['nems.xforms.fit_basic_init', {}])
+xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
+
 xfspec.append(['nems.xforms.fit_basic', {}])
 # xfspec.append(['nems.xforms.fit_basic_shrink', {}])
 #xfspec.append(['nems.xforms.fit_basic_cd', {}])

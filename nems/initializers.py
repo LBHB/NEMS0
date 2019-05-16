@@ -162,8 +162,12 @@ def from_keywords_as_list(keyword_string, registry=None, meta={}):
     return [from_keywords(keyword_string, registry, meta)]
 
 
-def rand_phi(modelspec, rand_count=10, **context):
+def rand_phi(modelspec, rand_count=10, IsReload=False, **context):
     """ initialize modelspec phi to random values based on priors """
+
+    if IsReload:
+        return {}
+
     modelspec = copy.deepcopy(modelspec)
 
 
@@ -494,11 +498,15 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
             shift[i, 0] = np.mean(pred)
             kappa[i, 0] = np.log(predrange)
         elif nl_mode == 2:
-            mask=np.zeros_like(pred,dtype=bool)
-            pct=91
-            while sum(mask)<.01*pred.shape[0]:
-                pct-=1
-                mask=pred>np.percentile(pred,pct)
+            mask = np.zeros_like(pred, dtype=bool)
+            pct = 91
+            while (sum(mask) < .01*pred.shape[0]) and (pct > 1):
+                pct -= 1
+                try:
+                    mask = pred > np.percentile(pred, pct)
+                except:
+                    print(pct)
+
             if pct !=90:
                 log.warning('Init dexp: Default for init mode 2 is to find mean '
                          'of responses for times where pred>pctile(pred,90). '

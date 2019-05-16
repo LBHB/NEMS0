@@ -34,6 +34,7 @@ def init(kw):
         For other nonlinearities, mode is not specified yet
     L2f : normalize fir (default false)
     .rN : initialize with N random phis drawn from priors (via init.rand_phi), default N=10
+    .rbN : initialize with N random phis drawn from priors (via init.rand_phi), and pick best mse_fit, default N=10
 
     TODO: Optimize more, make testbed to check how well future changes apply
     to disparate datasets.
@@ -47,6 +48,7 @@ def init(kw):
     fit_sig = 'resp'
     nl_kw = {}
     rand_count = 0
+    keep_best = False
     for op in ops:
         if op == 'st':
             st = True
@@ -62,16 +64,21 @@ def init(kw):
             tolerance = 10**tolpower
         elif op == 'L2f':
             norm_fir = True
+        elif op.startswith('rb'):
+            if len(op) == 2:
+                rand_count = 10
+            else:
+                rand_count = int(op[2:])
+            keep_best = True
         elif op.startswith('r'):
             if len(op) == 1:
                 rand_count = 10
             else:
                 rand_count = int(op[1:])
 
+    xfspec = []
     if rand_count > 0:
-        xfspec = [['nems.initializers.rand_phi', {'rand_count': rand_count}]]
-    else:
-        xfspec = []
+        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
     if st:
         xfspec.append(['nems.xforms.fit_state_init', {'tolerance': tolerance,
                                                 'norm_fir': norm_fir,
@@ -81,6 +88,9 @@ def init(kw):
         xfspec.append(['nems.xforms.fit_basic_init', {'tolerance': tolerance,
                                                 'norm_fir': norm_fir,
                                                 'nl_kw': nl_kw}])
+    if keep_best:
+        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
+
     return xfspec
 
 def initpop(kw):
