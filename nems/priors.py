@@ -84,7 +84,7 @@ def _to_phi(prior, method='mean', percentile=50):
         else:
             raise ValueError('_to_phi got invalid method name.')
         phi[param_name] = np.array(ary)
-    print(phi)
+
     return phi
 
 
@@ -124,7 +124,8 @@ def _set_phi_in_modelspec(modelspec, prior_to_phi_fn):
     new_mspec = deepcopy(modelspec)
     for m in new_mspec:
         d = _set_phi_in_module(deepcopy(m), prior_to_phi_fn)
-        m['phi'] = d['phi'].copy()
+        if 'phi' in d.keys():
+            m['phi'] = d['phi'].copy()
 
     return new_mspec
 
