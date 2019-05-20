@@ -517,17 +517,21 @@ def add_job_to_queue(args, note, force_rerun=False,
         queueid = x['id']
         complete = x['complete']
         if force_rerun:
+            sql = "UPDATE tQueue SET complete=0, killnow=0, progname='{}', user='{}' WHERE id={}".format(
+                commandPrompt, user, queueid)
             if complete == 1:
                 message = "Resetting existing queue entry for: %s\n" % note
-                sql = "UPDATE tQueue SET complete=0, killnow=0 WHERE id={}".format(queueid)
                 r = conn.execute(sql)
 
             elif complete == 2:
                 message = "Dead queue entry for: %s exists, resetting.\n" % note
-                sql = "UPDATE tQueue SET complete=0, killnow=0 WHERE id={}".format(queueid)
                 r = conn.execute(sql)
 
-            else:  # complete in [-1, 0] -- already running or queued
+            elif complete == 0:
+                message = "Updating unstarted entry for: %s.\n" % note
+                r = conn.execute(sql)
+
+            else:  # complete in [-1] -- already running
                 message = "Incomplete entry for: %s exists, skipping.\n" % note
 
         else:

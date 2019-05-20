@@ -56,15 +56,16 @@ def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None, quick_eval=Fa
 
     #print("rat: %s" % (ui**2 / taui))
 
-    # TODO : enable crosstalk
-    if crosstalk:
-        raise ValueError('crosstalk not yet supported')
-
     # TODO : allow >1 STP channel per input?
 
     # go through each stimulus channel
     stim_out = tstim  # allocate scaling term
-    for i in range(0, s[0]):
+
+    if crosstalk:
+        # assumes dim of u is 1 !
+        tstim = np.mean(tstim, axis=0, keepdims=True)
+
+    for i in range(0, len(u)):
         if quick_eval and (reset_signal is not None):
 
             a = 1 / taui[i]
@@ -91,13 +92,17 @@ def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None, quick_eval=Fa
             td[ff] = 1 - np.exp(np.log(imu[ff]) - np.log(mu[ff]))
             #td[mu>0] = 1 - imu[mu>0]/mu[mu>0]
 
-            stim_out[i, :] *= td
+            if crosstalk:
+                stimout *= np.expand_dims(td, 0)
+            else:
+                stim_out[i, :] *= td
         else:
 
-            td = 1  # initialize, dep state of previous time bin
             a = 1/taui[i]
             ustim = 1.0/taui[i] + ui[i] * tstim[i, :]
             # ustim = ui[i] * tstim[i, :]
+            td = np.ones_like(ustim)  # initialize dep state vector
+
             if ui[i] == 0:
                 # passthru, no STP, preserve stim_out = tstim
                 pass
@@ -108,21 +113,23 @@ def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None, quick_eval=Fa
                     # delta = (1 - td) / taui[i] - ui[i] * td * tstim[i, tt - 1]
                     # delta = 1/taui[i] - td * (1/taui[i] - ui[i] * tstim[i, tt - 1])
                     # then a=1/taui[i] and ustim=1/taui[i] - ui[i] * tstim[i,:]
-                    delta = a - td * ustim[tt - 1]
-                    td += delta
-                    if td < 0:
-                        td = 0
-                    # td = np.max([td, 0])
-                    stim_out[i, tt] *= td
+                    delta = a - td[tt - 1] * ustim[tt - 1]
+                    td[tt] = td[tt-1] + delta
+                    if td[tt] < 0:
+                        td[tt] = 0
             else:
                 # facilitation
                 for tt in range(1, s[1]):
-                    delta = a - td * ustim[tt - 1]
-                    td += delta
-                    if td > 5:
-                        td = 5
-                    # td = np.min([td, 1])
-                    stim_out[i, tt] *= td
+                    delta = a - td[tt-1] * ustim[tt - 1]
+                    td[tt] = td[tt-1] + delta
+                    if td[tt] > 5:
+                        td[tt] = 5
+
+            if crosstalk:
+                stim_out *= np.expand_dims(td, 0)
+            else:
+                stim_out[i, :] *= td
+
     if np.sum(np.isnan(stim_out)):
     #    import pdb
     #    pdb.set_trace()

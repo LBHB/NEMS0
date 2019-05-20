@@ -178,7 +178,11 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, **context):
 
     for i in range(rand_count):
         modelspec.set_fit(i)
-        modelspec = priors.set_random_phi(modelspec)
+        if i == 0:
+            # make first one mean of priors:
+            modelspec = priors.set_mean_phi(modelspec)
+        else:
+            modelspec = priors.set_random_phi(modelspec)
 
     return {'modelspec': modelspec}
 

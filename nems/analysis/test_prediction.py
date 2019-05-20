@@ -395,5 +395,6 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit', **con
     log.info('best phi (fit_idx=%d) has %s=%.5f', best_idx, criterion, x[best_idx])
 
     new_modelspec = new_modelspec.copy(fit_index=best_idx)
+    new_modelspec.meta['rand_'+criterion] = x
 
     return {'modelspec': new_modelspec}

@@ -87,8 +87,8 @@ def wc(kw):
     # This is the default for wc, but options might overwrite it.
     fn = 'nems.modules.weight_channels.basic'
     fn_kwargs = {'i': 'pred', 'o': 'pred', 'normalize_coefs': False}
-    p_coefficients = {'mean': np.zeros((n_outputs, n_inputs))+0.01,
-                      'sd': np.ones((n_outputs, n_inputs))}
+    p_coefficients = {'mean': np.full((n_outputs, n_inputs), 0.01),
+                      'sd': np.full((n_outputs, n_inputs), 0.2)}
     # add some variety across channels to help get the fitter started
     for i in range(n_outputs):
         x0 = int(i/n_outputs*n_inputs)
@@ -101,7 +101,7 @@ def wc(kw):
     for op in options[2:]:  # will be empty if only wc and {in}x{out}
         if op == 'z':
             p_coefficients = {'mean': np.zeros((n_outputs, n_inputs)),
-                              'sd': np.ones((n_outputs, n_inputs))}
+                              'sd': np.full((n_outputs, n_inputs), 0.1)}
             prior = {'coefficients': ('Normal', p_coefficients)}
 
         elif op == 'c':
@@ -109,14 +109,17 @@ def wc(kw):
             if n_outputs == 1:
                 p_coefficients = {
                     'mean': np.ones((n_outputs, n_inputs))/n_outputs,
-                    'sd': np.ones((n_outputs, n_inputs)),
+                    'sd': np.full((n_outputs, n_inputs), 0.2),
                 }
             else:
                 p_coefficients = {
                     'mean': np.eye(n_outputs, n_inputs),
-                    'sd': np.ones((n_outputs, n_inputs)),
+                    'sd': np.full((n_outputs, n_inputs), 0.2),
                 }
-                p_coefficients['mean'][(n_outputs-1):, :] = 1 / n_inputs
+                if n_outputs > n_inputs:
+                    p_coefficients['mean'][n_outputs:, :] = 1 / n_inputs
+                elif n_inputs > n_outputs:
+                    p_coefficients['mean'][:, n_inputs:] = 1 / n_outputs
 
             prior = {'coefficients': ('Normal', p_coefficients)}
 
@@ -523,7 +526,7 @@ def stp(kw):
     Parameters
     ----------
     kw : str
-        Expected format: r'^stp\.?(\d{1,})\.?([z,b,n]*)$'
+        Expected format: r'^stp\.?(\d{1,})\.?([zbnstxq.]*)$'
 
     Options
     -------
@@ -533,7 +536,7 @@ def stp(kw):
     t : Threshold inputs to synapse
     q : quick version of STP, fits differently for some reason? so not default
     '''
-    pattern = re.compile(r'^stp\.?(\d{1,})\.?([z,b,n,s,t,q.\.]*)$')
+    pattern = re.compile(r'^stp\.?(\d{1,})\.?([zbnstxq.\.]*)$')
     parsed = re.match(pattern, kw)
     try:
         n_synapse = int(parsed.group(1))
@@ -548,6 +551,7 @@ def stp(kw):
     u_mean = [0.01] * n_synapse
     tau_mean = [0.05] * n_synapse
     x0_mean = [0] * n_synapse
+    crosstalk = 0
 
     quick_eval = ('q' in options)
     normalize = ('n' in options)
@@ -559,22 +563,22 @@ def stp(kw):
             tau_mean = [0.01] * n_synapse
         elif op == 's':
             u_mean = [0.1] * n_synapse
+        elif op == 'x':
+            crosstalk = 1
 
-    u_sd = u_mean
+    u_sd = [0.05] * n_synapse
     if n_synapse == 1:
         # TODO:
         # @SVD: stp1 had this as 0.01, all others 0.05. intentional?
         #       if not can just set tau_sd = [0.05]*n_synapse
         tau_sd = u_sd
     else:
-        tau_sd = [0.05]*n_synapse
+        tau_sd = [0.01]*n_synapse
 
     template = {
         'fn': 'nems.modules.stp.short_term_plasticity',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      'crosstalk': 0, 'quick_eval': quick_eval,
-                      'reset_signal': 'epoch_onsets'},
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'crosstalk': crosstalk,
+                      'quick_eval': quick_eval, 'reset_signal': 'epoch_onsets'},
         'plot_fns': ['nems.plots.api.mod_output',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.before_and_after_stp'],

@@ -113,10 +113,12 @@ def basic(fitkey):
     xfspec = []
 
     options = _extract_options(fitkey)
-    max_iter, tolerance, fitter = _parse_basic(options)
+    max_iter, tolerance, fitter, choose_best = _parse_basic(options)
     xfspec = [['nems.xforms.fit_basic',
                {'max_iter': max_iter,
                 'fitter': fitter, 'tolerance': tolerance}]]
+    if choose_best:
+        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
     return xfspec
 
@@ -253,6 +255,7 @@ def _parse_basic(options):
     max_iter = 1000
     tolerance = 1e-7
     fitter = 'scipy_minimize'
+    choose_best = False
     for op in options:
         if op.startswith('mi'):
             pattern = re.compile(r'^mi(\d{1,})')
@@ -265,8 +268,10 @@ def _parse_basic(options):
             tolerance = 10**tolpower
         elif op == 'cd':
             fitter = 'coordinate_descent'
+        elif op == 'b':
+            choose_best = True
 
-    return max_iter, tolerance, fitter
+    return max_iter, tolerance, fitter, choose_best
 
 
 def _parse_iter(options):

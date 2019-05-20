@@ -688,7 +688,7 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
                     nl_kw=nl_kw)
     else:
         for fit_idx in range(modelspec.fit_count):
-            log.info("Init fit for fold %d/%d", fit_idx + 1, modelspec.fit_count)
+            log.info("Init fitting model instance %d/%d", fit_idx + 1, modelspec.fit_count)
             modelspec = nems.initializers.prefit_LN(
                     est, modelspec.set_fit(fit_idx),
                     analysis_function=nems.analysis.api.fit_basic,
@@ -808,6 +808,7 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
         else:
             # standard single shot
             for fit_idx in range(modelspec.fit_count):
+                log.info("Fitting model instance %d/%d", fit_idx + 1, modelspec.fit_count)
                 modelspec = nems.analysis.api.fit_basic(
                     est, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
                     metric=metric_fn, fitter=fitter_fn)

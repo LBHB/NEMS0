@@ -1212,7 +1212,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
 
     if ('active_x_population' in state_signals):
         # normalize min-max
-        a = newrec["active"].as_continuous().copy()
+        a = newrec["active"].as_continuous().astype(float)
         a -= np.mean(a, axis=1, keepdims=True)
         p = newrec["population"].as_continuous().copy()
         p -= np.mean(p, axis=1, keepdims=True)
