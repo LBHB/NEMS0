@@ -275,9 +275,13 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
         preps = []
         for k, d in folded_resp.items():
             if np.sum(np.isfinite(d)) > 0:
-
-                Xall.append(resp.extract_epoch(k)[:, chanidx, :])
+                _n = folded_pred[k][:, chanidx, :].shape[1]
+                _r = resp.extract_epoch(k)[:, chanidx, :_n]
+                Xall.append(_r)
                 p.append(folded_pred[k][:, chanidx, :])
+                print(k)
+                print(_r.shape)
+                print(folded_pred[k][:, chanidx, :].shape)
                 reps.append(Xall[-1].shape[0])
                 preps.append(p[-1].shape[0])
 
@@ -291,6 +295,8 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
         minpreps = np.min(preps)
         p = [p0[:minpreps, :] for p0 in p]
         p = np.concatenate(p, axis=1)
+        #import pdb
+        #pdb.set_trace()
         if minreps > 1:
             rac = _r_single(X, N)
 
