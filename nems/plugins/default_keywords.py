@@ -301,7 +301,7 @@ def pz(kw):
     if n_banks > 1:
         raise ValueError("nbanks > 1 not yet supported for pz")
 
-    npoles = 1
+    npoles = 3
     nzeros = 1
 
     for op in options[2:]:
@@ -310,22 +310,22 @@ def pz(kw):
 
         elif op.startswith('z'):
             nzeros = int(op[1:])
-    pole_set = np.array([[0.2, 0.4, 0.8, 0.8]])
+    pole_set = np.array([[0.5, 0, 0, 0]])
+    zero_set = np.array([[0.1, 0.1, 0.1, 0.1]])
     p_poles = {
         'mean': np.repeat(pole_set[:,:npoles], n_outputs, axis=0),
-        'sd': np.ones((n_outputs, npoles))*.1,
+        'sd': np.ones((n_outputs, npoles))*.2,
     }
     p_zeros = {
-        'mean': np.zeros((n_outputs, nzeros))+.1,
-        'sd': np.ones((n_outputs, nzeros))*.1,
+        'mean': np.repeat(zero_set[:,:nzeros], n_outputs, axis=0),
+        'sd': np.ones((n_outputs, nzeros))*.2,
     }
     p_delays = {
-        'mean': np.zeros((n_outputs, 1))+1,
-        'sd': np.ones((n_outputs, 1))*.1,
+        'sd': np.ones((n_outputs, 1))*.01,
     }
     p_gains = {
         'mean': np.zeros((n_outputs, 1))+.1,
-        'sd': np.ones((n_outputs, 1))*.1,
+        'sd': np.ones((n_outputs, 1))*.2,
     }
 
     template = {
@@ -335,7 +335,7 @@ def pz(kw):
             'poles': ('Normal', p_poles),
             'zeros': ('Normal', p_zeros),
             'gains': ('Normal', p_gains),
-            'delays': ('Normal', p_delays),
+            'delays': ('HalfNormal', p_delays),
         }
     }
 
