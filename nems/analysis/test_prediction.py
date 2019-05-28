@@ -16,6 +16,9 @@ log = logging.getLogger(__name__)
 
 def generate_prediction(est, val, modelspec, jackknifed_fit=False, **context):
 
+    # TODO support for multiple recording views/modelspec jackknifes (jack_count>0)
+    #  outer loop = fit, inner loop = jackknife ?
+
     list_val = (type(val) is list)
     list_modelspec = (type(modelspec) is list)
     if list_modelspec:
@@ -389,6 +392,7 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit', **con
     new_est, new_val = generate_prediction(est, val, modelspec)
     new_modelspec = standard_correlation(est=new_est, val=new_val, modelspec=modelspec)
 
+    # TODO support for multiple recording views/modelspec jackknifes (jack_count>0)
     x = new_modelspec.meta[criterion]
     best_idx = np.argmin(x)
 

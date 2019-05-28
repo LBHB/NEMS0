@@ -638,14 +638,13 @@ def jack_subset(est, val, modelspec=None, IsReload=False,
         val = val.views(keep_only)[0]
 
     if modelspec is not None:
-        modelspec_out = modelspec.copy()
-        modelspec_out.raw = modelspec_out.raw[:keep_only]
+        modelspec_out = modelspec.copy(fit_index=keep_only)
         modelspec_out.fit_index = 0
 
     if IsReload:
-        return {'est': est, 'val': val}
+        return {'est': est, 'val': val, 'jackknifed_fit': False}
     else:
-        return {'est': est, 'val': val, 'modelspec': modelspec_out}
+        return {'est': est, 'val': val, 'modelspec': modelspec_out, 'jackknifed_fit': False}
 
 
 ###############################################################################
@@ -672,11 +671,14 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
     else:
         metric_fn = metric
 
-    # TODO : make structure here parallel to fit_basic?
+    # TODO : merge JK and non-JK code if possible.
     if jackknifed_fit:
         nfolds = est.view_count
         if modelspec.fit_count < est.view_count:
             modelspec.tile_fits(nfolds)
+            # TODO replace with tile_jacks
+            #  allow nested loop for multiple fits (init conditions) within a jackknife
+            #  initialize each jackknife with the same random ICs?
 
         for fit_idx, e in enumerate(est.views()):
 
@@ -687,6 +689,8 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
                     tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
                     nl_kw=nl_kw)
     else:
+        #import pdb
+        #pdb.set_trace()
         for fit_idx in range(modelspec.fit_count):
             log.info("Init fitting model instance %d/%d", fit_idx + 1, modelspec.fit_count)
             modelspec = nems.initializers.prefit_LN(
