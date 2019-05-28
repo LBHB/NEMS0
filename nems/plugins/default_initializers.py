@@ -33,8 +33,10 @@ def init(kw):
                kappa = np.log(2 / (np.std(pred)*3))
         For other nonlinearities, mode is not specified yet
     L2f : normalize fir (default false)
-    .rN : initialize with N random phis drawn from priors (via init.rand_phi), default N=10
-    .rbN : initialize with N random phis drawn from priors (via init.rand_phi), and pick best mse_fit, default N=10
+    .rN : initialize with N random phis drawn from priors (via init.rand_phi),
+          default N=10
+    .rbN : initialize with N random phis drawn from priors (via init.rand_phi),
+           and pick best mse_fit, default N=10
 
     TODO: Optimize more, make testbed to check how well future changes apply
     to disparate datasets.

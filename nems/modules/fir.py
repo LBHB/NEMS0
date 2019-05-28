@@ -176,7 +176,8 @@ def da_coefficients(f1s=1, taus=0.5, delays=1, gains=1, n_coefs=10, **kwargs):
     return coefficients
 
 
-def damped_oscillator(rec, i='pred', o='pred', f1s=1, taus=0.5, delays=1, gains=1, n_coefs=10):
+def damped_oscillator(rec, i='pred', o='pred', f1s=1, taus=0.5, delays=1,
+                      gains=1, n_coefs=10):
     """
     apply damped oscillator-defined filter
     generate impulse response and then call as if basic fir filter
