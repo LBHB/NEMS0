@@ -130,11 +130,10 @@ def nrc(fitkey):
     this with fit basic in order to initialize a full rank model with the reverse
     correlation solution.
     '''
-
     xfspec = []
 
-    options = _extract_options(fitkey)
-    max_iter, tolerance, fitter = _parse_basic(options)
+    #options = _extract_options(fitkey)
+    #max_iter, tolerance, fitter = _parse_basic(options)
     xfspec = [['nems.xforms.reverse_correlation', {}]]
 
     return xfspec
