@@ -130,7 +130,8 @@ class Recording:
         returns a shallow copy of the recording, signals preserved in place"""
         rec = self.copy()
 
-        rec.signal_views = [rec.signals] * view_count
+        #rec.signal_views = [rec.signals] * view_count
+        rec.signal_views = rec.signal_views * view_count
         rec.view_idx = 0
         return rec
 

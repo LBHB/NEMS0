@@ -674,16 +674,17 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
     # TODO : merge JK and non-JK code if possible.
     if jackknifed_fit:
         nfolds = est.view_count
-        if modelspec.fit_count < est.view_count:
-            modelspec.tile_fits(nfolds)
+        if modelspec.jack_count < est.view_count:
+            modelspec.tile_jacks(nfolds)
             # TODO replace with tile_jacks
             #  allow nested loop for multiple fits (init conditions) within a jackknife
             #  initialize each jackknife with the same random ICs?
 
-        for fit_idx, e in enumerate(est.views()):
+        for jack_idx, e in enumerate(est.views()):
+            log.info("Init fitting model fold %d/%d", jack_idx + 1, modelspec.jack_count)
 
             modelspec = nems.initializers.prefit_LN(
-                    e, modelspec.set_fit(fit_idx),
+                    e, modelspec.set_jack(jack_idx),
                     analysis_function=nems.analysis.api.fit_basic,
                     fitter=scipy_minimize, metric=metric_fn,
                     tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
@@ -729,7 +730,7 @@ def fit_state_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
         for i, d in enumerate(est.views()):
             log.info("Initializing modelspec %d/%d state-free",
                      i+1, len(modelspec))
-            modelspec.fit_index = i
+            modelspec.jack_index = i
 
             # set state to 0 for all timepoints so that only first filterbank
             # is used
@@ -792,12 +793,12 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
 
         if jackknifed_fit:
             nfolds = est.view_count
-            if modelspec.fit_count < est.view_count:
-                modelspec.tile_fits(nfolds)
-            for fit_idx, e in enumerate(est.views()):
-                log.info("Fitting fold %d/%d", fit_idx + 1, nfolds)
+            if modelspec.jack_count < est.view_count:
+                modelspec.tile_jacks(nfolds)
+            for jack_idx, e in enumerate(est.views()):
+                log.info("Fitting fold %d/%d", jack_idx + 1, nfolds)
                 modelspec = nems.analysis.api.fit_basic(
-                        e, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
+                        e, modelspec.set_jack(jack_idx), fit_kwargs=fit_kwargs,
                         metric=metric_fn, fitter=fitter_fn)
 
         elif random_sample_fit:
@@ -828,12 +829,12 @@ def reverse_correlation(modelspec, est, IsReload=False, jackknifed_fit=False,
 
         if jackknifed_fit:
             nfolds = est.view_count
-            if modelspec.fit_count < est.view_count:
-                modelspec.tile_fits(nfolds)
-            for fit_idx, e in enumerate(est.views()):
-                log.info("Fitting fold %d/%d", fit_idx + 1, nfolds)
+            if modelspec.jack_count < est.view_count:
+                modelspec.tile_jacks(nfolds)
+            for jack_idx, e in enumerate(est.views()):
+                log.info("Fitting fold %d/%d", jack_idx + 1, nfolds)
                 modelspec = nems.analysis.api.reverse_correlation(
-                        e, modelspec.set_fit(fit_idx), input_name)
+                        e, modelspec.set_fit(jack_idx), input_name)
 
         else:
             # standard single shot
@@ -863,6 +864,7 @@ def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
                              analysis='fit_iteratively', **context)
 
         elif random_sample_fit:
+            raise Warning("DEPRECATED?")
             iter_kwargs = {'tol_iter': tol_iter, 'fit_iter': fit_iter,
                            'invert': invert, 'tolerances': tolerances,
                            'module_sets': module_sets, 'metric': metric_fn,
@@ -933,11 +935,11 @@ def save_recordings(modelspec, est, val, **context):
     return {'modelspec': modelspec}
 
 
-def predict(modelspec, est, val, **context):
+def predict(modelspec, est, val, jackknifed_fit=False, **context):
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
     # TODO: Add statistics to metadata of every modelspec
 
-    est, val = nems.analysis.api.generate_prediction(est, val, modelspec)
+    est, val = nems.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
     modelspec.recording = val
 
     return {'val': val, 'est': est, 'modelspec': modelspec}

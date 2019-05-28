@@ -201,8 +201,8 @@ class ModelSpec:
         value.
         Applied in-place.
         """
-        jacks = [copy.deepcopy(self.raw[:, :, 0]) for i in range(jack_count)]
-        self.raw = np.concatenate(jacks, axis=1)
+        jacks = [copy.deepcopy(self.raw[:, :, 0:1]) for i in range(jack_count)]
+        self.raw = np.concatenate(jacks, axis=2)
 
         return self
 

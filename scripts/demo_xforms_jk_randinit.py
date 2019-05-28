@@ -63,7 +63,7 @@ xfspec.append(['nems.xforms.init_from_keywords', {}])
 xfspec.append(['nems.xforms.mask_for_jackknife', {'njacks': 3}])
 
 # shortcut for testing with jackknife off
-xfspec.append(['nems.xforms.jack_subset', {'keep_only': 1}])
+#xfspec.append(['nems.xforms.jack_subset', {'keep_only': 1}])
 
 #xfspec.append(['nems.initializers.rand_phi', {'rand_count': 5}])
 xfspec.append(['nems.xforms.fit_basic_init', {}])
