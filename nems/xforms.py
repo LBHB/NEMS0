@@ -761,7 +761,7 @@ def fit_state_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
                             log.debug('phi[%s] setcount=%d', phi, setcount)
                             snew = np.ones(len(s))
                             snew[0] = repcount
-                            new_v = np.tile(m[j]['phi'][phi][:setcount, ...],
+                            new_v = np.tile(modelspec[j]['phi'][phi][:setcount, ...],
                                             snew.astype(int))
                             log.debug(new_v)
                             modelspec[j]['phi'][phi] = new_v
@@ -906,6 +906,7 @@ def fit_n_times_from_random_starts(modelspecs, est, ntimes, subset,
                                    analysis='fit_basic', basic_kwargs={},
                                    IsReload=False, **context):
     ''' Self explanatory. '''
+    raise Warning ('This is deprecated. Replaced by set_random_phi and analysis.test_prediction.pick_best_phi')
     if not IsReload:
         if len(modelspecs) > 1:
             raise NotImplementedError('I only work on 1 modelspec')

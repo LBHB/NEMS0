@@ -35,7 +35,19 @@ class ArrayModel(qw.QTableWidget):
     def _update_array(self, item):
         row = item.row()
         col = item.column()
-        data = float(item.text())
+        try:
+            data = float(item.text())
+        except ValueError:
+            data = None
+
+        if data is None:
+            try:
+                data = complex(item.text())
+            except ValueError:
+                data = None
+        if data is None:
+            data=0
+
         self.set(data, row, col)
 
     def _check_valid_coordinates(self, coords):

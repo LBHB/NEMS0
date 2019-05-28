@@ -2,6 +2,9 @@ import numpy as np
 from numpy import exp
 from scipy.integrate import cumtrapz
 from scipy.signal import boxcar
+import logging
+
+log = logging.getLogger(__name__)
 
 def short_term_plasticity(rec, i, o, u, tau, x0=None, crosstalk=0,
                           reset_signal=None, quick_eval=False):

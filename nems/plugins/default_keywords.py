@@ -310,18 +310,18 @@ def pz(kw):
 
         elif op.startswith('z'):
             nzeros = int(op[1:])
-    pole_set = np.array([[0.5, 0, 0, 0]])
-    zero_set = np.array([[0.1, 0.1, 0.1, 0.1]])
+    pole_set = np.array([[0.8, -0.4, 0.1, 0, 0]])
+    zero_set = np.array([[0.1, 0.1, 0.1, 0.1, 0]])
     p_poles = {
         'mean': np.repeat(pole_set[:,:npoles], n_outputs, axis=0),
-        'sd': np.ones((n_outputs, npoles))*.2,
+        'sd': np.ones((n_outputs, npoles))*.3,
     }
     p_zeros = {
         'mean': np.repeat(zero_set[:,:nzeros], n_outputs, axis=0),
         'sd': np.ones((n_outputs, nzeros))*.2,
     }
     p_delays = {
-        'sd': np.ones((n_outputs, 1))*.01,
+        'sd': np.ones((n_outputs, 1))*.02,
     }
     p_gains = {
         'mean': np.zeros((n_outputs, 1))+.1,
@@ -331,9 +331,94 @@ def pz(kw):
     template = {
         'fn': 'nems.modules.fir.pole_zero',
         'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs},
+        'fn_coefficients': 'nems.modules.fir.pz_coefficients',
+        'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.strf_heatmap',
+                     'nems.plots.api.strf_local_lin',
+                     'nems.plots.api.strf_timeseries',
+                     'nems.plots.api.fir_output_all'],
+        'plot_fn_idx': 1,
         'prior': {
             'poles': ('Normal', p_poles),
             'zeros': ('Normal', p_zeros),
+            'gains': ('Normal', p_gains),
+            'delays': ('HalfNormal', p_delays),
+        }
+    }
+
+    return template
+
+
+def do(kw):
+    '''
+    Generate and register default modulespec for damped oscillator-based filters
+
+    Parameters
+    ----------
+    kw : str
+        A string of the form: do.{n_outputs}x{n_coefs}x{n_banks}
+
+    Options
+    -------
+    None, but x{n_banks} is optional.
+    '''
+    options = kw.split('.')
+    pattern = re.compile(r'^(\d{1,})x(\d{1,})x?(\d{1,})?$')
+    parsed = re.match(pattern, options[1])
+    try:
+        n_outputs = int(parsed.group(1))
+        n_coefs = int(parsed.group(2))
+        n_banks = parsed.group(3)  # None if not given in keyword string
+    except TypeError:
+        raise ValueError("Got a TypeError when parsing da keyword. Make sure "
+                         "keyword has the form: \n"
+                         "da.{n_outputs}x{n_coefs}x{n_banks} (n_banks optional)"
+                         "\nkeyword given: %s" % kw)
+    if n_banks is None:
+        n_banks = 1
+    else:
+        n_banks = int(n_banks)
+    if n_banks > 1:
+        raise ValueError("nbanks > 1 not yet supported for pz")
+
+    # placeholder for additional options
+    for op in options[2:]:
+        if op.startswith('p'):
+            pass
+
+        elif op.startswith('z'):
+            pass
+
+    p_f1s = {
+        'sd': np.full((n_outputs, 1), 1)
+    }
+    p_taus = {
+        'sd': np.full((n_outputs, 1), 0.5)
+    }
+    p_gains = {
+        'mean': np.zeros((n_outputs, 1))+.1,
+        'sd': np.ones((n_outputs, 1))*.2,
+    }
+    p_gains['mean'][1:2]=-0.05
+    p_gains['mean'][3:4]=-0.05
+
+    p_delays = {
+        'sd': np.full((n_outputs, 1), 1)
+    }
+
+    template = {
+        'fn': 'nems.modules.fir.damped_oscillator',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs},
+        'fn_coefficients': 'nems.modules.fir.da_coefficients',
+        'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.strf_heatmap',
+                     'nems.plots.api.strf_local_lin',
+                     'nems.plots.api.strf_timeseries',
+                     'nems.plots.api.fir_output_all'],
+        'plot_fn_idx': 1,
+        'prior': {
+            'f1s': ('HalfNormal', p_f1s),
+            'taus': ('HalfNormal', p_taus),
             'gains': ('Normal', p_gains),
             'delays': ('HalfNormal', p_delays),
         }

@@ -136,7 +136,9 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
             epoch = epoch_data[epoch_name]
 
             # TODO: fix empty matrix error. do epochs align properly?
-            if np.sum(np.isfinite(epoch)):
+            if epoch.dtype == bool:
+                epoch = epoch[0,...]
+            elif np.sum(np.isfinite(epoch)):
                 epoch = np.nanmean(epoch, axis=0)
             else:
                 epoch = epoch[0,...]

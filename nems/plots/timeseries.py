@@ -45,7 +45,7 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
             v=v[:,np.newaxis]
         for idx in range(v.shape[1]):
             gidx = np.isfinite(v[:,idx])
-            h_=plt.plot(t[gidx], v[gidx,idx], linestyle=linestyle, 
+            h_=plt.plot(t[gidx], v[gidx, idx], linestyle=linestyle,
                         linewidth=linewidth, **opt)
             h = h + h_
         cc += 1

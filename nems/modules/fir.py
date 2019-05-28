@@ -120,13 +120,21 @@ def basic(rec, i='pred', o='pred', non_causal=False, coefficients=[], rate=1):
 
 
 def pz_coefficients(poles=None, zeros=None, delays=None,
-                    gains=None, n_coefs=10, fs=100):
+                    gains=None, n_coefs=10, fs=100, **kwargs):
     """
     helper funciton to generate coefficient matrix.
     """
     n_filters = len(gains)
     coefficients = np.zeros((n_filters, n_coefs))
     fs2 = 5*fs
+    #poles = (poles.copy()+1) % 2 - 1
+    #zeros = (zeros.copy()+1) % 2 - 1
+    poles = poles.copy()
+    poles[poles>1]=1
+    poles[poles<-1]=-1
+    zeros = zeros.copy()
+    zeros[zeros>1]=1
+    zeros[zeros<-1]=-1
     for j in range(n_filters):
         t = np.arange(0, n_coefs*5+1) / fs2
         h = scipy.signal.ZerosPolesGain(zeros[j], poles[j], gains[j], dt=1/fs2)
@@ -134,14 +142,14 @@ def pz_coefficients(poles=None, zeros=None, delays=None,
         f = interpolate.interp1d(tout, ir[0][:,0], bounds_error=False,
                                  fill_value=0)
 
-        tnew = np.arange(0,n_coefs)/fs - delays[j,0]/fs
+        tnew = np.arange(0, n_coefs)/fs - delays[j,0] + 1/fs
         coefficients[j,:] = f(tnew)
 
     return coefficients
 
 
 def pole_zero(rec, i='pred', o='pred', poles=None, zeros=None, delays=None,
-              gains=None, n_coefs=10, rate=1):
+              gains=None, n_coefs=10):
     """
     apply pole_zero -defined filter
     generate impulse response and then call as if basic fir filter
@@ -158,6 +166,34 @@ def pole_zero(rec, i='pred', o='pred', poles=None, zeros=None, delays=None,
 
     fn = lambda x: per_channel(x, coefficients, rate=1)
     return [rec[i].transform(fn, o)]
+
+
+def da_coefficients(f1s=1, taus=0.5, delays=1, gains=1, n_coefs=10, **kwargs):
+
+    t = np.arange(n_coefs) - delays
+    coefficients = np.sin(f1s * t) * np.exp(-taus * t) * gains
+    coefficients[t<0] = 0
+    return coefficients
+
+
+def damped_oscillator(rec, i='pred', o='pred', f1s=1, taus=0.5, delays=1, gains=1, n_coefs=10):
+    """
+    apply damped oscillator-defined filter
+    generate impulse response and then call as if basic fir filter
+
+    input :
+        nems signal named in 'i'. must have dimensionality matched to size
+        of coefficients matrix.
+    output :
+        nems signal in 'o' will be 1 x time signal (single channel)
+    """
+
+    coefficients = da_coefficients(f1s=f1s, taus=taus, delays=delays,
+                                   gains=gains, n_coefs=n_coefs)
+
+    fn = lambda x: per_channel(x, coefficients, rate=1)
+    return [rec[i].transform(fn, o)]
+
 
 def fir_dexp_coefficients(phi=None, n_coefs=20):
     """
