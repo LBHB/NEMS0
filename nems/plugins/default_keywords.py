@@ -378,8 +378,13 @@ def do(kw):
         n_banks = 1
     else:
         n_banks = int(n_banks)
-    if n_banks > 1:
-        raise ValueError("nbanks > 1 not yet supported for pz")
+
+    if n_banks is None:
+        n_banks = 1
+        n_channels = n_outputs
+    else:
+        n_banks = int(n_banks)
+        n_channels = n_outputs * n_banks
 
     # placeholder for additional options
     for op in options[2:]:
@@ -390,25 +395,23 @@ def do(kw):
             pass
 
     p_f1s = {
-        'sd': np.full((n_outputs, 1), 1)
+        'sd': np.full((n_channels, 1), 1)
     }
     p_taus = {
-        'sd': np.full((n_outputs, 1), 0.5)
+        'sd': np.full((n_channels, 1), 0.5)
     }
+    g0 = np.array([[0.1, -0.5, 0.1, -0.5, 0.1, -0.5]]).T
     p_gains = {
-        'mean': np.zeros((n_outputs, 1))+.1,
-        'sd': np.ones((n_outputs, 1))*.2,
+            'mean': np.tile(g0[:n_outputs, :], (n_banks, 1)),
+            'sd': np.ones((n_channels, 1))*.2,
     }
-    p_gains['mean'][1:2]=-0.05
-    p_gains['mean'][3:4]=-0.05
-
     p_delays = {
-        'sd': np.full((n_outputs, 1), 1)
+        'sd': np.full((n_channels, 1), 1)
     }
 
     template = {
         'fn': 'nems.modules.fir.damped_oscillator',
-        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs},
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs, 'bank_count': n_banks},
         'fn_coefficients': 'nems.modules.fir.da_coefficients',
         'plot_fns': ['nems.plots.api.mod_output',
                      'nems.plots.api.strf_heatmap',

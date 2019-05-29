@@ -131,11 +131,13 @@ class ModelSpec:
         :return: A deep copy of the modelspec (subset of modules if specified)
         """
         raw = copy.deepcopy(self.raw)
+        meta = self.meta.copy()
         for r in raw.flatten():
             r = r[lb:ub]
         if fit_index is not None:
             raw = raw[:, fit_index:(fit_index+1), :]
         m = ModelSpec(raw)
+        m.meta.update(meta)
 
         return m
 

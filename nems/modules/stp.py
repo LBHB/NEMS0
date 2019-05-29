@@ -96,7 +96,7 @@ def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None, quick_eval=Fa
             #td[mu>0] = 1 - imu[mu>0]/mu[mu>0]
 
             if crosstalk:
-                stimout *= np.expand_dims(td, 0)
+                stim_out *= np.expand_dims(td, 0)
             else:
                 stim_out[i, :] *= td
         else:
