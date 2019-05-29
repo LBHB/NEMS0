@@ -1386,13 +1386,13 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
 
     modelspec_out = []
     if (not IsReload) and (modelspec is not None):
-        if modelspec.fit_count == 1:
-            modelspec_out = modelspec.tile_fits(njacks)
-        elif modelspec.fit_count == njacks:
+        if modelspec.jack_count == 1:
+            modelspec_out = modelspec.tile_jacks(njacks)
+        elif modelspec.jack_count == njacks:
             # assume modelspec already generated for njacks
             modelspec_out = modelspec
         else:
-            raise ValueError('modelspec must be len 1 or njacks')
+            raise ValueError('modelspec.jack_count must be 1 or njacks')
 
     return est, val, modelspec_out
 
@@ -1415,12 +1415,12 @@ def mask_est_val_for_jackknife_by_time(rec, modelspecs=None,
 
     modelspec_out = []
     if (not IsReload) and (modelspec is not None):
-        if modelspec.fit_count == 1:
+        if modelspec.jack_count == 1:
             modelspec_out = modelspec.tile_fits(njacks)
-        elif modelspec.fit_count == njacks:
+        elif modelspec.jack_count == njacks:
             # assume modelspec already generated for njacks
             modelspec_out = modelspec
         else:
-            raise ValueError('modelspec must be len 1 or njacks')
+            raise ValueError('modelspec.jack_count must be 1 or njacks')
 
     return est, val, modelspec_out

@@ -88,8 +88,8 @@ def init(kw):
                                                 'fit_sig': fit_sig}])
     else:
         xfspec.append(['nems.xforms.fit_basic_init', {'tolerance': tolerance,
-                                                'norm_fir': norm_fir,
-                                                'nl_kw': nl_kw}])
+                                                      'norm_fir': norm_fir,
+                                                      'nl_kw': nl_kw}])
     if keep_best:
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
