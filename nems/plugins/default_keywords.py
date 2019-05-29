@@ -709,11 +709,14 @@ def dexp(kw):
     if len(ops) == 1:
         raise ValueError("required parameter dexp.<n>")
 
-    n_dims = int(ops[1]) 
+    n_dims = int(ops[1])
     inout_name = 'pred'
+    bounded = False
     for op in ops[2:]:
         if op == 's':
             inout_name = 'state'
+        elif op == 'b':
+            bounded = True
         else:
             raise ValueError('dexp keyword: invalid option %s' % op)
 
@@ -740,6 +743,14 @@ def dexp(kw):
                   'shift': ('Normal', {'mean': shift_mean, 'sd': shift_sd}),
                   'kappa': ('Normal', {'mean': kappa_mean, 'sd': kappa_sd})}
         }
+
+    if bounded:
+        template['bounds'] = {
+                'base': (1e-15, None),
+                'amplitude': (1e-15, None),
+                'shift': (None, None),
+                'kappa': (1e-15, None),
+                }
 
     return template
 

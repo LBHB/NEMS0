@@ -9,5 +9,6 @@ from .test_prediction import (generate_prediction,
                               generate_prediction_sets,
                               standard_correlation_by_set,
                               standard_correlation_by_epochs,
-                              correlation_per_model, basic_error)
+                              correlation_per_model, basic_error,
+                              pick_best_phi)
 from .reverse_correlation import reverse_correlation

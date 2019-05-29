@@ -397,12 +397,15 @@ def basic_error(data, modelspec, cost_function=None,
 
 def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
                   jackknifed_fit=False, **context):
+
     """
-    for models with multiple fits (eg, based on multiple initial conditions), find the best prediction
-    for the recording provided (presumably est data, though possibly something held out)
+    for models with multiple fits (eg, based on multiple initial conditions),
+    find the best prediction for the recording provided (presumably est data,
+    though possibly something held out)
 
     :param modelspec: should have fit_count>0
-    :param est: view_count should match fit_count, ie, after generate_prediction is called
+    :param est: view_count should match fit_count, ie,
+                after generate_prediction is called
     :param context: extra context stuff for xforms compatibility.
     :return: modelspec with fit_count==1
     """
