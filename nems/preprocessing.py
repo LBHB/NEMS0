@@ -1356,8 +1356,7 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
     jackknife logic. returns lists est_out and val_out of corresponding
     jackknife subsamples. removed timepoints are replaced with nan
     """
-    #est = []
-    #val = []
+
     # logging.info("Generating {} jackknifes".format(njacks))
     if rec.get_epoch_indices(epoch_name).shape[0]:
         pass
@@ -1373,13 +1372,6 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
     else:
         raise ValueError('No epochs matching '+epoch_name)
 
-    #for i in range(njacks):
-        # est_out += [est.jackknife_by_time(njacks, i)]
-        # val_out += [est.jackknife_by_time(njacks, i, invert=True)]
-        #est += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
-        #                                    tiled=True)]
-        #val += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
-        #                                    tiled=True, invert=True)]
     est = rec.jackknife_masks_by_epoch(njacks, epoch_name, tiled=True)
     val = rec.jackknife_masks_by_epoch(njacks, epoch_name,
                                        tiled=True, invert=True)
@@ -1393,6 +1385,8 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
             modelspec_out = modelspec
         else:
             raise ValueError('modelspec.jack_count must be 1 or njacks')
+    else:
+        modelspec_out = modelspec
 
     return est, val, modelspec_out
 
@@ -1416,7 +1410,7 @@ def mask_est_val_for_jackknife_by_time(rec, modelspecs=None,
     modelspec_out = []
     if (not IsReload) and (modelspec is not None):
         if modelspec.jack_count == 1:
-            modelspec_out = modelspec.tile_fits(njacks)
+            modelspec_out = modelspec.tile_jacks(njacks)
         elif modelspec.jack_count == njacks:
             # assume modelspec already generated for njacks
             modelspec_out = modelspec

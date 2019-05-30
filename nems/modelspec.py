@@ -55,7 +55,7 @@ class ModelSpec:
             # compatible with load_modelspec -- read in list of lists
             # make raw (1, fit_count, 1) array of lists
             # TODO default is to make single list into jack_counts!
-            raw = np.expand_dims(np.expand_dims(np.array(raw), 0), 2)
+            raw = np.expand_dims(np.expand_dims(np.array(raw), 0), 1)
 
         # otherwise, assume raw is a properly formatted 3D array (cell X fit X jack)
         self.raw = raw
@@ -126,14 +126,12 @@ class ModelSpec:
 
     def copy(self, lb=None, ub=None, fit_index=None):
         """
-        :param lb: start module (default 0)
-        :param ub: stop module (default -1)
+        :param lb: start module (default 0) -- doesn't work
+        :param ub: stop module (default -1) -- doesn't work
         :return: A deep copy of the modelspec (subset of modules if specified)
         """
         raw = copy.deepcopy(self.raw)
-        meta = self.meta.copy()
-        for r in raw.flatten():
-            r = r[lb:ub]
+        meta = copy.deepcopy(self.meta)
         if fit_index is not None:
             raw = raw[:, fit_index:(fit_index+1), :]
         m = ModelSpec(raw)
@@ -246,7 +244,7 @@ class ModelSpec:
         """List of modelspecs, one for each fit, for compatibility with some
            old functions"""
         return [ModelSpec(self.raw, fit_index=f)
-                for f, _ in enumerate(self.raw)]
+                for f in range(self.jack_count)]
 
     #
     # metadata
