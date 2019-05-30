@@ -48,7 +48,7 @@ def generate_prediction(est, val, modelspec, jackknifed_fit=False, **context):
             # assume est and val have .view_count == len(modelspecs)
             new_est = est.copy()
             new_val = val.copy()
-            if jackknifed_fit:
+            if n>1:  # ie, jack_count>1
                 do_inverse_merge = True
 
         modelspec.fit_index = fit_idx
@@ -88,19 +88,15 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
     # some crazy stuff to maintain backward compatibility
     # eventually we will only support modelspec and deprecate support for
     # modelspecs lists
-    if modelspecs is None:
-        list_modelspec = (type(modelspec) is list)
-        if modelspec is None:
-            raise ValueError('modelspecs or modelspec required for input')
-        if list_modelspec:
-            modelspecs = modelspec
-        else:
-            modelspecs = modelspec.fits()
-    else:
+    if modelspecs is not None:
+        raise Warning('Use of modelspecs list is deprecated')
+        modelspec = modelspecs[0]
         list_modelspec = True
+    else:
+        list_modelspec = False
 
     # svd - fix to have default value for backward compatibility
-    output_name = modelspecs[0]['meta'].get('output_name', 'resp')
+    output_name = modelspec.meta.get('output_name', 'resp')
 
     if type(val) is not list:
 
@@ -108,7 +104,7 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
         view_count = val.view_count
         # KLUDGE ALERT!
         # only compute results for first jackknife -- for simplicity, not optimal!
-        est_mult = modelspec.jack_count
+        est_mult = modelspec.fit_count
         r_test = np.zeros(view_count)
         se_test = np.zeros(view_count)
         r_fit = np.zeros(view_count)
@@ -199,25 +195,25 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
         ll_test = np.mean([nmet.likelihood_poisson(p, 'pred', output_name) for p in val])
         ll_fit = np.mean([nmet.likelihood_poisson(p, 'pred', output_name) for p in est])
 
-    modelspecs[0][0]['meta']['r_test'] = r_test
-    modelspecs[0][0]['meta']['se_test'] = se_test
-    modelspecs[0][0]['meta']['r_floor'] = r_floor
-    modelspecs[0][0]['meta']['mse_test'] = mse_test
-    modelspecs[0][0]['meta']['se_mse_test'] = se_mse_test
-    modelspecs[0][0]['meta']['ll_test'] = ll_test
+    modelspec.meta['r_test'] = r_test
+    modelspec.meta['se_test'] = se_test
+    modelspec.meta['r_floor'] = r_floor
+    modelspec.meta['mse_test'] = mse_test
+    modelspec.meta['se_mse_test'] = se_mse_test
+    modelspec.meta['ll_test'] = ll_test
 
-    modelspecs[0][0]['meta']['r_fit'] = r_fit
-    modelspecs[0][0]['meta']['se_fit'] = se_fit
-    modelspecs[0][0]['meta']['r_ceiling'] = r_ceiling
-    modelspecs[0][0]['meta']['mse_fit'] = mse_fit
-    modelspecs[0][0]['meta']['se_mse_fit'] = se_mse_fit
-    modelspecs[0][0]['meta']['ll_fit'] = ll_fit
+    modelspec.meta['r_fit'] = r_fit
+    modelspec.meta['se_fit'] = se_fit
+    modelspec.meta['r_ceiling'] = r_ceiling
+    modelspec.meta['mse_fit'] = mse_fit
+    modelspec.meta['se_mse_fit'] = se_mse_fit
+    modelspec.meta['ll_fit'] = ll_fit
 
     if list_modelspec:
         # backward compatibility
-        return modelspecs
+        return [modelspec]
     else:
-        return modelspecs[0]
+        return modelspec
 
 
 def correlation_per_model(est, val, modelspecs, rec=None):
@@ -264,26 +260,25 @@ def correlation_per_model(est, val, modelspecs, rec=None):
 
 
 def standard_correlation_by_epochs(est,val,modelspec=None,modelspecs=None,epochs_list=None, rec=None):
+    """
+    Does the same thing as standard_correlation, excpet with subsets of data
+    defined by epochs_list
 
-    #Does the same thing as standard_correlation, excpet with subsets of data
-    #defined by epochs_list
-
-    #To use this, first add epochs to define subsets of data.
-    #Then, pass epochs_list as a list of subsets to test.
-    #For example, ['A', 'B', ['A', 'B']] will measure correlations separately
-    # for all epochs marked 'A', all epochs marked 'B', and all epochs marked
-    # 'A'or 'B'
-
-    if modelspecs is None:
-        list_modelspec = (type(modelspec) is list)
-        if modelspec is None:
-            raise ValueError('modelspecs or modelspec required for input')
-        if list_modelspec:
-            modelspecs = modelspec
-        else:
-            modelspecs = modelspec.fits()
-    else:
+    To use this, first add epochs to define subsets of data.
+    Then, pass epochs_list as a list of subsets to test.
+    For example, ['A', 'B', ['A', 'B']] will measure correlations separately
+     for all epochs marked 'A', all epochs marked 'B', and all epochs marked
+     'A'or 'B'
+    """
+    # some crazy stuff to maintain backward compatibility
+    # eventually we will only support modelspec and deprecate support for
+    # modelspecs lists
+    if modelspecs is not None:
+        raise Warning('Use of modelspecs list is deprecated')
+        modelspec = modelspecs[0]
         list_modelspec = True
+    else:
+        list_modelspec = False
 
     for epochs in epochs_list:
         # Create a label for this subset. If epochs is a list, join elements with "+"
@@ -313,23 +308,23 @@ def standard_correlation_by_epochs(est,val,modelspec=None,modelspecs=None,epochs
         ll_fit = [nmet.likelihood_poisson(p, 'pred', 'resp') for p in est_copy]
 
         #Avergage
-        modelspecs[0][0]['meta'][epoch_list_str]={}
-        modelspecs[0][0]['meta'][epoch_list_str]['r_test'] = np.mean(r_test)
-        modelspecs[0][0]['meta'][epoch_list_str]['mse_test'] = np.mean(mse_test)
-        modelspecs[0][0]['meta'][epoch_list_str]['ll_test'] = np.mean(ll_test)
+        modelspec.meta[epoch_list_str]={}
+        modelspec.meta[epoch_list_str]['r_test'] = np.mean(r_test)
+        modelspec.meta[epoch_list_str]['mse_test'] = np.mean(mse_test)
+        modelspec.meta[epoch_list_str]['ll_test'] = np.mean(ll_test)
 
-        modelspecs[0][0]['meta'][epoch_list_str]['r_fit'] = np.mean(r_fit)
-        modelspecs[0][0]['meta'][epoch_list_str]['r_floor'] = np.mean(r_floor)
+        modelspec.meta[epoch_list_str]['r_fit'] = np.mean(r_fit)
+        modelspec.meta[epoch_list_str]['r_floor'] = np.mean(r_floor)
         if rec is not None:
-            modelspecs[0][0]['meta'][epoch_list_str]['r_ceiling'] = np.mean(r_ceiling)
-        modelspecs[0][0]['meta'][epoch_list_str]['mse_fit'] = np.mean(mse_fit)
-        modelspecs[0][0]['meta'][epoch_list_str]['ll_fit'] = np.mean(ll_fit)
+            modelspec.meta[epoch_list_str]['r_ceiling'] = np.mean(r_ceiling)
+        modelspec.meta[epoch_list_str]['mse_fit'] = np.mean(mse_fit)
+        modelspec.meta[epoch_list_str]['ll_fit'] = np.mean(ll_fit)
 
     if list_modelspec:
         # backward compatibility
-        return modelspecs
+        return [modelspec]
     else:
-        return modelspecs[0]
+        return modelspec
 
 
 def generate_prediction_sets(est, val, modelspecs):
@@ -338,7 +333,7 @@ def generate_prediction_sets(est, val, modelspecs):
         new_est = [ms.evaluate(d, m) for m,d in zip(modelspecs,est)]
         new_val = [ms.evaluate(d, m) for m,d in zip(modelspecs,val)]
     else:
-        print('val and est must be lists')
+        raise ValueError('val and est must be lists')
 
     return new_est, new_val
 
@@ -396,7 +391,7 @@ def basic_error(data, modelspec, cost_function=None,
     return error
 
 def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
-                  jackknifed_fit=False, **context):
+                  jackknifed_fit=False, IsReload=False, **context):
 
     """
     for models with multiple fits (eg, based on multiple initial conditions),
@@ -409,6 +404,8 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
     :param context: extra context stuff for xforms compatibility.
     :return: modelspec with fit_count==1
     """
+    if IsReload:
+        return {}
 
     new_est, new_val = generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
     new_modelspec = standard_correlation(est=new_est, val=new_val, modelspec=modelspec)

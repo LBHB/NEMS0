@@ -124,18 +124,24 @@ class ModelSpec:
     def __len__(self):
         return len(self.raw[self.cell_index, self.fit_index, self.jack_index])
 
-    def copy(self, lb=None, ub=None, fit_index=None):
+    def copy(self, lb=None, ub=None, fit_index=None, jack_index=None):
         """
         :param lb: start module (default 0) -- doesn't work
         :param ub: stop module (default -1) -- doesn't work
         :return: A deep copy of the modelspec (subset of modules if specified)
         """
         raw = copy.deepcopy(self.raw)
-        meta = copy.deepcopy(self.meta)
+        meta_save = copy.deepcopy(self.meta)
+
         if fit_index is not None:
             raw = raw[:, fit_index:(fit_index+1), :]
+        if jack_index is not None:
+            raw = raw[:, :, jack_index:(jack_index + 1)]
+
+        for r in self.raw.flatten():
+            r[0]['meta'] = meta_save
+
         m = ModelSpec(raw)
-        m.meta.update(meta)
 
         return m
 
@@ -187,9 +193,13 @@ class ModelSpec:
         value.
         Applied in-place.
         """
-        fits = [copy.deepcopy(self.raw[:, 0:1, :]) for i in range(fit_count)]
+        meta_save = self.meta
 
+        fits = [copy.deepcopy(self.raw[:, 0:1, :]) for i in range(fit_count)]
         self.raw = np.concatenate(fits, axis=1)
+
+        for r in self.raw.flatten():
+            r[0]['meta'] = meta_save
 
         return self
 
@@ -201,8 +211,13 @@ class ModelSpec:
         value.
         Applied in-place.
         """
+        meta_save = self.meta
+
         jacks = [copy.deepcopy(self.raw[:, :, 0:1]) for i in range(jack_count)]
         self.raw = np.concatenate(jacks, axis=2)
+
+        for r in self.raw.flatten():
+            r[0]['meta'] = meta_save
 
         return self
 
@@ -243,7 +258,7 @@ class ModelSpec:
     def fits(self):
         """List of modelspecs, one for each fit, for compatibility with some
            old functions"""
-        return [ModelSpec(self.raw, fit_index=f)
+        return [ModelSpec(self.raw, jack_index=f)
                 for f in range(self.jack_count)]
 
     #

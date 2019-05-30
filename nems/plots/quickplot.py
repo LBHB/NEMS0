@@ -244,8 +244,8 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
 
     # Pred v Resp Scatter Smoothed
     n_cells = len(modelspec.meta['r_test'])
-    r_test = np.mean(modelspec[0]['meta']['r_test'])
-    r_fit = np.mean(modelspec[0]['meta']['r_fit'])
+    r_test = np.mean(modelspec.meta['r_test'])
+    r_fit = np.mean(modelspec.meta['r_fit'])
     text = 'r_test: {:.3f} (n={})\nr_fit: {:.3f}'.format(r_test, n_cells, r_fit)
 
     smoothed = partial(
@@ -265,15 +265,15 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
 
     # Whole-figure title
     try:
-        cellid = modelspec[0]['meta']['cellid']
+        cellid = modelspec.meta['cellid']
     except KeyError:
         cellid = "UNKNOWN"
     try:
-        modelname = modelspec[0]['meta']['modelname']
+        modelname = modelspec.meta['modelname']
     except KeyError:
         modelname = "UNKNOWN"
     try:
-        batch = modelspec[0]['meta']['batch']
+        batch = modelspec.meta['batch']
     except KeyError:
         batch = 0
     fig.suptitle('Cell: {}, Batch: {}, {} #{}\n{}'

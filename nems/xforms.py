@@ -804,7 +804,7 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
             for fit_idx in range(modelspec.fit_count):
                 modelspec.fit_index = fit_idx
                 for jack_idx, e in enumerate(est.views()):
-                    modelspec.jack_idx = jack_idx
+                    modelspec.jack_index = jack_idx
                     log.info("Fitting: fit %d/%d, fold %d/%d",
                              fit_idx + 1, modelspec.fit_count,
                              jack_idx + 1, modelspec.jack_count)
@@ -845,12 +845,13 @@ def reverse_correlation(modelspec, est, IsReload=False, jackknifed_fit=False,
             for fit_idx in range(modelspec.fit_count):
                 modelspec.fit_index = fit_idx
                 for jack_idx, e in enumerate(est.views()):
+                    modelspec.jack_index = jack_idx
                     log.info("Fitting: fit %d/%d, fold %d/%d",
                              fit_idx + 1, modelspec.fit_count,
                              jack_idx + 1, modelspec.jack_count)
 
                     modelspec = nems.analysis.api.reverse_correlation(
-                            e, modelspec.set_jack(jack_idx), input_name)
+                            e, modelspec, input_name)
 
         else:
             # standard single shot
@@ -1104,13 +1105,13 @@ def save_analysis(destination,
     base_uri = base_uri if base_uri[-1] == '/' else base_uri + '/'
     xfspec_uri = base_uri + 'xfspec.json'  # For attaching to modelspecs
 
-    for number, m in enumerate(modelspec.fits()):
+    for number in range(modelspec.jack_count):
+        m = modelspec.copy()
+        m.jack_index = number
         set_modelspec_metadata(m, 'xfspec', xfspec_uri)
-        save_resource(base_uri + 'modelspec.{:04d}.json'.format(number),
-                      json=m[:])
+        save_resource(base_uri + 'modelspec.{:04d}.json'.format(number), json=m[:])
     for number, figure in enumerate(figures):
-        save_resource(base_uri + 'figure.{:04d}.png'.format(number),
-                      data=figure)
+        save_resource(base_uri + 'figure.{:04d}.png'.format(number), data=figure)
     save_resource(base_uri + 'log.txt', data=log)
     save_resource(xfspec_uri, json=xfspec)
     return {'savepath': base_uri}

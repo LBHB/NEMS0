@@ -170,9 +170,8 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, **context):
 
     if IsReload:
         return {}
-
-    modelspec = copy.deepcopy(modelspec)
-
+    jack_count = modelspec.jack_count
+    modelspec = modelspec.copy(jack_index=0)
 
     modelspec.tile_fits(rand_count)
 
@@ -183,6 +182,8 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, **context):
             modelspec = priors.set_mean_phi(modelspec)
         else:
             modelspec = priors.set_random_phi(modelspec)
+
+    modelspec.tile_jacks(jack_count)
 
     return {'modelspec': modelspec}
 
