@@ -942,6 +942,7 @@ def dlog(kw):
 
     if offset:
         template['fn_kwargs']['offset'] = np.array([[-1]])
+        template['prior'] = {}
     else:
         template['prior'] = {'offset': ('Normal', {
                 'mean': np.zeros((chans, 1)),

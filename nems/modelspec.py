@@ -244,9 +244,15 @@ class ModelSpec:
         if cell_index is not None:
             self.cell_index = cell_index
 
-    def set_fit(self, fit_index=None):
+    def set_fit(self, fit_index):
         """return self with fit_index set to specified value"""
-        if fit_index is not None:
+        if fit_index is None:
+            pass
+        elif fit_index > (self.fit_count - 1):
+            raise ValueError('fit_index greater than fit_count-1')
+        elif fit_index < self.fit_count*-1:
+            raise ValueError('negative fit_index smaller than fit_count')
+        else:
             self.fit_index = fit_index
 
         return self
