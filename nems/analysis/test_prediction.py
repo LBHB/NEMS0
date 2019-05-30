@@ -104,7 +104,7 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
         view_count = val.view_count
         # KLUDGE ALERT!
         # only compute results for first jackknife -- for simplicity, not optimal!
-        est_mult = modelspec.fit_count
+        est_mult = modelspec.jack_count
         r_test = np.zeros(view_count)
         se_test = np.zeros(view_count)
         r_fit = np.zeros(view_count)
