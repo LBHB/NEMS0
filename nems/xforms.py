@@ -638,14 +638,13 @@ def jack_subset(est, val, modelspec=None, IsReload=False,
         val = val.views(keep_only)[0]
 
     if modelspec is not None:
-        modelspec_out = modelspec.copy()
-        modelspec_out.raw = modelspec_out.raw[:keep_only]
+        modelspec_out = modelspec.copy(fit_index=keep_only)
         modelspec_out.fit_index = 0
 
     if IsReload:
-        return {'est': est, 'val': val}
+        return {'est': est, 'val': val, 'jackknifed_fit': False}
     else:
-        return {'est': est, 'val': val, 'modelspec': modelspec_out}
+        return {'est': est, 'val': val, 'modelspec': modelspec_out, 'jackknifed_fit': False}
 
 
 ###############################################################################
@@ -672,21 +671,30 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
     else:
         metric_fn = metric
 
-    # TODO : make structure here parallel to fit_basic?
+    # TODO : merge JK and non-JK code if possible.
     if jackknifed_fit:
         nfolds = est.view_count
-        if modelspec.fit_count < est.view_count:
-            modelspec.tile_fits(nfolds)
+        if modelspec.jack_count < est.view_count:
+            modelspec.tile_jacks(nfolds)
+            # TODO replace with tile_jacks
+            #  allow nested loop for multiple fits (init conditions) within a jackknife
+            #  initialize each jackknife with the same random ICs?
+        for fit_idx in range(modelspec.fit_count):
+            modelspec.fit_index = fit_idx
+            for jack_idx, e in enumerate(est.views()):
+                log.info("Init fitting model fit %d/%d, fold %d/%d",
+                         fit_idx+1, modelspec.fit_count,
+                         jack_idx + 1, modelspec.jack_count)
 
-        for fit_idx, e in enumerate(est.views()):
-
-            modelspec = nems.initializers.prefit_LN(
-                    e, modelspec.set_fit(fit_idx),
-                    analysis_function=nems.analysis.api.fit_basic,
-                    fitter=scipy_minimize, metric=metric_fn,
-                    tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
-                    nl_kw=nl_kw)
+                modelspec = nems.initializers.prefit_LN(
+                        e, modelspec.set_jack(jack_idx),
+                        analysis_function=nems.analysis.api.fit_basic,
+                        fitter=scipy_minimize, metric=metric_fn,
+                        tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+                        nl_kw=nl_kw)
     else:
+        #import pdb
+        #pdb.set_trace()
         for fit_idx in range(modelspec.fit_count):
             log.info("Init fitting model instance %d/%d", fit_idx + 1, modelspec.fit_count)
             modelspec = nems.initializers.prefit_LN(
@@ -722,49 +730,52 @@ def fit_state_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
     if not IsReload:
         metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
 
-        for i, d in enumerate(est.views()):
-            log.info("Initializing modelspec %d/%d state-free",
-                     i+1, len(modelspec))
-            modelspec.fit_index = i
+        for fit_idx in range(modelspec.fit_count):
+            for jack_idx, d in enumerate(est.views()):
+                modelspec.fit_index = fit_idx
+                modelspec.jack_index = jack_idx
+                log.info("Init state-free fitting model fit %d/%d, fold %d/%d",
+                         fit_idx+1, modelspec.fit_count,
+                         jack_idx + 1, modelspec.jack_count)
 
-            # set state to 0 for all timepoints so that only first filterbank
-            # is used
-            dc = d.copy()
-            dc['state'] = dc['state'].transform(_set_zero, 'state')
-            if fit_sig != 'resp':
-                log.info("Subbing %s for resp signal", fit_sig)
-                dc['resp'] = dc[fit_sig]
+                # set state to 0 for all timepoints so that only first filterbank
+                # is used
+                dc = d.copy()
+                dc['state'] = dc['state'].transform(_set_zero, 'state')
+                if fit_sig != 'resp':
+                    log.info("Subbing %s for resp signal", fit_sig)
+                    dc['resp'] = dc[fit_sig]
 
-            modelspec = nems.initializers.prefit_LN(
-                    dc, modelspec,
-                    analysis_function=nems.analysis.api.fit_basic,
-                    fitter=scipy_minimize, metric=metric_fn,
-                    tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
-                    nl_kw=nl_kw)
-            # fit a bit more to settle in STP variables and anything else
-            # that might have been excluded
-            fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
-            modelspec = nems.analysis.api.fit_basic(
-                    dc, modelspec, fit_kwargs=fit_kwargs, metric=metric_fn,
-                    fitter=scipy_minimize)
-            rep_idx = find_module('replicate_channels', modelspec)
-            mrg_idx = find_module('merge_channels', modelspec)
-            if rep_idx is not None:
-                repcount = modelspec[rep_idx]['fn_kwargs']['repcount']
-                for j in range(rep_idx+1, mrg_idx):
-                    # assume all phi
-                    log.debug(modelspec[j]['fn'])
-                    if 'phi' in modelspec[j].keys():
-                        for phi in modelspec[j]['phi'].keys():
-                            s = modelspec[j]['phi'][phi].shape
-                            setcount = int(s[0] / repcount)
-                            log.debug('phi[%s] setcount=%d', phi, setcount)
-                            snew = np.ones(len(s))
-                            snew[0] = repcount
-                            new_v = np.tile(m[j]['phi'][phi][:setcount, ...],
-                                            snew.astype(int))
-                            log.debug(new_v)
-                            modelspec[j]['phi'][phi] = new_v
+                modelspec = nems.initializers.prefit_LN(
+                        dc, modelspec,
+                        analysis_function=nems.analysis.api.fit_basic,
+                        fitter=scipy_minimize, metric=metric_fn,
+                        tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+                        nl_kw=nl_kw)
+                # fit a bit more to settle in STP variables and anything else
+                # that might have been excluded
+                fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
+                modelspec = nems.analysis.api.fit_basic(
+                        dc, modelspec, fit_kwargs=fit_kwargs, metric=metric_fn,
+                        fitter=scipy_minimize)
+                rep_idx = find_module('replicate_channels', modelspec)
+                mrg_idx = find_module('merge_channels', modelspec)
+                if rep_idx is not None:
+                    repcount = modelspec[rep_idx]['fn_kwargs']['repcount']
+                    for j in range(rep_idx+1, mrg_idx):
+                        # assume all phi
+                        log.debug(modelspec[j]['fn'])
+                        if 'phi' in modelspec[j].keys():
+                            for phi in modelspec[j]['phi'].keys():
+                                s = modelspec[j]['phi'][phi].shape
+                                setcount = int(s[0] / repcount)
+                                log.debug('phi[%s] setcount=%d', phi, setcount)
+                                snew = np.ones(len(s))
+                                snew[0] = repcount
+                                new_v = np.tile(modelspec[j]['phi'][phi][:setcount, ...],
+                                                snew.astype(int))
+                                log.debug(new_v)
+                                modelspec[j]['phi'][phi] = new_v
 
     return {'modelspec': modelspec}
 
@@ -788,13 +799,18 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
 
         if jackknifed_fit:
             nfolds = est.view_count
-            if modelspec.fit_count < est.view_count:
-                modelspec.tile_fits(nfolds)
-            for fit_idx, e in enumerate(est.views()):
-                log.info("Fitting fold %d/%d", fit_idx + 1, nfolds)
-                modelspec = nems.analysis.api.fit_basic(
-                        e, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
-                        metric=metric_fn, fitter=fitter_fn)
+            if modelspec.jack_count < est.view_count:
+                modelspec.tile_jacks(nfolds)
+            for fit_idx in range(modelspec.fit_count):
+                modelspec.fit_index = fit_idx
+                for jack_idx, e in enumerate(est.views()):
+                    modelspec.jack_idx = jack_idx
+                    log.info("Fitting: fit %d/%d, fold %d/%d",
+                             fit_idx + 1, modelspec.fit_count,
+                             jack_idx + 1, modelspec.jack_count)
+                    modelspec = nems.analysis.api.fit_basic(
+                            e, modelspec, fit_kwargs=fit_kwargs,
+                            metric=metric_fn, fitter=fitter_fn)
 
         elif random_sample_fit:
             basic_kwargs = {'metric': metric_fn, 'fitter': fitter_fn,
@@ -824,12 +840,17 @@ def reverse_correlation(modelspec, est, IsReload=False, jackknifed_fit=False,
 
         if jackknifed_fit:
             nfolds = est.view_count
-            if modelspec.fit_count < est.view_count:
-                modelspec.tile_fits(nfolds)
-            for fit_idx, e in enumerate(est.views()):
-                log.info("Fitting fold %d/%d", fit_idx + 1, nfolds)
-                modelspec = nems.analysis.api.reverse_correlation(
-                        e, modelspec.set_fit(fit_idx), input_name)
+            if modelspec.jack_count < est.view_count:
+                modelspec.tile_jacks(nfolds)
+            for fit_idx in range(modelspec.fit_count):
+                modelspec.fit_index = fit_idx
+                for jack_idx, e in enumerate(est.views()):
+                    log.info("Fitting: fit %d/%d, fold %d/%d",
+                             fit_idx + 1, modelspec.fit_count,
+                             jack_idx + 1, modelspec.jack_count)
+
+                    modelspec = nems.analysis.api.reverse_correlation(
+                            e, modelspec.set_jack(jack_idx), input_name)
 
         else:
             # standard single shot
@@ -859,6 +880,7 @@ def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
                              analysis='fit_iteratively', **context)
 
         elif random_sample_fit:
+            raise Warning("DEPRECATED?")
             iter_kwargs = {'tol_iter': tol_iter, 'fit_iter': fit_iter,
                            'invert': invert, 'tolerances': tolerances,
                            'module_sets': module_sets, 'metric': metric_fn,
@@ -906,6 +928,7 @@ def fit_n_times_from_random_starts(modelspecs, est, ntimes, subset,
                                    analysis='fit_basic', basic_kwargs={},
                                    IsReload=False, **context):
     ''' Self explanatory. '''
+    raise Warning ('This is deprecated. Replaced by set_random_phi and analysis.test_prediction.pick_best_phi')
     if not IsReload:
         if len(modelspecs) > 1:
             raise NotImplementedError('I only work on 1 modelspec')
@@ -928,11 +951,11 @@ def save_recordings(modelspec, est, val, **context):
     return {'modelspec': modelspec}
 
 
-def predict(modelspec, est, val, **context):
+def predict(modelspec, est, val, jackknifed_fit=False, **context):
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
     # TODO: Add statistics to metadata of every modelspec
 
-    est, val = nems.analysis.api.generate_prediction(est, val, modelspec)
+    est, val = nems.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
     modelspec.recording = val
 
     return {'val': val, 'est': est, 'modelspec': modelspec}

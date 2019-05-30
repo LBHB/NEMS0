@@ -354,7 +354,9 @@ def _get_plot_fns(rec, modelspec, default='val', epoch='TRIAL', occurrence=0, m_
                     plot = (fns, [1]*len(fns))
                     plot_fns.append(plot)
                 else:
-                    pass
+                    fns = [partial(fir_heatmap, m) for m in modelspec.fits()]
+                    plot = (fns, [1]*len(fns))
+                    plot_fns.append(plot)
         # do strf
         else:
             if ('fir' in fname) and not strf_done:

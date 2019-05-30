@@ -16,48 +16,65 @@ log = logging.getLogger(__name__)
 
 def generate_prediction(est, val, modelspec, jackknifed_fit=False, **context):
 
+    # TODO support for multiple recording views/modelspec jackknifes (jack_count>0)
+    #  outer loop = fit, inner loop = jackknife ?
+
     list_val = (type(val) is list)
     list_modelspec = (type(modelspec) is list)
-    if list_modelspec:
-        modelspecs = modelspec
-    else:
-        modelspecs = modelspec.fits()
-
-    if list_val:
-        raise ValueError("list type val recordings no longer supported")
+    if list_val | list_modelspec:
+        raise ValueError("list-type val recordings or modelspecs no longer supported")
 
     # Evaluate estimation and validation data
 
     # three scenarios:
     # 1 fit, 1 est set - standard
     # n fits, n est sets - nfold
-    # n fits, 1 est set - multiple initial conditions
+    # m fits, 1 est set - multiple initial conditions
+    # m * n fits, n est sets - multiple initial conditions + nfold
+    fit_count = modelspec.fit_count  # (m)
+    n = modelspec.jack_count
+    out_est_signals = []
+    out_val_signals = []
 
-    do_inverse_merge = False
-    if est.view_count == 1:
-        new_est = est.tile_views(len(modelspecs))
-        new_val = val.tile_views(len(modelspecs))
-    else:
-        # assume est and val have .view_count == len(modelspecs)
-        new_est = est.copy()
-        new_val = val.copy()
-        if jackknifed_fit:
-            do_inverse_merge = True
+    for fit_idx in range(fit_count):
 
-    for i, m in enumerate(modelspecs):
-        # update each view with prediction from corresponding modelspec
-        new_est = ms.evaluate(new_est.set_view(i), m)
-        new_val = ms.evaluate(new_val.set_view(i), m)
+        do_inverse_merge = False
+        if est.view_count < n:
+            # if multiple jackknife fits but only one est/val view. Shouldn't ever happen
+            raise Warning('tiling est + val models X views. Should this happen?')
+            new_est = est.tile_views(n)
+            new_val = val.tile_views(n)
+        else:
+            # assume est and val have .view_count == len(modelspecs)
+            new_est = est.copy()
+            new_val = val.copy()
+            if jackknifed_fit:
+                do_inverse_merge = True
 
-        # this seems kludgy. but where should mask be handled?
-        if 'mask' in new_val.signals.keys():
-            m = new_val['mask'].as_continuous()
-            x = new_val['pred'].as_continuous().copy()
-            x[..., m[0,:] == 0] = np.nan
-            new_val['pred'] = new_val['pred']._modified_copy(x)
+        modelspec.fit_index = fit_idx
+        for jack_idx in range(n):
+            modelspec.jack_index = jack_idx
+            new_est.view_idx = jack_idx
+            new_val.view_idx = jack_idx
 
-    if do_inverse_merge:
-        new_val = new_val.jackknife_inverse_merge()
+            # update each view with prediction from corresponding modelspec
+            new_est = ms.evaluate(new_est, modelspec)
+            new_val = ms.evaluate(new_val, modelspec)
+
+            # this seems kludgy. but where should mask be handled?
+            if 'mask' in new_val.signals.keys():
+                m = new_val['mask'].as_continuous()
+                x = new_val['pred'].as_continuous().copy()
+                x[..., m[0, :] == 0] = np.nan
+                new_val['pred'] = new_val['pred']._modified_copy(x)
+
+        if do_inverse_merge:
+            new_val = new_val.jackknife_inverse_merge()
+        out_est_signals.extend(new_est.signal_views)
+        out_val_signals.extend(new_val.signal_views)
+
+    new_est.signal_views = out_est_signals
+    new_val.signal_views = out_val_signals
 
     return new_est, new_val
 
@@ -89,6 +106,9 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
 
         # TODO: support for views
         view_count = val.view_count
+        # KLUDGE ALERT!
+        # only compute results for first jackknife -- for simplicity, not optimal!
+        est_mult = modelspec.jack_count
         r_test = np.zeros(view_count)
         se_test = np.zeros(view_count)
         r_fit = np.zeros(view_count)
@@ -103,10 +123,10 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
         for i in range(view_count):
             if ('mask' in val.signals.keys()) and use_mask:
                 v = val.set_view(i).apply_mask()
-                e = est.set_view(i).apply_mask()
+                e = est.set_view(i*est_mult).apply_mask()
             else:
                 v = val.set_view(i)
-                e = est.set_view(i)
+                e = est.set_view(i*est_mult)
                 use_mask = False
 
             r_test[i], se_test[i] = nmet.j_corrcoef(v, 'pred', output_name)
@@ -375,21 +395,30 @@ def basic_error(data, modelspec, cost_function=None,
 
     return error
 
-def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit', **context):
+def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
+                  jackknifed_fit=False, **context):
+
     """
-    for models with multiple fits (eg, based on multiple initial conditions), find the best prediction
-    for the recording provided (presumably est data, though possibly something held out)
+    for models with multiple fits (eg, based on multiple initial conditions),
+    find the best prediction for the recording provided (presumably est data,
+    though possibly something held out)
 
     :param modelspec: should have fit_count>0
-    :param est: view_count should match fit_count, ie, after generate_prediction is called
+    :param est: view_count should match fit_count, ie,
+                after generate_prediction is called
     :param context: extra context stuff for xforms compatibility.
     :return: modelspec with fit_count==1
     """
 
-    new_est, new_val = generate_prediction(est, val, modelspec)
+    new_est, new_val = generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
     new_modelspec = standard_correlation(est=new_est, val=new_val, modelspec=modelspec)
 
+    #import pdb
+    #pdb.set_trace()
+
+    # TODO support for multiple recording views/modelspec jackknifes (jack_count>0)
     x = new_modelspec.meta[criterion]
+
     best_idx = np.argmin(x)
 
     log.info('best phi (fit_idx=%d) has %s=%.5f', best_idx, criterion, x[best_idx])

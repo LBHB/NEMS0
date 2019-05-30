@@ -279,9 +279,9 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
                 _r = resp.extract_epoch(k)[:, chanidx, :_n]
                 Xall.append(_r)
                 p.append(folded_pred[k][:, chanidx, :])
-                print(k)
-                print(_r.shape)
-                print(folded_pred[k][:, chanidx, :].shape)
+                #print(k)
+                #print(_r.shape)
+                #print(folded_pred[k][:, chanidx, :].shape)
                 reps.append(Xall[-1].shape[0])
                 preps.append(p[-1].shape[0])
 
