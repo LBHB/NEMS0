@@ -478,9 +478,9 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
     base = np.zeros([pchans, 1])
     kappa = np.zeros([pchans, 1])
     shift = np.zeros([pchans, 1])
-
+    out_signal = modelspec.meta.get('output_name','resp')
     for i in range(pchans):
-        resp = rec['resp'].as_continuous()
+        resp = rec[out_signal].as_continuous()
         pred = rec[in_signal].as_continuous()[i:(i+1), :]
         if resp.shape[0] == pchans:
             resp = resp[i:(i+1), :]

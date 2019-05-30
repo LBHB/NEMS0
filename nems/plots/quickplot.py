@@ -538,7 +538,7 @@ def before_and_after_psth(rec, modelspec, idx, sig_name='pred',
 
 
 def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
-                             compare='resp', smoothing_bins=False,
+                             compare=None, smoothing_bins=False,
                              mod_name='Unknown', xlabel1=None, xlabel2=None,
                              ylabel1=None, ylabel2=None):
 
@@ -563,6 +563,9 @@ def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
     # now evaluate next module step
     after = ms.evaluate(before.copy(), modelspec, start=idx, stop=idx+1)
     after_sig = after[sig_name]
+
+    if compare is None:
+        compare = modelspec.meta.get('output_name', 'resp')
 
     # compute correlation for pre-module before it's over-written
     if before[sig_name].shape[0] == 1:
