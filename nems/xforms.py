@@ -800,6 +800,7 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
         if jackknifed_fit:
             nfolds = est.view_count
             if modelspec.jack_count < est.view_count:
+                raise Warning('modelspec.jack_count does not match est.view_count')
                 modelspec.tile_jacks(nfolds)
             for fit_idx in range(modelspec.fit_count):
                 modelspec.fit_index = fit_idx
@@ -1130,7 +1131,6 @@ def load_analysis(filepath, eval_model=True, only=None):
     log.info('Loading xfspec and context from %s...', filepath)
 
     xfspec = load_xform(os.path.join(filepath, 'xfspec.json'))
-
     mspaths = []
     for file in os.listdir(filepath):
         if file.startswith("modelspec"):

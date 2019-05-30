@@ -55,7 +55,10 @@ class ModelSpec:
             # compatible with load_modelspec -- read in list of lists
             # make raw (1, fit_count, 1) array of lists
             # TODO default is to make single list into jack_counts!
-            raw = np.expand_dims(np.expand_dims(np.array(raw), 0), 1)
+            r = np.full((1,1,len(raw)), None)
+            for i, _r in enumerate(raw):
+                r[0,0,i]=_r
+            raw = r
 
         # otherwise, assume raw is a properly formatted 3D array (cell X fit X jack)
         self.raw = raw
