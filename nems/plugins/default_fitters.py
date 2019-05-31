@@ -138,6 +138,7 @@ def nrc(fitkey):
 
     return xfspec
 
+
 def tf(fitkey):
     '''
     Perform a Tensorflow fit, using Sam Norman-Haignere's CNN library
@@ -216,13 +217,15 @@ def iter(fitkey):
           positive integer. Default=50
     fiN : Perform N per-fit iterations, where N is any positive integer.
           Default=10
-
+    b : choose best fit_idx based on mse_fit (relevant only when multiple
+        initial conditions)
     '''
 
     # TODO: Support nfold and state fits for fit_iteratively?
     #       And epoch to go with state.
     options = _extract_options(fitkey)
-    tolerances, module_sets, fit_iter, tol_iter, fitter = _parse_iter(options)
+    tolerances, module_sets, fit_iter, tol_iter, fitter, choose_best = \
+        _parse_iter(options)
 
     if 'pop' in options:
         xfspec = [['nems.analysis.fit_pop_model.fit_population_iteratively',
@@ -235,6 +238,8 @@ def iter(fitkey):
                    {'module_sets': module_sets, 'fitter': fitter,
                     'tolerances': tolerances, 'tol_iter': tol_iter,
                     'fit_iter': fit_iter}]]
+    if choose_best:
+        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
     return xfspec
 
@@ -280,6 +285,7 @@ def _parse_iter(options):
     fit_iter = 10
     tol_iter = 50
     fitter = 'scipy_minimize'
+    choose_best = False
 
     for op in options:
         if op.startswith('ti'):
@@ -297,10 +303,12 @@ def _parse_iter(options):
             module_sets.append(indices)
         elif op == 'cd':
             fitter = 'coordinate_descent'
+        elif op == 'b':
+            choose_best = True
 
     if not tolerances:
         tolerances = None
     if not module_sets:
         module_sets = None
 
-    return tolerances, module_sets, fit_iter, tol_iter, fitter
+    return tolerances, module_sets, fit_iter, tol_iter, fitter, choose_best

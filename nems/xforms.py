@@ -680,8 +680,8 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
             #  allow nested loop for multiple fits (init conditions) within a jackknife
             #  initialize each jackknife with the same random ICs?
         for fit_idx in range(modelspec.fit_count):
-            modelspec.fit_index = fit_idx
             for jack_idx, e in enumerate(est.views()):
+                modelspec.fit_index = fit_idx
                 log.info("Init fitting model fit %d/%d, fold %d/%d",
                          fit_idx+1, modelspec.fit_count,
                          jack_idx + 1, modelspec.jack_count)
@@ -792,42 +792,24 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
               output_name='resp', **context):
     ''' A basic fit that optimizes every input modelspec. '''
 
-    if not IsReload:
-        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
-        fitter_fn = getattr(nems.fitters.api, fitter)
-        fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
+    if IsReload:
+        return {}
+    metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
+    fitter_fn = getattr(nems.fitters.api, fitter)
+    fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
 
-        if jackknifed_fit:
-            nfolds = est.view_count
-            if modelspec.jack_count < est.view_count:
-                raise Warning('modelspec.jack_count does not match est.view_count')
-                modelspec.tile_jacks(nfolds)
-            for fit_idx in range(modelspec.fit_count):
-                modelspec.fit_index = fit_idx
-                for jack_idx, e in enumerate(est.views()):
-                    modelspec.jack_index = jack_idx
-                    log.info("Fitting: fit %d/%d, fold %d/%d",
-                             fit_idx + 1, modelspec.fit_count,
-                             jack_idx + 1, modelspec.jack_count)
-                    modelspec = nems.analysis.api.fit_basic(
-                            e, modelspec, fit_kwargs=fit_kwargs,
-                            metric=metric_fn, fitter=fitter_fn)
-
-        elif random_sample_fit:
-            basic_kwargs = {'metric': metric_fn, 'fitter': fitter_fn,
-                            'fit_kwargs': fit_kwargs}
-            raise NotImplementedError("random_sample_fit not tested in new modelspec system")
-            return fit_n_times_from_random_starts(
-                        modelspec, est, ntimes=n_random_samples,
-                        subset=random_fit_subset,
-                        analysis='fit_basic', basic_kwargs=basic_kwargs
-                        )
-        else:
-            # standard single shot
-            for fit_idx in range(modelspec.fit_count):
-                log.info("Fitting model instance %d/%d", fit_idx + 1, modelspec.fit_count)
-                modelspec = nems.analysis.api.fit_basic(
-                    est, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
+    if modelspec.jack_count < est.view_count:
+        raise Warning('modelspec.jack_count does not match est.view_count')
+        modelspec.tile_jacks(nfolds)
+    for fit_idx in range(modelspec.fit_count):
+        for jack_idx, e in enumerate(est.views()):
+            modelspec.jack_index = jack_idx
+            modelspec.fit_index = fit_idx
+            log.info("Fitting: fit %d/%d, fold %d/%d",
+                     fit_idx + 1, modelspec.fit_count,
+                     jack_idx + 1, modelspec.jack_count)
+            modelspec = nems.analysis.api.fit_basic(
+                    e, modelspec, fit_kwargs=fit_kwargs,
                     metric=metric_fn, fitter=fitter_fn)
 
     return {'modelspec': modelspec}
@@ -844,8 +826,8 @@ def reverse_correlation(modelspec, est, IsReload=False, jackknifed_fit=False,
             if modelspec.jack_count < est.view_count:
                 modelspec.tile_jacks(nfolds)
             for fit_idx in range(modelspec.fit_count):
-                modelspec.fit_index = fit_idx
                 for jack_idx, e in enumerate(est.views()):
+                    modelspec.fit_index = fit_idx
                     modelspec.jack_index = jack_idx
                     log.info("Fitting: fit %d/%d, fold %d/%d",
                              fit_idx + 1, modelspec.fit_count,
@@ -864,43 +846,32 @@ def reverse_correlation(modelspec, est, IsReload=False, jackknifed_fit=False,
 
 
 def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
-                    module_sets=None, invert=False, tolerances=[1e-4],
+                    module_sets=None, invert=False, tolerances=[1e-4, 1e-5, 1e-6, 1e-7],
                     metric='nmse', fitter='scipy_minimize', fit_kwargs={},
-                    jackknifed_fit=False, random_sample_fit=False,
-                    n_random_samples=0, random_fit_subset=None,
-                    output_name='resp', **context):
+                    jackknifed_fit=False, output_name='resp', **context):
+    if IsReload:
+        return {}
 
     fitter_fn = getattr(nems.fitters.api, fitter)
     metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
 
-    if not IsReload:
-        if jackknifed_fit:
-            return fit_nfold(modelspec, est, tol_iter=tol_iter,
-                             fit_iter=fit_iter, module_sets=module_sets,
-                             tolerances=tolerances, metric=metric,
-                             fitter=fitter, fit_kwargs=fit_kwargs,
-                             analysis='fit_iteratively', **context)
+    if modelspec.jack_count < est.view_count:
+        raise Warning('modelspec.jack_count does not match est.view_count')
+        modelspec.tile_jacks(nfolds)
 
-        elif random_sample_fit:
-            raise Warning("DEPRECATED?")
-            iter_kwargs = {'tol_iter': tol_iter, 'fit_iter': fit_iter,
-                           'invert': invert, 'tolerances': tolerances,
-                           'module_sets': module_sets, 'metric': metric_fn,
-                           'fitter': fitter_fn, 'fit_kwargs': fit_kwargs}
-            return fit_n_times_from_random_starts(
-                        modelspec, est, ntimes=n_random_samples,
-                        subset=random_fit_subset,
-                        analysis='fit_iteratively', iter_kwargs=iter_kwargs,
-                        )
-
-        else:
-            for fit_idx in range(modelspec.fit_count):
-                modelspec = nems.analysis.api.fit_iteratively(
-                            est, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
-                            fitter=fitter_fn, module_sets=module_sets,
-                            invert=invert, tolerances=tolerances,
-                            tol_iter=tol_iter, fit_iter=fit_iter,
-                            metric=metric_fn)
+    for fit_idx in range(modelspec.fit_count):
+        for jack_idx, e in enumerate(est.views()):
+            modelspec.jack_index = jack_idx
+            modelspec.fit_index = fit_idx
+            log.info("Iter fitting: fit %d/%d, fold %d/%d",
+                     fit_idx + 1, modelspec.fit_count,
+                     jack_idx + 1, modelspec.jack_count)
+            modelspec = nems.analysis.api.fit_iteratively(
+                        e, modelspec, fit_kwargs=fit_kwargs,
+                        fitter=fitter_fn, module_sets=module_sets,
+                        invert=invert, tolerances=tolerances,
+                        tol_iter=tol_iter, fit_iter=fit_iter,
+                        metric=metric_fn)
 
     return {'modelspec': modelspec}
 

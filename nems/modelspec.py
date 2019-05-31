@@ -138,14 +138,20 @@ class ModelSpec:
 
         if fit_index is not None:
             raw = raw[:, fit_index:(fit_index+1), :]
+            _f = 0
+        else:
+            _f = self.fit_index
         if jack_index is not None:
             raw = raw[:, :, jack_index:(jack_index + 1)]
+            _j = 0
+        else:
+            _j = self.jack_index
 
         for r in self.raw.flatten():
             r[0]['meta'] = meta_save
 
-        m = ModelSpec(raw)
-
+        m = ModelSpec(raw, fit_index=_f, cell_index=self.cell_index,
+                      jack_index=_j)
         return m
 
     #

@@ -164,7 +164,7 @@ def fit_iteratively(
                 if 'levelshift' in m['fn'] and 'fir' in modelspec[i-1]['fn']:
                     # group levelshift with preceding fir filter by default
                     module_sets[-1].append(i)
-                else:
+                elif m.get('phi', {}):
                     # otherwise just fit each module separately
                     module_sets.append([i])
         log.info('Fit sets: %s', module_sets)

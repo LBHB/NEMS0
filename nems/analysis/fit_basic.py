@@ -54,8 +54,7 @@ def fit_basic(data, modelspec,
         # choose prior mean if not found
         for i, m in enumerate(modelspec.modules):
             if ('phi' not in m.keys()) and ('prior' in m.keys()):
-                log.debug('Phi not found for module, using mean of prior: %s',
-                          m)
+                log.debug('Phi not found for module, using mean of prior: %s', m)
                 m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
                 modelspec[i] = m
 
@@ -100,8 +99,14 @@ def fit_basic(data, modelspec,
     # (might only be one in list, but still should be packaged as a list)
     improved_sigma = fitter(sigma, cost_fn, bounds=bounds, **fit_kwargs)
     improved_modelspec = unpacker(improved_sigma)
-
     elapsed_time = (time.time() - start_time)
+
+    start_err = cost_fn(sigma)
+    final_err = cost_fn(improved_sigma)
+    log.info("Delta error: %.06f - %.06f = %e", start_err, final_err, final_err-start_err)
+    #if start_err == final_err:
+    #    import pdb
+    #    pdb.set_trace()
 
     # TODO: Should this maybe be moved to a higher level
     # so it applies to ALL the fittters?
