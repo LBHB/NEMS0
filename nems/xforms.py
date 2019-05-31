@@ -274,6 +274,8 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
     if type(cellid) is str:
         if cellid in rec['resp'].chans:
             cellid = [cellid]
+        elif len(cellid.split('+')) > 1:
+            cellid = cellid.split('+')
         else:
             log.info('No cellid match, keeping all resp channels')
 
