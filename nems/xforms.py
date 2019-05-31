@@ -682,6 +682,7 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
         for fit_idx in range(modelspec.fit_count):
             for jack_idx, e in enumerate(est.views()):
                 modelspec.fit_index = fit_idx
+                log.info("----------------------------------------------------")
                 log.info("Init fitting model fit %d/%d, fold %d/%d",
                          fit_idx+1, modelspec.fit_count,
                          jack_idx + 1, modelspec.jack_count)
@@ -734,6 +735,7 @@ def fit_state_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
             for jack_idx, d in enumerate(est.views()):
                 modelspec.fit_index = fit_idx
                 modelspec.jack_index = jack_idx
+                log.info("----------------------------------------------------")
                 log.info("Init state-free fitting model fit %d/%d, fold %d/%d",
                          fit_idx+1, modelspec.fit_count,
                          jack_idx + 1, modelspec.jack_count)
@@ -805,6 +807,7 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
         for jack_idx, e in enumerate(est.views()):
             modelspec.jack_index = jack_idx
             modelspec.fit_index = fit_idx
+            log.info("----------------------------------------------------")
             log.info("Fitting: fit %d/%d, fold %d/%d",
                      fit_idx + 1, modelspec.fit_count,
                      jack_idx + 1, modelspec.jack_count)
@@ -829,6 +832,7 @@ def reverse_correlation(modelspec, est, IsReload=False, jackknifed_fit=False,
                 for jack_idx, e in enumerate(est.views()):
                     modelspec.fit_index = fit_idx
                     modelspec.jack_index = jack_idx
+                    log.info("----------------------------------------------------")
                     log.info("Fitting: fit %d/%d, fold %d/%d",
                              fit_idx + 1, modelspec.fit_count,
                              jack_idx + 1, modelspec.jack_count)
@@ -863,6 +867,7 @@ def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
         for jack_idx, e in enumerate(est.views()):
             modelspec.jack_index = jack_idx
             modelspec.fit_index = fit_idx
+            log.info("----------------------------------------------------")
             log.info("Iter fitting: fit %d/%d, fold %d/%d",
                      fit_idx + 1, modelspec.fit_count,
                      jack_idx + 1, modelspec.jack_count)
