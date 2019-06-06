@@ -682,7 +682,7 @@ def load_modelspecs(directory, basename, regex=None):
 lookup_table = {}  # TODO: Replace with real memoization/joblib later
 
 
-def _lookup_fn_at(fn_path):
+def _lookup_fn_at(fn_path, ignore_table=False):
     '''
     Private function that returns a function handle found at a
     given module. Basically, a way to import a single function.
@@ -696,13 +696,16 @@ def _lookup_fn_at(fn_path):
     if not '.' in fn_path:
         fn_path = 'nems.xforms.' + fn_path
 
-    if fn_path in lookup_table:
+    if (not ignore_table) and (fn_path in lookup_table):
         fn = lookup_table[fn_path]
     else:
         api, fn_name = nems.utils.split_to_api_and_fn(fn_path)
         api_obj = importlib.import_module(api)
+        if ignore_table:
+            importlib.reload(api_obj)  # force overwrite old imports
         fn = getattr(api_obj, fn_name)
-        lookup_table[fn_path] = fn
+        if not ignore_table:
+            lookup_table[fn_path] = fn
     return fn
 
 

@@ -749,7 +749,7 @@ def dexp(kw):
                 'base': (1e-15, None),
                 'amplitude': (1e-15, None),
                 'shift': (None, None),
-                'kappa': (1e-15, None),
+                'kappa': (None, None),
                 }
 
     return template
