@@ -145,8 +145,10 @@ def evaluate(xformspec, context={}, start=0, stop=None):
     log.info('Done (re-)evaluating xforms.')
     ch.close()
     rootlogger.removeFilter(ch)
+    logstring = log_stream.getvalue()
+    context['log'] = logstring
 
-    return context, log_stream.getvalue()
+    return context, logstring
 
 
 ###############################################################################
@@ -1122,14 +1124,20 @@ def load_analysis(filepath, eval_model=True, only=None):
     xfspec = load_xform(os.path.join(filepath, 'xfspec.json'))
     mspaths = []
     figures_to_load = []
+    logstring = ''
     for file in os.listdir(filepath):
         if file.startswith("modelspec"):
             mspaths.append(os.path.join(filepath, file))
         elif file.startswith("figure"):
             figures_to_load.append(os.path.join(filepath, file))
+        elif file.startswith("log"):
+            logpath = os.path.join(filepath, file)
+            with open(logpath) as logfile:
+                logstring = logfile.read()
     ctx = load_modelspecs([], uris=mspaths, IsReload=False)
     ctx['IsReload'] = True
     ctx['figures_to_load'] = figures_to_load
+    ctx['log'] = logstring
 
     if eval_model:
         ctx, log_xf = evaluate(xfspec, ctx)
