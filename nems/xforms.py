@@ -22,7 +22,8 @@ from nems.plugins import (default_keywords, default_loaders, default_fitters,
                           default_initializers)
 from nems.signal import RasterizedSignal
 from nems.uri import save_resource, load_resource
-from nems.utils import iso8601_datestring, find_module, recording_filename_hash
+from nems.utils import (iso8601_datestring, find_module,
+                        recording_filename_hash, get_default_savepath)
 from nems.fitters.api import scipy_minimize
 from nems.recording import load_recording, Recording
 
@@ -989,7 +990,8 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
     return {'modelspec': modelspec}
 
 
-def plot_summary(modelspec, val, figures=None, IsReload=False, **context):
+def plot_summary(modelspec, val, figures=None, IsReload=False,
+                 figures_to_load=None, **context):
     # CANNOT initialize figures=[] in optional args our you will create a bug
 
     if figures is None:
@@ -998,6 +1000,9 @@ def plot_summary(modelspec, val, figures=None, IsReload=False, **context):
         fig = nplt.quickplot({'modelspec': modelspec, 'val': val})
         # Needed to make into a Bytes because you can't deepcopy figures!
         figures.append(nplt.fig2BytesIO(fig))
+    else:
+        if figures_to_load is not None:
+            figures.extend([load_resource(f) for f in figures_to_load])
 
     return {'figures': figures}
 
@@ -1067,20 +1072,21 @@ def tree_path(recording, modelspecs, xfspec):
     return path
 
 
-def save_analysis(destination,
-                  recording,
-                  modelspec,
-                  xfspec,
-                  figures,
-                  log,
-                  add_tree_path=False):
+def save_analysis(destination, recording, modelspec, xfspec, figures,
+                  log, add_tree_path=False):
     '''Save an analysis file collection to a particular destination.'''
     if add_tree_path:
-        treepath = tree_path(recording, modelspecs, xfspec)
+        treepath = tree_path(recording, [modelspec], xfspec)
         base_uri = os.path.join(destination, treepath)
     else:
         base_uri = destination
 
+    if destination is None:
+        destination = get_default_savepath(modelspec)
+        base_uri = destination
+
+    modelspec.meta['modelpath'] = base_uri
+    modelspec.meta['figurefile'] = os.path.join(base_uri,'figure.0000.png')
     base_uri = base_uri if base_uri[-1] == '/' else base_uri + '/'
     xfspec_uri = base_uri + 'xfspec.json'  # For attaching to modelspecs
 
@@ -1110,11 +1116,15 @@ def load_analysis(filepath, eval_model=True, only=None):
 
     xfspec = load_xform(os.path.join(filepath, 'xfspec.json'))
     mspaths = []
+    figures_to_load = []
     for file in os.listdir(filepath):
         if file.startswith("modelspec"):
             mspaths.append(os.path.join(filepath, file))
+        elif file.startswith("figure"):
+            figures_to_load.append(os.path.join(filepath, file))
     ctx = load_modelspecs([], uris=mspaths, IsReload=False)
     ctx['IsReload'] = True
+    ctx['figures_to_load'] = figures_to_load
 
     if eval_model:
         ctx, log_xf = evaluate(xfspec, ctx)

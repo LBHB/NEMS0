@@ -5,7 +5,7 @@ import numpy as np
 import os
 from nems.registry import KeywordRegistry
 from nems.plugins import default_keywords
-from nems.utils import find_module
+from nems.utils import find_module, get_default_savepath
 from nems.analysis.api import fit_basic
 from nems.fitters.api import scipy_minimize
 import nems.priors as priors
@@ -138,17 +138,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
     modelspec.meta.update(meta)
 
     if modelspec.meta.get('modelpath') is None:
-        results_dir = get_setting('NEMS_RESULTS_DIR')
-        batch = modelspec.meta.get('batch', 0)
-        exptid = modelspec.meta.get('exptid', 'DATA')
-        siteid = modelspec.meta.get('siteid', exptid)
-        cellid = modelspec.meta.get('cellid', siteid)
-        if type(cellid) is list:
-            destination = os.path.join(results_dir, str(batch), siteid, modelspec.get_longname())
-        else:
-            destination = os.path.join(results_dir, str(batch), cellid, modelspec.get_longname())
-        #destination = '{0}/{1}/{2}/{3}/'.format(
-        #    results_dir, batch, cellid, modelspec.get_longname())
+        destination = get_default_savepath(modelspec)
         modelspec.meta['modelpath'] = destination
         modelspec.meta['figurefile'] = os.path.join(destination,'figure.0000.png')
 
