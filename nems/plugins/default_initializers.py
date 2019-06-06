@@ -51,6 +51,7 @@ def init(kw):
     nl_kw = {}
     rand_count = 0
     keep_best = False
+    fast_eval = ('f' in ops)
     for op in ops:
         if op == 'st':
             st = True
@@ -79,6 +80,8 @@ def init(kw):
                 rand_count = int(op[1:])
 
     xfspec = []
+    #if fast_eval:
+    #    xfspec.append(['nems.xforms.fast_eval', {}])
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
     if st:

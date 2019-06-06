@@ -25,7 +25,7 @@ def short_term_plasticity(rec, i, o, u, tau, x0=None, crosstalk=0,
     return [rec[i].transform(fn, o)]
 
 
-def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None, quick_eval=False):
+def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None, quick_eval=False, dep_only=False):
     """
     STP core function
     """
@@ -42,7 +42,10 @@ def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None, quick_eval=Fa
     #       move bounds to fitter? slow
 
     # limits, assumes input (X) range is approximately -1 to +1
-    ui = np.abs(u.copy())
+    if dep_only or quick_eval:
+        ui = np.abs(u.copy())
+    else:
+        ui = u.copy()
 
     #ui[ui > 1] = 1
     #ui[ui < -0.4] = -0.4

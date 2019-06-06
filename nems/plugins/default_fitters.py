@@ -113,10 +113,15 @@ def basic(fitkey):
     xfspec = []
 
     options = _extract_options(fitkey)
-    max_iter, tolerance, fitter, choose_best = _parse_basic(options)
-    xfspec = [['nems.xforms.fit_basic',
-               {'max_iter': max_iter,
-                'fitter': fitter, 'tolerance': tolerance}]]
+    max_iter, tolerance, fitter, choose_best, fast_eval = _parse_basic(options)
+    xfspec = []
+    #if fast_eval:
+    #    xfspec = [['nems.xforms.fast_eval', {}]]
+    #else:
+    #    xfspec = []
+    xfspec.append(['nems.xforms.fit_basic',
+                  {'max_iter': max_iter,
+                   'fitter': fitter, 'tolerance': tolerance}])
     if choose_best:
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
@@ -224,7 +229,7 @@ def iter(fitkey):
     # TODO: Support nfold and state fits for fit_iteratively?
     #       And epoch to go with state.
     options = _extract_options(fitkey)
-    tolerances, module_sets, fit_iter, tol_iter, fitter, choose_best = \
+    tolerances, module_sets, fit_iter, tol_iter, fitter, choose_best, fast_eval = \
         _parse_iter(options)
 
     if 'pop' in options:
@@ -260,6 +265,7 @@ def _parse_basic(options):
     tolerance = 1e-7
     fitter = 'scipy_minimize'
     choose_best = False
+    fast_eval = False
     for op in options:
         if op.startswith('mi'):
             pattern = re.compile(r'^mi(\d{1,})')
@@ -274,8 +280,10 @@ def _parse_basic(options):
             fitter = 'coordinate_descent'
         elif op == 'b':
             choose_best = True
+        elif op == 'f':
+            fast_eval = True
 
-    return max_iter, tolerance, fitter, choose_best
+    return max_iter, tolerance, fitter, choose_best, fast_eval
 
 
 def _parse_iter(options):
@@ -286,7 +294,7 @@ def _parse_iter(options):
     tol_iter = 50
     fitter = 'scipy_minimize'
     choose_best = False
-
+    fast_eval = False
     for op in options:
         if op.startswith('ti'):
             tol_iter = int(op[2:])
@@ -305,10 +313,12 @@ def _parse_iter(options):
             fitter = 'coordinate_descent'
         elif op == 'b':
             choose_best = True
+        elif op == 'f':
+            fast_eval = True
 
     if not tolerances:
         tolerances = None
     if not module_sets:
         module_sets = None
 
-    return tolerances, module_sets, fit_iter, tol_iter, fitter, choose_best
+    return tolerances, module_sets, fit_iter, tol_iter, fitter, choose_best, fast_eval

@@ -68,7 +68,7 @@ def fit_basic(data, modelspec,
     # turn on "fit mode". currently this serves one purpose, for normalization
     # parameters to be re-fit for the output of each module that uses
     # normalization. does nothing if normalization is not being used.
-    ms.fit_mode_on(modelspec)
+    ms.fit_mode_on(modelspec, data)
 
     # Create the mapper functions that translates to and from modelspecs.
     # It has three functions that, when defined as mathematical functions, are:
