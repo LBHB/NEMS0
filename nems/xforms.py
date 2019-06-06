@@ -1020,6 +1020,11 @@ def jackknifed_fit(IsReload=False, **context):
     else:
         return {}
 
+def fast_eval(modelspec, est, **context):
+    modelspec.fast_eval_on(est)
+
+    return {'modelspec': modelspec}
+
 
 def random_sample_fit(ntimes=10, subset=None, IsReload=False, **context):
     if not IsReload:

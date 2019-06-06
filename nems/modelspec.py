@@ -3,12 +3,15 @@ import os
 import copy
 import json
 import importlib
+import logging
 import numpy as np
 import scipy.stats as st
 import nems.utils
 import nems.uri
 from nems.fitters.mappers import simple_vector
 import matplotlib.pyplot as plt
+
+log = logging.getLogger(__name__)
 
 # Functions for saving, loading, and evaluating modelspecs
 
@@ -41,6 +44,7 @@ class ModelSpec:
     cell_index : int
         Integer index of which "cell" to reference when multiple are present,
         default 0.
+    fast_eval : testing (default false)
 
     """
 
@@ -52,6 +56,8 @@ class ModelSpec:
             raw = np.full((1, 1, 1), None)
             raw[0, 0, 0] = []
         elif type(raw) is list:
+            if type(raw[0]) is not list:
+                raw=[raw]
             # compatible with load_modelspec -- read in list of lists
             # make raw (1, fit_count, 1) array of lists
             # TODO default is to make single list into jack_counts!
@@ -75,6 +81,9 @@ class ModelSpec:
         self.plot_occurrence = 0
         self.plot_channel = 0   # channel of pred/resp to plot in timeseries (for population models)
         self.recording = recording  # default recording for evaluation & plotting
+        self.fast_eval = False
+        self.fast_eval_start = 0
+        self.freeze_rec = None
 
     #
     # overloaded methods
@@ -453,9 +462,41 @@ class ModelSpec:
         """
         if rec is None:
             rec = self.recording
+
         rec = evaluate(rec, self.raw[self.cell_index, self.fit_index, self.jack_index], start=start, stop=stop)
 
         return rec
+
+    def fast_eval_on(self, rec=None, subset=None):
+        """
+        enter fast eval mode, where model is evaluated up through the
+        first module that has a fittable phi. evaluate model on rec up through
+        the preceeding module and save in self.freeze_rec
+        """
+        if rec is None:
+            raise ValueError("Must provide valid rec=<recording> object")
+        if subset is not None:
+            start_mod = subset[0]
+        else:
+            start_mod = len(self)-1
+            for i in range(len(self)-1,0,-1):
+                if ('phi' in self[i]) and self[i]['phi']:
+                    start_mod = i
+
+        # eval from 0 to start position and save the result in freeze_rec
+        self.fast_eval_start = 0
+        self.freeze_rec = evaluate(rec, self, start=0, stop=start_mod)
+
+        # then switch to fast_eval mode
+        self.fast_eval = True
+        self.fast_eval_start = start_mod
+        log.info('Freezing fast rec at start=%d', self.fast_eval_start)
+
+    def fast_eval_off(self):
+        """ turn off fast_eval and purge freeze_rec to free up memory """
+        self.fast_eval = False
+        self.freeze_rec = None
+        self.fast_eval_start = 0
 
     def generate_tensor(self, data, phi):
         '''
@@ -665,22 +706,32 @@ def _lookup_fn_at(fn_path):
     return fn
 
 
-def fit_mode_on(modelspec):
+def fit_mode_on(modelspec, rec=None, subset=None):
     '''
     turn no norm.recalc for each module when present
     '''
+    """
+    # norm functions deprecated. too messy
     for m in modelspec:
         if 'norm' in m.keys():
             m['norm']['recalc'] = 1
+    """
+    if rec is None:
+        raise ValueError('rec must be specified')
+    modelspec.fast_eval_on(rec, subset)
 
 
 def fit_mode_off(modelspec):
     '''
     turn off norm.recalc for each module when present
     '''
+    """
+    # norm functions deprecated. too messy
     for m in modelspec:
         if 'norm' in m.keys():
             m['norm']['recalc'] = 0
+    """
+    modelspec.fast_eval_off()
 
 
 def evaluate(rec, modelspec, start=None, stop=None):
@@ -692,8 +743,15 @@ def evaluate(rec, modelspec, start=None, stop=None):
     of the list, and a value of None for stop will include the end
     of the list (whereas a value of -1 for stop will not).
     '''
-    # d = copy.deepcopy(rec)  # Paranoid, but 100% safe
-    d = rec.copy()  # About 10x faster & fine if Signals are immutable
+    if modelspec.fast_eval:
+        start = modelspec.fast_eval_start
+        d = modelspec.freeze_rec.copy()
+        #import pdb
+        #pdb.set_trace()
+    else:
+        # d = copy.deepcopy(rec)  # Paranoid, but 100% safe
+        d = rec.copy()  # About 10x faster & fine if Signals are immutable
+
     for m in modelspec[start:stop]:
         fn = _lookup_fn_at(m['fn'])
         fn_kwargs = m.get('fn_kwargs', {})
