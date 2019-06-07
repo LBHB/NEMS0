@@ -3,11 +3,13 @@ import hashlib
 import json
 import os
 from collections import Sequence
+import logging
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-import logging
+from nems import get_setting
+
 log = logging.getLogger(__name__)
 
 
@@ -373,3 +375,18 @@ def find_common(s_list, pre=True, suf=True):
         log.debug("final s: %s" % s)
 
     return (shortened, prefix, suffix)
+
+
+def get_default_savepath(modelspec):
+    results_dir = get_setting('NEMS_RESULTS_DIR')
+    batch = modelspec.meta.get('batch', 0)
+    exptid = modelspec.meta.get('exptid', 'DATA')
+    siteid = modelspec.meta.get('siteid', exptid)
+    cellid = modelspec.meta.get('cellid', siteid)
+    if type(cellid) is list:
+        destination = os.path.join(results_dir, str(batch), siteid,
+                                   modelspec.get_longname())
+    else:
+        destination = os.path.join(results_dir, str(batch), cellid,
+                                   modelspec.get_longname())
+    return destination
