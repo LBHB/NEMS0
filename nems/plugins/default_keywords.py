@@ -747,7 +747,7 @@ def dexp(kw):
     if bounded:
         template['bounds'] = {
                 'base': (1e-15, None),
-                'amplitude': (1e-15, None),
+                'amplitude': (None, None),
                 'shift': (None, None),
                 'kappa': (None, None),
                 }
