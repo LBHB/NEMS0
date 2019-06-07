@@ -689,6 +689,14 @@ def stp(kw):
     return template
 
 
+def dep(kw):
+    """ same as stp(kw) but sets kw_args->dep_only = True """
+    template = stp(kw)
+    template['kw_args']['dep_only'] = True
+
+    return template
+
+
 def dexp(kw):
     '''
     Generate and register modulespec for double_exponential module.

@@ -1127,11 +1127,11 @@ def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test'):
         if cellids is not None:
             q = q.filter(NarfResults.cellid.in_(cellids))
         tr = psql.read_sql_query(q.statement, session.bind)
-        tc=tr[['cellid',stat]]
-        tc=tc.set_index('cellid')
-        tc.columns=[mn]
+        tc = tr[['cellid',stat]]
+        tc = tc.set_index('cellid')
+        tc.columns = [mn]
         if results is None:
-            results=tc
+            results = tc
         else:
             results=results.join(tc)
 

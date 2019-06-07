@@ -101,14 +101,14 @@ def _set_phi_in_module(module, prior_to_phi_fn):
             # Changes this so that empty phi {} won't trigger it
             # for modules that have no parameters, like dlog.f
             m = 'Phi exists w/o prior: ' + str(module)
-            log.warn(m)
+            log.warning(m)
     else:
         new_phi = prior_to_phi_fn(prior)
         if 'phi' in new_module:
             old_phi = new_module['phi']
             if len(new_phi) != len(old_phi):
                 m = 'Not all phi values have priors: ' + str(module)
-                log.warn(m)
+                log.warning(m)
             new_module['phi'] = {**old_phi, **new_phi}
         else:
             new_module['phi'] = new_phi

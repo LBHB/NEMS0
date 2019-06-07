@@ -155,7 +155,7 @@ def from_keywords_as_list(keyword_string, registry=None, meta={}):
     return [from_keywords(keyword_string, registry, meta)]
 
 
-def rand_phi(modelspec, rand_count=10, IsReload=False, **context):
+def rand_phi(modelspec, rand_count=10, IsReload=False, rand_seed=1234, **context):
     """ initialize modelspec phi to random values based on priors """
 
     if IsReload:
@@ -165,6 +165,10 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, **context):
 
     modelspec.tile_fits(rand_count)
 
+    # set random seed for reproducible results
+    save_state = np.random.get_state()
+    np.random.seed(rand_seed)
+
     for i in range(rand_count):
         modelspec.set_fit(i)
         if i == 0:
@@ -172,6 +176,9 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, **context):
             modelspec = priors.set_mean_phi(modelspec)
         else:
             modelspec = priors.set_random_phi(modelspec)
+
+    # restore random seed
+    np.random.set_state(save_state)
 
     modelspec.tile_jacks(jack_count)
 
