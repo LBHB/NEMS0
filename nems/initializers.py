@@ -240,6 +240,8 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
         elif 'logistic_sigmoid' in m['fn']:
             log.info("initializing priors and bounds for logsig ...\n")
             modelspec = init_logsig(est, modelspec)
+            #import pdb
+            #pdb.set_trace()
             modelspec = prefit_mod_subset(
                     est, modelspec, fit_basic,
                     fit_set=['logistic_sigmoid'],
@@ -434,12 +436,12 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
                amp = resp[pred>np.percentile(pred,90)].mean()
                kappa = np.log(2 / (np.std(pred)*3))
 
-   override_target_i should be an integer index into the modelspec.
-   This replaces the normal behavior of the function which would look up
-   the index of the 'double_exponential' module. Use this if you want
-   to use dexp's initialization procedure for a similar nonlinearity module.
+    override_target_i should be an integer index into the modelspec.
+    This replaces the normal behavior of the function which would look up
+    the index of the 'double_exponential' module. Use this if you want
+    to use dexp's initialization procedure for a similar nonlinearity module.
 
-   """
+    """
     # preserve input modelspec
     modelspec = copy.deepcopy(modelspec)
 
@@ -587,6 +589,11 @@ def init_logsig(rec, modelspec):
     amplitude = ('Exponential', {'beta': amplitude0})
     shift = ('Normal', {'mean': shift0, 'sd': pred_range})
     kappa = ('Exponential', {'beta': kappa0})
+
+    if 'phi' in modelspec[target_i]:
+        modelspec[target_i]['phi'].update({
+                'base': base0, 'amplitude': amplitude0, 'shift': shift0,
+                'kappa': kappa0})
 
     modelspec[target_i]['prior'].update({
             'base': base, 'amplitude': amplitude, 'shift': shift,
