@@ -351,7 +351,8 @@ def pz(kw):
 
 def do(kw):
     '''
-    Generate and register default modulespec for damped oscillator-based filters
+    Generate and register default modulespec for damped oscillator-based filters.
+    Several parameters have bounds
 
     Parameters
     ----------
@@ -360,7 +361,8 @@ def do(kw):
 
     Options
     -------
-    None, but x{n_banks} is optional.
+    n_banks : default 1
+
     '''
     options = kw.split('.')
     pattern = re.compile(r'^(\d{1,})x(\d{1,})x?(\d{1,})?$')
@@ -370,7 +372,7 @@ def do(kw):
         n_coefs = int(parsed.group(2))
         n_banks = parsed.group(3)  # None if not given in keyword string
     except TypeError:
-        raise ValueError("Got a TypeError when parsing da keyword. Make sure "
+        raise ValueError("Got a TypeError when parsing do() keyword. Make sure "
                          "keyword has the form: \n"
                          "da.{n_outputs}x{n_coefs}x{n_banks} (n_banks optional)"
                          "\nkeyword given: %s" % kw)
@@ -398,12 +400,12 @@ def do(kw):
         'sd': np.full((n_channels, 1), 1)
     }
     p_taus = {
-        'sd': np.full((n_channels, 1), 0.5)
+        'sd': np.full((n_channels, 1), 0.2)
     }
-    g0 = np.array([[0.1, -0.5, 0.1, -0.5, 0.1, -0.5]]).T
+    g0 = np.array([[0.5, -0.25, 0.5, -0.25, 0.5, -0.25, 0.5, -0.25]]).T
     p_gains = {
             'mean': np.tile(g0[:n_outputs, :], (n_banks, 1)),
-            'sd': np.ones((n_channels, 1))*.2,
+            'sd': np.ones((n_channels, 1))*.4,
     }
     p_delays = {
         'sd': np.full((n_channels, 1), 1)
@@ -423,8 +425,12 @@ def do(kw):
             'f1s': ('HalfNormal', p_f1s),
             'taus': ('HalfNormal', p_taus),
             'gains': ('Normal', p_gains),
-            'delays': ('HalfNormal', p_delays),
-        }
+            'delays': ('HalfNormal', p_delays)},
+        'bounds': {
+            'f1s': (np.full((n_channels, 1), 1e-15), np.full((n_channels, 1), 2*np.pi)),
+            'taus': (np.full((n_channels, 1), 0), np.full((n_channels, 1), None)),
+            'gains': (np.full((n_channels, 1), None), np.full((n_channels, 1), None)),
+            'delays': (np.full((n_channels, 1), -1), np.full((n_channels, 1), n_coefs))}
     }
 
     return template
@@ -1004,6 +1010,8 @@ def relu(kw):
         template['prior'] = {'offset': ('Normal', {
                 'mean': np.zeros((chans, 1)),
                 'sd': np.ones((chans, 1))*2})}
+#                'mean': np.zeros((chans, 1)),
+#                'sd': np.ones((chans, 1))*0.5})}
 
     return template
 

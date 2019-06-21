@@ -283,7 +283,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
 
         if len(tlist):
             target_i = i + 1
-            break
+            # don't break. use last occurrence of target module
 
     if not target_i:
         log.info("target_module: {} not found in modelspec."
