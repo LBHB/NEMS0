@@ -703,6 +703,98 @@ def dep(kw):
     return template
 
 
+def stp2(kw):
+    '''
+    Generate and register modulespec for short_term_plasticity2 module. Two plasticity timecoursees
+
+    Parameters
+    ----------
+    kw : str
+        Expected format: r'^stp2\.?(\d{1,})\.?([zbnstxq.]*)$'
+
+    Options
+    -------
+    z : Change prior conditions (see function body)
+    b : Set bounds on 'tau' to be greater than or equal to 0
+    n : Apply normalization
+    t : Threshold inputs to synapse
+    q : quick version of STP, fits differently for some reason? so not default
+    '''
+    pattern = re.compile(r'^stp2\.?(\d{1,})\.?([zbnstxq.\.]*)$')
+    parsed = re.match(pattern, kw)
+    try:
+        n_synapse = int(parsed.group(1))
+    except (TypeError, IndexError):
+        raise ValueError("Got TypeError or IndexError while parsing stp "
+                         "keyword,\nmake sure keyword is of the form: \n"
+                         "stp.{n_synapse}.option1.option2...\n"
+                         "keyword given: %s" % kw)
+    options = parsed.group(2).split('.')
+
+    # Default values, may be overwritten by options
+    u_mean = [0.01] * n_synapse
+    tau_mean = [0.1] * n_synapse
+    x0_mean = [0] * n_synapse
+    crosstalk = 0
+
+    quick_eval = ('q' in options)
+    normalize = ('n' in options)
+    threshold = ('t' in options)
+    bounds = ('b' in options)
+
+    for op in options:
+        if op == 'z':
+            tau_mean = [0.01] * n_synapse
+        elif op == 's':
+            u_mean = [0.05] * n_synapse
+        elif op == 'x':
+            crosstalk = 1
+
+    u_sd = [0.05] * n_synapse
+    if n_synapse == 1:
+        # TODO:
+        # @SVD: stp1 had this as 0.01, all others 0.05. intentional?
+        #       if not can just set tau_sd = [0.05]*n_synapse
+        tau_sd = u_sd
+    else:
+        tau_sd = [0.01]*n_synapse
+
+    template = {
+        'fn': 'nems.modules.stp.short_term_plasticity2',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'crosstalk': crosstalk,
+                      'quick_eval': quick_eval, 'reset_signal': 'epoch_onsets'},
+        'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.before_and_after',
+                     'nems.plots.api.before_and_after_stp'],
+        'plot_fn_idx': 2,
+        'prior': {'u': ('Normal', {'mean': u_mean, 'sd': u_sd}),
+                  'tau': ('Normal', {'mean': tau_mean, 'sd': tau_sd}),
+                  'u2': ('Normal', {'mean': [uu*5 for uu in u_mean], 'sd': [uu*5 for uu in u_sd]}),
+                  'tau2': ('Normal', {'mean': [tt/5 for tt in tau_mean], 'sd': [tt/5 for tt in tau_sd]}),
+                  'urat': ('Normal', {'mean': 0.5, 'sd': 0.2})
+                  },
+        'bounds': {'u': (np.full_like(u_mean, -np.inf), np.full_like(u_mean, np.inf)),
+                  'tau': (np.full_like(u_mean, 0.01), np.full_like(u_mean, np.inf)),
+                  'u2': (np.full_like(u_mean, -np.inf), np.full_like(u_mean, np.inf)),
+                  'tau2': (np.full_like(u_mean, 0.01), np.full_like(u_mean, np.inf)),
+                  'urat': (0, 1)
+                  }
+        }
+
+    if normalize:
+        d = np.array([0]*n_synapse)
+        g = np.array([1]*n_synapse)
+        template['norm'] = {'type': 'minmax', 'recalc': 0, 'd': d, 'g': g}
+
+    if bounds:
+        template['bounds'] = {'tau': (0, None)}
+
+    if threshold:
+        template['prior']['x0'] = ('Normal', {'mean': x0_mean, 'sd': u_sd})
+
+    return template
+
+
 def dexp(kw):
     '''
     Generate and register modulespec for double_exponential module.
@@ -761,7 +853,7 @@ def dexp(kw):
     if bounded:
         template['bounds'] = {
                 'base': (1e-15, None),
-                'amplitude': (1e-15, None),
+                'amplitude': (None, None),
                 'shift': (None, None),
                 'kappa': (None, None),
                 }

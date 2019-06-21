@@ -166,7 +166,8 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
                     ax=ax, title=title)
 
 
-def before_and_after_stp(modelspec, sig_name='pred', ax=None, title=None,
+def before_and_after_stp(modelspec=None, mod_index=None, tau=None, u=None, tau2=None, u2=None,
+                         ax=None, title=None,
                          channels=0, xlabel='Time', ylabel='Value', fs=100, **options):
     '''
     Plots a timeseries of specified signal just before and just after
@@ -174,24 +175,40 @@ def before_and_after_stp(modelspec, sig_name='pred', ax=None, title=None,
 
     Arguments:
     ----------
-    rec : recording object
-        really only used to get the sampling rate, since we're using
-        a cartoon stimulus
-
-    modelspec : list of dicts
-        The transformations to perform. See nems/modelspec.py.
+    u, tau : np arrays of STP parameters. if not specified, use modelspec
+    modelspec : modelspec with an STP module
+    mod_index : index of STP module to plot (allows models with multiple STPs), d
+                default=None, in which case use first STP module
+    fs : sampling rate (default 100 Hz)
 
     Returns:
     --------
     None
     '''
 
-    for m in modelspec:
-        if 'stp' in m['fn']:
-            break
+    if (tau is None) or (u is None):
+        if mod_index:
+            m = modelspec[mod_index]
+        else:
+            for m in modelspec:
+                if 'stp' in m['fn']:
+                    break
+        tau = m['phi']['tau']
+        u = m['phi']['u']
+        tau2 = m['phi'].get('tau2', None)
+        u2 = m['phi'].get('u2', None)
+        urat = m['phi'].get('urat', 0.5)
 
-    stp_mag, pred, pred_out = stp_magnitude(m['phi']['tau'], m['phi']['u'], fs)
-    c = len(m['phi']['tau'])
+    if type(u) in [float, int]:
+        u=np.array([u])
+    if type(tau) in [float, int]:
+        tau=np.array([tau])
+    if type(u2) in [float, int]:
+        u2=np.array([u2])
+    if type(tau2) in [float, int]:
+        tau2=np.array([tau2])
+    stp_mag, pred, pred_out = stp_magnitude(tau=tau, u=u, fs=fs, tau2=tau2, u2=u2, urat=urat)
+    c = len(tau)
     pred.name = 'before'
     pred_out.name = 'after'
     signals = []

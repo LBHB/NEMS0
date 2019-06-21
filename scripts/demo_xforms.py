@@ -44,7 +44,9 @@ cellid = "TAR010c-18-1"
 #modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
 modelspecname = 'dlog-wc.18x1.g-fir.1x15-lvl.1-dexp.1'
 #modelspecname = 'dlog-wc.18x1.g-stp.1-fir.1x15-lvl.1-dexp.1'
-modelspecname = 'dlog-wc.18x2.g-pz.2x15-lvl.1-dexp.1'
+modelspecname = 'dlog-wc.18x2.g-do.2x15-lvl.1-dexp.1'
+modelspecname = 'dlog.f-wc.18x1.g-stp.1.s-do.1x15-lvl.1'
+modelspecname = 'dlog.f-wc.18x1.g-stp2.1.s-do.1x15-lvl.1'
 
 
 # generate modelspec
@@ -68,14 +70,17 @@ meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
 xfspec.append(['nems.xforms.init_from_keywords',
                {'keywordstring': modelspecname, 'meta': meta}])
 
-xfspec.append(['nems.initializers.rand_phi', {'rand_count': 5}])
+#xfspec.append(['nems.initializers.rand_phi', {'rand_count': 5}])
 xfspec.append(['nems.xforms.fit_basic_init', {}])
-xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
-xfspec.append(['nems.xforms.fit_basic', {}])
+xfspec.append(['nems.xforms.fit_basic', {'tolerance': 1e-6}])
+
 # xfspec.append(['nems.xforms.fit_basic_shrink', {}])
 #xfspec.append(['nems.xforms.fit_basic_cd', {}])
 # xfspec.append(['nems.xforms.fit_iteratively', {}])
+
+#xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
+
 xfspec.append(['nems.xforms.predict', {}])
 # xfspec.append(['nems.xforms.add_summary_statistics',    {}])
 xfspec.append(['nems.analysis.api.standard_correlation', {},
