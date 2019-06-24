@@ -269,6 +269,47 @@ def fir(kw):
     return template
 
 
+def strf(kw):
+    '''
+    Generate a stim_channel x time_bin array of coefficients to be used
+    as an inseparable STRF.
+
+    Parameters
+    ----------
+    kw : str
+        A string of the form: strf.{stim_channel_count}x{n_coefs}
+
+    Options
+    -------
+    f : "first module" - change input from pred to stim
+    TODO: approximations with different basis functions
+
+    '''
+    options = kw.split('.')
+    stim_channels, temporal_bins = [int(a) for a in options[1].split('x')]
+
+    input_name = 'pred'
+    for op in options[2:]:
+        if op == 'f':
+            input_name = 'stim'
+
+    prior_coeffs = {
+            'mean': np.zeros((stim_channels, temporal_bins)),
+            'sd': np.ones((stim_channels, temporal_bins))
+            }
+    template = {
+            'fn': 'nems.modules.strf.nonparametric',
+            'fn_kwargs': {'i': input_name, 'o': 'pred'},
+            'plot_fns': ['nems.plots.heatmap.nonparametric_strf'],
+            'plot_fn_idx': 0,
+            'prior': {
+                    'coefficients': ('Normal', prior_coeffs)
+                    }
+            }
+
+    return template
+
+
 def pz(kw):
     '''
     Generate and register default modulespec for pole-zero filters

@@ -170,6 +170,12 @@ def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None,
             plt.text(-0.4, i, c, verticalalignment='center')
 
 
+def nonparametric_strf(modelspec, idx, ax=None, clim=None, title=None, **kwargs):
+    coefficients = modelspec[idx]['phi']['coefficients']
+    plot_heatmap(coefficients, xlabel='Time Bin', ylabel='Channel In',
+                 ax=ax, clim=clim, title=title)
+
+
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
                  title=None, fs=None, chans=None, wc_idx=0, fir_idx=0,
                  interpolation='none', absolute_value=False, **options):
