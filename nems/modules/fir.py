@@ -169,10 +169,21 @@ def pole_zero(rec, i='pred', o='pred', poles=None, zeros=None, delays=None,
 
 
 def da_coefficients(f1s=1, taus=0.5, delays=1, gains=1, n_coefs=10, **kwargs):
-
+    """
+    generate fir filter from damped oscillator coefficients
+    :param f1s:
+    :param taus:
+    :param delays:
+    :param gains:
+    :param n_coefs:
+    :param kwargs:  padding for extra stuff if implemented in a framework with generic
+                    coef-generating functions
+    :return:
+    """
     t = np.arange(n_coefs) - delays
     coefficients = np.sin(f1s * t) * np.exp(-taus * t) * gains
     coefficients[t<0] = 0
+
     return coefficients
 
 
