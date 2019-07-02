@@ -23,6 +23,8 @@ from nems.plots.state import (state_vars_timeseries, state_var_psth_from_epoch,
                     state_var_psth, state_gain_plot, state_vars_psth_all)
 from nems.plots.summary import perf_per_cell
 from nems.utils import find_module
+from nems_lbhb.gcmodel.guiplots import contrast_kernel_heatmap
+
 
 log = logging.getLogger(__name__)
 
@@ -466,18 +468,9 @@ def _get_plot_fns(rec, modelspec, default='val', epoch='TRIAL', occurrence=0, m_
                 plot1 = (fn1, 1)
                 plot_fns.append(plot1)
 
-        elif 'dynamic_sigmoid' in fname:
-            #if rec['contrast'].shape[0] > 1:
-            def contrast_strf(modelspec, chans, ax):
-                try:
-                    strf_heatmap(modelspec, title='Contrast STRF', chans=chans,
-                                 wc_idx=1, fir_idx=1, ax=ax)
-                except IndexError:
-                    strf_heatmap(modelspec, title='Contrast STRF (Fixed A.V.)',
-                                 chans=chans, wc_idx=0, fir_idx=0,
-                                 absolute_value=True, ax=ax)
-
-            fn = partial(contrast_strf, modelspec, chans=None)
+        elif 'contrast_kernel' in fname:
+            fn = partial(contrast_kernel_heatmap, rec, modelspec,
+                         title='Contrast Kernel')
             plot = (fn, 1)
             plot_fns.append(plot)
 
