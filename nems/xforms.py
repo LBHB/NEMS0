@@ -7,6 +7,7 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 
+import nems.db as nd
 import nems.analysis.api
 import nems.initializers as init
 import nems.metrics.api as metrics
@@ -1150,6 +1151,34 @@ def load_analysis(filepath, eval_model=True, only=None):
             ctx, log_xf = evaluate(xfspec[only], ctx)
 
     return xfspec, ctx
+
+
+def regenerate_figures(batch, modelnames, cellids=None):
+    '''
+    Regenerate quickplot figures for a given modelname and batch.
+    Intended to be used in cases where plot code has been updated and
+    needs to be included in existing models, but a re-fit is not necessary.
+
+    '''
+    if cellids is None:
+        cells = nd.get_batch_cells(batch)['cellid'].values.tolist()
+    else:
+        cells = cellids
+    r = nd.get_results_file(batch, modelnames, cellids=cellids)
+
+    for m in modelnames:
+        for c in cells:
+            try:
+                filepath = r[r.cellid == c][r.modelname == m]['modelpath'].iat[0] + '/'
+            except IndexError:
+                # result doesn't exist
+                continue
+            xfspec, ctx = load_analysis(filepath, eval_model=True)
+            fig = nplt.quickplot(ctx)
+            fig_bytes = nplt.fig2BytesIO(fig)
+            plt.close('all')
+            save_resource(filepath + 'figure.0000.png', data=fig_bytes)
+            # TODO: also have to tell
 
 
 ###############################################################################
