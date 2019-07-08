@@ -136,7 +136,9 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
             epoch = epoch_data[epoch_name]
 
             # TODO: fix empty matrix error. do epochs align properly?
-            if np.sum(np.isfinite(epoch)):
+            if epoch.dtype == bool:
+                epoch = epoch[0,...]
+            elif np.sum(np.isfinite(epoch)):
                 epoch = np.nanmean(epoch, axis=0)
             else:
                 epoch = epoch[0,...]
@@ -615,6 +617,10 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
     # add the new signals to the recording
     newrec.add_signal(respavg)
     newrec.add_signal(respavg_with_spont)
+    if 'stim' in newrec.signals.keys():
+        # add as channel to stim signal if it exists
+        newrec = concatenate_state_channel(newrec, respavg, 'stim')
+        newrec['stim'].chans[-1] = 'psth'
 
     if smooth_resp:
         log.info('Replacing resp with smoothed resp')
@@ -622,6 +628,146 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
         newrec.add_signal(resp)
 
     return newrec
+
+
+def smooth_signal_epochs(rec, signal='resp', epoch_regex='^STIM_',
+                         **context):
+    """
+    xforms-compatible wrapper for smooth_epoch_segments
+    """
+
+    newrec = rec.copy()
+
+    smoothed_sig, respavg, respavg_with_spont = smooth_epoch_segments(
+        newrec[signal], epoch_regex=epoch_regex, mask=newrec['mask'])
+
+    newrec.add_signal(smoothed_sig)
+
+    return {'rec': newrec}
+
+
+def smooth_epoch_segments(sig, epoch_regex='^STIM_', mask=None):
+    """
+    wonky function that "smooths" signals by computing the mean of the
+    pre-stim silence, onset, sustained, and post-stim silence
+    Used in PSTH-based models. Duration of onset hard-coded to 2 bins
+    :return: (smoothed_sig, respavg, respavg_with_spont)
+    smoothed_sig - smoothed signal
+    respavg - smoothed signal, averaged across all reps of matching epochs
+    """
+
+    # compute spont rate during valid (non-masked) trials
+    prestimsilence = sig.extract_epoch('PreStimSilence', mask=mask)
+
+    if len(prestimsilence.shape) == 3:
+        spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
+    else:
+        spont_rate = np.nanmean(prestimsilence)
+
+    preidx = sig.get_epoch_indices('PreStimSilence', mask=mask)
+    dpre=preidx[:,1]-preidx[:,0]
+    minpre=np.min(dpre)
+    prebins = preidx[0][1] - preidx[0][0]
+    posidx = sig.get_epoch_indices('PostStimSilence', mask=mask)
+    dpos=posidx[:,1]-posidx[:,0]
+    minpos=np.min(dpre)
+    postbins = posidx[0][1] - posidx[0][0]
+    #refidx = sig.get_epoch_indices('REFERENCE')
+
+    # compute PSTH response during valid trials
+    if type(epoch_regex) == list:
+        epochs_to_extract = []
+        for rx in epoch_regex:
+            eps = ep.epoch_names_matching(resp.epochs, rx)
+            epochs_to_extract += eps
+
+    elif type(epoch_regex) == str:
+        epochs_to_extract = ep.epoch_names_matching(sig.epochs, epoch_regex)
+    else:
+        raise ValueError("invalid epoch_regex")
+
+    #import pdb
+    #pdb.set_trace()
+    for ename in epochs_to_extract:
+        ematch = np.argwhere(sig.epochs['name']==ename)
+        ff = sig.get_epoch_indices(ename, mask=mask)
+        for i,fe in enumerate(ff):
+            re = ((sig.epochs['name'] == 'REFERENCE') &
+                  (sig.epochs['start'] == fe[0]/sig.fs))
+            pe = ep.epoch_contained(preidx, [fe])
+            thispdur = np.diff(preidx[pe])
+
+            if np.sum(pe)==1 and thispdur>minpre:
+                print('adjust {} to {}'.format(thispdur, minpre))
+                print(sig.epochs.loc[ematch[i]])
+                sig.epochs.loc[ematch[i],'start'] += (thispdur[0,0]-minpre)/resp.fs
+                sig.epochs.loc[re,'start'] += (thispdur[0,0]-minpre)/resp.fs
+                print(sig.epochs.loc[ematch[i]])
+
+            pe = ep.epoch_contained(posidx, [fe])
+            thispdur = np.diff(posidx[pe])
+            if thispdur.shape and thispdur>minpos:
+                print('adjust {} to {}'.format(thispdur, minpos))
+                print(sig.epochs.loc[ematch[i]])
+                sig.epochs.loc[ematch[i],'end'] -= (thispdur[0,0]-minpos)/resp.fs
+                sig.epochs.loc[re,'end'] -= (thispdur[0,0]-minpos)/resp.fs
+                print(resp.epochs.loc[ematch[i]])
+
+    smoothed_sig = sig.copy()
+    smoothed_sig.epochs = smoothed_sig.epochs.copy()
+
+    folded_matrices = smoothed_sig.extract_epochs(epochs_to_extract, mask=mask)
+
+    # 2. Average over all reps of each epoch and save into dict called psth.
+    per_stim_psth = dict()
+    per_stim_psth_spont = dict()
+    for k, v in folded_matrices.items():
+        # replace each epoch (pre, during, post) with average
+        v[:, :, :prebins] = np.nanmean(v[:, :, :prebins],
+                                       axis=2, keepdims=True)
+        v[:, :, prebins:(prebins+2)] = np.nanmean(v[:, :, prebins:(prebins+2)],
+                                                  axis=2, keepdims=True)
+        v[:, :, (prebins+2):-postbins] = np.nanmean(v[:, :, (prebins+2):-postbins],
+                                                    axis=2, keepdims=True)
+        v[:, :, -postbins:(-postbins+2)] = np.nanmean(v[:, :, -postbins:(-postbins+2)],
+                                                      axis=2, keepdims=True)
+        v[:, :, (-postbins+2):] = np.nanmean(v[:, :, (-postbins+2):],
+                                             axis=2, keepdims=True)
+
+        per_stim_psth[k] = np.nanmean(v, axis=0) - spont_rate[:, np.newaxis]
+        per_stim_psth_spont[k] = np.nanmean(v, axis=0)
+        folded_matrices[k] = v
+
+    # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
+    #   replacing all epochs in the signal with their average (psth)
+    log.info('Replacing resp with smoothed resp')
+    smoothed_sig = smoothed_sig.replace_epochs(folded_matrices, mask=mask)
+
+    respavg = smoothed_sig.replace_epochs(per_stim_psth)
+    respavg.name = 'psth'
+    respavg_with_spont = smoothed_sig.replace_epochs(per_stim_psth_spont)
+    respavg_with_spont.name = 'psth_sp'
+
+    # Fill in a all non-masked periods with 0 (presumably, these are spont
+    # periods not contained within stimulus epochs), or spont rate (for the signal
+    # containing spont rate)
+    respavg_data = respavg.as_continuous().copy()
+    respavg_spont_data = respavg_with_spont.as_continuous().copy()
+
+    if mask is not None:
+        mask_data = mask._data
+    else:
+        mask_data = np.ones(respavg_data.shape).astype(np.bool)
+
+    spont_periods = ((np.isnan(respavg_data)) & (mask_data==True))
+
+    respavg_data[:, spont_periods[0,:]] = 0
+    # respavg_spont_data[:, spont_periods[0,:]] = spont_rate[:, np.newaxis]
+
+    respavg = respavg._modified_copy(respavg_data)
+    respavg_with_spont = respavg_with_spont._modified_copy(respavg_spont_data)
+
+    return smoothed_sig, respavg, respavg_with_spont
 
 
 def generate_psth_from_est_for_both_est_and_val(est, val,
@@ -795,7 +941,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     # normalize mean/std of pupil trace if being used
     if ('pupil' in state_signals) or ('pupil2' in state_signals) or \
         ('pupil_ev' in state_signals) or ('pupil_bs' in state_signals) or \
-        ('pupil_stim' in state_signals):
+        ('pupil_stim' in state_signals) or ('pupil_x_population' in state_signals):
         # save raw pupil trace
         newrec["pupil_raw"] = newrec["pupil"].copy()
         # normalize min-max
@@ -855,7 +1001,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         newrec['pupil_ev'].chans=['pupil_ev']
         newrec['pupil_bs'] = newrec["pupil"].replace_epoch('TRIAL', pupil_bs)
         newrec['pupil_bs'].chans=['pupil_bs']
-        
+
     if ('each_passive' in state_signals):
         file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
         pset = []
@@ -1057,6 +1203,24 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         newrec["p_x_a"] = newrec["pupil"]._modified_copy(p * a)
         newrec["p_x_a"].chans = ["p_x_a"]
 
+    if ('pupil_x_population' in state_signals):
+        # normalize min-max
+        p = newrec["pupil"].as_continuous().copy()
+        p -= np.mean(p, axis=1, keepdims=True)
+        a = newrec["population"].as_continuous().copy()
+        a -= np.mean(a, axis=1, keepdims=True)
+        newrec["pupil_x_population"] = newrec["population"]._modified_copy(p * a)
+        newrec["pupil_x_population"].chans = ["px"+c for c in newrec["pupil_x_population"].chans]
+
+    if ('active_x_population' in state_signals):
+        # normalize min-max
+        a = newrec["active"].as_continuous().astype(float)
+        a -= np.mean(a, axis=1, keepdims=True)
+        p = newrec["population"].as_continuous().copy()
+        p -= np.mean(p, axis=1, keepdims=True)
+        newrec["active_x_population"] = newrec["population"]._modified_copy(p * a)
+        newrec["active_x_population"].chans = ["ax"+c for c in newrec["active_x_population"].chans]
+
     if ('prw' in state_signals):
         # add channel two of the resp to state and delete it from resp
         if len(rec['resp'].chans) != 2:
@@ -1126,6 +1290,19 @@ def concatenate_state_channel(rec, sig, state_signal_name='state'):
     return newrec
 
 
+def concatenate_input_channels(rec, input_signals=[], input_name=None):
+    newrec = rec.copy()
+    input_sig_list = []
+    for s in input_signals:
+        input_sig_list.append(newrec[s])
+    input_sig_list.append(newrec[input_name].rasterize())
+    input = nems.signal.RasterizedSignal.concatenate_channels(input_sig_list)
+    input.name = input_name
+
+    newrec.add_signal(input)
+
+    return newrec
+
 def signal_select_channels(rec, sig_name="resp", chans=None):
 
     newrec = rec.copy()
@@ -1179,8 +1356,7 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
     jackknife logic. returns lists est_out and val_out of corresponding
     jackknife subsamples. removed timepoints are replaced with nan
     """
-    #est = []
-    #val = []
+
     # logging.info("Generating {} jackknifes".format(njacks))
     if rec.get_epoch_indices(epoch_name).shape[0]:
         pass
@@ -1196,26 +1372,21 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
     else:
         raise ValueError('No epochs matching '+epoch_name)
 
-    #for i in range(njacks):
-        # est_out += [est.jackknife_by_time(njacks, i)]
-        # val_out += [est.jackknife_by_time(njacks, i, invert=True)]
-        #est += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
-        #                                    tiled=True)]
-        #val += [rec.jackknife_mask_by_epoch(njacks, i, epoch_name,
-        #                                    tiled=True, invert=True)]
     est = rec.jackknife_masks_by_epoch(njacks, epoch_name, tiled=True)
     val = rec.jackknife_masks_by_epoch(njacks, epoch_name,
                                        tiled=True, invert=True)
 
     modelspec_out = []
     if (not IsReload) and (modelspec is not None):
-        if modelspec.fit_count == 1:
-            modelspec_out = modelspec.tile_fits(njacks)
-        elif modelspec.fit_count == njacks:
+        if modelspec.jack_count == 1:
+            modelspec_out = modelspec.tile_jacks(njacks)
+        elif modelspec.jack_count == njacks:
             # assume modelspec already generated for njacks
             modelspec_out = modelspec
         else:
-            raise ValueError('modelspec must be len 1 or njacks')
+            raise ValueError('modelspec.jack_count must be 1 or njacks')
+    else:
+        modelspec_out = modelspec
 
     return est, val, modelspec_out
 
@@ -1238,12 +1409,12 @@ def mask_est_val_for_jackknife_by_time(rec, modelspecs=None,
 
     modelspec_out = []
     if (not IsReload) and (modelspec is not None):
-        if modelspec.fit_count == 1:
-            modelspec_out = modelspec.tile_fits(njacks)
-        elif modelspec.fit_count == njacks:
+        if modelspec.jack_count == 1:
+            modelspec_out = modelspec.tile_jacks(njacks)
+        elif modelspec.jack_count == njacks:
             # assume modelspec already generated for njacks
             modelspec_out = modelspec
         else:
-            raise ValueError('modelspec must be len 1 or njacks')
+            raise ValueError('modelspec.jack_count must be 1 or njacks')
 
     return est, val, modelspec_out

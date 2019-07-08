@@ -29,10 +29,13 @@ import nems_lbhb.plots as lplt
 import nems.gui.recording_browser as browser
 import nems.gui.editors as editor
 import nems.gui.model_comparison as comparison
+from nems.gui.canvas import NemsCanvas, EpochCanvas, PrettyWidget
+
 from configparser import ConfigParser
 import nems
 
 configfile = os.path.join(nems.get_setting('SAVED_SETTINGS_PATH') + '/gui.ini')
+nems_root = os.path.abspath(nems.get_setting('SAVED_SETTINGS_PATH') + '/../../')
 
 def load_settings(m):
 
@@ -163,6 +166,7 @@ class model_browser(qw.QWidget):
 
         # selection parameters
         self.batch = batch
+        self.autoPlot = True
 
         # main layout
         vLayout2 = qw.QVBoxLayout(self)
@@ -171,8 +175,10 @@ class model_browser(qw.QWidget):
         self.cells = qw.QListWidget(self)
         self.cells.setMaximumSize(qc.QSize(130, 1000))
         self.cells.setSelectionMode(qw.QAbstractItemView.ExtendedSelection)
+        self.cells.itemSelectionChanged.connect(self.on_selection_changed)
         self.models = qw.QListWidget(self)
         self.models.setSelectionMode(qw.QAbstractItemView.ExtendedSelection)
+        self.models.itemSelectionChanged.connect(self.on_selection_changed)
         self.data_model = PandasModel(parent=self)
         """
         self.data_table = qw.QTableView(self)
@@ -248,6 +254,8 @@ class model_browser(qw.QWidget):
 
         self.update_widgets()
 
+        self.im_window = PrettyWidget(imagepath=os.path.join(nems_root, 'nems_logo.jpg'))
+
         self.show()
         self.raise_()
 
@@ -261,6 +269,23 @@ class model_browser(qw.QWidget):
 
     def moveEvent(self, event):
         save_settings(self)
+
+    def on_selection_changed(self, event=None):
+        print('on_selection_changed')
+        try:
+            cellid = self.cells.currentItem().text()
+            modelname = self.models.currentItem().text()
+            batch = self.batch
+            print('Selected cell(s): ' + cellid)
+            print('Selected model(s): ' + modelname)
+            print('Selected batch: ' + str(batch))
+            xf, ctx = xhelp.load_model_xform(cellid, batch, modelname, eval_model=False)
+            figurefile = ctx['modelspec'].meta['figurefile']
+            print('Figure file: ' + figurefile)
+            self.im_window.update_imagepath(imagepath=figurefile)
+        except:
+            print('error?')
+
 
     def update_widgets(self):
 
@@ -449,7 +474,7 @@ def view_model_recording(cellid="TAR010c-18-2", batch=289,
                                   cellid=cellid, modelname=modelname)
     return aw
 
-
+""" """
 if __name__ == '__main__':
     print(sys.argv[0])
     if sys.argv[0] != '':

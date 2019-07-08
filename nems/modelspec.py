@@ -3,12 +3,15 @@ import os
 import copy
 import json
 import importlib
+import logging
 import numpy as np
 import scipy.stats as st
 import nems.utils
 import nems.uri
 from nems.fitters.mappers import simple_vector
 import matplotlib.pyplot as plt
+
+log = logging.getLogger(__name__)
 
 # Functions for saving, loading, and evaluating modelspecs
 
@@ -24,10 +27,14 @@ class ModelSpec:
     Attributes
     ----------
     raw : nested list of dictionaries
-        Equialent of old NEMS modelspec.
+        Equivalent of old NEMS modelspec.
+        TODO check if/how multiple cells supported
+        TODO convert raw to numpy array of dicts
         The first level is a list of cells, each of which is a list of
-        lists.
+        lists. (IS THIS SUPPORTED?)
         The second level is a list of fits, each of which is a list of
+        dictionaries.
+        The third level is a list of jackknifes, each of which is a list of
         dictionaries.
         Each dictionary specifies a module, or one step in the model.
         For example,
@@ -37,34 +44,56 @@ class ModelSpec:
     cell_index : int
         Integer index of which "cell" to reference when multiple are present,
         default 0.
+    fast_eval : testing (default false)
 
     """
 
     def __init__(self, raw=None, phis=None, fit_index=0, cell_index=0,
-                 recording=None):
+                 jack_index=0, recording=None):
 
-        self.raw = [[]] if raw is None else raw
-        if nems.utils.depth(self.raw) != 2:
-            raise ValueError('ModelSpec.raw should be a list of lists of dicts')
+        if raw is None:
+            # one model, no modules
+            raw = np.full((1, 1, 1), None)
+            raw[0, 0, 0] = []
+        elif type(raw) is list:
+            if type(raw[0]) is not list:
+                raw=[raw]
+            # compatible with load_modelspec -- read in list of lists
+            # make raw (1, fit_count, 1) array of lists
+            # TODO default is to make single list into jack_counts!
+            r = np.full((1,1,len(raw)), None)
+            for i, _r in enumerate(raw):
+                r[0,0,i]=_r
+            raw = r
+
+        # otherwise, assume raw is a properly formatted 3D array (cell X fit X jack)
+        self.raw = raw
         self.phis = [] if phis is None else phis
 
         # a Model can have multiple fits, each of which contains a different
         # set of phi values. fit_index re
-        # rerences the default phi
+        # references the default phi
         self.fit_index = fit_index
+        self.jack_index = jack_index
         self.cell_index = cell_index
         self.mod_index = 0
         self.plot_epoch = 'REFERENCE'
         self.plot_occurrence = 0
         self.plot_channel = 0   # channel of pred/resp to plot in timeseries (for population models)
         self.recording = recording  # default recording for evaluation & plotting
+        self.fast_eval = False
+        self.fast_eval_start = 0
+        self.freeze_rec = None
 
+    #
+    # overloaded methods
+    #
     def __getitem__(self, key):
         try:
             return self.get_module(key)
         except:
             if type(key) is slice:
-                return [self.raw[self.fit_index][ii]
+                return [self.raw[self.cell_index, self.fit_index, self.jack_index][ii]
                         for ii in range(*key.indices(len(self)))]
             elif key == 'meta':
                 return self.meta
@@ -77,7 +106,7 @@ class ModelSpec:
         try:
             # Try converting types like np.int64 instead of just
             # throwing an error.
-            self.raw[self.fit_index][int(key)] = val
+            self.raw[self.cell_index, self.fit_index, self.jack_index][int(key)] = val
         except ValueError:
             raise ValueError('key {} not supported'.format(key))
         return self
@@ -86,12 +115,12 @@ class ModelSpec:
         self.mod_index = -1
         return self
 
-    # TODO: Something funny is going on when iterating oveer modules directly
+    # TODO: Something funny is going on when iterating over modules directly
     #       using these methods. The last couple modules were being excluded.
     #       Temp fix: use .modules instead and then iterate over the list
     #       returned by that.
     def __next__(self):
-        if self.mod_index < len(self.raw[self.fit_index])-1:
+        if self.mod_index < len(self.raw[self.cell_index, self.fit_index, self.jack_index])-1:
             self.mod_index += 1
             return self.get_module(self.mod_index)
         else:
@@ -101,12 +130,42 @@ class ModelSpec:
         return repr(self.raw)
 
     def __str__(self):
-        x = [m['fn'] for m in self.raw[0]]
+        x = [m['fn'] for m in self.raw[self.cell_index, self.fit_index, self.jack_index]]
         return "\n".join(x)
 
     def __len__(self):
-        return len(self.raw[0])
+        return len(self.raw[self.cell_index, self.fit_index, self.jack_index])
 
+    def copy(self, lb=None, ub=None, fit_index=None, jack_index=None):
+        """
+        :param lb: start module (default 0) -- doesn't work
+        :param ub: stop module (default -1) -- doesn't work
+        :return: A deep copy of the modelspec (subset of modules if specified)
+        """
+        raw = copy.deepcopy(self.raw)
+        meta_save = copy.deepcopy(self.meta)
+
+        if fit_index is not None:
+            raw = raw[:, fit_index:(fit_index+1), :]
+            _f = 0
+        else:
+            _f = self.fit_index
+        if jack_index is not None:
+            raw = raw[:, :, jack_index:(jack_index + 1)]
+            _j = 0
+        else:
+            _j = self.jack_index
+
+        for r in self.raw.flatten():
+            r[0]['meta'] = meta_save
+
+        m = ModelSpec(raw, fit_index=_f, cell_index=self.cell_index,
+                      jack_index=_j)
+        return m
+
+    #
+    # module control/listing -- act like a list of dictionaries
+    #
     def get_module(self, mod_index=None):
         """
         :param mod_index: index of module to return
@@ -114,20 +173,20 @@ class ModelSpec:
         """
         if mod_index is None:
             mod_index = self.mod_index
-        return self.raw[self.fit_index][mod_index]
+        return self.raw[self.cell_index, self.fit_index, self.jack_index][mod_index]
 
     def drop_module(self, mod_index=None, in_place=False):
         if mod_index is None:
             mod_index = self.mod_index
 
         if in_place:
-            for fit in self.raw:
+            for fit in np.flatten(self.raw):
                 del fit[mod_index]
             return None
 
         else:
             raw_copy = copy.deepcopy(self.raw)
-            for fit in raw_copy:
+            for fit in np.flatten(raw_copy):
                 del fit[mod_index]
             new_spec = ModelSpec(raw_copy)
             new_spec.recording = self.recording
@@ -135,54 +194,118 @@ class ModelSpec:
 
     @property
     def modules(self):
-        return self.raw[self.fit_index]
+        return self.raw[self.cell_index, self.fit_index, self.jack_index]
+
+    #
+    # fit/jackknife control
+    #
+
+    # TODO support for multiple recording views/modelspec jackknifes (jack_count>0)
+    #  and multiple fits (fit_count>0)
+
+    def tile_fits(self, fit_count=0):
+        """
+        create <fit_count> sets of fit parameters to allow for multiple fits,
+        useful for n-fold cross validation or starting from multiple intial
+        conditions. values of each phi are copied from the existing first
+        value.
+        Applied in-place.
+        """
+        meta_save = self.meta
+
+        fits = [copy.deepcopy(self.raw[:, 0:1, :]) for i in range(fit_count)]
+        self.raw = np.concatenate(fits, axis=1)
+
+        for r in self.raw.flatten():
+            r[0]['meta'] = meta_save
+
+        return self
+
+    def tile_jacks(self, jack_count=0):
+        """
+        create <jack_count> sets of fit parameters to allow for multiple jackknifes,
+        useful for n-fold cross validation or starting from multiple intial
+        conditions. values of each phi are copied from the existing first
+        value.
+        Applied in-place.
+        """
+        meta_save = self.meta
+
+        jacks = [copy.deepcopy(self.raw[:, :, 0:1]) for i in range(jack_count)]
+        self.raw = np.concatenate(jacks, axis=2)
+
+        for r in self.raw.flatten():
+            r[0]['meta'] = meta_save
+
+        return self
 
     @property
-    def modelspecname(self):
-        return '-'.join([m.get('id', 'BLANKID') for m in self.modules])
-
-    def copy(self, lb=None, ub=None, fit_index=None):
-        """
-        :param lb: start module (default 0)
-        :param ub: stop module (default -1)
-        :return: A deep copy of the modelspec (subset of modules if specified)
-        """
-        raw = [copy.deepcopy(m[lb:ub]) for m in self.raw]
-        if fit_index is not None:
-            raw = [raw[fit_index]]
-        m = ModelSpec(raw)
-
-        return m
+    def cell_count(self):
+        """Number of cells (sets of phi values) in this modelspec"""
+        return self.raw.shape[0]
 
     @property
     def fit_count(self):
-        """Number of fits in this modelspec"""
-        return len(self.raw)
+        """Number of fits (sets of phi values) in this modelspec"""
+        return self.raw.shape[1]
 
-    def set_fit(self, fit_index=None):
+    @property
+    def jack_count(self):
+        """Number of jackknifes (sets of phi values) in this modelspec"""
+        return self.raw.shape[2]
+
+    def set_cell(self, cell_index=None):
+        """return self with cell_index set to specified value"""
+        if cell_index is not None:
+            self.cell_index = cell_index
+
+    def set_fit(self, fit_index):
         """return self with fit_index set to specified value"""
-        if fit_index is not None:
+        if fit_index is None:
+            pass
+        elif fit_index > (self.fit_count - 1):
+            raise ValueError('fit_index greater than fit_count-1')
+        elif fit_index < self.fit_count*-1:
+            raise ValueError('negative fit_index smaller than fit_count')
+        else:
             self.fit_index = fit_index
+
+        return self
+
+    def set_jack(self, jack_index=None):
+        """return self with jack_index (current jackknife #) set to specified value"""
+        if jack_index is not None:
+            self.jack_index = jack_index
 
         return self
 
     def fits(self):
         """List of modelspecs, one for each fit, for compatibility with some
            old functions"""
-        return [ModelSpec(self.raw, fit_index=f)
-                for f, _ in enumerate(self.raw)]
+        return [ModelSpec(self.raw, jack_index=f)
+                for f in range(self.jack_count)]
 
+    #
+    # metadata
+    #
     @property
     def meta(self):
-        if self.raw[0][0].get('meta') is None:
-            self.raw[0][0]['meta'] = {}
-        return self.raw[0][0]['meta']
-
-    def fn(self):
-        return [m['fn'] for m in self.raw[0]]
+        if self.raw[0,0,0][0].get('meta') is None:
+            self.raw[0,0,0][0]['meta'] = {}
+        return self.raw[0,0,0][0]['meta']
 
     @property
-    def phi(self, fit_index=None, mod_idx=None):
+    def modelspecname(self):
+        return '-'.join([m.get('id', 'BLANKID') for m in self.modules])
+
+    def fn(self):
+        return [m['fn'] for m in self.raw[self.cell_index, self.fit_index, self.jack_index]]
+
+    #
+    # parameter info
+    #
+    @property
+    def phi(self, cell_index=None, fit_index=None, jack_index=None, mod_idx=None):
         """
         :param fit_index: which model fit to use (default use self.fit_index
         :return: list of phi dictionaries, or None for modules with no phi
@@ -190,9 +313,67 @@ class ModelSpec:
         if fit_index is None:
             fit_index = self.fit_index
         if mod_idx is None:
-            return [m.get('phi') for m in self.raw[fit_index]]
+            return [m.get('phi') for m in self.raw[self.cell_index, fit_index, self.jack_index]]
         else:
-            return self.raw[fit_index][mod_idx].get('phi')
+            return self.raw[self.cell_index, fit_index, self.jack_index][mod_idx].get('phi')
+
+    @property
+    def phi_mean(self, mod_idx=None):
+        """
+        Returns mean of phi across fit_indexes
+        :param mod_idx: which module to use (default all modules)
+        :return: list of phi dictionaries, mean of each value
+        """
+        if len(self.raw) == 1:
+            return self.phi(mod_idx=mod_idx)
+
+        phi = []
+        if type(mod_idx) is list:
+            mod_range = mod_idx
+        elif mod_idx is not None:
+            mod_range = [mod_idx]
+        else:
+            mod_range = range(len(self.raw[0]))
+
+        for mod_idx in mod_range:
+            p = {}
+            for k in self.raw[0][mod_idx]['phi'].keys():
+                maxdim = len(self.raw[0][mod_idx]['phi'][k].shape)
+                p[k] = np.mean(np.concatenate([np.expand_dims(f[mod_idx]['phi'][k], axis=maxdim)
+                                               for f in self.raw], axis=maxdim), axis=maxdim, keepdims=False)
+            phi.append(p)
+
+        return phi
+
+    @property
+    def phi_sem(self, mod_idx=None):
+        """
+        Returns SEM of phi across fit_indexes
+        :param mod_idx: which module to use (default all modules)
+        :return: list of phi dictionaries, jackknife sem of each value
+        """
+        fit_count = len(self.raw)
+        if fit_count == 1:
+            return self.phi(mod_idx=mod_idx)
+
+        phi = []
+        if type(mod_idx) is list:
+            mod_range = mod_idx
+        elif mod_idx is not None:
+            mod_range = [mod_idx]
+        else:
+            mod_range = range(len(self.raw[0]))
+
+        for mod_idx in mod_range:
+            p = {}
+            for k in self.raw[0][mod_idx]['phi'].keys():
+                maxdim = len(self.raw[0][mod_idx]['phi'][k].shape)
+                p[k] = np.std(np.concatenate([np.expand_dims(f[mod_idx]['phi'][k], axis=maxdim)
+                                              for f in self.raw], axis=maxdim), axis=maxdim, keepdims=False) * \
+                    np.sqrt(fit_count-1)
+            phi.append(p)
+
+        return phi
 
     @property
     def phi_vector(self, fit_index=None):
@@ -206,6 +387,9 @@ class ModelSpec:
         packer, unpacker, bounds = simple_vector(m)
         return packer(self)
 
+    #
+    # plotting support
+    #
     def plot_fn(self, mod_index=None, plot_fn_idx=None, fit_index=None):
         """get function for plotting something about a module"""
         if mod_index is None:
@@ -248,14 +432,10 @@ class ModelSpec:
         return fig
 
     def append(self, module):
-        self.raw[0].append(module)
+        self.raw[self.cell_index, self.fit_index, self.jack_index].append(module)
 
     def pop_module(self):
-        del self.raw[self.fit_index][-1]
-
-    def tile_fits(self, fit_count):
-        self.raw = [self.raw[0].copy() for i in range(fit_count)]
-        return self
+        del self.raw[self.cell_index, self.fit_index, self.jack_index][-1]
 
     def get_priors(self, data):
         # Here, we query each module for it's priors. A prior will be a
@@ -282,9 +462,41 @@ class ModelSpec:
         """
         if rec is None:
             rec = self.recording
-        rec = evaluate(rec, self.raw[self.fit_index], start=start, stop=stop)
+
+        rec = evaluate(rec, self.raw[self.cell_index, self.fit_index, self.jack_index], start=start, stop=stop)
 
         return rec
+
+    def fast_eval_on(self, rec=None, subset=None):
+        """
+        enter fast eval mode, where model is evaluated up through the
+        first module that has a fittable phi. evaluate model on rec up through
+        the preceeding module and save in self.freeze_rec
+        """
+        if rec is None:
+            raise ValueError("Must provide valid rec=<recording> object")
+        if subset is not None:
+            start_mod = subset[0]
+        else:
+            start_mod = len(self)-1
+            for i in range(len(self)-1,0,-1):
+                if ('phi' in self[i]) and self[i]['phi']:
+                    start_mod = i
+
+        # eval from 0 to start position and save the result in freeze_rec
+        self.fast_eval_start = 0
+        self.freeze_rec = evaluate(rec, self, start=0, stop=start_mod)
+
+        # then switch to fast_eval mode
+        self.fast_eval = True
+        self.fast_eval_start = start_mod
+        log.info('Freezing fast rec at start=%d', self.fast_eval_start)
+
+    def fast_eval_off(self):
+        """ turn off fast_eval and purge freeze_rec to free up memory """
+        self.fast_eval = False
+        self.freeze_rec = None
+        self.fast_eval_start = 0
 
     def generate_tensor(self, data, phi):
         '''
@@ -412,11 +624,12 @@ def save_modelspecs(directory, modelspecs, basename=None):
         basepath = os.path.join(directory, bname)
         filepath = _modelspec_filename(basepath, idx)
         if type(modelspec) is list:
+            # TODO fix save with array
             save_modelspec(modelspec, filepath)
         else:
             # HACK for backwards compatibility. if saving a modelspecs list
             # then only need a single fit_index from the ModelSpec class
-            save_modelspec(modelspec.raw[0], filepath)
+            save_modelspec(modelspec.raw[0,0,0], filepath)
     return filepath
 
 
@@ -469,7 +682,7 @@ def load_modelspecs(directory, basename, regex=None):
 lookup_table = {}  # TODO: Replace with real memoization/joblib later
 
 
-def _lookup_fn_at(fn_path):
+def _lookup_fn_at(fn_path, ignore_table=False):
     '''
     Private function that returns a function handle found at a
     given module. Basically, a way to import a single function.
@@ -483,32 +696,45 @@ def _lookup_fn_at(fn_path):
     if not '.' in fn_path:
         fn_path = 'nems.xforms.' + fn_path
 
-    if fn_path in lookup_table:
+    if (not ignore_table) and (fn_path in lookup_table):
         fn = lookup_table[fn_path]
     else:
         api, fn_name = nems.utils.split_to_api_and_fn(fn_path)
         api_obj = importlib.import_module(api)
+        if ignore_table:
+            importlib.reload(api_obj)  # force overwrite old imports
         fn = getattr(api_obj, fn_name)
-        lookup_table[fn_path] = fn
+        if not ignore_table:
+            lookup_table[fn_path] = fn
     return fn
 
 
-def fit_mode_on(modelspec):
+def fit_mode_on(modelspec, rec=None, subset=None):
     '''
     turn no norm.recalc for each module when present
     '''
+    """
+    # norm functions deprecated. too messy
     for m in modelspec:
         if 'norm' in m.keys():
             m['norm']['recalc'] = 1
+    """
+    if rec is None:
+        raise ValueError('rec must be specified')
+    modelspec.fast_eval_on(rec, subset)
 
 
 def fit_mode_off(modelspec):
     '''
     turn off norm.recalc for each module when present
     '''
+    """
+    # norm functions deprecated. too messy
     for m in modelspec:
         if 'norm' in m.keys():
             m['norm']['recalc'] = 0
+    """
+    modelspec.fast_eval_off()
 
 
 def evaluate(rec, modelspec, start=None, stop=None):
@@ -520,8 +746,15 @@ def evaluate(rec, modelspec, start=None, stop=None):
     of the list, and a value of None for stop will include the end
     of the list (whereas a value of -1 for stop will not).
     '''
-    # d = copy.deepcopy(rec)  # Paranoid, but 100% safe
-    d = rec.copy()  # About 10x faster & fine if Signals are immutable
+    if modelspec.fast_eval:
+        start = modelspec.fast_eval_start
+        d = modelspec.freeze_rec.copy()
+        #import pdb
+        #pdb.set_trace()
+    else:
+        # d = copy.deepcopy(rec)  # Paranoid, but 100% safe
+        d = rec.copy()  # About 10x faster & fine if Signals are immutable
+
     for m in modelspec[start:stop]:
         fn = _lookup_fn_at(m['fn'])
         fn_kwargs = m.get('fn_kwargs', {})

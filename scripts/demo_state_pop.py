@@ -34,72 +34,41 @@ signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
 
 # ----------------------------------------------------------------------------
 # DATA LOADING & PRE-PROCESSING
-#recording.get_demo_recordings(name="TAR010c_272b438ce3a5643e3e474206861096ce3ffdc000.tgz")
 
-datafile = os.path.join(signals_dir, "TAR010c_272b438ce3a5643e3e474206861096ce3ffdc000.tgz")
-load_command = 'nems.demo.loaders.demo_loader'
+#f=nw.generate_recording_uri(cellid='TAR010c-06-1', batch=307, loadkey='psth.fs20.pup')
+datafile = os.path.join(signals_dir, "TAR010c_caebcef47a71d0e6d6379789f9b4f5a39c9376fb.tgz")
 exptid = "TAR010c"
-batch = 271
-siteid = "TAR010c"
+batch = 307
+cellid = "TAR010c-06-1"
 
 # MODEL SPEC
-#modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
-#modelspecname = 'dlog-wc.55x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
-#modelspecname = 'dlog-wc.18x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
+modelspecname = 'stategain.SxN'
 
-# modelspecname = 'wc.55x3-fir.3x5x18'
-# or 'fir.55x5x18'
-
-#modelspecname = 'wc.55x3-fir.3x5x18-lvl.18'
-modelspecname = 'fir.55x5x18-lvl.18'
-#modelspecname = 'fir.18x20x55-lvl.55'
-#modelspecname = 'fir.18x10x1-lvl.1'
-
-# reverse model...
-meta = {'siteid': siteid, 'batch': batch, 'modelname': modelspecname,
+meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
         'recording': exptid}
-
-xforms_init_context = {'siteid': siteid, 'batch': int(batch)}
-
+state_signals = ["pupil", "active", "population", "pupil_x_population", "active_x_population"]
+jk_kwargs = {'njacks': 5}
+xforms_init_context = {'cellid': cellid, 'batch': int(batch)}
 xforms_init_context['keywordstring'] = modelspecname
 xforms_init_context['meta'] = meta
 xforms_init_context['recording_uri_list'] = [datafile]
-#xforms_init_context['input_name'] = meta['input_name']
-#xforms_init_context['output_name'] = meta['output_name']
 
 # generate modelspec
 xfspec = []
 # load internally:
 xfspec.append(['nems.xforms.init_context', xforms_init_context])
-xfspec.append(['nems.xforms.load_recordings', {'input_name': 'resp', 'output_name': 'stim'}])
-#xfspec.append(['nems.preprocessing.resp_to_pc',
-#              {'pc_source': 'psth', 'overwrite_resp': False,
-#               'pc_count': 2}])
-xfspec.append(['nems.xforms.split_by_occurrence_counts',
-               {'epoch_regex': '^STIM_'}])
-xfspec.append(['nems.xforms.average_away_stim_occurrences', {}])
-
+xfspec.append(['nems.xforms.load_recordings', {"save_other_cells_to_state": "population"}])
+xfspec.append(['nems.xforms.make_state_signal',
+              {'state_signals': state_signals, 'permute_signals': []}])
+xfspec.append(["nems.xforms.mask_all_but_correct_references", {}])
+xfspec.append(["nems.xforms.generate_psth_from_resp", {"smooth_resp": False, "use_as_input": True, "epoch_regex": "^STIM_"}])
 xfspec.append(['nems.xforms.init_from_keywords', {}])
-
-#xfspec.append(['nems.xforms.fit_basic_init', {}])
-xfspec.append(['nems.xforms.reverse_correlation', {}])
+xfspec.append(['nems.xforms.mask_for_jackknife', jk_kwargs])
+#xfspec.append(['nems.xforms.fit_state_init', {}])
 xfspec.append(['nems.xforms.fit_basic', {}])
-#xfspec.append(['nems.xforms.reverse_correlation', {}])
-
-#xfspec.append(['nems.analysis.fit_pop_model.init_pop_pca', {'flip_pcs': True}])
-#xfspec.append(['nems.analysis.fit_pop_model.fit_population_iteratively',
-#               {'fitter': 'scipy_minimize', 'tolerances': [1e-4, 3e-5],
-#                'tol_iter': 50, 'fit_iter': 10}])
-# xfspec.append(['nems.xforms.fit_basic', {}])
-#xfspec.append(['nems.xforms.fit_basic_cd', {}])
-# xfspec.append(['nems.xforms.fit_iteratively', {}])
 
 xfspec.append(['nems.xforms.predict', {}])
-# xfspec.append(['nems.xforms.add_summary_statistics',    {}])
-xfspec.append(['nems.analysis.api.standard_correlation', {},
-               ['est', 'val', 'modelspec', 'rec', 'output_name'],
-               ['modelspec']])
-
+xfspec.append(['nems.xforms.add_summary_statistics', {}])
 # GENERATE PLOTS
 xfspec.append(['nems.xforms.plot_summary', {}])
 
@@ -114,10 +83,8 @@ for xfa in xfspec:
 # SAVE YOUR RESULTS
 
 # save results to file
-cellids=ctx['rec'].meta['cellid']
 modelspec = ctx['modelspec']
-modelspec.meta['cellid'] = siteid
-modelspec.meta['cellids'] = cellids
+modelspec.meta['cellid'] = cellid
 #destination = os.path.join(results_dir, str(batch), modelspec.meta['cellid'],
 #                           modelspec.get_longname())
 #modelspec.meta['modelpath'] = destination

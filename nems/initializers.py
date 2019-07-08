@@ -5,7 +5,7 @@ import numpy as np
 import os
 from nems.registry import KeywordRegistry
 from nems.plugins import default_keywords
-from nems.utils import find_module
+from nems.utils import find_module, get_default_savepath
 from nems.analysis.api import fit_basic
 from nems.fitters.api import scipy_minimize
 import nems.priors as priors
@@ -20,8 +20,7 @@ default_kws.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
 
 def from_keywords(keyword_string, registry=None, rec=None, meta={},
-                  init_phi_to_mean_prior=True, input_name='stim',
-                  output_name='resp'):
+                  init_phi_to_mean_prior=True, input_name='stim', output_name='resp'):
     '''
     Returns a modelspec created by splitting keyword_string on underscores
     and replacing each keyword with what is found in the nems.keywords.defaults
@@ -36,29 +35,47 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
     # Lookup the modelspec fragments in the registry
     modelspec = ms.ModelSpec()
     for kw in keywords:
-        if kw.startswith("fir.Nx") and (rec is not None):
+        if (kw.startswith("fir.Nx") or kw.startswith("wc.Nx")) and \
+                (rec is not None):
             N = rec[input_name].nchans
             kw_old = kw
-            kw = kw.replace("fir.N", "fir.{}".format(N))
+            kw = kw.replace(".N", ".{}".format(N))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
         elif kw.startswith("stategain.N") and (rec is not None):
             N = rec['state'].nchans
             kw_old = kw
             kw = kw.replace("stategain.N", "stategain.{}".format(N))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
-        elif (".S" in kw or ".Sx" in kw) and (rec is not None):
+        elif (kw.endswith(".N")) and (rec is not None):
+            N = rec[input_name].nchans
+            kw_old = kw
+            kw = kw.replace(".N", ".{}".format(N))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+        elif (kw.endswith(".cN")) and (rec is not None):
+            N = rec[input_name].nchans
+            kw_old = kw
+            kw = kw.replace(".cN", ".c{}".format(N))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+
+        elif (kw.endswith("xN")) and (rec is not None):
+            N = rec[input_name].nchans
+            kw_old = kw
+            kw = kw.replace("xN", "x{}".format(N))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+
+        elif ("xN" in kw) and (rec is not None):
+            N = rec[input_name].nchans
+            kw_old = kw
+            kw = kw.replace("xN", "x{}".format(N))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+
+        if (".S" in kw or ".Sx" in kw) and (rec is not None):
             S = rec['state'].nchans
             kw_old = kw
             kw = kw.replace(".S", ".{}".format(S))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        elif kw.endswith(".N") and (rec is not None):
-            N = rec[input_name].nchans
-            kw_old = kw
-            kw = kw.replace(".N", ".{}".format(N))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
-
-        elif kw.endswith(".R") and (rec is not None):
+        if kw.endswith(".R") and (rec is not None):
             R = rec[output_name].nchans
             kw_old = kw
             kw = kw.replace(".R", ".{}".format(R))
@@ -83,43 +100,45 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
 
         modelspec.append(d)
 
-    # first module that takes input='pred' should take 'stim' instead.
-    # can't hard code in keywords, since we don't know which keyword will be
-    # first. and can't assume that it will be module[0] because those might be
-    # state manipulations
-    first_input_to_stim = False
+    # first module that takes input='pred' should take ctx['input_name']
+    # instead. can't hard-code in keywords, since we don't know which
+    # keyword will be first. and can't assume that it will be module[0]
+    # because those might be state manipulations
+    first_input_found = False
     i = 0
-    while not first_input_to_stim and i < len(modelspec):
-        if 'i' in modelspec[i]['fn_kwargs'].keys() and \
-           modelspec[i]['fn_kwargs']['i'] == 'pred':
-            if 'state' in modelspec[i]['fn']:
+    while (not first_input_found) and (i < len(modelspec)):
+        if ('i' in modelspec[i]['fn_kwargs'].keys()) and (modelspec[i]['fn_kwargs']['i'] == 'pred'):
+            log.info("Setting modelspec[%d] input to %s", i, input_name)
+            modelspec[i]['fn_kwargs']['i'] = input_name
+            """ OLD
+            if input_name != 'stim':
+                modelspec[i]['fn_kwargs']['i'] = input_name
+            elif 'state' in modelspec[i]['fn']:
                 modelspec[i]['fn_kwargs']['i'] = 'psth'
             else:
                 modelspec[i]['fn_kwargs']['i'] = input_name
+            """
 
-        # if correction is not in first module, then assume the modelspec can handle things?
-        # fix for BNB's RDT model
-        first_input_to_stim = True
+            # 'i' key found
+            first_input_found = True
         i += 1
 
     # insert metadata, if provided
     if rec is not None:
-        if ((rec['resp'].shape[0] > 1) and ('cellids' not in meta.keys()) and
+        if 'cellid' in meta.keys():
+            meta['cellids'] = [meta['cellid']]
+        elif ((rec['resp'].shape[0] > 1) and ('cellids' not in meta.keys()) and
             (type(rec.meta['cellid']) is list)):
             meta['cellids'] = rec.meta['cellid']
+
+    meta['input_name'] = input_name
+    meta['output_name'] = output_name
 
     # for modelspec object, we know that meta must exist, so just update
     modelspec.meta.update(meta)
 
     if modelspec.meta.get('modelpath') is None:
-        results_dir = get_setting('NEMS_RESULTS_DIR')
-        batch = modelspec.meta.get('batch', 0)
-        exptid = modelspec.meta.get('exptid', 'DATA')
-        siteid = modelspec.meta.get('siteid', exptid)
-        cellid = modelspec.meta.get('cellid', siteid)
-        destination = os.path.join(results_dir, str(batch), cellid, modelspec.get_longname())
-        #destination = '{0}/{1}/{2}/{3}/'.format(
-        #    results_dir, batch, cellid, modelspec.get_longname())
+        destination = get_default_savepath(modelspec)
         modelspec.meta['modelpath'] = destination
         modelspec.meta['figurefile'] = os.path.join(destination,'figure.0000.png')
 
@@ -134,6 +153,36 @@ def from_keywords_as_list(keyword_string, registry=None, meta={}):
     if registry is None:
         registry = default_kws
     return [from_keywords(keyword_string, registry, meta)]
+
+
+def rand_phi(modelspec, rand_count=10, IsReload=False, rand_seed=1234, **context):
+    """ initialize modelspec phi to random values based on priors """
+
+    if IsReload:
+        return {}
+    jack_count = modelspec.jack_count
+    modelspec = modelspec.copy(jack_index=0)
+
+    modelspec.tile_fits(rand_count)
+
+    # set random seed for reproducible results
+    save_state = np.random.get_state()
+    np.random.seed(rand_seed)
+
+    for i in range(rand_count):
+        modelspec.set_fit(i)
+        if i == 0:
+            # make first one mean of priors:
+            modelspec = priors.set_mean_phi(modelspec)
+        else:
+            modelspec = priors.set_random_phi(modelspec)
+
+    # restore random seed
+    np.random.set_state(save_state)
+
+    modelspec.tile_jacks(jack_count)
+
+    return {'modelspec': modelspec}
 
 
 def prefit_LN(est, modelspec, analysis_function=fit_basic,
@@ -191,6 +240,8 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
         elif 'logistic_sigmoid' in m['fn']:
             log.info("initializing priors and bounds for logsig ...\n")
             modelspec = init_logsig(est, modelspec)
+            #import pdb
+            #pdb.set_trace()
             modelspec = prefit_mod_subset(
                     est, modelspec, fit_basic,
                     fit_set=['logistic_sigmoid'],
@@ -232,7 +283,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
 
         if len(tlist):
             target_i = i + 1
-            break
+            # don't break. use last occurrence of target module
 
     if not target_i:
         log.info("target_module: {} not found in modelspec."
@@ -385,12 +436,12 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
                amp = resp[pred>np.percentile(pred,90)].mean()
                kappa = np.log(2 / (np.std(pred)*3))
 
-   override_target_i should be an integer index into the modelspec.
-   This replaces the normal behavior of the function which would look up
-   the index of the 'double_exponential' module. Use this if you want
-   to use dexp's initialization procedure for a similar nonlinearity module.
+    override_target_i should be an integer index into the modelspec.
+    This replaces the normal behavior of the function which would look up
+    the index of the 'double_exponential' module. Use this if you want
+    to use dexp's initialization procedure for a similar nonlinearity module.
 
-   """
+    """
     # preserve input modelspec
     modelspec = copy.deepcopy(modelspec)
 
@@ -417,9 +468,7 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
             fit_portion[i] = m
 
     # generate prediction from module preceeding dexp
-    ms.fit_mode_on(fit_portion)
-    rec = ms.evaluate(rec, fit_portion)
-    ms.fit_mode_off(fit_portion)
+    rec = ms.evaluate(rec, ms.ModelSpec(fit_portion))
 
     in_signal = modelspec[target_i]['fn_kwargs']['i']
     pchans = rec[in_signal].shape[0]
@@ -427,9 +476,9 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
     base = np.zeros([pchans, 1])
     kappa = np.zeros([pchans, 1])
     shift = np.zeros([pchans, 1])
-
+    out_signal = modelspec.meta.get('output_name','resp')
     for i in range(pchans):
-        resp = rec['resp'].as_continuous()
+        resp = rec[out_signal].as_continuous()
         pred = rec[in_signal].as_continuous()[i:(i+1), :]
         if resp.shape[0] == pchans:
             resp = resp[i:(i+1), :]
@@ -454,11 +503,14 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
             shift[i, 0] = np.mean(pred)
             kappa[i, 0] = np.log(predrange)
         elif nl_mode == 2:
-            mask=np.zeros_like(pred,dtype=bool)
-            pct=91
-            while sum(mask)<.01*pred.shape[0]:
-                pct-=1
-                mask=pred>np.percentile(pred,pct)
+            mask = np.zeros_like(pred, dtype=bool)
+            pct = 91
+            while (sum(mask) < .01*pred.shape[0]) and (pct > 1):
+                pct -= 1
+                mask = pred > np.percentile(pred, pct)
+            if np.sum(mask) == 0:
+                mask = np.ones_like(pred, dtype=bool)
+
             if pct !=90:
                 log.warning('Init dexp: Default for init mode 2 is to find mean '
                          'of responses for times where pred>pctile(pred,90). '
@@ -466,6 +518,8 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
                          'pred>pctile(pred,%d).', pct)
             amp[i, 0] = resp[mask].mean()
             predrange = 2 / (np.std(pred)*3)
+            if not np.isfinite(predrange):
+                predrange = 1
             shift[i, 0] = np.mean(pred)
             kappa[i, 0] = np.log(predrange)
         elif nl_mode == 3:
@@ -504,9 +558,7 @@ def init_logsig(rec, modelspec):
         fit_portion = modelspec.modules[:target_i]
 
     # generate prediction from module preceeding dexp
-    ms.fit_mode_on(fit_portion)
-    rec = ms.evaluate(rec, fit_portion)
-    ms.fit_mode_off(fit_portion)
+    rec = ms.evaluate(rec, ms.ModelSpec(fit_portion))
 
     pred = rec['pred'].as_continuous()
     resp = rec['resp'].as_continuous()
@@ -537,6 +589,11 @@ def init_logsig(rec, modelspec):
     amplitude = ('Exponential', {'beta': amplitude0})
     shift = ('Normal', {'mean': shift0, 'sd': pred_range})
     kappa = ('Exponential', {'beta': kappa0})
+
+    if 'phi' in modelspec[target_i]:
+        modelspec[target_i]['phi'].update({
+                'base': base0, 'amplitude': amplitude0, 'shift': shift0,
+                'kappa': kappa0})
 
     modelspec[target_i]['prior'].update({
             'base': base, 'amplitude': amplitude, 'shift': shift,

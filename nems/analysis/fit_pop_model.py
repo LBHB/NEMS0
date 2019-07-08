@@ -895,7 +895,7 @@ def fit_population_iteratively(
         del data.signals['mask']
 
     start_time = time.time()
-    ms.fit_mode_on(modelspec)
+    ms.fit_mode_on(modelspec, data)
 
     #modelspec = init_pop_pca(data, modelspec)
     #print(modelspec)

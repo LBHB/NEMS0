@@ -1,6 +1,9 @@
 import matplotlib.ticker as tkr
 import numpy as np
 import PyQt5.QtWidgets as qw
+import PyQt5.QtGui as qg
+import PyQt5.QtCore as qc
+
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
@@ -127,10 +130,51 @@ class EpochCanvas(NemsCanvas):
                 y = np.array([i, i])
 
                 self.axes.plot(x, y, '-', color=colors[i % len(colors)])
-                self.axes.text(s, i, n, va='bottom', fontsize='small',
-                               color=colors[i % len(colors)])
+                if len(self.epoch_groups[g]) < 5:
+                    self.axes.text(s, i, n, va='bottom', fontsize='small',
+                                   color=colors[i % len(colors)])
 
         self.axes.set_xlim([p.start_time, p.stop_time])
         self.axes.set_ylim([-0.5, i+0.5])
         ax_remove_box(self.axes)
         self.draw()
+
+
+class PrettyWidget(qw.QWidget):
+
+    def __init__(self, parent=None, imagepath=None):
+        qw.QWidget.__init__(self, parent=parent)
+        self.imagepath = imagepath
+        self.resize(1000, 600)
+
+        self.center()
+        self.setWindowTitle('Browser')
+
+        self.lb = qw.QLabel(self)
+        self.lb.resize(self.width(), self.height())
+        self.pixmap = None
+
+        self.update_imagepath(imagepath)
+        self.show()
+
+    def resizeEvent(self, event):
+        self.lb.resize(self.width(), self.height())
+        self.lb.setPixmap(self.pixmap.scaled(self.size(), qc.Qt.KeepAspectRatio, qc.Qt.SmoothTransformation))
+        qw.QWidget.resizeEvent(self, event)
+
+    def update_imagepath(self, imagepath):
+        self.imagepath=imagepath
+        self.pixmap = qg.QPixmap(self.imagepath)
+        self.resize(self.pixmap.width(), self.pixmap.height())
+        self.lb.resize(self.width(), self.height())
+        self.lb.setPixmap(self.pixmap.scaled(self.size(), qc.Qt.KeepAspectRatio, qc.Qt.SmoothTransformation))
+
+        #self.lb.setPixmap(self.pixmap.scaled(self.size(), qc.Qt.KeepAspectRatio, qc.Qt.SmoothTransformation))
+        #self.pixmap.repaint()
+
+    def center(self):
+        qr = self.frameGeometry()
+        cp = qw.QDesktopWidget().availableGeometry().center()
+        qr.moveCenter(cp)
+        self.move(qr.topLeft())
+

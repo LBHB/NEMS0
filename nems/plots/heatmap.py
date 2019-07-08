@@ -85,16 +85,21 @@ def _get_fir_coefficients(modelspec, idx=0):
     i = 0
     for m in modelspec:
         if 'fir' in m['fn']:
-            if 'pole_zero' in m['fn']:
-                c = pz_coefficients(poles=m['phi']['poles'],
-                                    zeros=m['phi']['zeros'],
-                                    delays=m['phi']['delays'],
-                    gains=m['phi']['gains'],
-                    n_coefs=m['fn_kwargs']['n_coefs'], fs=100)
-                return c
+            if 'fn_coefficients' in m.keys():
+                fn = ms._lookup_fn_at(m['fn_coefficients'])
+                kwargs = {**m['fn_kwargs'], **m['phi']}  # Merges dicts
+                return fn(**kwargs)
+
+            #elif 'pole_zero' in m['fn']:
+            #    c = pz_coefficients(poles=m['phi']['poles'],
+            #                        zeros=m['phi']['zeros'],
+            #                        delays=m['phi']['delays'],
+            #                        gains=m['phi']['gains'],
+            #                        n_coefs=m['fn_kwargs']['n_coefs'], fs=100)
+            #    return c
             elif 'dexp' in m['fn']:
                 c = fir_dexp_coefficients(phi=m['phi']['phi'],
-                                    n_coefs=m['fn_kwargs']['n_coefs'])
+                                          n_coefs=m['fn_kwargs']['n_coefs'])
                 return c
             elif 'exp' in m['fn']:
                 tau = m['phi']['tau']
@@ -163,6 +168,12 @@ def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None,
     if chans is not None:
         for i, c in enumerate(chans):
             plt.text(-0.4, i, c, verticalalignment='center')
+
+
+def nonparametric_strf(modelspec, idx, ax=None, clim=None, title=None, **kwargs):
+    coefficients = modelspec[idx]['phi']['coefficients']
+    plot_heatmap(coefficients, xlabel='Time Bin', ylabel='Channel In',
+                 ax=ax, clim=clim, title=title)
 
 
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
@@ -341,7 +352,15 @@ def strf_timeseries(modelspec, ax=None, show_factorized=True,
                       [217/255, 217/255, 217/255],
                       [129/255, 201/255, 224/255]
                       ]
-
+        elif strf.shape[0] > 3:
+            colors = [[254/255, 15/255, 6/255],
+                      [217/255, 217/255, 217/255],
+                      [129/255, 201/255, 224/255],
+                      [128/255, 128/255, 128/255],
+                      [32/255, 32/255, 32/255]
+                      ]
+    #import pdb
+    #pdb.set_trace()
     _,strf_h=plot_timeseries(times, filters, xlabel='Time lag', ylabel='Gain',
                     legend=chans, linestyle='-', linewidth=1,
                     ax=ax, title=title, colors=colors)

@@ -60,6 +60,10 @@ MYSQL_PASS = None
 MYSQL_DB = None
 MYSQL_PORT ='3306'
 
+NEMS_BAPHY_API_PORT = '3003'
+NEMS_BAPHY_API_HOST = 'neuralprediction.org'
+USE_NEMS_BAPHY_API = False
+
 # Default paths passed to command prompt for model queue
 # TO DO -- FIX PATHS TO SOMETHING GENERIC
 DEFAULT_EXEC_PATH = '/auto/users/nems/anaconda3/bin/python'

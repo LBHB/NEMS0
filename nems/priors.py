@@ -84,6 +84,7 @@ def _to_phi(prior, method='mean', percentile=50):
         else:
             raise ValueError('_to_phi got invalid method name.')
         phi[param_name] = np.array(ary)
+
     return phi
 
 
@@ -100,14 +101,14 @@ def _set_phi_in_module(module, prior_to_phi_fn):
             # Changes this so that empty phi {} won't trigger it
             # for modules that have no parameters, like dlog.f
             m = 'Phi exists w/o prior: ' + str(module)
-            log.warn(m)
+            log.warning(m)
     else:
         new_phi = prior_to_phi_fn(prior)
         if 'phi' in new_module:
             old_phi = new_module['phi']
             if len(new_phi) != len(old_phi):
                 m = 'Not all phi values have priors: ' + str(module)
-                log.warn(m)
+                log.warning(m)
             new_module['phi'] = {**old_phi, **new_phi}
         else:
             new_module['phi'] = new_phi
@@ -120,7 +121,12 @@ def _set_phi_in_modelspec(modelspec, prior_to_phi_fn):
     Initializes phi for each module in the modelspec, if one does not
     already exist for each module.
     '''
-    new_mspec = [_set_phi_in_module(m, prior_to_phi_fn) for m in modelspec]
+    new_mspec = deepcopy(modelspec)
+    for m in new_mspec:
+        d = _set_phi_in_module(deepcopy(m), prior_to_phi_fn)
+        if 'phi' in d.keys():
+            m['phi'] = d['phi'].copy()
+
     return new_mspec
 
 

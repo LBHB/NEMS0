@@ -60,7 +60,7 @@ def fit_module_sets(
     if invert:
         module_sets = _invert_subsets(modelspec, module_sets)
 
-    ms.fit_mode_on(modelspec)
+    ms.fit_mode_on(modelspec, data)
     start_time = time.time()
 
     log.info("Fitting all subsets with tolerance: %.2E", tolerance)
@@ -97,9 +97,9 @@ def _invert_subsets(modelspec, module_sets):
 
 def _module_set_loop(subset, data, modelspec, cost_function, fitter,
                      mapper, segmentor, evaluator, metric, fit_kwargs):
-        log.info("Fitting subset: %s", subset)
         mods = [m['fn'] for i, m in enumerate(modelspec) if i in subset]
-        log.info("%s\n", mods)
+        log.info("Fitting subset(s): %s %s", subset, mods)
+        ms.fit_mode_on(modelspec, data, subset)
 
         packer, unpacker, pack_bounds = mapper(modelspec, subset=subset)
 
@@ -164,10 +164,17 @@ def fit_iteratively(
                 if 'levelshift' in m['fn'] and 'fir' in modelspec[i-1]['fn']:
                     # group levelshift with preceding fir filter by default
                     module_sets[-1].append(i)
-                else:
+                elif m.get('phi', {}):
                     # otherwise just fit each module separately
                     module_sets.append([i])
         log.info('Fit sets: %s', module_sets)
+
+    elif invert:
+        # use module_sets to specify modules NOT to fit. Not sure if anyone uses this
+        exclude_mods = []
+        for i in module_sets:
+            exclude_mods.extend(i)
+        module_sets = [[i] for i in range(len(modelspec)) if i not in exclude_mods]
 
     if tolerances is None:
         tolerances = [1e-6]
@@ -180,7 +187,6 @@ def fit_iteratively(
         log.info("Data len post-mask: %d", data['mask'].shape[1])
 
     start_time = time.time()
-    ms.fit_mode_on(modelspec)
     # Ensure that phi exists for all modules; choose prior mean if not found
     for i, m in enumerate(modelspec):
         if ('phi' not in m.keys()) and ('prior' in m.keys()):
@@ -191,7 +197,7 @@ def fit_iteratively(
 
     error = np.inf
     for tol in tolerances:
-        log.info("Fitting subsets with tol: %.2E fit_iter %d tol_iter %d",
+        log.info("\nFitting subsets with tol: %.2E fit_iter %d tol_iter %d",
                  tol, fit_iter, tol_iter)
         fit_kwargs.update({'tolerance': tol, 'max_iter': fit_iter})
         max_error_reduction = np.inf

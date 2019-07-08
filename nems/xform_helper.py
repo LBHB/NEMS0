@@ -158,6 +158,9 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False):
             'githash': os.environ.get('CODEHASH', ''),
             'recording': loadkey}
 
+    if type(cellid) is list:
+        meta['siteid'] = cellid[0][:7]
+
     # registry_args = {'cellid': cellid, 'batch': int(batch)}
     registry_args = {}
     xforms_init_context = {'cellid': cellid, 'batch': int(batch)}
@@ -165,7 +168,8 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False):
     log.info("TODO: simplify generate_xforms_spec parameters")
     xfspec = generate_xforms_spec(recording_uri=None, modelname=modelname,
                                   meta=meta,  xforms_kwargs=registry_args,
-                                  xforms_init_context=xforms_init_context)
+                                  xforms_init_context=xforms_init_context,
+                                  autoPlot=autoPlot)
     log.info(xfspec)
 
     # actually do the loading, preprocessing, fit
@@ -177,19 +181,29 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False):
     # this code may not be necessary any more.
     #destination = '{0}/{1}/{2}/{3}'.format(
     #    get_setting('NEMS_RESULTS_DIR'), batch, cellid, modelspec.get_longname())
-    destination = os.path.join(
-        get_setting('NEMS_RESULTS_DIR'), str(batch), cellid, modelspec.get_longname())
+    if type(cellid) is list:
+        destination = os.path.join(
+            get_setting('NEMS_RESULTS_DIR'), str(batch),
+            cellid[0][:7], modelspec.get_longname())
+    else:
+        destination = os.path.join(
+            get_setting('NEMS_RESULTS_DIR'), str(batch),
+            cellid, modelspec.get_longname())
     modelspec.meta['modelpath'] = destination
     modelspec.meta['figurefile'] = os.path.join(destination, 'figure.0000.png')
     modelspec.meta.update(meta)
 
     # save results
     log.info('Saving modelspec(s) to {0} ...'.format(destination))
+    if 'figures' in ctx.keys():
+        figs = ctx['figures']
+    else:
+        figs = []
     save_data = xforms.save_analysis(destination,
                                      recording=ctx['rec'],
                                      modelspec=modelspec,
                                      xfspec=xfspec,
-                                     figures=ctx['figures'],
+                                     figures=figs,
                                      log=log_xf)
 
     # save in database as well

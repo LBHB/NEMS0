@@ -12,7 +12,7 @@ def init(kw):
     local minima.
     Written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
     optional modules in (parens)
-    
+
     Parameter
     ---------
     kw : string
@@ -23,8 +23,8 @@ def init(kw):
     tN : Set tolerance to 10**-N, where N is any positive integer.
     st : Remove state replication/merging before initializing.
     psth : Initialize by fitting to 'psth' intead of 'resp' (default)
-    nlN : Initialize nonlinearity with verion N 
-        For dexp, options are {1,2} (default is 2), 
+    nlN : Initialize nonlinearity with verion N
+        For dexp, options are {1,2} (default is 2),
             pre 11/29/18 models were fit with v1
             1: amp = np.nanstd(resp) * 3
                kappa = np.log(2 / (np.max(pred) - np.min(pred) + 1))
@@ -33,18 +33,25 @@ def init(kw):
                kappa = np.log(2 / (np.std(pred)*3))
         For other nonlinearities, mode is not specified yet
     L2f : normalize fir (default false)
+    .rN : initialize with N random phis drawn from priors (via init.rand_phi),
+          default N=10
+    .rbN : initialize with N random phis drawn from priors (via init.rand_phi),
+           and pick best mse_fit, default N=10
 
-    TODO: Optimize more, make testbed to check how well future changes apply 
+    TODO: Optimize more, make testbed to check how well future changes apply
     to disparate datasets.
-    
+
     '''
-    
+
     ops = escaped_split(kw, '.')[1:]
     st = False
     tolerance = 10**-5.5
     norm_fir = False
     fit_sig = 'resp'
     nl_kw = {}
+    rand_count = 0
+    keep_best = False
+    fast_eval = ('f' in ops)
     for op in ops:
         if op == 'st':
             st = True
@@ -60,16 +67,36 @@ def init(kw):
             tolerance = 10**tolpower
         elif op == 'L2f':
             norm_fir = True
+        elif op.startswith('rb'):
+            if len(op) == 2:
+                rand_count = 10
+            else:
+                rand_count = int(op[2:])
+            keep_best = True
+        elif op.startswith('r'):
+            if len(op) == 1:
+                rand_count = 10
+            else:
+                rand_count = int(op[1:])
 
+    xfspec = []
+    #if fast_eval:
+    #    xfspec.append(['nems.xforms.fast_eval', {}])
+    if rand_count > 0:
+        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
     if st:
-        return [['nems.xforms.fit_state_init', {'tolerance': tolerance,
+        xfspec.append(['nems.xforms.fit_state_init', {'tolerance': tolerance,
                                                 'norm_fir': norm_fir,
                                                 'nl_kw': nl_kw,
-                                                'fit_sig': fit_sig}]]
+                                                'fit_sig': fit_sig}])
     else:
-        return [['nems.xforms.fit_basic_init', {'tolerance': tolerance,
-                                                'norm_fir': norm_fir,
-                                                'nl_kw': nl_kw}]]
+        xfspec.append(['nems.xforms.fit_basic_init', {'tolerance': tolerance,
+                                                      'norm_fir': norm_fir,
+                                                      'nl_kw': nl_kw}])
+    if keep_best:
+        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
+
+    return xfspec
 
 def initpop(kw):
     options = keyword_extract_options(kw)
@@ -127,6 +154,14 @@ def sev(kw):
                {'epoch_regex': epoch_regex}],
         ['nems.xforms.average_away_stim_occurrences',
          {'epoch_regex': epoch_regex}]]
+    return xfspec
+
+
+def sevst(kw):
+    ops = kw.split('.')[1:]
+    epoch_regex = '^STIM' if not ops else ops[0]
+    xfspec = [['nems.xforms.split_by_occurrence_counts',
+               {'epoch_regex': epoch_regex}]]
     return xfspec
 
 
@@ -215,4 +250,3 @@ def norm(kw):
             norm_method = 'minmax'
 
     return [['nems.xforms.normalize_stim', {'norm_method': norm_method}]]
-
