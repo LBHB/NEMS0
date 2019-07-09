@@ -930,7 +930,30 @@ def get_batch(name=None, batchid=None):
 
     return d
 
-def get_batch_cells(batch=None, cellid=None, rawid=None):
+def get_batch_cells(batch=None, cellid=None, rawid=None, as_list=False):
+    '''
+    Retrieve a dataframe from NarfData containing all cellids in a batch.
+
+    Parameters:
+    ----------
+    batch : int
+        The batch number to retrieve cellids from.
+    cellid : str
+        A full or partial (must include beginning) cellid to match entries to.
+        Ex: cellid='AMT' would return all cellids beginning with AMT.
+    rawid : int
+        A full rawid to match entries to (must be an exact match).
+    as_list : bool
+        If true, return cellids as a list instead of a dataframe.
+        (default False).
+
+    Returns:
+    -------
+    d : Integer-indexed dataframe with one column for matched cellids and
+        one column for batch number.
+        If as_list=True, d will instead be a list of cellids.
+
+    '''
     # eg, sql="SELECT * from NarfBatches WHERE batch=301"
     #engine = Engine()
     SQL_ENGINE = get_setting('SQL_ENGINE')
@@ -958,8 +981,10 @@ def get_batch_cells(batch=None, cellid=None, rawid=None):
     #print(params)
 
     d = pd_query(sql=sql, params=params)
-
-    return d
+    if as_list:
+        return d['cellid'].values.tolist()
+    else:
+        return d
 
 
 def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None):
