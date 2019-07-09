@@ -1841,7 +1841,7 @@ class PointProcess(SignalBase):
                 if b < max_bin:
                     raster[i, b] += 1
 
-        return RasterizedSignal(fs=self.fs, data=raster, name=self.name,
+        return RasterizedSignal(fs=fs, data=raster, name=self.name,
                                 recording=self.recording, chans=cellids,
                                 epochs=self.epochs, meta=self.meta)
 
