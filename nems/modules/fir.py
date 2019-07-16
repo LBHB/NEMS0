@@ -3,6 +3,7 @@ from itertools import chain, repeat
 import numpy as np
 import scipy.signal
 from scipy import interpolate
+from scipy.ndimage.filters import convolve1d
 
 def get_zi(b, x):
     # This is the approach NARF uses. If the initial value of x[0] is 1,
@@ -99,7 +100,8 @@ def per_channel(x, coefficients, bank_count=1, non_causal=False, rate=1):
     return out
 
 
-def basic(rec, i='pred', o='pred', non_causal=False, coefficients=[], rate=1):
+def basic(rec, i='pred', o='pred', non_causal=False, coefficients=[], rate=1,
+          offsets=0):
     """
     apply fir filters of the same size in parallel. convolve in time, then
     sum across channels
@@ -113,10 +115,108 @@ def basic(rec, i='pred', o='pred', non_causal=False, coefficients=[], rate=1):
         of coefficients matrix.
     output :
         nems signal in 'o' will be 1 x time singal (single channel)
+    offset : float
+        Number of milliseconds to offset the coefficients by
     """
 
-    fn = lambda x: per_channel(x, coefficients, non_causal=non_causal, rate=1)
+    if not np.all(offsets == 0):
+        fs = rec[i].fs
+        coefficients = _offset_coefficients(coefficients, offsets, fs)
+    fn = lambda x: per_channel(x, coefficients, non_causal=non_causal,
+                               rate=1)
+
     return [rec[i].transform(fn, o)]
+
+
+def _offset_coefficients(coefficients, offsets, fs):
+    '''
+    Compute new coefficients with the same shape that are offset by some time.
+
+    Parameters:
+    ----------
+    coefficients : 2d ndarray
+        FIR coefficients to use as a starting point.
+    offsets : 2d ndarray
+        Amount of offset (in milliseconds) to apply to each channel.
+    fs : int
+        Sampling rate of the recording that the FIR will be applied to.
+        Used to determine bin size.
+
+    Returns:
+    -------
+    new_coeffs : 2d ndarray
+        Time-shifted FIR coefficients. Some non-zero coefficients near the
+        first and last coefficients may have been clipped. Offsets that are
+        not integer multiples of the bin size will result in wider "peaks,"
+        but an approximately equal area under the curve.
+
+    '''
+
+    new_coeffs = np.empty_like(coefficients, dtype=np.float64)
+    for k, offset in enumerate(offsets):
+        mixed_bin = np.abs(offset)*fs/1000
+        whole_bin = int(np.floor(mixed_bin))
+        frac_bin = np.remainder(mixed_bin, 1)
+        offset_coefficients = []
+
+        kernel = np.zeros((3+(whole_bin)*2))
+        if offset >= 0:
+            kernel[-1] = frac_bin
+            kernel[-2] = 1-frac_bin
+        else:
+            kernel[0] = frac_bin
+            kernel[1] = 1-frac_bin
+
+        offset_coefficients = convolve1d(coefficients[k], kernel,
+                                     mode='constant')
+        new_coeffs[k] = offset_coefficients
+
+    return new_coeffs
+
+
+def offset_area_check(original_coefficients, offsets_range=(-10,30),
+                      n_samples=80, fs=100):
+    '''
+    Use to (roughly) check that offset algorithm isn't changing total gain.
+
+    If the offset range causes non-zero coefficients to be clipped, there will
+    obviously be some noticeable changes to the area under the curve. Otherwise,
+    the AUC difference vs offset amount relationship should be more or less
+    flat and very close to zero.
+
+    Parameters:
+    ----------
+    original_coefficients : 2d ndarray
+        FIR coefficients to test against.
+        Ex: np.array([[0, 1, 0, 0, 0, 0]])
+    offsets_range : 2-tuple
+        Specifies the minimum and maximum offsets to test, in milliseconds.
+    n_samples : int
+        Number of offset values to test, evenly spaced within offsets_range.
+    fs : int
+        Sampling rate to assume for the coefficients.
+
+    Returns:
+    -------
+    offsets, diffs : 1d ndarrays
+        Each pair represents the ms offset used to shift coefficients and
+        the difference in the area under the curve for the original vs the
+        shifted coefficients.
+
+    '''
+    offsets = np.linspace(*offsets_range, n_samples)
+    if original_coefficients.shape[0] > 1:
+        original_coefficients = np.array([original_coefficients[0]])
+    diffs = []
+    for o in offsets:
+        off = np.array([o])
+        c = _offset_coefficients(original_coefficients, off, fs)
+        a1 = np.trapz(original_coefficients)
+        a2 = np.trapz(c)
+        diffs.append(a1 - a2)
+    diffs = np.array(diffs).flatten()
+
+    return offsets, diffs
 
 
 def pz_coefficients(poles=None, zeros=None, delays=None,
@@ -176,8 +276,8 @@ def da_coefficients(f1s=1, taus=0.5, delays=1, gains=1, n_coefs=10, **kwargs):
     :param delays:
     :param gains:
     :param n_coefs:
-    :param kwargs:  padding for extra stuff if implemented in a framework with generic
-                    coef-generating functions
+    :param kwargs:  padding for extra stuff if implemented in a framework with
+                    generic coef-generating functions
     :return:
     """
     t = np.arange(n_coefs) - delays
