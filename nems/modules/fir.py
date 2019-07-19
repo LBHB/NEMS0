@@ -117,6 +117,7 @@ def basic(rec, i='pred', o='pred', non_causal=False, coefficients=[], rate=1,
         nems signal in 'o' will be 1 x time singal (single channel)
     offset : float
         Number of milliseconds to offset the coefficients by
+
     """
 
     if not np.all(offsets == 0):
@@ -128,7 +129,7 @@ def basic(rec, i='pred', o='pred', non_causal=False, coefficients=[], rate=1,
     return [rec[i].transform(fn, o)]
 
 
-def _offset_coefficients(coefficients, offsets, fs):
+def _offset_coefficients(coefficients, offsets, fs, pad_bins=False):
     '''
     Compute new coefficients with the same shape that are offset by some time.
 
@@ -141,6 +142,10 @@ def _offset_coefficients(coefficients, offsets, fs):
     fs : int
         Sampling rate of the recording that the FIR will be applied to.
         Used to determine bin size.
+    pad_bins : Boolean
+        If true, add bins to the end of coefficients (for positive offsets)
+        or the start of coefficients (for negative offsets) instead of
+        clipping bins.
 
     Returns:
     -------
@@ -151,6 +156,16 @@ def _offset_coefficients(coefficients, offsets, fs):
         but an approximately equal area under the curve.
 
     '''
+    if pad_bins:
+        coefficients = coefficients.copy()
+        max_offset = np.max(offsets)
+        bins_to_pad = int(np.ceil(np.abs(max_offset)*fs/1000))
+        d1, d2 = coefficients.shape
+        empty_bins = np.zeros((d1, bins_to_pad))
+        if max_offset >= 0:
+            coefficients = np.concatenate((coefficients, empty_bins), axis=1)
+        else:
+            coefficients = np.concatenate((empty_bins, coefficients), axis=1)
 
     new_coeffs = np.empty_like(coefficients, dtype=np.float64)
     for k, offset in enumerate(offsets):
