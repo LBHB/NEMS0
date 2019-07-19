@@ -98,6 +98,8 @@ def wc(kw):
     normalize = False
     coefs = None
 
+    bounds = None
+
     for op in options[2:]:  # will be empty if only wc and {in}x{out}
         if op == 'z':
             p_coefficients = {'mean': np.zeros((n_outputs, n_inputs)),
@@ -141,6 +143,9 @@ def wc(kw):
             sd_prior_coefficients = {'sd': sd}
             prior = {'mean': ('Normal', mean_prior_coefficients),
                      'sd': ('HalfNormal', sd_prior_coefficients)}
+            bounds = {
+                'mean': (np.full_like(mean, -0.5), np.full_like(mean, 1.5)),
+                'sd': (np.full_like(mean, 0.01), np.full_like(mean, 0.6))}
 
         elif op == 'n':
             normalize = True
@@ -164,7 +169,8 @@ def wc(kw):
         'plot_fn_idx': 1,
         'prior': prior
     }
-
+    if bounds is not None:
+        template['bounds'] = bounds
 #    if normalize:
 #        template['norm'] = {'type': 'minmax', 'recalc': 0,
 #                            'd': np.zeros([n_outputs, 1]),
@@ -469,8 +475,8 @@ def do(kw):
             'delays': ('HalfNormal', p_delays)},
         'bounds': {
             'f1s': (np.full((n_channels, 1), 1e-15), np.full((n_channels, 1), 2*np.pi)),
-            'taus': (np.full((n_channels, 1), 0), np.full((n_channels, 1), None)),
-            'gains': (np.full((n_channels, 1), None), np.full((n_channels, 1), None)),
+            'taus': (np.full((n_channels, 1), 0), np.full((n_channels, 1), np.inf)),
+            'gains': (np.full((n_channels, 1), -np.inf), np.full((n_channels, 1), np.inf)),
             'delays': (np.full((n_channels, 1), -1), np.full((n_channels, 1), n_coefs))}
     }
 
@@ -719,27 +725,30 @@ def stp(kw):
                      'nems.plots.api.before_and_after_stp'],
         'plot_fn_idx': 2,
         'prior': {'u': ('Normal', {'mean': u_mean, 'sd': u_sd}),
-                  'tau': ('Normal', {'mean': tau_mean, 'sd': tau_sd})}
-        }
-
+                  'tau': ('Normal', {'mean': tau_mean, 'sd': tau_sd})},
+        'bounds': {'u': (np.full_like(u_mean, -np.inf), np.full_like(u_mean, np.inf)),
+                   'tau': (np.full_like(tau_mean, 0.01), np.full_like(tau_mean, np.inf))}
+    }
     if normalize:
         d = np.array([0]*n_synapse)
         g = np.array([1]*n_synapse)
         template['norm'] = {'type': 'minmax', 'recalc': 0, 'd': d, 'g': g}
 
-    if bounds:
-        template['bounds'] = {'tau': (0, None)}
-
     if threshold:
         template['prior']['x0'] = ('Normal', {'mean': x0_mean, 'sd': u_sd})
+        template['bounds']['x0'] = (np.full_like(x0_mean, -np.inf), np.full_like(x0_mean, np.inf))
 
     return template
 
 
 def dep(kw):
     """ same as stp(kw) but sets kw_args->dep_only = True """
-    template = stp(kw)
-    template['kw_args']['dep_only'] = True
+    template = stp(kw.replace('dep','stp'))
+    #template['kw_args']['dep_only'] = True
+    u_mean = template['prior']['u'][1]['mean']
+    tau_mean = template['prior']['tau'][1]['mean']
+    template['bounds'] = {'u': (np.full_like(u_mean, 0), np.full_like(u_mean, np.inf)),
+                          'tau': (np.full_like(tau_mean, 0.01), np.full_like(tau_mean, np.inf))}
 
     return template
 
@@ -1112,20 +1121,26 @@ def relu(kw):
     N : Apply threshold for the given number of channels, N.
          E.g. `n18` or `n2`
     f : fixed threshold of zero
+    b : add baseline (spont rate) after threshold
 
     '''
     options = kw.split(".")[1:]
     chans = 1
     offset = False
+    fname = 'nems.modules.nonlinearity.relu'
+    baseline = False
 
     for op in options:
         if op == 'f':
             offset = True
+        elif op == 'b':
+            baseline=True
+            fname = 'nems.modules.nonlinearity.relub'
         else:
             chans = int(op)
 
     template = {
-        'fn': 'nems.modules.nonlinearity.relu',
+        'fn': fname,
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
@@ -1143,8 +1158,10 @@ def relu(kw):
         template['prior'] = {'offset': ('Normal', {
                 'mean': np.zeros((chans, 1)),
                 'sd': np.ones((chans, 1))*2})}
-#                'mean': np.zeros((chans, 1)),
-#                'sd': np.ones((chans, 1))*0.5})}
+    if baseline:
+        template['prior']['baseline'] = ('Normal', {
+                'mean': np.zeros((chans, 1)),
+                'sd': np.ones((chans, 1))*2})
 
     return template
 

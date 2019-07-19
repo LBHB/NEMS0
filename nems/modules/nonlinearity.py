@@ -127,3 +127,32 @@ def relu(rec, i, o, offset):
 
     return [rec[i].transform(fn, o)]
 
+
+def _relub(x, offset, baseline):
+    """
+    Linear rectifier helper function
+    :param x: input
+    :param offset: threshold
+    :param baseline: spont
+    :return:  y= x-offset , if x>offset
+               = 0 otherwise
+    """
+    y = x - offset
+    y[y < 0] = 0
+    y += baseline
+
+    return y
+
+def relub(rec, i, o, offset, baseline):
+    """
+    Simple linear rectifier
+    :param rec: recording object with signals i and o.
+    :param i: input signal name (x)
+    :param o: output signal name (y)
+    :param offset: threshold (d)
+    :return: y = x - d , if x>d
+               = 0 otherwise
+    """
+    fn = lambda x: _relub(x, offset, baseline)
+
+    return [rec[i].transform(fn, o)]

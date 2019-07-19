@@ -394,9 +394,13 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
                   jackknifed_fit=False, IsReload=False, **context):
 
     """
-    for models with multiple fits (eg, based on multiple initial conditions),
-    find the best prediction for the recording provided (presumably est data,
-    though possibly something held out)
+    For models with multiple fits (eg, based on multiple initial conditions),
+     find the best prediction for the recording provided (presumably est data,
+     though possibly something held out)
+
+    For jackknifed fits, pick the best fit for each jackknife set. so a F x J modelspec
+     is reduced in size to 1 x J. Models are tested with est data for that jackknife.
+     This has only been tested with est recording, which is likely should be used.
 
     :param modelspec: should have fit_count>0
     :param est: view_count should match fit_count, ie,
@@ -408,19 +412,27 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
         return {}
 
     new_est, new_val = generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
-    new_modelspec = standard_correlation(est=new_est, val=new_val, modelspec=modelspec)
 
-    #import pdb
-    #pdb.set_trace()
+    jack_count = modelspec.jack_count
+    fit_count = modelspec.fit_count
+    best_idx = np.zeros(jack_count,dtype=int)
+    new_raw = np.zeros((1,1,jack_count), dtype='O')
+    for j in range(jack_count):
+        view_range = [i * jack_count + j for i in range(fit_count)]
+        this_est = new_est.view_subset(view_range)
+        this_modelspec = modelspec.copy(jack_index=j)
+        new_modelspec = standard_correlation(est=this_est, val=new_val, modelspec=this_modelspec)
 
-    # TODO support for multiple recording views/modelspec jackknifes (jack_count>0)
-    x = new_modelspec.meta[criterion]
+        x = new_modelspec.meta[criterion]
 
-    best_idx = np.argmin(x)
+        best_idx[j] = int(np.argmin(x))
+        new_raw[0, 0, j] = modelspec.raw[0, best_idx[j], j]
 
-    log.info('best phi (fit_idx=%d) has %s=%.5f', best_idx, criterion, x[best_idx])
+        log.info('jack %d: best phi (fit_idx=%d) has %s=%.5f',
+                 j, best_idx[j], criterion, x[best_idx[j]])
 
-    new_modelspec = new_modelspec.copy(fit_index=best_idx)
+    new_raw[0,0,0][0]['meta'] = modelspec.meta.copy()
+    new_modelspec = ms.ModelSpec(new_raw)
     new_modelspec.meta['rand_'+criterion] = x
 
     return {'modelspec': new_modelspec}

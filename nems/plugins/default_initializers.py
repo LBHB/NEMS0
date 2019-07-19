@@ -78,6 +78,8 @@ def init(kw):
                 rand_count = 10
             else:
                 rand_count = int(op[1:])
+        elif op.startswith('b'):
+            keep_best = True
 
     xfspec = []
     #if fast_eval:

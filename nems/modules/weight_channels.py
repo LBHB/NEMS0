@@ -9,6 +9,8 @@ def gaussian_coefficients(mean, sd, n_chan_in, **kwargs):
     Generate Gaussian-constrained coefficients vector for channel weighting
 
     Parameters
+        mean - typically 0-1 but can be outside of only edge of Gaussian
+        std - must be >0. Hard bound at 0.00001
     ----------
     TODO
     '''
@@ -18,6 +20,7 @@ def gaussian_coefficients(mean, sd, n_chan_in, **kwargs):
     # mean[mean < 0] = 0
     # mean[mean > 1] = 1
     sd = np.asanyarray(sd)[..., np.newaxis]
+    sd[sd < 0.00001] = 0.00001
     coefficients = 1/(sd*(2*np.pi)**0.5) * np.exp(-0.5*((x-mean)/sd)**2)
     csum = np.sum(coefficients, axis=1, keepdims=True)
     csum[csum == 0] = 1

@@ -378,7 +378,11 @@ def find_common(s_list, pre=True, suf=True):
 
 
 def get_default_savepath(modelspec):
-    results_dir = get_setting('NEMS_RESULTS_DIR')
+    if get_setting('USE_NEMS_BAPHY_API'):
+        results_dir = 'http://'+get_setting('NEMS_BAPHY_API_HOST')+":"+ \
+                      str(get_setting('NEMS_BAPHY_API_PORT')) + '/results'
+    else:
+        results_dir = get_setting('NEMS_RESULTS_DIR')
     batch = modelspec.meta.get('batch', 0)
     exptid = modelspec.meta.get('exptid', 'DATA')
     siteid = modelspec.meta.get('siteid', exptid)
