@@ -167,7 +167,7 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
 
 
 def before_and_after_stp(modelspec=None, mod_index=None, tau=None, u=None, tau2=None, u2=None,
-                         ax=None, title=None,
+                         ax=None, title=None, colors=None,
                          channels=0, xlabel='Time', ylabel='Value', fs=100, **options):
     '''
     Plots a timeseries of specified signal just before and just after
@@ -219,7 +219,9 @@ def before_and_after_stp(modelspec=None, mod_index=None, tau=None, u=None, tau2=
     signals.append(pred)
     channels.append(0)
 
-    if c == 1:
+    if colors is not None:
+        pass
+    elif c == 1:
         colors = [[0, 0, 0],
                   [128/255, 128/255, 128/255]]
     elif c == 2:

@@ -108,6 +108,16 @@ class Recording:
 
         return rec
 
+    def view_subset(self, view_range):
+        """
+        shallow copy recording, preserving a subset of views
+        view_range - list of view ids to keep
+        """
+        rec = self.copy()
+        rec.signal_views = [rec.signal_views[v] for v in view_range]
+
+        return rec.set_view(0)
+
     def views(self, view_range=None):
         rec = self.copy()
 
@@ -115,7 +125,7 @@ class Recording:
             if type(view_range) is int:
                 rec.signal_views = [rec.signal_views[view_range]]
             else:
-                rec.signal_views = rec.signal_views[view_range]
+                rec.signal_views = [rec.signal_views[v] for v in view_range]
 
         """return a list of all views of this recording"""
         return [rec.set_view(i) for i in range(rec.view_count)]
