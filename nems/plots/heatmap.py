@@ -7,7 +7,7 @@ from scipy.ndimage import zoom
 from nems.plots.timeseries import plot_timeseries
 from nems.utils import find_module
 from nems.modules.fir import (pz_coefficients, fir_dexp_coefficients,
-                              fir_exp_coefficients)
+                              fir_exp_coefficients, _offset_coefficients)
 from nems.plots.utils import ax_remove_box
 
 log = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ def _get_wc_coefficients(modelspec, idx=0):
     return None
 
 
-def _get_fir_coefficients(modelspec, idx=0):
+def _get_fir_coefficients(modelspec, idx=0, fs=None):
     i = 0
     for m in modelspec:
         if 'fir' in m['fn']:
@@ -118,7 +118,16 @@ def _get_fir_coefficients(modelspec, idx=0):
                                          n_coefs=m['fn_kwargs']['n_coefs'])
                 return c
             elif i == idx:
-                return m['phi']['coefficients']
+                coefficients = m['phi']['coefficients']
+                if 'offsets' in m['phi']:
+                    if fs is None:
+                        log.warning("couldn't compute offset coefficients for "
+                                    "STRF heatmap, no fs provided.")
+                    else:
+                        coefficients = _offset_coefficients(coefficients,
+                                                            m['phi']['offsets'],
+                                                            fs=fs)
+                return coefficients
             else:
                 i += 1
     return None
@@ -187,8 +196,13 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
        if string, passed on as parameter to imshow
        if tuple, ndimage "zoom" by a factor of (x,y) on each dimension
     """
+    if fs is None:
+        try:
+            fs = modelspec.recording['stim'].fs
+        except:
+            pass
     wcc = _get_wc_coefficients(modelspec, idx=wc_idx)
-    firc = _get_fir_coefficients(modelspec, idx=fir_idx)
+    firc = _get_fir_coefficients(modelspec, idx=fir_idx, fs=fs)
     fir_mod = find_module('fir', modelspec, find_all_matches=True)[fir_idx]
 
     if wcc is None and firc is None:

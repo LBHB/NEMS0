@@ -229,6 +229,7 @@ def fir(kw):
 
     rate = 1
     non_causal = False
+    include_offset = False
     for op in ops:
         if op == 'fl':
             p_coefficients['mean'][:] = 1/(n_outputs*n_coefs)
@@ -239,6 +240,9 @@ def fir(kw):
         elif op == 'nc':
             # noncausal fir implementation (for reverse model)
             non_causal = True
+        elif op == 'off':
+            # add variable offset parameter
+            include_offset = True
 
     if n_banks is None:
         template = {
@@ -271,6 +275,11 @@ def fir(kw):
         }
     if rate > 1:
         template['fn_kwargs']['rate'] = rate
+    if include_offset:
+        mean_off = np.zeros((n_outputs, 1))
+        sd_off = np.full((n_outputs, 1), 1)
+        template['prior']['offsets'] = ('Normal', {'mean': mean_off,
+                                                   'sd': sd_off})
 
     return template
 
