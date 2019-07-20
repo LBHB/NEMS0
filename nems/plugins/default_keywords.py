@@ -564,10 +564,10 @@ def firexp(kw):
                          "firexp.{n_outputs}x{n_coefs}"
                          "\nkeyword given: %s" % kw)
 
-    tau = np.ones(n_chans, 1)
-    a = np.ones(n_chans, 1)
-    b = np.zeros(n_chans, 1)
-    s = np.zeros(n_chans, 1)
+    tau = np.ones((n_chans, 1))
+    a = np.ones((n_chans, 1))
+    b = np.zeros((n_chans, 1))
+    s = np.zeros((n_chans, 1))
     prior = {'tau': ('Normal', {'mean': tau, 'sd': np.ones(n_chans)})}
     fn_kwargs = {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs}
     prior.update({
