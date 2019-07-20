@@ -551,11 +551,6 @@ def firexp(kw):
     kw : str
         A string of the form: firexp.{n_outputs}x{n_coefs}
 
-    Options
-    -------
-    s : Fix a and b as constants (1, and 0, respectively).
-        Reduces firexp to a one-parameter exponential e^(-x/tau)
-
     '''
     options = kw.split('.')
     pattern = re.compile(r'^(\d{1,})x(\d{1,})?$')
@@ -569,18 +564,17 @@ def firexp(kw):
                          "firexp.{n_outputs}x{n_coefs}"
                          "\nkeyword given: %s" % kw)
 
-    tau = np.ones(n_chans)
-    a = np.ones(n_chans)
-    b = np.zeros(n_chans)
+    tau = np.ones(n_chans, 1)
+    a = np.ones(n_chans, 1)
+    b = np.zeros(n_chans, 1)
+    s = np.zeros(n_chans, 1)
     prior = {'tau': ('Normal', {'mean': tau, 'sd': np.ones(n_chans)})}
     fn_kwargs = {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs}
-    if 's' not in options:
-        prior.update({
-                'a': ('Normal', {'mean': a, 'sd': np.ones(n_chans)}),
-                'b': ('Normal', {'mean': b, 'sd': np.ones(n_chans)})
-                })
-    else:
-        fn_kwargs.update({'a': a, 'b': b})
+    prior.update({
+            'a': ('Exponential', {'beta': a}),
+            'b': ('Normal', {'mean': b, 'sd': np.ones(n_chans, 1)}),
+            's': ('Normal', {'mean': s, 'sd': np.ones(n_chans, 1)})
+            })
 
     template = {
         'fn': 'nems.modules.fir.fir_exp',
@@ -590,7 +584,7 @@ def firexp(kw):
                      'nems.plots.api.strf_timeseries'],
         'plot_fn_idx': 1,
         'prior': prior,
-        'bounds': {'tau': (1e-15, None)}
+        'bounds': {'tau': (1e-15, None), 'a': (1e-15, None)}
     }
 
     return template

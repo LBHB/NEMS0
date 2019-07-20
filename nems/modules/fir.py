@@ -396,21 +396,19 @@ def filter_bank(rec, i='pred', o='pred', non_causal=False, coefficients=[],
     return [rec[i].transform(fn, o)]
 
 
-def fir_exp_coefficients(tau, a=1, b=0, n_coefs=15):
+def fir_exp_coefficients(tau=1, a=1, b=0, s=0, n_coefs=15):
     '''
-    Generate coefficient matrix using a three-parameter exponential equation.
-    y = a*e^(-x/tau) + b
+    Generate coefficient matrix using a four-parameter exponential equation.
+    y = a*e^(-(x-s)/tau) + b
     '''
-    n_chans = tau.shape[0]
-    coefs = np.zeros((n_chans, n_coefs))
-    t = np.arange(0, n_coefs)
-    for c in range(n_chans):
-        coefs[c, :] = a[c]*np.exp(-t/tau[c]) + b[c]
+    t = np.arange(n_coefs)
+    coefs = a*np.exp(-(t-s)/tau) + b
+    coefs[t<0] = 0
 
     return coefs
 
 
-def fir_exp(rec, tau, a=1, b=0, i='pred', o='pred', n_coefs=15, rate=1):
+def fir_exp(rec, tau, a=1, b=0, s=0, i='pred', o='pred', n_coefs=15, rate=1):
     '''
     Calculate coefficients based on three-parameter exponential equation
     y = a*e^(-x/tau) + b,
