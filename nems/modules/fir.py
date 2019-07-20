@@ -403,7 +403,6 @@ def fir_exp_coefficients(tau=1, a=1, b=0, s=0, n_coefs=15):
     '''
     t = np.arange(n_coefs)
     coefs = a*np.exp(-(t-s)/tau) + b
-    coefs[t<0] = 0
 
     return coefs
 
