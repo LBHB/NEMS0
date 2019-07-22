@@ -490,7 +490,6 @@ def _get_plot_fns(rec, modelspec, default='val', epoch='TRIAL', occurrence=0, m_
             plot = (fn, 1)
             plot_fns.append(plot)
 
-            extent = False if rec['contrast'].shape[0] == 1 else True
             # TODO: include contrast spectrogram
 
 
