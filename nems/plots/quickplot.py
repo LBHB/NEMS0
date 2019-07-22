@@ -23,7 +23,8 @@ from nems.plots.state import (state_vars_timeseries, state_var_psth_from_epoch,
                     state_var_psth, state_gain_plot, state_vars_psth_all)
 from nems.plots.summary import perf_per_cell
 from nems.utils import find_module
-from nems_lbhb.gcmodel.guiplots import contrast_kernel_heatmap
+from nems_lbhb.gcmodel.guiplots import (contrast_kernel_heatmap,
+                                        contrast_kernel_heatmap2)
 
 
 log = logging.getLogger(__name__)
@@ -482,6 +483,16 @@ def _get_plot_fns(rec, modelspec, default='val', epoch='TRIAL', occurrence=0, m_
                     )
             plot = (fn, 1)
             plot_fns.insert(0, plot)
+
+        elif 'contrast' in fname:
+            fn = partial(contrast_kernel_heatmap2, rec, modelspec,
+                         title='(Pseudo) Contrast Kernel')
+            plot = (fn, 1)
+            plot_fns.append(plot)
+
+            extent = False if rec['contrast'].shape[0] == 1 else True
+            # TODO: include contrast spectrogram
+
 
     return plot_fns
 
