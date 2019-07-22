@@ -8,19 +8,19 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
-import nems.signal
 from nems.plots.utils import ax_remove_box
 
 
 class NemsCanvas(FigureCanvas):
 
-    def __init__(self, parent=None, width=5, height=4, dpi=100):
+    def __init__(self, parent=None, width=5, height=4, dpi=100, hide_axes=True):
         '''QWidget for displaying a matplotlib axes.'''
         plt.ioff()
         fig = plt.figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
-        self.axes.get_yaxis().set_visible(False)
-        self.axes.get_xaxis().set_visible(False)
+        if hide_axes:
+            self.axes.get_yaxis().set_visible(False)
+            self.axes.get_xaxis().set_visible(False)
 
         super(FigureCanvas, self).__init__(fig)
         self._bbox_queue = []
@@ -28,13 +28,15 @@ class NemsCanvas(FigureCanvas):
         FigureCanvas.setSizePolicy(self, qw.QSizePolicy.Expanding,
                                    qw.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
-        self.setContentsMargins(0, 0, 0, 0)
-        self.figure.subplots_adjust(left=0, bottom=0, right=1,
-                                    top=1, wspace=0, hspace=0)
-        self.axes.spines['right'].set_visible(False)
-        self.axes.spines['top'].set_visible(False)
-        self.axes.spines['bottom'].set_visible(False)
-        self.axes.spines['left'].set_visible(False)
+        if hide_axes:
+            self.setContentsMargins(0, 0, 0, 0)
+            self.figure.subplots_adjust(left=0, bottom=0, right=1,
+                                        top=1, wspace=0, hspace=0)
+        if hide_axes:
+            self.axes.spines['right'].set_visible(False)
+            self.axes.spines['top'].set_visible(False)
+            self.axes.spines['bottom'].set_visible(False)
+            self.axes.spines['left'].set_visible(False)
 
 
 class ComparisonCanvas(NemsCanvas):
