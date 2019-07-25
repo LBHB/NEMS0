@@ -435,4 +435,4 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
     new_modelspec = ms.ModelSpec(new_raw)
     new_modelspec.meta['rand_'+criterion] = x
 
-    return {'modelspec': new_modelspec}
+    return {'modelspec': new_modelspec, 'best_random_idx': best_idx}
