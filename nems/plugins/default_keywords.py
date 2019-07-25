@@ -1169,6 +1169,35 @@ def relu(kw):
     return template
 
 
+def relsat(kw):
+    '''
+    Saturated rectifier, similar to relu but uses sigmoidal parameters.
+
+    '''
+
+    # Default mean initialization is just relu with a truncation at y=2
+    base_prior = ('Exponential', {'beta': np.array([0])})
+    amplitude_prior = ('Exponential', {'beta': np.array([2])})
+    shift_prior = ('Normal', {'mean': np.array([0]), 'sd': np.array([0.5])})
+    kappa_prior = ('Exponential', {'beta': np.array([1])})
+
+    template = {
+        'fn': 'nems.modules.nonlinearity.saturated_rectifier',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred'},
+        'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.pred_resp',
+                     'nems.plots.api.before_and_after'],
+        'prior': {'base': base_prior,
+                  'amplitude': amplitude_prior,
+                  'shift': shift_prior,
+                  'kappa': kappa_prior},
+        'plot_fn_idx': 1
+    }
+
+    return template
+
+
 def stategain(kw):
     '''
     Generate and register modulespec for the state_dc_gain module.

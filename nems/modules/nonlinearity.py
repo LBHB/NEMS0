@@ -156,3 +156,39 @@ def relub(rec, i, o, offset, baseline):
     fn = lambda x: _relub(x, offset, baseline)
 
     return [rec[i].transform(fn, o)]
+
+
+def _saturated_rectifier(x, base, amplitude, shift, kappa):
+    if base - amplitude > 0:
+        y = base - kappa*(x-shift)
+        y[y > base] = base
+        y[y < amplitude] = amplitude
+    else:
+        y = kappa*(x-shift) + base
+        y[y < base] = base
+        y[y > amplitude] = amplitude
+
+    return y
+
+
+def saturated_rectifier(rec, i, o, base, amplitude, shift, kappa):
+    '''
+    More complicated linear rectifier that mimics sigmoidal nonlinearities.
+
+    Parameters:
+    -----------
+    base : float
+        Spontaneous firing rate, the value that more negative predictions
+        will be rectified to.
+    amplitude : float
+        Saturated firing rate, the value that more positive predictions
+        will be truncated to.
+    kappa : float
+        Roughly neural gain, slope of the output/input relationship.
+    shift : float
+        Firing threshold.
+
+    '''
+
+    fn = lambda x: _saturated_rectifier(x, base, amplitude, kappa, shift)
+    return [rec[i].transform(fn, o)]

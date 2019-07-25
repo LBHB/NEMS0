@@ -240,23 +240,27 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
         elif 'logistic_sigmoid' in m['fn']:
             log.info("initializing priors and bounds for logsig ...\n")
             modelspec = init_logsig(est, modelspec)
-            #import pdb
-            #pdb.set_trace()
             modelspec = prefit_mod_subset(
                     est, modelspec, fit_basic,
                     fit_set=['logistic_sigmoid'],
                     fitter=scipy_minimize,
                     metric=metric,
                     fit_kwargs=fit_kwargs)
-#            for i, m in enumerate(modelspec):
-#                if ('phi' not in m.keys()) and ('prior' in m.keys()):
-#                    log.debug('Phi not found for module, using mean of prior: %s',
-#                              m)
-#                    old_prior = m['prior'].copy()
-#                    m = priors.set_mean_phi([m])[0]  # Inits phi for 1 module
-#                    modelspec[i] = m
-#                    modelspec[i]['prior'] = old_prior
+
             break
+
+        elif 'saturated_rectifier' in m['fn']:
+            log.info('initializing priors and bounds for relat ...\n')
+            modelspec = init_relsat(est, modelspec)
+            modelspec = prefit_mod_subset(
+                    est, modelspec, fit_basic,
+                    fit_set=['saturated_rectifier'],
+                    fitter=scipy_minimize,
+                    metric=metric,
+                    fit_kwargs=fit_kwargs)
+
+            break
+
 
     return modelspec
 
@@ -605,6 +609,43 @@ def init_logsig(rec, modelspec):
             'shift': (None, None),
             'kappa': (1e-15, None)
             }
+
+    return modelspec
+
+
+def init_relsat(rec, modelspec):
+    modelspec = copy.deepcopy(modelspec)
+
+    target_i = find_module('saturated_rectifier', modelspec)
+    if target_i is None:
+        log.warning("No relsat module was found, can't initialize.")
+        return modelspec
+
+    if target_i == len(modelspec):
+        fit_portion = modelspec.modules
+    else:
+        fit_portion = modelspec.modules[:target_i]
+
+    # generate prediction from module preceeding dexp
+    rec = ms.evaluate(rec, ms.ModelSpec(fit_portion)).apply_mask()
+
+    pred = rec['pred'].as_continuous().flatten()
+    resp = rec['resp'].as_continuous().flatten()
+    stdr = np.nanstd(resp)
+    pred_range = np.max(pred) - np.min(pred)
+
+    base = np.min(resp)
+    amplitude = min(stdr*3, np.max(resp))
+    shift = np.mean(pred)
+    kappa = max(0, np.log(pred_range))
+
+    base_prior = ('Exponential', {'beta': base})
+    amplitude_prior = ('Exponential', {'beta': amplitude})
+    shift_prior = ('Normal', {'mean': shift, 'sd': shift})
+    kappa_prior = ('Exponential', {'beta': kappa})
+
+    modelspec['prior'] = {'base': base_prior, 'amplitude': amplitude_prior,
+                          'shift': shift_prior, 'kappa': kappa_prior}
 
     return modelspec
 
