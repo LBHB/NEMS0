@@ -242,8 +242,6 @@ def load_resource(uri):
                 else:
                     resource = f.read()
         except UnicodeDecodeError:
-            log.warn("Couldn't read file at {}\nTrying in binary mode."
-                     .format(filepath))
             with open(filepath, mode='rb') as f:
                 resource = f.read()
         return resource
