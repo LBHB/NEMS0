@@ -632,12 +632,11 @@ def init_relsat(rec, modelspec):
     pred = rec['pred'].as_continuous().flatten()
     resp = rec['resp'].as_continuous().flatten()
     stdr = np.nanstd(resp)
-    pred_range = np.max(pred) - np.min(pred)
 
     base = np.min(resp)
-    amplitude = min(stdr*3, np.max(resp))
-    shift = np.mean(pred)
-    kappa = max(0, np.log(pred_range))
+    amplitude = min(np.mean(resp)+stdr*3, np.max(resp))
+    shift = np.mean(pred) - 1.5*np.nanstd(pred)
+    kappa = 1
 
     base_prior = ('Exponential', {'beta': base})
     amplitude_prior = ('Exponential', {'beta': amplitude})
