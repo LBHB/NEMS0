@@ -7,8 +7,13 @@ Welcome to NEMS's documentation!
 ================================
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+    :hidden:
+    Quickstart <quickstart>
+    Organizing your data - signals <signals>
+    Organizing your data - recordings <recordings>
+    Organizing your data - epochs <epochs>
+    API reference <api_ref/index>
+
 
 1. :doc:`quickstart`
 --------------------
@@ -46,14 +51,16 @@ Welcome to NEMS's documentation!
 7. Contributing to NEMS
 -----------------------
 
-:doc:`contributing`
-:doc:`discussions`
-:doc:`history`
+- :doc:`contributing`
+- :doc:`discussions`
+- :doc:`history`
 
 8. Other
 --------
 
-:doc:`nginx`
+- :doc:`nginx`
+- :doc:`api_ref/index`
+
 
 Indices and tables
 ==================

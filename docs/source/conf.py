@@ -48,6 +48,7 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
+    'numpydoc',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -193,3 +194,7 @@ intersphinx_mapping = {'https://docs.python.org/': None}
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
+
+# -- Options for numpydoc extension ----------------------------------------------
+
+numpydoc_use_plots : True

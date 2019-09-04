@@ -3,7 +3,9 @@ channels:
 
 dependencies:
     - python=3.6
-    - sphinx
+    - sphinx<2.0
     - sphinx_rtd_theme
     - pip:
         - pygments-enaml
+        - numpydoc
+        - nems
