@@ -1,0 +1,6 @@
+formats:
+    - epub
+    - pdf
+
+conda:
+    docs/environment.yml
