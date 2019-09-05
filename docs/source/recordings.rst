@@ -1,12 +1,10 @@
-`Contents <README.md>`__
-
 Recording Objects
 =================
 
 What is a recording?
 --------------------
 
-A ``Recording`` is collection of `signals <signals.md>`__ sampled
+A ``Recording`` is collection of :doc:`signals <signals>` sampled
 simultaneously over the same time period. The key point is that all the
 signals' time indexes line up, which implies that they were sampled at
 the same rate and have their arrays have the same length in the time
@@ -53,8 +51,8 @@ As you can see,
    ``resp`` signal presumably has information about how the animal
    behaved or responded.
 
-More details on signal file formats may be found on the `Signals
-documentation page <signal.md>`__.
+More details on signal file formats may be found on the :doc:`Signals
+documentation page <signal>`.
 
 What sort of operations can I do on recordings?
 -----------------------------------------------

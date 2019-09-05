@@ -1,5 +1,3 @@
-`Contents <README.md>`__
-
 Modelspecs and Keywords
 =======================
 
@@ -8,10 +6,10 @@ What's a ModelSpec?
 
 A modelspec is a data structure that unambiguously defines a sequence of
 transformations in a NEMS model. It is a simple, minimalist format that
-is easily `saved and loaded to disk <saving.md>`__.
+is easily :doc:`saved and loaded to disk <saving>`.
 
 A modelspec is essentially an ordered list of dicts. Each dict describes
-a single `module <modules.md>`__ that performs an input-output
+a single :doc:`module <modules>` that performs an input-output
 transformation performed by a pure function (``fn``). An example of a
 simple modelspec before fitting is:
 
@@ -64,7 +62,7 @@ After fitting, that same modelspec might look like this:
               "kappa": 1.0},
       "prior": [TODO]}]
 
-More on the `modules <modules.md>`__ that comprise modelspecs here.
+More on the :doc:`modules <modules>` that comprise modelspecs here.
 
 What's an Initializer? What are module keywords?
 ------------------------------------------------

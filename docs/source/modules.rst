@@ -1,10 +1,8 @@
-`Contents <README.md>`__
-
 Modules
 =======
 
 Module perform a single transformation in the
-`modelspec <modelspecs.md>`__ functional cascade. They should contain
+:doc:`modelspec <modelspecs>` functional cascade. They should contain
 only string and numerical values (not functions themselves) so that they
 can be converted to JSON format for saving.
 
@@ -13,10 +11,10 @@ Some are required:
 
 Required \* ``fn`` - pathspec to function that performs the
 transformation (e.g., ``nems.modules.fir.basic``) This function should
-accept a `Recording object <recording.md>`__ and return a dictionary of
+accept a :doc:`Recording object <recording>` and return a dictionary of
 signals, typically only signals that were modified or created by ``fn``.
 These signals will be merged into the recording and passed to the next
-module in the `modelspec <modelspecs.md>`__ cascade \* ``fn_kwargs`` -
+module in the :doc:`modelspec <modelspecs>` cascade \* ``fn_kwargs`` -
 dictionary of fixed args passed to fn. Can be empty, but typically
 contains: \* ``i`` name of input signal \* ``o`` name of output signal
 \* ``s`` name of state signal \* ``phi`` - dictionary of free
@@ -57,10 +55,12 @@ consulting anyone -- "description", "date", "notes", or information on
 fitters and data files are all good types of things to put in the
 ``meta`` dict. However, in the interests of forcing helpful design
 discussions, if you wish to establish a convention for another top-level
-field for modules, please bring it up in the `NEMS Slack
-channel <https://lbhb.slack.com/messages/C5F12803H>`__.
+field for modules, please bring it up in the `NEMS Gitter
+channel`_
+
+.. _NEMS Gitter channel: <https://gitter.im/lbhb/nems-dev>`.
+
 
 Making your own module
 ----------------------
-
 TODO

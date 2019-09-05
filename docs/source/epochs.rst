@@ -1,5 +1,3 @@
-`Contents <README.md>`__
-
 Epochs
 ======
 
@@ -19,12 +17,12 @@ An epoch has three values:
 
 where ``start`` and ``end`` denote the beginning and end of the epoch in
 seconds and ``name`` is a descriptive string (see `how to name
-epochs <##%20epoch-naming>`__. For events (single points in time), the
+epochs <epoch-naming>`__. For events (single points in time), the
 ``start`` will contain the timestamp of the event and ``end`` will be
 NaN. Right now support for events are limited (or nonexistent). As
 use-cases arise, we will implement support for these.
 
-Epochs are stored in `Signal Objects <signals.md>`__ under the
+Epochs are stored in :doc:`Signal Objects <signals>` under the
 ``.epochs`` attribute in a pandas DataFrame containing three columns
 (``start``, ``end`` and ``name``).
 
@@ -32,7 +30,7 @@ For the rest of this document, let's consider some example epoch data in
 which trials are 40-100 msec long, and there are several TORCs of 20
 msec duration played before a tone-in-TORC detection task. In this task,
 the subject is asked to detect when a tone is played in a sequence of
-background tokens (known as `TORCs <http://todo/link-to-paper>`__).
+background tokens (known as TORCs).
 
 ::
 
@@ -82,7 +80,7 @@ time out.
 How signals use epochs
 ----------------------
 
-A `signal object <signal.md>`__ can use epochs to perform two basic
+A :doc:`signal object <signal>` can use epochs to perform two basic
 operations:
 
 -  Mask regions of data. For example, perhaps licking introduces EMG
@@ -176,6 +174,7 @@ Then anytime afterward we can simply do:
 ::
 
     correct_signal = signal.select_epoch('CorrectTrial')
+
 
 Manipulating epoch boundaries
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

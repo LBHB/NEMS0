@@ -82,8 +82,8 @@ documents what kind of data is in the CSV file.
 
 Optionally, you will also often have an "epochs" file, which helps tag
 interesting events or periods of time in the timeseries for later
-analysis, but we will defer `the detailed documentation of
-epochs <epochs.md>`__ until later.
+analysis, but we will defer :doc:`the detailed documentation of
+epochs <epochs>` until later.
 
 Loading a ``Signal`` from a file is trivial:
 
