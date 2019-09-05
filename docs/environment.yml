@@ -1,0 +1,11 @@
+channels:
+    - defaults
+
+dependencies:
+    - python=3.6
+    - sphinx<2.0
+    - sphinx_rtd_theme
+    - pip:
+        - pygments-enaml
+        - numpydoc
+        - nems
