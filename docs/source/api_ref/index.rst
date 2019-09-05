@@ -3,4 +3,8 @@
 API reference
 -------------
 
-.. autofunction:: nems.epoch.epoch_union
+.. autosummary::
+    nems.epoch
+    nems.db
+    nems.signal
+    nems.recording
