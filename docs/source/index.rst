@@ -3,20 +3,22 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to NEMS's documentation!
-================================
+NEMS -- The Neural Encoding Model System
+========================================
 
 .. toctree::
     :hidden:
-    Quickstart <quickstart>
+    Getting started <quickstart>
     Organizing your data - signals <signals>
     Organizing your data - recordings <recordings>
     Organizing your data - epochs <epochs>
     API reference <api_ref/index>
 
 
-1. :doc:`quickstart`
+1. Getting started
 --------------------
+- :doc:`quickstart`
+- :doc:`installation`
 
 2. Organizing your data
 -----------------------
