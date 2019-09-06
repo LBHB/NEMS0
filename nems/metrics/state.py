@@ -85,8 +85,20 @@ def state_mod_index(rec, epoch='REFERENCE', psth_name='pred', divisor=None,
                     for s in state_chan]
         return np.array(mod_list)
 
+    mask = rec.signals.get('mask', None)
+    try:
+        folded_psth = rec[psth_name].extract_epoch(epoch, mask=mask)
+    except IndexError:
+        log.info('no %s epochs found. Trying TARGET instead', epoch)
+        epoch = 'TARGET'
+
     low, high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
                                 state_sig=state_sig, state_chan=state_chan)
+
+    # kludge to deal with variable length REFERENCES.
+    kk = np.isfinite(low) & np.isfinite(high)
+    low = low[kk]
+    high = high[kk]
 
     if divisor is not None:
         low_denom, high_denom = state_mod_split(rec, epoch=epoch,

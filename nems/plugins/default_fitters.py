@@ -1,7 +1,7 @@
 import logging
 import re
 
-from nems.utils import escaped_split
+from nems.utils import escaped_split, keyword_extract_options
 
 log = logging.getLogger(__name__)
 
@@ -113,10 +113,81 @@ def basic(fitkey):
     xfspec = []
 
     options = _extract_options(fitkey)
-    max_iter, tolerance, fitter = _parse_basic(options)
-    xfspec = [['nems.xforms.fit_basic',
+    max_iter, tolerance, fitter, choose_best, fast_eval = _parse_basic(options)
+    xfspec = []
+    #if fast_eval:
+    #    xfspec = [['nems.xforms.fast_eval', {}]]
+    #else:
+    #    xfspec = []
+    xfspec.append(['nems.xforms.fit_basic',
+                  {'max_iter': max_iter,
+                   'fitter': fitter, 'tolerance': tolerance}])
+    if choose_best:
+        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
+
+    return xfspec
+
+
+def nrc(fitkey):
+    '''
+    Use normalized reverse correlation to fit phi. Right now, pretty dumb.
+    Expects two modules (fir and lvl). Will fit both simultaneously. Can stack
+    this with fit basic in order to initialize a full rank model with the reverse
+    correlation solution.
+    '''
+    xfspec = []
+
+    #options = _extract_options(fitkey)
+    #max_iter, tolerance, fitter = _parse_basic(options)
+    xfspec = [['nems.xforms.reverse_correlation', {}]]
+
+    return xfspec
+
+
+def tf(fitkey):
+    '''
+    Perform a Tensorflow fit, using Sam Norman-Haignere's CNN library
+
+    Parameters
+    ----------
+    fitkey : str
+        Expected format: tf.f<fitter>.i<max_iter>.s<start_conditions>
+        Example: tf.fAdam.i1000.s20
+        Example translation:
+            Use Adam fitter, max 1000 iterations, starting from 20 random
+            initial condition
+
+    Options
+    -------
+    f<fitter> : string specifying fitter, passed through to TF
+    i<N> : Set maximum iterations to N, any positive integer.
+    s<S> : Initialize with S random seeds, pick the best performer across
+           the entire fit set.
+
+    '''
+
+    options = _extract_options(fitkey)
+
+    max_iter = 2000
+    fitter = 'Adam'
+    init_count = 1
+    use_modelspec_init = False
+
+    for op in options:
+        if op[:1] == 'i':
+            max_iter = int(op[1:])
+        elif op[:1] == 'f':
+            fitter = op[1:]
+        elif op[:1] == 's':
+            init_count = int(op[1:])
+        elif op[:1] == 'n':
+            use_modelspec_init = True
+
+    xfspec = [['nems.tf.cnnlink.fit_tf',
                {'max_iter': max_iter,
-                'fitter': fitter, 'tolerance': tolerance}]]
+                'use_modelspec_init': use_modelspec_init,
+                'optimizer': fitter,
+                'init_count': init_count}]]
 
     return xfspec
 
@@ -143,32 +214,44 @@ def iter(fitkey):
     -------
     cd : Use coordinate_descent for fitting (default is scipy_minimize)
     TN,N,... : Use tolerance levels 10**-N for each N given, where N is
-               any positive integer.
+               any positive integer. Default=[10**-4]
     SN,N,... : Fit model indices N, N... for each N given,
                where N is any positive integer or zero. May be provided
                multiple times to iterate over several successive subsets.
     tiN : Perform N per-tolerance-level iterations, where N is any
-          positive integer.
+          positive integer. Default=50
     fiN : Perform N per-fit iterations, where N is any positive integer.
-
+          Default=10
+    b : choose best fit_idx based on mse_fit (relevant only when multiple
+        initial conditions)
     '''
 
     # TODO: Support nfold and state fits for fit_iteratively?
     #       And epoch to go with state.
     options = _extract_options(fitkey)
-    tolerances, module_sets, fit_iter, tol_iter, fitter = _parse_iter(options)
+    tolerances, module_sets, fit_iter, tol_iter, fitter, choose_best, fast_eval = \
+        _parse_iter(options)
 
-    xfspec = [['nems.xforms.fit_iteratively',
-               {'module_sets': module_sets, 'fitter': fitter,
-                'tolerances': tolerances, 'tol_iter': tol_iter,
-                'fit_iter': fit_iter}]]
+    if 'pop' in options:
+        xfspec = [['nems.analysis.fit_pop_model.fit_population_iteratively',
+                   {'module_sets': module_sets, 'fitter': fitter,
+                    'tolerances': tolerances, 'tol_iter': tol_iter,
+                    'fit_iter': fit_iter}]]
+
+    else:
+        xfspec = [['nems.xforms.fit_iteratively',
+                   {'module_sets': module_sets, 'fitter': fitter,
+                    'tolerances': tolerances, 'tol_iter': tol_iter,
+                    'fit_iter': fit_iter}]]
+    if choose_best:
+        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
     return xfspec
 
 
 def _extract_options(fitkey):
     if fitkey == 'basic' or fitkey == 'iter':
-        # empty options (i.e. just use defualts)
+        # empty options (i.e. just use defaults)
         options = []
     else:
         chunks = escaped_split(fitkey, '.')
@@ -181,6 +264,8 @@ def _parse_basic(options):
     max_iter = 1000
     tolerance = 1e-7
     fitter = 'scipy_minimize'
+    choose_best = False
+    fast_eval = False
     for op in options:
         if op.startswith('mi'):
             pattern = re.compile(r'^mi(\d{1,})')
@@ -193,8 +278,12 @@ def _parse_basic(options):
             tolerance = 10**tolpower
         elif op == 'cd':
             fitter = 'coordinate_descent'
+        elif op == 'b':
+            choose_best = True
+        elif op == 'f':
+            fast_eval = True
 
-    return max_iter, tolerance, fitter
+    return max_iter, tolerance, fitter, choose_best, fast_eval
 
 
 def _parse_iter(options):
@@ -204,7 +293,8 @@ def _parse_iter(options):
     fit_iter = 10
     tol_iter = 50
     fitter = 'scipy_minimize'
-
+    choose_best = False
+    fast_eval = False
     for op in options:
         if op.startswith('ti'):
             tol_iter = int(op[2:])
@@ -221,10 +311,14 @@ def _parse_iter(options):
             module_sets.append(indices)
         elif op == 'cd':
             fitter = 'coordinate_descent'
+        elif op == 'b':
+            choose_best = True
+        elif op == 'f':
+            fast_eval = True
 
     if not tolerances:
         tolerances = None
     if not module_sets:
         module_sets = None
 
-    return tolerances, module_sets, fit_iter, tol_iter, fitter
+    return tolerances, module_sets, fit_iter, tol_iter, fitter, choose_best, fast_eval

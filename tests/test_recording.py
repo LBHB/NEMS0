@@ -3,11 +3,11 @@ from os.path import dirname, join
 import numpy as np
 import pandas as pd
 import pytest
-from nems.recording import Recording
+from nems.recording import Recording, load_recording, get_demo_recordings
 from nems.signal import RasterizedSignal
+import nems
 
-
-RECORDING_DIR = join(dirname(dirname(__file__)), 'recordings')
+RECORDING_DIR = nems.get_setting("NEMS_RECORDINGS_DIR")
 
 
 @pytest.fixture()
@@ -91,6 +91,15 @@ def recording(signal1, signal2):
     return Recording(signals)
 
 
+def test_load_recording():
+
+    get_demo_recordings(name='TAR010c-18-1.tgz')
+
+    targz = join(RECORDING_DIR, 'TAR010c-18-1.tgz')
+
+    rec = load_recording(targz)
+
+
 def test_select_times(recording):
     '''
     Test that we can pull out select times in a given recording
@@ -130,7 +139,7 @@ def test_recording_loading():
     #rec5 = Recording.load('s3://mybucket/myfile.tar.gz')
 
     # Indirect access via http:
-    rec6 = Recording.load("https://s3-us-west-2.amazonaws.com/nemspublic/"
+    rec6 = load_recording("https://s3-us-west-2.amazonaws.com/nemspublic/"
                           "sample_data/eno052d-a1.tgz")
 
     # Save to a specific tar.gz file

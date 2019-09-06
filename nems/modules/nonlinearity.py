@@ -1,4 +1,5 @@
 import cProfile
+import copy
 import numpy as np
 from numpy import exp
 
@@ -61,50 +62,133 @@ def double_exponential(rec, i, o, base, amplitude, shift, kappa):
 
 
 def _dlog(x, offset):
+    """
+    Log compression helper function
+    :param x: input, needs to be >0, works best if x values range approximately (0, 1)
+    :param offset: threshold (d = 10**offset). offset compressed for |offset|>2
+    :return: y = np.log((x + d) / d)
+    """
 
     # soften effects of more extreme offsets
     inflect = 2
 
-    adjoffset=offset.copy()
+    if isinstance(offset, int):
+        offset = np.array([[offset]])
+
+    adjoffset = offset.copy()
     adjoffset[offset > inflect] = inflect + (offset[offset > inflect]-inflect) / 50
-    adjoffset[offset < -inflect] = inflect + (offset[offset < -inflect]+inflect) / 50
+    adjoffset[offset < -inflect] = -inflect + (offset[offset < -inflect]+inflect) / 50
 
     d = 10.0**adjoffset
-
-    # deprecated:
-    #zeroer = 0
-    #zbt = 0
-    #y = x.copy()
-
-    # avoid nan-related warning
-    #out = ~np.isnan(y)
-    #out[out] = y[out] < zbt
-
-    #y[out] = zbt
-    #y = y - zbt
-    #return np.log((y + d) / d) + zeroer
 
     return np.log((x + d) / d)
 
 
 def dlog(rec, i, o, offset):
+    """
+    Log compression with variable offset
+    :param rec: recording object with signals i and o.
+    :param i: input signal name (x)
+    :param o: output signal name (y)
+    :param offset: threshold (d)
+    :return: y = np.log((x + d) / d)
+    """
 
-    fn = lambda x : _dlog(x, offset)
+    fn = lambda x: _dlog(x, offset)
 
     return [rec[i].transform(fn, o)]
 
 
 def _relu(x, offset):
-
+    """
+    Linear rectifier helper function
+    :param x: input
+    :param offset: threshold
+    :return:  y= x-offset , if x>offset
+               = 0 otherwise
+    """
     y = x - offset
-    y[y<0] = 0
+    y[y < 0] = 0
 
     return y
 
 
 def relu(rec, i, o, offset):
-
-    fn = lambda x : _relu(x, offset)
+    """
+    Simple linear rectifier
+    :param rec: recording object with signals i and o.
+    :param i: input signal name (x)
+    :param o: output signal name (y)
+    :param offset: threshold (d)
+    :return: y = x - d , if x>d
+               = 0 otherwise
+    """
+    fn = lambda x: _relu(x, offset)
 
     return [rec[i].transform(fn, o)]
 
+
+def _relub(x, offset, baseline):
+    """
+    Linear rectifier helper function
+    :param x: input
+    :param offset: threshold
+    :param baseline: spont
+    :return:  y= x-offset , if x>offset
+               = 0 otherwise
+    """
+    y = x - offset
+    y[y < 0] = 0
+    y += baseline
+
+    return y
+
+def relub(rec, i, o, offset, baseline):
+    """
+    Simple linear rectifier
+    :param rec: recording object with signals i and o.
+    :param i: input signal name (x)
+    :param o: output signal name (y)
+    :param offset: threshold (d)
+    :return: y = x - d , if x>d
+               = 0 otherwise
+    """
+    fn = lambda x: _relub(x, offset, baseline)
+
+    return [rec[i].transform(fn, o)]
+
+
+def _saturated_rectifier(x, base, amplitude, shift, kappa):
+    if base - amplitude > 0:
+        y = base - kappa*(x-shift)
+        y[y > base] = base
+        y[y < amplitude] = amplitude
+    else:
+        y = kappa*(x-shift) + base
+        y[y < base] = base
+        y[y > amplitude] = amplitude
+
+    return y
+
+
+def saturated_rectifier(rec, i, o, base, amplitude, shift, kappa):
+    '''
+    More complicated linear rectifier that mimics sigmoidal nonlinearities.
+
+    Parameters:
+    -----------
+    base : float
+        Spontaneous firing rate, the value that more negative predictions
+        will be rectified to.
+    amplitude : float
+        Saturated firing rate, the value that more positive predictions
+        will be truncated to.
+    kappa : float
+        Roughly neural gain, slope of the output/input relationship.
+    shift : float
+        Firing threshold.
+
+    '''
+
+    fn = lambda x: _saturated_rectifier(x, base, amplitude, kappa, shift)
+    return [rec[i].transform(fn, o)]

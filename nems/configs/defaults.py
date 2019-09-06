@@ -45,6 +45,34 @@ NEMS_LOG_CONSOLE_LEVEL = 'DEBUG'
 
 
 ################################################################################
+# Data & database
+################################################################################
+
+NEMS_RESULTS_DIR = os.path.abspath(os.path.dirname(__file__) + '/../../results')
+NEMS_RECORDINGS_DIR = os.path.abspath(os.path.dirname(__file__) + '/../../recordings')
+SAVED_SETTINGS_PATH = os.path.abspath(os.path.dirname(__file__))
+
+SQL_ENGINE = 'sqlite'
+
+MYSQL_HOST = None
+MYSQL_USER = None
+MYSQL_PASS = None
+MYSQL_DB = None
+MYSQL_PORT ='3306'
+
+NEMS_BAPHY_API_PORT = '3003'
+NEMS_BAPHY_API_HOST = 'neuralprediction.org'
+USE_NEMS_BAPHY_API = False
+
+# Default paths passed to command prompt for model queue
+# TO DO -- FIX PATHS TO SOMETHING GENERIC
+DEFAULT_EXEC_PATH = '/auto/users/nems/anaconda3/bin/python'
+DEFAULT_SCRIPT_PATH = '/auto/users/nems/nems_db/nems_fit_single.py'
+
+# (cmd line function called every queue tick--to update queue load in tComputers)
+QUEUE_TICK_EXTERNAL_CMD = '/auto/users/svd/python/nems_db/bin/qsetload'
+
+################################################################################
 # Plugins Registries
 ################################################################################
 # Keyword Plugins, updates nems.plugins.default_keywords

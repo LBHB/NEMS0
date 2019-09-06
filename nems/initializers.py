@@ -2,10 +2,10 @@ import logging
 
 import copy
 import numpy as np
-
+import os
 from nems.registry import KeywordRegistry
 from nems.plugins import default_keywords
-from nems.utils import find_module
+from nems.utils import find_module, get_default_savepath
 from nems.analysis.api import fit_basic
 from nems.fitters.api import scipy_minimize
 import nems.priors as priors
@@ -19,89 +19,128 @@ default_kws.register_module(default_keywords)
 default_kws.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
 
-def from_keywords(keyword_string, registry=None, rec=None, meta={}):
+def from_keywords(keyword_string, registry=None, rec=None, meta={},
+                  init_phi_to_mean_prior=True, input_name='stim', output_name='resp'):
     '''
     Returns a modelspec created by splitting keyword_string on underscores
     and replacing each keyword with what is found in the nems.keywords.defaults
     registry. You may provide your own keyword registry using the
     registry={...} argument.
     '''
+
     if registry is None:
         registry = default_kws
     keywords = keyword_string.split('-')
 
     # Lookup the modelspec fragments in the registry
-    modelspec = []
+    modelspec = ms.ModelSpec()
     for kw in keywords:
-        if kw.startswith("fir.Nx") and (rec is not None):
-            N = rec['stim'].nchans
+        if (kw.startswith("fir.Nx") or kw.startswith("wc.Nx")) and \
+                (rec is not None):
+            N = rec[input_name].nchans
             kw_old = kw
-            kw = kw.replace("fir.N", "fir.{}".format(N))
+            kw = kw.replace(".N", ".{}".format(N))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
         elif kw.startswith("stategain.N") and (rec is not None):
             N = rec['state'].nchans
             kw_old = kw
             kw = kw.replace("stategain.N", "stategain.{}".format(N))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
-        elif (kw.endswith(".S") or ".Sx" in kw) and (rec is not None):
+        elif (kw.endswith(".N")) and (rec is not None):
+            N = rec[input_name].nchans
+            kw_old = kw
+            kw = kw.replace(".N", ".{}".format(N))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+        elif (kw.endswith(".cN")) and (rec is not None):
+            N = rec[input_name].nchans
+            kw_old = kw
+            kw = kw.replace(".cN", ".c{}".format(N))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+
+        elif (kw.endswith("xN")) and (rec is not None):
+            N = rec[input_name].nchans
+            kw_old = kw
+            kw = kw.replace("xN", "x{}".format(N))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+
+        elif ("xN" in kw) and (rec is not None):
+            N = rec[input_name].nchans
+            kw_old = kw
+            kw = kw.replace("xN", "x{}".format(N))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+
+        if (".S" in kw or ".Sx" in kw) and (rec is not None):
             S = rec['state'].nchans
             kw_old = kw
             kw = kw.replace(".S", ".{}".format(S))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        elif kw.endswith(".N") and (rec is not None):
-            N = rec['stim'].nchans
-            kw_old = kw
-            kw = kw.replace(".N", ".{}".format(N))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
-
-        elif kw.endswith(".R") and (rec is not None):
-            R = rec['resp'].nchans
+        if kw.endswith(".R") and (rec is not None):
+            R = rec[output_name].nchans
             kw_old = kw
             kw = kw.replace(".R", ".{}".format(R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        elif kw.endswith("xR") and (rec is not None):
-            R = rec['resp'].nchans
+        elif ("xR" in kw) and (rec is not None):
+            R = rec[output_name].nchans
             kw_old = kw
             kw = kw.replace("xR", "x{}".format(R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
         else:
             log.info('kw: %s', kw)
+
         if registry.kw_head(kw) not in registry:
             raise ValueError("unknown keyword: {}".format(kw))
 
         d = copy.deepcopy(registry[kw])
         d['id'] = kw
+        if init_phi_to_mean_prior:
+            d = priors.set_mean_phi([d])[0]  # Inits phi for 1 module
+
         modelspec.append(d)
 
-    # first module that takes input='pred' should take 'stim' instead.
-    # can't hard code in keywords, since we don't know which keyword will be
-    # first. and can't assume that it will be module[0] because those might be
-    # state manipulations
-    first_input_to_stim = False
+    # first module that takes input='pred' should take ctx['input_name']
+    # instead. can't hard-code in keywords, since we don't know which
+    # keyword will be first. and can't assume that it will be module[0]
+    # because those might be state manipulations
+    first_input_found = False
     i = 0
-    while not first_input_to_stim and i < len(modelspec):
-        if 'i' in modelspec[i]['fn_kwargs'].keys() and \
-           modelspec[i]['fn_kwargs']['i'] == 'pred':
-            if 'state' in modelspec[i]['fn']:
+    while (not first_input_found) and (i < len(modelspec)):
+        if ('i' in modelspec[i]['fn_kwargs'].keys()) and (modelspec[i]['fn_kwargs']['i'] == 'pred'):
+            log.info("Setting modelspec[%d] input to %s", i, input_name)
+            modelspec[i]['fn_kwargs']['i'] = input_name
+            """ OLD
+            if input_name != 'stim':
+                modelspec[i]['fn_kwargs']['i'] = input_name
+            elif 'state' in modelspec[i]['fn']:
                 modelspec[i]['fn_kwargs']['i'] = 'psth'
             else:
-                modelspec[i]['fn_kwargs']['i'] = 'stim'
-            first_input_to_stim = True
+                modelspec[i]['fn_kwargs']['i'] = input_name
+            """
+
+            # 'i' key found
+            first_input_found = True
         i += 1
 
     # insert metadata, if provided
     if rec is not None:
-        if ((rec['resp'].shape[0] > 1) and ('cellids' not in meta.keys()) and
+        if 'cellid' in meta.keys():
+            meta['cellids'] = [meta['cellid']]
+        elif ((rec['resp'].shape[0] > 1) and ('cellids' not in meta.keys()) and
             (type(rec.meta['cellid']) is list)):
             meta['cellids'] = rec.meta['cellid']
 
-    if 'meta' not in modelspec[0].keys():
-        modelspec[0]['meta'] = meta
-    else:
-        modelspec[0]['meta'].update(meta)
+    meta['input_name'] = input_name
+    meta['output_name'] = output_name
+
+    # for modelspec object, we know that meta must exist, so just update
+    modelspec.meta.update(meta)
+
+    if modelspec.meta.get('modelpath') is None:
+        destination = get_default_savepath(modelspec)
+        modelspec.meta['modelpath'] = destination
+        modelspec.meta['figurefile'] = os.path.join(destination,'figure.0000.png')
 
     return modelspec
 
@@ -116,9 +155,39 @@ def from_keywords_as_list(keyword_string, registry=None, meta={}):
     return [from_keywords(keyword_string, registry, meta)]
 
 
+def rand_phi(modelspec, rand_count=10, IsReload=False, rand_seed=1234, **context):
+    """ initialize modelspec phi to random values based on priors """
+
+    if IsReload:
+        return {}
+    jack_count = modelspec.jack_count
+    modelspec = modelspec.copy(jack_index=0)
+
+    modelspec.tile_fits(rand_count)
+
+    # set random seed for reproducible results
+    save_state = np.random.get_state()
+    np.random.seed(rand_seed)
+
+    for i in range(rand_count):
+        modelspec.set_fit(i)
+        if i == 0:
+            # make first one mean of priors:
+            modelspec = priors.set_mean_phi(modelspec)
+        else:
+            modelspec = priors.set_random_phi(modelspec)
+
+    # restore random seed
+    np.random.set_state(save_state)
+
+    modelspec.tile_jacks(jack_count)
+
+    return {'modelspec': modelspec}
+
+
 def prefit_LN(est, modelspec, analysis_function=fit_basic,
               fitter=scipy_minimize, metric=None, norm_fir=False,
-              tolerance=10**-5.5, max_iter=700):
+              tolerance=10**-5.5, max_iter=700, nl_kw={}):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
     local minima.
@@ -133,7 +202,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
     TODO -- make sure this works generally or create alternatives
 
     '''
-
+    log.info('prefit_LN parameters: tol=%.2e max_iter=%d', tolerance, max_iter)
     fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
 
     # Instead of using FIR prior, initialize to random coefficients then
@@ -143,23 +212,23 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
 
     # fit without STP module first (if there is one)
     modelspec = prefit_to_target(est, modelspec, fit_basic,
-                                 target_module='levelshift',
-                                 extra_exclude=['stp'],
+                                 target_module=['levelshift', 'relu'],
+                                 extra_exclude=['stp', 'rdt_gain','state_dc_gain','state_gain'],
                                  fitter=fitter,
                                  metric=metric,
                                  fit_kwargs=fit_kwargs)
 
     # then initialize the STP module (if there is one)
     for i, m in enumerate(modelspec):
-        if 'stp' in m['fn']:
+        if 'stp' in m['fn'] and m.get('phi') is None:
             m = priors.set_mean_phi([m])[0]  # Init phi for module
             modelspec[i] = m
             break
 
     # pre-fit static NL if it exists
-    for m in modelspec:
+    for m in modelspec.modules:
         if 'double_exponential' in m['fn']:
-            modelspec = init_dexp(est, modelspec)
+            modelspec = init_dexp(est, modelspec, **nl_kw)
             modelspec = prefit_mod_subset(
                     est, modelspec, fit_basic,
                     fit_set=['double_exponential'],
@@ -177,23 +246,21 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
                     fitter=scipy_minimize,
                     metric=metric,
                     fit_kwargs=fit_kwargs)
-#            for i, m in enumerate(modelspec):
-#                if ('phi' not in m.keys()) and ('prior' in m.keys()):
-#                    log.debug('Phi not found for module, using mean of prior: %s',
-#                              m)
-#                    old_prior = m['prior'].copy()
-#                    m = priors.set_mean_phi([m])[0]  # Inits phi for 1 module
-#                    modelspec[i] = m
-#                    modelspec[i]['prior'] = old_prior
+
             break
 
-#                modelspecs = [prefit_to_target(
-#                        est, modelspec, fit_basic,
-#                        target_module='double_exponential',
-#                        extra_exclude=['stp'],
-#                        fitter=scipy_minimize,
-#                        fit_kwargs={'tolerance': 1e-6, 'max_iter': 500})
-#                        for modelspec in modelspecs]
+        elif 'saturated_rectifier' in m['fn']:
+            log.info('initializing priors and bounds for relat ...\n')
+            modelspec = init_relsat(est, modelspec)
+            modelspec = prefit_mod_subset(
+                    est, modelspec, fit_basic,
+                    fit_set=['saturated_rectifier'],
+                    fitter=scipy_minimize,
+                    metric=metric,
+                    fit_kwargs=fit_kwargs)
+
+            break
+
 
     return modelspec
 
@@ -213,10 +280,14 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
 
     # figure out last modelspec module to fit
     target_i = None
-    for i, m in enumerate(modelspec):
-        if target_module in m['fn']:
+    if type(target_module) is not list:
+        target_module = [target_module]
+    for i, m in enumerate(modelspec.modules):
+        tlist = [True for t in target_module if t in m['fn']]
+
+        if len(tlist):
             target_i = i + 1
-            break
+            # don't break. use last occurrence of target module
 
     if not target_i:
         log.info("target_module: {} not found in modelspec."
@@ -229,9 +300,10 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
     # identify any excluded modules and take them out of temp modelspec
     # that will be fit here
     exclude_idx = []
-    tmodelspec = []
+    tmodelspec = ms.ModelSpec()
     for i in range(len(modelspec)):
         m = copy.deepcopy(modelspec[i])
+
         for fn in extra_exclude:
             # log.info('exluding '+fn)
             # log.info(m['fn'])
@@ -244,19 +316,23 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
                     log.info('Mod %d (%s) fixing phi', i, fn)
 
                 m['fn_kwargs'].update(m['phi'])
-                m['phi'] = {}
+                del m['phi']
+                del m['prior']
                 exclude_idx.append(i)
                 # log.info(m)
+        if ('relu' in m['fn']):
+            log.info('found relu')
 
-        if ('levelshift' in m['fn']) and (m.get('phi') is None):
-            m = priors.set_mean_phi([m])[0]
+        elif ('levelshift' in m['fn']):
+            #m = priors.set_mean_phi([m])[0]
+            output_name = modelspec.meta.get('output_name', 'resp')
             try:
-                mean_resp = np.nanmean(rec['resp'].as_continuous(), axis=1, keepdims=True)
+                mean_resp = np.nanmean(rec[output_name].as_continuous(), axis=1, keepdims=True)
             except NotImplementedError:
-                # as_continous only available for RasterizedSignal
-                mean_resp = np.nanmean(rec['resp'].rasterize().as_continuous(), axis=1, keepdims=True)
-            log.info('Mod %d (%s) fixing level to response mean %.3f',
-                     i, m['fn'], mean_resp[0])
+                # as_continuous only available for RasterizedSignal
+                mean_resp = np.nanmean(rec[output_name].rasterize().as_continuous(), axis=1, keepdims=True)
+            log.info('Mod %d (%s) fixing level to %s mean %.3f',
+                     i, m['fn'], output_name, mean_resp[0])
             log.info('resp has %d channels', len(mean_resp))
             m['phi']['level'][:] = mean_resp
 
@@ -266,14 +342,19 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
     # fit the subset of modules
     if metric is None:
         tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-                                       fit_kwargs=fit_kwargs)[0]
+                                       fit_kwargs=fit_kwargs)
     else:
         tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-                                       metric=metric, fit_kwargs=fit_kwargs)[0]
+                                       metric=metric, fit_kwargs=fit_kwargs)
+    if type(tmodelspec) is list:
+        # backward compatibility
+        tmodelspec = tmodelspec[0]
 
     # reassemble the full modelspec with updated phi values from tmodelspec
-    for i in np.setdiff1d(np.arange(target_i), np.array(exclude_idx)):
-        modelspec[i] = tmodelspec[i]
+    #print(modelspec[0])
+    #print(modelspec.phi[2])
+    for i in np.setdiff1d(np.arange(target_i), np.array(exclude_idx)).tolist():
+        modelspec[int(i)] = tmodelspec[int(i)]
 
     return modelspec
 
@@ -306,7 +387,7 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
         fit_idx = fit_set
     else:
         fit_idx = []
-        for i, m in enumerate(modelspec):
+        for i, m in enumerate(modelspec.modules):
             for fn in fit_set:
                 if fn in m['fn']:
                     fit_idx.append(i)
@@ -314,14 +395,12 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
 
     tmodelspec = copy.deepcopy(modelspec)
 
-
-
     if len(fit_idx) == 0:
         log.info('No modules matching fit_set for subset prefit')
         return modelspec
 
     exclude_idx = np.setdiff1d(np.arange(0, len(modelspec)),
-                               np.array(fit_idx))
+                               np.array(fit_idx)).tolist()
     for i in exclude_idx:
         m = tmodelspec[i]
         if not m.get('phi'):
@@ -337,10 +416,10 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
     # fit the subset of modules
     if metric is None:
         tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-                                       fit_kwargs=fit_kwargs)[0]
+                                       fit_kwargs=fit_kwargs)
     else:
         tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-                                       metric=metric, fit_kwargs=fit_kwargs)[0]
+                                       metric=metric, fit_kwargs=fit_kwargs)
 
     # reassemble the full modelspec with updated phi values from tmodelspec
     for i in fit_idx:
@@ -349,23 +428,39 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
     return modelspec
 
 
-def init_dexp(rec, modelspec):
+def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
     """
     choose initial values for dexp applied after preceeding fir is
     initialized
+    nl_mode must be in {1,2} (default is 2),
+            pre 11/29/18 models were fit with v1
+            1: amp = np.nanstd(resp) * 3
+               kappa = np.log(2 / (np.max(pred) - np.min(pred) + 1))
+            2:
+               amp = resp[pred>np.percentile(pred,90)].mean()
+               kappa = np.log(2 / (np.std(pred)*3))
+
+    override_target_i should be an integer index into the modelspec.
+    This replaces the normal behavior of the function which would look up
+    the index of the 'double_exponential' module. Use this if you want
+    to use dexp's initialization procedure for a similar nonlinearity module.
+
     """
     # preserve input modelspec
     modelspec = copy.deepcopy(modelspec)
 
-    target_i = find_module('double_exponential', modelspec)
-    if target_i is None:
-        log.warning("No dexp module was found, can't initialize.")
-        return modelspec
+    if override_target_i is None:
+        target_i = find_module('double_exponential', modelspec)
+        if target_i is None:
+            log.warning("No dexp module was found, can't initialize.")
+            return modelspec
+    else:
+        target_i = override_target_i
 
     if target_i == len(modelspec):
-        fit_portion = modelspec
+        fit_portion = modelspec.modules
     else:
-        fit_portion = modelspec[:target_i]
+        fit_portion = modelspec.modules[:target_i]
 
     # ensures all previous modules have their phi initialized
     # choose prior mean if not found
@@ -377,9 +472,7 @@ def init_dexp(rec, modelspec):
             fit_portion[i] = m
 
     # generate prediction from module preceeding dexp
-    ms.fit_mode_on(fit_portion)
-    rec = ms.evaluate(rec, fit_portion)
-    ms.fit_mode_off(fit_portion)
+    rec = ms.evaluate(rec, ms.ModelSpec(fit_portion))
 
     in_signal = modelspec[target_i]['fn_kwargs']['i']
     pchans = rec[in_signal].shape[0]
@@ -387,9 +480,9 @@ def init_dexp(rec, modelspec):
     base = np.zeros([pchans, 1])
     kappa = np.zeros([pchans, 1])
     shift = np.zeros([pchans, 1])
-
+    out_signal = modelspec.meta.get('output_name','resp')
     for i in range(pchans):
-        resp = rec['resp'].as_continuous()
+        resp = rec[out_signal].as_continuous()
         pred = rec[in_signal].as_continuous()[i:(i+1), :]
         if resp.shape[0] == pchans:
             resp = resp[i:(i+1), :]
@@ -408,13 +501,40 @@ def init_dexp(rec, modelspec):
         # base = meanr - stdr * 3
 
         # amp = np.max(resp) - np.min(resp)
-        amp[i, 0] = stdr * 3
+        if nl_mode == 1:
+            amp[i, 0] = stdr * 3
+            predrange = 2 / (np.max(pred) - np.min(pred) + 1)
+            shift[i, 0] = np.mean(pred)
+            kappa[i, 0] = np.log(predrange)
+        elif nl_mode == 2:
+            mask = np.zeros_like(pred, dtype=bool)
+            pct = 91
+            while (sum(mask) < .01*pred.shape[0]) and (pct > 1):
+                pct -= 1
+                mask = pred > np.percentile(pred, pct)
+            if np.sum(mask) == 0:
+                mask = np.ones_like(pred, dtype=bool)
 
-        shift[i, 0] = np.mean(pred)
-        # shift = (np.max(pred) + np.min(pred)) / 2
+            if pct !=90:
+                log.warning('Init dexp: Default for init mode 2 is to find mean '
+                         'of responses for times where pred>pctile(pred,90). '
+                         '\nNo times were found so this was lowered to '
+                         'pred>pctile(pred,%d).', pct)
+            amp[i, 0] = resp[mask].mean()
+            predrange = 2 / (np.std(pred)*3)
+            if not np.isfinite(predrange):
+                predrange = 1
+            shift[i, 0] = np.mean(pred)
+            kappa[i, 0] = np.log(predrange)
+        elif nl_mode == 3:
+            base[i, 0] = np.min(resp)-stdr
+            amp[i, 0] = stdr * 4
+            predrange = 1 / (np.std(pred)*3)
 
-        predrange = 2 / (np.max(pred) - np.min(pred) + 1)
-        kappa[i, 0] = np.log(predrange)
+            shift[i, 0] = np.mean(pred)
+            kappa[i, 0] = np.log(predrange)
+        else:
+            raise ValueError('nl mode = {} not valid'.format(nl_mode))
 
     modelspec[target_i]['phi'] = {'amplitude': amp, 'base': base,
                                   'kappa': kappa, 'shift': shift}
@@ -437,14 +557,12 @@ def init_logsig(rec, modelspec):
         return modelspec
 
     if target_i == len(modelspec):
-        fit_portion = modelspec
+        fit_portion = modelspec.modules
     else:
-        fit_portion = modelspec[:target_i]
+        fit_portion = modelspec.modules[:target_i]
 
     # generate prediction from module preceeding dexp
-    ms.fit_mode_on(fit_portion)
-    rec = ms.evaluate(rec, fit_portion)
-    ms.fit_mode_off(fit_portion)
+    rec = ms.evaluate(rec, ms.ModelSpec(fit_portion))
 
     pred = rec['pred'].as_continuous()
     resp = rec['resp'].as_continuous()
@@ -476,6 +594,11 @@ def init_logsig(rec, modelspec):
     shift = ('Normal', {'mean': shift0, 'sd': pred_range})
     kappa = ('Exponential', {'beta': kappa0})
 
+    if 'phi' in modelspec[target_i]:
+        modelspec[target_i]['phi'].update({
+                'base': base0, 'amplitude': amplitude0, 'shift': shift0,
+                'kappa': kappa0})
+
     modelspec[target_i]['prior'].update({
             'base': base, 'amplitude': amplitude, 'shift': shift,
             'kappa': kappa})
@@ -486,6 +609,42 @@ def init_logsig(rec, modelspec):
             'shift': (None, None),
             'kappa': (1e-15, None)
             }
+
+    return modelspec
+
+
+def init_relsat(rec, modelspec):
+    modelspec = copy.deepcopy(modelspec)
+
+    target_i = find_module('saturated_rectifier', modelspec)
+    if target_i is None:
+        log.warning("No relsat module was found, can't initialize.")
+        return modelspec
+
+    if target_i == len(modelspec):
+        fit_portion = modelspec.modules
+    else:
+        fit_portion = modelspec.modules[:target_i]
+
+    # generate prediction from module preceeding dexp
+    rec = ms.evaluate(rec, ms.ModelSpec(fit_portion)).apply_mask()
+
+    pred = rec['pred'].as_continuous().flatten()
+    resp = rec['resp'].as_continuous().flatten()
+    stdr = np.nanstd(resp)
+
+    base = np.min(resp)
+    amplitude = min(np.mean(resp)+stdr*3, np.max(resp))
+    shift = np.mean(pred) - 1.5*np.nanstd(pred)
+    kappa = 1
+
+    base_prior = ('Exponential', {'beta': base})
+    amplitude_prior = ('Exponential', {'beta': amplitude})
+    shift_prior = ('Normal', {'mean': shift, 'sd': shift})
+    kappa_prior = ('Exponential', {'beta': kappa})
+
+    modelspec['prior'] = {'base': base_prior, 'amplitude': amplitude_prior,
+                          'shift': shift_prior, 'kappa': kappa_prior}
 
     return modelspec
 

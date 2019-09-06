@@ -1,23 +1,64 @@
 import logging
 import re
 
-from nems.utils import escaped_split
+from nems.utils import escaped_split, keyword_extract_options
 
 log = logging.getLogger(__name__)
 
 
 def init(kw):
+    '''
+    Initialize modelspecs in an attempt to avoid getting stuck in
+    local minima.
+    Written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
+    optional modules in (parens)
+
+    Parameter
+    ---------
+    kw : string
+        A string of the form: init.option1.option2...
+
+    Options
+    -------
+    tN : Set tolerance to 10**-N, where N is any positive integer.
+    st : Remove state replication/merging before initializing.
+    psth : Initialize by fitting to 'psth' intead of 'resp' (default)
+    nlN : Initialize nonlinearity with verion N
+        For dexp, options are {1,2} (default is 2),
+            pre 11/29/18 models were fit with v1
+            1: amp = np.nanstd(resp) * 3
+               kappa = np.log(2 / (np.max(pred) - np.min(pred) + 1))
+            2:
+               amp = resp[pred>np.percentile(pred,90)].mean()
+               kappa = np.log(2 / (np.std(pred)*3))
+        For other nonlinearities, mode is not specified yet
+    L2f : normalize fir (default false)
+    .rN : initialize with N random phis drawn from priors (via init.rand_phi),
+          default N=10
+    .rbN : initialize with N random phis drawn from priors (via init.rand_phi),
+           and pick best mse_fit, default N=10
+
+    TODO: Optimize more, make testbed to check how well future changes apply
+    to disparate datasets.
+
+    '''
+
     ops = escaped_split(kw, '.')[1:]
     st = False
     tolerance = 10**-5.5
     norm_fir = False
     fit_sig = 'resp'
-
+    nl_kw = {}
+    rand_count = 0
+    keep_best = False
+    fast_eval = ('f' in ops)
     for op in ops:
         if op == 'st':
             st = True
         elif op=='psth':
             fit_sig = 'psth'
+        elif op.startswith('nl'):
+            nl_kw = {'nl_mode': int(op[2:])}
         elif op.startswith('t'):
             # Should use \ to escape going forward, but keep d-sub in
             # for backwards compatibility.
@@ -26,13 +67,61 @@ def init(kw):
             tolerance = 10**tolpower
         elif op == 'L2f':
             norm_fir = True
+        elif op.startswith('rb'):
+            if len(op) == 2:
+                rand_count = 10
+            else:
+                rand_count = int(op[2:])
+            keep_best = True
+        elif op.startswith('r'):
+            if len(op) == 1:
+                rand_count = 10
+            else:
+                rand_count = int(op[1:])
+        elif op.startswith('b'):
+            keep_best = True
 
+    xfspec = []
+    #if fast_eval:
+    #    xfspec.append(['nems.xforms.fast_eval', {}])
+    if rand_count > 0:
+        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
     if st:
-        return [['nems.xforms.fit_state_init', {'tolerance': tolerance,
-                                                'fit_sig': fit_sig}]]
+        xfspec.append(['nems.xforms.fit_state_init', {'tolerance': tolerance,
+                                                'norm_fir': norm_fir,
+                                                'nl_kw': nl_kw,
+                                                'fit_sig': fit_sig}])
     else:
-        return [['nems.xforms.fit_basic_init', {'tolerance': tolerance,
-                                                'norm_fir': norm_fir}]]
+        xfspec.append(['nems.xforms.fit_basic_init', {'tolerance': tolerance,
+                                                      'norm_fir': norm_fir,
+                                                      'nl_kw': nl_kw}])
+    if keep_best:
+        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
+
+    return xfspec
+
+def initpop(kw):
+    options = keyword_extract_options(kw)
+
+    rnd = False
+    flip_pcs = True
+    start_count = 1
+    usepcs = True
+    for op in options:
+        if op.startswith("rnd"):
+            rnd = True
+            if len(op)>3:
+                start_count=int(op[3:])
+        elif op=='nflip':
+            flip_pcs = False
+
+    if rnd:
+        xfspec = [['nems.analysis.fit_pop_model.init_pop_rand',
+                   {'pc_signal': 'rand_resp', 'start_count': start_count}]]
+    elif usepcs:
+        xfspec = [['nems.analysis.fit_pop_model.init_pop_pca',
+                   {'flip_pcs': flip_pcs}]]
+    return xfspec
 
 
 # TOOD: Maybe these should go in fitters instead?
@@ -70,6 +159,14 @@ def sev(kw):
     return xfspec
 
 
+def sevst(kw):
+    ops = kw.split('.')[1:]
+    epoch_regex = '^STIM' if not ops else ops[0]
+    xfspec = [['nems.xforms.split_by_occurrence_counts',
+               {'epoch_regex': epoch_regex}]]
+    return xfspec
+
+
 def tev(kw):
     ops = kw.split('.')[1:]
 
@@ -90,7 +187,7 @@ def jk(kw):
     jk_kwargs = {}
     do_split = False
     keep_only = 0
-    log.info("setting up n-fold fitting...")
+    log.info("Setting up N-fold fitting...")
 
     for op in ops:
         if op.startswith('nf'):
@@ -135,3 +232,23 @@ def rand(kw):
             nt_kwargs['subset'] = [int(i) for i in op[1:].split(',')]
 
     return [['nems.xforms.random_sample_fit', nt_kwargs]]
+
+
+def norm(kw):
+    """
+    Normalize stim and response before splitting/fitting to support
+    fitters that can't deal with big variations in values
+
+    default is to normalize minmax (norm.mm) to fall in the range 0 to 1 (keep values
+    positive to support log compression)
+    norm.ms will normalize to (mean=0, std=1)
+    """
+    ops = kw.split('.')[1:]
+    norm_method = 'minmax'
+    for op in ops:
+        if op == 'ms':
+            norm_method = 'meanstd'
+        elif op == 'mm':
+            norm_method = 'minmax'
+
+    return [['nems.xforms.normalize_stim', {'norm_method': norm_method}]]

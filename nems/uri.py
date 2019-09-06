@@ -165,7 +165,11 @@ def save_resource(uri, data=None, json=None):
             with open(filepath, mode='w+') as f:
                 jsonlib.dump(json, f, cls=NumpyEncoder)
                 f.close()
-                os.chmod(filepath, 0o666)
+                try:
+                    os.chmod(filepath, 0o666)
+                except PermissionError:
+                    # File should already exist with the correct permissions
+                    pass
         else:
             raise ValueError('URI type unknown')
     elif data:
@@ -193,7 +197,11 @@ def save_resource(uri, data=None, json=None):
                 d = io.BytesIO(data)
             with open(filepath, mode='wb') as f:
                 f.write(d.read())
-            os.chmod(filepath, 0o666)
+            try:
+                os.chmod(filepath, 0o666)
+            except PermissionError:
+                # File should already exist with the correct permissions
+                pass
         else:
             raise ValueError('URI type unknown')
     else:
@@ -234,8 +242,6 @@ def load_resource(uri):
                 else:
                     resource = f.read()
         except UnicodeDecodeError:
-            log.warn("Couldn't read file at {}\nTrying in binary mode."
-                     .format(filepath))
             with open(filepath, mode='rb') as f:
                 resource = f.read()
         return resource

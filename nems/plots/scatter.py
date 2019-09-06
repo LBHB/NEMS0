@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import importlib
 import nems.modelspec as ms
 import nems.metrics.api as nm
+from nems.plots.utils import ax_remove_box
 
 import logging
 log = logging.getLogger(__name__)
@@ -16,6 +17,8 @@ def plot_nl_io(module=None, xbounds=None, ax=None):
         xbounds = np.array([-1, 1])
     if ax:
         plt.sca(ax)
+    else:
+        ax=plt.gca()
 
     module_name, function_name = module['fn'].rsplit('.', 1)
     mod = importlib.import_module(module_name)
@@ -28,10 +31,14 @@ def plot_nl_io(module=None, xbounds=None, ax=None):
     d_out = fn(d_in, **module['phi'])
     plt.plot(d_in.T, d_out.T)
 
+    ax_remove_box(ax)
+
+    return ax
+
 
 def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
                  xlabel=None, ylabel=None, legend=True, text=None,
-                 force_square=False, module=None):
+                 force_square=False, module=None, **options):
     '''
     Uses the channels of sig1 to place points along the x axis, and channels of
     sig2 for distances along the y axis. If sig1 has one channel but sig2 has
@@ -112,7 +119,7 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
     plt.ylabel(ylabel)
 
     if legend and sig2.nchans > 1:
-        plt.legend(loc='best')
+        plt.legend(loc='lower right')
 
     if title:
         plt.title(title)
@@ -136,10 +143,13 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
         xmin, xmax = axes.get_xlim()
         axes.set_aspect(abs(xmax-xmin)/abs(ymax-ymin))
 
+    ax_remove_box(ax)
+
+    return ax
 
 def nl_scatter(rec, modelspec, idx, sig_name='pred',
-               compare='resp', smoothing_bins=False,
-               xlabel1=None, ylabel1=None, ax=None):
+               compare='resp', smoothing_bins=False, cursor_time=None,
+               xlabel1=None, ylabel1=None, **options):
 
     # HACK: shouldn't hardcode 'stim', might be named something else
     #       or not present at all. Need to figure out a better solution
@@ -166,12 +176,19 @@ def nl_scatter(rec, modelspec, idx, sig_name='pred',
         log.warning('corr coef expects single-dim predictions')
 
     compare_to = before[compare]
+
     module = modelspec[idx]
     mod_name = module['fn'].replace('nems.modules','')
     title1 = mod_name
-    text1 = "r = {0:.5f}".format(corr1)
+    text1 = "r = {0:.5f}".format(np.mean(corr1))
 
-    plot_scatter(before_sig, compare_to, title=title1,
+    ax = plot_scatter(before_sig, compare_to, title=title1,
                  smoothing_bins=smoothing_bins, xlabel=xlabel1,
-                 ylabel=ylabel1, text=text1, module=module, ax=ax)
+                 ylabel=ylabel1, text=text1, module=module,
+                 **options)
 
+    if cursor_time is not None:
+        tbin = int(cursor_time * rec[sig_name].fs)
+        x = before_sig.as_continuous()[0,tbin]
+        ylim=ax.get_ylim()
+        ax.plot([x,x],ylim,'r-')

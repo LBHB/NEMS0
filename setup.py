@@ -6,11 +6,12 @@ NAME = 'NEMS'
 
 VERSION = '0.0.1a'
 
-with codecs.open('README.md', encoding='utf-8') as f:
+with codecs.open('README.rst', encoding='utf-8') as f:
     long_description = f.read()
 
 GENERAL_REQUIRES = ['numpy', 'scipy', 'matplotlib', 'pandas', 'requests',
-                    'h5py']
+                    'h5py', 'sqlalchemy', 'configparser', 'tensorflow']
+# pycharm also requires: tornado
 
 setup(
     name=NAME,

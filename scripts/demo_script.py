@@ -5,6 +5,7 @@ import os
 import logging
 import pandas as pd
 import pickle
+
 import nems
 import nems.initializers
 import nems.priors
@@ -30,30 +31,26 @@ signals_dir = nems.NEMS_PATH + '/recordings'
 modelspecs_dir = nems.NEMS_PATH + '/modelspecs'
 recording.get_demo_recordings(signals_dir)
 
-pkl_file=signals_dir + "/TAR010c-18-1.pkl"
+datafile = signals_dir + "/TAR010c-18-1.pkl"
 
 # ----------------------------------------------------------------------------
 # LOAD AND FORMAT RECORDING DATA
 
-with open(pkl_file, 'rb') as f:  # Python 3: open(..., 'rb')
-    cellid, recname, fs, X_est, Y_est, X_val, Y_val = pickle.load(f)
+with open(datafile, 'rb') as f:
+        cellid, recname, fs, X, Y, epochs = pickle.load(f)
 
-epochs = None
-stimchans = [str(x) for x in range(X_est.shape[0])]
+stimchans = [str(x) for x in range(X.shape[0])]
 # borrowed from recording.load_recording_from_arrays
 
-# est recording - for model fitting
-resp = RasterizedSignal(fs, Y_est, 'resp', recname, chans=[cellid])
-stim = RasterizedSignal(fs, X_est, 'stim', recname, chans=stimchans)
+resp = RasterizedSignal(fs, Y, 'resp', recname, epochs=epochs, chans=[cellid])
+stim = RasterizedSignal(fs, X, 'stim', recname, epochs=epochs, chans=stimchans)
 signals = {'resp': resp, 'stim': stim}
-est = recording.Recording(signals)
+rec = recording.Recording(signals)
 
-# val recording - for testing predictions
-resp = RasterizedSignal(fs, Y_val, 'resp', recname, chans=[cellid])
-stim = RasterizedSignal(fs, X_val, 'stim', recname, chans=stimchans)
-signals = {'resp': resp, 'stim': stim}
-val = recording.Recording(signals)
-
+#est, val = rec.split_at_time(0.2)
+est, val = rec.split_using_epoch_occurrence_counts(epoch_regex="^STIM_")
+est = preproc.average_away_epoch_occurrences(est, epoch_regex="^STIM_")
+val = preproc.average_away_epoch_occurrences(val, epoch_regex="^STIM_")
 
 # ----------------------------------------------------------------------------
 # INITIALIZE MODELSPEC
@@ -64,7 +61,8 @@ log.info('Initializing modelspec(s)...')
 
 # Method #1: create from "shorthand" keyword string
 # very simple linear model
-modelspec_name='wc.18x2.g-fir.2x15-lvl.1'
+modelspec_name='wc.18x1.g-fir.1x15-lvl.1'
+#modelspec_name='wc.18x2.g-fir.2x15-lvl.1'
 
 # Method #1b: constrain spectral tuning to be gaussian, add static output NL
 #modelspec_name='wc.18x2.g-fir.2x15-lvl.1-dexp.1'
@@ -73,8 +71,6 @@ modelspec_name='wc.18x2.g-fir.2x15-lvl.1'
 meta = {'cellid': cellid, 'batch': 271,
         'modelname': modelspec_name, 'recording': cellid}
 modelspec = nems.initializers.from_keywords(modelspec_name, meta=meta)
-
-
 
 # ----------------------------------------------------------------------------
 # RUN AN ANALYSIS
@@ -94,7 +90,7 @@ modelspec = nems.initializers.prefit_to_target(
 
 
 # then fit full nonlinear model
-modelspecs = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
+modelspec = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
 
 # ----------------------------------------------------------------------------
 # GENERATE SUMMARY STATISTICS
@@ -102,14 +98,14 @@ modelspecs = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
 log.info('Generating summary statistics...')
 
 # generate predictions
-est, val = nems.analysis.api.generate_prediction(est, val, modelspecs)
+est, val = nems.analysis.api.generate_prediction(est, val, modelspec)
 
 # evaluate prediction accuracy
-modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs)
+modelspec = nems.analysis.api.standard_correlation(est, val, modelspec)
 
 log.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
-        modelspecs[0][0]['meta']['r_fit'][0],
-        modelspecs[0][0]['meta']['r_test'][0]))
+        modelspec.meta['r_fit'][0],
+        modelspec.meta['r_test'][0]))
 
 # ----------------------------------------------------------------------------
 # SAVE YOUR RESULTS
@@ -129,7 +125,7 @@ log.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
 log.info('Generating summary plot...')
 
 # Generate a summary plot
-context = {'val': val, 'modelspecs': modelspecs, 'est': est}
+context = {'val': val, 'modelspec': modelspec, 'est': est}
 fig = nplt.quickplot(context)
 fig.show()
 
@@ -137,7 +133,7 @@ fig.show()
 # fname = nplt.save_figure(fig, modelspecs=modelspecs, save_dir=modelspecs_dir)
 
 # browse the validation data
-aw = browse_recording(val[0], signals=['stim', 'pred', 'resp'], cellid=cellid)
+#aw = browse_recording(val, signals=['stim', 'pred', 'resp'], cellid=cellid)
 
 
 

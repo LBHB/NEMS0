@@ -132,6 +132,8 @@ def r_floor(result, pred_name='pred', resp_name='resp'):
     r_floor = np.zeros(channel_count)
 
     for i in range(channel_count):
+        #import pdb
+        #pdb.set_trace()
         X1 = X1mat[i, :]
         X2 = X2mat[i, :]
 
@@ -162,7 +164,7 @@ def r_floor(result, pred_name='pred', resp_name='resp'):
     return r_floor
 
 
-def _r_single(X, N=100):
+def _r_single(X, N=100,limit=0.01):
     """
     Assume X is trials X time raster (channel removed)
 
@@ -212,16 +214,20 @@ def _r_single(X, N=100):
             ff = np.isfinite(X1) & np.isfinite(X2)
             X1 = X1[ff]
             X2 = X2[ff]
-            if (np.sum(X1) > 0) and (np.sum(X2) > 0):
-                rac[nn] = np.corrcoef(X1, X2)[0, 1]
-            else:
+            #if (np.sum(X1) > 0) and (np.sum(X2) > 0):
+            if    (np.sum(X1) == 0) or (np.sum(X2) == 0) or \
+                   (len(np.unique(X1)) == 1) or \
+                   (len(np.unique(X2)) == 1):
                 rac[nn] = 0
+            else:
+                rac[nn] = np.corrcoef(X1, X2)[0, 1]
+                
 
     # hard limit on single-trial correlation to prevent explosion
     # TODO: better logic for this
     rac = np.mean(rac)
-    if rac < 0.01:
-        rac = 0.01
+    if rac < limit:
+        rac = limit
 
     return rac
 
@@ -255,14 +261,11 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
     epochs_to_extract = ep.epoch_names_matching(result[resp_name].epochs,
                                                 epoch_regex)
     folded_resp = result[resp_name].extract_epochs(epochs_to_extract)
-
-    epochs_to_extract = ep.epoch_names_matching(result[pred_name].epochs,
-                                                epoch_regex)
     folded_pred = result[pred_name].extract_epochs(epochs_to_extract)
 
     resp = fullrec[resp_name].rasterize()
 
-    chancount = fullrec[resp_name].shape[0]
+    chancount = resp.shape[0]
 
     rnorm = np.zeros(chancount)
     for chanidx in range(chancount):
@@ -272,9 +275,13 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
         preps = []
         for k, d in folded_resp.items():
             if np.sum(np.isfinite(d)) > 0:
-
-                Xall.append(resp.extract_epoch(k)[:, chanidx, :])
+                _n = folded_pred[k][:, chanidx, :].shape[1]
+                _r = resp.extract_epoch(k)[:, chanidx, :_n]
+                Xall.append(_r)
                 p.append(folded_pred[k][:, chanidx, :])
+                #print(k)
+                #print(_r.shape)
+                #print(folded_pred[k][:, chanidx, :].shape)
                 reps.append(Xall[-1].shape[0])
                 preps.append(p[-1].shape[0])
 
@@ -288,6 +295,8 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
         minpreps = np.min(preps)
         p = [p0[:minpreps, :] for p0 in p]
         p = np.concatenate(p, axis=1)
+        #import pdb
+        #pdb.set_trace()
         if minreps > 1:
             rac = _r_single(X, N)
 

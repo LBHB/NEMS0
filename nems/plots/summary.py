@@ -8,12 +8,72 @@ from nems.plots.assemble import plot_layout
 from nems.plots.heatmap import (weight_channels_heatmap, fir_heatmap,
                                 strf_heatmap)
 from nems.plots.scatter import plot_scatter
-from nems.plots.spectrogram import spectrogram_from_epoch
+from nems.plots.specgram import spectrogram_from_epoch
 from nems.plots.timeseries import timeseries_from_epoch
 from nems.plots.histogram import pred_error_hist
 import nems.modelspec as ms
+from nems.plots.utils import ax_remove_box
+import re
 
 log = logging.getLogger(__name__)
+
+
+def perf_per_cell(modelspec, channels=0, ax=None, **options):
+
+    if ax is None:
+        ax = plt.gca()
+
+    cellids = modelspec.meta.get('cellids', [modelspec.meta.get('cellid', None)])
+    cellcount = len(cellids)
+    ax.plot(modelspec.meta['r_test'])
+    ax.plot(modelspec.meta['r_fit'], ls='--')
+    ax.plot(channels, modelspec.meta['r_test'][channels], 'o')
+    ax.set_xticks(np.arange(cellcount))
+    ax.set_xticklabels(cellids)
+    ylim = ax.get_ylim()
+    if channels == 0:
+        hoffset = 0
+    else:
+        hoffset = 1
+    ax.text(0.1+hoffset, 0.1,
+            'mean r={:.3f}'.format(np.mean(modelspec.meta['r_test'])))
+    ax.text(channels+0.1, modelspec.meta['r_test'][channels],
+            '{:.3f}'.format(modelspec.meta['r_test'][channels]))
+
+    ax_remove_box(ax)
+
+    return ax
+
+
+def pareto(d, modelnames=None, groups=None, ax=None, **options):
+
+    if ax is None:
+        ax = plt.gca()
+
+    n_parms = d.loc['n_parms']
+    if modelnames is None:
+        modelnames = d.columns
+
+    mean_score = d.drop(index='n_parms').mean()
+
+    for g in groups:
+        r = re.compile(g)
+        m = [i for i in mean_score.index if r.match(i)]
+        xc = np.array([mean_score.loc[i] for i in m])
+        n = np.array([n_parms[i] for i in m])
+        xc = xc[np.argsort(n)]
+        n = np.sort(n)
+
+        ax.plot(n, xc, '-')
+
+    #ax.text(0.1+hoffset, 0.1,
+    #        'mean r={:.3f}'.format(np.mean(modelspec.meta['r_test'])))
+    #ax.text(channels+0.1, modelspec.meta['r_test'][channels],
+    #        '{:.3f}'.format(modelspec.meta['r_test'][channels]))
+
+    ax_remove_box(ax)
+
+    return ax
 
 
 def plot_summary(rec, modelspecs, stimidx=0):

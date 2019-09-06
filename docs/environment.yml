@@ -1,0 +1,12 @@
+channels:
+- defaults
+
+dependencies:
+- python=3.6
+- sphinx<2.0
+- sphinx_rtd_theme
+- pip
+- pip:
+  - pygments-enaml
+  - numpydoc
+  - git+https://github.com/LBHB/NEMS.git@dev

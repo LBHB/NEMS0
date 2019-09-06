@@ -6,19 +6,23 @@ from scipy.ndimage import zoom
 
 from nems.plots.timeseries import plot_timeseries
 from nems.utils import find_module
-from nems.modules.fir import pz_coefficients, fir_dexp_coefficients
+from nems.modules.fir import (pz_coefficients, fir_dexp_coefficients,
+                              fir_exp_coefficients, _offset_coefficients)
+from nems.plots.utils import ax_remove_box
 
 log = logging.getLogger(__name__)
 
 
 def plot_heatmap(array, xlabel='Time', ylabel='Channel',
                  ax=None, cmap=None, clim=None, skip=0, title=None, fs=None,
-                 interpolation='none'):
+                 interpolation='none', **options):
     '''
     A wrapper for matplotlib's plt.imshow() to ensure consistent formatting.
     '''
     if ax is not None:
         plt.sca(ax)
+    else:
+        ax = plt.gca()
 
     # Make sure array is converted to ndarray if passed as list
     array = np.array(array)
@@ -32,9 +36,11 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
     else:
         extent = None
 
-    plt.imshow(array, aspect='auto', origin='lower',
-               cmap=plt.get_cmap('jet'), clim=clim,
-               interpolation=interpolation, extent=extent)
+    if cmap is None:
+        cmap = plt.get_cmap('jet')
+
+    plt.imshow(array, aspect='auto', origin='lower', cmap=cmap,
+               clim=clim, interpolation=interpolation, extent=extent)
 
     # Force integer tick labels, skipping gaps
     #y, x = array.shape
@@ -52,6 +58,9 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
     if title is not None:
         plt.title(title)
 
+    ax_remove_box(ax)
+    return ax
+
 
 def _get_wc_coefficients(modelspec, idx=0):
     i = 0
@@ -66,50 +75,102 @@ def _get_wc_coefficients(modelspec, idx=0):
                     i += 1
             else:
                 if i == idx:
-                    return m['phi']['coefficients']
+                    return m['phi']['coefficients'].copy()
                 else:
                     i += 1
     return None
 
 
-def _get_fir_coefficients(modelspec, idx=0):
+def _get_fir_coefficients(modelspec, idx=0, fs=None):
     i = 0
     for m in modelspec:
         if 'fir' in m['fn']:
-            if 'pole_zero' in m['fn']:
-                c = pz_coefficients(poles=m['phi']['poles'],
-                                    zeros=m['phi']['zeros'],
-                                    delays=m['phi']['delays'],
-                    gains=m['phi']['gains'],
-                    n_coefs=m['fn_kwargs']['n_coefs'], fs=100)
-                return c
+            if 'fn_coefficients' in m.keys():
+                fn = ms._lookup_fn_at(m['fn_coefficients'])
+                kwargs = {**m['fn_kwargs'], **m['phi']}  # Merges dicts
+                return fn(**kwargs)
+
+            #elif 'pole_zero' in m['fn']:
+            #    c = pz_coefficients(poles=m['phi']['poles'],
+            #                        zeros=m['phi']['zeros'],
+            #                        delays=m['phi']['delays'],
+            #                        gains=m['phi']['gains'],
+            #                        n_coefs=m['fn_kwargs']['n_coefs'], fs=100)
+            #    return c
             elif 'dexp' in m['fn']:
                 c = fir_dexp_coefficients(phi=m['phi']['phi'],
-                                    n_coefs=m['fn_kwargs']['n_coefs'])
+                                          n_coefs=m['fn_kwargs']['n_coefs'])
+                return c
+            elif 'exp' in m['fn']:
+                tau = m['phi']['tau']
+
+                if 'a' in m['phi']:
+                    a = m['phi']['a']
+                else:
+                    a = m['fn_kwargs']['a']
+
+                if 'b' in m['phi']:
+                    b = m['phi']['b']
+                else:
+                    b = m['fn_kwargs']['b']
+
+                c = fir_exp_coefficients(tau, a=a, b=b,
+                                         n_coefs=m['fn_kwargs']['n_coefs'])
                 return c
             elif i == idx:
-                return m['phi']['coefficients']
+                coefficients = m['phi']['coefficients']
+                if 'offsets' in m['phi']:
+                    if fs is None:
+                        log.warning("couldn't compute offset coefficients for "
+                                    "STRF heatmap, no fs provided.")
+                    else:
+                        coefficients = _offset_coefficients(coefficients,
+                                                            m['phi']['offsets'],
+                                                            fs=fs)
+                return coefficients
             else:
                 i += 1
     return None
 
 
-def weight_channels_heatmap(modelspec, ax=None, clim=None, title=None,
-                            chans=None, wc_idx=0):
-    coefficients = _get_wc_coefficients(modelspec, idx=wc_idx)
-    if coefficients.shape[0]>coefficients.shape[1]:
-        plot_heatmap(coefficients.T, xlabel='Channel Out', ylabel='Channel In',
-                     ax=ax, clim=clim, title=title)
+def weight_channels_heatmap(modelspec, idx=None, ax=None, clim=None, title=None,
+                            chans=None, wc_idx=0, **options):
+    """
+    :param modelspec: modelspec object
+    :param idx: index into modelspec
+    :param ax:
+    :param clim:
+    :param title:
+    :param chans:
+    :param wc_idx:
+    :param options:
+    :return:
+    """
+    if idx is not None:
+        # module has been specified
+        coefficients = _get_wc_coefficients(modelspec[idx:], idx=0)
     else:
-        plot_heatmap(coefficients, xlabel='Channel In', ylabel='Channel Out',
-                     ax=ax, clim=clim, title=title)
+        # weird old way: get the idx-th set of coefficients
+        coefficients = _get_wc_coefficients(modelspec, idx=wc_idx)
+
+    # normalize per channel:
+    #coefficients /= np.std(coefficients, axis=0, keepdims=True)
+
+    # make bigger dimension horizontal
+    if coefficients.shape[0]>coefficients.shape[1]:
+        ax = plot_heatmap(coefficients.T, xlabel='Channel Out', ylabel='Channel In',
+                     ax=ax, clim=clim, title=title, cmap='bwr')
+    else:
+        ax = plot_heatmap(coefficients, xlabel='Channel In', ylabel='Channel Out',
+                     ax=ax, clim=clim, title=title, cmap='bwr')
     if chans is not None:
         for i, c in enumerate(chans):
             plt.text(i, 0, c)
 
+    return ax
 
 def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None,
-                fir_idx=0):
+                fir_idx=0, **options):
     coefficients = _get_fir_coefficients(modelspec, idx=fir_idx)
     plot_heatmap(coefficients, xlabel='Time Bin', ylabel='Channel In',
                  ax=ax, clim=clim, title=title)
@@ -118,9 +179,15 @@ def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None,
             plt.text(-0.4, i, c, verticalalignment='center')
 
 
+def nonparametric_strf(modelspec, idx, ax=None, clim=None, title=None, **kwargs):
+    coefficients = modelspec[idx]['phi']['coefficients']
+    plot_heatmap(coefficients, xlabel='Time Bin', ylabel='Channel In',
+                 ax=ax, clim=clim, title=title)
+
+
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
                  title=None, fs=None, chans=None, wc_idx=0, fir_idx=0,
-                 interpolation='none', absolute_value=False):
+                 interpolation='none', absolute_value=False, **options):
     """
     chans: list
        if not None, label each row of the strf with the corresponding
@@ -129,8 +196,13 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
        if string, passed on as parameter to imshow
        if tuple, ndimage "zoom" by a factor of (x,y) on each dimension
     """
+    if fs is None:
+        try:
+            fs = modelspec.recording['stim'].fs
+        except:
+            pass
     wcc = _get_wc_coefficients(modelspec, idx=wc_idx)
-    firc = _get_fir_coefficients(modelspec, idx=fir_idx)
+    firc = _get_fir_coefficients(modelspec, idx=fir_idx, fs=fs)
     fir_mod = find_module('fir', modelspec, find_all_matches=True)[fir_idx]
 
     if wcc is None and firc is None:
@@ -223,15 +295,46 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
             plt.text(0, i + nchans + 1, c, verticalalignment='center')
 
 
-def strf_timeseries(modelspec, ax=None, clim=None, show_factorized=True,
+def strf_local_lin(rec, modelspec, cursor_time=20, channels=0,
+                   **options):
+    rec = rec.copy()
+
+    tbin = int(cursor_time * rec['resp'].fs)
+
+    chan_count = rec['stim'].shape[0]
+    firmod = find_module('fir', modelspec)
+    tbin_count = modelspec.phi[firmod]['coefficients'].shape[1]+2
+
+    resp_chan = channels
+    d = rec['stim']._data.copy()
+    strf = np.zeros((chan_count, tbin_count))
+    _p1 = rec['pred']._data[resp_chan, tbin]
+    eps = np.nanstd(d) / 100
+    eps = 0.01
+    #print('eps: {}'.format(eps))
+    for c in range(chan_count):
+        #eps = np.std(d[c, :])/100
+        for t in range(tbin_count):
+
+            _d = d.copy()
+            _d[c, tbin - t] *= 1+eps
+            rec['stim'] = rec['stim']._modified_copy(data=_d)
+            rec = modelspec.evaluate(rec)
+            _p2 = rec['pred']._data[resp_chan, tbin]
+            strf[c, t] = (_p2 - _p1) / eps
+    print('strf min: {} max: {}'.format(np.min(strf), np.max(strf)))
+    options['clim'] = np.array([-np.max(np.abs(strf)), np.max(np.abs(strf))])
+    plot_heatmap(strf, **options)
+
+
+def strf_timeseries(modelspec, ax=None, show_factorized=True,
                     show_fir_only=True,
-                    title=None, fs=1, chans=None):
+                    title=None, fs=1, chans=None, colors=None, **options):
     """
     chans: list
        if not None, label each row of the strf with the corresponding
        channel name
     """
-
     wcc = _get_wc_coefficients(modelspec)
     firc = _get_fir_coefficients(modelspec)
     if wcc is None and firc is None:
@@ -249,8 +352,48 @@ def strf_timeseries(modelspec, ax=None, clim=None, show_factorized=True,
         else:
             strf = fir_coefs
 
-    times = np.arange(strf.shape[1])/fs
-    plot_timeseries([times], [strf.T], xlabel='Time lag', ylabel='Gain',
+    times = [np.arange(strf.shape[1])/fs] * strf.shape[0]
+    filters = [strf[i] for i in range(strf.shape[0])]
+    if colors is None:
+        if strf.shape[0] == 1:
+            colors = [[0, 0, 0]]
+        elif strf.shape[0] == 2:
+            colors = [[254 / 255, 15 / 255, 6 / 255],
+                      [129 / 255, 201 / 255, 224 / 255]
+                      ]
+        elif strf.shape[0] == 3:
+            colors = [[254/255, 15/255, 6/255],
+                      [217/255, 217/255, 217/255],
+                      [129/255, 201/255, 224/255]
+                      ]
+        elif strf.shape[0] > 3:
+            colors = [[254/255, 15/255, 6/255],
+                      [217/255, 217/255, 217/255],
+                      [129/255, 201/255, 224/255],
+                      [128/255, 128/255, 128/255],
+                      [32/255, 32/255, 32/255]
+                      ]
+    #import pdb
+    #pdb.set_trace()
+    _,strf_h=plot_timeseries(times, filters, xlabel='Time lag', ylabel='Gain',
                     legend=chans, linestyle='-', linewidth=1,
-                    ax=ax, title=title)
-    plt.plot(times[[0, len(times)-1]], np.array([0, 0]), linewidth=0.5, color='gray')
+                    ax=ax, title=title, colors=colors)
+    plt.plot(times[0][[0, len(times[0])-1]], np.array([0, 0]), linewidth=0.5, color='gray')
+
+    if show_factorized and not show_fir_only:
+        wcN=wcc.shape[0]
+
+        ax.set_prop_cycle(None)
+        _,fir_h=plot_timeseries([times], [firc.T], xlabel='Time lag', ylabel='Gain',legend=chans, linestyle='--', linewidth=1,ax=ax, title=title)
+
+        ax.set_prop_cycle(None)
+        weight_x=np.arange(-1*wcN,0)
+        w_h=ax.plot(weight_x, wcc)
+        ax.plot(weight_x, np.array([0, 0]), linewidth=0.5, color='gray')
+        ax.set_xlim((-1*wcN,len(times)))
+        strf_l=['Weighted FIR {}'.format(n+1) for n in range(wcN)]
+        fir_l=['Raw FIR {}'.format(n+1) for n in range(wcN)]
+        plt.legend(strf_h+fir_h,strf_l+fir_l, loc=1,fontsize='x-small')
+        ax.set_xticks(np.hstack((np.arange(-1*wcN,0),np.arange(0,len(times)+1,2))))
+        ax.set_xticklabels(np.hstack((np.arange(1,wcN+1),np.arange(0,len(times)+1,2))))
+

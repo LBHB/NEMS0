@@ -1,11 +1,15 @@
 import time
-import numpy as np
 import hashlib
 import json
 import os
+from collections import Sequence
+import logging
+
+import numpy as np
 import matplotlib.pyplot as plt
 
-import logging
+from nems import get_setting
+
 log = logging.getLogger(__name__)
 
 
@@ -92,7 +96,7 @@ def progress_fun():
     pass
 
 
-def find_module(query, modelspec, find_all_matches=False, key='fn'):
+def find_module(query: object, modelspec: object, find_all_matches: object = False, key: object = 'fn') -> object:
     """
     name : string
     modelspec : NEMS modelspec (list of dictionaries)
@@ -156,6 +160,17 @@ def escaped_join(list, delimiter):
     final_join = temp_join.replace(x, match)
 
     return final_join
+
+
+def keyword_extract_options(kw):
+    if kw == 'basic' or kw == 'iter':
+        # empty options (i.e. just use defaults)
+        options = []
+    else:
+        chunks = escaped_split(kw, '.')
+        options = chunks[1:]
+    return options
+
 
 
 def get_channel_number(sig, channel=None):
@@ -248,3 +263,134 @@ def ax_remove_box(ax=None):
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
 
+
+def depth(s):
+    '''
+    Count depth of nesting of a sequence. E.g. [[[1]]] has a depth of 3.
+    '''
+    i = 0
+    x = s
+    while isinstance(x, Sequence):
+        i += 1
+        if x:
+            x = x[0]
+        else:
+            x = None
+    return i
+
+# pruffix commands (originally developed for nems_web, but useful for parsing xforms modelnames)
+def find_prefix(s_list):
+    """Given a list of strings, returns the common prefix to nearest _."""
+    prefix = ''
+    if (not s_list) or (len(s_list) == 1):
+        return prefix
+    i = 0
+    test = True
+    while test:
+        # log.debug('while loop, i=%s'%i)
+        # log.debug('before for loop, prefix = %s'%prefix)
+        for j in range(len(s_list) - 1):
+            # look at ith item of each string in list, in order
+            if i < len(s_list[j]):
+                a = s_list[j][i]
+            else:
+                a = ''
+            if i<len(s_list[j+1]):
+                b = s_list[j + 1][i]
+            else:
+                b = ''
+            # log.debug('for loop, a = %s and b = %s'%(a, b))
+            if a != b:
+                test = False
+                break
+            if j == len(s_list) - 2:
+                prefix += b
+        i += 1
+
+    while prefix and (prefix[-1] != '_'):
+        prefix = prefix[:-1]
+
+    return prefix
+
+
+def find_suffix(s_list):
+    """Given a list of strings, returns the common suffix to nearest _."""
+    suffix = ''
+    if (not s_list) or (len(s_list) == 1):
+        return suffix
+    i = 1
+    test = True
+    while test:
+        # log.debug('while loop, i=%s'%i)
+        # log.debug('before for loop, suffix = %s'%suffix)
+        for j in range(len(s_list) - 1):
+            # look at ith item of each string in reverse order
+            a = s_list[j][-1 * i]
+            b = s_list[j + 1][-1 * i]
+            # print('for loop, a = %s and b = %s'%(a, b))
+            if a != b:
+                test = False
+                break
+            if j == len(s_list) - 2:
+                suffix += b
+        i += 1
+    # reverse the order so that it comes out as read left to right
+    suffix = suffix[::-1]
+    while suffix and (suffix[0] != '_'):
+        suffix = suffix[1:]
+
+    return suffix
+
+
+def find_common(s_list, pre=True, suf=True):
+    """Given a list of strings, finds the common suffix and prefix, then
+    returns a 3-tuple containing:
+        index 0, a new list with prefixes and suffixes removed
+        index 1, the prefix that was found.
+        index 2, the suffix that was found.
+    Takes s_list as list of strings (required), and pre and suf as Booleans
+    (optional) to indicate whether prefix and suffix should be found. Both are
+    set to True by default.
+    """
+
+    prefix = ''
+    if pre:
+        log.debug("Finding prefixes...")
+        prefix = find_prefix(s_list)
+    suffix = ''
+    if suf:
+        log.debug("Finding suffixes...")
+        suffix = find_suffix(s_list)
+    # shortened = [s[len(prefix):-1*(len(suffix))] for s in s_list]
+    shortened = []
+    for s in s_list:
+        # log.debug("s=%s"%s)
+        if prefix:
+            s = s[len(prefix):]
+            # log.debug("s changed to: %s"%s)
+        if suffix:
+            s = s[:-1 * len(suffix)]
+            # log.debug("s changed to: %s"%s)
+        shortened.append(s)
+        log.debug("final s: %s" % s)
+
+    return (shortened, prefix, suffix)
+
+
+def get_default_savepath(modelspec):
+    if get_setting('USE_NEMS_BAPHY_API'):
+        results_dir = 'http://'+get_setting('NEMS_BAPHY_API_HOST')+":"+ \
+                      str(get_setting('NEMS_BAPHY_API_PORT')) + '/results'
+    else:
+        results_dir = get_setting('NEMS_RESULTS_DIR')
+    batch = modelspec.meta.get('batch', 0)
+    exptid = modelspec.meta.get('exptid', 'DATA')
+    siteid = modelspec.meta.get('siteid', exptid)
+    cellid = modelspec.meta.get('cellid', siteid)
+    if type(cellid) is list:
+        destination = os.path.join(results_dir, str(batch), siteid,
+                                   modelspec.get_longname())
+    else:
+        destination = os.path.join(results_dir, str(batch), cellid,
+                                   modelspec.get_longname())
+    return destination
