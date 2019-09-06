@@ -19,6 +19,7 @@ import nems.db as nd
 import nems.recording as recording
 from nems.fitters.api import scipy_minimize, coordinate_descent
 from nems.gui.editors import browse_xform_fit
+import nems_lbhb.xform_wrappers as nw
 
 from nems.recording import Recording
 from nems.fitters.api import scipy_minimize
@@ -35,7 +36,9 @@ signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
 # ----------------------------------------------------------------------------
 # DATA LOADING & PRE-PROCESSING
 
-#f=nw.generate_recording_uri(cellid='TAR010c-06-1', batch=307, loadkey='psth.fs20.pup')
+#recording.get_demo_recordings(signals_dir, "TAR010c_caebcef47a71d0e6d6379789f9b4f5a39c9376fb.tgz")
+
+#datafile=nw.generate_recording_uri(cellid='TAR010c-06-1', batch=307, loadkey='psth.fs20.pup')
 datafile = os.path.join(signals_dir, "TAR010c_caebcef47a71d0e6d6379789f9b4f5a39c9376fb.tgz")
 exptid = "TAR010c"
 batch = 307

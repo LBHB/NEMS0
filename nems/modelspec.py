@@ -456,14 +456,14 @@ class ModelSpec:
 
         return priors
 
-    def evaluate(self, rec=None, start=None, stop=None):
+    def evaluate(self, rec=None, **kwargs):
         """
-        Evaluate the Model on a recording.
+        Evaluate the Model on a recording. essentially a wrapper for modelspec.evaluate
         """
         if rec is None:
             rec = self.recording
 
-        rec = evaluate(rec, self.raw[self.cell_index, self.fit_index, self.jack_index], start=start, stop=stop)
+        rec = evaluate(rec, self, **kwargs)
 
         return rec
 
@@ -700,6 +700,7 @@ def _lookup_fn_at(fn_path, ignore_table=False):
         fn = lookup_table[fn_path]
     else:
         api, fn_name = nems.utils.split_to_api_and_fn(fn_path)
+        api = api.replace('nems_db.xform','nems_lbhb.xform')
         api_obj = importlib.import_module(api)
         if ignore_table:
             importlib.reload(api_obj)  # force overwrite old imports
@@ -738,22 +739,30 @@ def fit_mode_off(modelspec):
 
 
 def evaluate(rec, modelspec, start=None, stop=None):
-    '''
-    Given a recording object and a modelspec, return a prediction.
-    Does not alter its arguments in any way.
-    Only evaluates modules at indices start through stop-1.
-    Note that a value of None for start will include the beginning
-    of the list, and a value of None for stop will include the end
+    """
+    Given a recording object and a modelspec, return a prediction in a new recording.
+    Does not alter modelspec's arguments in any way.
+    Only evaluates modules at indices start through stop-1. A value of None for start will
+    include the beginning of the list, and a value of None for stop will include the end
     of the list (whereas a value of -1 for stop will not).
-    '''
+    Evaluates using cell/fit/jack currently selected for modelspec.
+    :param rec: recording object
+    :param modelspec: modelspec object
+    :param start: start evaluation at module start, assuming rec['pred'] is in the appropriate
+        state to feed into modelspec[start]
+    :param stop: stop at this module
+    :return: rec copy of input with 'pred' updated with prediction
+    """
     if modelspec.fast_eval:
+        # still kind of testing this out, though it seems to work
         start = modelspec.fast_eval_start
         d = modelspec.freeze_rec.copy()
         #import pdb
         #pdb.set_trace()
     else:
-        # d = copy.deepcopy(rec)  # Paranoid, but 100% safe
-        d = rec.copy()  # About 10x faster & fine if Signals are immutable
+        # don't need a deep copy, fact that signals are immutable means that there will be an error
+        # if evaluation tries to modify a signal in place
+        d = rec.copy()
 
     for m in modelspec[start:stop]:
         fn = _lookup_fn_at(m['fn'])
@@ -765,8 +774,8 @@ def evaluate(rec, modelspec, start=None, stop=None):
         #if type(new_signals) is not list:
         #    raise ValueError('Fn did not return list of signals: {}'.format(m))
 
-        # testing normalization
         """
+        # testing normalization
         if 'norm' in m.keys():
             s = new_signals[0]
             k = s.name

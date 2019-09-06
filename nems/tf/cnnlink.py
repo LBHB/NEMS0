@@ -332,9 +332,8 @@ def fit_tf(est=None, modelspec=None,
     r_fit = np.zeros((init_count, n_resp), dtype=np.float)
     log.info('fitting from {} initial conditions'.format(init_count))
 
-    for i in range(init_count-1):
-        # add a new set of fit parameters
-        modelspec.raw.append(copy.deepcopy(modelspec.raw[0]))
+    # add a new fit for each initial condition
+    modelspec = modelspec.tile_fits(init_count)
 
     for i in range(init_count):
 

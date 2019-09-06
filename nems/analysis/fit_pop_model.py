@@ -130,6 +130,7 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
             m_save = copy.deepcopy(tmodelspec[relumod])
             tmodelspec[relumod]['fn'] = 'nems.modules.levelshift.levelshift'
             tmodelspec[relumod]['phi'] = {'level': np.array([[0]])}
+
             tmodelspec = init.prefit_LN(rec, tmodelspec,
                                         tolerance=tolerance, max_iter=700)
             m_save['phi']['offset'] = -tmodelspec[relumod]['phi']['level']
@@ -158,9 +159,6 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
 
         #tmodelspec = init.prefit_LN(rec, tmodelspec,
         #                            tolerance=tolerance, max_iter=700)
-
-        #import pdb
-        #pdb.set_trace()
 
         # save subspace model back to main modelspec. If flipping PC dim fits,
         # save back to two channels in the main model, once flipped.
@@ -377,6 +375,9 @@ def _extract_pop_channel(modelspec, d, fit_set_all,
                 x2 = int(x/dim_count) * (d+1)
 
                 m['phi'][k] = v[x1:x2]
+                if 'bounds' in m.keys():
+                    m['bounds'][k] = (m['bounds'][k][0][x1:x2],
+                                      m['bounds'][k][1][x1:x2])
                 if 'bank_count' in m['fn_kwargs'].keys():
                     m['fn_kwargs']['bank_count'] = 1
 

@@ -947,6 +947,7 @@ class Recording:
         Concatenate more recordings on to the end of this Recording,
         and return the result. Recordings must have identical signal
         names, channels, and fs, or an exception will be thrown.
+        meta of the new recording will be inherited from recordings[0]
         '''
         signal_names = self.signals.keys()
         for recording in recordings:
@@ -959,10 +960,10 @@ class Recording:
             signals = [r.signals[signal_name] for r in recordings]
             merged_signals[signal_name] = Signal.concatenate_time(signals)
 
-        # TODO: copy the epochs as well
-        raise NotImplementedError    # TODO
+        # TODO: copy the epochs as well ? TAKEN CARE OF BY Signal concatenation?
+        #raise NotImplementedError    # TODO
 
-        return Recording(merged_signals)
+        return Recording(merged_signals, meta=recordings[0].meta)
 
         # TODO: copy the epochs as well
     def select_epoch():
