@@ -1,7 +1,8 @@
 NEMS
 ====
 
-.. image:: https://readthedocs.org/projects/nems/badge/?version=dev
+Full documentation here:
+  .. image:: https://readthedocs.org/projects/nems/badge/?version=dev
     :target: http://nems.readthedocs.io/en/dev/?badget=latest
     :alt: Documentation Status
 
@@ -10,13 +11,15 @@ mathematical model to time series data, plotting the model predictions,
 and comparing the predictive accuracy of multiple models. We use it to
 develop and test `computational models of how sound is encoded in the
 brains of behaving mammals <https://hearingbrain.org>`__, but it will
-probably work with your timeseries data as well.
+work with many different types of timeseries data.
+
+We also have a Gitter chat where you can get help from other users: https://gitter.im/lbhb/nems
 
 Installation
 ------------
 
 If you don’t already have Python installed, see the `installation
-instructions <docs/installation.md>`__ for recommended procedures.
+instructions <https://nems.readthedocs.io/en/dev/installation.html>`__ for recommended procedures.
 
 Quick Generic Python Install
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
