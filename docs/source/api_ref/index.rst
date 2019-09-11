@@ -8,3 +8,4 @@ API reference
     nems.db
     nems.signal
     nems.recording
+    nems.modules.api
