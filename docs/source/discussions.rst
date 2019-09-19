@@ -375,34 +375,16 @@ I'm going to remove these; the former doesn't appear to be causing
 errors anymore, and the latter I think should be handled with explicit
 keywords. (see modelspecs.md, I just wrote it today) (edited)
 
---------------
-
 TODO: @Ivar -- per architecture.svg looked like this was going to be
-====================================================================
-
 handled inside an analysis by a segmentor? Designed fit\_basic with
-===================================================================
-
 that in mind, so maybe this doesn't go here anymore, or I may have
-==================================================================
-
 had the wrong interpretation. --jacob
-=====================================
 
 TODO: @Ivar -- Raised question in fit\_basic of whether fitter should be
-========================================================================
-
 exposed as argument to the analysis. Looks like that may have been
-==================================================================
-
 your original intention here? But I think if the fitter is exposed,
-===================================================================
-
 then the FitSpaceMapper also needs to be exposed since the type of
-==================================================================
-
 mapping needed may change depending on which fitter is use.
-===========================================================
 
 These are both great questions that I am only just now getting to. I
 think yes, we handle the segmentation inside the analysis, and that as
@@ -411,19 +393,10 @@ only two /required/ arguments to an analysis. However, it also totally
 makes sense to have /optional/ arguments for the segmentor, mapper, cost
 function, and anything else we come up with.
 
---------------
-
 TODO: @Ivar -- per architecture.svg looked like this was going to be
-====================================================================
-
 handled inside an analysis by a segmentor? Designed fit\_basic with
-===================================================================
-
 that in mind, so maybe this doesn't go here anymore, or I may have
-==================================================================
-
 had the wrong interpretation. --jacob
-=====================================
 
 Yes, we will probably make two analyses at some point:
 
