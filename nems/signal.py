@@ -300,6 +300,12 @@ class SignalBase:
 
         return hdf5filepath
 
+    def copy(self):
+        '''
+        Returns a shallow copy of this signal. _data matrix is not copied.
+        '''
+        return copy.copy(self)
+
     def get_epoch_bounds(self, epoch, boundary_mode='exclude',
                          fix_overlap=None, overlapping_epoch=None, mask=None):
         '''
@@ -777,6 +783,24 @@ class SignalBase:
                       overlapping_epoch=None, mask=None):
         raise NotImplementedError
 
+    def remove_epochs(self, mask):
+        """
+        delete epochs falling in False region of mask signal.
+        don't do anything to the _data itself
+        :param mask:
+        :return:
+        """
+        sig = self.copy()
+        e = sig.epochs['start'].copy()
+        for i, r in sig.epochs.iterrows():
+            d = mask._data[0,int(r['start']*mask.fs):int(r['end']*mask.fs)]
+            if np.sum(d)<d.size:
+                e[i] = False
+            else:
+                e[i] = True
+        sig.epochs = self.epochs.loc[e]
+        return sig
+
     @staticmethod
     def load(basepath):
         pass
@@ -1051,12 +1075,6 @@ class RasterizedSignal(SignalBase):
         jsons = [just_fileroot(f) for f in files if f.endswith('.json')]
         overlap = set.intersection(set(csvs), set(jsons))
         return list(overlap)
-
-    def copy(self):
-        '''
-        Returns a copy of this signal.
-        '''
-        return copy.copy(self)
 
     def _modified_copy(self, data, **kwargs):
         '''
@@ -1703,13 +1721,20 @@ class RasterizedSignal(SignalBase):
         m[m > min_val] = np.nan
         return self._modified_copy(m)
 
-    def nan_mask(self, mask):
-        '''
-        NaN out all time points where matrix mask[0,:]==False
-        '''
+    def nan_mask(self, mask, remove_epochs=True):
+        """
+        NaN out all time points where signal mask is False
+        :param mask: boolean signal
+        :param remove_epochs: (True) if True, remove epochs overlapping the
+                              nan-ed periods
+        :return: copy of self with nan mask applied
+        """
         m = self.as_continuous().copy()
-        m[:, mask[0, :] == False] = np.nan
-        return self._modified_copy(m)
+        m[:, mask._data[0, :] == False] = np.nan
+        if remove_epochs:
+            return self._modified_copy(m).remove_epochs(mask)
+        else:
+            return self._modified_copy(m)
 
     def select_times(self, times, padding=0):
 
@@ -1739,7 +1764,7 @@ class RasterizedSignal(SignalBase):
 
     def rasterize(self, fs=None):
         """
-        basically a pass-through. we don't need to rasterize, since the
+        A pass-through. We don't need to rasterize, since the
         signal is already a raster!
         """
         return self

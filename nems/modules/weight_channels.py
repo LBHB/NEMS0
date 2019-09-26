@@ -78,6 +78,34 @@ def basic_with_offset(rec, i, o, coefficients, offset, normalize_coefs=False):
     return [rec[i].transform(fn, o)]
 
 
+def basic_with_rect(rec, i, o, coefficients, offset, normalize_coefs=False):
+    '''
+    Parameters
+    ----------
+    coefficients : 2d array (output channel x input channel weights)
+        Weighting of the input channels. A set of weights are provided for each
+        desired output channel. Each row in the array are the weights for the
+        input channels for that given output. The length of the row must be
+        equal to the number of channels in the input array
+        (e.g., `x.shape[-3] == coefficients.shape[-1]`).
+    '''
+
+    if normalize_coefs:
+        c = coefficients.copy()
+        sc = np.sum(np.abs(c), axis=1, keepdims=True)
+        sc[sc == 0] = 1
+        c /= sc
+    else:
+        c = coefficients
+
+    def fn(x):
+        y = c @ x + offset
+        y[y<0] = 0
+        return y
+
+    return [rec[i].transform(fn, o)]
+
+
 def gaussian(rec, i, o, n_chan_in, mean, sd, **kw_args):
     '''
     Parameters

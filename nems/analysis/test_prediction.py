@@ -90,23 +90,21 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
     # modelspecs lists
     if modelspecs is not None:
         raise Warning('Use of modelspecs list is deprecated')
-        modelspec = modelspecs[0]
-        list_modelspec = True
-    else:
-        list_modelspec = False
 
     # svd - fix to have default value for backward compatibility
     output_name = modelspec.meta.get('output_name', 'resp')
 
-    if type(val) is not list:
+    # TODO: support for multiple views -- if ever desired? usually validation set views
+    #       should have been recombined by now, right?
+    view_count = val.view_count
 
-        # TODO: support for views
-        view_count = val.view_count
-        # KLUDGE ALERT!
-        # only compute results for first jackknife -- for simplicity, not optimal!
-        est_mult = modelspec.jack_count
-        r_test = np.zeros(view_count)
-        se_test = np.zeros(view_count)
+    # KLUDGE ALERT!
+    # only compute results for first jackknife -- for simplicity, not optimal!
+    # only works if view_count==1 or resp_count(# resp channels)==1
+    est_mult = modelspec.jack_count
+    if view_count>1:
+        #raise ValueError('view_count>1 not supported at this stage.')
+        r_test = se_test = np.zeros(view_count)
         r_fit = np.zeros(view_count)
         se_fit = np.zeros(view_count)
         r_floor = np.zeros(view_count)
@@ -116,6 +114,7 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
         se_mse_fit = np.zeros(view_count)
         ll_test = np.zeros(view_count)
         ll_fit = np.zeros(view_count)
+        r_ceiling = np.zeros(view_count)
         for i in range(view_count):
             if ('mask' in val.signals.keys()) and use_mask:
                 v = val.set_view(i).apply_mask()
@@ -124,7 +123,6 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
                 v = val.set_view(i)
                 e = est.set_view(i*est_mult)
                 use_mask = False
-
             r_test[i], se_test[i] = nmet.j_corrcoef(v, 'pred', output_name)
             r_fit[i], se_fit[i] = nmet.j_corrcoef(e, 'pred', output_name)
             r_floor[i] = nmet.r_floor(v, 'pred', output_name)
@@ -135,33 +133,29 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
             ll_test[i] = nmet.likelihood_poisson(v, 'pred', output_name)
             ll_fit[i] = nmet.likelihood_poisson(e, 'pred', output_name)
 
-        if rec is not None:
-            if 'mask' in rec.signals.keys() and use_mask:
-                r = rec.apply_mask()
-            else:
-                r = rec
-            # print('running r_ceiling')
-            r_ceiling = nmet.r_ceiling(v, r, 'pred', output_name)
+            if rec is not None:
+                if 'mask' in rec.signals.keys() and use_mask:
+                    r = rec.apply_mask()
+                else:
+                    r = rec
+                # print('running r_ceiling')
+                r_ceiling[i] = nmet.r_ceiling(v, r, 'pred', output_name)
+    else:
 
-    elif len(val) == 1:
-        # does this ever run?
-        raise ValueError("val as list not supported any more?")
-        if ('mask' in val[0].signals.keys()) and use_mask:
-            v = val[0].apply_mask()
-            e = est[0].apply_mask()
+        # fix view_index = 0
+        i = 0
+
+        if ('mask' in val.signals.keys()) and use_mask:
+            v = val.set_view(i).apply_mask()
+            e = est.set_view(i*est_mult).apply_mask()
         else:
-            v = val[0]
-            e = est[0]
+            v = val.set_view(i)
+            e = est.set_view(i*est_mult)
+            use_mask = False
 
         r_test, se_test = nmet.j_corrcoef(v, 'pred', output_name)
         r_fit, se_fit = nmet.j_corrcoef(e, 'pred', output_name)
         r_floor = nmet.r_floor(v, 'pred', output_name)
-        if rec is not None:
-            try:
-                # print('running r_ceiling')
-                r_ceiling = nmet.r_ceiling(v, rec, 'pred', output_name)
-            except:
-                r_ceiling = 0
 
         mse_test, se_mse_test = nmet.j_nmse(v, 'pred', output_name)
         mse_fit, se_mse_fit = nmet.j_nmse(e, 'pred', output_name)
@@ -169,31 +163,13 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
         ll_test = nmet.likelihood_poisson(v, 'pred', output_name)
         ll_fit = nmet.likelihood_poisson(e, 'pred', output_name)
 
-    else:
-        # unclear if this ever excutes since jackknifed val sets are
-        # typically already merged
-        raise ValueError("no support for val list of recordings len>1")
-        r = [nmet.corrcoef(p, 'pred', output_name) for p in val]
-        r_test = np.mean(r)
-        se_test = np.std(r) / np.sqrt(len(val))
-        r = [nmet.corrcoef(p, 'pred', output_name) for p in est]
-        r_fit = np.mean(r)
-        se_fit = np.std(r) / np.sqrt(len(val))
-        r_floor = [nmet.r_floor(p, 'pred', output_name) for p in val]
-
-        # TODO compute r_ceiling for multiple val sets
-        r_ceiling = 0
-
-        mse_test = [nmet.nmse(p, 'pred', output_name) for p in val]
-        mse_fit = [nmet.nmse(p, 'pred', output_name) for p in est]
-
-        se_mse_test = np.std(mse_test) / np.sqrt(len(val))
-        se_mse_fit = np.std(mse_fit) / np.sqrt(len(est))
-        mse_test = np.mean(mse_test)
-        mse_fit = np.mean(mse_fit)
-
-        ll_test = np.mean([nmet.likelihood_poisson(p, 'pred', output_name) for p in val])
-        ll_fit = np.mean([nmet.likelihood_poisson(p, 'pred', output_name) for p in est])
+        if rec is not None:
+            if 'mask' in rec.signals.keys() and use_mask:
+                r = rec.apply_mask()
+            else:
+                r = rec
+            # print('running r_ceiling')
+            r_ceiling = nmet.r_ceiling(v, r, 'pred', output_name)
 
     modelspec.meta['r_test'] = r_test
     modelspec.meta['se_test'] = se_test
@@ -209,11 +185,7 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
     modelspec.meta['se_mse_fit'] = se_mse_fit
     modelspec.meta['ll_fit'] = ll_fit
 
-    if list_modelspec:
-        # backward compatibility
-        return [modelspec]
-    else:
-        return modelspec
+    return modelspec
 
 
 def correlation_per_model(est, val, modelspecs, rec=None):

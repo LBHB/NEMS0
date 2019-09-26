@@ -136,6 +136,7 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
             m_save['phi']['offset'] = -tmodelspec[relumod]['phi']['level']
             tmodelspec[relumod] = m_save
         else:
+            #import pdb; pdb.set_trace()
             tmodelspec = init.prefit_LN(rec, tmodelspec,
                                         tolerance=tolerance, max_iter=700)
 
@@ -782,9 +783,12 @@ def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
     if first_idx > 0:
         #print('firstidx {}'.format(first_idx))
         temp_rec = ms.evaluate(temp_rec, tmodelspec, stop=first_idx)
-        temp_rec['stim'] = temp_rec['pred'].copy()
-        tmodelspec = tmodelspec.copy(lb=first_idx)
-        tmodelspec[0]['fn_kwargs']['i'] = 'stim'
+        #temp_rec['stim'] = temp_rec['pred'].copy()
+        #tmodelspec = tmodelspec.copy(lb=first_idx)
+        #tmodelspec[0]['fn_kwargs']['i'] = 'stim'
+        tmodelspec = tmodelspec.copy()
+        tmodelspec.fast_eval_on(rec=temp_rec, subset=fit_idx)
+        first_idx=0
         #print(tmodelspec)
     #print(temp_rec.signals.keys())
 
@@ -799,7 +803,7 @@ def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
     error_before = metric(temp_rec)
     tmodelspec = analysis_function(temp_rec, tmodelspec, fitter=fitter,
                                    metric=metric, fit_kwargs=fit_kwargs)
-
+    tmodelspec.fast_eval_off()
     temp_rec = ms.evaluate(temp_rec, tmodelspec)
     error_after = metric(temp_rec)
     dError = error_before - error_after

@@ -18,6 +18,466 @@ log = logging.getLogger(__name__)
 
 modelspecs_dir = nems.get_setting('NEMS_RESULTS_DIR')
 
+
+def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_dims=0, fs=100,
+                 net_seed=1, weight_scale=0.1, use_modelspec_init=True):
+    """
+    Convert NEMS modelspec to TF layers.
+    Translations:
+        wc -> reweight
+        fir -> conv
+        firbank
+        dlog
+        relu
+        lvl
+        wg.g
+    :param modelspec:
+    :param feat_dims: [n_stim, n_tps_per_stim, n_feats] (tps = timepoints per stim, n_feats = input channels)
+    :param data_dims: [n_stim, n_tps_per_stim, n_resp] (n_resp = output channels)
+    :param fs: sampling rate (used?)
+    :param net_seed:
+    :param use_modelspec_init: if True, initialize with existing phi. Otherwise random init.
+    :return: layers: list of layers compatible with cnn.net
+    """
+    F = tf.placeholder('float32', shape=[None, tps_per_stim, feat_dims])
+    if state_dims>0:
+        S = tf.placeholder('float32', shape=[None, tps_per_stim, state_dims])
+    D = tf.placeholder('float32', shape=[None, tps_per_stim, data_dims])
+
+    layers = []
+    for i, m in enumerate(modelspec):
+        log.info('modelspec2tf: ' + m['fn'])
+
+        layer = {}
+        # input to each layer is output of previous layer
+        if i == 0:
+            layer['X'] = F
+            if state_dims > 0:
+                layer['S'] = S
+        else:
+            layer['X'] = layers[-1]['Y']
+
+        n_input_feats = np.int32(layer['X'].shape[2])
+
+        if m['fn'] == 'nems.modules.nonlinearity.relu':
+            layer['type'] = 'relu'
+            layer['time_win_sec'] = 1 / fs
+            c = -modelspec[i]['phi']['offset'].astype('float32').T
+            layer['n_kern'] = c.shape[1]
+            if use_modelspec_init:
+                layer['b'] = tf.Variable(np.reshape(c, (1, c.shape[0], c.shape[1])))
+            else:
+                layer['b'] = tf.abs(cnn.kern2D(1, c.shape[0], c.shape[1],
+                                               weight_scale, seed=net_seed,
+                                               distr='norm'))
+            layer['Y'] = cnn.act('relu')(layer['X'] + layer['b'])
+
+        elif 'levelshift' in m['fn']:
+            layer['type'] = 'offset'
+            layer['time_win_sec'] = 1 / fs
+            c = m['phi']['level'].astype('float32').T
+            layer['n_kern'] = c.shape[1]
+
+            if use_modelspec_init:
+                layer['b'] = tf.Variable(np.reshape(c, (1, c.shape[0], c.shape[1])))
+            else:
+                layer['b'] = tf.abs(cnn.kern2D(1, c.shape[0], c.shape[1],
+                                               weight_scale, seed=net_seed,
+                                               distr='norm'))
+            layer['Y'] = cnn.act('identity')(layer['X'] + layer['b'])
+
+        elif m['fn'] in ['nems.modules.nonlinearity.dlog']:
+            layer['type'] = 'dlog'
+            layer['time_win_sec'] = 1 / fs
+
+            c = m['phi']['offset'].astype('float32').T
+            layer['n_kern'] = c.shape[1]
+
+            if use_modelspec_init:
+                layer['b'] = tf.Variable(np.reshape(c, (1, c.shape[0], c.shape[1])))
+            else:
+                layer['b'] = tf.abs(cnn.kern2D(1, c.shape[0], c.shape[1],
+                                               weight_scale, seed=cnn.seed_to_randint(net_seed)+i,
+                                               distr='tnorm'))
+
+            # clip b at +/-2 to avoid huge compression/expansion
+            layer['eb'] = tf.pow(tf.constant(10, dtype=tf.float32),
+                                          tf.clip_by_value(layer['b'], -2, 2))
+            layer['Y'] = tf.log((layer['X'] + layer['eb']) / layer['eb'])
+
+        elif m['fn'] in ['nems.modules.fir.basic']:
+            layer['type'] = 'conv'
+            layer['time_win_sec'] = m['phi']['coefficients'].shape[1] / fs
+            layer['time_win_smp'] = m['phi']['coefficients'].shape[1]
+            pad_size = np.int32(np.floor(layer['time_win_smp']-1))
+            X_pad = tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]])
+
+            c = np.fliplr(m['phi']['coefficients']).astype('float32').T
+            c = np.reshape(c, (c.shape[0], c.shape[1], 1))
+            if np.sum(np.abs(c)) == 0:
+                c = np.ones(c.shape, dtype='float32')/10
+            layer['n_kern'] = 1
+            chan_count = c.shape[1]
+            if use_modelspec_init:
+                layer['W'] = tf.Variable(c)
+            else:
+                layer['W'] = cnn.kern2D(layer['time_win_smp'], chan_count, 1,
+                                        weight_scale, seed=net_seed, distr='norm')
+            log.info("W shape: %s", layer['W'].shape)
+            log.info("X_pad shape: %s", X_pad.shape)
+            layer['Y'] = tf.nn.conv1d(X_pad, layer['W'], stride=1, padding='VALID')
+            log.info("Y shape: %s", layer['Y'].shape)
+
+        elif m['fn'] in ['nems.modules.fir.filter_bank']:
+
+            layer['type'] = 'conv_bank_1d'
+            layer['time_win_sec'] = m['phi']['coefficients'].shape[1] / fs
+            layer['time_win_smp'] = m['phi']['coefficients'].shape[1]
+
+            layer['rank'] = None  # we're handling rank with explicit spectral filters
+            bank_count = m['fn_kwargs']['bank_count']
+            layer['n_kern'] = bank_count
+            layer['rate'] = m['fn_kwargs'].get('rate', 1)
+
+            c = np.fliplr(m['phi']['coefficients']).astype('float32').T
+            chan_count = int(c.shape[1]/bank_count)
+
+            # split inputs into the different kernels
+            #c = np.reshape(c, (1, c.shape[0], bank_count, chan_count))
+            c = np.reshape(c, (1, c.shape[0], bank_count*chan_count, 1))
+
+            if np.sum(np.abs(c)) == 0:
+                c[0, 0, :, :] = 1
+
+            # pad input to ensure causality, insert placeholder dim on axis=1
+            pad_size = np.int32((layer['time_win_smp']-1)*layer['rate'])
+            X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 1)
+
+            if use_modelspec_init:
+                layer['W'] = tf.Variable(c)
+            else:
+                layer['W'] = cnn.weights_norm(
+                    [1, self.layers[i]['time_win_smp'], layer['n_kern'], 1],
+                    sig=weight_scale, seed=cnn.seed_to_randint(net_seed)+i)
+
+            log.info("W shape: %s", layer['W'].shape)
+            log.info("X_pad shape: %s", X_pad.shape)
+
+            layer['tY'] = tf.squeeze(tf.nn.depthwise_conv2d(
+                X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID',
+                rate=[1, layer['rate']]), axis=1)
+            s = tf.shape(layer['tY'])
+            layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'],[s[0], layer['tY'].shape[1], tf.Dimension(bank_count), tf.Dimension(chan_count)]), axis=3)
+
+            log.info("Y shape: %s", layer['Y'].shape)
+
+        elif m['fn'] in ['nems.modules.weight_channels.basic']:
+            layer['type'] = 'reweight'
+            layer['time_win_sec'] = 1 / fs
+            c = m['phi']['coefficients'].astype('float32').T
+            layer['n_kern'] = c.shape[1]
+
+            if use_modelspec_init & (np.sum(np.abs(c))>0):
+                layer['W'] = tf.Variable(np.reshape(c,(1,c.shape[0],c.shape[1])))
+            else:
+                layer['W'] = cnn.kern2D(1, c.shape[0], c.shape[1],
+                                        weight_scale, seed=net_seed, distr='norm')
+            layer['Y'] = tf.nn.conv1d(layer['X'], layer['W'], stride=1, padding='SAME')
+
+        elif m['fn'] in ['nems.modules.weight_channels.gaussian']:
+            layer['time_win_sec'] = 1 / fs
+            layer['n_kern'] = m['phi']['mean'].shape[0]
+
+            mn = m['phi']['mean'].astype('float32')
+            sd = m['phi']['sd'].astype('float32')
+
+            if use_modelspec_init:
+                layer['m'] = tf.Variable(np.reshape(mn, (1, 1, mn.shape[0])))
+                layer['s'] = tf.Variable(np.reshape(sd, (1, 1, sd.shape[0])) * 10)
+            else:
+                layer['m'] = tf.Variable(tf.random_uniform(
+                    [1, 1, layer['n_kern']], minval=0, maxval=1,
+                    seed=cnn.seed_to_randint(net_seed + i)))
+                #    cnn.kern2D(1, 1, layer['n_kern'],
+                #                        weight_scale, net_seed + i, distr='uniform')
+                layer['s'] = tf.Variable(tf.random_uniform(
+                    [1, 1, layer['n_kern']], minval=0.1, maxval=0.6,
+                    seed=cnn.seed_to_randint(net_seed + 20 + i)))
+
+            layer['Wraw'] = tf.exp(-0.5 * tf.square((tf.reshape(tf.range(0, 1, 1/n_input_feats, dtype=tf.float32), [1, n_input_feats, 1])-layer['m'])/
+                                            (layer['s'] / 10)))
+            layer['W'] = layer['Wraw'] / tf.reduce_sum(layer['Wraw'], axis=1)
+            layer['Y'] = tf.nn.conv1d(layer['X'], layer['W'], stride=1, padding='SAME')
+        elif m['fn']=='nems.modules.state.state_dc_gain':
+            layer['time_win_sec'] = 1 / fs
+
+            #fn = lambda x: np.matmul(g, rec[s]._data) * x + np.matmul(d, rec[s]._data)
+            g = m['phi']['g'].astype('float32').T
+            d = m['phi']['d'].astype('float32').T
+            layer['n_kern'] = g.shape[1]
+            g = np.reshape(g, (1, g.shape[0], g.shape[1]))
+            d = np.reshape(d, (1, d.shape[0], d.shape[1]))
+
+            if use_modelspec_init:
+                layer['g'] = tf.Variable(g)
+                layer['d'] = tf.Variable(d)
+            else:
+                layer['g'] = tf.Variable(tf.random_normal(
+                    g.shape, stddev=weight_scale, seed=cnn.seed_to_randint(net_seed + i)))
+                layer['d'] = tf.Variable(tf.random_normal(
+                    d.shape, stddev=weight_scale, seed=cnn.seed_to_randint(net_seed + i)))
+
+            layer['Sg'] = tf.reduce_sum(
+                tf.nn.conv1d(layers[0]['S'], layer['g'], stride=1, padding='SAME'), axis=2, keepdims=True)
+            layer['Sd'] = tf.reduce_sum(
+                tf.nn.conv1d(layers[0]['S'], layer['d'], stride=1, padding='SAME'), axis=2, keepdims=True)
+            layer['Y'] = layer['X'] * layer['Sg'] + layer['Sd']
+        else:
+            raise ValueError('Module %s not supported', m['fn'])
+
+        layers.append(layer)
+    return layers
+
+
+def tf2modelspec(net, modelspec):
+    """
+    pass TF cnn fit back into modelspec phi.
+    TODO: Generate new modelspec if not provided
+    TODO: Make sure that the dimension mappings work reliably for filter banks and such
+    """
+
+    net_layer_vals = net.layer_vals()
+    current_layer = 0
+    for i, m in enumerate(modelspec):
+        log.info('tf2modelspec: ' + m['fn'])
+
+        if m['fn'] == 'nems.modules.nonlinearity.relu':
+            m['phi']['offset'] = -net_layer_vals[i]['b'][0,:,:].T
+
+        elif 'levelshift' in m['fn']:
+            m['phi']['level'] = net_layer_vals[i]['b'][0,:,:].T
+
+        elif m['fn'] in ['nems.modules.fir.basic']:
+            m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:,:,0].T)
+
+        elif m['fn'] in ['nems.modules.fir.filter_bank']:
+            if net_layer_vals[current_layer]['W'].shape[1]>1:
+                # new depthwise_conv2d
+                m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][0,:,:,0].T)
+            else:
+                # inefficient conv2d
+                m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:,0,0,:].T)
+
+        elif m['fn'] in ['nems.modules.weight_channels.basic']:
+            m['phi']['coefficients'] = net_layer_vals[i]['W'][0,:,:].T
+
+        elif m['fn'] in ['nems.modules.nonlinearity.dlog']:
+            modelspec[i]['phi']['offset'] = net_layer_vals[i]['b'][0, :, :].T
+
+        elif m['fn'] in ['nems.modules.weight_channels.gaussian']:
+            modelspec[i]['phi']['mean'] = net_layer_vals[i]['m'][0, 0, :].T
+            modelspec[i]['phi']['sd'] = net_layer_vals[i]['s'][0, 0, :].T / 10
+        elif m['fn'] in ['nems.modules.state.state_dc_gain']:
+            modelspec[i]['phi']['g'] = net_layer_vals[i]['g'][0, :, :].T
+            modelspec[i]['phi']['d'] = net_layer_vals[i]['d'][0, :, :].T
+        else:
+            raise ValueError("fn %s not supported", m['fn'])
+
+    return modelspec
+
+
+def _fit_net(F, D, modelspec, seed, fs, train_val_test, optimizer='Adam',
+             max_iter=1000, learning_rate=0.01, use_modelspec_init=False, S=None):
+
+    n_feats = F.shape[2]
+    data_dims = D.shape
+    sr_Hz = fs
+
+    tf.reset_default_graph()
+    if 1:
+        if S is not None:
+            state_dims = S.shape[2]
+        else:
+            state_dims = 0
+
+        layers = modelspec2tf(modelspec, tps_per_stim=D.shape[1], feat_dims=n_feats,
+                              data_dims=D.shape[2], state_dims=state_dims, fs=fs,
+                              use_modelspec_init=use_modelspec_init)
+        net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=modelspec.meta['modelpath'])
+    else:
+        layers = modelspec2cnn(modelspec, n_inputs=n_feats, fs=fs, use_modelspec_init=use_modelspec_init)
+        # layers = [{'act': 'identity', 'n_kern': 1,
+        #  'time_win_sec': 0.01, 'type': 'reweight-positive'},
+        # {'act': 'relu', 'n_kern': 1, 'rank': None,
+        #  'time_win_sec': 0.15, 'type': 'conv'}]
+
+        net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=modelspec.meta['modelpath'])
+        net2.parse_layers()
+
+    net2.initialize()
+    net2.optimizer = optimizer
+    # net2_layer_init = net2.layer_vals()
+    # log.info(net2_layer_init)
+
+    log.info('Train set: %d  Test set (early stopping): %d',
+             np.sum(train_val_test == 0),np.sum(train_val_test == 1))
+    net2.train(F, D, max_iter=max_iter, train_val_test=train_val_test,
+               learning_rate=learning_rate, S=S)
+
+    if 1:
+        modelspec = tf2modelspec(net2, modelspec)
+    else:
+        modelspec = cnn2modelspec(net2, modelspec)
+
+    return modelspec, net2
+
+
+def fit_tf(modelspec=None, est=None,
+           use_modelspec_init=True, init_count=1,
+           optimizer='Adam', max_iter=1000, cost_function='mse', **context):
+    """
+    :param est: A recording object
+    :param modelspec: A modelspec object
+    :param use_modelspec_init: [True] use input modelspec phi for initialization. Otherwise use random inits
+    :param init_count: number of random initializations (if use_modelspec_init==False)
+    :param optimizer:
+    :param max_iter: max number of training iterations
+    :param cost_function: not implemented
+    :param metaname:
+    :param context:
+    :return: dictionary with modelspec, compatible with xforms
+    """
+
+    start_time = time.time()
+
+    if 'mask' in est.signals.keys():
+        est = est.apply_mask()
+
+    #modelspec = modelspec.copy()
+
+    sr_Hz = est['resp'].fs
+    time_win_sec = 0.1
+
+    n_feats = est['stim'].shape[0]
+    e = est['stim'].get_epoch_indices('REFERENCE')
+
+    # length of each segment is length of a reference
+    n_tps_per_stim = e[0][1]-e[0][0]
+    # before: hard coded as n_tps_per_stim = 550
+
+    n_stim = int(est['stim'].shape[1] / n_tps_per_stim)
+    n_resp = est['resp'].shape[0]
+
+    feat_dims = [n_stim, n_tps_per_stim, n_feats]
+    data_dims = [n_stim, n_tps_per_stim, n_resp]
+    net1_seed = 50
+    log.info('feat_dims: %s', feat_dims)
+    log.info('data_dims: %s', data_dims)
+
+    # extract stimulus matrix
+    try:
+        F = np.reshape(est['stim'].as_continuous().copy().T, feat_dims)
+        D = np.reshape(est['resp'].as_continuous().copy().T, data_dims)
+        if 'state' in est.signals.keys():
+            n_states = est['state'].shape[0]
+            state_dims = [n_stim, n_tps_per_stim, n_states]
+            S = np.reshape(est['state'].as_continuous().copy().T, state_dims)
+        else:
+            S = None
+    except:
+        import pdb
+        pdb.set_trace()
+
+    # MOVED FUNCTIONALITY OUT TO xforms
+    #new_est = est.tile_views(init_count)
+    #r_fit = np.zeros((init_count, n_resp), dtype=np.float)
+    #log.info('fitting from {} initial conditions'.format(init_count))
+
+    # add a new fit for each initial condition
+    #modelspec = modelspec.tile_fits(init_count)
+
+    #for i in range(init_count):
+
+     #   new_est = new_est.set_view(i)
+     #   modelspec.set_fit(i)
+    new_est = est.copy()
+
+    train_val_test = np.zeros(data_dims[0])
+    val_n = int(0.9 * data_dims[0])
+    train_val_test[val_n:] = 1
+    train_val_test = np.roll(train_val_test, int(data_dims[0]/init_count*modelspec.fit_index))
+    seed = net1_seed + modelspec.fit_index
+
+    modelspec, net = _fit_net(F, D, modelspec, seed, est['resp'].fs,
+                         train_val_test=train_val_test,
+                         optimizer=optimizer, max_iter=np.min([500, max_iter]),
+                         use_modelspec_init=use_modelspec_init, S=S)
+
+    try:
+        new_est = modelspec.evaluate(new_est)
+    except:
+        import pdb
+        pdb.set_trace()
+
+    #    r_fit[i], se_fit = nmet.j_corrcoef(new_est, 'pred', 'resp')
+    #    log.info('r_fit this iteration (%d/%d): %s', i+1, init_count, r_fit[i])
+    #    nems.utils.progress_fun()
+    #    #log.info(modelspec.phi)
+
+    import matplotlib.pyplot as plt
+    y = net.predict(F, S=S)
+    plt.figure()
+    ax1=plt.subplot(1,1,1)
+    ax1.plot(y[0,:,0])
+    ax1.plot(new_est['pred'].as_continuous()[0,:n_tps_per_stim].T,'--')
+    ax1.plot(new_est['pred'].as_continuous()[0,:n_tps_per_stim].T-y[0,:,0])
+    plt.show()
+    import pdb
+    pdb.set_trace()
+
+    # figure out which modelspec does best on fit data
+    #mean_r_fit = np.mean(r_fit, axis=1)
+    #log.info('mean r_fit per init: %s', mean_r_fit)
+    #ibest = np.argmax(mean_r_fit)
+    #log.info("Best fit_index is {} mean r_fit={:.3f}".format(ibest, mean_r_fit[ibest]))
+    #modelspec = modelspec.copy(fit_index=ibest)
+
+    if 0:
+        # now continue fitting the best model!
+        log.info('Now running final fit on best pre-fit. Pre phi:')
+        log.info(modelspec.phi)
+        train_val_test = np.zeros(data_dims[0])
+        val_n = int(0.9 * data_dims[0])
+        train_val_test[val_n:] = 1
+        train_val_test = np.roll(train_val_test, int(data_dims[0]/init_count*ibest))
+        seed = net1_seed + ibest
+        modelspec, net = _fit_net(F, D, modelspec, seed, est['resp'].fs,
+                             train_val_test=train_val_test,
+                             optimizer=optimizer, max_iter=max_iter,
+                             use_modelspec_init=True, S=S)
+        new_est = modelspec.evaluate(new_est)
+        r_fit_final, se_fit = nmet.j_corrcoef(new_est, 'pred', 'resp')
+        log.info('Final phi:')
+        log.info(modelspec.phi)
+        log.info('r_fit_final: %s', r_fit_final)
+
+    nems.utils.progress_fun()
+
+    elapsed_time = (time.time() - start_time)
+    modelspec.meta['fitter'] = 'fit_tf'
+    modelspec.meta['fit_time'] = elapsed_time
+    modelspec.meta['n_parms'] = len(modelspec.phi_vector)
+
+    #import pdb
+    #pdb.set_trace()
+
+    return {'modelspec': modelspec}
+
+##################
+# JUNK
+#################
+
+
 def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
                   net_seed=1, use_modelspec_init=True):
     """convert NEMS modelspec to TF network.
@@ -29,6 +489,7 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
         fir+relu -> conv2d, relu
 
     """
+    raise Warning("DEPRECATED?")
     layers = []
     for i, m in enumerate(modelspec):
         log.info('modelspec2cnn: ' + m['fn'])
@@ -102,7 +563,7 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
                 chan_count = int(c.shape[1]/bank_count)
                 c = np.reshape(c, (c.shape[0], chan_count, bank_count))
 
-            if use_modelspec_init & (np.sum(np.abs(c))>0):
+            if use_modelspec_init & (np.sum(np.abs(c)) > 0):
                 layer['init_W'] = c
             elif use_modelspec_init:
                 c[0, 0, :, :]=1
@@ -172,14 +633,13 @@ def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
     #print(layers)
     return layers
 
-
 def cnn2modelspec(net, modelspec):
     """
     pass TF cnn fit back into modelspec phi.
     TODO: Generate new modelspec if not provided
     TODO: Make sure that the dimension mappings work reliably for filter banks and such
     """
-
+    raise Warning("DEPRECATED?")
     net_layer_vals = net.layer_vals()
     current_layer = 0
     for i, m in enumerate(modelspec):
@@ -242,167 +702,3 @@ def cnn2modelspec(net, modelspec):
             raise ValueError("fn %s not supported", m['fn'])
 
     return modelspec
-
-
-def _fit_net(F, D, modelspec, seed, fs, train_val_test, optimizer='Adam',
-             max_iter=1000, learning_rate=0.01, use_modelspec_init=False):
-
-    n_feats = F.shape[2]
-    data_dims = D.shape
-    sr_Hz = fs
-
-    layers = modelspec2cnn(modelspec, n_inputs=n_feats, fs=fs, use_modelspec_init=use_modelspec_init)
-    # layers = [{'act': 'identity', 'n_kern': 1,
-    #  'time_win_sec': 0.01, 'type': 'reweight-positive'},
-    # {'act': 'relu', 'n_kern': 1, 'rank': None,
-    #  'time_win_sec': 0.15, 'type': 'conv'}]
-    tf.reset_default_graph()
-
-    net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=modelspec.meta['modelpath'])
-    net2.optimizer = optimizer
-
-    net2.build()
-    # net2_layer_init = net2.layer_vals()
-    # log.info(net2_layer_init)
-
-    log.info('Train set: %d  Test set (early stopping): %d',
-             np.sum(train_val_test == 0),np.sum(train_val_test == 1))
-    net2.train(F, D, max_iter=max_iter, train_val_test=train_val_test,
-               learning_rate=learning_rate)
-
-    modelspec = cnn2modelspec(net2, modelspec)
-
-    return modelspec, net2
-
-
-def fit_tf(est=None, modelspec=None,
-           use_modelspec_init=True, init_count=1,
-           optimizer='Adam', max_iter=1000, cost_function='mse', IsReload=False,
-           **context):
-    """
-    :param est: A recording object
-    :param modelspec: A modelspec object
-    :param use_modelspec_init: [True] use input modelspec phi for initialization. Otherwise use random inits
-    :param init_count: number of random initializations (if use_modelspec_init==False)
-    :param optimizer:
-    :param max_iter: max number of training iterations
-    :param cost_function: not implemented
-    :param metaname:
-    :param context:
-    :return: dictionary with modelspec, compatible with xforms
-    """
-    if IsReload:
-        return {}
-
-    start_time = time.time()
-
-    if (modelspec is None) or (est is None):
-        raise ValueError("Parameters modelspec and est required")
-    if 'mask' in est.signals.keys():
-        est = est.apply_mask()
-
-    modelspec = modelspec.copy()
-
-    sr_Hz = est['resp'].fs
-    time_win_sec = 0.1
-
-    n_feats = est['stim'].shape[0]
-    e = est['stim'].get_epoch_indices('REFERENCE')
-    n_tps_per_stim = e[0][1]-e[0][0]
-    # before: hard coded as n_tps_per_stim = 550
-
-    n_stim = int(est['stim'].shape[1] / n_tps_per_stim)
-    n_resp = est['resp'].shape[0]
-
-    feat_dims = [n_stim, n_tps_per_stim, n_feats]
-    data_dims = [n_stim, n_tps_per_stim, n_resp]
-    net1_seed = 50
-    log.info('feat_dims: %s', feat_dims)
-    log.info('data_dims: %s', data_dims)
-
-    # extract stimulus matrix
-    try:
-        F = np.reshape(est['stim'].as_continuous().copy().T, feat_dims)
-        D = np.reshape(est['resp'].as_continuous().copy().T, data_dims)
-    except:
-        import pdb
-        pdb.set_trace()
-
-    new_est = est.tile_views(init_count)
-    r_fit = np.zeros((init_count, n_resp), dtype=np.float)
-    log.info('fitting from {} initial conditions'.format(init_count))
-
-    # add a new fit for each initial condition
-    modelspec = modelspec.tile_fits(init_count)
-
-    for i in range(init_count):
-
-        new_est = new_est.set_view(i)
-        modelspec.set_fit(i)
-
-        train_val_test = np.zeros(data_dims[0])
-        val_n = int(0.9 * data_dims[0])
-        train_val_test[val_n:] = 1
-        train_val_test = np.roll(train_val_test, int(data_dims[0]/init_count*i))
-        seed = net1_seed + i
-
-        modelspec, net = _fit_net(F, D, modelspec, seed, est['resp'].fs,
-                             train_val_test=train_val_test,
-                             optimizer=optimizer, max_iter=np.min([500, max_iter]),
-                             use_modelspec_init=use_modelspec_init)
-
-        try:
-            new_est = modelspec.evaluate(new_est)
-        except:
-            import pdb
-            pdb.set_trace()
-
-        r_fit[i], se_fit = nmet.j_corrcoef(new_est, 'pred', 'resp')
-        log.info('r_fit this iteration (%d/%d): %s', i+1, init_count, r_fit[i])
-        nems.utils.progress_fun()
-        #log.info(modelspec.phi)
-        
-        #import matplotlib.pyplot as plt
-        #y = net2.predict(F)
-        #plt.figure()
-        #ax1=plt.subplot(1,1,1)
-        #ax1.plot(y[0,:,0])
-        #ax1.plot(new_est['pred'].as_continuous()[0,:550].T)
-        #plt.show()
-
-    # figure out which modelspec does best on fit data
-    mean_r_fit = np.mean(r_fit, axis=1)
-    log.info('mean r_fit per init: %s', mean_r_fit)
-    ibest = np.argmax(mean_r_fit)
-    log.info("Best fit_index is {} mean r_fit={:.3f}".format(ibest, mean_r_fit[ibest]))
-    modelspec = modelspec.copy(fit_index=ibest)
-
-    # now continue fitting the best model!
-    log.info('Now running final fit on best pre-fit. Pre phi:')
-    log.info(modelspec.phi)
-    train_val_test = np.zeros(data_dims[0])
-    val_n = int(0.9 * data_dims[0])
-    train_val_test[val_n:] = 1
-    train_val_test = np.roll(train_val_test, int(data_dims[0]/init_count*ibest))
-    seed = net1_seed + ibest
-    modelspec, net = _fit_net(F, D, modelspec, seed, est['resp'].fs,
-                         train_val_test=train_val_test,
-                         optimizer=optimizer, max_iter=max_iter,
-                         use_modelspec_init=True)
-    new_est = modelspec.evaluate(new_est)
-    r_fit_final, se_fit = nmet.j_corrcoef(new_est, 'pred', 'resp')
-    log.info('Final phi:')
-    log.info(modelspec.phi)
-    log.info('r_fit_final: %s', r_fit_final)
-
-    nems.utils.progress_fun()
-
-    elapsed_time = (time.time() - start_time)
-    modelspec.meta['fitter'] = 'fit_tf'
-    modelspec.meta['fit_time'] = elapsed_time
-    modelspec.meta['n_parms'] = len(modelspec.phi_vector)
-
-    #import pdb
-    #pdb.set_trace()
-
-    return {'modelspec': modelspec, 'new_est': new_est}

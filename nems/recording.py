@@ -143,6 +143,8 @@ class Recording:
         #rec.signal_views = [rec.signals] * view_count
         rec.signal_views = rec.signal_views * view_count
         rec.view_idx = 0
+        rec.signals = rec.signal_views[rec.view_idx]
+
         return rec
 
     @staticmethod
@@ -764,7 +766,8 @@ class Recording:
             signal_views += [trec.signals]
         rec = self.copy()
         rec.signal_views = signal_views
-        rec.signals = signal_views
+        rec.view_idx = 0
+        rec.signals = signal_views[rec.view_idx]
 
         return rec
 
@@ -841,7 +844,8 @@ class Recording:
             signal_views += [trec.signals]
         rec = self.copy()
         rec.signal_views = signal_views
-        rec.signals = signal_views
+        rec.view_idx = 0
+        rec.signals = signal_views[rec.view_idx]
 
         return rec
 
@@ -1085,7 +1089,7 @@ class Recording:
     def apply_mask(self, reset_epochs=False):
         '''
         Used to excise data based on boolean called mask. Returns new recording
-        with only data specified mask. To make mask, see "create_epoch_mask"
+        with only data specified mask. To make mask, see "create_mask"
         '''
         if 'mask' not in self.signals.keys():
             warnings.warn("No mask specified, apply_mask() simply copying recording.")
@@ -1112,6 +1116,55 @@ class Recording:
         newrec = rec.select_times(times, reset_epochs=reset_epochs)
 
         return newrec
+
+    def nan_mask(self, remove_epochs=True):
+        """
+        Nan-out data based on boolean signal called mask. Returns new recording
+        with only data specified mask. To make mask, see "create_mask"
+        :param remove_epochs: (True) if true, delete epochs that are all nan
+        :return: rec : copy of self with masked periods set to nan
+        """
+        if 'mask' not in self.signals.keys():
+            warnings.warn("No mask specified, nan_mask() simply copying recording.")
+            return self.copy()
+
+        rec = self.copy()
+        m = rec['mask'].copy()
+
+        if np.sum(m._data == False) == 0:
+            # mask is all true, passthrough
+            return rec
+
+        for k, sig in rec.signals.items():
+            if k != 'mask':
+                rec[k] = sig.rasterize().nan_mask(m, remove_epochs=remove_epochs)
+            else:
+                rec[k] = sig.remove_epochs(m)
+
+        return rec
+
+    def remove_masked_epochs(self):
+        """
+        Nan-out data based on boolean signal called mask. Returns new recording
+        with only data specified mask. To make mask, see "create_mask"
+        :param remove_epochs: (True) if true, delete epochs that are all nan
+        :return: rec : copy of self with masked periods set to nan
+        """
+        if 'mask' not in self.signals.keys():
+            warnings.warn("No mask specified, nan_mask() simply copying recording.")
+            return self.copy()
+
+        rec = self.copy()
+        m = rec['mask'].copy()
+
+        if np.sum(m._data == False) == 0:
+            # mask is all true, passthrough
+            return rec
+
+        for k, sig in rec.signals.items():
+            rec[k] = sig.remove_epochs(m)
+
+        return rec
 
 ## I/O functions
 def load_recording_from_targz(targz):

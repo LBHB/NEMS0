@@ -255,12 +255,12 @@ class ModelSpec:
         return self.raw.shape[2]
 
     def set_cell(self, cell_index=None):
-        """return self with cell_index set to specified value"""
+        """return self with cell_index set to specified value. operation in place."""
         if cell_index is not None:
             self.cell_index = cell_index
 
     def set_fit(self, fit_index):
-        """return self with fit_index set to specified value"""
+        """return self with fit_index set to specified value. operation in place. """
         if fit_index is None:
             pass
         elif fit_index > (self.fit_count - 1):
@@ -273,7 +273,7 @@ class ModelSpec:
         return self
 
     def set_jack(self, jack_index=None):
-        """return self with jack_index (current jackknife #) set to specified value"""
+        """return self with jack_index (current jackknife #) set to specified value. operation in place."""
         if jack_index is not None:
             self.jack_index = jack_index
 

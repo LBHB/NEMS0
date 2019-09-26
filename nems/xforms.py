@@ -27,6 +27,7 @@ from nems.utils import (iso8601_datestring, find_module,
                         recording_filename_hash, get_default_savepath)
 from nems.fitters.api import scipy_minimize
 from nems.recording import load_recording, Recording
+from nems.tf import cnnlink
 
 log = logging.getLogger(__name__)
 xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
@@ -283,7 +284,7 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
         else:
             log.info('No cellid match, keeping all resp channels')
 
-    if cellid is None:
+    if (cellid is None) or (save_other_cells_to_state is not None and (save_other_cells_to_state == 'keep')):
         pass
 
     elif type(cellid) is list:
@@ -644,7 +645,7 @@ def jack_subset(est, val, modelspec=None, IsReload=False,
         val = val.views(keep_only)[0]
 
     if modelspec is not None:
-        modelspec_out = modelspec.copy(fit_index=keep_only)
+        modelspec_out = modelspec.copy(jack_index=keep_only)
         modelspec_out.fit_index = 0
 
     if IsReload:
@@ -717,7 +718,11 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
 def _set_zero(x):
     """ fill x with zeros, except preserve nans """
     y = x.copy()
-    y[np.isfinite(y)] = 0
+    if y.shape[0]>1:
+        y[0,np.isfinite(y[0,:])] = 1
+        y[1:,np.isfinite(y[0,:])] = 0
+    else:
+        y[np.isfinite(y)] = 0
     return y
 
 
@@ -753,7 +758,6 @@ def fit_state_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
                 if fit_sig != 'resp':
                     log.info("Subbing %s for resp signal", fit_sig)
                     dc['resp'] = dc[fit_sig]
-
                 modelspec = nems.initializers.prefit_LN(
                         dc, modelspec,
                         analysis_function=nems.analysis.api.fit_basic,
@@ -885,6 +889,38 @@ def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
                         metric=metric_fn)
 
     return {'modelspec': modelspec}
+
+
+def fit_tf(modelspec, est, IsReload=False, **context):
+    """
+    wrapper to call TensorFlow fit alogrithm
+    :param modelspec:
+    :param est:
+    :param IsReload:
+    :param context:
+    :return: results = xforms context dictionary update
+    """
+
+    if IsReload:
+        return {}
+
+    if (modelspec is None) or (est is None):
+        raise ValueError("Parameters modelspec and est required")
+
+    if modelspec.jack_count < est.view_count:
+        raise Warning('modelspec.jack_count does not match est.view_count')
+        modelspec.tile_jacks(nfolds)
+    for fit_idx in range(modelspec.fit_count):
+        for jack_idx, e in enumerate(est.views()):
+            modelspec.jack_index = jack_idx
+            modelspec.fit_index = fit_idx
+            log.info("----------------------------------------------------")
+            log.info("Fitting: fit %d/%d, fold %d/%d",
+                     fit_idx + 1, modelspec.fit_count,
+                     jack_idx + 1, modelspec.jack_count)
+            results = cnnlink.fit_tf(modelspec=modelspec, est=e, **context)
+
+    return results
 
 
 def fit_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,

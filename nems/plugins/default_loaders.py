@@ -35,6 +35,8 @@ def ld(loadkey, recording_uri=None, cellid=None):
             d['output_name'] = 'stim'
         elif op == 'p':
             d['input_name'] = 'psth'
+        elif op == 'k':
+            d['save_other_cells_to_state'] = 'keep'
         elif op == 'n':
             d['normalize'] = True
 

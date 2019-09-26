@@ -161,6 +161,14 @@ def wc(kw):
         }
         prior['offset'] = ('Normal', o_coefficients)
 
+    if 'r' in options:
+        fn = 'nems.modules.weight_channels.basic_with_rect'
+        o_coefficients = {
+            'mean': np.zeros((n_outputs, 1)),
+            'sd': np.ones((n_outputs, 1))
+        }
+        prior['offset'] = ('Normal', o_coefficients)
+
     template = {
         'fn': fn,
         'fn_kwargs': fn_kwargs,
@@ -221,8 +229,8 @@ def fir(kw):
         }
 
     if n_coefs > 2:
-        #p_coefficients['mean'][:, 1] = 0.1
-        # p_coefficients['mean'][:, 2] = -0.05
+        p_coefficients['mean'][:, 1] = 0.1
+        p_coefficients['mean'][:, 2] = -0.05
         pass
     else:
         p_coefficients['mean'][:, 0] = 1

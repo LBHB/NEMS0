@@ -163,7 +163,7 @@ def tf(fitkey):
     i<N> : Set maximum iterations to N, any positive integer.
     s<S> : Initialize with S random seeds, pick the best performer across
            the entire fit set.
-
+    n : use modelspec initialized by NEMS
     '''
 
     options = _extract_options(fitkey)
@@ -172,6 +172,8 @@ def tf(fitkey):
     fitter = 'Adam'
     init_count = 1
     use_modelspec_init = False
+    choose_best = False
+    rand_count = 0
 
     for op in options:
         if op[:1] == 'i':
@@ -182,12 +184,32 @@ def tf(fitkey):
             init_count = int(op[1:])
         elif op[:1] == 'n':
             use_modelspec_init = True
+        elif op == 'b':
+            pick_best = True
+        elif op.startswith('rb'):
+            if len(op) == 2:
+                rand_count = 10
+            else:
+                rand_count = int(op[2:])
+            pick_best = True
+        elif op.startswith('r'):
+            if len(op) == 1:
+                rand_count = 10
+            else:
+                rand_count = int(op[1:])
 
-    xfspec = [['nems.tf.cnnlink.fit_tf',
-               {'max_iter': max_iter,
-                'use_modelspec_init': use_modelspec_init,
-                'optimizer': fitter,
-                'init_count': init_count}]]
+    xfspec = []
+    if rand_count > 0:
+        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
+
+    xfspec.append(['nems.xforms.fit_tf',
+                   {'max_iter': max_iter,
+                    'use_modelspec_init': use_modelspec_init,
+                    'optimizer': fitter,
+                    'init_count': init_count}])
+    
+    if pick_best:
+        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
     return xfspec
 
