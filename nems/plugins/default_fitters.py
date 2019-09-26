@@ -172,7 +172,7 @@ def tf(fitkey):
     fitter = 'Adam'
     init_count = 1
     use_modelspec_init = False
-    choose_best = False
+    pick_best = False
     rand_count = 0
 
     for op in options:
