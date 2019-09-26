@@ -8,17 +8,23 @@ NEMS -- The Neural Encoding Model System
 
 .. toctree::
     :hidden:
-    Getting started <quickstart>
-    Organizing your data - signals <signals>
-    Organizing your data - recordings <recordings>
-    Organizing your data - epochs <epochs>
-    API reference <api_ref/index>
+    :caption: Getting started
 
+    quickstart
+    installation
 
 1. Getting started
 --------------------
 - :doc:`quickstart`
 - :doc:`installation`
+
+.. toctree::
+    :hidden:
+    :caption: Organizing your data
+
+    signals
+    recordings
+    epochs
 
 2. Organizing your data
 -----------------------
@@ -27,6 +33,15 @@ NEMS -- The Neural Encoding Model System
 - :doc:`recordings`
 - :doc:`epochs`
 
+.. toctree::
+    :hidden:
+    :caption: Organizing your models
+
+    modules
+    distributions
+    saving
+    database
+
 4. Organizing your Models
 -------------------------
 
@@ -34,6 +49,14 @@ NEMS -- The Neural Encoding Model System
 - :doc:`distributions`
 - :doc:`saving`
 - :doc:`database`
+
+.. toctree::
+    :hidden:
+    :caption: Fitting your models
+
+    fitters
+    priors
+    xforms
 
 5. Fitting your Models
 ----------------------
@@ -50,19 +73,24 @@ NEMS -- The Neural Encoding Model System
 - Comparing your models with others
 - Sharing modules, models, and data with others
 
+.. toctree::
+    :hidden:
+    :caption: Contributing
+
+    contributing
+    discussions
+    history
+    nginx
+    API reference <api/modules>
+
 7. Contributing to NEMS
 -----------------------
 
 - :doc:`contributing`
 - :doc:`discussions`
 - :doc:`history`
-
-8. Other
---------
-
 - :doc:`nginx`
-- :doc:`api_ref/index`
-
+- :doc:`api/modules`
 
 Indices and tables
 ==================

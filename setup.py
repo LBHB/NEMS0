@@ -13,6 +13,11 @@ GENERAL_REQUIRES = ['numpy', 'scipy', 'matplotlib', 'pandas', 'requests',
                     'h5py', 'sqlalchemy', 'configparser', 'tensorflow']
 # pycharm also requires: tornado
 
+
+EXTRAS_REQUIRES = {
+    'docs': ['sphinx', 'sphinx_rtd_theme', 'pygments-enaml'],
+}
+
 setup(
     name=NAME,
     version=VERSION,
@@ -25,6 +30,7 @@ setup(
     long_description=long_description,
     url='http://neuralprediction.org',
     install_requires=GENERAL_REQUIRES,
+    extras_require=EXTRAS_REQUIRES,
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
