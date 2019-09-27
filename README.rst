@@ -2,8 +2,8 @@ NEMS
 ====
 
 Full documentation here:
-  .. image:: https://readthedocs.org/projects/nems/badge/?version=dev
-    :target: http://nems.readthedocs.io/en/dev/?badget=latest
+  .. image:: https://readthedocs.org/projects/nems/badge/
+    :target: https://nems.readthedocs.io/en/latest/
     :alt: Documentation Status
 
 NEMS is the Neural Encoding Model System. It is helpful for fitting a

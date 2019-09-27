@@ -227,10 +227,13 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
                 layer['d'] = tf.Variable(tf.random_normal(
                     d.shape, stddev=weight_scale, seed=cnn.seed_to_randint(net_seed + i)))
 
-            layer['Sg'] = tf.reduce_sum(
-                tf.nn.conv1d(layers[0]['S'], layer['g'], stride=1, padding='SAME'), axis=2, keepdims=True)
-            layer['Sd'] = tf.reduce_sum(
-                tf.nn.conv1d(layers[0]['S'], layer['d'], stride=1, padding='SAME'), axis=2, keepdims=True)
+            layer['Sg'] = tf.nn.conv1d(layers[0]['S'], layer['g'], stride=1, padding='SAME')
+            layer['Sd'] = tf.nn.conv1d(layers[0]['S'], layer['d'], stride=1, padding='SAME')
+            #layer['Sg'] = tf.reduce_sum(
+            #    tf.nn.conv1d(layers[0]['S'], layer['g'], stride=1, padding='SAME'), axis=2, keepdims=True)
+            #layer['Sd'] = tf.reduce_sum(
+            #    tf.nn.conv1d(layers[0]['S'], layer['d'], stride=1, padding='SAME'), axis=2, keepdims=True)
+
             layer['Y'] = layer['X'] * layer['Sg'] + layer['Sd']
         else:
             raise ValueError('Module %s not supported', m['fn'])
@@ -252,24 +255,24 @@ def tf2modelspec(net, modelspec):
         log.info('tf2modelspec: ' + m['fn'])
 
         if m['fn'] == 'nems.modules.nonlinearity.relu':
-            m['phi']['offset'] = -net_layer_vals[i]['b'][0,:,:].T
+            m['phi']['offset'] = -net_layer_vals[i]['b'][0, :, :].T
 
         elif 'levelshift' in m['fn']:
-            m['phi']['level'] = net_layer_vals[i]['b'][0,:,:].T
+            m['phi']['level'] = net_layer_vals[i]['b'][0, :, :].T
 
         elif m['fn'] in ['nems.modules.fir.basic']:
-            m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:,:,0].T)
+            m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:, :, 0].T)
 
         elif m['fn'] in ['nems.modules.fir.filter_bank']:
             if net_layer_vals[current_layer]['W'].shape[1]>1:
                 # new depthwise_conv2d
-                m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][0,:,:,0].T)
+                m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][0, :, :, 0].T)
             else:
                 # inefficient conv2d
-                m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:,0,0,:].T)
+                m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:, 0, 0, :].T)
 
         elif m['fn'] in ['nems.modules.weight_channels.basic']:
-            m['phi']['coefficients'] = net_layer_vals[i]['W'][0,:,:].T
+            m['phi']['coefficients'] = net_layer_vals[i]['W'][0, :, :].T
 
         elif m['fn'] in ['nems.modules.nonlinearity.dlog']:
             modelspec[i]['phi']['offset'] = net_layer_vals[i]['b'][0, :, :].T
@@ -277,9 +280,11 @@ def tf2modelspec(net, modelspec):
         elif m['fn'] in ['nems.modules.weight_channels.gaussian']:
             modelspec[i]['phi']['mean'] = net_layer_vals[i]['m'][0, 0, :].T
             modelspec[i]['phi']['sd'] = net_layer_vals[i]['s'][0, 0, :].T / 10
+
         elif m['fn'] in ['nems.modules.state.state_dc_gain']:
             modelspec[i]['phi']['g'] = net_layer_vals[i]['g'][0, :, :].T
             modelspec[i]['phi']['d'] = net_layer_vals[i]['d'][0, :, :].T
+
         else:
             raise ValueError("fn %s not supported", m['fn'])
 
@@ -410,7 +415,7 @@ def fit_tf(modelspec=None, est=None,
 
     modelspec, net = _fit_net(F, D, modelspec, seed, est['resp'].fs,
                          train_val_test=train_val_test,
-                         optimizer=optimizer, max_iter=np.min([500, max_iter]),
+                         optimizer=optimizer, max_iter=np.min([max_iter]),
                          use_modelspec_init=use_modelspec_init, S=S)
 
     try:
@@ -424,16 +429,23 @@ def fit_tf(modelspec=None, est=None,
     #    nems.utils.progress_fun()
     #    #log.info(modelspec.phi)
 
-    import matplotlib.pyplot as plt
+    # test that TF and NEMS models have same prediction
     y = net.predict(F, S=S)
-    plt.figure()
-    ax1=plt.subplot(1,1,1)
-    ax1.plot(y[0,:,0])
-    ax1.plot(new_est['pred'].as_continuous()[0,:n_tps_per_stim].T,'--')
-    ax1.plot(new_est['pred'].as_continuous()[0,:n_tps_per_stim].T-y[0,:,0])
-    plt.show()
-    import pdb
-    pdb.set_trace()
+    p1 = y[0,:,0]
+    p2 = new_est['pred'].as_continuous()[0,:n_tps_per_stim]
+    E = np.std(p1-p2)
+    log.info('Mean difference between NEMS and TF model pred: %e', E)
+    if E > 1e-2:
+        log.info('E too big? Jumping to debug mode.')
+        import matplotlib.pyplot as plt
+        plt.figure()
+        ax1=plt.subplot(1,1,1)
+        ax1.plot(y[0,:,0])
+        ax1.plot(new_est['pred'].as_continuous()[0,:n_tps_per_stim],'--')
+        ax1.plot(new_est['pred'].as_continuous()[0,:n_tps_per_stim]-y[0,:,0])
+        plt.show()
+        import pdb
+        pdb.set_trace()
 
     # figure out which modelspec does best on fit data
     #mean_r_fit = np.mean(r_fit, axis=1)

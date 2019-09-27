@@ -87,18 +87,19 @@ def init(kw):
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
     if st:
-        xfspec.append(['nems.xforms.fit_state_init', {'tolerance': tolerance,
-                                                'norm_fir': norm_fir,
-                                                'nl_kw': nl_kw,
-                                                'fit_sig': fit_sig}])
+        xfspec.append(['nems.xforms.fit_wrapper',
+                       {'tolerance': tolerance, 'norm_fir': norm_fir,
+                        'nl_kw': nl_kw, 'fit_sig': fit_sig,
+                        'fit_function': 'nems.xforms.fit_state_init'}])
     else:
-        xfspec.append(['nems.xforms.fit_basic_init', {'tolerance': tolerance,
-                                                      'norm_fir': norm_fir,
-                                                      'nl_kw': nl_kw}])
+        xfspec.append(['nems.xforms.fit_wrapper',
+                       {'tolerance': tolerance, 'norm_fir': norm_fir, 'nl_kw': nl_kw,
+                        'fit_function': 'nems.xforms.fit_basic_init'}])
     if keep_best:
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
     return xfspec
+
 
 def initpop(kw):
     options = keyword_extract_options(kw)
@@ -116,11 +117,13 @@ def initpop(kw):
             flip_pcs = False
 
     if rnd:
-        xfspec = [['nems.analysis.fit_pop_model.init_pop_rand',
-                   {'pc_signal': 'rand_resp', 'start_count': start_count}]]
+        xfspec = [['nems.xforms.fit_wrapper',
+                   {'pc_signal': 'rand_resp', 'start_count': start_count,
+                    'fit_function': 'nems.analysis.fit_pop_model.init_pop_rand'}]]
     elif usepcs:
-        xfspec = [['nems.analysis.fit_pop_model.init_pop_pca',
-                   {'flip_pcs': flip_pcs}]]
+        xfspec = [['nems.xforms.fit_wrapper',
+                   {'flip_pcs': flip_pcs,
+                    'fit_function': 'nems.analysis.fit_pop_model.init_pop_pca'}]]
     return xfspec
 
 

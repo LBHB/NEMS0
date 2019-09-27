@@ -4,6 +4,7 @@ import json
 import os
 from collections import Sequence
 import logging
+import importlib
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -394,3 +395,32 @@ def get_default_savepath(modelspec):
         destination = os.path.join(results_dir, str(batch), cellid,
                                    modelspec.get_longname())
     return destination
+
+lookup_table = {}  # TODO: Replace with real memoization/joblib later
+
+def lookup_fn_at(fn_path, ignore_table=False):
+    '''
+    Private function that returns a function handle found at a
+    given module. Basically, a way to import a single function.
+    e.g.
+        myfn = _lookup_fn_at('nems.modules.fir.fir_filter')
+        myfn(data)
+        ...
+    '''
+
+    # default is nems.xforms.<fn_path>
+    if not '.' in fn_path:
+        fn_path = 'nems.xforms.' + fn_path
+
+    if (not ignore_table) and (fn_path in lookup_table):
+        fn = lookup_table[fn_path]
+    else:
+        api, fn_name = split_to_api_and_fn(fn_path)
+        api = api.replace('nems_db.xform','nems_lbhb.xform')
+        api_obj = importlib.import_module(api)
+        if ignore_table:
+            importlib.reload(api_obj)  # force overwrite old imports
+        fn = getattr(api_obj, fn_name)
+        if not ignore_table:
+            lookup_table[fn_path] = fn
+    return fn
