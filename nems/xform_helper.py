@@ -1,3 +1,9 @@
+"""xforms_helper library
+
+This module contains wrappers for transformations ("xforms") applied sequentially during a NEMS
+fitting process.
+
+"""
 import logging
 import os
 

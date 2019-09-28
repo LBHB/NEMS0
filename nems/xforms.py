@@ -1,3 +1,9 @@
+"""xforms library
+
+This module contains standard transformations ("xforms") applied sequentially during a NEMS
+fitting process. Custom xforms can be developed as long as they adhere to the required syntax.
+
+"""
 import io
 import os
 import copy
@@ -34,28 +40,28 @@ xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
 
 
 def defxf(keyword, xformspec):
-    '''
+    """
     Adds xformspec to the xforms keyword dictionary.
     A helper function so not every keyword mapping has to be in a single
     file and part of a very large single multiline dict.
-    '''
+    """
     if keyword in xforms:
         raise ValueError("Keyword already defined! Choose another name.")
     xforms[keyword] = xformspec
 
 
 def load_xform(uri):
-    '''
+    """
     Loads and returns xform saved as a JSON.
-    '''
+    """
     xform = load_resource(uri)
     return xform
 
 
 def xfspec_shortname(xformspec):
-    '''
+    """
     Given an xformspec, makes a shortname for it.
-    '''
+    """
     n = len('nems.xforms.')
     fn_names = [xf[n:] for xf, xfa in xformspec]
     name = ".".join(fn_names)
@@ -63,13 +69,19 @@ def xfspec_shortname(xformspec):
 
 
 def evaluate_step(xfa, context={}):
-    '''
-    Helper function for evaluate. Take one step
-    SVD revised 2018-03-23 so specialized xforms wrapper functions not required
-      but now xfa can be len 4, where xfa[2] indicates context in keys and
-      xfa[3] is context out keys
-    '''
-
+    """
+    Take one step in evaluation of xforms sequence.
+    :param xfa: list of 2 or 4 elements specifying function to be evaluated on this step
+                and relevant args for that function.
+                xfa[0] : string of python path to function evaluated on this step. e.g.,
+                         `nems.xforms.load_recording_wrapper`
+                xfa[1] : dictionary of args to pass to xfa[0]
+                xfa[2] : optional (DEPRECATED?), indicates context-in keys (if xfa[0] returns a tuple rather than context dict)
+                xfa[3] : optional (DEPRECATED?), context-out keys
+    :param context: xforms context prior to evaluating this step, combined with xfa[1] to
+                    provide input to xfa[0]
+    :return: context_out dictionary updated with output of xfa[0]
+    """
     if not(len(xfa) == 2 or len(xfa) == 4):
         raise ValueError('Got non 2- or 4-tuple for xform: {}'.format(xfa))
     xf = xfa[0]

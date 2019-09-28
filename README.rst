@@ -24,19 +24,19 @@ instructions <https://nems.readthedocs.io/en/dev/installation.html>`__ for recom
 Quick Generic Python Install
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If you already have Python, download NEMS. Currently we recommend using
-the ``dev`` branch, which contains a number of useful features:
+If you already have Python, download NEMS:
 
 ::
 
-   git clone -b dev https://github.com/lbhb/NEMS
+   git clone https://github.com/lbhb/NEMS
 
-Add the NEMS library via pip (where “NEMS” is the installation
-directory):
+Add the NEMS library via pip (where “./NEMS” is the installation
+directory and "-e" means editable mode, which is not necessary, but
+is useful if you end up customizing your model fits):
 
 ::
 
-   pip install -e NEMS
+   pip install -e ./NEMS
 
 NEMS libraries should now be loadable. See next section for how to try
 it out!

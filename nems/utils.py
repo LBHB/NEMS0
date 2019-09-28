@@ -1,3 +1,8 @@
+"""utils library
+
+This module contains random utility functions called by a number of different NEMS libraries
+
+"""
 import time
 import hashlib
 import json
