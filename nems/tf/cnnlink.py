@@ -58,10 +58,11 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
             layer['X'] = layers[-1]['Y']
 
         n_input_feats = np.int32(layer['X'].shape[2])
+        # default integration time is one bin
+        layer['time_win_smp'] = 1 # default
 
         if m['fn'] == 'nems.modules.nonlinearity.relu':
             layer['type'] = 'relu'
-            layer['time_win_sec'] = 1 / fs
             c = -modelspec[i]['phi']['offset'].astype('float32').T
             layer['n_kern'] = c.shape[1]
             if use_modelspec_init:
@@ -74,7 +75,6 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
 
         elif 'levelshift' in m['fn']:
             layer['type'] = 'offset'
-            layer['time_win_sec'] = 1 / fs
             c = m['phi']['level'].astype('float32').T
             layer['n_kern'] = c.shape[1]
 
@@ -88,7 +88,6 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
 
         elif m['fn'] in ['nems.modules.nonlinearity.dlog']:
             layer['type'] = 'dlog'
-            layer['time_win_sec'] = 1 / fs
 
             c = m['phi']['offset'].astype('float32').T
             layer['n_kern'] = c.shape[1]
@@ -103,11 +102,10 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
             # clip b at +/-2 to avoid huge compression/expansion
             layer['eb'] = tf.pow(tf.constant(10, dtype=tf.float32),
                                           tf.clip_by_value(layer['b'], -2, 2))
-            layer['Y'] = tf.log((layer['X'] + layer['eb']) / layer['eb'])
+            layer['Y'] = tf.math.log((layer['X'] + layer['eb']) / layer['eb'])
 
         elif m['fn'] in ['nems.modules.fir.basic']:
             layer['type'] = 'conv'
-            layer['time_win_sec'] = m['phi']['coefficients'].shape[1] / fs
             layer['time_win_smp'] = m['phi']['coefficients'].shape[1]
             pad_size = np.int32(np.floor(layer['time_win_smp']-1))
             X_pad = tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]])
@@ -131,7 +129,6 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
         elif m['fn'] in ['nems.modules.fir.filter_bank']:
 
             layer['type'] = 'conv_bank_1d'
-            layer['time_win_sec'] = m['phi']['coefficients'].shape[1] / fs
             layer['time_win_smp'] = m['phi']['coefficients'].shape[1]
 
             layer['rank'] = None  # we're handling rank with explicit spectral filters
@@ -144,73 +141,92 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
 
             # split inputs into the different kernels
             #c = np.reshape(c, (1, c.shape[0], bank_count, chan_count))
-            c = np.reshape(c, (1, c.shape[0], bank_count*chan_count, 1))
+            if bank_count==1:
+                c = np.reshape(c, (c.shape[0], 1, 1, bank_count*chan_count))
+            else:
+                c = np.reshape(c, (1, c.shape[0], bank_count*chan_count, 1))
 
             if np.sum(np.abs(c)) == 0:
                 c[0, 0, :, :] = 1
 
-            # pad input to ensure causality, insert placeholder dim on axis=1
+            # figure out input padding to ensure causality,
             pad_size = np.int32((layer['time_win_smp']-1)*layer['rate'])
-            X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 1)
 
             if use_modelspec_init:
                 layer['W'] = tf.Variable(c)
             else:
-                layer['W'] = cnn.weights_norm(
-                    [1, self.layers[i]['time_win_smp'], layer['n_kern'], 1],
+                layer['W'] = cnn.weights_norm(c.shape,
                     sig=weight_scale, seed=cnn.seed_to_randint(net_seed)+i)
+
+            if bank_count==1:
+                # special case, convolve each channel with each filters
+                # insert placeholder dim on axis=2
+                #import pdb; pdb.set_trace()
+                X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 3)
+                layer['tY'] = tf.nn.conv2d(X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID')
+                layer['Y'] = tf.reshape(layer['tY'],[-1, layer['tY'].shape[1], layer['tY'].shape[2]*layer['tY'].shape[3]])
+            else:
+                # insert placeholder dim on axis=1
+                X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 1)
+                layer['tY'] = tf.squeeze(tf.nn.depthwise_conv2d(
+                    X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID',
+                    rate=[1, layer['rate']]), axis=1)
+                s = tf.shape(layer['tY'])
+                layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'],[s[0], layer['tY'].shape[1], tf.Dimension(bank_count), tf.Dimension(chan_count)]), axis=3)
 
             log.info("W shape: %s", layer['W'].shape)
             log.info("X_pad shape: %s", X_pad.shape)
-
-            layer['tY'] = tf.squeeze(tf.nn.depthwise_conv2d(
-                X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID',
-                rate=[1, layer['rate']]), axis=1)
-            s = tf.shape(layer['tY'])
-            layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'],[s[0], layer['tY'].shape[1], tf.Dimension(bank_count), tf.Dimension(chan_count)]), axis=3)
-
+            log.info("tY shape: %s", layer['tY'].shape)
             log.info("Y shape: %s", layer['Y'].shape)
 
         elif m['fn'] in ['nems.modules.weight_channels.basic']:
             layer['type'] = 'reweight'
-            layer['time_win_sec'] = 1 / fs
             c = m['phi']['coefficients'].astype('float32').T
             layer['n_kern'] = c.shape[1]
 
-            if use_modelspec_init & (np.sum(np.abs(c))>0):
-                layer['W'] = tf.Variable(np.reshape(c,(1,c.shape[0],c.shape[1])))
+            if use_modelspec_init & (np.sum(np.abs(c)) > 0):
+                layer['W'] = tf.Variable(np.reshape(c, (1, c.shape[0], c.shape[1])))
             else:
-                layer['W'] = cnn.kern2D(1, c.shape[0], c.shape[1],
-                                        weight_scale, seed=net_seed, distr='norm')
+                s = [1, c.shape[0], c.shape[1]]
+                layer['W'] = tf.Variable(tf.random.normal(s, stddev=weight_scale, mean=0,
+                                                          seed=cnn.seed_to_randint(net_seed + i)))
+                #   cnn.kern2D(1, c.shape[0], c.shape[1],
+                #                       weight_scale, seed=net_seed, distr='norm')
+                #print('rand in init: %s',layer['W'].eval())
+
             layer['Y'] = tf.nn.conv1d(layer['X'], layer['W'], stride=1, padding='SAME')
 
         elif m['fn'] in ['nems.modules.weight_channels.gaussian']:
-            layer['time_win_sec'] = 1 / fs
             layer['n_kern'] = m['phi']['mean'].shape[0]
 
+            # HACK : scale sd by 10 to play well with TF fitter
             mn = m['phi']['mean'].astype('float32')
-            sd = m['phi']['sd'].astype('float32')
+            sd = m['phi']['sd'].astype('float32') * 10
 
             if use_modelspec_init:
                 layer['m'] = tf.Variable(np.reshape(mn, (1, 1, mn.shape[0])))
-                layer['s'] = tf.Variable(np.reshape(sd, (1, 1, sd.shape[0])) * 10)
+                layer['s'] = tf.Variable(np.reshape(sd, (1, 1, sd.shape[0])))
             else:
-                layer['m'] = tf.Variable(tf.random_uniform(
+                print('using TF rand')
+                layer['m'] = tf.Variable(tf.random.uniform(
                     [1, 1, layer['n_kern']], minval=0, maxval=1,
                     seed=cnn.seed_to_randint(net_seed + i)))
-                #    cnn.kern2D(1, 1, layer['n_kern'],
-                #                        weight_scale, net_seed + i, distr='uniform')
-                layer['s'] = tf.Variable(tf.random_uniform(
-                    [1, 1, layer['n_kern']], minval=0.1, maxval=0.6,
+                layer['s'] = tf.Variable(tf.random.uniform(
+                    [1, 1, layer['n_kern']], minval=0.1, maxval=0.5,
                     seed=cnn.seed_to_randint(net_seed + 20 + i)))
 
-            layer['Wraw'] = tf.exp(-0.5 * tf.square((tf.reshape(tf.range(0, 1, 1/n_input_feats, dtype=tf.float32), [1, n_input_feats, 1])-layer['m'])/
-                                            (layer['s'] / 10)))
+            # trying to impose NEMS bounds
+            b = m['bounds']
+            layer['m0'] = tf.clip_by_value(layer['m'], b['mean'][0][0], b['mean'][1][0])
+            layer['s0'] = tf.clip_by_value(layer['s'], b['sd'][0][0]*10, b['sd'][1][0]*10)
+            layer['f'] = tf.reshape(tf.range(0, 1, 1/n_input_feats, dtype=tf.float32),
+                                    [1, n_input_feats, 1])
+            layer['Wraw'] = tf.exp(-0.5 * tf.square((layer['f'] -layer['m']) / (layer['s'] / 10)))
             layer['W'] = layer['Wraw'] / tf.reduce_sum(layer['Wraw'], axis=1)
             layer['Y'] = tf.nn.conv1d(layer['X'], layer['W'], stride=1, padding='SAME')
-        elif m['fn']=='nems.modules.state.state_dc_gain':
-            layer['time_win_sec'] = 1 / fs
 
+        elif m['fn']=='nems.modules.state.state_dc_gain':
+            # match this function from nems.modules.state.state_dc_gain
             #fn = lambda x: np.matmul(g, rec[s]._data) * x + np.matmul(d, rec[s]._data)
             g = m['phi']['g'].astype('float32').T
             d = m['phi']['d'].astype('float32').T
@@ -225,18 +241,16 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
                 layer['g'] = tf.Variable(tf.random_normal(
                     g.shape, stddev=weight_scale, seed=cnn.seed_to_randint(net_seed + i)))
                 layer['d'] = tf.Variable(tf.random_normal(
-                    d.shape, stddev=weight_scale, seed=cnn.seed_to_randint(net_seed + i)))
+                    d.shape, stddev=weight_scale, seed=cnn.seed_to_randint(net_seed + 20 + i)))
 
             layer['Sg'] = tf.nn.conv1d(layers[0]['S'], layer['g'], stride=1, padding='SAME')
             layer['Sd'] = tf.nn.conv1d(layers[0]['S'], layer['d'], stride=1, padding='SAME')
-            #layer['Sg'] = tf.reduce_sum(
-            #    tf.nn.conv1d(layers[0]['S'], layer['g'], stride=1, padding='SAME'), axis=2, keepdims=True)
-            #layer['Sd'] = tf.reduce_sum(
-            #    tf.nn.conv1d(layers[0]['S'], layer['d'], stride=1, padding='SAME'), axis=2, keepdims=True)
-
             layer['Y'] = layer['X'] * layer['Sg'] + layer['Sd']
         else:
             raise ValueError('Module %s not supported', m['fn'])
+
+        # may not be necessary?
+        layer['time_win_sec'] = layer['time_win_smp'] / fs
 
         layers.append(layer)
     return layers
@@ -264,7 +278,11 @@ def tf2modelspec(net, modelspec):
             m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:, :, 0].T)
 
         elif m['fn'] in ['nems.modules.fir.filter_bank']:
-            if net_layer_vals[current_layer]['W'].shape[1]>1:
+            #import pdb; pdb.set_trace()
+            if m['fn_kwargs']['bank_count']==1:
+                #m['phi']['coefficients'] = np.flipud(np.fliplr(net_layer_vals[i]['W'][:, 0, 0, :].T))
+                m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:, 0, 0, :].T)
+            elif net_layer_vals[current_layer]['W'].shape[1]>1:
                 # new depthwise_conv2d
                 m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][0, :, :, 0].T)
             else:

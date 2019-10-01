@@ -75,7 +75,7 @@ def add_average_sig(rec, signal_to_average='resp',
     return newrec
 
 
-def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
+def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=True):
     '''
     Returns a recording with _all_ signals averaged across epochs that
     match epoch_regex, shortening them so that each epoch occurs only
@@ -99,6 +99,9 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
     (based on stimulus and behaviorial state, for example) and then match
     the epoch_regex to those.
     '''
+    #import pdb; pdb.set_trace()
+    if use_mask:
+        recording = recording.remove_masked_epochs()
     epochs = recording['resp'].epochs
     epoch_names = sorted(set(ep.epoch_names_matching(epochs, epoch_regex)))
 
@@ -125,12 +128,14 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
         # some subclasses may have more efficient approaches (e.g.,
         # TiledSignal)
 
-        # Extract all occurances of each epoch, returning a dict where keys are
+        # Extract all occurences of each epoch, returning a dict where keys are
         # stimuli and each value in the dictionary is (reps X cell X bins)
+        print(signal_name)
         epoch_data = signal.rasterize().extract_epochs(epoch_names)
 
         # Average over all occurrences of each epoch
         data = []
+        #import pdb; pdb.set_trace()
         for epoch_name in epoch_names:
             epoch = epoch_data[epoch_name]
 

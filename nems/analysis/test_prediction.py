@@ -392,8 +392,7 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
     fit_count = modelspec.fit_count
     best_idx = np.zeros(jack_count,dtype=int)
     new_raw = np.zeros((1, 1, jack_count), dtype='O')
-    import pdb
-    pdb.set_trace()
+    #import pdb; pdb.set_trace()
 
     # for each jackknife set, figure out best fit
     for j in range(jack_count):

@@ -30,7 +30,8 @@ def _insert_zeros(coefficients, rate=1):
     return new_c
 
 
-def per_channel(x, coefficients, bank_count=1, non_causal=False, rate=1):
+def per_channel(x, coefficients, bank_count=1, non_causal=False, rate=1,
+                cross_channels=False):
     '''Private function used by fir_filter().
 
     Parameters
@@ -63,7 +64,22 @@ def per_channel(x, coefficients, bank_count=1, non_causal=False, rate=1):
         print(coefficients)
     n_filters = len(coefficients)
     n_banks = int(n_filters / bank_count)
-    if n_filters == n_in:
+    if cross_channels:
+        # option 0: user has specified that each filter should be applied to
+        # each input channel (requires bank_count==1)
+        # TODO : integrate with core loop below instead of pasted hack
+        out = np.zeros((n_in*n_filters, x.shape[1]))
+        i_out=0
+        for i_in in range(n_in):
+            x_ = x[i_in]
+            for i_bank in range(n_filters):
+                c = coefficients[i_bank]
+                zi = get_zi(c, x_)
+                r, zf = scipy.signal.lfilter(c, [1], x_, zi=zi)
+                out[i_out] = r
+                i_out+=1
+        return out
+    elif n_filters == n_in:
         # option 1: number of input channels is same as total channels in the
         # filterbank, allowing a different stimulus into each filter
         all_x = iter(x)
@@ -369,7 +385,7 @@ def fir_dexp(rec, i='pred', o='pred', phi=None, n_coefs=10, rate=1):
 
 
 def filter_bank(rec, i='pred', o='pred', non_causal=False, coefficients=[],
-                bank_count=1, rate=1):
+                bank_count=1, rate=1, cross_channels=False):
     """
     apply multiple basic fir filters of the same size in parallel, producing
     one output channel per filter.
@@ -379,7 +395,9 @@ def filter_bank(rec, i='pred', o='pred', non_causal=False, coefficients=[],
     coefficients : 2d array
         all filters are stored in a single coefficients matrix, for which
         .shape[0] must be an integer multiple of bank_count.
-
+    cross_channels : (False) if True, apply each 1d filter to each input channel,
+        producing bank_count * x.shape[0] output channels
+        (requires bank_count==1)
     input :
         nems signal named in 'i'. must have dimensionality matched to size
         of coefficients matrix. if you'd like to apply each filter to the
@@ -390,9 +408,12 @@ def filter_bank(rec, i='pred', o='pred', non_causal=False, coefficients=[],
 
     TODO: test, optimize. maybe structure coefficients more logically?
     """
-
+    # testing
+    if bank_count==1:
+        cross_channels=True
     fn = lambda x: per_channel(x, coefficients, bank_count,
-                               non_causal=non_causal, rate=rate)
+                               non_causal=non_causal, rate=rate,
+                               cross_channels=cross_channels)
     return [rec[i].transform(fn, o)]
 
 

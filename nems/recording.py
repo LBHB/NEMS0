@@ -1145,13 +1145,11 @@ class Recording:
 
     def remove_masked_epochs(self):
         """
-        Nan-out data based on boolean signal called mask. Returns new recording
-        with only data specified mask. To make mask, see "create_mask"
-        :param remove_epochs: (True) if true, delete epochs that are all nan
-        :return: rec : copy of self with masked periods set to nan
+        Delete epochs that fall outside of the mask periods
+        :return: rec : copy of self with masked epochs removed
         """
         if 'mask' not in self.signals.keys():
-            warnings.warn("No mask specified, nan_mask() simply copying recording.")
+            #warnings.warn("No mask specified, nan_mask() simply copying recording.")
             return self.copy()
 
         rec = self.copy()

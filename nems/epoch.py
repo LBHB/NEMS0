@@ -530,9 +530,7 @@ def find_common_epochs(epochs, epoch_name, d=12):
     # Now, determine which epochs are common to all occurrences.
     common_epochs = epoch_subsets[0].copy()
     for other_epoch in epoch_subsets[1:]:
-        print(other_epoch)
         common_epochs.intersection_update(other_epoch)
-        print(common_epochs)
 
     new_epochs = pd.DataFrame(list(common_epochs),
                               columns=['name', 'start', 'end'])
