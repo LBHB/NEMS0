@@ -42,7 +42,7 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
     F = tf.placeholder('float32', shape=[None, tps_per_stim, feat_dims])
     if state_dims>0:
         S = tf.placeholder('float32', shape=[None, tps_per_stim, state_dims])
-    D = tf.placeholder('float32', shape=[None, tps_per_stim, data_dims])
+    #D = tf.placeholder('float32', shape=[None, tps_per_stim, data_dims])
 
     layers = []
     for i, m in enumerate(modelspec):
@@ -216,12 +216,14 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
                     seed=cnn.seed_to_randint(net_seed + 20 + i)))
 
             # trying to impose NEMS bounds
-            b = m['bounds']
-            layer['m0'] = tf.clip_by_value(layer['m'], b['mean'][0][0], b['mean'][1][0])
-            layer['s0'] = tf.clip_by_value(layer['s'], b['sd'][0][0]*10, b['sd'][1][0]*10)
+            #b = m['bounds']
+            #layer['m0'] = tf.clip_by_value(layer['m'], b['mean'][0][0], b['mean'][1][0])
+            #layer['s0'] = tf.clip_by_value(layer['s'], b['sd'][0][0]*10, b['sd'][1][0]*10)
+            #sd[sd < 0.00001] = 0.00001
+            layer['s0'] = tf.clip_by_value(layer['s'], 0.00001*10, 10)
             layer['f'] = tf.reshape(tf.range(0, 1, 1/n_input_feats, dtype=tf.float32),
                                     [1, n_input_feats, 1])
-            layer['Wraw'] = tf.exp(-0.5 * tf.square((layer['f'] -layer['m']) / (layer['s'] / 10)))
+            layer['Wraw'] = tf.exp(-0.5 * tf.square((layer['f'] -layer['m']) / (layer['s0'] / 10)))
             layer['W'] = layer['Wraw'] / tf.reduce_sum(layer['Wraw'], axis=1)
             layer['Y'] = tf.nn.conv1d(layer['X'], layer['W'], stride=1, padding='SAME')
 
@@ -458,10 +460,11 @@ def fit_tf(modelspec=None, est=None,
         import matplotlib.pyplot as plt
         plt.figure()
         ax1=plt.subplot(1,1,1)
-        ax1.plot(y[0,:,0])
-        ax1.plot(new_est['pred'].as_continuous()[0,:n_tps_per_stim],'--')
-        ax1.plot(new_est['pred'].as_continuous()[0,:n_tps_per_stim]-y[0,:,0])
+        ax1.plot(y[0:2,:,0].T)
+        ax1.plot(new_est['pred'].as_continuous()[0:2,:n_tps_per_stim],'--')
+        ax1.plot(new_est['pred'].as_continuous()[0:2,:n_tps_per_stim]-y[0:2,:,0])
         plt.show()
+        print(modelspec.phi)
         import pdb
         pdb.set_trace()
 
