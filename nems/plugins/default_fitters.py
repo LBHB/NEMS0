@@ -172,7 +172,7 @@ def tf(fitkey):
     fitter = 'Adam'
     init_count = 1
     use_modelspec_init = False
-    choose_best = False
+    pick_best = False
     rand_count = 0
 
     for op in options:
@@ -202,11 +202,12 @@ def tf(fitkey):
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
 
-    xfspec.append(['nems.xforms.fit_tf',
+    xfspec.append(['nems.xforms.fit_wrapper',
                    {'max_iter': max_iter,
                     'use_modelspec_init': use_modelspec_init,
                     'optimizer': fitter,
-                    'init_count': init_count}])
+                    'init_count': init_count,
+                    'fit_function': 'nems.tf.cnnlink.fit_tf'}])
     
     if pick_best:
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])

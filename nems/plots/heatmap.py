@@ -221,18 +221,21 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
         bank_count = modelspec[fir_mod]['fn_kwargs']['bank_count']
         chan_count = wcc.shape[0]
         bank_chans = int(chan_count / bank_count)
-        strfs = [wc_coefs[:, (bank_chans*i):(bank_chans*(i+1))] @
-                          fir_coefs[(bank_chans*i):(bank_chans*(i+1)), :]
-                          for i in range(bank_count)]
-        for i in range(bank_count):
-            m = np.max(np.abs(strfs[i]))
-            if m:
-                strfs[i] = strfs[i] / m
-            if i > 0:
-                gap = np.full([strfs[i].shape[0], 1], np.nan)
-                strfs[i] = np.concatenate((gap, strfs[i]/np.max(np.abs(strfs[i]))), axis=1)
+        if wc_coefs.shape[1]==fir_coefs.shape[0]:
+            strfs = [wc_coefs[:, (bank_chans*i):(bank_chans*(i+1))] @
+                              fir_coefs[(bank_chans*i):(bank_chans*(i+1)), :]
+                              for i in range(bank_count)]
+            for i in range(bank_count):
+                m = np.max(np.abs(strfs[i]))
+                if m:
+                    strfs[i] = strfs[i] / m
+                if i > 0:
+                    gap = np.full([strfs[i].shape[0], 1], np.nan)
+                    strfs[i] = np.concatenate((gap, strfs[i]/np.max(np.abs(strfs[i]))), axis=1)
 
-        strf = np.concatenate(strfs,axis=1)
+            strf = np.concatenate(strfs,axis=1)
+        else:
+            strf = fir_coefs
         show_factorized = False
     else:
         wc_coefs = np.array(wcc).T
@@ -396,4 +399,3 @@ def strf_timeseries(modelspec, ax=None, show_factorized=True,
         plt.legend(strf_h+fir_h,strf_l+fir_l, loc=1,fontsize='x-small')
         ax.set_xticks(np.hstack((np.arange(-1*wcN,0),np.arange(0,len(times)+1,2))))
         ax.set_xticklabels(np.hstack((np.arange(1,wcN+1),np.arange(0,len(times)+1,2))))
-

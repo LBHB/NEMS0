@@ -1,3 +1,9 @@
+"""xforms library
+
+This module contains standard transformations ("xforms") applied sequentially during a NEMS
+fitting process. Custom xforms can be developed as long as they adhere to the required syntax.
+
+"""
 import io
 import os
 import copy
@@ -24,7 +30,7 @@ from nems.plugins import (default_keywords, default_loaders, default_fitters,
 from nems.signal import RasterizedSignal
 from nems.uri import save_resource, load_resource
 from nems.utils import (iso8601_datestring, find_module,
-                        recording_filename_hash, get_default_savepath)
+                        recording_filename_hash, get_default_savepath, lookup_fn_at)
 from nems.fitters.api import scipy_minimize
 from nems.recording import load_recording, Recording
 from nems.tf import cnnlink
@@ -34,28 +40,28 @@ xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
 
 
 def defxf(keyword, xformspec):
-    '''
+    """
     Adds xformspec to the xforms keyword dictionary.
     A helper function so not every keyword mapping has to be in a single
     file and part of a very large single multiline dict.
-    '''
+    """
     if keyword in xforms:
         raise ValueError("Keyword already defined! Choose another name.")
     xforms[keyword] = xformspec
 
 
 def load_xform(uri):
-    '''
+    """
     Loads and returns xform saved as a JSON.
-    '''
+    """
     xform = load_resource(uri)
     return xform
 
 
 def xfspec_shortname(xformspec):
-    '''
+    """
     Given an xformspec, makes a shortname for it.
-    '''
+    """
     n = len('nems.xforms.')
     fn_names = [xf[n:] for xf, xfa in xformspec]
     name = ".".join(fn_names)
@@ -63,13 +69,19 @@ def xfspec_shortname(xformspec):
 
 
 def evaluate_step(xfa, context={}):
-    '''
-    Helper function for evaluate. Take one step
-    SVD revised 2018-03-23 so specialized xforms wrapper functions not required
-      but now xfa can be len 4, where xfa[2] indicates context in keys and
-      xfa[3] is context out keys
-    '''
-
+    """
+    Take one step in evaluation of xforms sequence.
+    :param xfa: list of 2 or 4 elements specifying function to be evaluated on this step
+                and relevant args for that function.
+                xfa[0] : string of python path to function evaluated on this step. e.g.,
+                         `nems.xforms.load_recording_wrapper`
+                xfa[1] : dictionary of args to pass to xfa[0]
+                xfa[2] : optional (DEPRECATED?), indicates context-in keys (if xfa[0] returns a tuple rather than context dict)
+                xfa[3] : optional (DEPRECATED?), context-out keys
+    :param context: xforms context prior to evaluating this step, combined with xfa[1] to
+                    provide input to xfa[0]
+    :return: context_out dictionary updated with output of xfa[0]
+    """
     if not(len(xfa) == 2 or len(xfa) == 4):
         raise ValueError('Got non 2- or 4-tuple for xform: {}'.format(xfa))
     xf = xfa[0]
@@ -86,7 +98,9 @@ def evaluate_step(xfa, context={}):
     else:
         context_out_keys = []
 
-    fn = ms._lookup_fn_at(xf)
+    # Load relevant function into lib path
+    fn = lookup_fn_at(xf)
+
     # Check for collisions; more to avoid confusion than for correctness:
     for k in xfargs:
         if k in context_in:
@@ -223,7 +237,7 @@ def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
         rec = load_recording(data_file)
     else:
 
-        fn = ms._lookup_fn_at(load_command)
+        fn = lookup_fn_at(load_command)
 
         data = fn(exptid=exptid, **context)
 
@@ -661,7 +675,7 @@ def jack_subset(est, val, modelspec=None, IsReload=False,
 
 def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
                    IsReload=False, norm_fir=False, nl_kw={},
-                   jackknifed_fit=False, output_name='resp', **context):
+                   output_name='resp', **context):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
     local minima.
@@ -677,7 +691,15 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
         metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
     else:
         metric_fn = metric
+    modelspec = nems.initializers.prefit_LN(
+            est, modelspec,
+            analysis_function=nems.analysis.api.fit_basic,
+            fitter=scipy_minimize, metric=metric_fn,
+            tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+            nl_kw=nl_kw)
+    return {'modelspec': modelspec}
 
+"""
     # TODO : merge JK and non-JK code if possible.
     if jackknifed_fit:
         nfolds = est.view_count
@@ -711,9 +733,7 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
                     fitter=scipy_minimize, metric=metric_fn,
                     tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
                     nl_kw=nl_kw)
-
-    return {'modelspec': modelspec}
-
+"""
 
 def _set_zero(x):
     """ fill x with zeros, except preserve nans """
@@ -739,55 +759,48 @@ def fit_state_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
 
     assumption -- est['state'] signal is being used for merge
     '''
-    if not IsReload:
-        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
+    if IsReload:
+        return {}
 
-        for fit_idx in range(modelspec.fit_count):
-            for jack_idx, d in enumerate(est.views()):
-                modelspec.fit_index = fit_idx
-                modelspec.jack_index = jack_idx
-                log.info("----------------------------------------------------")
-                log.info("Init state-free fitting model fit %d/%d, fold %d/%d",
-                         fit_idx+1, modelspec.fit_count,
-                         jack_idx + 1, modelspec.jack_count)
+    metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
 
-                # set state to 0 for all timepoints so that only first filterbank
-                # is used
-                dc = d.copy()
-                dc['state'] = dc['state'].transform(_set_zero, 'state')
-                if fit_sig != 'resp':
-                    log.info("Subbing %s for resp signal", fit_sig)
-                    dc['resp'] = dc[fit_sig]
-                modelspec = nems.initializers.prefit_LN(
-                        dc, modelspec,
-                        analysis_function=nems.analysis.api.fit_basic,
-                        fitter=scipy_minimize, metric=metric_fn,
-                        tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
-                        nl_kw=nl_kw)
-                # fit a bit more to settle in STP variables and anything else
-                # that might have been excluded
-                fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
-                modelspec = nems.analysis.api.fit_basic(
-                        dc, modelspec, fit_kwargs=fit_kwargs, metric=metric_fn,
-                        fitter=scipy_minimize)
-                rep_idx = find_module('replicate_channels', modelspec)
-                mrg_idx = find_module('merge_channels', modelspec)
-                if rep_idx is not None:
-                    repcount = modelspec[rep_idx]['fn_kwargs']['repcount']
-                    for j in range(rep_idx+1, mrg_idx):
-                        # assume all phi
-                        log.debug(modelspec[j]['fn'])
-                        if 'phi' in modelspec[j].keys():
-                            for phi in modelspec[j]['phi'].keys():
-                                s = modelspec[j]['phi'][phi].shape
-                                setcount = int(s[0] / repcount)
-                                log.debug('phi[%s] setcount=%d', phi, setcount)
-                                snew = np.ones(len(s))
-                                snew[0] = repcount
-                                new_v = np.tile(modelspec[j]['phi'][phi][:setcount, ...],
-                                                snew.astype(int))
-                                log.debug(new_v)
-                                modelspec[j]['phi'][phi] = new_v
+    # set state to 0 for all timepoints so that only first filterbank
+    # is used
+    dc = est.copy()
+    dc['state'] = dc['state'].transform(_set_zero, 'state')
+    if fit_sig != 'resp':
+        log.info("Subbing %s for resp signal", fit_sig)
+        dc['resp'] = dc[fit_sig]
+    modelspec = nems.initializers.prefit_LN(
+            dc, modelspec,
+            analysis_function=nems.analysis.api.fit_basic,
+            fitter=scipy_minimize, metric=metric_fn,
+            tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+            nl_kw=nl_kw)
+    # fit a bit more to settle in STP variables and anything else
+    # that might have been excluded
+    fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
+    modelspec = nems.analysis.api.fit_basic(
+            dc, modelspec, fit_kwargs=fit_kwargs, metric=metric_fn,
+            fitter=scipy_minimize)
+    rep_idx = find_module('replicate_channels', modelspec)
+    mrg_idx = find_module('merge_channels', modelspec)
+    if rep_idx is not None:
+        repcount = modelspec[rep_idx]['fn_kwargs']['repcount']
+        for j in range(rep_idx+1, mrg_idx):
+            # assume all phi
+            log.debug(modelspec[j]['fn'])
+            if 'phi' in modelspec[j].keys():
+                for phi in modelspec[j]['phi'].keys():
+                    s = modelspec[j]['phi'][phi].shape
+                    setcount = int(s[0] / repcount)
+                    log.debug('phi[%s] setcount=%d', phi, setcount)
+                    snew = np.ones(len(s))
+                    snew[0] = repcount
+                    new_v = np.tile(modelspec[j]['phi'][phi][:setcount, ...],
+                                    snew.astype(int))
+                    log.debug(new_v)
+                    modelspec[j]['phi'][phi] = new_v
 
     return {'modelspec': modelspec}
 
@@ -891,11 +904,13 @@ def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
     return {'modelspec': modelspec}
 
 
-def fit_tf(modelspec, est, IsReload=False, **context):
+def fit_wrapper(modelspec, est, fit_function='nems.analysis.api.fit_basic',
+                IsReload=False, **context):
     """
-    wrapper to call TensorFlow fit alogrithm
+    wrapper to loop through all jacks and fits for a modelspec, calling fit_function to fit each
     :param modelspec:
     :param est:
+    :param fit_function:
     :param IsReload:
     :param context:
     :return: results = xforms context dictionary update
@@ -905,20 +920,31 @@ def fit_tf(modelspec, est, IsReload=False, **context):
         return {}
 
     if (modelspec is None) or (est is None):
-        raise ValueError("Parameters modelspec and est required")
+        raise ValueError("Inputs modelspec and est required")
 
     if modelspec.jack_count < est.view_count:
         raise Warning('modelspec.jack_count does not match est.view_count')
         modelspec.tile_jacks(nfolds)
+
+    # load function into path
+    fn = lookup_fn_at(fit_function)
+
     for fit_idx in range(modelspec.fit_count):
         for jack_idx, e in enumerate(est.views()):
             modelspec.jack_index = jack_idx
             modelspec.fit_index = fit_idx
             log.info("----------------------------------------------------")
-            log.info("Fitting: fit %d/%d, fold %d/%d",
+            log.info("Fitting: %s, fit %d/%d, fold %d/%d", fit_function,
                      fit_idx + 1, modelspec.fit_count,
                      jack_idx + 1, modelspec.jack_count)
-            results = cnnlink.fit_tf(modelspec=modelspec, est=e, **context)
+            results = fn(modelspec=modelspec, est=e, **context)
+
+            # compatible with direct modelspec return or xforms-ese dictionary
+            if type(results) is dict:
+                modelspec = results['modelspec']
+            else:
+                modelspec = results
+                results = {'modelspec', modelspec}
 
     return results
 

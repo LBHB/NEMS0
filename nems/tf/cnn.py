@@ -174,11 +174,10 @@ class Net:
 
     def initialize(self):
 
-        log.info('Loc 1')
+        log.info('Net.initialize(): setting output, loss, optimizer, globals, tf session')
         self.Y = self.layers[self.n_layers - 1]['Y'][:, 0:self.n_tps_input, :]
 
         # loss
-        log.info('Loc 2')
         if self.loss_type == 'squared_error':
             self.loss = tf.reduce_mean(tf.square(self.D - self.Y))
         elif self.loss_type == 'poisson':
@@ -187,7 +186,6 @@ class Net:
             raise NameError('Loss must be squared_error or poisson')
 
         # gradient optimizer
-        log.info('Loc 3')
         if self.optimizer == 'Adam':
             self.train_step = tf.train.AdamOptimizer(
                 self.learning_rate).minimize(self.loss)
@@ -201,16 +199,14 @@ class Net:
             raise NameError('No matching optimizer')
 
         # initialize global variables
-        log.info('Loc 4')
-
-        log.info('Initialize TF session for fit')
         session_conf = tf.ConfigProto(
              intra_op_parallelism_threads=1,
              inter_op_parallelism_threads=1)
         self.sess = tf.Session(config=session_conf)
-        #self.sess = tf.Session()
+
         #log.info('Initialize variables')
         self.sess.run(tf.global_variables_initializer())
+
         #log.info('Initialize saver')
         self.saver = tf.train.Saver(max_to_keep=1)
 

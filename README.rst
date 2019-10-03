@@ -2,8 +2,8 @@ NEMS
 ====
 
 Full documentation here:
-  .. image:: https://readthedocs.org/projects/nems/badge/?version=dev
-    :target: http://nems.readthedocs.io/en/dev/?badget=latest
+  .. image:: https://readthedocs.org/projects/nems/badge/
+    :target: https://nems.readthedocs.io/en/latest/
     :alt: Documentation Status
 
 NEMS is the Neural Encoding Model System. It is helpful for fitting a
@@ -24,19 +24,19 @@ instructions <https://nems.readthedocs.io/en/dev/installation.html>`__ for recom
 Quick Generic Python Install
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If you already have Python, download NEMS. Currently we recommend using
-the ``dev`` branch, which contains a number of useful features:
+If you already have Python, download NEMS:
 
 ::
 
-   git clone -b dev https://github.com/lbhb/NEMS
+   git clone https://github.com/lbhb/NEMS
 
-Add the NEMS library via pip (where “NEMS” is the installation
-directory):
+Add the NEMS library via pip (where “./NEMS” is the installation
+directory and "-e" means editable mode, which is not necessary, but
+is useful if you end up customizing your model fits):
 
 ::
 
-   pip install -e NEMS
+   pip install -e ./NEMS
 
 NEMS libraries should now be loadable. See next section for how to try
 it out!

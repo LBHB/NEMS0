@@ -13,7 +13,6 @@ GENERAL_REQUIRES = ['numpy', 'scipy', 'matplotlib', 'pandas', 'requests',
                     'h5py', 'sqlalchemy', 'configparser', 'tensorflow']
 # pycharm also requires: tornado
 
-
 EXTRAS_REQUIRES = {
     'docs': ['sphinx', 'sphinx_rtd_theme', 'pygments-enaml'],
 }

@@ -75,7 +75,7 @@ def add_average_sig(rec, signal_to_average='resp',
     return newrec
 
 
-def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
+def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=True):
     '''
     Returns a recording with _all_ signals averaged across epochs that
     match epoch_regex, shortening them so that each epoch occurs only
@@ -99,6 +99,9 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
     (based on stimulus and behaviorial state, for example) and then match
     the epoch_regex to those.
     '''
+    #import pdb; pdb.set_trace()
+    if use_mask:
+        recording = recording.remove_masked_epochs()
     epochs = recording['resp'].epochs
     epoch_names = sorted(set(ep.epoch_names_matching(epochs, epoch_regex)))
 
@@ -106,12 +109,11 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
     new_epochs = [] # pd.DataFrame()
     fs = recording[list(recording.signals.keys())[0]].fs
     d = int(np.ceil(np.log10(fs))+1)
+
     for epoch_name in epoch_names:
         common_epochs = ep.find_common_epochs(epochs, epoch_name, d=d)
         common_epochs = common_epochs[common_epochs['name']!='TRIAL']
         query = 'name == "{}"'.format(epoch_name)
-        #import pdb
-        #pdb.set_trace()
         end = common_epochs.query(query).iloc[0]['end']
         common_epochs[['start', 'end']] += offset
         offset += end
@@ -126,12 +128,14 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_'):
         # some subclasses may have more efficient approaches (e.g.,
         # TiledSignal)
 
-        # Extract all occurances of each epoch, returning a dict where keys are
+        # Extract all occurences of each epoch, returning a dict where keys are
         # stimuli and each value in the dictionary is (reps X cell X bins)
+        print(signal_name)
         epoch_data = signal.rasterize().extract_epochs(epoch_names)
 
         # Average over all occurrences of each epoch
         data = []
+        #import pdb; pdb.set_trace()
         for epoch_name in epoch_names:
             epoch = epoch_data[epoch_name]
 
@@ -832,9 +836,19 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
                pc_count=None, pc_source='all', overwrite_resp=True,
                whiten=True, **context):
     """
-    generate pca signal, replace (multichannel) reference with a single
+    generate PCA transformation of signal, if overwrite_resp==True, replace (multichannel) reference with a single
     pc channel
 
+    :param rec: NEMS recording
+    :param pc_idx: subset of pcs to return (default all)
+    :param resp_sig: signal to compute PCs
+    :param pc_sig: name of signal to save PCs (if not overwrite_resp)
+    :param pc_count: number of PCs to save
+    :param pc_source: what to compute PCs of (all/psth/noise)
+    :param overwrite_resp: (True) if True replace resp_sig with PCs, if False, save in pc_sig
+    :param whiten: whiten before PCA
+    :param context: NEMS context for xforms compatibility
+    :return: copy of rec with PCs
     """
     rec0 = rec.copy()
     if type(pc_idx) is not list:

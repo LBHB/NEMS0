@@ -490,8 +490,8 @@ def group_epochs_by_occurrence_counts(epochs, regex=None):
 def find_common_epochs(epochs, epoch_name, d=12):
     '''
     Finds all epochs contained by `epoch_name` that are common to all
-    occurances of `epoch_name`. An epoch is considered "common" to all
-    occurances if the name matches and the start and end times, relative to the
+    occurences of `epoch_name`. An epoch is considered "common" to all
+    occurences if the name matches and the start and end times, relative to the
     start `epoch_name`, are the same to the number of decimal places indicated.
 
     Parameters
@@ -524,6 +524,7 @@ def find_common_epochs(epochs, epoch_name, d=12):
         epoch_subset['end'] -= lb
         epoch_subset = set((n, round(s, d), round(e, d)) for (n, s, e) \
                            in epoch_subset[['name', 'start', 'end']].values)
+
         epoch_subsets.append(epoch_subset)
 
     # Now, determine which epochs are common to all occurrences.

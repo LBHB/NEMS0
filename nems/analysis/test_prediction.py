@@ -85,13 +85,11 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
     # Compute scores for validation dat
     r_ceiling = 0
 
-    # some crazy stuff to maintain backward compatibility
-    # eventually we will only support modelspec and deprecate support for
-    # modelspecs lists
+    # deprecated support for modelspecs lists
     if modelspecs is not None:
         raise Warning('Use of modelspecs list is deprecated')
 
-    # svd - fix to have default value for backward compatibility
+    # by default, assume that model is trying to predict resp signal
     output_name = modelspec.meta.get('output_name', 'resp')
 
     # TODO: support for multiple views -- if ever desired? usually validation set views
@@ -102,45 +100,48 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
     # only compute results for first jackknife -- for simplicity, not optimal!
     # only works if view_count==1 or resp_count(# resp channels)==1
     est_mult = modelspec.jack_count
-    if view_count>1:
-        #raise ValueError('view_count>1 not supported at this stage.')
-        r_test = se_test = np.zeros(view_count)
-        r_fit = np.zeros(view_count)
-        se_fit = np.zeros(view_count)
-        r_floor = np.zeros(view_count)
-        mse_test = np.zeros(view_count)
-        se_mse_test = np.zeros(view_count)
-        mse_fit = np.zeros(view_count)
-        se_mse_fit = np.zeros(view_count)
-        ll_test = np.zeros(view_count)
-        ll_fit = np.zeros(view_count)
-        r_ceiling = np.zeros(view_count)
-        for i in range(view_count):
-            if ('mask' in val.signals.keys()) and use_mask:
-                v = val.set_view(i).apply_mask()
-                e = est.set_view(i*est_mult).apply_mask()
+    out_chan_count = val[output_name].shape[0]
+
+    r_test = np.zeros((out_chan_count, view_count))
+    se_test = np.zeros((out_chan_count, view_count))
+    r_fit = np.zeros((out_chan_count, view_count))
+    se_fit = np.zeros((out_chan_count, view_count))
+    r_floor = np.zeros((out_chan_count, view_count))
+    r_ceiling = np.zeros((out_chan_count, view_count))
+    mse_test = np.zeros((out_chan_count, view_count))
+    se_mse_test = np.zeros((out_chan_count, view_count))
+    mse_fit = np.zeros((out_chan_count, view_count))
+    se_mse_fit = np.zeros((out_chan_count, view_count))
+    ll_test = np.zeros((out_chan_count, view_count))
+    ll_fit = np.zeros((out_chan_count, view_count))
+
+    for i in range(view_count):
+        if ('mask' in val.signals.keys()) and use_mask:
+            v = val.set_view(i).apply_mask()
+            e = est.set_view(i*est_mult).apply_mask()
+        else:
+            v = val.set_view(i)
+            e = est.set_view(i*est_mult)
+            use_mask = False
+        r_test[:,i], se_test[:,i] = nmet.j_corrcoef(v, 'pred', output_name)
+        r_fit[:,i], se_fit[:,i] = nmet.j_corrcoef(e, 'pred', output_name)
+        r_floor[:,i] = nmet.r_floor(v, 'pred', output_name)
+
+        mse_test[:,i], se_mse_test[:,i] = nmet.j_nmse(v, 'pred', output_name)
+        mse_fit[:,i], se_mse_fit[:,i] = nmet.j_nmse(e, 'pred', output_name)
+
+        ll_test[:,i] = nmet.likelihood_poisson(v, 'pred', output_name)
+        ll_fit[:,i] = nmet.likelihood_poisson(e, 'pred', output_name)
+
+        if rec is not None:
+            if 'mask' in rec.signals.keys() and use_mask:
+                r = rec.apply_mask()
             else:
-                v = val.set_view(i)
-                e = est.set_view(i*est_mult)
-                use_mask = False
-            r_test[i], se_test[i] = nmet.j_corrcoef(v, 'pred', output_name)
-            r_fit[i], se_fit[i] = nmet.j_corrcoef(e, 'pred', output_name)
-            r_floor[i] = nmet.r_floor(v, 'pred', output_name)
+                r = rec
+            # print('running r_ceiling')
+            r_ceiling[:,i] = nmet.r_ceiling(v, r, 'pred', output_name)
 
-            mse_test[i], se_mse_test[i] = nmet.j_nmse(v, 'pred', output_name)
-            mse_fit[i], se_mse_fit[i] = nmet.j_nmse(e, 'pred', output_name)
-
-            ll_test[i] = nmet.likelihood_poisson(v, 'pred', output_name)
-            ll_fit[i] = nmet.likelihood_poisson(e, 'pred', output_name)
-
-            if rec is not None:
-                if 'mask' in rec.signals.keys() and use_mask:
-                    r = rec.apply_mask()
-                else:
-                    r = rec
-                # print('running r_ceiling')
-                r_ceiling[i] = nmet.r_ceiling(v, r, 'pred', output_name)
-    else:
+    """
 
         # fix view_index = 0
         i = 0
@@ -170,6 +171,7 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
                 r = rec
             # print('running r_ceiling')
             r_ceiling = nmet.r_ceiling(v, r, 'pred', output_name)
+    """
 
     modelspec.meta['r_test'] = r_test
     modelspec.meta['se_test'] = se_test
@@ -383,19 +385,24 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
     if IsReload:
         return {}
 
+    # generate prediction for each jack and fit
     new_est, new_val = generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
 
     jack_count = modelspec.jack_count
     fit_count = modelspec.fit_count
     best_idx = np.zeros(jack_count,dtype=int)
-    new_raw = np.zeros((1,1,jack_count), dtype='O')
+    new_raw = np.zeros((1, 1, jack_count), dtype='O')
+    #import pdb; pdb.set_trace()
+
+    # for each jackknife set, figure out best fit
     for j in range(jack_count):
         view_range = [i * jack_count + j for i in range(fit_count)]
         this_est = new_est.view_subset(view_range)
         this_modelspec = modelspec.copy(jack_index=j)
         new_modelspec = standard_correlation(est=this_est, val=new_val, modelspec=this_modelspec)
 
-        x = new_modelspec.meta[criterion]
+        # average performance across output channels (if more than one output)
+        x = np.mean(new_modelspec.meta[criterion], axis=0)
 
         best_idx[j] = int(np.argmin(x))
         new_raw[0, 0, j] = modelspec.raw[0, best_idx[j], j]
