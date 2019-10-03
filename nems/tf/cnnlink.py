@@ -402,18 +402,15 @@ def fit_tf(modelspec=None, est=None,
     log.info('data_dims: %s', data_dims)
 
     # extract stimulus matrix
-    try:
-        F = np.reshape(est['stim'].as_continuous().copy().T, feat_dims)
-        D = np.reshape(est['resp'].as_continuous().copy().T, data_dims)
-        if 'state' in est.signals.keys():
-            n_states = est['state'].shape[0]
-            state_dims = [n_stim, n_tps_per_stim, n_states]
-            S = np.reshape(est['state'].as_continuous().copy().T, state_dims)
-        else:
-            S = None
-    except:
-        import pdb
-        pdb.set_trace()
+    F = np.reshape(est['stim'].as_continuous().copy().T, feat_dims)
+    D = np.reshape(est['resp'].as_continuous().copy().T, data_dims)
+    if 'state' in est.signals.keys():
+        n_states = est['state'].shape[0]
+        state_dims = [n_stim, n_tps_per_stim, n_states]
+        S = np.reshape(est['state'].as_continuous().copy().T, state_dims)
+    else:
+        S = None
+
 
     # MOVED FUNCTIONALITY OUT TO xforms
     #new_est = est.tile_views(init_count)
