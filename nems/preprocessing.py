@@ -836,9 +836,19 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
                pc_count=None, pc_source='all', overwrite_resp=True,
                whiten=True, **context):
     """
-    generate pca signal, replace (multichannel) reference with a single
+    generate PCA transformation of signal, if overwrite_resp==True, replace (multichannel) reference with a single
     pc channel
 
+    :param rec: NEMS recording
+    :param pc_idx: subset of pcs to return (default all)
+    :param resp_sig: signal to compute PCs
+    :param pc_sig: name of signal to save PCs (if not overwrite_resp)
+    :param pc_count: number of PCs to save
+    :param pc_source: what to compute PCs of (all/psth/noise)
+    :param overwrite_resp: (True) if True replace resp_sig with PCs, if False, save in pc_sig
+    :param whiten: whiten before PCA
+    :param context: NEMS context for xforms compatibility
+    :return: copy of rec with PCs
     """
     rec0 = rec.copy()
     if type(pc_idx) is not list:

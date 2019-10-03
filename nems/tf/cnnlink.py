@@ -266,7 +266,6 @@ def tf2modelspec(net, modelspec):
     """
 
     net_layer_vals = net.layer_vals()
-    current_layer = 0
     for i, m in enumerate(modelspec):
         log.info('tf2modelspec: ' + m['fn'])
 
@@ -284,7 +283,7 @@ def tf2modelspec(net, modelspec):
             if m['fn_kwargs']['bank_count']==1:
                 #m['phi']['coefficients'] = np.flipud(np.fliplr(net_layer_vals[i]['W'][:, 0, 0, :].T))
                 m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:, 0, 0, :].T)
-            elif net_layer_vals[current_layer]['W'].shape[1]>1:
+            elif net_layer_vals[i]['W'].shape[1]>1:
                 # new depthwise_conv2d
                 m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][0, :, :, 0].T)
             else:
