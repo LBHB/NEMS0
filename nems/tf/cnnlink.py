@@ -121,10 +121,10 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
             else:
                 layer['W'] = cnn.kern2D(layer['time_win_smp'], chan_count, 1,
                                         weight_scale, seed=net_seed, distr='norm')
-            log.info("W shape: %s", layer['W'].shape)
-            log.info("X_pad shape: %s", X_pad.shape)
+            #log.info("W shape: %s", layer['W'].shape)
+            #log.info("X_pad shape: %s", X_pad.shape)
             layer['Y'] = tf.nn.conv1d(X_pad, layer['W'], stride=1, padding='VALID')
-            log.info("Y shape: %s", layer['Y'].shape)
+            #log.info("Y shape: %s", layer['Y'].shape)
 
         elif m['fn'] in ['nems.modules.fir.filter_bank']:
 
@@ -174,10 +174,10 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
                 s = tf.shape(layer['tY'])
                 layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'],[s[0], layer['tY'].shape[1], tf.Dimension(bank_count), tf.Dimension(chan_count)]), axis=3)
 
-            log.info("W shape: %s", layer['W'].shape)
-            log.info("X_pad shape: %s", X_pad.shape)
-            log.info("tY shape: %s", layer['tY'].shape)
-            log.info("Y shape: %s", layer['Y'].shape)
+            #log.info("W shape: %s", layer['W'].shape)
+            #log.info("X_pad shape: %s", X_pad.shape)
+            #log.info("tY shape: %s", layer['tY'].shape)
+            #log.info("Y shape: %s", layer['Y'].shape)
 
         elif m['fn'] in ['nems.modules.weight_channels.basic']:
             layer['type'] = 'reweight'
@@ -207,7 +207,7 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
                 layer['m'] = tf.Variable(np.reshape(mn, (1, 1, mn.shape[0])))
                 layer['s'] = tf.Variable(np.reshape(sd, (1, 1, sd.shape[0])))
             else:
-                print('using TF rand')
+                log.info('Using TF rand for wcg')
                 layer['m'] = tf.Variable(tf.random.uniform(
                     [1, 1, layer['n_kern']], minval=0, maxval=1,
                     seed=cnn.seed_to_randint(net_seed + i)))
@@ -216,18 +216,18 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
                     seed=cnn.seed_to_randint(net_seed + 20 + i)))
 
             # trying to impose NEMS bounds
-            #b = m['bounds']
-            #layer['m0'] = tf.clip_by_value(layer['m'], b['mean'][0][0], b['mean'][1][0])
-            #layer['s0'] = tf.clip_by_value(layer['s'], b['sd'][0][0]*10, b['sd'][1][0]*10)
+            b = m['bounds']
+            layer['m0'] = tf.clip_by_value(layer['m'], b['mean'][0][0], b['mean'][1][0])
+            layer['s0'] = tf.clip_by_value(layer['s']/10, b['sd'][0][0], b['sd'][1][0])
             #sd[sd < 0.00001] = 0.00001
-            layer['s0'] = tf.clip_by_value(layer['s'], 0.00001*10, 10)
-            layer['f'] = tf.reshape(tf.range(0, 1, 1/n_input_feats, dtype=tf.float32),
-                                    [1, n_input_feats, 1])
-            layer['Wraw'] = tf.exp(-0.5 * tf.square((layer['f'] -layer['m']) / (layer['s0'] / 10)))
+            #layer['s0'] = tf.clip_by_value(layer['s'], 0.00001*10, 100)
+            layer['f'] = tf.reshape(tf.range(n_input_feats, dtype=tf.float32),
+                                    [1, n_input_feats, 1]) / n_input_feats
+            layer['Wraw'] = tf.exp(-0.5 * tf.square((layer['f'] - layer['m0']) / layer['s0']))
             layer['W'] = layer['Wraw'] / tf.reduce_sum(layer['Wraw'], axis=1)
             layer['Y'] = tf.nn.conv1d(layer['X'], layer['W'], stride=1, padding='SAME')
 
-        elif m['fn']=='nems.modules.state.state_dc_gain':
+        elif m['fn'] == 'nems.modules.state.state_dc_gain':
             # match this function from nems.modules.state.state_dc_gain
             #fn = lambda x: np.matmul(g, rec[s]._data) * x + np.matmul(d, rec[s]._data)
             g = m['phi']['g'].astype('float32').T
@@ -295,18 +295,21 @@ def tf2modelspec(net, modelspec):
             m['phi']['coefficients'] = net_layer_vals[i]['W'][0, :, :].T
 
         elif m['fn'] in ['nems.modules.nonlinearity.dlog']:
-            modelspec[i]['phi']['offset'] = net_layer_vals[i]['b'][0, :, :].T
+            m['phi']['offset'] = net_layer_vals[i]['b'][0, :, :].T
 
         elif m['fn'] in ['nems.modules.weight_channels.gaussian']:
-            modelspec[i]['phi']['mean'] = net_layer_vals[i]['m'][0, 0, :].T
-            modelspec[i]['phi']['sd'] = net_layer_vals[i]['s'][0, 0, :].T / 10
+            #m['phi']['mean'] = net_layer_vals[i]['m'][0, 0, :].T
+            m['phi']['mean'] = np.clip(net_layer_vals[i]['m'][0, 0, :].T,
+                                     m['bounds']['mean'][0], m['bounds']['mean'][1])
+            m['phi']['sd'] = np.clip(net_layer_vals[i]['s'][0, 0, :].T / 10,
+                                     m['bounds']['sd'][0], m['bounds']['sd'][1])
 
         elif m['fn'] in ['nems.modules.state.state_dc_gain']:
-            modelspec[i]['phi']['g'] = net_layer_vals[i]['g'][0, :, :].T
-            modelspec[i]['phi']['d'] = net_layer_vals[i]['d'][0, :, :].T
+            m['phi']['g'] = net_layer_vals[i]['g'][0, :, :].T
+            m['phi']['d'] = net_layer_vals[i]['d'][0, :, :].T
 
         else:
-            raise ValueError("fn %s not supported", m['fn'])
+            raise ValueError("NEMS module fn=%s not supported", m['fn'])
 
     return modelspec
 
@@ -455,16 +458,19 @@ def fit_tf(modelspec=None, est=None,
     p2 = new_est['pred'].as_continuous()[0,:n_tps_per_stim]
     E = np.std(p1-p2)
     log.info('Mean difference between NEMS and TF model pred: %e', E)
-    if E > 1e-2:
+    if np.isnan(E) or (E > 1e-2):
         log.info('E too big? Jumping to debug mode.')
         import matplotlib.pyplot as plt
         plt.figure()
-        ax1=plt.subplot(1,1,1)
+        ax1=plt.subplot(1, 1, 1)
         ax1.plot(y[0:2,:,0].T)
-        ax1.plot(new_est['pred'].as_continuous()[0:2,:n_tps_per_stim],'--')
-        ax1.plot(new_est['pred'].as_continuous()[0:2,:n_tps_per_stim]-y[0:2,:,0])
+        ax1.plot(new_est['pred'].as_continuous()[0:2,:n_tps_per_stim].T,'--')
+        ax1.plot(new_est['pred'].as_continuous()[0:2,:n_tps_per_stim].T-y[0:2,:,0].T)
         plt.show()
-        print(modelspec.phi)
+        log.info(modelspec.phi)
+        #from nems.modules.weight_channels import gaussian_coefficients
+        #log.info(gaussian_coefficients(modelspec.phi[1]['mean'], modelspec.phi[1]['sd'],
+        #                      modelspec[1]['fn_kwargs']['n_chan_in']))
         import pdb
         pdb.set_trace()
 

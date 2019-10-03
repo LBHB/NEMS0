@@ -144,8 +144,8 @@ def wc(kw):
             prior = {'mean': ('Normal', mean_prior_coefficients),
                      'sd': ('HalfNormal', sd_prior_coefficients)}
             bounds = {
-                'mean': (np.full_like(mean, -0.5), np.full_like(mean, 1.5)),
-                'sd': (np.full_like(mean, 0.01), np.full_like(mean, 0.6))}
+                'mean': (np.full_like(mean, -0.05), np.full_like(mean, 1.05)),
+                'sd': (np.full_like(mean, 0.05), np.full_like(mean, 0.6))}
 
         elif op == 'n':
             normalize = True
