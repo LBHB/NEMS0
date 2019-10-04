@@ -130,7 +130,6 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=Tru
 
         # Extract all occurences of each epoch, returning a dict where keys are
         # stimuli and each value in the dictionary is (reps X cell X bins)
-        print(signal_name)
         epoch_data = signal.rasterize().extract_epochs(epoch_names)
 
         # Average over all occurrences of each epoch
@@ -623,6 +622,7 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
     newrec.add_signal(respavg_with_spont)
     if 'stim' in newrec.signals.keys():
         # add as channel to stim signal if it exists
+        newrec['stim'] = newrec['stim'].rasterize()
         newrec = concatenate_state_channel(newrec, respavg, 'stim')
         newrec['stim'].chans[-1] = 'psth'
 
@@ -834,6 +834,7 @@ def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals,
 
 def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
                pc_count=None, pc_source='all', overwrite_resp=True,
+               compute_power='no',
                whiten=True, **context):
     """
     generate PCA transformation of signal, if overwrite_resp==True, replace (multichannel) reference with a single
@@ -895,7 +896,6 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
         pca.fit(D_ref)
 
         X = pca.transform(D)
-        rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
     else:
         # each row(??) of v is a PC --weights to project into PC domain
         m = np.nanmean(D_ref, axis=0, keepdims=True)
@@ -917,7 +917,10 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
         v *= vs
         X = (D-m) / sd @ v.T
 
-        rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
+    if compute_power == 'single_trial':
+        X = convolve2d(np.abs(X), np.ones((3,1)) / 3, 'same')
+
+    rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
 
 #    r = rec0[pc_sig].extract_epoch('REFERENCE')
 #    mr=np.mean(r,axis=0)
