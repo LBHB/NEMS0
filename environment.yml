@@ -1,0 +1,11 @@
+name: nems_testing
+dependencies:
+  - python=3.6
+  - numpy
+  - pandas
+  - matplotlib
+  - pandas
+  - requests
+  - h5py
+  - sqlalchemy
+  - configparser
