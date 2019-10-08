@@ -168,7 +168,7 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
             log.info("X_pad shape: %s", X_pad.shape)
 
             layer['Y'] = tf.nn.conv1d(X_pad, layer['W'], stride=1, padding='VALID')
-            log.info("Y shape: %s", layer['Y'].shape)
+            #log.info("Y shape: %s", layer['Y'].shape)
 
         elif m['fn'] in ['nems.modules.fir.filter_bank']:
 
@@ -333,7 +333,6 @@ def tf2modelspec(net, modelspec):
             m['phi']['level'] = net_layer_vals[i]['b'][0, :, :].T
 
         elif m['fn'] in ['nems.modules.fir.basic']:
-
             m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:, :, 0].T)
 
         elif m['fn'] in ['nems.modules.fir.damped_oscillator']:
