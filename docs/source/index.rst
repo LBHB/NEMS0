@@ -10,8 +10,8 @@ NEMS -- The Neural Encoding Model System
     :hidden:
     :caption: Getting started
 
-    quickstart
     installation
+    quickstart
 
 1. Getting started
 --------------------
@@ -42,7 +42,7 @@ NEMS -- The Neural Encoding Model System
     saving
     database
 
-4. Organizing your Models
+3. Organizing your Models
 -------------------------
 
 - :doc:`modules`
@@ -58,14 +58,14 @@ NEMS -- The Neural Encoding Model System
     priors
     xforms
 
-5. Fitting your Models
+4. Fitting your Models
 ----------------------
 
 - :doc:`fitters`
 - :doc:`priors`
 - :doc:`xforms`
 
-6. Detailed Guides
+5. Detailed Guides
 ------------------
 
 - `Architectural Diagram <architecture.svg>`__
@@ -83,7 +83,7 @@ NEMS -- The Neural Encoding Model System
     nginx
     API reference <api/modules>
 
-7. Contributing to NEMS
+6. Contributing to NEMS
 -----------------------
 
 - :doc:`contributing`

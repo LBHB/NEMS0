@@ -1139,13 +1139,13 @@ def relu(kw):
     '''
     options = kw.split(".")[1:]
     chans = 1
-    offset = False
+    var_offset = True
     fname = 'nems.modules.nonlinearity.relu'
     baseline = False
 
     for op in options:
         if op == 'f':
-            offset = True
+            var_offset = False
         elif op == 'b':
             baseline=True
             fname = 'nems.modules.nonlinearity.relub'
@@ -1165,11 +1165,11 @@ def relu(kw):
         'plot_fn_idx': 1
     }
 
-    if offset:
+    if var_offset is False:
         template['fn_kwargs']['offset'] = np.array([[0]])
     else:
         template['prior'] = {'offset': ('Normal', {
-                'mean': -np.ones((chans, 1))/10,
+                'mean': np.zeros((chans, 1)),
                 'sd': np.ones((chans, 1))/np.sqrt(chans)})}
     if baseline:
         template['prior']['baseline'] = ('Normal', {

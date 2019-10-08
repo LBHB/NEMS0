@@ -65,6 +65,7 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
             layer['type'] = 'relu'
             c = -modelspec[i]['phi']['offset'].astype('float32').T
             layer['n_kern'] = c.shape[1]
+            log.info('relu init %s', c)
             if use_modelspec_init:
                 layer['b'] = tf.Variable(np.reshape(c, (1, c.shape[0], c.shape[1])))
             else:
@@ -138,13 +139,15 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
 
             c = np.fliplr(m['phi']['coefficients']).astype('float32').T
             chan_count = int(c.shape[1]/bank_count)
+            in_chan_count = int(layer['X'].shape[2])
 
             # split inputs into the different kernels
-            #c = np.reshape(c, (1, c.shape[0], bank_count, chan_count))
-            if bank_count==1:
+            if bank_count == 1:
                 c = np.reshape(c, (c.shape[0], 1, 1, bank_count*chan_count))
+            elif in_chan_count == bank_count*chan_count:
+                c = np.reshape(c, (1, c.shape[0], chan_count*bank_count, 1))
             else:
-                c = np.reshape(c, (1, c.shape[0], bank_count*chan_count, 1))
+                c = np.reshape(c, (1, c.shape[0], chan_count, bank_count))
 
             if np.sum(np.abs(c)) == 0:
                 c[0, 0, :, :] = 1
@@ -158,26 +161,37 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
                 layer['W'] = cnn.weights_norm(c.shape,
                     sig=weight_scale, seed=cnn.seed_to_randint(net_seed)+i)
 
-            if bank_count==1:
-                # special case, convolve each channel with each filters
-                # insert placeholder dim on axis=2
-                #import pdb; pdb.set_trace()
+            if bank_count == 1:
+                # "outer product" convolve each channel with each filter
+                # insert placeholder dim on axis=3
                 X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 3)
                 layer['tY'] = tf.nn.conv2d(X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID')
                 layer['Y'] = tf.reshape(layer['tY'],[-1, layer['tY'].shape[1], layer['tY'].shape[2]*layer['tY'].shape[3]])
-            else:
+            elif in_chan_count == bank_count*chan_count:
+                # each bank applied to a segment of the input channels
                 # insert placeholder dim on axis=1
                 X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 1)
-                layer['tY'] = tf.squeeze(tf.nn.depthwise_conv2d(
-                    X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID',
-                    rate=[1, layer['rate']]), axis=1)
+                layer['tY'] = tf.nn.depthwise_conv2d(
+                    X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID', rate=[1, layer['rate']])
                 s = tf.shape(layer['tY'])
-                layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'],[s[0], layer['tY'].shape[1], tf.Dimension(bank_count), tf.Dimension(chan_count)]), axis=3)
+                layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'],[s[0], layer['tY'].shape[2], tf.Dimension(bank_count), tf.Dimension(chan_count)]), axis=3)
+            else:
+                # apply each fir bank to same input channels
+                # insert placeholder dim on axis=1
+                X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 1)
+                layer['tY'] = tf.nn.depthwise_conv2d(
+                    X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID', rate=[1, layer['rate']])
+                s = tf.shape(layer['tY'])
+                layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'],
+                                                      [s[0], layer['tY'].shape[2], tf.Dimension(chan_count),
+                                                       tf.Dimension(bank_count)]), axis=2)
+                #import pdb
+                #pdb.set_trace()
 
-            #log.info("W shape: %s", layer['W'].shape)
-            #log.info("X_pad shape: %s", X_pad.shape)
-            #log.info("tY shape: %s", layer['tY'].shape)
-            #log.info("Y shape: %s", layer['Y'].shape)
+            log.info("W shape: %s", layer['W'].shape)
+            log.info("X_pad shape: %s", X_pad.shape)
+            log.info("tY shape: %s", layer['tY'].shape)
+            log.info("Y shape: %s", layer['Y'].shape)
 
         elif m['fn'] in ['nems.modules.weight_channels.basic']:
             layer['type'] = 'reweight'
@@ -279,16 +293,19 @@ def tf2modelspec(net, modelspec):
             m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:, :, 0].T)
 
         elif m['fn'] in ['nems.modules.fir.filter_bank']:
-            #import pdb; pdb.set_trace()
-            if m['fn_kwargs']['bank_count']==1:
-                #m['phi']['coefficients'] = np.flipud(np.fliplr(net_layer_vals[i]['W'][:, 0, 0, :].T))
+            if m['fn_kwargs']['bank_count'] == 1:
                 m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:, 0, 0, :].T)
-            elif net_layer_vals[i]['W'].shape[1]>1:
+            else: # net_layer_vals[i]['W'].shape[1] > 1:
                 # new depthwise_conv2d
-                m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][0, :, :, 0].T)
-            else:
-                # inefficient conv2d
-                m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:, 0, 0, :].T)
+                c = net_layer_vals[i]['W'][0, :, :, :]
+                #import pdb; pdb.set_trace()
+                c = np.transpose(c, (2, 1, 0))
+                c = np.reshape(c, [-1, c.shape[-1]])
+                #c = np.tranpose(c, (c.shape[2], c.shape[1]*c.shape[2])).T
+                m['phi']['coefficients'] = np.fliplr(c)
+            #else:
+            #    # inefficient conv2d
+            #    m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:, 0, 0, :].T)
 
         elif m['fn'] in ['nems.modules.weight_channels.basic']:
             m['phi']['coefficients'] = net_layer_vals[i]['W'][0, :, :].T
