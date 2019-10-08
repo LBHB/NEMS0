@@ -33,7 +33,6 @@ from nems.utils import (iso8601_datestring, find_module,
                         recording_filename_hash, get_default_savepath, lookup_fn_at)
 from nems.fitters.api import scipy_minimize
 from nems.recording import load_recording, Recording
-from nems.tf import cnnlink
 
 log = logging.getLogger(__name__)
 xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)

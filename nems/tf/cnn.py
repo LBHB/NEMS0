@@ -624,6 +624,14 @@ class Net:
                     layer['g'] = self.layers[i]['g'].eval()
                 if 'd' in self.layers[i]:
                     layer['d'] = self.layers[i]['d'].eval()
+                if 'gain' in self.layers[i]:
+                    layer['gain'] = self.layers[i]['gain'].eval()
+                if 'f1' in self.layers[i]:
+                    layer['f1'] = self.layers[i]['f1'].eval()
+                if 'delay' in self.layers[i]:
+                    layer['delay'] = self.layers[i]['delay'].eval()
+                if 'tau' in self.layers[i]:
+                    layer['tau'] = self.layers[i]['tau'].eval()
                 layers.append(layer)
 
             return layers

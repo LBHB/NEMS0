@@ -1,23 +1,21 @@
 Installing NEMS
 ===============
 
-`Home <../README.md>`__
-
 Generic Python Install
 ----------------------
 
-Download NEMS (dev branch recommended):
+Download NEMS, where /my/code/path/ is where you keep your code:
 
 ::
 
-    git clone -b dev https://github.com/lbhb/NEMS
+    git clone -b dev https://github.com/lbhb/NEMS /my/code/path/
 
 Add the NEMS library via pip (where "NEMS" is the installation
 directory):
 
 ::
 
-    pip install -e NEMS
+    pip install -e /my/code/path/NEMS
 
 NEMS libraries should now be loadable. See next section for how to try
 it out!
@@ -35,27 +33,16 @@ Create a NEMS environment:
 
 ::
 
-    conda create -n NEMS
+    conda create -n NEMS -f ./nems/environment.yml
+
+Then activate that environment and install NEMS, as above:
+
+::
+
     conda activate NEMS # or in Windows: activate NEMS
+    git clone -b dev https://github.com/lbhb/NEMS /my/code/path/
+    pip install -e /my/code/path/NEMS
 
-Install required packages and some useful utilities:
-
-::
-
-    conda install ipython pip jupyter numpy scipy matplotlib pandas requests h5py sqlalchemy
-
-Download NEMS:
-
-::
-
-    git clone https://github.com/lbhb/NEMS
-
-Then add the NEMS library via pip (where "NEMS" is the installation
-directory):
-
-::
-
-    pip install -e NEMS
 
 Other installation options
 --------------------------

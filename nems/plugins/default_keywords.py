@@ -41,7 +41,8 @@ def _one_zz(zerocount=1):
 
 def wc(kw):
     '''
-    Parses the default modulespec for basic and gaussian channel weighting.
+    Parses the default modulespec for basic and gaussian channel weighting. By default, weights are initialized
+    to small positive value (0.01). TODO: Should this be zero instead??
 
     Parameter
     ---------
@@ -52,7 +53,7 @@ def wc(kw):
     -------
     c : Used when n_outputs is greater than n_inputs (overwrites g)
     g : For gaussian coefficients (overwrites c)
-    z : initialize all coefficients to zero
+    z : initialize all coefficients to zero (or mean zero if shuffling)
     n : To apply normalization
     o : include offset paramater, a constant ("bias") added to each output
 
@@ -102,8 +103,9 @@ def wc(kw):
 
     for op in options[2:]:  # will be empty if only wc and {in}x{out}
         if op == 'z':
+            # weighting scheme from https://medium.com/usf-msds/deep-learning-best-practices-1-weight-initialization-14e5c0295b94
             p_coefficients = {'mean': np.zeros((n_outputs, n_inputs)),
-                              'sd': np.full((n_outputs, n_inputs), 0.1)}
+                              'sd': np.full((n_outputs, n_inputs), np.sqrt(2/(n_outputs)))}
             prior = {'coefficients': ('Normal', p_coefficients)}
 
         elif op == 'c':
@@ -1137,13 +1139,13 @@ def relu(kw):
     '''
     options = kw.split(".")[1:]
     chans = 1
-    offset = False
+    var_offset = True
     fname = 'nems.modules.nonlinearity.relu'
     baseline = False
 
     for op in options:
         if op == 'f':
-            offset = True
+            var_offset = False
         elif op == 'b':
             baseline=True
             fname = 'nems.modules.nonlinearity.relub'
@@ -1163,12 +1165,12 @@ def relu(kw):
         'plot_fn_idx': 1
     }
 
-    if offset:
+    if var_offset is False:
         template['fn_kwargs']['offset'] = np.array([[0]])
     else:
         template['prior'] = {'offset': ('Normal', {
                 'mean': np.zeros((chans, 1)),
-                'sd': np.ones((chans, 1))*2})}
+                'sd': np.ones((chans, 1))/np.sqrt(chans)})}
     if baseline:
         template['prior']['baseline'] = ('Normal', {
                 'mean': np.zeros((chans, 1)),
