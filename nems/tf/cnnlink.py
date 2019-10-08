@@ -127,6 +127,49 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
             layer['Y'] = tf.nn.conv1d(X_pad, layer['W'], stride=1, padding='VALID')
             #log.info("Y shape: %s", layer['Y'].shape)
 
+        elif m['fn'] in ['nems.modules.fir.damped_oscillator']:
+            layer['type'] = 'conv'
+            layer['time_win_smp'] = m['fn_kwargs']['n_coefs']
+            pad_size = np.int32(np.floor(layer['time_win_smp']-1))
+            X_pad = tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]])
+
+            # HACK : scale sd by 10 to play well with TF fitter
+            chan_count = m['phi']['f1s'].size
+            f1s = np.reshape(m['phi']['f1s'].astype('float32'), (1, chan_count, 1))
+            taus = np.reshape(m['phi']['taus'].astype('float32'), (1, chan_count, 1))
+            delays = np.reshape(m['phi']['delays'].astype('float32'), (1, chan_count, 1))
+            gains = np.reshape(m['phi']['gains'].astype('float32'), (1, chan_count, 1))
+            if use_modelspec_init:
+                layer['f1'] = tf.Variable(f1s)
+                layer['tau'] = tf.Variable(taus)
+                layer['delay'] = tf.Variable(delays)
+                layer['gain'] = tf.Variable(gains)
+            else:
+                log.info('Using TF rand for damped oscillator')
+                layer['f1'] = tf.Variable(tf.random.uniform(
+                    [1, 1, chan_count], minval=0, maxval=1,
+                    seed=cnn.seed_to_randint(net_seed + i)))
+                layer['tau'] = tf.Variable(tf.random.uniform(
+                    [1, 1, chan_count], minval=0.1, maxval=0.5,
+                    seed=cnn.seed_to_randint(net_seed + 20 + i)))
+                layer['gain'] = tf.Variable(tf.random.normal(
+                    [1, 1, chan_count], stddev=weight_scale, mean=0,
+                    seed=cnn.seed_to_randint(net_seed + 40 + i)))
+                layer['delay'] = tf.Variable(tf.random.uniform(
+                    [1, 1, chan_count], minval=0, maxval=2,
+                    seed=cnn.seed_to_randint(net_seed + 60 + i)))
+
+            # time lag reversed
+            layer['t'] = tf.reshape(tf.range(layer['time_win_smp'], 0, -1, dtype=tf.float32), [layer['time_win_smp'], 1, 1]) - layer['delay']
+            coefficients = tf.math.sin(layer['f1'] * layer['t']) * tf.math.exp(-layer['tau'] * layer['t']) * layer['gain']
+            comparison = tf.math.less(layer['t'], tf.constant(0, dtype=tf.float32))
+            layer['W'] = tf.multiply(coefficients, tf.cast(comparison, tf.float32))
+            log.info("W shape: %s", layer['W'].shape)
+            log.info("X_pad shape: %s", X_pad.shape)
+
+            layer['Y'] = tf.nn.conv1d(X_pad, layer['W'], stride=1, padding='VALID')
+            log.info("Y shape: %s", layer['Y'].shape)
+
         elif m['fn'] in ['nems.modules.fir.filter_bank']:
 
             layer['type'] = 'conv_bank_1d'
@@ -290,7 +333,14 @@ def tf2modelspec(net, modelspec):
             m['phi']['level'] = net_layer_vals[i]['b'][0, :, :].T
 
         elif m['fn'] in ['nems.modules.fir.basic']:
+
             m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:, :, 0].T)
+
+        elif m['fn'] in ['nems.modules.fir.damped_oscillator']:
+            m['phi']['f1s'] = net_layer_vals[i]['f1'][:, :, 0].T
+            m['phi']['taus'] = net_layer_vals[i]['tau'][:, :, 0].T
+            m['phi']['gains'] = net_layer_vals[i]['gain'][:, :, 0].T
+            m['phi']['delays'] = net_layer_vals[i]['delay'][:, :, 0].T
 
         elif m['fn'] in ['nems.modules.fir.filter_bank']:
             if m['fn_kwargs']['bank_count'] == 1:
