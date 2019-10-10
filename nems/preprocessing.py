@@ -130,7 +130,7 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=Tru
 
         # Extract all occurences of each epoch, returning a dict where keys are
         # stimuli and each value in the dictionary is (reps X cell X bins)
-        print(signal_name)
+        #print(signal_name)
         epoch_data = signal.rasterize().extract_epochs(epoch_names)
 
         # Average over all occurrences of each epoch

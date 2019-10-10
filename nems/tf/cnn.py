@@ -632,6 +632,15 @@ class Net:
                     layer['delay'] = self.layers[i]['delay'].eval()
                 if 'tau' in self.layers[i]:
                     layer['tau'] = self.layers[i]['tau'].eval()
+                if 'base' in self.layers[i]:
+                    layer['base'] = self.layers[i]['base'].eval()
+                if 'amplitude' in self.layers[i]:
+                    layer['amplitude'] = self.layers[i]['amplitude'].eval()
+                if 'kappa' in self.layers[i]:
+                    layer['kappa'] = self.layers[i]['kappa'].eval()
+                if 'shift' in self.layers[i]:
+                    layer['shift'] = self.layers[i]['shift'].eval()
+
                 layers.append(layer)
 
             return layers

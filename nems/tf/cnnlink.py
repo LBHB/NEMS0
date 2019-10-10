@@ -105,6 +105,31 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
                                           tf.clip_by_value(layer['b'], -2, 2))
             layer['Y'] = tf.math.log((layer['X'] + layer['eb']) / layer['eb'])
 
+        elif m['fn'] in ['nems.modules.nonlinearity.double_exponential']:
+            layer['type'] = 'dexp'
+            layer['n_kern'] = m['phi']['base'].size
+            s = (1, layer['n_kern'], 1)
+
+            if use_modelspec_init:
+                layer['base'] = tf.Variable(np.reshape(m['phi']['base'].astype('float32'), s))
+                layer['amplitude'] = tf.Variable(np.reshape(m['phi']['amplitude'].astype('float32'), s))
+                layer['shift'] = tf.Variable(np.reshape(m['phi']['shift'].astype('float32'), s))
+                layer['kappa'] = tf.Variable(np.reshape(m['phi']['kappa'].astype('float32'), s))
+            else:
+                log.info('Using TF rand for damped oscillator')
+                layer['base'] = tf.Variable(tf.random.uniform(
+                    s, minval=0, maxval=1, seed=cnn.seed_to_randint(net_seed + i)))
+                layer['amplitude'] = tf.Variable(tf.random.uniform(
+                    s, minval=0.1, maxval=0.5, seed=cnn.seed_to_randint(net_seed + 20 + i)))
+                layer['shift'] = tf.Variable(tf.random.normal(
+                    s, stddev=weight_scale, mean=0, seed=cnn.seed_to_randint(net_seed + 40 + i)))
+                layer['kappa'] = tf.Variable(tf.random.uniform(
+                    s, minval=0, maxval=2, seed=cnn.seed_to_randint(net_seed + 60 + i)))
+
+            # base + amplitude * exp(  -exp(np.array(-exp(kappa)) * (x - shift))  )
+            layer['Y'] = layer['base'] + layer['amplitude'] * tf.math.exp(
+                -tf.math.exp(-tf.math.exp(layer['kappa']) * (layer['X'] - layer['shift'])))
+
         elif m['fn'] in ['nems.modules.fir.basic']:
             layer['type'] = 'conv'
             layer['time_win_smp'] = m['phi']['coefficients'].shape[1]
@@ -160,10 +185,12 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
                     seed=cnn.seed_to_randint(net_seed + 60 + i)))
 
             # time lag reversed
-            layer['t'] = tf.reshape(tf.range(layer['time_win_smp'], 0, -1, dtype=tf.float32), [layer['time_win_smp'], 1, 1]) - layer['delay']
+            layer['t'] = tf.reshape(tf.range(layer['time_win_smp']-1, -1, -1, dtype=tf.float32), [layer['time_win_smp'], 1, 1]) - layer['delay']
             coefficients = tf.math.sin(layer['f1'] * layer['t']) * tf.math.exp(-layer['tau'] * layer['t']) * layer['gain']
-            comparison = tf.math.less(layer['t'], tf.constant(0, dtype=tf.float32))
-            layer['W'] = tf.multiply(coefficients, tf.cast(comparison, tf.float32))
+            layer['b'] = tf.math.greater(layer['t'], tf.constant(0, dtype=tf.float32))
+            #layer['W'] = layer['b']
+            layer['W'] = tf.multiply(coefficients, tf.cast(layer['b'], tf.float32))
+
             log.info("W shape: %s", layer['W'].shape)
             log.info("X_pad shape: %s", X_pad.shape)
 
@@ -319,7 +346,7 @@ def tf2modelspec(net, modelspec):
     """
     pass TF cnn fit back into modelspec phi.
     TODO: Generate new modelspec if not provided
-    TODO: Make sure that the dimension mappings work reliably for filter banks and such
+    DONE: Make sure that the dimension mappings work reliably for filter banks and such
     """
 
     net_layer_vals = net.layer_vals()
@@ -331,6 +358,13 @@ def tf2modelspec(net, modelspec):
 
         elif 'levelshift' in m['fn']:
             m['phi']['level'] = net_layer_vals[i]['b'][0, :, :].T
+
+        elif m['fn'] in ['nems.modules.nonlinearity.double_exponential']:
+            # base + amplitude * exp(  -exp(np.array(-exp(kappa)) * (x - shift))  )
+            m['phi']['base'] = net_layer_vals[i]['base'][:, :, 0].T
+            m['phi']['amplitude'] = net_layer_vals[i]['amplitude'][:, :, 0].T
+            m['phi']['kappa'] = net_layer_vals[i]['kappa'][:, :, 0].T
+            m['phi']['shift'] = net_layer_vals[i]['shift'][:, :, 0].T
 
         elif m['fn'] in ['nems.modules.fir.basic']:
             m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:, :, 0].T)
@@ -344,13 +378,11 @@ def tf2modelspec(net, modelspec):
         elif m['fn'] in ['nems.modules.fir.filter_bank']:
             if m['fn_kwargs']['bank_count'] == 1:
                 m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:, 0, 0, :].T)
-            else: # net_layer_vals[i]['W'].shape[1] > 1:
+            else:
                 # new depthwise_conv2d
                 c = net_layer_vals[i]['W'][0, :, :, :]
-                #import pdb; pdb.set_trace()
                 c = np.transpose(c, (2, 1, 0))
                 c = np.reshape(c, [-1, c.shape[-1]])
-                #c = np.tranpose(c, (c.shape[2], c.shape[1]*c.shape[2])).T
                 m['phi']['coefficients'] = np.fliplr(c)
             #else:
             #    # inefficient conv2d
@@ -498,6 +530,7 @@ def fit_tf(modelspec=None, est=None,
     train_val_test = np.roll(train_val_test, int(data_dims[0]/init_count*modelspec.fit_index))
     seed = net1_seed + modelspec.fit_index
 
+    modelspec_pre = modelspec.copy()
     modelspec, net = _fit_net(F, D, modelspec, seed, est['resp'].fs,
                          train_val_test=train_val_test,
                          optimizer=optimizer, max_iter=np.min([max_iter]),
@@ -524,10 +557,14 @@ def fit_tf(modelspec=None, est=None,
         log.info('E too big? Jumping to debug mode.')
         import matplotlib.pyplot as plt
         plt.figure()
-        ax1=plt.subplot(1, 1, 1)
-        ax1.plot(y[0:2,:,0].T)
-        ax1.plot(new_est['pred'].as_continuous()[0:2,:n_tps_per_stim].T,'--')
-        ax1.plot(new_est['pred'].as_continuous()[0:2,:n_tps_per_stim].T-y[0:2,:,0].T)
+        ax1=plt.subplot(2, 1, 1)
+        ax1.plot(y[0,:,0])
+        ax1.plot(new_est['pred'].as_continuous()[0,:n_tps_per_stim],'--')
+        ax1.plot(new_est['pred'].as_continuous()[0,:n_tps_per_stim]-y[0,:,0])
+        ax2=plt.subplot(2, 1, 2)
+        ax2.plot(y[1,:,0])
+        ax2.plot(new_est['pred'].as_continuous()[0,n_tps_per_stim:(2*n_tps_per_stim)],'--')
+        ax2.plot(new_est['pred'].as_continuous()[0,n_tps_per_stim:(2*n_tps_per_stim)]-y[1,:,0])
         plt.show()
         log.info(modelspec.phi)
         #from nems.modules.weight_channels import gaussian_coefficients
@@ -573,6 +610,10 @@ def fit_tf(modelspec=None, est=None,
     #pdb.set_trace()
 
     return {'modelspec': modelspec}
+
+def eval_tf(modelspec, rec):
+
+    return rec
 
 ##################
 # JUNK
