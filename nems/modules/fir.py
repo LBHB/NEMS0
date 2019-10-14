@@ -320,6 +320,14 @@ def do_coefficients(f1s=1, taus=0.5, delays=1, gains=1, n_coefs=10, **kwargs):
 
     return coefficients
 
+def da_coefficients(**kwargs):
+    """
+    backwards compatible, alias for more smartly-named do_coefficients
+    :param kwargs:
+    :return:
+    """
+
+    return do_coefficients(**kwargs)
 
 def damped_oscillator(rec, i='pred', o='pred', f1s=1, taus=0.5, delays=1,
                       gains=1, n_coefs=10, bank_count=1, cross_channels=False):

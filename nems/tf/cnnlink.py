@@ -165,14 +165,22 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
             chan_count = int(m['phi']['f1s'].size / bank_count)
             in_chan_count = int(layer['X'].shape[2])
             pad_size = np.int32(np.floor(layer['time_win_smp']-1))
+            if cross_channels and (bank_count > 1):
+                raise Warning('cross_channels not supported for bank_count>1')
+                cross_channels=False
 
-            if cross_channels and (bank_count == 1):
+            if cross_channels:
                 s = (1, 1, 1, chan_count*bank_count)
             elif bank_count == 1:
+                # revert to simple conv1d, traditional FIR filter
                 s = (1, chan_count, 1)
             elif in_chan_count == bank_count*chan_count:
+                # break up inputs to feed into each bank
                 s = (1, 1, chan_count*bank_count, 1)
             else:
+                # apply each filter to all inputs
+                if chan_count != in_chan_count:
+                    raise ValueError('Either chan_count*bank_count or chan_count must equal in_chan_count')
                 s = (1, 1, chan_count, bank_count)
 
             if use_modelspec_init:
@@ -194,9 +202,12 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
             # time lag reversed
             if len(s) == 3:
                 layer['t'] = tf.reshape(tf.range(layer['time_win_smp']-1, -1, -1, dtype=tf.float32), [layer['time_win_smp'], 1, 1]) - layer['delay']
-            else:
+            elif cross_channels and (bank_count == 1):
                 layer['t'] = tf.reshape(tf.range(layer['time_win_smp'] - 1, -1, -1, dtype=tf.float32),
                                         [layer['time_win_smp'], 1, 1, 1]) - layer['delay']
+            else:
+                layer['t'] = tf.reshape(tf.range(layer['time_win_smp'] - 1, -1, -1, dtype=tf.float32),
+                                        [1, layer['time_win_smp'], 1, 1]) - layer['delay']
             coefficients = tf.math.sin(layer['f1'] * layer['t']) * tf.math.exp(-layer['tau'] * layer['t']) * layer['gain']
             layer['b'] = tf.math.greater(layer['t'], tf.constant(0, dtype=tf.float32))
             layer['W'] = tf.multiply(coefficients, tf.cast(layer['b'], tf.float32))
