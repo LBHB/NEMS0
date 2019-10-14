@@ -117,7 +117,7 @@ def per_channel(x, coefficients, bank_count=1, non_causal=False, rate=1,
 
 
 def basic(rec, i='pred', o='pred', non_causal=False, coefficients=[], rate=1,
-          offsets=0):
+          offsets=0, **kwargs):
     """
     apply fir filters of the same size in parallel. convolve in time, then
     sum across channels
