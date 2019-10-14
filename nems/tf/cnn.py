@@ -598,6 +598,16 @@ class Net:
 
             return self.Y.eval(feed_dict=self.feed_dict(F, S=S))
 
+    def eval_to_layer(self, F=None, i=None, S=None, sess=None):
+
+        if i is None:
+            i = len(self.layers)-1
+        if sess is None:
+            sess = self.sess
+
+        with sess.as_default():
+            return self.layers[i]['Y'].eval(feed_dict=self.feed_dict(F, S=S))
+
     def layer_vals(self, sess=None):
         """
         get matrix values out TF variables
@@ -612,6 +622,8 @@ class Net:
             layers = []
             for i in range(self.n_layers):
                 layer = {}
+            #    for j in self.layers[i].keys():
+            #        layer[j] = self.layers[i][j].eval()
                 if 'W' in self.layers[i]:
                     layer['W'] = self.layers[i]['W'].eval()
                 if 'b' in self.layers[i]:

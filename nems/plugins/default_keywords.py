@@ -199,7 +199,7 @@ def fir(kw):
     Parameters
     ----------
     kw : str
-        A string of the form: fir.{n_outputs}x{n_coefs}x{n_banks}
+        A string of the form: fir.{n_inputs}x{n_coefs}x{n_banks}
 
     Options
     -------
@@ -210,25 +210,23 @@ def fir(kw):
     kw = ".".join(ops[:2])
     parsed = re.match(pattern, kw)
     try:
-        n_outputs = int(parsed.group(1))
+        n_inputs = int(parsed.group(1))
         n_coefs = int(parsed.group(2))
         n_banks = parsed.group(3)  # None if not given in keyword string
     except TypeError:
         raise ValueError("Got a TypeError when parsing fir keyword. Make sure "
                          "keyword has the form: \n"
-                         "fir.{n_outputs}x{n_coefs}x{n_banks} (banks optional)"
+                         "fir.{n_inputs}x{n_coefs}x{n_banks} (banks optional)"
                          "\nkeyword given: %s" % kw)
     if n_banks is None:
-        p_coefficients = {
-            'mean': np.zeros((n_outputs, n_coefs)),
-            'sd': np.ones((n_outputs, n_coefs)),
-        }
+        n_banks = 1
     else:
         n_banks = int(n_banks)
-        p_coefficients = {
-            'mean': np.zeros((n_outputs * n_banks, n_coefs)),
-            'sd': np.ones((n_outputs * n_banks, n_coefs)),
-        }
+
+    p_coefficients = {
+        'mean': np.zeros((n_inputs * n_banks, n_coefs)),
+        'sd': np.ones((n_inputs * n_banks, n_coefs)),
+    }
 
     if n_coefs > 2:
         p_coefficients['mean'][:, 1] = 0.1
@@ -240,9 +238,12 @@ def fir(kw):
     rate = 1
     non_causal = False
     include_offset = False
+    cross_channels = False
     for op in ops:
         if op == 'fl':
-            p_coefficients['mean'][:] = 1/(n_outputs*n_coefs)
+            p_coefficients['mean'][:] = 1/(n_inputs*n_coefs)
+        elif op == 'x':
+            cross_channels = True
         elif op == 'z':
             p_coefficients['mean'][:] = 0
         elif op.startswith('r'):
@@ -254,10 +255,11 @@ def fir(kw):
             # add variable offset parameter
             include_offset = True
 
-    if n_banks is None:
+    if (n_banks == 1) and (not cross_channels):
         template = {
             'fn': 'nems.modules.fir.basic',
-            'fn_kwargs': {'i': 'pred', 'o': 'pred', 'non_causal': non_causal},
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 'non_causal': non_causal,
+                          'cross_channels': cross_channels},
             'plot_fns': ['nems.plots.api.mod_output',
                          'nems.plots.api.strf_heatmap',
                          'nems.plots.api.strf_local_lin',
@@ -272,7 +274,7 @@ def fir(kw):
         template = {
             'fn': 'nems.modules.fir.filter_bank',
             'fn_kwargs': {'i': 'pred', 'o': 'pred', 'non_causal': non_causal,
-                          'bank_count': n_banks},
+                          'bank_count': n_banks, 'cross_channels': cross_channels},
             'plot_fns': ['nems.plots.api.mod_output',
                          'nems.plots.api.strf_heatmap',
                          'nems.plots.api.strf_local_lin',
@@ -286,8 +288,8 @@ def fir(kw):
     if rate > 1:
         template['fn_kwargs']['rate'] = rate
     if include_offset:
-        mean_off = np.zeros((n_outputs, 1))
-        sd_off = np.full((n_outputs, 1), 1)
+        mean_off = np.zeros((n_inputs, 1))
+        sd_off = np.full((n_inputs, 1), 1)
         template['prior']['offsets'] = ('Normal', {'mean': mean_off,
                                                    'sd': sd_off})
 
@@ -342,7 +344,7 @@ def pz(kw):
     Parameters
     ----------
     kw : str
-        A string of the form: fir.{n_outputs}x{n_coefs}x{n_banks}
+        A string of the form: fir.{n_inputs}x{n_coefs}x{n_banks}
 
     Options
     -------
@@ -352,13 +354,13 @@ def pz(kw):
     pattern = re.compile(r'^(\d{1,})x(\d{1,})x?(\d{1,})?$')
     parsed = re.match(pattern, options[1])
     try:
-        n_outputs = int(parsed.group(1))
+        n_inputs = int(parsed.group(1))
         n_coefs = int(parsed.group(2))
         n_banks = parsed.group(3)  # None if not given in keyword string
     except TypeError:
         raise ValueError("Got a TypeError when parsing fir keyword. Make sure "
                          "keyword has the form: \n"
-                         "pz.{n_outputs}x{n_coefs}x{n_banks} (banks optional)"
+                         "pz.{n_inputs}x{n_coefs}x{n_banks} (banks optional)"
                          "\nkeyword given: %s" % kw)
     if n_banks is None:
         n_banks = 1
@@ -379,19 +381,19 @@ def pz(kw):
     pole_set = np.array([[0.8, -0.4, 0.1, 0, 0]])
     zero_set = np.array([[0.1, 0.1, 0.1, 0.1, 0]])
     p_poles = {
-        'mean': np.repeat(pole_set[:,:npoles], n_outputs, axis=0),
-        'sd': np.ones((n_outputs, npoles))*.3,
+        'mean': np.repeat(pole_set[:,:npoles], n_inputs, axis=0),
+        'sd': np.ones((n_inputs, npoles))*.3,
     }
     p_zeros = {
-        'mean': np.repeat(zero_set[:,:nzeros], n_outputs, axis=0),
-        'sd': np.ones((n_outputs, nzeros))*.2,
+        'mean': np.repeat(zero_set[:,:nzeros], n_inputs, axis=0),
+        'sd': np.ones((n_inputs, nzeros))*.2,
     }
     p_delays = {
-        'sd': np.ones((n_outputs, 1))*.02,
+        'sd': np.ones((n_inputs, 1))*.02,
     }
     p_gains = {
-        'mean': np.zeros((n_outputs, 1))+.1,
-        'sd': np.ones((n_outputs, 1))*.2,
+        'mean': np.zeros((n_inputs, 1))+.1,
+        'sd': np.ones((n_inputs, 1))*.2,
     }
 
     template = {
@@ -423,44 +425,39 @@ def do(kw):
     Parameters
     ----------
     kw : str
-        A string of the form: do.{n_outputs}x{n_coefs}x{n_banks}
+        A string of the form: do.{n_inputs}x{n_coefs}x{n_banks}
 
     Options
     -------
     n_banks : default 1
+    x : (False) if true cross each filter with each input (requires n_inputs==1?)
 
     '''
     options = kw.split('.')
     pattern = re.compile(r'^(\d{1,})x(\d{1,})x?(\d{1,})?$')
     parsed = re.match(pattern, options[1])
     try:
-        n_outputs = int(parsed.group(1))
+        n_inputs = int(parsed.group(1))
         n_coefs = int(parsed.group(2))
         n_banks = parsed.group(3)  # None if not given in keyword string
     except TypeError:
         raise ValueError("Got a TypeError when parsing do() keyword. Make sure "
                          "keyword has the form: \n"
-                         "da.{n_outputs}x{n_coefs}x{n_banks} (n_banks optional)"
+                         "do.{n_inputs}x{n_coefs}x{n_banks} (n_banks optional)"
                          "\nkeyword given: %s" % kw)
+
     if n_banks is None:
         n_banks = 1
     else:
         n_banks = int(n_banks)
 
-    if n_banks is None:
-        n_banks = 1
-        n_channels = n_outputs
-    else:
-        n_banks = int(n_banks)
-        n_channels = n_outputs * n_banks
+    n_channels = n_inputs * n_banks
+    cross_channels = False
 
-    # placeholder for additional options
+    # additional options
     for op in options[2:]:
-        if op.startswith('p'):
-            pass
-
-        elif op.startswith('z'):
-            pass
+        if op == 'x':
+            cross_channels = True
 
     p_f1s = {
         'sd': np.full((n_channels, 1), 1)
@@ -470,7 +467,7 @@ def do(kw):
     }
     g0 = np.array([[0.5, -0.25, 0.5, -0.25, 0.5, -0.25, 0.5, -0.25]]).T
     p_gains = {
-            'mean': np.tile(g0[:n_outputs, :], (n_banks, 1)),
+            'mean': np.tile(g0[:n_inputs, :], (n_banks, 1)),
             'sd': np.ones((n_channels, 1))*.4,
     }
     p_delays = {
@@ -479,8 +476,9 @@ def do(kw):
 
     template = {
         'fn': 'nems.modules.fir.damped_oscillator',
-        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs, 'bank_count': n_banks},
-        'fn_coefficients': 'nems.modules.fir.da_coefficients',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs,
+                      'bank_count': n_banks, 'cross_channels': cross_channels},
+        'fn_coefficients': 'nems.modules.fir.do_coefficients',
         'plot_fns': ['nems.plots.api.mod_output',
                      'nems.plots.api.strf_heatmap',
                      'nems.plots.api.strf_local_lin',
