@@ -642,11 +642,22 @@ def save_results(stack, preview_file, queueid=None):
 
 
 def update_results_table(modelspec, preview=None,
-                         username="svd", labgroup="lbhb"):
+                         username="svd", labgroup="lbhb", public=1):
+    """
+    Save information about a fit based on modelspec.meta
+    :param modelspec: NEMS modelspec
+    :param preview: filename of saved results figure (optional)
+    :param username: username id for logging
+    :param labgroup: labgroup id for logging
+    :param public: (True) if True, flag as publicly visible outside of labgroup
+    :return: results_id identifier for new/updated entry in Results table
+    """
     db_tables = Tables()
     NarfResults = db_tables['NarfResults']
     NarfBatches = db_tables['NarfBatches']
     session = Session()
+    results_id = None
+
     cellids = modelspec.meta.get('cellids', [modelspec.meta['cellid']])
 
     for cellid in cellids:
@@ -683,34 +694,28 @@ def update_results_table(modelspec, preview=None,
 
         if not r:
             r = NarfResults()
-            if preview:
-                r.figurefile = preview
-            r.username = username
-            r.public = 1
-            if not labgroup == 'SPECIAL_NONE_FLAG':
-                try:
-                    if not labgroup in r.labgroup:
-                        r.labgroup += ', %s' % labgroup
-                except TypeError:
-                    # if r.labgroup is none, can't check if user.labgroup is in it
-                    r.labgroup = labgroup
-            fetch_meta_data(modelspec, r, attrs, cellid)
-            session.add(r)
+            new_entry = True
         else:
-            if preview:
-                r.figurefile = preview
-            # TODO: This overrides any existing username or labgroup assignment.
-            #       Is this the desired behavior?
-            r.username = username
-            r.public=1
-            if not labgroup == 'SPECIAL_NONE_FLAG':
-                try:
-                    if not labgroup in r.labgroup:
-                        r.labgroup += ', %s' % labgroup
-                except TypeError:
-                    # if r.labgroup is none, can't check if labgroup is in it
-                    r.labgroup = labgroup
-            fetch_meta_data(modelspec, r, attrs, cellid)
+            new_entry = False
+
+        if preview:
+            r.figurefile = preview
+        # TODO: This overrides any existing username and labgroup assignment.
+        #       Is this the desired behavior?
+        r.username = username
+        r.public = public
+        if not labgroup == 'SPECIAL_NONE_FLAG':
+            try:
+                if not labgroup in r.labgroup:
+                    r.labgroup += ', %s' % labgroup
+            except TypeError:
+                # if r.labgroup is none, can't check if labgroup is in it
+                r.labgroup = labgroup
+        fetch_meta_data(modelspec, r, attrs, cellid)
+
+        if new_entry:
+            session.add(r)
+
         r.cellid = cellid
         session.commit()
         results_id = r.id

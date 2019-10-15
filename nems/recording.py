@@ -1298,7 +1298,10 @@ def load_recording_from_url(url):
     Loads the recording object from a URL. File must be tgz format.
     '''
     r = requests.get(url, stream=True)
-    if not (r.status_code == 200 and
+    if (r.status_code == 400):
+        m = 'Not found on server: {}'.format(url)
+        raise Exception(m)
+    elif not (r.status_code == 200 and
             (r.headers['content-type'] == 'application/gzip' or
              r.headers['content-type'] == 'text/plain' or
              r.headers['content-type'] == 'application/x-gzip' or
