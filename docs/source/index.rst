@@ -12,11 +12,13 @@ NEMS -- The Neural Encoding Model System
 
     installation
     quickstart
+    background
 
 1. Getting started
 --------------------
 - :doc:`quickstart`
 - :doc:`installation`
+- :doc:`background`
 
 .. toctree::
     :hidden:

@@ -63,7 +63,10 @@ def per_channel(x, coefficients, bank_count=1, non_causal=False, rate=1,
         coefficients = _insert_zeros(coefficients, rate)
         print(coefficients)
     n_filters = len(coefficients)
-    n_banks = int(n_filters / bank_count)
+    if bank_count>0:
+        n_banks = int(n_filters / bank_count)
+    else:
+        n_banks = n_filters
     if cross_channels:
         # option 0: user has specified that each filter should be applied to
         # each input channel (requires bank_count==1)
@@ -117,7 +120,7 @@ def per_channel(x, coefficients, bank_count=1, non_causal=False, rate=1,
 
 
 def basic(rec, i='pred', o='pred', non_causal=False, coefficients=[], rate=1,
-          offsets=0):
+          offsets=0, **kwargs):
     """
     apply fir filters of the same size in parallel. convolve in time, then
     sum across channels
@@ -299,7 +302,7 @@ def pole_zero(rec, i='pred', o='pred', poles=None, zeros=None, delays=None,
     return [rec[i].transform(fn, o)]
 
 
-def da_coefficients(f1s=1, taus=0.5, delays=1, gains=1, n_coefs=10, **kwargs):
+def do_coefficients(f1s=1, taus=0.5, delays=1, gains=1, n_coefs=10, **kwargs):
     """
     generate fir filter from damped oscillator coefficients
     :param f1s:
@@ -317,9 +320,17 @@ def da_coefficients(f1s=1, taus=0.5, delays=1, gains=1, n_coefs=10, **kwargs):
 
     return coefficients
 
+def da_coefficients(**kwargs):
+    """
+    backwards compatible, alias for more smartly-named do_coefficients
+    :param kwargs:
+    :return:
+    """
+
+    return do_coefficients(**kwargs)
 
 def damped_oscillator(rec, i='pred', o='pred', f1s=1, taus=0.5, delays=1,
-                      gains=1, n_coefs=10, bank_count=1):
+                      gains=1, n_coefs=10, bank_count=1, cross_channels=False):
     """
     apply damped oscillator-defined filter
     generate impulse response and then call as if basic fir filter
@@ -331,10 +342,11 @@ def damped_oscillator(rec, i='pred', o='pred', f1s=1, taus=0.5, delays=1,
         nems signal in 'o' will be 1 x time signal (single channel)
     """
 
-    coefficients = da_coefficients(f1s=f1s, taus=taus, delays=delays,
+    coefficients = do_coefficients(f1s=f1s, taus=taus, delays=delays,
                                    gains=gains, n_coefs=n_coefs)
 
-    fn = lambda x: per_channel(x, coefficients, bank_count=bank_count, rate=1)
+    fn = lambda x: per_channel(x, coefficients, bank_count=bank_count,
+                               cross_channels=cross_channels, rate=1)
     return [rec[i].transform(fn, o)]
 
 
@@ -407,10 +419,8 @@ def filter_bank(rec, i='pred', o='pred', non_causal=False, coefficients=[],
         nems signal in 'o' will be bank_count x time matrix
 
     TODO: test, optimize. maybe structure coefficients more logically?
+    TODO: filterbanks all handled properly?
     """
-    # testing
-    if bank_count==1:
-        cross_channels=True
     fn = lambda x: per_channel(x, coefficients, bank_count,
                                non_causal=non_causal, rate=rate,
                                cross_channels=cross_channels)

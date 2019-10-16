@@ -184,17 +184,19 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False):
     # save some extra metadata
     modelspec = ctx['modelspec']
 
-    # this code may not be necessary any more.
-    #destination = '{0}/{1}/{2}/{3}'.format(
-    #    get_setting('NEMS_RESULTS_DIR'), batch, cellid, modelspec.get_longname())
-    if type(cellid) is list:
-        destination = os.path.join(
-            get_setting('NEMS_RESULTS_DIR'), str(batch),
-            cellid[0][:7], modelspec.get_longname())
+    # figure out URI for location to save results (either file or http, depending on USE_NEMS_BAPHY_API)
+    if get_setting('USE_NEMS_BAPHY_API'):
+        prefix = 'http://'+get_setting('NEMS_BAPHY_API_HOST')+":"+str(get_setting('NEMS_BAPHY_API_PORT')) + '/results/'
     else:
-        destination = os.path.join(
-            get_setting('NEMS_RESULTS_DIR'), str(batch),
-            cellid, modelspec.get_longname())
+        prefix = get_setting('NEMS_RESULTS_DIR')
+
+    if type(cellid) is list:
+        cell_name = cellid[0].split("-")[0]
+    else:
+        cell_name = cellid
+
+    destination = os.path.join(prefix, str(batch), cell_name, modelspec.get_longname())
+
     modelspec.meta['modelpath'] = destination
     modelspec.meta['figurefile'] = os.path.join(destination, 'figure.0000.png')
     modelspec.meta.update(meta)
