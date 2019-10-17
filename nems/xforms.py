@@ -903,7 +903,7 @@ def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
     return {'modelspec': modelspec}
 
 
-def fit_wrapper(modelspec, est, fit_function='nems.analysis.api.fit_basic',
+def fit_wrapper(modelspec, est=None, fit_function='nems.analysis.api.fit_basic',
                 IsReload=False, **context):
     """
     wrapper to loop through all jacks and fits for a modelspec, calling fit_function to fit each
