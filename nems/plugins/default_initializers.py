@@ -262,4 +262,6 @@ def norm(kw):
         elif op == 'mm':
             norm_method = 'minmax'
 
-    return [['nems.xforms.normalize_stim', {'norm_method': norm_method}]]
+    return [['nems.xforms.normalize_sig', {'sig': 'stim', 'norm_method': norm_method}],
+            ['nems.xforms.normalize_sig', {'sig': 'resp', 'norm_method': norm_method}],
+            ]

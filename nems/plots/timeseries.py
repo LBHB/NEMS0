@@ -352,6 +352,7 @@ def mod_output_all(rec, modelspec, sig_name='pred', idx=0, **options):
 
     options['channels']=np.arange(trec[sig_name].shape[0])
     ax = timeseries_from_signals([trec[sig_name]],**options)
+
     return ax
 
 

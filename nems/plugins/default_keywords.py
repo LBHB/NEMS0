@@ -146,7 +146,7 @@ def wc(kw):
             prior = {'mean': ('Normal', mean_prior_coefficients),
                      'sd': ('HalfNormal', sd_prior_coefficients)}
             bounds = {
-                'mean': (np.full_like(mean, -0.05), np.full_like(mean, 1.05)),
+                'mean': (np.full_like(mean, -0.01), np.full_like(mean, 1.01)),
                 'sd': (np.full_like(mean, 0.05), np.full_like(mean, 0.6))}
 
         elif op == 'n':
@@ -175,8 +175,9 @@ def wc(kw):
         'fn': fn,
         'fn_kwargs': fn_kwargs,
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.weight_channels_heatmap'],
-        'plot_fn_idx': 1,
+        'plot_fn_idx': 2,
         'prior': prior
     }
     if bounds is not None:
@@ -261,11 +262,12 @@ def fir(kw):
             'fn_kwargs': {'i': 'pred', 'o': 'pred', 'non_causal': non_causal,
                           'cross_channels': cross_channels},
             'plot_fns': ['nems.plots.api.mod_output',
+                         'nems.plots.api.spectrogram_output',
                          'nems.plots.api.strf_heatmap',
                          'nems.plots.api.strf_local_lin',
                          'nems.plots.api.strf_timeseries',
                          'nems.plots.api.fir_output_all'],
-            'plot_fn_idx': 1,
+            'plot_fn_idx': 2,
             'prior': {
                 'coefficients': ('Normal', p_coefficients),
             }
@@ -276,11 +278,12 @@ def fir(kw):
             'fn_kwargs': {'i': 'pred', 'o': 'pred', 'non_causal': non_causal,
                           'bank_count': n_banks, 'cross_channels': cross_channels},
             'plot_fns': ['nems.plots.api.mod_output',
+                         'nems.plots.api.spectrogram_output',
                          'nems.plots.api.strf_heatmap',
                          'nems.plots.api.strf_local_lin',
                          'nems.plots.api.strf_timeseries',
                          'nems.plots.api.fir_output_all'],
-            'plot_fn_idx': 1,
+            'plot_fn_idx': 2,
             'prior': {
                 'coefficients': ('Normal', p_coefficients),
             }
@@ -401,11 +404,12 @@ def pz(kw):
         'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs},
         'fn_coefficients': 'nems.modules.fir.pz_coefficients',
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.strf_heatmap',
                      'nems.plots.api.strf_local_lin',
                      'nems.plots.api.strf_timeseries',
                      'nems.plots.api.fir_output_all'],
-        'plot_fn_idx': 1,
+        'plot_fn_idx': 2,
         'prior': {
             'poles': ('Normal', p_poles),
             'zeros': ('Normal', p_zeros),
@@ -480,11 +484,12 @@ def do(kw):
                       'bank_count': n_banks, 'cross_channels': cross_channels},
         'fn_coefficients': 'nems.modules.fir.do_coefficients',
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.strf_heatmap',
                      'nems.plots.api.strf_local_lin',
                      'nems.plots.api.strf_timeseries',
                      'nems.plots.api.fir_output_all'],
-        'plot_fn_idx': 1,
+        'plot_fn_idx': 2,
         'prior': {
             'f1s': ('HalfNormal', p_f1s),
             'taus': ('HalfNormal', p_taus),
@@ -588,9 +593,10 @@ def firexp(kw):
         'fn': 'nems.modules.fir.fir_exp',
         'fn_kwargs': fn_kwargs,
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.strf_heatmap',
                      'nems.plots.api.strf_timeseries'],
-        'plot_fn_idx': 1,
+        'plot_fn_idx': 2,
         'prior': prior,
         'bounds': {'tau': (1e-15, None), 'a': (1e-15, None)}
     }
@@ -627,8 +633,9 @@ def lvl(kw):
         'fn': 'nems.modules.levelshift.levelshift',
         'fn_kwargs': {'i': 'pred', 'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp'],
-        'plot_fn_idx': 1,
+        'plot_fn_idx': 2,
         'prior': {'level': ('Normal', {'mean': np.zeros([n_shifts, 1]),
                                        'sd': np.ones([n_shifts, 1])})}
         }
@@ -662,7 +669,9 @@ def scl(kw):
     template = {
         'fn': 'nems.modules.scale.scale',
         'fn_kwargs': {'i': 'pred', 'o': 'pred'},
-        'plot_fns': ['nems.plots.api.mod_output'],
+        'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
+                     ],
         'plot_fn_idx': 0,
         'prior': {'a': ('Normal', {'mean': np.ones([n_scales, 1]),
                                    'sd': np.ones([n_scales, 1])})}
@@ -732,9 +741,10 @@ def stp(kw):
         'fn_kwargs': {'i': 'pred', 'o': 'pred', 'crosstalk': crosstalk,
                       'quick_eval': quick_eval, 'reset_signal': 'epoch_onsets'},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.before_and_after_stp'],
-        'plot_fn_idx': 2,
+        'plot_fn_idx': 3,
         'prior': {'u': ('Normal', {'mean': u_mean, 'sd': u_sd}),
                   'tau': ('Normal', {'mean': tau_mean, 'sd': tau_sd})},
         'bounds': {'u': (np.full_like(u_mean, -np.inf), np.full_like(u_mean, np.inf)),
@@ -825,9 +835,10 @@ def stp2(kw):
         'fn_kwargs': {'i': 'pred', 'o': 'pred', 'crosstalk': crosstalk,
                       'quick_eval': quick_eval, 'reset_signal': 'epoch_onsets'},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.before_and_after_stp'],
-        'plot_fn_idx': 2,
+        'plot_fn_idx': 3,
         'prior': {'u': ('Normal', {'mean': u_mean, 'sd': u_sd}),
                   'tau': ('Normal', {'mean': tau_mean, 'sd': tau_sd}),
                   'u2': ('Normal', {'mean': [uu*5 for uu in u_mean], 'sd': [uu*5 for uu in u_sd]}),
@@ -901,10 +912,11 @@ def dexp(kw):
         'fn_kwargs': {'i': inout_name,
                       'o': inout_name},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.nl_scatter'],
-        'plot_fn_idx': 3,
+        'plot_fn_idx': 4,
         'prior': {'base': ('Normal', {'mean': base_mean, 'sd': base_sd}),
                   'amplitude': ('Normal', {'mean': amp_mean, 'sd': amp_sd}),
                   'shift': ('Normal', {'mean': shift_mean, 'sd': shift_sd}),
@@ -954,10 +966,11 @@ def qsig(kw):
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.nl_scatter'],
-        'plot_fn_idx': 1,
+        'plot_fn_idx': 2,
         'prior': {'base': ('Normal', {'mean': base_mean, 'sd': base_sd}),
                   'amplitude': ('Normal', {'mean': amp_mean, 'sd': amp_sd}),
                   'shift': ('Normal', {'mean': shift_mean, 'sd': shift_sd}),
@@ -992,10 +1005,11 @@ def logsig(kw):
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.nl_scatter'],
-        'plot_fn_idx': 1,
+        'plot_fn_idx': 2,
         'prior': {'base': ('Exponential', {'beta': [0.1]}),
                   'amplitude': ('Exponential', {'beta': [2.0]}),
                   'shift': ('Normal', {'mean': [1.0], 'sd': [1.0]}),
@@ -1044,10 +1058,11 @@ def tanh(kw):
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.nl_scatter'],
-        'plot_fn_idx': 1,
+        'plot_fn_idx': 2,
         'prior': {'base': ('Normal', {'mean': base_mean, 'sd': base_sd}),
                   'amplitude': ('Normal', {'mean': amp_mean, 'sd': amp_sd}),
                   'shift': ('Normal', {'mean': shift_mean, 'sd': shift_sd}),
@@ -1096,10 +1111,11 @@ def dlog(kw):
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.spectrogram'],
-        'plot_fn_idx': 3,
+        'plot_fn_idx': 2,
     }
 
     if nchans:
@@ -1155,12 +1171,13 @@ def relu(kw):
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.resp_spectrogram',
                      'nems.plots.api.pred_spectrogram',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.perf_per_cell'],
-        'plot_fn_idx': 1
+        'plot_fn_idx': 2
     }
 
     if var_offset is False:
@@ -1194,13 +1211,14 @@ def relsat(kw):
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.before_and_after'],
         'prior': {'base': base_prior,
                   'amplitude': amplitude_prior,
                   'shift': shift_prior,
                   'kappa': kappa_prior},
-        'plot_fn_idx': 1
+        'plot_fn_idx': 2
     }
 
     return template
@@ -1270,8 +1288,8 @@ def stategain(kw):
     d_mean = zeros
     d_sd = ones
 
-    plot_fns = ['nems.plots.api.mod_output_all',
-                'nems.plots.api.mod_output',
+    plot_fns = ['nems.plots.api.mod_output',
+                'nems.plots.api.spectrogram_output',
                 'nems.plots.api.before_and_after',
                 'nems.plots.api.pred_resp',
                 'nems.plots.api.state_vars_timeseries',

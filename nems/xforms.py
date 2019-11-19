@@ -346,6 +346,18 @@ def normalize_stim(rec=None, sig='stim', norm_method='meanstd', **context):
     return {'rec': rec}
 
 
+def normalize_sig(rec=None, sig='stim', norm_method='meanstd', **context):
+    """
+    Normalize each channel of rec[sig] according to norm_method
+    :param rec:  NEMS recording
+    :param norm_method:  string {'meanstd', 'minmax'}
+    :param context: pass-through for other variables in xforms context dictionary that aren't used.
+    :return: copy(?) of rec with updated signal.
+    """
+    rec[sig] = rec.copy()[sig].rasterize().normalize(norm_method)
+    return {'rec': rec}
+
+
 def init_from_keywords(keywordstring, meta={}, IsReload=False,
                        registry=None, rec=None, input_name='stim',
                        output_name='resp', **context):

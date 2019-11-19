@@ -362,12 +362,9 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
         elif m['fn'] == 'nems.modules.state.state_dc_gain':
             # match this function from nems.modules.state.state_dc_gain
             #fn = lambda x: np.matmul(g, rec[s]._data) * x + np.matmul(d, rec[s]._data)
-            #import pdb
-            #pdb.set_trace()
             if 'phi' in m.keys():
                 g = m['phi']['g'].astype('float32').T
                 d = m['phi']['d'].astype('float32').T
-                layer['n_kern'] = g.shape[1]
                 g = np.reshape(g, (1, g.shape[0], g.shape[1]))
                 d = np.reshape(d, (1, d.shape[0], d.shape[1]))
 
@@ -379,12 +376,28 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
                         g.shape, stddev=weight_scale, seed=cnn.seed_to_randint(net_seed + i)))
                     layer['d'] = tf.Variable(tf.random_normal(
                         d.shape, stddev=weight_scale, seed=cnn.seed_to_randint(net_seed + 20 + i)))
-                layer['Sg'] = tf.nn.conv1d(layers[0]['S'], layer['g'], stride=1, padding='SAME')
-                layer['Sd'] = tf.nn.conv1d(layers[0]['S'], layer['d'], stride=1, padding='SAME')
-                layer['Y'] = layer['X'] * layer['Sg'] + layer['Sd']
             else:
-                # pass-through
-                layer['Y'] = layer['X']
+                # dc/gain values are fixed
+                g = m['fn_kwargs']['g'].astype('float32').T
+                d = m['fn_kwargs']['d'].astype('float32').T
+                g = np.reshape(g, (1, g.shape[0], g.shape[1]))
+                d = np.reshape(d, (1, d.shape[0], d.shape[1]))
+
+                layer['g'] = tf.constant(g)
+                layer['d'] = tf.constant(d)
+
+            layer['n_kern'] = g.shape[2]
+            layer['Sg'] = tf.nn.conv1d(layers[0]['S'], layer['g'], stride=1, padding='SAME')
+            layer['Sd'] = tf.nn.conv1d(layers[0]['S'], layer['d'], stride=1, padding='SAME')
+            #layer['Sg'] = tf.multiply(layers[0]['S'], layer['g'])
+            #layer['Sd'] = tf.multiply(layers[0]['S'], layer['d'])
+            layer['Y'] = layer['X'] * layer['Sg'] + layer['Sd']
+
+            log.info("g shape: %s", layer['g'].shape)  # [filter_width, in_channels, out_channels]
+            log.info("S shape: %s", layers[0]['S'].shape)  # [batch, in_width, in_channels]
+            log.info("X shape: %s", layer['X'].shape)  # [batch, in_width, in_channels]
+            log.info("Sg shape: %s", layer['Sg'].shape)
+            log.info("Y shape: %s", layer['Y'].shape)
         else:
             raise ValueError('Module %s not supported', m['fn'])
 
@@ -645,53 +658,26 @@ def fit_tf(modelspec=None, est=None,
 
     new_est = est.apply_mask()
     n_feats = new_est['stim'].shape[0]
-    e = est['stim'].get_epoch_indices('REFERENCE')
-
-    # length of each segment is length of a reference
-    n_tps_per_stim = e[0][1]-e[0][0]
-    # before: hard coded as n_tps_per_stim = 550
-
-    # TODO figure out at this point that we need to use a different strategy for
-    # forming the F/D matricies if this doesn't produce an integrate without rounding
-    n_stim = int(new_est['stim'].shape[1] / n_tps_per_stim)
-    n_resp = new_est['resp'].shape[0]
-
-    feat_dims = [n_stim, n_tps_per_stim, n_feats]
-    data_dims = [n_stim, n_tps_per_stim, n_resp]
-
-    # extract stimulus matrix
+    epoch_name = 'REFERENCE'
+    e = est['stim'].get_epoch_indices(epoch_name, mask=est['mask'])
     if 'state' in est.signals.keys():
         n_states = est['state'].shape[0]
-        state_dims = [n_stim, n_tps_per_stim, n_states]
     else:
         n_states = 0
+        S = None
+    # length of each segment is length of a reference
+    de = e[:, 1] - e[:, 0]
+    n_tps_per_stim = de[0]
+    if np.sum(np.abs(de-n_tps_per_stim)) > 0:
+        epoch_name = 'TRIAL'
 
-    try:
-        F = np.reshape(new_est['stim'].as_continuous().copy().T, feat_dims)
-        trial_based_reshape = False
-    except:
-        #import pdb; pdb.set_trace()
-        log.info("Can't do simple reshape on stim/resp vectors. Plan B")
-        trial_based_reshape = True
-        new_est = est.copy()
+    F = np.transpose(est['stim'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
+    D = np.transpose(est['resp'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
+    if n_states > 0:
+        S = np.transpose(est['state'].extract_epoch(epoch=epoch_name, mask=est['mask']),[0, 2, 1])
 
-    if not trial_based_reshape:
-        F = np.reshape(new_est['stim'].as_continuous().copy().T, feat_dims)
-        D = np.reshape(new_est['resp'].as_continuous().copy().T, data_dims)
-        if n_states>0:
-            S = np.reshape(new_est['state'].as_continuous().copy().T, state_dims)
-        else:
-            S = None
-    else:
-        F = np.transpose(est['stim'].extract_epoch(epoch='TRIAL', mask=est['mask']),[0, 2, 1])
-        D = np.transpose(est['resp'].extract_epoch(epoch='TRIAL', mask=est['mask']),[0, 2, 1])
-        if n_states>0:
-            S = np.transpose(est['state'].extract_epoch(epoch='TRIAL', mask=est['mask']),[0, 2, 1])
-        else:
-            S = None
-        feat_dims = F.shape
-        data_dims = D.shape
-
+    feat_dims = F.shape
+    data_dims = D.shape
     log.info('feat_dims: %s', feat_dims)
     log.info('data_dims: %s', data_dims)
 
@@ -707,6 +693,11 @@ def fit_tf(modelspec=None, est=None,
                          optimizer=optimizer, max_iter=np.min([max_iter]),
                          use_modelspec_init=use_modelspec_init, S=S)
 
+    new_est = eval_tf(modelspec, new_est)
+    y = new_est['pred'].as_continuous()
+    y2 = new_est['pred_nems'].as_continuous()
+    E = np.nanstd(y[:,10:]-y2[:,10:])
+    """
     try:
         new_est = modelspec.evaluate(new_est)
     except:
@@ -716,7 +707,7 @@ def fit_tf(modelspec=None, est=None,
 
     # test that TF and NEMS models have same prediction
     y = net.predict(F, S=S)
-    p1 = y[0,  :, 0]
+    p1 = y[0, :, 0]
     if not trial_based_reshape:
         #p2 = new_est['pred'].as_continuous()[0,:n_tps_per_stim]
         y2 = np.reshape(new_est['pred'].as_continuous().copy().T, data_dims)
@@ -724,22 +715,20 @@ def fit_tf(modelspec=None, est=None,
         y2 = np.transpose(new_est['pred'].extract_epoch(epoch='TRIAL', mask=est['mask']),[0, 2, 1])
     p2 = y2[0, :, 0]
     E = np.nanstd(p1-p2)
-
+    """
     log.info('Mean difference between NEMS and TF model pred: %e', E)
+    #import pdb; pdb.set_trace()
+
     if np.isnan(E) or (E > 1e-2):
         log.info('E too big? Jumping to debug mode.')
         import matplotlib.pyplot as plt
         plt.figure()
-        ax1=plt.subplot(3, 1, 1)
-        ax1.plot(y[0, :, 0],'b')
-        ax1.plot(y2[0, :, 0], 'r')
-        ax1.plot(y2[0, :, 0]-y[0, :, 0], '--')
-        ax1.legend(('TF','NEMS','diff'))
+        ax1=plt.subplot(2, 1, 1)
+        ax1.plot(y[0, :1000], 'b')
+        ax1.plot(y2[0, :1000], 'r')
+        ax1.plot(y2[0, :1000]-y[0, :1000], '--')
+        ax1.legend(('TF', 'NEMS', 'diff'))
 
-        ax2=plt.subplot(3, 1, 2)
-        ax2.plot(y[1, :, 0],'b')
-        ax2.plot(y2[1, :, 0],'r')
-        ax2.plot(y2[0, :, 0]-y[1,:,0], '--')
         plt.show()
         log.info(modelspec.phi)
         net_layer_vals = net.layer_vals()
@@ -750,9 +739,9 @@ def fit_tf(modelspec=None, est=None,
             args.update(m['phi'])
             w_nems = do_coefficients(**args)
             w_tf = net_layer_vals[2]['W']
-            ax3=plt.subplot(3, 2, 5)
+            ax3=plt.subplot(2, 2, 3)
             ax3.plot(np.flipud(np.squeeze(w_tf)))
-            ax4=plt.subplot(3, 2, 6)
+            ax4=plt.subplot(2, 2, 4)
             ax4.plot(w_nems.T)
         #from nems.modules.weight_channels import gaussian_coefficients
         #log.info(gaussian_coefficients(modelspec.phi[1]['mean'], modelspec.phi[1]['sd'],
@@ -773,19 +762,66 @@ def fit_tf(modelspec=None, est=None,
     return {'modelspec': modelspec}
 
 
-def eval_tf(modelspec, rec):
+def eval_tf(modelspec, est):
     """
     TODO : evaluate a NEMS model through TF
     :param modelspec:
-    :param rec:
+    :param est:
     :return:
     """
 
-    # convert modelspec to cnn
-
+    new_est = modelspec.evaluate(est)
+    new_est['pred_nems'] = new_est['pred'].copy()
+    
     # extract stim. does it need to be reshaped to be multiple batches? probably not.
+    n_feats = new_est['stim'].shape[0]
+
+    # don't need batches, so can use a single "stim" that contains the whole recording
+    n_stim = 1
+    n_resp = new_est['resp'].shape[0]
+    n_tps_per_stim = new_est['resp'].shape[1]
+
+    feat_dims = [n_stim, n_tps_per_stim, n_feats]
+    data_dims = [n_stim, n_tps_per_stim, n_resp]
+
+    # extract stimulus matrix
+    F = np.reshape(new_est['stim'].as_continuous().copy().T, feat_dims)
+    #D = np.reshape(new_est['resp'].as_continuous().copy().T, data_dims)
+
+    if 'state' in est.signals.keys():
+        n_states = est['state'].shape[0]
+        state_dims = [n_stim, n_tps_per_stim, n_states]
+        S = np.reshape(new_est['state'].as_continuous().copy().T, state_dims)
+    else:
+        n_states = 0
+        S = None
+
+    log.info('feat_dims: %s', feat_dims)
+    log.info('data_dims: %s', data_dims)
+
+    fs = est['resp'].fs
+
+    tf.reset_default_graph()
 
     # initialize tf and evaluate
+    layers = modelspec2tf(modelspec, tps_per_stim=n_tps_per_stim, feat_dims=n_feats,
+                          data_dims=n_resp, state_dims=n_states, fs=fs,
+                          use_modelspec_init=True)
+    net = cnn.Net(data_dims, n_feats, fs, layers, seed=0, log_dir=modelspec.meta['modelpath'])
+    net.initialize()
+
+    y = np.reshape(net.predict(F, S=S).T, [n_resp, n_tps_per_stim])
 
     # paste back into rec
-    return rec
+    new_est['pred'] = new_est['pred']._modified_copy(data=y)
+
+    # test that TF and NEMS models have same prediction
+    y2 = new_est['pred_nems'].as_continuous()
+
+    #plt.figure()
+    #plt.plot(y[0,:1000,0])
+    #plt.plot(y2[0,:1000,0])
+
+    #E = np.nanstd(new_est['pred'].as_continuous()-new_est['pred_nems'].as_continuous())
+
+    return new_est
