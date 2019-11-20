@@ -192,6 +192,64 @@ def wc(kw):
 
     return template
 
+def lv(kw):
+    '''
+    weighted sum of r responses (inputs) into n channels (outputs)
+
+    Parameter
+    ---------
+    kw : string
+        A string of the form: lv.{n_inputs}x{n_outputs}.option1.option2...
+
+    Options
+    -------
+
+    '''
+    options = kw.split('.')
+    in_out_pattern = re.compile(r'^(\d{1,})x(\d{1,})$')
+    try:
+        parsed = re.match(in_out_pattern, options[1])
+        n_inputs = int(parsed.group(1))
+        n_outputs = int(parsed.group(2))
+    except (TypeError, IndexError):
+        # n_inputs x n_outputs should always follow wc.
+        # TODO: Ideally would like the order to not matter like with other
+        #       options but this seemed like a sensible solution for now
+        #       since the information is mandatory.
+        raise ValueError("Got TypeError or IndexError when attempting to parse "
+                         "wc keyword.\nMake sure <in>x<out> is provided "
+                         "as the first option after 'wc', e.g.: 'wc.2x15'"
+                         "\nkeyword given: %s" % kw)
+
+    if 'c' in options and 'g' in options:
+        log.warning("Options 'c' and 'g' both given for weight_channels, but"
+                    " are mutually exclusive. Whichever comes last will "
+                    "overwrite the previous option. kw given: {}".format(kw))
+
+    # This is the default for wc, but options might overwrite it.
+    fn = 'nems.modules.weight_channels.basic'
+    fn_kwargs = {'i': 'resp', 'o': 'lv'}
+    p_coefficients = {'mean': np.zeros((n_outputs, n_inputs))+0.01,
+                      'sd': np.full((n_outputs, n_inputs), 0.1)}
+    prior = {'coefficients': ('Normal', p_coefficients)}
+
+    bounds = None
+
+    template = {
+        'fn': fn,
+        'fn_kwargs': fn_kwargs,
+        'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
+                     'nems.plots.api.weight_channels_heatmap'],
+        'plot_fn_idx': 2,
+        'prior': prior
+    }
+
+    if bounds is not None:
+        template['bounds'] = bounds
+
+    return template
+
 
 def fir(kw):
     '''
@@ -1279,7 +1337,7 @@ def stategain(kw):
     gain_only=('g' in options[2:])
     include_spont=('s' in options[2:])
     dc_only=('d' in options[2:])
-
+    include_lv = ('lv' in options[2:])
     zeros = np.zeros([n_chans, n_vars])
     ones = np.ones([n_chans, n_vars])
     g_mean = zeros.copy()
@@ -1300,7 +1358,7 @@ def stategain(kw):
             'fn_kwargs': {'i': 'pred',
                           'o': 'pred',
                           's': 'state',
-                          'g': g_mean},
+                          'g': g_mean, 'include_lv': include_lv},
             'plot_fns': plot_fns,
             'plot_fn_idx': 4,
             'prior': {'d': ('Normal', {'mean': d_mean, 'sd': d_sd})}
@@ -1310,7 +1368,7 @@ def stategain(kw):
             'fn': 'nems.modules.state.state_gain',
             'fn_kwargs': {'i': 'pred',
                           'o': 'pred',
-                          's': 'state'},
+                          's': 'state', 'include_lv': include_lv},
             'plot_fns': plot_fns,
             'plot_fn_idx': 4,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd})}
@@ -1320,7 +1378,7 @@ def stategain(kw):
            'fn': 'nems.modules.state.state_sp_dc_gain',
             'fn_kwargs': {'i': 'pred',
                           'o': 'pred',
-                          's': 'state'},
+                          's': 'state', 'include_lv': include_lv},
             'plot_fns': plot_fns,
             'plot_fn_idx': 4,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
@@ -1332,7 +1390,8 @@ def stategain(kw):
             'fn': 'nems.modules.state.state_dc_gain',
             'fn_kwargs': {'i': 'pred',
                           'o': 'pred',
-                          's': 'state'},
+                          's': 'state',
+                          'include_lv': include_lv},
             'plot_fns': plot_fns,
             'plot_fn_idx': 4,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),

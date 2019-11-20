@@ -44,7 +44,7 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
     F = tf.placeholder('float32', shape=[None, tps_per_stim, feat_dims])
     if state_dims>0:
         S = tf.placeholder('float32', shape=[None, tps_per_stim, state_dims])
-    #D = tf.placeholder('float32', shape=[None, tps_per_stim, data_dims])
+    D = tf.placeholder('float32', shape=[None, tps_per_stim, data_dims])
 
     layers = []
     for i, m in enumerate(modelspec):
@@ -56,8 +56,11 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
             layer['X'] = F
             if state_dims > 0:
                 layer['S'] = S
+            layer['D'] = D
         else:
             layer['X'] = layers[-1]['Y']
+            if 'L' in layers[-1].keys():
+                layer['L'] = layers[-1]['L']
 
         n_input_feats = np.int32(layer['X'].shape[2])
         # default integration time is one bin
@@ -326,7 +329,10 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
                 #                       weight_scale, seed=net_seed, distr='norm')
                 #print('rand in init: %s',layer['W'].eval())
 
-            layer['Y'] = tf.nn.conv1d(layer['X'], layer['W'], stride=1, padding='SAME')
+            if m['fn_kwargs']['i'] == 'resp':
+                layer['L'] = tf.nn.conv1d(layer['D'], layer['W'], stride=1, padding='SAME')
+            else:
+                layer['Y'] = tf.nn.conv1d(layer['X'], layer['W'], stride=1, padding='SAME')
 
         elif m['fn'] in ['nems.modules.weight_channels.gaussian']:
             layer['n_kern'] = m['phi']['mean'].shape[0]

@@ -325,7 +325,7 @@ class ModelSpec:
         :return: list of phi dictionaries, mean of each value
         """
         if len(self.raw) == 1:
-            return self.phi(mod_idx=mod_idx)
+            return self.phi
 
         phi = []
         if type(mod_idx) is list:
@@ -479,10 +479,10 @@ class ModelSpec:
             start_mod = subset[0]
         else:
             start_mod = len(self)-1
-            for i in range(len(self)-1,0,-1):
+            for i in range(len(self)-1,-1,-1):
                 if ('phi' in self[i]) and self[i]['phi']:
                     start_mod = i
-
+        #import pdb; pdb.set_trace()
         # eval from 0 to start position and save the result in freeze_rec
         self.fast_eval_start = 0
         self.freeze_rec = evaluate(rec, self, start=0, stop=start_mod)

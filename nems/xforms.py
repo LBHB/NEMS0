@@ -660,10 +660,11 @@ def jack_subset(est, val, modelspec=None, IsReload=False,
     if keep_only == 1:
         est = est.views(view_range=0)[0]
         val = val.views(view_range=0)[0]
-        est['resp']=est['resp'].rasterize()
-        val['resp']=val['resp'].rasterize()
-        est['stim']=est['stim'].rasterize()
-        val['stim']=val['stim'].rasterize()
+        est['resp'] = est['resp'].rasterize()
+        val['resp'] = val['resp'].rasterize()
+        if 'stim' in est.signals.keys():
+            est['stim'] = est['stim'].rasterize()
+            val['stim'] = val['stim'].rasterize()
 
     else:
         est = est.views(keep_only)[0]

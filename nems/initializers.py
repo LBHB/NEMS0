@@ -75,7 +75,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
             kw = kw.replace(".S", ".{}".format(S))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        if kw.endswith(".R") and (rec is not None):
+        if (kw.endswith(".R") or (".Rx" in kw)) and (rec is not None):
             R = rec[output_name].nchans
             kw_old = kw
             kw = kw.replace(".R", ".{}".format(R))
