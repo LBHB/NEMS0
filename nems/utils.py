@@ -155,20 +155,15 @@ def escaped_split(string: str, delimiter: str):
     return split
 
 
-def escaped_join(list, delimiter):
-    '''
-    Allows escaping of characters when joining a list of strings,
-    useful for some arguments in keyword strings that need to use
-    underscores, decimals, hyphens, or other characters parsed by
-    the keyword system.
-    '''
-    x = 'EXTREMELYUNLIKELYTOEVERENCOUNTERTHISEXACTSTRINGANYWHEREELSE'
-    match = "\%s" % delimiter
-    temp = [s.replace(match, x) for s in list]
-    temp_join = delimiter.join(temp)
-    final_join = temp_join.replace(x, match)
+def escaped_join(split_list, delimiter: str):
+    """
+    Joins a list of strings along a delimiter.
 
-    return final_join
+    :param split_list: list of strings to join
+    :param delimiter: delimiter to join on
+    :return: joined string
+    """
+    return delimiter.join(split_list)
 
 
 def keyword_extract_options(kw):
