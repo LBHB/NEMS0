@@ -118,6 +118,92 @@ def per_channel(x, coefficients, bank_count=1, non_causal=False, rate=1,
             out[i_out] += r
     return out
 
+def fir_conv2(x, coefficients, bank_count=1, non_causal=False, rate=1):
+    '''
+    Parameters
+    ----------
+    x : array (n_channels, n_times) or (n_channels * bank_count, n_times)
+        Input data. Can be sized two different ways:
+        option 1: number of input channels is same as total channels in the
+          filterbank, allowing a different stimulus into each filter
+        option 2: number of input channels is same as number of coefficients
+          in each fir filter, so that the same stimulus goes into each
+          filter
+    coefficients : array (n_channels * bank_count, n_taps)
+        Filter coefficients. For ``x`` option 2, input channels are nested in
+        output channel, i.e., filter ``filter_i`` of bank ``bank_i`` is at
+        ``coefficients[filter_i * n_banks + bank_i]``.
+    bank_count : int
+        Number of filters in each bank.
+
+    Returns
+    -------
+    signal : array (bank_count, n_times)
+        Filtered signal.
+    '''
+    # Make sure the number of input channels (x) match the number FIR filters
+    # provided (we have a separate filter for each channel). The `zip` function
+    # doesn't require the iterables to be the same length.
+    n_in = len(x)
+    if rate > 1:
+        coefficients = _insert_zeros(coefficients, rate)
+        print(coefficients)
+    n_filters = len(coefficients)
+    if bank_count>0:
+        n_banks = int(n_filters / bank_count)
+    else:
+        n_banks = n_filters
+    if cross_channels:
+        # option 0: user has specified that each filter should be applied to
+        # each input channel (requires bank_count==1)
+        # TODO : integrate with core loop below instead of pasted hack
+        out = np.zeros((n_in*n_filters, x.shape[1]))
+        i_out=0
+        for i_in in range(n_in):
+            x_ = x[i_in]
+            for i_bank in range(n_filters):
+                c = coefficients[i_bank]
+                zi = get_zi(c, x_)
+                r, zf = scipy.signal.lfilter(c, [1], x_, zi=zi)
+                out[i_out] = r
+                i_out+=1
+        return out
+    elif n_filters == n_in:
+        # option 1: number of input channels is same as total channels in the
+        # filterbank, allowing a different stimulus into each filter
+        all_x = iter(x)
+    elif n_filters == n_in * bank_count:
+        # option 2: number of input channels is same as number of coefficients
+        # in each fir filter, so that the same stimulus goes into each
+        # filter
+        one_x = tuple(x)
+        all_x = chain.from_iterable([one_x for _ in range(bank_count)])
+    else:
+        if bank_count == 1:
+            desc = '%i FIR filters' % n_filters
+        else:
+            desc = '%i FIR filter banks' % n_banks
+        raise ValueError(
+            'Dimension mismatch. %s channels provided for %s.' % (n_in, desc))
+
+    c_iter = iter(coefficients)
+    out = np.zeros((bank_count, x.shape[1]))
+    for i_out in range(bank_count):
+        for i_bank in range(n_banks):
+            x_ = next(all_x)
+            c = next(c_iter)
+            if non_causal:
+                # reverse model (using future values of input to predict)
+                x_ = np.roll(x_, -(len(c) - 1))
+
+            # It is slightly more "correct" to use lfilter than convolve at
+            # edges, but but also about 25% slower (Measured on Intel Python
+            # Dist, using i5-4300M)
+            zi = get_zi(c, x_)
+            r, zf = scipy.signal.lfilter(c, [1], x_, zi=zi)
+            out[i_out] += r
+    return out
+
 
 def basic(rec, i='pred', o='pred', non_causal=False, coefficients=[], rate=1,
           offsets=0, **kwargs):

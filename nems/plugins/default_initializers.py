@@ -52,9 +52,12 @@ def init(kw):
     rand_count = 0
     keep_best = False
     fast_eval = ('f' in ops)
+    tf = False
     for op in ops:
         if op == 'st':
             st = True
+        elif op.startswith('tf'):
+            tf = True
         elif op=='psth':
             fit_sig = 'psth'
         elif op.startswith('nl'):
@@ -86,7 +89,12 @@ def init(kw):
     #    xfspec.append(['nems.xforms.fast_eval', {}])
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
-    if st:
+
+    if tf:
+        xfspec.append(['nems.xforms.fit_wrapper',
+                       {'tolerance': tolerance, 'norm_fir': norm_fir, 'nl_kw': nl_kw,
+                        'fit_function': 'nems.tf.cnnlink.fit_tf_init'}])
+    elif st:
         xfspec.append(['nems.xforms.fit_wrapper',
                        {'tolerance': tolerance, 'norm_fir': norm_fir,
                         'nl_kw': nl_kw, 'fit_sig': fit_sig,
@@ -254,4 +262,6 @@ def norm(kw):
         elif op == 'mm':
             norm_method = 'minmax'
 
-    return [['nems.xforms.normalize_stim', {'norm_method': norm_method}]]
+    return [['nems.xforms.normalize_sig', {'sig': 'stim', 'norm_method': norm_method}],
+            ['nems.xforms.normalize_sig', {'sig': 'resp', 'norm_method': norm_method}],
+            ]

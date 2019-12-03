@@ -320,14 +320,13 @@ class ModelSpec:
     @property
     def phi_mean(self, mod_idx=None):
         """
-        Returns mean of phi across fit_indexes
+        Returns mean of phi across fit_indexes and/or jack_indexes
         :param mod_idx: which module to use (default all modules)
         :return: list of phi dictionaries, mean of each value
         """
-        if len(self.raw) == 1:
-            return self.phi(mod_idx=mod_idx)
+        if self.jack_count * self.fit_count == 1:
+            return self.phi
 
-        phi = []
         if type(mod_idx) is list:
             mod_range = mod_idx
         elif mod_idx is not None:
@@ -335,12 +334,17 @@ class ModelSpec:
         else:
             mod_range = range(len(self.raw[0]))
 
+        phi = []
+        raw = []
+        for sublist in self.raw[self.cell_index]:
+            for item in sublist:
+                raw.append(item)
         for mod_idx in mod_range:
             p = {}
-            for k in self.raw[0][mod_idx]['phi'].keys():
-                maxdim = len(self.raw[0][mod_idx]['phi'][k].shape)
+            for k in raw[0][mod_idx]['phi'].keys():
+                maxdim = len(raw[0][mod_idx]['phi'][k].shape)
                 p[k] = np.mean(np.concatenate([np.expand_dims(f[mod_idx]['phi'][k], axis=maxdim)
-                                               for f in self.raw], axis=maxdim), axis=maxdim, keepdims=False)
+                                               for f in raw], axis=maxdim), axis=maxdim, keepdims=False)
             phi.append(p)
 
         return phi
@@ -348,15 +352,14 @@ class ModelSpec:
     @property
     def phi_sem(self, mod_idx=None):
         """
-        Returns SEM of phi across fit_indexes
+        Returns SEM of phi across fit_indexes and/or jack_indexes
         :param mod_idx: which module to use (default all modules)
         :return: list of phi dictionaries, jackknife sem of each value
         """
-        fit_count = len(self.raw)
-        if fit_count == 1:
-            return self.phi(mod_idx=mod_idx)
+        modelcount = self.jack_count * self.fit_count
+        if modelcount == 1:
+            return self.phi
 
-        phi = []
         if type(mod_idx) is list:
             mod_range = mod_idx
         elif mod_idx is not None:
@@ -364,13 +367,18 @@ class ModelSpec:
         else:
             mod_range = range(len(self.raw[0]))
 
+        phi = []
+        raw = []
+        for sublist in self.raw[self.cell_index]:
+            for item in sublist:
+                raw.append(item)
         for mod_idx in mod_range:
             p = {}
-            for k in self.raw[0][mod_idx]['phi'].keys():
-                maxdim = len(self.raw[0][mod_idx]['phi'][k].shape)
-                p[k] = np.std(np.concatenate([np.expand_dims(f[mod_idx]['phi'][k], axis=maxdim)
-                                              for f in self.raw], axis=maxdim), axis=maxdim, keepdims=False) * \
-                    np.sqrt(fit_count-1)
+            for k in raw[0][mod_idx]['phi'].keys():
+                maxdim = len(raw[0][mod_idx]['phi'][k].shape)
+                p[k] = np.std(np.concatenate(
+                    [np.expand_dims(f[mod_idx]['phi'][k], axis=maxdim) for f in raw],
+                    axis=maxdim), axis=maxdim, keepdims=False) / np.sqrt(modelcount-1)
             phi.append(p)
 
         return phi
@@ -479,10 +487,10 @@ class ModelSpec:
             start_mod = subset[0]
         else:
             start_mod = len(self)-1
-            for i in range(len(self)-1,0,-1):
+            for i in range(len(self)-1,-1,-1):
                 if ('phi' in self[i]) and self[i]['phi']:
                     start_mod = i
-
+        #import pdb; pdb.set_trace()
         # eval from 0 to start position and save the result in freeze_rec
         self.fast_eval_start = 0
         self.freeze_rec = evaluate(rec, self, start=0, stop=start_mod)

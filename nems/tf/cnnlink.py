@@ -44,7 +44,7 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
     F = tf.placeholder('float32', shape=[None, tps_per_stim, feat_dims])
     if state_dims>0:
         S = tf.placeholder('float32', shape=[None, tps_per_stim, state_dims])
-    #D = tf.placeholder('float32', shape=[None, tps_per_stim, data_dims])
+    D = tf.placeholder('float32', shape=[None, tps_per_stim, data_dims])
 
     layers = []
     for i, m in enumerate(modelspec):
@@ -56,8 +56,11 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
             layer['X'] = F
             if state_dims > 0:
                 layer['S'] = S
+            layer['D'] = D
         else:
             layer['X'] = layers[-1]['Y']
+            if 'L' in layers[-1].keys():
+                layer['L'] = layers[-1]['L']
 
         n_input_feats = np.int32(layer['X'].shape[2])
         # default integration time is one bin
@@ -326,7 +329,10 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
                 #                       weight_scale, seed=net_seed, distr='norm')
                 #print('rand in init: %s',layer['W'].eval())
 
-            layer['Y'] = tf.nn.conv1d(layer['X'], layer['W'], stride=1, padding='SAME')
+            if m['fn_kwargs']['i'] == 'resp':
+                layer['L'] = tf.nn.conv1d(layer['D'], layer['W'], stride=1, padding='SAME')
+            else:
+                layer['Y'] = tf.nn.conv1d(layer['X'], layer['W'], stride=1, padding='SAME')
 
         elif m['fn'] in ['nems.modules.weight_channels.gaussian']:
             layer['n_kern'] = m['phi']['mean'].shape[0]
@@ -362,24 +368,42 @@ def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_di
         elif m['fn'] == 'nems.modules.state.state_dc_gain':
             # match this function from nems.modules.state.state_dc_gain
             #fn = lambda x: np.matmul(g, rec[s]._data) * x + np.matmul(d, rec[s]._data)
-            g = m['phi']['g'].astype('float32').T
-            d = m['phi']['d'].astype('float32').T
-            layer['n_kern'] = g.shape[1]
-            g = np.reshape(g, (1, g.shape[0], g.shape[1]))
-            d = np.reshape(d, (1, d.shape[0], d.shape[1]))
+            if 'phi' in m.keys():
+                g = m['phi']['g'].astype('float32').T
+                d = m['phi']['d'].astype('float32').T
+                g = np.reshape(g, (1, g.shape[0], g.shape[1]))
+                d = np.reshape(d, (1, d.shape[0], d.shape[1]))
 
-            if use_modelspec_init:
-                layer['g'] = tf.Variable(g)
-                layer['d'] = tf.Variable(d)
+                if use_modelspec_init:
+                    layer['g'] = tf.Variable(g)
+                    layer['d'] = tf.Variable(d)
+                else:
+                    layer['g'] = tf.Variable(tf.random_normal(
+                        g.shape, stddev=weight_scale, seed=cnn.seed_to_randint(net_seed + i)))
+                    layer['d'] = tf.Variable(tf.random_normal(
+                        d.shape, stddev=weight_scale, seed=cnn.seed_to_randint(net_seed + 20 + i)))
             else:
-                layer['g'] = tf.Variable(tf.random_normal(
-                    g.shape, stddev=weight_scale, seed=cnn.seed_to_randint(net_seed + i)))
-                layer['d'] = tf.Variable(tf.random_normal(
-                    d.shape, stddev=weight_scale, seed=cnn.seed_to_randint(net_seed + 20 + i)))
+                # dc/gain values are fixed
+                g = m['fn_kwargs']['g'].astype('float32').T
+                d = m['fn_kwargs']['d'].astype('float32').T
+                g = np.reshape(g, (1, g.shape[0], g.shape[1]))
+                d = np.reshape(d, (1, d.shape[0], d.shape[1]))
 
+                layer['g'] = tf.constant(g)
+                layer['d'] = tf.constant(d)
+
+            layer['n_kern'] = g.shape[2]
             layer['Sg'] = tf.nn.conv1d(layers[0]['S'], layer['g'], stride=1, padding='SAME')
             layer['Sd'] = tf.nn.conv1d(layers[0]['S'], layer['d'], stride=1, padding='SAME')
+            #layer['Sg'] = tf.multiply(layers[0]['S'], layer['g'])
+            #layer['Sd'] = tf.multiply(layers[0]['S'], layer['d'])
             layer['Y'] = layer['X'] * layer['Sg'] + layer['Sd']
+
+            log.info("g shape: %s", layer['g'].shape)  # [filter_width, in_channels, out_channels]
+            log.info("S shape: %s", layers[0]['S'].shape)  # [batch, in_width, in_channels]
+            log.info("X shape: %s", layer['X'].shape)  # [batch, in_width, in_channels]
+            log.info("Sg shape: %s", layer['Sg'].shape)
+            log.info("Y shape: %s", layer['Y'].shape)
         else:
             raise ValueError('Module %s not supported', m['fn'])
 
@@ -457,8 +481,10 @@ def tf2modelspec(net, modelspec):
                                      m['bounds']['sd'][0], m['bounds']['sd'][1])
 
         elif m['fn'] in ['nems.modules.state.state_dc_gain']:
-            m['phi']['g'] = net_layer_vals[i]['g'][0, :, :].T
-            m['phi']['d'] = net_layer_vals[i]['d'][0, :, :].T
+            # if init.st, not fitting these params, no phi, so skip
+            if 'phi' in m.keys():
+                m['phi']['g'] = net_layer_vals[i]['g'][0, :, :].T
+                m['phi']['d'] = net_layer_vals[i]['d'][0, :, :].T
 
         else:
             raise ValueError("NEMS module fn=%s not supported", m['fn'])
@@ -512,6 +538,108 @@ def _fit_net(F, D, modelspec, seed, fs, train_val_test, optimizer='Adam',
     return modelspec, net2
 
 
+def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
+                optimizer='Adam', max_iter=500, cost_function='mse', **context):
+    """
+    :param est: A recording object
+    :param modelspec: A modelspec object
+    :param use_modelspec_init: [True] use input modelspec phi for initialization. Otherwise use random inits
+    :param optimizer:
+    :param max_iter: max number of training iterations
+    :param cost_function: TODO, not implemented yet
+    :param context: extra stuff from xforms context
+    :return: dictionary with modelspec, compatible with xforms
+    """
+
+    # preserve input modelspec
+    modelspec = modelspec.copy()
+
+    target_module = ['levelshift', 'relu']
+    extra_exclude = ['stp', 'rdt_gain', 'state_dc_gain', 'state_gain']
+
+    # figure out last modelspec module to fit
+    target_i = None
+    if type(target_module) is not list:
+        target_module = [target_module]
+    for i, m in enumerate(modelspec.modules):
+        tlist = [True for t in target_module if t in m['fn']]
+
+        if len(tlist):
+            target_i = i + 1
+            # don't break. use last occurrence of target module
+
+    if not target_i:
+        log.info("target_module: {} not found in modelspec."
+                 .format(target_module))
+        return modelspec
+    else:
+        log.info("target_module: {0} found at modelspec[{1}]."
+                 .format(target_module, target_i-1))
+
+    # identify any excluded modules and take them out of temp modelspec
+    # that will be fit here
+    exclude_idx = []
+    tmodelspec = ms.ModelSpec()
+    for i in range(len(modelspec)):
+        m = copy.deepcopy(modelspec[i])
+
+        for fn in extra_exclude:
+            # log.info('exluding '+fn)
+            # log.info(m['fn'])
+            # log.info(m.get('phi'))
+            if (fn in m['fn']):
+                if (m.get('phi') is None):
+                    m = priors.set_mean_phi([m])[0]  # Inits phi
+                    log.info('Mod %d (%s) fixing phi to prior mean', i, fn)
+                else:
+                    log.info('Mod %d (%s) fixing phi', i, fn)
+
+                m['fn_kwargs'].update(m['phi'])
+                del m['phi']
+                del m['prior']
+                exclude_idx.append(i)
+                # log.info(m)
+        if ('relu' in m['fn']):
+            log.info('found relu')
+
+        elif ('levelshift' in m['fn']):
+            #m = priors.set_mean_phi([m])[0]
+            output_name = modelspec.meta.get('output_name', 'resp')
+            try:
+                mean_resp = np.nanmean(est[output_name].as_continuous(), axis=1, keepdims=True)
+            except NotImplementedError:
+                # as_continuous only available for RasterizedSignal
+                mean_resp = np.nanmean(est[output_name].rasterize().as_continuous(), axis=1, keepdims=True)
+            log.info('Mod %d (%s) fixing level to %s mean %.3f',
+                     i, m['fn'], output_name, mean_resp[0])
+            log.info('resp has %d channels', len(mean_resp))
+            m['phi']['level'][:] = mean_resp
+
+        if (i < target_i) or ('merge_channels' in m['fn']):
+            tmodelspec.append(m)
+    log.info(tmodelspec)
+    # fit the subset of modules
+    new_context = fit_tf(modelspec=tmodelspec, est=est, use_modelspec_init=use_modelspec_init,
+                     optimizer=optimizer, max_iter=max_iter, cost_function=cost_function,
+                     **context)
+    tmodelspec = new_context['modelspec']
+
+    #if metric is None:
+    #    tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
+    #                                   fit_kwargs=fit_kwargs)
+    #else:
+    #    tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
+    #                                   metric=metric, fit_kwargs=fit_kwargs)
+
+    # reassemble the full modelspec with updated phi values from tmodelspec
+    #print(modelspec[0])
+    #print(modelspec.phi[2])
+    for i in np.setdiff1d(np.arange(target_i), np.array(exclude_idx)).tolist():
+        modelspec[int(i)] = tmodelspec[int(i)]
+
+    return {'modelspec': modelspec}
+
+
 def fit_tf(modelspec=None, est=None,
            use_modelspec_init=True, init_count=1,
            optimizer='Adam', max_iter=1000, cost_function='mse', **context):
@@ -530,41 +658,34 @@ def fit_tf(modelspec=None, est=None,
 
     start_time = time.time()
 
-    if 'mask' in est.signals.keys():
-        est = est.apply_mask()
-
-    #modelspec = modelspec.copy()
-
-    sr_Hz = est['resp'].fs
-    time_win_sec = 0.1
-
-    n_feats = est['stim'].shape[0]
-    e = est['stim'].get_epoch_indices('REFERENCE')
-
-    # length of each segment is length of a reference
-    n_tps_per_stim = e[0][1]-e[0][0]
-    # before: hard coded as n_tps_per_stim = 550
-
-    n_stim = int(est['stim'].shape[1] / n_tps_per_stim)
-    n_resp = est['resp'].shape[0]
-
-    feat_dims = [n_stim, n_tps_per_stim, n_feats]
-    data_dims = [n_stim, n_tps_per_stim, n_resp]
     net1_seed = 50
-    log.info('feat_dims: %s', feat_dims)
-    log.info('data_dims: %s', data_dims)
+    sr_Hz = est['resp'].fs
+    #time_win_sec = 0.1
 
-    # extract stimulus matrix
-    F = np.reshape(est['stim'].as_continuous().copy().T, feat_dims)
-    D = np.reshape(est['resp'].as_continuous().copy().T, data_dims)
+    new_est = est.apply_mask()
+    n_feats = new_est['stim'].shape[0]
+    epoch_name = 'REFERENCE'
+    e = est['stim'].get_epoch_indices(epoch_name, mask=est['mask'])
     if 'state' in est.signals.keys():
         n_states = est['state'].shape[0]
-        state_dims = [n_stim, n_tps_per_stim, n_states]
-        S = np.reshape(est['state'].as_continuous().copy().T, state_dims)
     else:
+        n_states = 0
         S = None
+    # length of each segment is length of a reference
+    de = e[:, 1] - e[:, 0]
+    n_tps_per_stim = de[0]
+    if np.sum(np.abs(de-n_tps_per_stim)) > 0:
+        epoch_name = 'TRIAL'
 
-    new_est = est.copy()
+    F = np.transpose(est['stim'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
+    D = np.transpose(est['resp'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
+    if n_states > 0:
+        S = np.transpose(est['state'].extract_epoch(epoch=epoch_name, mask=est['mask']),[0, 2, 1])
+
+    feat_dims = F.shape
+    data_dims = D.shape
+    log.info('feat_dims: %s', feat_dims)
+    log.info('data_dims: %s', data_dims)
 
     train_val_test = np.zeros(data_dims[0])
     val_n = int(0.9 * data_dims[0])
@@ -573,40 +694,47 @@ def fit_tf(modelspec=None, est=None,
     seed = net1_seed + modelspec.fit_index
 
     modelspec_pre = modelspec.copy()
-    modelspec, net = _fit_net(F, D, modelspec, seed, est['resp'].fs,
+    modelspec, net = _fit_net(F, D, modelspec, seed, new_est['resp'].fs,
                          train_val_test=train_val_test,
                          optimizer=optimizer, max_iter=np.min([max_iter]),
                          use_modelspec_init=use_modelspec_init, S=S)
 
+    new_est = eval_tf(modelspec, new_est)
+    y = new_est['pred'].as_continuous()
+    y2 = new_est['pred_nems'].as_continuous()
+    E = np.nanstd(y[:,10:]-y2[:,10:])
+    """
     try:
         new_est = modelspec.evaluate(new_est)
     except:
+        log.info('evaluation of tf->nems models failed')
         import pdb
         pdb.set_trace()
 
-    #    r_fit[i], se_fit = nmet.j_corrcoef(new_est, 'pred', 'resp')
-    #    log.info('r_fit this iteration (%d/%d): %s', i+1, init_count, r_fit[i])
-
     # test that TF and NEMS models have same prediction
     y = net.predict(F, S=S)
-    p1 = y[0,:,0]
-    p2 = new_est['pred'].as_continuous()[0,:n_tps_per_stim]
-    E = np.std(p1-p2)
+    p1 = y[0, :, 0]
+    if not trial_based_reshape:
+        #p2 = new_est['pred'].as_continuous()[0,:n_tps_per_stim]
+        y2 = np.reshape(new_est['pred'].as_continuous().copy().T, data_dims)
+    else:
+        y2 = np.transpose(new_est['pred'].extract_epoch(epoch='TRIAL', mask=est['mask']),[0, 2, 1])
+    p2 = y2[0, :, 0]
+    E = np.nanstd(p1-p2)
+    """
     log.info('Mean difference between NEMS and TF model pred: %e', E)
+    #import pdb; pdb.set_trace()
+
     if np.isnan(E) or (E > 1e-2):
         log.info('E too big? Jumping to debug mode.')
         import matplotlib.pyplot as plt
         plt.figure()
-        ax1=plt.subplot(3, 1, 1)
-        ax1.plot(y[0, :, 0],'b')
-        ax1.plot(new_est['pred'].as_continuous()[0, :n_tps_per_stim], 'r')
-        ax1.plot(new_est['pred'].as_continuous()[0, :n_tps_per_stim]-y[0, :, 0], '--')
-        ax1.legend(('TF','NEMS','diff'))
+        ax1=plt.subplot(2, 1, 1)
+        ax1.plot(y[0, :1000], 'b')
+        ax1.plot(y2[0, :1000], 'r')
+        ax1.plot(y2[0, :1000]-y[0, :1000], '--')
+        ax1.legend(('TF', 'NEMS', 'diff'))
 
-        ax2=plt.subplot(3, 1, 2)
-        ax2.plot(y[1, :, 0],'b')
-        ax2.plot(new_est['pred'].as_continuous()[0,n_tps_per_stim:(2*n_tps_per_stim)],'r')
-        ax2.plot(new_est['pred'].as_continuous()[0,n_tps_per_stim:(2*n_tps_per_stim)]-y[1,:,0], '--')
         plt.show()
         log.info(modelspec.phi)
         net_layer_vals = net.layer_vals()
@@ -617,9 +745,9 @@ def fit_tf(modelspec=None, est=None,
             args.update(m['phi'])
             w_nems = do_coefficients(**args)
             w_tf = net_layer_vals[2]['W']
-            ax3=plt.subplot(3, 2, 5)
+            ax3=plt.subplot(2, 2, 3)
             ax3.plot(np.flipud(np.squeeze(w_tf)))
-            ax4=plt.subplot(3, 2, 6)
+            ax4=plt.subplot(2, 2, 4)
             ax4.plot(w_nems.T)
         #from nems.modules.weight_channels import gaussian_coefficients
         #log.info(gaussian_coefficients(modelspec.phi[1]['mean'], modelspec.phi[1]['sd'],
@@ -639,239 +767,67 @@ def fit_tf(modelspec=None, est=None,
 
     return {'modelspec': modelspec}
 
-def eval_tf(modelspec, rec):
 
-    return rec
-
-
-
-
-##################
-# JUNK
-#################
-
-
-def modelspec2cnn(modelspec, data_dims=1, n_inputs=18, fs=100,
-                  net_seed=1, use_modelspec_init=True):
-    """convert NEMS modelspec to TF network.
-    Initialize with existing phi?
-    Translations:
-        wc -> reweight-positive-zeros, identity (require lvl?)
-        fir+lvl -> conv, identity
-        wc+relu -> reweight, relu
-        fir+relu -> conv2d, relu
-
+def eval_tf(modelspec, est):
     """
-    raise Warning("DEPRECATED?")
-    layers = []
-    for i, m in enumerate(modelspec):
-        log.info('modelspec2cnn: ' + m['fn'])
-        if i < len(modelspec)-1:
-            next_fn = modelspec[i+1]['fn']
-        else:
-            next_fn = None
-
-        if m['fn'] == 'nems.modules.nonlinearity.relu':
-            pass # already handled
-
-        elif 'levelshift' in m['fn']:
-            pass # already handled
-
-        elif m['fn'] in ['nems.modules.nonlinearity.dlog']:
-            layer = {}
-            layer['type'] = 'dlog'
-            layer['time_win_sec'] = 1 / fs
-            layer['act'] = ''
-            layer['n_kern'] = 1  # m['prior']['coefficients'][1]['mean'].shape[0]
-            layer['rank'] = None  # P['rank']
-            if use_modelspec_init:
-                c = m['phi']['offset'].astype('float32').T
-                layer['init_b'] = np.reshape(c, (1, c.shape[0], c.shape[1]))
-
-            layers.append(layer)
-
-        elif m['fn'] in ['nems.modules.fir.basic', 'nems.modules.fir.filter_bank']:
-            layer = {}
-
-            layer['time_win_sec'] = m['phi']['coefficients'].shape[1] / fs
-            if next_fn == 'nems.modules.nonlinearity.relu':
-                layer['act'] = 'relu'
-                if use_modelspec_init:
-                    c = -modelspec[i + 1]['phi']['offset'].astype('float32').T
-                    layer['init_b'] = np.reshape(c, (1, c.shape[0], c.shape[1]))
-            elif next_fn == 'nems.modules.levelshift.levelshift':
-                layer['act'] = 'identity'
-                if use_modelspec_init:
-                    c = modelspec[i + 1]['phi']['level'].astype('float32').T
-                    layer['init_b'] = np.reshape(c, (1, c.shape[0], c.shape[1]))
-            else:
-                layer['act'] = 'identity'
-                if use_modelspec_init:
-                    c = np.zeros((1,1)).astype('float32')
-                    layer['init_b'] = np.reshape(c, (1, c.shape[0], c.shape[1]))
-
-            layer['rank'] = None  # we're handling rank with explicit spectral filters
-            if 'filter_bank' in m['fn']:
-                bank_count = m['fn_kwargs']['bank_count']
-                layer['n_kern'] = bank_count
-                layer['rate'] = m['fn_kwargs'].get('rate', 1)
-
-                if True:
-                    # temporary testing
-                    layer['type'] = 'conv_bank_1d'
-                    log.info('using conv_bank_1d')
-                    c = np.fliplr(m['phi']['coefficients']).astype('float32').T
-                    chan_count = int(c.shape[1]/bank_count)
-                    c = np.reshape(c, (1, c.shape[0], bank_count, chan_count))
-                else:
-                    layer['type'] = 'conv_bank'
-                    c = np.fliplr(m['phi']['coefficients']).astype('float32').T
-                    chan_count = int(c.shape[1]/bank_count)
-                    c = np.reshape(c, (c.shape[0], chan_count, 1, bank_count))
-            else:
-                layer['type'] = 'conv'
-                bank_count = 1
-                layer['n_kern'] = 1
-                c = np.fliplr(m['phi']['coefficients']).astype('float32').T
-                chan_count = int(c.shape[1]/bank_count)
-                c = np.reshape(c, (c.shape[0], chan_count, bank_count))
-
-            if use_modelspec_init & (np.sum(np.abs(c)) > 0):
-                layer['init_W'] = c
-            elif use_modelspec_init:
-                c[0, 0, :, :]=1
-                layer['init_W'] = c
-
-            layers.append(layer)
-
-        elif m['fn'] in ['nems.modules.weight_channels.basic']:
-            layer = {}
-            layer['time_win_sec'] = 1 / fs
-            if next_fn == 'nems.modules.nonlinearity.relu':
-                layer['type'] = 'reweight'
-                layer['act'] = 'relu'
-                if use_modelspec_init & (np.sum(np.abs(modelspec[i + 1]['phi']['offset']))>0):
-                    c = -modelspec[i + 1]['phi']['offset'].astype('float32').T
-                    layer['init_b'] = np.reshape(c, (1, c.shape[0], c.shape[1]))
-            elif next_fn == 'nems.modules.levelshift.levelshift':
-                layer['type'] = 'reweight'
-                layer['act'] = 'identity'
-                if use_modelspec_init & (np.sum(np.abs(modelspec[i + 1]['phi']['level']))>0):
-                    c = modelspec[i + 1]['phi']['level'].astype('float32').T
-                    layer['init_b'] = np.reshape(c, (1, c.shape[0], c.shape[1]))
-            else:
-                layer['type'] = 'reweight'
-                layer['act'] = 'identity'
-                if use_modelspec_init:
-                    c = np.zeros((1, 1)).astype('float32')
-                    layer['init_b'] = np.reshape(c, (1, c.shape[0], c.shape[1]))
-
-            layer['n_kern'] = m['phi']['coefficients'].shape[0]
-            if use_modelspec_init & (np.sum(np.abs(m['phi']['coefficients']))>0):
-                #m['phi']['coefficients'] = net_layer_vals[current_layer]['W'][0, :, :].T
-                c = m['phi']['coefficients'].astype('float32').T
-                layer['init_W'] = np.reshape(c,(1,c.shape[0],c.shape[1]))
-            #layer['rank'] = None  # P['rank']
-            layers.append(layer)
-
-        elif m['fn'] in ['nems.modules.weight_channels.gaussian']:
-            layer = {}
-            layer['time_win_sec'] = 1 / fs
-            if next_fn == 'nems.modules.nonlinearity.relu':
-                layer['type'] = 'reweight-gaussian'
-                layer['act'] = 'relu'
-                if use_modelspec_init:
-                    c = -modelspec[i + 1]['phi']['offset'].astype('float32').T
-                    layer['init_b'] = np.reshape(c, (1, c.shape[0], c.shape[1]))
-            else:
-                layer['type'] = 'reweight-gaussian'
-                layer['act'] = 'identity'
-                if use_modelspec_init:
-                    c = np.zeros((1, 1)).astype('float32')
-                    layer['init_b'] = np.reshape(c, (1, c.shape[0], c.shape[1]))
-            layer['n_kern'] = m['phi']['mean'].shape[0]
-
-            if use_modelspec_init:
-                c = m['phi']['mean'].astype('float32')
-                layer['init_m'] = np.reshape(c, (1, 1, c.shape[0]))
-                c = m['phi']['sd'].astype('float32')
-                layer['init_s'] = np.reshape(c, (1, 1, c.shape[0])) * 10
-
-            #layer['rank'] = None  # P['rank']
-            layers.append(layer)
-
-        else:
-            raise ValueError("fn %s not supported", m['fn'])
-
-    #print(layers)
-    return layers
-
-def cnn2modelspec(net, modelspec):
+    TODO : evaluate a NEMS model through TF
+    :param modelspec:
+    :param est:
+    :return:
     """
-    pass TF cnn fit back into modelspec phi.
-    TODO: Generate new modelspec if not provided
-    TODO: Make sure that the dimension mappings work reliably for filter banks and such
-    """
-    raise Warning("DEPRECATED?")
-    net_layer_vals = net.layer_vals()
-    current_layer = 0
-    for i, m in enumerate(modelspec):
-        log.info('cnn2modelspec: ' + m['fn'])
-        if i < len(modelspec)-1:
-            next_fn = modelspec[i+1]['fn']
-        else:
-            next_fn = None
-        if m['fn'] == 'nems.modules.nonlinearity.relu':
-            pass  # already handled
 
-        elif 'levelshift' in m['fn']:
-            pass  # already handled
+    new_est = modelspec.evaluate(est)
+    new_est['pred_nems'] = new_est['pred'].copy()
+    
+    # extract stim. does it need to be reshaped to be multiple batches? probably not.
+    n_feats = new_est['stim'].shape[0]
 
-        elif m['fn'] in ['nems.modules.fir.basic']:
-            m['phi']['coefficients'] = np.fliplr(net_layer_vals[current_layer]['W'][:,:,0].T)
-            if next_fn == 'nems.modules.nonlinearity.relu':
-                modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
-            elif next_fn == 'nems.modules.levelshift.levelshift':
-                modelspec[i+1]['phi']['level'] = net_layer_vals[current_layer]['b'][0,:,:].T
-            current_layer += 1
+    # don't need batches, so can use a single "stim" that contains the whole recording
+    n_stim = 1
+    n_resp = new_est['resp'].shape[0]
+    n_tps_per_stim = new_est['resp'].shape[1]
 
-        elif m['fn'] in ['nems.modules.fir.filter_bank']:
-            #m['phi']['coefficients'] = np.fliplr(net_layer_vals[current_layer]['W'][:,0,0,:].T)
-            if net_layer_vals[current_layer]['W'].shape[1]>1:
-                # new depthwise_conv2d
-                m['phi']['coefficients'] = np.fliplr(net_layer_vals[current_layer]['W'][0,:,:,0].T)
-            else:
-                # inefficient conv2d
-                m['phi']['coefficients'] = np.fliplr(net_layer_vals[current_layer]['W'][:,0,0,:].T)
-            if next_fn == 'nems.modules.nonlinearity.relu':
-                modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
-            elif next_fn == 'nems.modules.levelshift.levelshift':
-                modelspec[i+1]['phi']['level'] = net_layer_vals[current_layer]['b'][0,:,:].T
-            current_layer += 1
+    feat_dims = [n_stim, n_tps_per_stim, n_feats]
+    data_dims = [n_stim, n_tps_per_stim, n_resp]
 
-        elif m['fn'] in ['nems.modules.weight_channels.basic']:
-            m['phi']['coefficients'] = net_layer_vals[current_layer]['W'][0,:,:].T
-            if next_fn == 'nems.modules.nonlinearity.relu':
-                modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
-            elif next_fn == 'nems.modules.levelshift.levelshift':
-                modelspec[i+1]['phi']['level'] = net_layer_vals[current_layer]['b'][0,:,:].T
-            current_layer += 1
+    # extract stimulus matrix
+    F = np.reshape(new_est['stim'].as_continuous().copy().T, feat_dims)
+    #D = np.reshape(new_est['resp'].as_continuous().copy().T, data_dims)
 
-        elif m['fn'] in ['nems.modules.nonlinearity.dlog']:
-            modelspec[i]['phi']['offset'] = net_layer_vals[current_layer]['b'][0, :, :].T
-            #log.info(net_layer_vals[current_layer])
-            current_layer += 1
+    if 'state' in est.signals.keys():
+        n_states = est['state'].shape[0]
+        state_dims = [n_stim, n_tps_per_stim, n_states]
+        S = np.reshape(new_est['state'].as_continuous().copy().T, state_dims)
+    else:
+        n_states = 0
+        S = None
 
-        elif m['fn'] in ['nems.modules.weight_channels.gaussian']:
-            modelspec[i]['phi']['mean'] = net_layer_vals[current_layer]['m'][0, 0, :].T
-            modelspec[i]['phi']['sd'] = net_layer_vals[current_layer]['s'][0, 0, :].T / 10
-            if next_fn == 'nems.modules.nonlinearity.relu':
-                modelspec[i+1]['phi']['offset'] = -net_layer_vals[current_layer]['b'][0,:,:].T
-            elif next_fn == 'nems.modules.levelshift.levelshift':
-                modelspec[i+1]['phi']['level'] = net_layer_vals[current_layer]['b'][0,:,:].T
-            #log.info(net_layer_vals[current_layer])
-            current_layer += 1
-        else:
-            raise ValueError("fn %s not supported", m['fn'])
+    log.info('feat_dims: %s', feat_dims)
+    log.info('data_dims: %s', data_dims)
 
-    return modelspec
+    fs = est['resp'].fs
+
+    tf.reset_default_graph()
+
+    # initialize tf and evaluate
+    layers = modelspec2tf(modelspec, tps_per_stim=n_tps_per_stim, feat_dims=n_feats,
+                          data_dims=n_resp, state_dims=n_states, fs=fs,
+                          use_modelspec_init=True)
+    net = cnn.Net(data_dims, n_feats, fs, layers, seed=0, log_dir=modelspec.meta['modelpath'])
+    net.initialize()
+
+    y = np.reshape(net.predict(F, S=S).T, [n_resp, n_tps_per_stim])
+
+    # paste back into rec
+    new_est['pred'] = new_est['pred']._modified_copy(data=y)
+
+    # test that TF and NEMS models have same prediction
+    y2 = new_est['pred_nems'].as_continuous()
+
+    #plt.figure()
+    #plt.plot(y[0,:1000,0])
+    #plt.plot(y2[0,:1000,0])
+
+    #E = np.nanstd(new_est['pred'].as_continuous()-new_est['pred_nems'].as_continuous())
+
+    return new_est

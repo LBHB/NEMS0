@@ -7,7 +7,7 @@ functions for applying state-related transformations
 import numpy as np
 
 
-def state_dc_gain(rec, i='pred', o='pred', s='state', c=None, g=None, d=0):
+def state_dc_gain(rec, i='pred', o='pred', s='state', include_lv=False, c=None, g=None, d=0):
     '''
     Linear DC/gain for each state applied to each predicted channel
 
@@ -20,7 +20,13 @@ def state_dc_gain(rec, i='pred', o='pred', s='state', c=None, g=None, d=0):
     g - gain to scale s by
     d - dc to offset by
     '''
-    fn = lambda x: np.matmul(g, rec[s]._data) * x + np.matmul(d, rec[s]._data)
+
+    if include_lv:
+        def fn(x):
+            st = np.concatenate((rec[s]._data, rec['lv']._data), axis=0)
+            return np.matmul(g, st) * x + np.matmul(d, st)
+    else:
+        fn = lambda x: np.matmul(g, rec[s]._data) * x + np.matmul(d, rec[s]._data)
 
     if c is None:
         return [rec[i].transform(fn, o)]
@@ -42,7 +48,7 @@ def state_dc_gain(rec, i='pred', o='pred', s='state', c=None, g=None, d=0):
         new_signal.name = o
         return [new_signal]
 
-def state_gain(rec, i='pred', o='pred', s='state', c=None, g=None):
+def state_gain(rec, i='pred', o='pred', s='state', include_lv=False, c=None, g=None):
     '''
     Linear gain for each state applied to each predicted channel
 
@@ -78,7 +84,7 @@ def state_gain(rec, i='pred', o='pred', s='state', c=None, g=None):
         return [new_signal]
 
 
-def state_sp_dc_gain(rec, i='pred', o='pred', s='state', g=None, d=0, sp=0):
+def state_sp_dc_gain(rec, i='pred', o='pred', s='state', include_lv=False, g=None, d=0, sp=0):
     '''
     Linear spont/DC/gain for each state applied to each predicted channel
 

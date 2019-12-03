@@ -346,6 +346,18 @@ def normalize_stim(rec=None, sig='stim', norm_method='meanstd', **context):
     return {'rec': rec}
 
 
+def normalize_sig(rec=None, sig='stim', norm_method='meanstd', **context):
+    """
+    Normalize each channel of rec[sig] according to norm_method
+    :param rec:  NEMS recording
+    :param norm_method:  string {'meanstd', 'minmax'}
+    :param context: pass-through for other variables in xforms context dictionary that aren't used.
+    :return: copy(?) of rec with updated signal.
+    """
+    rec[sig] = rec.copy()[sig].rasterize().normalize(norm_method)
+    return {'rec': rec}
+
+
 def init_from_keywords(keywordstring, meta={}, IsReload=False,
                        registry=None, rec=None, input_name='stim',
                        output_name='resp', **context):
@@ -648,10 +660,11 @@ def jack_subset(est, val, modelspec=None, IsReload=False,
     if keep_only == 1:
         est = est.views(view_range=0)[0]
         val = val.views(view_range=0)[0]
-        est['resp']=est['resp'].rasterize()
-        val['resp']=val['resp'].rasterize()
-        est['stim']=est['stim'].rasterize()
-        val['stim']=val['stim'].rasterize()
+        est['resp'] = est['resp'].rasterize()
+        val['resp'] = val['resp'].rasterize()
+        if 'stim' in est.signals.keys():
+            est['stim'] = est['stim'].rasterize()
+            val['stim'] = val['stim'].rasterize()
 
     else:
         est = est.views(keep_only)[0]
@@ -903,7 +916,7 @@ def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
     return {'modelspec': modelspec}
 
 
-def fit_wrapper(modelspec, est, fit_function='nems.analysis.api.fit_basic',
+def fit_wrapper(modelspec, est=None, fit_function='nems.analysis.api.fit_basic',
                 IsReload=False, **context):
     """
     wrapper to loop through all jacks and fits for a modelspec, calling fit_function to fit each

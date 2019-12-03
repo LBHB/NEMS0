@@ -1092,7 +1092,7 @@ class Recording:
         with only data specified mask. To make mask, see "create_mask"
         '''
         if 'mask' not in self.signals.keys():
-            warnings.warn("No mask specified, apply_mask() simply copying recording.")
+            log.info("No mask specified, apply_mask() simply copying recording.")
             return self.copy()
 
         rec = self.copy()

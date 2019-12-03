@@ -682,10 +682,10 @@ class SignalBase:
              if list of strings (epoch names), mask is OR combo of all strings
              if list of tuples (epoch times), mask is OR combo of all epoch times
         '''
-        
+
         mask = np.zeros([1, self.ntimes], dtype=np.bool)
         if (epoch is None) or (epoch is False):
-            pass    
+            pass
 
         elif type(epoch) is str:
             # assuming defaults for boundary_mask and fix_overlap!
@@ -697,13 +697,13 @@ class SignalBase:
             # epoch is a list of indices
             for (lb, ub) in epoch:
                 mask[:, lb:ub] = True
-                
+
         elif (type(epoch) is list) and (type(epoch[0]) is str):
             # epoch is a list of epochs
             mask = self.generate_epoch_mask(epoch[0])
             for e in epoch [1:]:
                 mask = mask | self.generate_epoch_mask(e)
-                
+
         elif (type(epoch) is np.ndarray) and (epoch.ndim ==2):
             # epoch is an array of indices
             for (lb, ub) in epoch:
@@ -715,7 +715,7 @@ class SignalBase:
 
         elif epoch == True:
             mask[:] = 1
-            
+
         else:
             raise RuntimeError('Invalid epoch passed to generate_epoch_mask')
         return mask
@@ -2091,7 +2091,7 @@ class PointProcess(SignalBase):
         allow_empty: {False, boolean}
 
         mask: {None, signal}
-            if provided, onlye extract epochs overlapping periods where
+            if provided, only extract epochs overlapping periods where
             mask.as_continuous()==True in all time bins
 
         Returns

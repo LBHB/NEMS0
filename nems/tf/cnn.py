@@ -179,7 +179,7 @@ class Net:
 
         # loss
         if self.loss_type == 'squared_error':
-            self.loss = tf.reduce_mean(tf.square(self.D - self.Y))
+            self.loss = tf.reduce_mean(tf.square(self.D - self.Y)) / tf.reduce_mean(tf.square(self.D))
         elif self.loss_type == 'poisson':
             self.loss = poisson(self.D, self.Y)
         else:
@@ -544,8 +544,6 @@ class Net:
                 if np.mod(i + 1, eval_interval) == 0:
                     self.iteration.append(
                         self.iteration[len(self.iteration) - 1] + eval_interval)
-                    if print_iter:
-                        log.info(self.iteration[len(self.iteration) - 1])
                     train_loss = self.loss.eval(feed_dict=train_dict)
                     self.train_loss.append(train_loss)
                     if len(val_inds) > 0:
@@ -555,6 +553,9 @@ class Net:
                     if len(test_inds) > 0:
                         self.test_loss.append(
                             self.loss.eval(feed_dict=test_dict))
+                    if print_iter:
+                        log.info("%d e=%.7f v=%.7f", self.iteration[len(self.iteration) - 1],
+                                 train_loss, validation_loss)
 
                     # early stopping / saving
                     if early_stopping_steps > 0:
@@ -652,7 +653,6 @@ class Net:
                     layer['kappa'] = self.layers[i]['kappa'].eval()
                 if 'shift' in self.layers[i]:
                     layer['shift'] = self.layers[i]['shift'].eval()
-
                 layers.append(layer)
 
             return layers
