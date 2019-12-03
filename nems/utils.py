@@ -10,6 +10,7 @@ import os
 from collections import Sequence
 import logging
 import importlib
+import re
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -136,20 +137,22 @@ def find_module(query: object, modelspec: object, find_all_matches: object = Fal
     return target_i
 
 
-def escaped_split(string, delimiter):
-    '''
-    Allows escaping of characters when splitting a string to a list,
-    useful for some arguments in keyword strings that need to use
-    underscores, decimals, hyphens, or other characters parsed by
-    the keyword system.
-    '''
-    x = 'EXTREMELYUNLIKELYTOEVERENCOUNTERTHISEXACTSTRINGANYWHEREELSE'
-    match = "\%s" % delimiter
-    temp = string.replace(match, x)
-    temp_split = temp.split(delimiter)
-    final_split = [s.replace(x, match) for s in temp_split]
+def escaped_split(string: str, delimiter: str):
+    """
+    Splits string along delimiter, ignoring escaped delimiters. Useful
+    for some arguments in keyword strings that need to use delimiter
+    for other reason.
 
-    return final_split
+    :param string: string to be split
+    :param delimiter: character to split on
+    :return: list of strings
+    """
+    # strip out leading and trailing delimiters to avoid empty strings in split
+    string = string.strip(delimiter)
+    # use a negative lookbehind to ignore matches preceded by '\'
+    split = re.split(fr'(?<!\\)\{delimiter}', string)
+
+    return split
 
 
 def escaped_join(list, delimiter):
