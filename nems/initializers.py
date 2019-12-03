@@ -125,10 +125,13 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
 
     # insert metadata, if provided
     if rec is not None:
-        if 'cellid' in meta.keys():
+        if 'cellids' in meta.keys():
+            # cellids list already exists. keep it.
+            pass
+        elif 'cellid' in meta.keys():
             meta['cellids'] = [meta['cellid']]
-        elif ((rec['resp'].shape[0] > 1) and ('cellids' not in meta.keys()) and
-            (type(rec.meta['cellid']) is list)):
+        elif ((rec['resp'].shape[0] > 1) and (type(rec.meta['cellid']) is list)):
+            # guess cellids list from rec.meta
             meta['cellids'] = rec.meta['cellid']
 
     meta['input_name'] = input_name

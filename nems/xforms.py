@@ -274,7 +274,7 @@ def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
 
 def load_recordings(recording_uri_list, normalize=False, cellid=None,
                     save_other_cells_to_state=None, input_name='stim',
-                    output_name='resp', **context):
+                    output_name='resp', meta={}, **context):
     '''
     Load one or more recordings into memory given a list of URIs.
     '''
@@ -298,9 +298,13 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
             log.info('No cellid match, keeping all resp channels')
 
     if (cellid is None) or (save_other_cells_to_state is not None and (save_other_cells_to_state == 'keep')):
-        pass
+        # Special situation where the resp signal keeps all channels in the recording,
+        # eg, all the cells recorded at a single site--for population models
+        meta['cellids'] = rec['resp'].chans
+        log.info('Keeping all resp channels; labeling in meta[cellids]')
 
     elif type(cellid) is list:
+        # select only cellids in the cellid list
         log.info('Extracting channels %s', cellid)
         excluded_cells = [cell for cell in rec['resp'].chans if cell not in cellid]
 
@@ -315,9 +319,12 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
             #rec = preproc.concatenate_state_channel(rec, s, pop_var)
             if pop_var == 'state':
                 rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
-
+            else:
+                raise ValueError('pop_var {} unknown'.format(pop_var))
         rec['resp'] = rec['resp'].extract_channels(cellid)
+
     else:
+        meta['cellids'] = rec['resp'].chans
         log.info('No cellid match, keeping all resp channels')
 
     # Quick fix - will take care of this on the baphy loading side in the future.
@@ -331,7 +338,8 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
     rec = preproc.generate_stim_from_epochs(rec, new_signal_name='epoch_onsets',
                                             epoch_regex='TRIAL', onsets_only=True)
 
-    return {'rec': rec, 'input_name': input_name, 'output_name': output_name}
+    return {'rec': rec, 'input_name': input_name, 'output_name': output_name,
+            'meta': meta}
 
 
 def normalize_stim(rec=None, sig='stim', norm_method='meanstd', **context):
