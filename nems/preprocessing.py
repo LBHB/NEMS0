@@ -1377,15 +1377,15 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
     """
 
     # logging.info("Generating {} jackknifes".format(njacks))
-    if rec.get_epoch_indices(epoch_name).shape[0]:
+    if rec.get_epoch_indices(epoch_name, allow_partial_epochs=allow_partial_epochs).shape[0]:
         pass
-    elif rec.get_epoch_indices('REFERENCE').shape[0]:
+    elif rec.get_epoch_indices('REFERENCE', allow_partial_epochs=allow_partial_epochs).shape[0]:
         log.info('Jackknifing by REFERENCE epochs')
         epoch_name = 'REFERENCE'
-    elif rec.get_epoch_indices('TARGET').shape[0]:
+    elif rec.get_epoch_indices('TARGET', allow_partial_epochs=allow_partial_epochs).shape[0]:
         log.info('Jackknifing by TARGET epochs')
         epoch_name = 'TARGET'
-    elif rec.get_epoch_indices('TRIAL').shape[0]:
+    elif rec.get_epoch_indices('TRIAL', allow_partial_epochs=allow_partial_epochs).shape[0]:
         log.info('Jackknifing by TRIAL epochs')
         epoch_name = 'TRIAL'
     else:
