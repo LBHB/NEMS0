@@ -95,7 +95,7 @@ class KeywordRegistry():
     def lookup(self, kw_string):
         kw_head = self.kw_head(kw_string)
         if kw_head not in self.keywords:
-            raise KeywordMissingError(kw_string)
+            raise KeywordMissingError(kw_head)
         
         return self.keywords[kw_head]
 
