@@ -1368,7 +1368,8 @@ def split_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
 
 
 def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
-                               njacks=10, IsReload=False, **context):
+                               njacks=10, allow_partial_epochs=False,
+                               IsReload=False, **context):
     """
     take a single recording (est) and define njacks est/val sets using a
     jackknife logic. returns lists est_out and val_out of corresponding
@@ -1390,9 +1391,11 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
     else:
         raise ValueError('No epochs matching '+epoch_name)
 
-    est = rec.jackknife_masks_by_epoch(njacks, epoch_name, tiled=True)
+    est = rec.jackknife_masks_by_epoch(njacks, epoch_name, tiled=True,
+                                       allow_partial_epochs=allow_partial_epochs)
     val = rec.jackknife_masks_by_epoch(njacks, epoch_name,
-                                       tiled=True, invert=True)
+                                       tiled=True, invert=True,
+                                       allow_partial_epochs=allow_partial_epochs)
 
     modelspec_out = []
     if (not IsReload) and (modelspec is not None):
@@ -1410,7 +1413,7 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
 
 
 def mask_est_val_for_jackknife_by_time(rec, modelspecs=None,
-                               njacks=10, IsReload=False, **context):
+                                       njacks=10, IsReload=False, **context):
     """
     take a single recording (est) and define njacks est/val sets using a
     jackknife logic. returns lists est_out and val_out of corresponding

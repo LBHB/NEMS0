@@ -199,12 +199,15 @@ def jk(kw):
     do_split = False
     keep_only = 0
     log.info("Setting up N-fold fitting...")
+    jk_kwargs['allow_partial_epochs'] = False
 
     for op in ops:
         if op.startswith('nf'):
             jk_kwargs['njacks'] = int(op[2:])
         elif op == 'm':
             do_split = True
+        elif op == 'p':
+            jk_kwargs['allow_partial_epochs'] = True
         elif op.startswith('ep'):
             pattern = re.compile(r'^ep(\w{1,})$')
             jk_kwargs['epoch_name'] = re.match(pattern, op).group(1)

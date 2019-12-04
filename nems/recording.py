@@ -653,7 +653,7 @@ class Recording:
         hi_rep_epochs = groups[n_occurrences[1]]
         return self.split_by_epochs(lo_rep_epochs, hi_rep_epochs)
 
-    def get_epoch_indices(self, epoch_name):
+    def get_epoch_indices(self, epoch_name, allow_partial_epochs=False):
 
         keys = list(self.signals.keys())
         if 'mask' not in keys:
@@ -666,13 +666,17 @@ class Recording:
 
             epochs = np.zeros([0, 2], dtype=np.int32)
             for lb, ub in all_epochs:
-                if np.sum(1 - (m_data[0, lb:ub])) == 0:
-                    epochs = np.append(epochs, [[lb, ub]], axis=0)
+                if allow_partial_epochs:
+                    if np.sum(m_data[0, lb:ub]) > 0:
+                        epochs = np.append(epochs, [[lb, ub]], axis=0)
+                else:
+                    if np.sum(1 - (m_data[0, lb:ub])) == 0:
+                        epochs = np.append(epochs, [[lb, ub]], axis=0)
 
         return epochs
 
-    def jackknife_mask_by_epoch(self, njacks, jack_idx, epoch_name,
-                                tiled=True, invert=False):
+    def jackknife_mask_by_epoch(self, njacks, jack_idx, epoch_name, tiled=True,
+                                invert=False, allow_partial_epochs=False):
         '''
         Creates mask or updates existing mask, with subset of epochs
           matching epoch_name set to False
@@ -717,7 +721,7 @@ class Recording:
         m_data = rec['mask'].as_continuous().copy()
 
         # find all matching epochs
-        epochs = self.get_epoch_indices(epoch_name)
+        epochs = self.get_epoch_indices(epoch_name, allow_partial_epochs=allow_partial_epochs)
         occurrences = epochs.shape[0]
 
         if occurrences == 0:
@@ -758,11 +762,12 @@ class Recording:
         return rec
 
     def jackknife_masks_by_epoch(self, njacks, epoch_name,
-                                 tiled=True, invert=False):
+                                 tiled=True, invert=False, allow_partial_epochs=False):
         signal_views = []
         for jack_idx in range(njacks):
             trec = self.jackknife_mask_by_epoch(njacks, jack_idx, epoch_name,
-                                                tiled, invert)
+                                                tiled, invert,
+                                                allow_partial_epochs=allow_partial_epochs)
             signal_views += [trec.signals]
         rec = self.copy()
         rec.signal_views = signal_views
