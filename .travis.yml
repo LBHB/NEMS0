@@ -14,6 +14,7 @@ matrix:
       python: 3.6
       sudo: false
       env: CONDA_OS="Linux"
+      services: xvfb
       addons: {apt: {packages: [libwebkitgtk-dev]}}
 
 # Setup anaconda
@@ -35,10 +36,10 @@ install:
 
 # https://docs.travis-ci.com/user/gui-and-headless-browsers/#using-xvfb-directly
 before_script:
-  - export DISPLAY=:99.0
-  - if [[ $TRAVIS_OS_NAME == 'linux' ]]; then sh -e /etc/init.d/xvfb start ; fi
-  - if [[ $TRAVIS_OS_NAME == 'osx' ]]; then ( sudo Xvfb :99 -ac -screen 0 1024x768x8; echo ok )& fi
-  - sleep 3 # give xvfb some time to start
+#  - export DISPLAY=:99.0
+#  - if [[ $TRAVIS_OS_NAME == 'linux' ]]; then sh -e /etc/init.d/xvfb start ; fi
+#  - if [[ $TRAVIS_OS_NAME == 'osx' ]]; then ( sudo Xvfb :99 -ac -screen 0 1024x768x8; echo ok )& fi
+#  - sleep 3 # give xvfb some time to start
   - python -c "import nems.recording; nems.recording.get_demo_recordings('recordings')"
 
 script:
