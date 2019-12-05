@@ -17,7 +17,7 @@ def loader_registry():
 def model_registry():
     models = KeywordRegistry()
     models.register_module(default_keywords)
-    models.register_plugins(['resources/plugin1.py'])
+    models.register_plugins(['tests/resources/plugin1.py'])
     return models
 
 
@@ -69,11 +69,11 @@ def test_fitter_registry(fitter_registry):
 
 def test_register_plugins():
     registry = KeywordRegistry()
-    registry.register_plugins(['resources/plugin1.py'])
+    registry.register_plugins(['tests/resources/plugin1.py'])
     registry['firstkw']
     with pytest.raises(KeyError):
         registry['secondkw']
-    registry.register_plugins(['resources/plugin2.py'])
+    registry.register_plugins(['tests/resources/plugin2.py'])
     registry['secondkw']
 
     # Hack to test importable module names
@@ -81,12 +81,12 @@ def test_register_plugins():
     import os
     sys.path.append(os.path.dirname(__file__))
     registry = KeywordRegistry()
-    registry.register_plugins(['resources.plugin1'])
+    registry.register_plugins(['tests.resources.plugin1'])
     registry['firstkw']
     with pytest.raises(KeyError):
         registry['secondkw']
 
-    registry.register_plugins(['resources'])
+    registry.register_plugins(['tests/resources'])
     registry['firstkw']
     registry['secondkw']
 
