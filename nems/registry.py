@@ -105,6 +105,15 @@ class KeywordRegistry():
             * file name (e.g., `/path/my_code/plugins/keywords.py')
             * path name (e.g., '/path/my_code/plugins')
         '''
+        # Travis isn't seeing this plugin during testing
+        # Lets see what's happening
+        if location == 'resources/plugin1.py':
+            tpath = Path(location).absolute()
+            if not tpath.exists():
+                print('Current loc:', Path().absolute())
+                raise FileNotFoundError(tpath)
+
+
         pathname = Path(location)
         if pathname.exists():
             if pathname.is_dir():
