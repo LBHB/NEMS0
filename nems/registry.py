@@ -105,7 +105,7 @@ class KeywordRegistry():
             * file name (e.g., `/path/my_code/plugins/keywords.py')
             * path name (e.g., '/path/my_code/plugins')
         '''
-        pathname = Path(location).absolute()
+        pathname = Path(location)
         if pathname.exists():
             if pathname.is_dir():
                 self._register_plugin_by_path(pathname)
