@@ -113,12 +113,14 @@ def basic(fitkey):
     xfspec = []
 
     options = _extract_options(fitkey)
-    max_iter, tolerance, fitter, choose_best, fast_eval = _parse_basic(options)
+    max_iter, tolerance, fitter, choose_best, fast_eval, rand_count = _parse_basic(options)
     xfspec = []
     #if fast_eval:
     #    xfspec = [['nems.xforms.fast_eval', {}]]
     #else:
     #    xfspec = []
+    if rand_count>1:
+        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
     xfspec.append(['nems.xforms.fit_basic',
                   {'max_iter': max_iter,
                    'fitter': fitter, 'tolerance': tolerance}])
@@ -289,6 +291,7 @@ def _parse_basic(options):
     fitter = 'scipy_minimize'
     choose_best = False
     fast_eval = False
+    rand_count = 1
     for op in options:
         if op.startswith('mi'):
             pattern = re.compile(r'^mi(\d{1,})')
@@ -303,10 +306,16 @@ def _parse_basic(options):
             fitter = 'coordinate_descent'
         elif op == 'b':
             choose_best = True
+        elif op.startswith('rb'):
+            if len(op) == 2:
+                rand_count = 10
+            else:
+                rand_count = int(op[2:])
+            choose_best = True
         elif op == 'f':
             fast_eval = True
 
-    return max_iter, tolerance, fitter, choose_best, fast_eval
+    return max_iter, tolerance, fitter, choose_best, fast_eval, rand_count
 
 
 def _parse_iter(options):
