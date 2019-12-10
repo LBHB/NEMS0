@@ -1,6 +1,6 @@
 import pytest
 
-from nems.registry import KeywordRegistry
+from nems.registry import KeywordRegistry, KeywordMissingError
 from nems.plugins import default_loaders
 from nems.plugins import default_keywords
 from nems.plugins import default_fitters
@@ -71,7 +71,7 @@ def test_register_plugins():
     registry = KeywordRegistry()
     registry.register_plugins(['tests/resources/plugin1.py'])
     registry['firstkw']
-    with pytest.raises(KeyError):
+    with pytest.raises(KeywordMissingError):
         registry['secondkw']
     registry.register_plugins(['tests/resources/plugin2.py'])
     registry['secondkw']
@@ -83,7 +83,7 @@ def test_register_plugins():
     registry = KeywordRegistry()
     registry.register_plugins(['tests.resources.plugin1'])
     registry['firstkw']
-    with pytest.raises(KeyError):
+    with pytest.raises(KeywordMissingError):
         registry['secondkw']
 
     registry.register_plugins(['tests/resources'])
