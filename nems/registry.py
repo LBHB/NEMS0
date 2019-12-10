@@ -29,6 +29,13 @@ def is_keyword(name, obj):
     return is_callable and (not private) and not(caps)
 
 
+class KeywordMissingError(Exception):
+    """Raised when a keyword lookup fails"""
+    def __init__(self, value):
+        default_message = f'"{value}" could not be found in the keyword registry.'
+        super().__init__(default_message)
+
+
 class KeywordRegistry():
     '''
     Behaves similar to a dictionary, except that
@@ -87,6 +94,9 @@ class KeywordRegistry():
 
     def lookup(self, kw_string):
         kw_head = self.kw_head(kw_string)
+        if kw_head not in self.keywords:
+            raise KeywordMissingError(kw_head)
+        
         return self.keywords[kw_head]
 
     def source(self, kw_string):

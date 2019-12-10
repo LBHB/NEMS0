@@ -643,17 +643,21 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
 
 
 def mask_for_jackknife(rec, modelspec=None, epoch_name='REFERENCE',
-                       by_time=False, njacks=10, IsReload=False, **context):
+                       by_time=False, njacks=10, IsReload=False,
+                       allow_partial_epochs=False, **context):
 
     if by_time != True:
         est_out, val_out, modelspec_out = \
             preproc.mask_est_val_for_jackknife(rec, modelspec=modelspec,
                                                epoch_name=epoch_name,
-                                               njacks=njacks, IsReload=IsReload)
+                                               njacks=njacks,
+                                               allow_partial_epochs=allow_partial_epochs,
+                                               IsReload=IsReload)
     else:
         est_out, val_out, modelspec_out = \
             preproc.mask_est_val_for_jackknife_by_time(rec, modelspec=modelspec,
-                                               njacks=njacks, IsReload=IsReload)
+                                               njacks=njacks,
+                                               IsReload=IsReload)
 
     if IsReload:
         return {'est': est_out, 'val': val_out}
