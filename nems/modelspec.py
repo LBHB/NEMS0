@@ -443,23 +443,36 @@ class ModelSpec:
         log.info(f'Found plot fn "{fn_path}" for module "{module["fn"]}"')
         return _lookup_fn_at(fn_path)
 
-    def plot(self, mod_index=None, rec=None, ax=None, plot_fn_idx=None,
-             fit_index=None, sig_name='pred', channels=None, **options):
-        """generate plot for a single module"""
+    def plot(self, mod_index, plot_fn_idx=None, fit_index=None, rec=None,
+             sig_name='pred', channels=None, ax=None, **kwargs):
+        """
+        Generates the plot for a single module.
 
+        :param mod_index: which module in the modelspec to generate the plot for
+        :param plot_fn_idx: which function in the list of plot functions
+        :param fit_index: update the fit index
+        :param rec: the recording from which to pull the data
+        :param sig_name: which signal in the recording
+        :param channels: which channel in the signal
+        :param ax: axis on which to plot
+        :param kwargs: optional keyword args
+        """
         if rec is None:
             rec = self.recording
+
         if channels is None:
             channels = self.plot_channel
-        plot_fn = self.get_plot_fn(mod_index=mod_index, plot_fn_idx=plot_fn_idx,
-                                   fit_index=fit_index)
+
+        plot_fn = self.get_plot_fn(mod_index, plot_fn_idx, fit_index)
+        # call the plot func
         plot_fn(rec=rec, modelspec=self, sig_name=sig_name, idx=mod_index,
-                channels=channels, ax=ax, **options)
+                channels=channels, ax=ax, **kwargs)
 
     def quickplot(self, rec=None, include_input=True, include_output=True):
 
         if rec is None:
             rec = self.recording
+
         fig = plt.figure()
         plot_count = len(self) + int(include_input) + int(include_output)
         offset = int(include_input)
