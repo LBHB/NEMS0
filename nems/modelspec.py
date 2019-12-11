@@ -428,15 +428,28 @@ class ModelSpec:
         plot_fn(rec=rec, modelspec=self, sig_name=sig_name, idx=mod_index,
                 channels=channels, ax=ax, **options)
 
-    def quickplot(self, rec=None):
+    def quickplot(self, rec=None, include_input=True, include_output=True):
 
         if rec is None:
             rec = self.recording
         fig = plt.figure()
-        plot_count = len(self)
-        for i in range(plot_count):
-            ax = fig.add_subplot(plot_count, 1, i+1)
+        plot_count = len(self) + int(include_input) + int(include_output)
+        offset = int(include_input)
+        for i in range(len(self)):
+            ax = fig.add_subplot(plot_count, 1, i+1+offset)
             self.plot(mod_index=i, rec=rec, ax=ax)
+
+        if include_input:
+            ax = fig.add_subplot(plot_count, 1, 1)
+            input_name = self[0]['fn_kwargs'].get('i','stim')
+            plot_fn = _lookup_fn_at('nems.plots.api.spectrogram')
+            plot_fn(rec=rec, modelspec=self, sig_name=input_name, idx=0, ax=ax)
+
+        if include_output:
+            ax = fig.add_subplot(plot_count, 1, plot_count)
+            plot_fn = _lookup_fn_at('nems.plots.api.pred_resp')
+            plot_fn(rec=rec, modelspec=self, ax=ax)
+
         return fig
 
     def append(self, module):
