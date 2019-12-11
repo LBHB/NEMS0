@@ -353,7 +353,7 @@ class Recording:
           - https://pynwb.readthedocs.io/en/latest/index.html
 
         :param nwb_file: path to the nwb file
-        :param nwb_format: specifier for how the data is saved container
+        :param nwb_format: specifier for how the data is saved in the container
 
         :return: a recording object
         """
@@ -368,9 +368,9 @@ class Recording:
 
         if nwb_format == 'neuropixel':
             """
-            In neuropixel nwb files, data is stored in several attributes of the container: 
-              - units: individual cell metadata, a pandas dataframe
-              - epochs: timing of the stimuli, series of xarrays
+            In neuropixel ecephys nwb files, data is stored in several attributes of the container: 
+              - units: individual cell metadata, a dataframe
+              - epochs: timing of the stimuli, series of arrays
               - lab_meta_data: metadata about the experiment, such as specimen details
               
             Spike times are saved as arrays in the 'spike_times' column of the units dataframe as xarrays. 
@@ -380,13 +380,12 @@ class Recording:
               - https://allensdk.readthedocs.io/en/latest/visual_coding_neuropixels.html
               - https://allensdk.readthedocs.io/en/latest/_static/examples/nb/ecephys_quickstart.html
               - https://allensdk.readthedocs.io/en/latest/_static/examples/nb/ecephys_data_access.html
-                         
             """
             try:
                 from pynwb import NWBHDF5IO
                 from allensdk.brain_observatory.ecephys import nwb  # needed for ecephys format compat
             except ImportError:
-                m = 'allensdk library is required to work with neuropixel nwb formats.'
+                m = 'The "allensdk" library is required to work with neuropixel nwb formats, available on PyPI.'
                 log.error(m)
                 raise ImportError(m)
 
@@ -407,9 +406,8 @@ class Recording:
                 # build the units metadata
                 units_data = {
                     col.name: col.data for col in units.columns
-                    if
-                    col.name not in ['spike_times', 'spike_times_index', 'spike_amplitudes', 'spike_amplitudes_index',
-                                     'waveform_mean', 'waveform_mean_index']
+                    if col.name not in ['spike_times', 'spike_times_index', 'spike_amplitudes',
+                                        'spike_amplitudes_index', 'waveform_mean', 'waveform_mean_index']
                 }
 
                 # needs to be a dict
