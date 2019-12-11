@@ -398,21 +398,49 @@ class ModelSpec:
     #
     # plotting support
     #
-    def plot_fn(self, mod_index=None, plot_fn_idx=None, fit_index=None):
-        """get function for plotting something about a module"""
+    def get_plot_fn(self, mod_index=None, plot_fn_idx=None, fit_index=None):
+        """
+        Gets the plotting function for the specified module.
+
+        :param mod_index: which module in the modelspec to get the plotting function for
+        :param plot_fn_idx: which plotting function in the list to get
+        :param fit_index: update the fit index
+
+        :return: a plotting function
+        """
         if mod_index is None:
             mod_index = self.mod_index
+
         if fit_index is not None:
             self.fit_index = fit_index
 
         module = self.get_module(mod_index)
+
+        fallback_fn_path = 'nems.plots.api.mod_output'
+
+        try:
+            fn_list = module['plot_fns']
+        except KeyError:
+            # if no 'plot_fns', then early out
+            log.warning(f'No "plot_fns" found for module "{module["fn"]}", defaulting to "{fallback_fn_path}"')
+            return _lookup_fn_at(fallback_fn_path)
+
+        if not fn_list:
+            # if 'plot_fns' present but empty, then early out
+            log.warning(f'Empty "plot_fns" found for module "{module["fn"]}", defaulting to "{fallback_fn_path}"')
+            return _lookup_fn_at(fallback_fn_path)
+
         if plot_fn_idx is None:
             plot_fn_idx = module.get('plot_fn_idx', 0)
-        try:
-            fn_path = module.get('plot_fns')[plot_fn_idx]
-        except:
-            fn_path = 'nems.plots.timeseries.mod_output'
 
+        try:
+            fn_path = fn_list[plot_fn_idx]
+        except IndexError:
+            log.warning(f'plot_fn_idx of "{plot_fn_idx}" is out of bounds for module idx {mod_index},'
+                        'defaulting to first entry.')
+            fn_path = fn_list[0]
+
+        log.info(f'Found plot fn "{fn_path}" for module "{module["fn"]}"')
         return _lookup_fn_at(fn_path)
 
     def plot(self, mod_index=None, rec=None, ax=None, plot_fn_idx=None,
@@ -423,8 +451,8 @@ class ModelSpec:
             rec = self.recording
         if channels is None:
             channels = self.plot_channel
-        plot_fn = self.plot_fn(mod_index=mod_index, plot_fn_idx=plot_fn_idx,
-                               fit_index=fit_index)
+        plot_fn = self.get_plot_fn(mod_index=mod_index, plot_fn_idx=plot_fn_idx,
+                                   fit_index=fit_index)
         plot_fn(rec=rec, modelspec=self, sig_name=sig_name, idx=mod_index,
                 channels=channels, ax=ax, **options)
 
