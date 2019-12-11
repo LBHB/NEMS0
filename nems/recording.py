@@ -1,24 +1,25 @@
-import io
-import os
-import gzip
-import time
-import tarfile
-import logging
-import requests
-import pandas as pd
-import numpy as np
 import copy
-import tempfile
-import shutil
+import io
 import json
+import logging
+import os
+import shutil
+import tarfile
+import tempfile
+import time
 import warnings
+from pathlib import Path
 
-from nems.uri import local_uri, http_uri, targz_uri
+import numpy as np
+import pandas as pd
+import requests
+
 import nems.epoch as ep
-from nems.signal import SignalBase, RasterizedSignal, merge_selections, \
-                        list_signals, load_signal, load_signal_from_streams
-from nems.utils import recording_filename_hash
 from nems import get_setting
+from nems.signal import SignalBase, RasterizedSignal, PointProcess, merge_selections, \
+    list_signals, load_signal, load_signal_from_streams
+from nems.uri import local_uri, http_uri, targz_uri
+from nems.utils import recording_filename_hash
 
 log = logging.getLogger(__name__)
 
@@ -340,6 +341,96 @@ class Recording:
         signals = {s.name:s for s in signals}
         # Combine into recording and return
         return Recording(signals)
+
+    @classmethod
+    def from_nwb(cls, nwb_file, nwb_format):
+        """
+        The NWB (Neurodata Without Borders) format is a unified data format developed by the Allen Brain Institute.
+        Data is stored as an HDF5 file, with the format varying depending how the data was saved.
+        
+        References:
+          - https://nwb.org
+          - https://pynwb.readthedocs.io/en/latest/index.html
+
+        :param nwb_file: path to the nwb file
+        :param nwb_format: specifier for how the data is saved in the container
+
+        :return: a recording object
+        """
+        log.info(f'Loading NWB file with format "{nwb_format}" from "{nwb_file}".')
+
+        # add in supported nwb formats here
+        assert nwb_format in ['neuropixel'], f'"{nwb_format}" not a supported NWB file format.'
+
+        nwb_filepath = Path(nwb_file)
+        if not nwb_filepath.exists():
+            raise FileNotFoundError(f'"{nwb_file}" could not be found.')
+
+        if nwb_format == 'neuropixel':
+            """
+            In neuropixel ecephys nwb files, data is stored in several attributes of the container: 
+              - units: individual cell metadata, a dataframe
+              - epochs: timing of the stimuli, series of arrays
+              - lab_meta_data: metadata about the experiment, such as specimen details
+              
+            Spike times are saved as arrays in the 'spike_times' column of the units dataframe as xarrays. 
+            The frequency is 1250.
+              
+            Refs:
+              - https://allensdk.readthedocs.io/en/latest/visual_coding_neuropixels.html
+              - https://allensdk.readthedocs.io/en/latest/_static/examples/nb/ecephys_quickstart.html
+              - https://allensdk.readthedocs.io/en/latest/_static/examples/nb/ecephys_data_access.html
+            """
+            try:
+                from pynwb import NWBHDF5IO
+                from allensdk.brain_observatory.ecephys import nwb  # needed for ecephys format compat
+            except ImportError:
+                m = 'The "allensdk" library is required to work with neuropixel nwb formats, available on PyPI.'
+                log.error(m)
+                raise ImportError(m)
+
+            session_name = nwb_filepath.stem
+
+            with NWBHDF5IO(str(nwb_filepath), 'r') as nwb_io:
+                nwbfile = nwb_io.read()
+
+                units = nwbfile.units
+                epochs = nwbfile.epochs
+
+                spike_times = dict(zip(units.id[:], units['spike_times'][:]))
+
+                # extract the metadata and convert to dict
+                metadata = nwbfile.lab_meta_data['metadata'].to_dict()
+                metadata['uri'] = str(nwb_filepath)  # add in uri
+
+                # build the units metadata
+                units_data = {
+                    col.name: col.data for col in units.columns
+                    if col.name not in ['spike_times', 'spike_times_index', 'spike_amplitudes',
+                                        'spike_amplitudes_index', 'waveform_mean', 'waveform_mean_index']
+                }
+
+                # needs to be a dict
+                units_meta = pd.DataFrame(units_data, index=units.id[:]).to_dict('index')
+
+                # build the epoch dataframe
+                epoch_data = {
+                    col.name: col.data for col in epochs.columns
+                    if col.name not in ['tags', 'timeseries', 'tags_index', 'timeseries_index']
+                }
+
+                epoch_df = pd.DataFrame(epoch_data, index=epochs.id[:]).rename({
+                    'start_time': 'start',
+                    'stop_time': 'end',
+                    'stimulus_name': 'name'
+                }, axis='columns')
+
+                # save the spike times as a point process signal
+                pp = PointProcess(1250, spike_times, name='spike_times', recording=session_name, epochs=epoch_df,
+                                  meta=units_meta)
+
+                log.info('Successfully loaded nwb file.')
+                return cls({pp.recording: pp}, meta=metadata)
 
     def save(self, uri='', uncompressed=False):
         '''
