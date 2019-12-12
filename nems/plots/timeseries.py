@@ -59,7 +59,7 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
     if legend:
         plt.legend(legend)
     if title:
-        plt.title(title, fontsize=8)
+        plt.title(title)
 
     ax_remove_box(ax)
 
