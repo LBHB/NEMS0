@@ -36,9 +36,6 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
     else:
         extent = None
 
-    if cmap is None:
-        cmap = plt.get_cmap('jet')
-
     plt.imshow(array, aspect='auto', origin='lower', cmap=cmap,
                clim=clim, interpolation=interpolation, extent=extent)
 
