@@ -50,8 +50,12 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
     plt.ylabel(ylabel)
 
     # Set the color bar
-    # cbar = ax.colorbar()
-    # cbar.set_label('Gain')
+    cbar = plt.colorbar()
+    cbar.ax.tick_params(labelsize=7)
+    cbar.ax.yaxis.set_major_locator(plt.MaxNLocator(3))
+    cbar.set_label('Gain')
+    cbar.outline.set_edgecolor('white')
+
     if title is not None:
         plt.title(title)
 
@@ -287,9 +291,15 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
     if absolute_value:
         everything = np.abs(everything)
 
+    if title is None:
+        title = 'STRF'
+
     plot_heatmap(everything, xlabel='Lag (s)',
                  ylabel='Channel In', ax=ax, skip=skip, title=title, fs=fs,
-                 interpolation=interpolation)
+                 interpolation=interpolation, cmap='RdYlBu')
+
+    ax_remove_box(left=True, bottom=True, ticks=True)
+
     if chans is not None:
         for i, c in enumerate(chans):
             plt.text(0, i + nchans + 1, c, verticalalignment='center')
