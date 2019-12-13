@@ -20,7 +20,7 @@ signal <#creating-signals-from-other-signals>`__, or `from a
 matrix <#creating-signals-from-numpy-arrays>`__.
 
 An important note for beginners: once created, a ``Signal`` object
-cannot be changed -- it is /immutable/, just like tuples in Python. This
+cannot be changed -- it is **immutable**, just like tuples in Python. This
 is intentional and enables specific optimizations while also preventing
 entire classes of errors. But don't worry: we have made it easy to
 create new ``Signal`` objects based on other ones.
@@ -38,7 +38,7 @@ You may request this array using the ``.as_continuous()`` method of any
 signal.
 
 A Signal can represent any type of data, such as subject pupil diameter,
-Local Field Potential (LFP), or a measurement of average neural spike
+local field potential (LFP), or a measurement of average neural spike
 rate during each discrete sampling period.
 
 Working with signals
@@ -50,7 +50,7 @@ a new ``Signal`` object. Basic indexing is accessed using the special
 integers. For example, to select the first 5 channels and the second set
 of 25 timepoints:
 
-::
+.. code-block:: python
 
     trimmed = signal.iloc[:5, 25:50]
 
@@ -60,8 +60,7 @@ and the timepoints from 1.5 to 2 seconds:
 
 ::
 
-    # Get all channels up to, and including chan5, include only timepoints from 1.5
-    # to 2 seconds.
+    # Get all channels up to, and including chan5, include only timepoints from 1.5 to 2 seconds.
     trimmed = signal.loc[:'chan5', 1.5:2]
 
     # Get only chan5. Include all timepoints.
@@ -87,10 +86,10 @@ epochs <epochs>` until later.
 
 Loading a ``Signal`` from a file is trivial:
 
-::
+.. code-block:: python
 
     from nems.signal import Signal
-    sig = Signal.load('/path/to/my/signalfiles')
+    signal = Signal.load('/path/to/my/signalfiles')
 
 Creating your own CSV files is pretty straightforward, but you need to
 understand the format. Read on if that interests you, or `jump ahead if
@@ -100,7 +99,7 @@ array <#creating-signals-from-numpy-arrays>`__.
 Example Signal CSV File
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-For this example, make a new directory in the ``signals/`` directory
+For this example, make a new directory in the ``signals`` directory
 called ``testrec`` because we are pretending we made a test recording,
 and usually we group a collection of signals together into a data
 structure called a ``Recording``.
@@ -134,12 +133,24 @@ Example Signal JSON File
 Continuing our example, let's make a JSON file that describes the
 contents of the CSV file containing our pupil data.
 
-In the ``signals/testrec/`` directory, make another file called
+In the ``signals/testrec`` directory, make another file called
 ``testrec_pupil.json`` and fill it with:
 
 ::
 
-    {"recording": "testrec", "name": "pupil", "chans": ["left_eye", "right_eye"], "fs": 0.1, "meta": {"Subject": "Don Quixote", "Age": 36}}
+    {
+        "recording": "testrec",
+        "name": "pupil",
+        "chans": [
+            "left_eye",
+            "right_eye"
+        ],
+        "fs": 0.1,
+        "meta": {
+            "Subject": "Don Quixote",
+            "Age": 36
+        }
+    }
 
 Here,
 
@@ -173,20 +184,20 @@ Assuming that your signal directory looks like this:
 You should now be able to load the pupil signal by creating a file at
 ``scripts/pupil_analysis.py`` with the contents:
 
-::
+.. code-block:: python
 
     from nems.signal import Signal
 
     # Note that we don't append the suffix .json or .csv
     # because we are loading two files simultaneously
-    sig = Signal.load('signals/testrec/testrec_pupil')
+    signal = Signal.load('signals/testrec/testrec_pupil')
 
 And launch it from your terminal with:
 
 ::
 
     cd /path/to/nems
-    python3 scripts/pupil_analysis.py
+    python scripts/pupil_analysis.py
 
 That's it! You can start using your ``Signal`` now. Read on to find a
 short guide to interesting operations that you can do with a Signal.
@@ -198,15 +209,15 @@ It's really common to make one signal from another signal. At the
 moment, we have a variety of methods that are rather in development
 flux, but the ones that produce new signals include:
 
-::
+.. code-block:: python
 
-        def normalized_by_mean(self):
-        def normalized_by_bounds(self):
-        def split_at_time(self, fraction):
-        def jackknifed_by_epochs(self, epoch_name, nsplits, split_idx, invert=False):
-        def jackknifed_by_time(self, nsplits, split_idx, invert=False):
-        def concatenate_time(cls, signals):
-        def concatenate_channels(cls, signals):
+        normalized_by_mean(self)
+        normalized_by_bounds(self)
+        split_at_time(self, fraction)
+        jackknifed_by_epochs(self, epoch_name, nsplits, split_idx, invert=False)
+        jackknifed_by_time(self, nsplits, split_idx, invert=False)
+        concatenate_time(cls, signals)
+        concatenate_channels(cls, signals)
 
 TODO: Link to python-generated documentation here.
 
@@ -219,7 +230,7 @@ saving your data in custom formats so that data files are more easily
 shared, but if you have special needs, then writing your own custom
 signal loader or subclass of ``Signal`` is completely acceptable.
 
-::
+.. code-block:: python
 
     from nems.signal import Signal
 
@@ -227,13 +238,13 @@ signal loader or subclass of ``Signal`` is completely acceptable.
 
     # Not shown here, but we suggest using optional arguments "epochs" and "meta"
     # as well as recording, name, matrix, and fs.
-    sig = Signal(recording='my_recording_name',
-                 name='my_signal_name',
-                 matrix=numpy_array,
-                 fs=200)
+    signal = Signal(recording='my_recording_name',
+                    name='my_signal_name',
+                    matrix=numpy_array,
+                    fs=200)
 
     # Optional: save it as a signal for next time or for easy sharing
-    sig.save('../signals/my-new-signal')
+    signal.save('../signals/my-new-signal')
 
 Signal Subclasses
 -----------------
@@ -274,9 +285,8 @@ dictionary, in which the keys are the names/labels of the stimuli and
 the [C x S\_\*] arrays are what to insert.
 
 The ``RepetitiveSignal`` object thus rasterizes signals on demand by
-using a
-signal\ ``s``.epochs\ ``datastructure and the``.replace\_epochs()\`
-function to produce a C x T matrix only when needed.
+using a signal's ``.epochs`` datastructure and the ``.replace_epochs()``
+method to produce a C x T matrix only when needed.
 
 Closing Thoughts on Signals
 ---------------------------
@@ -285,19 +295,13 @@ If you want to have a model that uses the data from 100 neurons, you can
 either have a single 100-channel Signal, or 100 one-channel signals.
 It's up to you.
 
-Future work tickets:
-
--  TODO: Subclassed Signal that rasterizes from an spike time list
--  TODO: Prototype how signals can implement the numpy interface (See
-   next section)
-
 Signals Implement the Numpy Interface
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Signals implement the Numpy universal function interface. This means
 that you can perform a variety of array operations on Signals:
 
-::
+.. code-block:: python
 
     # Add a DC offset of 5 to the signal
     offset_signal = signal + 5
