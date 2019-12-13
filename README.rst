@@ -31,7 +31,7 @@ Installation
 ------------
 
 If you don’t already have Python and Git installed, see the `installation
-instructions <https://nems.readthedocs.io/en/dev/installation.html>`__ for recommended procedures.
+instructions <https://nems.readthedocs.io/en/latest/installation.html>`__ for recommended procedures.
 
 Quick Install
 ~~~~~~~~~~~~~
