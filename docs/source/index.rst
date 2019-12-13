@@ -1,8 +1,3 @@
-.. NEMS documentation master file, created by
-   sphinx-quickstart on Wed Sep  4 14:35:14 2019.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 NEMS -- The Neural Encoding Model System
 ========================================
 
@@ -16,8 +11,8 @@ NEMS -- The Neural Encoding Model System
 
 1. Getting started
 --------------------
-- :doc:`quickstart`
 - :doc:`installation`
+- :doc:`quickstart`
 - :doc:`background`
 
 .. toctree::
