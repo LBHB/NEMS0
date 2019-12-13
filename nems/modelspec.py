@@ -1,15 +1,19 @@
-import re
-import os
 import copy
-import json
 import importlib
+import json
 import logging
+import os
+import re
+from functools import partial
+
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as st
-import nems.utils
+
 import nems.uri
+import nems.utils
 from nems.fitters.mappers import simple_vector
-import matplotlib.pyplot as plt
 
 log = logging.getLogger(__name__)
 
@@ -398,58 +402,291 @@ class ModelSpec:
     #
     # plotting support
     #
-    def plot_fn(self, mod_index=None, plot_fn_idx=None, fit_index=None):
-        """get function for plotting something about a module"""
+    def get_plot_fn(self, mod_index=None, plot_fn_idx=None, fit_index=None):
+        """
+        Gets the plotting function for the specified module.
+
+        :param mod_index: which module in the modelspec to get the plotting function for
+        :param plot_fn_idx: which plotting function in the list to get
+        :param fit_index: update the fit index
+
+        :return: a plotting function
+        """
         if mod_index is None:
             mod_index = self.mod_index
+
         if fit_index is not None:
             self.fit_index = fit_index
 
         module = self.get_module(mod_index)
+
+        fallback_fn_path = 'nems.plots.api.mod_output'
+
+        try:
+            fn_list = module['plot_fns']
+        except KeyError:
+            # if no 'plot_fns', then early out
+            log.warning(f'No "plot_fns" found for module "{module["fn"]}", defaulting to "{fallback_fn_path}"')
+            return _lookup_fn_at(fallback_fn_path)
+
+        if not fn_list:
+            # if 'plot_fns' present but empty, then early out
+            log.warning(f'Empty "plot_fns" found for module "{module["fn"]}", defaulting to "{fallback_fn_path}"')
+            return _lookup_fn_at(fallback_fn_path)
+
         if plot_fn_idx is None:
             plot_fn_idx = module.get('plot_fn_idx', 0)
-        try:
-            fn_path = module.get('plot_fns')[plot_fn_idx]
-        except:
-            fn_path = 'nems.plots.timeseries.mod_output'
 
+        try:
+            fn_path = fn_list[plot_fn_idx]
+        except IndexError:
+            log.warning(f'plot_fn_idx of "{plot_fn_idx}" is out of bounds for module idx {mod_index},'
+                        'defaulting to first entry.')
+            fn_path = fn_list[0]
+
+        log.info(f'Found plot fn "{fn_path}" for module "{module["fn"]}"')
         return _lookup_fn_at(fn_path)
 
-    def plot(self, mod_index=None, rec=None, ax=None, plot_fn_idx=None,
-             fit_index=None, sig_name='pred', channels=None, **options):
-        """generate plot for a single module"""
+    def plot(self, mod_index, plot_fn_idx=None, fit_index=None, rec=None,
+             sig_name='pred', channels=None, ax=None, **kwargs):
+        """
+        Generates the plot for a single module.
 
+        :param mod_index: which module in the modelspec to generate the plot for
+        :param plot_fn_idx: which function in the list of plot functions
+        :param fit_index: update the fit index
+        :param rec: the recording from which to pull the data
+        :param sig_name: which signal in the recording
+        :param channels: which channel in the signal
+        :param ax: axis on which to plot
+        :param kwargs: optional keyword args
+        """
         if rec is None:
             rec = self.recording
+
         if channels is None:
             channels = self.plot_channel
-        plot_fn = self.plot_fn(mod_index=mod_index, plot_fn_idx=plot_fn_idx,
-                               fit_index=fit_index)
+
+        plot_fn = self.get_plot_fn(mod_index, plot_fn_idx, fit_index)
+        # call the plot func
         plot_fn(rec=rec, modelspec=self, sig_name=sig_name, idx=mod_index,
-                channels=channels, ax=ax, **options)
+                channels=channels, ax=ax, **kwargs)
 
-    def quickplot(self, rec=None, include_input=True, include_output=True):
+    def quickplot(self, rec=None, epoch=None, occurrence=None, fit_index=None,
+                  include_input=True, include_output=True, size_mult=(1.0, 3.0),
+                  figsize=None):
+        """
+        Generates a summary plot of a subset of the data.
 
+        :param rec: the recording from which to pull the data
+        :param epoch: name of epoch from which to extract data
+        :param occurence: which occurences of the data to plot
+        :param fit_index: update the fit index
+        :param include_input:
+        :param include_output:
+        :param size_mult: scale factors for width and height of figure
+        :param figsize: size of figure (tuple of inches)
+        """
         if rec is None:
             rec = self.recording
-        fig = plt.figure()
-        plot_count = len(self) + int(include_input) + int(include_output)
-        offset = int(include_input)
-        for i in range(len(self)):
-            ax = fig.add_subplot(plot_count, 1, i+1+offset)
-            self.plot(mod_index=i, rec=rec, ax=ax)
+
+        if fit_index is not None:
+            self.fit_index = fit_index
+
+        rec_resp = rec['resp']
+        rec_pred = rec['pred']
+        rec_stim = rec['stim']
+
+        # if there's no epoch, don't bother
+        if rec_resp.epochs is None:
+            pass
+
+        else:
+            # list of possible epochs
+            available_epochs = rec_resp.epochs.name.unique()
+
+            # if the epoch is correct, move on
+            if (epoch is not None) and (epoch in available_epochs):
+                pass
+
+            # otherwise try the default fall backs
+            else:
+                # order of fallback epochs to search for
+                epoch_sequence = [
+                    'REFERENCE',
+                    'TARGET',
+                    'TRIAL',
+                    'SIGNAL',
+                    'SEQUENCE1',
+                    None  # leave None as the last in the sequence, to know when not found
+                ]
+
+                for e in epoch_sequence:
+                    if e is None:
+                        # reached the end of the fallbacks, not found
+                        log.warning(f'Quickplot: no epoch specified, and no fallback found. Will not subset data')
+
+                    if e in available_epochs:
+                        epoch = e
+                        log.info(f'Quickplot: no epoch specified, falling back to "{epoch}"')
+                        break
+
+        # data to plot
+        if epoch is not None:
+            extracted = rec_resp.extract_epoch(epoch)
+        else:
+            extracted = rec_resp.as_continuous()
+
+        # figure out which occurrence
+        not_empty = [np.any(np.isfinite(x)) for x in extracted]  # occurrences containing non inf/nan data
+        possible_occurrences, = np.where(not_empty)
+
+        # if there's no possible occurrences, then occurrence passed in doesn't matter
+        if possible_occurrences.size == 0:
+            # only warn if passed in occurrence
+            if occurrence is not None:
+                log.warning('Quickplot: no possible occurrences, ignoring passed occurrence')
+            occurrence = None
+        # otherwise, if the passed occurrence is not possible, then default to the first one
+        else:
+            if occurrence not in possible_occurrences:
+                # only warn if had passed in occurrence
+                if occurrence is not None:
+                    log.warning(f'Quickplot: Passed occurrence not possible, defaulting to first possible '
+                                f'(idx: {occurrence}).')
+                occurrence = possible_occurrences[0]
+
+        # determine the plot functions
+        plot_fn_modules = []
+        for mod_idx, m in enumerate(self):
+            # do some forward checking here for strf: skip gaussian weights if next is strf
+            # clunky, better way?
+            if mod_idx < len(self) and self[mod_idx]['fn'] == 'nems.modules.weight_channels.gaussian' and \
+                    self[mod_idx + 1]['fn'] == 'nems.modules.fir.basic':
+                continue
+            # don't double up on spectrograms
+            if self[mod_idx]['fn'] == 'nems.modules.nonlinearity.dlog':
+                continue
+
+            plot_fn_modules.append((mod_idx, self.get_plot_fn(mod_idx)))
+
+        # drop duplicates
+        temp_plot_fn_set = []
+        seen_fn = set()
+        for mod_idx, plot_fn in plot_fn_modules:
+            if plot_fn not in seen_fn:
+                seen_fn.add(plot_fn)
+                temp_plot_fn_set.append((mod_idx, plot_fn))
+
+        plot_fn_modules = temp_plot_fn_set
+
+        # use partial so ax can be specified later
+        # the format is (fn, col_span), where col_span is 1 for all of these, but will vary for the custom pre-post
+        # below fn and col_span should be list, but for simplicity here they are just int and partial and converted
+        # in the plotting loop below
+        plot_fns = [
+            (partial(plot_fn,
+                     rec=rec,
+                     modelspec=self,
+                     idx=mod_idx,
+                     channels=rec_stim.chans
+                     ), 1)
+            for mod_idx, plot_fn in plot_fn_modules
+        ]
 
         if include_input:
-            ax = fig.add_subplot(plot_count, 1, 1)
-            input_name = self[0]['fn_kwargs'].get('i','stim')
-            plot_fn = _lookup_fn_at('nems.plots.api.spectrogram')
-            plot_fn(rec=rec, modelspec=self, sig_name=input_name, idx=0, ax=ax)
+            plot_fn = _lookup_fn_at('nems.plots.api.spectrogram_from_epoch')
+            fn = partial(plot_fn,
+                         signal=rec_stim,
+                         epoch=epoch,
+                         occurrence=occurrence,
+                         title='Stimulus Spectrogram'
+                         )
+            # add to front
+            plot_fns = [(fn, 1)] + plot_fns
 
         if include_output:
-            ax = fig.add_subplot(plot_count, 1, plot_count)
-            plot_fn = _lookup_fn_at('nems.plots.api.pred_resp')
-            plot_fn(rec=rec, modelspec=self, ax=ax)
+            plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_epoch')
+            fn = partial(plot_fn,
+                         signals=[rec_resp, rec_pred],
+                         epoch=epoch,
+                         occurrences=occurrence,
+                         title=f'Prediction vs Response, {epoch} #{occurrence}'
+                         )
+            # add to end
+            plot_fns.append((fn, 1))
 
+            # scatter text
+            n_cells = len(self.meta['r_test'])
+            r_test = np.mean(self.meta['r_test'])
+            r_fit = np.mean(self.meta['r_fit'])
+            scatter_text = f'r_test: {r_test:.3f} (n={n_cells})\nr_fit: {r_fit:.3f}'
+
+            scatter_fn = _lookup_fn_at('nems.plots.api.plot_scatter')
+            n_bins = 100
+            fn_smooth = partial(scatter_fn,
+                                sig1=rec_pred,
+                                sig2=rec_resp,
+                                smoothing_bins=n_bins,
+                                force_square=False,
+                                text=scatter_text,
+                                title=f'Smoothed, bins={n_bins}'
+                                )
+
+            if rec_resp.shape[0] > 1:
+                not_smooth_fn = _lookup_fn_at('nems.plots.api.perf_per_cell')
+                fn_not_smooth = partial(not_smooth_fn, self)
+            else:
+                fn_not_smooth = partial(scatter_fn,
+                                        sig1=rec_pred,
+                                        sig2=rec_resp,
+                                        smoothing_bins=False,
+                                        force_square=False,
+                                        text=scatter_text,
+                                        title='Unsmoothed'
+                                        )
+
+            plot_fns.append(([fn_smooth, fn_not_smooth], [1, 1]))
+
+        # done with plot functions, get figure title
+        cellid = self.meta.get('cellid', 'UNKNOWN')
+        modelname = self.meta.get('modelname', 'UNKNOWN')
+        batch = self.meta.get('batch', 0)
+
+        fig_title = f'Cell: {cellid}, Batch: {batch}, {epoch} #{occurrence}\n{modelname}'
+
+        n_rows = len(plot_fns)
+
+        # make the figure and the grids for the plots
+        if figsize is None:
+            figsize = (10 * size_mult[0], n_rows * size_mult[1])
+
+        fig = plt.figure(figsize=figsize, constrained_layout=True)
+
+        # each module gets a row in the gridspec, giving plots control over subplots, etc.
+        gs_rows = gridspec.GridSpec(n_rows, 1, figure=fig)
+
+        # iterate through the plotting partials and plot them to the gridspec
+        for row_idx, (plot_fn, col_spans) in enumerate(plot_fns):
+            # plot_fn, col_spans should be list, so convert if necessary
+            if isinstance(col_spans, int) and not isinstance(plot_fn, list):
+                col_spans = [col_spans]
+                plot_fn = [plot_fn]
+
+            n_cols = sum(col_spans)
+            gs_cols = gridspec.GridSpecFromSubplotSpec(1, n_cols, gs_rows[row_idx])
+
+            col_idx = 0
+            for fn, col_span in zip(plot_fn, col_spans):
+                ax = plt.Subplot(fig, gs_cols[0, col_idx:col_idx + col_span])
+                fig.add_subplot(ax)
+                fn(ax=ax)
+                col_idx += col_span
+
+        # suptitle needs to be after the gridspecs in order to work with constrained_layout
+        fig.suptitle(fig_title)
+
+        log.info('Quickplot: generated fig with title "{}"'.format(fig_title.replace("\n", " ")))
         return fig
 
     def append(self, module):

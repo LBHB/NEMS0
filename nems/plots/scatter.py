@@ -178,7 +178,8 @@ def nl_scatter(rec, modelspec, idx, sig_name='pred',
     compare_to = before[compare]
 
     module = modelspec[idx]
-    mod_name = module['fn'].replace('nems.modules','')
+    mod_name = module['fn'].replace('nems.modules.', '').replace('.', ' ').replace('_', ' ').title()
+
     title1 = mod_name
     text1 = "r = {0:.5f}".format(np.mean(corr1))
 
