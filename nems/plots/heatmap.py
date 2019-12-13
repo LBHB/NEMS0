@@ -296,7 +296,7 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
 
     plot_heatmap(everything, xlabel='Lag (s)',
                  ylabel='Channel In', ax=ax, skip=skip, title=title, fs=fs,
-                 interpolation=interpolation, cmap='RdYlBu')
+                 interpolation=interpolation, cmap='RdYlBu_r')
 
     ax_remove_box(left=True, bottom=True, ticks=True)
 
