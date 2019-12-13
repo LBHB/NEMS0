@@ -1,11 +1,11 @@
 Epochs
 ======
 
-What's an Epoch?
-----------------
+What is an Epoch?
+-----------------
 
 An epoch is an event or period of time that has been tagged with a name.
-Epochs are attached to Signal objects. A Recording, which contains a
+Epochs are attached to Signal objects. A recording, which contains a
 collection of signals, has methods that allow us to manipulate the
 entire collection based on a superset of the epochs in each signal.
 
@@ -19,10 +19,10 @@ where ``start`` and ``end`` denote the beginning and end of the epoch in
 seconds and ``name`` is a descriptive string (see `how to name
 epochs <epoch-naming>`__. For events (single points in time), the
 ``start`` will contain the timestamp of the event and ``end`` will be
-NaN. Right now support for events are limited (or nonexistent). As
+``NaN``. Currently, support for events are limited (or nonexistent). As
 use-cases arise, we will implement support for these.
 
-Epochs are stored in :doc:`Signal Objects <signals>` under the
+Epochs are stored in :doc:`Signal objects <signals>` under the
 ``.epochs`` attribute in a pandas DataFrame containing three columns
 (``start``, ``end`` and ``name``).
 
@@ -34,7 +34,7 @@ background tokens (known as TORCs).
 
 ::
 
-    start           end             name
+    start       end         name
 
     0.00        0.060       ExperimentalTrial
     0.00        0.05        PreStimSilence
@@ -61,7 +61,7 @@ background tokens (known as TORCs).
 
 In the example above, note that some epochs have the same name, such as
 "ExperimentalTrial". If the same name appears several times, we call
-each appearance an /occurrance/ of a given epoch.
+each appearance an *occurrance* of a given epoch.
 
 Note also that epochs may overlap. For example, compare the first
 ``TORC_3983`` with the first ``Reference``. This is a way of indicating
@@ -88,21 +88,25 @@ operations:
    mask all regions in the LFP recording during a lick so that your
    analysis isn't affected by these artifacts:
 
-   masked\_signal = signal.mask\_epoch('Licking')
+.. code-block:: python
+
+   masked_signal = signal.mask\epoch('Licking')
 
 As you will see later, this masking can also be used to generate subsets
 of data for cross-validation when fitting models. Signals also have a
 ``select_epochs`` method, which is the inverse of ``mask_epochs``:
 
-::
+.. code-block:: python
 
      selected_signal = signal.select_epoch('Reference')
 
 -  Extract regions of data. For example, perhaps you want to plot the
    average response to a particular epoch:
 
-   torc = signal.extract\_epoch('TORC\_3983') average\_torc =
-   np.nanmean(torc, axis=0)
+.. code-block:: python
+
+   torc = signal.extract_epoch('TORC\_3983')
+   average_torc = np.nanmean(torc, axis=0)
 
 Epoch manipulation
 ------------------
@@ -111,7 +115,7 @@ Signal objects offer the following methods:
 
 -  Getting boundaries of an epoch stored inside the signal using
    ``signal.get_epoch_bounds(epoch_name)``. This will return a Nx2 array
-   (where N is the number of occurances, the first column is start time
+   (where N is the number of occurrences, the first column is start time
    and the second column is end time).
 
 -  Adding epochs to the ones stored inside the signal. You can do this
@@ -143,35 +147,35 @@ four occurances of the epoch, with the last epoch running from 300 to
 To pull some epochs out for processing, you can use
 ``signal.get_epoch_bounds``:
 
-::
+.. code-block:: python
 
     dt_epoch = signal.get_epoch_bounds('DetectionTask')
     l_epoch = signal.get_epoch_bounds('Licking')
 
-If we want to take only the correc trials (defined as when the animal
+If we want to take only the correct trials (defined as when the animal
 licks during a detection task):
 
-::
+.. code-block:: python
 
     from nems.data.epochs import epoch_contain
     correct_epoch = epoch_contain(dt_epoch, l_epoch, mode='start')
 
-Then, we can finally do (to NaN everything but the correct epochs):
+Then, mask everything but the correct epochs:
 
-::
+.. code-block:: python
 
     masked_signal = signal.select_epoch(correct_epochs)
 
 Great! You can save that for later by adding it to the epochs in the
 Signal:
 
-::
+.. code-block:: python
 
     signal.add_epoch('CorrectTrial', correct_epochs)
 
 Then anytime afterward we can simply do:
 
-::
+.. code-block:: python
 
     correct_signal = signal.select_epoch('CorrectTrial')
 
@@ -182,7 +186,7 @@ Manipulating epoch boundaries
 You can use set theory to manipulate epoch boundaries by subtracting or
 adding one epoch to the other:
 
-::
+.. code-block:: python
 
     from nems.data.epochs import epoch_intersection, epoch_difference
 
@@ -201,7 +205,7 @@ How do I get the average response to a particular epoch?
 Instead of masking data with ``signal.select_epoch()`` and
 ``signal.mask_epoch()``, you may also extract epochs:
 
-::
+.. code-block:: python
 
     data = signal.extract_epoch('TORC_3983')
     average_response = np.nanmean(data, axis=0)
@@ -220,7 +224,7 @@ How do I get the average response in prestim vs poststim, regardless of behavior
 This might be useful for identifying a baseline that is altered by
 behavior.
 
-::
+.. code-block:: python
 
     signal.select_epochs('PreStimSilence', inplace=True)
     prestim = signal.as_continuous()
@@ -236,7 +240,7 @@ How do I get the average stimulus 300ms before every mistaken lick?
 What if we want to know what the animal heard just before it licked
 accidentally? Or if the TORC was maybe too close to the reference tone?
 
-::
+.. code-block:: python
 
     # Pull out the epoch we want to analyze
     trial_epoch = signal.get_epoch_bounds('Trials')
@@ -279,7 +283,7 @@ while the "lick" signal will contain information about the lick epochs
 the animal blinked or licked and treat those as artifacts and mask the
 full recording when they occured).
 
-::
+.. code-block:: python
 
     # The recording version of `get_epoch_bounds` takes the signal name as the
     # first argument and epoch name as the second argument.
@@ -313,7 +317,7 @@ What happens with zero-length epochs?
 
 Zero-length epochs are events. They work best with ``epochs_contain``:
 
-::
+.. code-block:: python
 
     trials = signal.get_epochs('Trial')
 
@@ -327,7 +331,7 @@ They will not work with set operations.
 Cross-validation and Jackknifes
 -------------------------------
 
-::
+.. code-block:: python
 
     from nems.data.epochs import jacknife_epochs
     stim = recording.get_signal('stim')
