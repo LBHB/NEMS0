@@ -493,16 +493,6 @@ class ModelSpec:
         if fit_index is not None:
             self.fit_index = fit_index
 
-        # order of fallback epochs to search for
-        epoch_sequence = [
-            'REFERENCE',
-            'TARGET',
-            'TRIAL',
-            'SIGNAL',
-            'SEQUENCE1',
-            None  # leave None as the last in the sequence, to know when not found
-        ]
-
         rec_resp = rec['resp']
         rec_pred = rec['pred']
         rec_stim = rec['stim']
@@ -521,6 +511,16 @@ class ModelSpec:
 
             # otherwise try the default fall backs
             else:
+                # order of fallback epochs to search for
+                epoch_sequence = [
+                    'REFERENCE',
+                    'TARGET',
+                    'TRIAL',
+                    'SIGNAL',
+                    'SEQUENCE1',
+                    None  # leave None as the last in the sequence, to know when not found
+                ]
+
                 for e in epoch_sequence:
                     if e is None:
                         # reached the end of the fallbacks, not found
@@ -559,11 +559,15 @@ class ModelSpec:
         # determine the plot functions
         plot_fn_modules = []
         for mod_idx, m in enumerate(self):
-            # do some forward checking here for strf, skip gaussian weights if next is strf
+            # do some forward checking here for strf: skip gaussian weights if next is strf
             # clunky, better way?
-            if self[mod_idx]['fn'] == 'nems.modules.weight_channels.gaussian' and \
+            if mod_idx < len(self) and self[mod_idx]['fn'] == 'nems.modules.weight_channels.gaussian' and \
                     self[mod_idx + 1]['fn'] == 'nems.modules.fir.basic':
                 continue
+            # don't double up on spectrograms
+            if self[mod_idx]['fn'] == 'nems.modules.nonlinearity.dlog':
+                continue
+
             plot_fn_modules.append((mod_idx, self.get_plot_fn(mod_idx)))
 
         # drop duplicates
