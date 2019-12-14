@@ -1,5 +1,3 @@
-`Contents <README.md>`__
-
 Database for model results
 ==========================
 
