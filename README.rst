@@ -82,4 +82,4 @@ If you have Jupyter installed:
    cd NEMS/notebooks
    jupter notebook
 
-Click on ``demo_xforms.pynb`` and give it a whirl!
+Click on ``demo_xforms.ipynb`` and give it a whirl!
