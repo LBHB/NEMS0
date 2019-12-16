@@ -45,7 +45,6 @@ work with many different types of timeseries data.
     :maxdepth: 1
     :caption: Contributing
 
-    contributing
     discussions
     history
     nginx

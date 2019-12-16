@@ -2,11 +2,11 @@ Fitters
 =======
 
 To keep fitters as simple and re-useable as possible, they should only
-require ``sigma`` (some representatio of a point in fit-space, like a
+require ``sigma`` (some representation of a point in fit-space, like a
 vector) and ``cost_fn`` (some function for determining error based on
 sigma) as arguments. This keeps fitter functions from needing to know
 anything about the model architecture, and ensures easy compatibility
-with popular fitting packages like scipy.minimize. Any additional
+with popular fitting packages like ``scipy.minimize``. Any additional
 functionality related to fitting, such as only fitting certain subsets
 of data or using a different fitter for a specific module, should be
 handled by an analysis (for a generalizeable function) or a script (for
@@ -21,14 +21,14 @@ placed some generic termination condition functions in
 conditions for when to stop the fitting process: when the elapsed time,
 step size, or error delta reaches some value.
 
-Termination condition functions should take in a step\_info dict and
+Termination condition functions should take in a step_info dict and
 return a boolean. If more than one condition should be checked, fitters
 may combine more than one termination conditions using the appropriate
 ``and`` or ``or`` expressions and a lambda function.
 
 For example, many fitters look like:
 
-::
+.. code-block:: python
 
     import termination_conditions as tc
 
@@ -51,20 +51,24 @@ Conventions for Termination Conditions
 
 1) The name of the function should describe the event that will cause
    the fitting loop to stop, and return True to indicate a stop. For
-   example, 'error\_non\_decreasing' returns a value of True when, as
+   example, ``error_non_decreasing`` returns a value of ``True`` when, as
    the name implies, the error is no longer decreasing by an amount at
    least equal to the specified tolerance.
 
-As a result, fitters should generally refer to the step\_condition in
-terms of: 'if termination\_condition : ' Using the reverse naming and
+As a result, fitters should generally refer to the step_condition in
+terms of: ``if termination_condition:``. Using the reverse naming and
 return values should be avoided.
 
-2) The expected structure of step\_info is made with create\_stepinfo().
+2) The expected structure of ``step_info`` is made with ``create_stepinfo()``.
    For example:
 
-   stepinfo = {'num': 1, # Num of steps taken thus far 'err': 03.93, #
-   The cost to minimize 'err\_delta': None, # Change in cost since last
-   step 'start\_time': time.time()}
+.. code-block:: python
+
+    stepinfo = {'num': 1,           # Num of steps taken thus far
+                'err': 03.93,       # The cost to minimize
+                'err_delta': None,  # Change in cost since last step
+                'start_time': time.time()
+               }
 
 These are the four default keys, but you may add more if you want to
 have more exotic termination conditions.

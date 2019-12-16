@@ -324,9 +324,7 @@ default.
     }
 
 If not specified in the modelspec, these priors will be used
-============================================================
-
-
+------------------------------------------------------------
 
 .. code-block:: python
 
