@@ -9,18 +9,12 @@ brains of behaving mammals <https://hearingbrain.org/research.php>`__, but it wi
 work with many different types of timeseries data.
 
 .. toctree::
-    :hidden:
     :caption: Getting started
 
     installation
     quickstart
     background
 
-1. Getting started
---------------------
-- :doc:`installation`
-- :doc:`quickstart`
-- :doc:`background`
 
 .. toctree::
     :hidden:
