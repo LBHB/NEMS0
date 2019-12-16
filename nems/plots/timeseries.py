@@ -422,7 +422,6 @@ def pred_resp(rec, modelspec, ax=None, title=None,
     '''
     sig_list = ['pred', 'resp']
     sigs = [rec[s] for s in sig_list]
-    print(channels)
     ax = timeseries_from_signals(sigs, channels=channels,
                                  xlabel=xlabel, ylabel=ylabel, ax=ax,
                                  title=title, no_legend=no_legend)
