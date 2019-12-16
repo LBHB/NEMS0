@@ -36,7 +36,7 @@ Below is some pseudocode for a script that converts your data from a
 custom format and then saves it as a ``Signal`` to make it easier for other
 people to use.
 
-::
+.. code-block:: python
 
     from nems.signal import Signal
 
