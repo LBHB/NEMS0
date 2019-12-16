@@ -185,10 +185,10 @@ modelspecs in files. The four functions of interest are:
 
 .. code-block:: python
 
-    save_modelspec()    Saves a single modelspec to a single file
-    save_modelspecs()   Saves a list of related modelspecs to multiple files
-    load_modelspec()    Load a single modelspec from a single file.
-    load_modelspecs()   Loads multiple (related) modelspecs from multiple files
+    save_modelspec()   # Saves a single modelspec to a single file
+    save_modelspecs()  # Saves a list of related modelspecs to multiple files
+    load_modelspec()   # Load a single modelspec from a single file.
+    load_modelspecs()  # Loads multiple (related) modelspecs from multiple files
 
 These simple functions are mostly to encourage uniform pattern for model
 and file names. You may override the default file name if desired, but
@@ -255,13 +255,9 @@ modelspecs with the phi initialized from the priors.
 
 
     new_modelspec = nems.priors.set_mean_phi(modelspec)
-
     # or
-
     new_modelspec = nems.priors.set_random_phi(modelspec)
-
     # or
-
     new_modelspec = nems.priors.set_percentile_phi(modelspec, 0.1)
 
 A value of phi initialized using the idea of specific and general
