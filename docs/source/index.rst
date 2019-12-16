@@ -35,14 +35,14 @@ NEMS -- The Neural Encoding Model System
     :caption: Organizing your models
 
     modules
-    saving
+    modelspecs
     database
 
-3. Organizing your Models
+3. Organizing your models
 -------------------------
 
 - :doc:`modules`
-- :doc:`saving`
+- :doc:`modelspecs`
 - :doc:`database`
 
 .. toctree::
@@ -53,7 +53,7 @@ NEMS -- The Neural Encoding Model System
     priors
     xforms
 
-4. Fitting your Models
+4. Fitting your models
 ----------------------
 
 - :doc:`fitters`
