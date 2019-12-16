@@ -5,7 +5,7 @@ NEMS is the Neural Encoding Model System. It is helpful for fitting a
 mathematical model to time series data, plotting the model predictions,
 and comparing the predictive accuracy of multiple models. We use it to
 develop and test `computational models of how sound is encoded in the
-brains of behaving mammals <https://hearingbrain.org>`__, but it will
+brains of behaving mammals <https://hearingbrain.org/research.php>`__, but it will
 work with many different types of timeseries data.
 
 .. toctree::
