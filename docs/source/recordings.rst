@@ -1,5 +1,5 @@
-Recording Objects
-=================
+Recordings
+==========
 
 What is a recording?
 --------------------

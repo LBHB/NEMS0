@@ -9,6 +9,7 @@ brains of behaving mammals <https://hearingbrain.org/research.php>`__, but it wi
 work with many different types of timeseries data.
 
 .. toctree::
+    :maxdepth: 1
     :caption: Getting started
 
     installation
@@ -17,60 +18,31 @@ work with many different types of timeseries data.
 
 
 .. toctree::
-    :hidden:
+    :maxdepth: 1
     :caption: Organizing your data
 
     signals
     recordings
     epochs
 
-2. Organizing your data
------------------------
-
-- :doc:`signals`
-- :doc:`recordings`
-- :doc:`epochs`
-
 .. toctree::
-    :hidden:
+    :maxdepth: 1
     :caption: Organizing your models
 
     modules
     modelspecs
     database
 
-3. Organizing your models
--------------------------
-
-- :doc:`modules`
-- :doc:`modelspecs`
-- :doc:`database`
-
 .. toctree::
-    :hidden:
+    :maxdepth: 1
     :caption: Fitting your models
 
     fitters
     priors
     xforms
 
-4. Fitting your models
-----------------------
-
-- :doc:`fitters`
-- :doc:`priors`
-- :doc:`xforms`
-
-5. Detailed Guides
-------------------
-
-- `Architectural Diagram <architecture.svg>`__
-- Creating your own modules
-- Comparing your models with others
-- Sharing modules, models, and data with others
-
 .. toctree::
-    :hidden:
+    :maxdepth: 1
     :caption: Contributing
 
     contributing
@@ -78,15 +50,6 @@ work with many different types of timeseries data.
     history
     nginx
     API reference <api/modules>
-
-6. Contributing to NEMS
------------------------
-
-- :doc:`contributing`
-- :doc:`discussions`
-- :doc:`history`
-- :doc:`nginx`
-- :doc:`api/modules`
 
 Indices and tables
 ==================
