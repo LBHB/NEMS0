@@ -87,7 +87,7 @@ Loading a ``Signal`` from a file is trivial:
 .. code-block:: python
 
     from nems.signal import Signal
-    signal = Signal.load('/path/to/my/signalfiles')
+    signal = Signal.load('path/to/my/signalfiles')
 
 Creating your own CSV files is pretty straightforward, but you need to
 understand the format. Read on if that interests you, or `jump ahead if

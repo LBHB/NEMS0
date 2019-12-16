@@ -46,7 +46,7 @@ people to use.
                  recording='some-string', 
                  fs=200  # Hz
                  )
-    sig.save('../recordings/my-new-recording/my-new-signal')
+    sig.save('recordings/my-new-recording/my-new-signal')
 
 Output Results
 ~~~~~~~~~~~~~~

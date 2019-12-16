@@ -35,7 +35,6 @@ NEMS -- The Neural Encoding Model System
     :caption: Organizing your models
 
     modules
-    distributions
     saving
     database
 
@@ -43,7 +42,6 @@ NEMS -- The Neural Encoding Model System
 -------------------------
 
 - :doc:`modules`
-- :doc:`distributions`
 - :doc:`saving`
 - :doc:`database`
 
