@@ -1,6 +1,21 @@
 Quick Start
 ===========
 
+Start analyzing data
+--------------------
+
+You may test if everything is working by telling NEMS to download some
+sample auditory stimulus-response data, use a simple linear-nonlinear
+model (which should taking about 2 minutes to fit), and then save the
+results locally:
+
+::
+
+   python demo_script.py
+
+Or open ``demo_script.py`` in an editor to work through each step of
+the fit.
+
 I just want to analyze data! Where should I put my script?
 ----------------------------------------------------------
 
