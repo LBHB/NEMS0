@@ -4,46 +4,13 @@ nems.fitters package
 Submodules
 ----------
 
-nems.fitters.api module
------------------------
+.. toctree::
 
-.. automodule:: nems.fitters.api
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-nems.fitters.fitter module
---------------------------
-
-.. automodule:: nems.fitters.fitter
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-nems.fitters.mappers module
----------------------------
-
-.. automodule:: nems.fitters.mappers
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-nems.fitters.termination\_conditions module
--------------------------------------------
-
-.. automodule:: nems.fitters.termination_conditions
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-nems.fitters.util module
-------------------------
-
-.. automodule:: nems.fitters.util
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
+   nems.fitters.api
+   nems.fitters.fitter
+   nems.fitters.mappers
+   nems.fitters.termination_conditions
+   nems.fitters.util
 
 Module contents
 ---------------
