@@ -192,7 +192,7 @@ modelspecs in files. The four functions of interest are:
 
 These simple functions are mostly to encourage uniform pattern for model
 and file names. You may override the default file name if desired, but
-for compatability, the NEMS defaults for a model are generated using:
+for compatibility, the NEMS defaults for a model are generated using:
 
 ::
 

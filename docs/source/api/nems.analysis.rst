@@ -12,7 +12,7 @@ nems.analysis.api module
    :undoc-members:
    :show-inheritance:
 
-nems.analysis.cost\_functions module
+nems.analysis.cost_functions module
 ------------------------------------
 
 .. automodule:: nems.analysis.cost_functions
@@ -20,7 +20,7 @@ nems.analysis.cost\_functions module
    :undoc-members:
    :show-inheritance:
 
-nems.analysis.fit\_basic module
+nems.analysis.fit_basic module
 -------------------------------
 
 .. automodule:: nems.analysis.fit_basic

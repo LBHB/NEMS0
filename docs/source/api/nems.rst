@@ -18,7 +18,7 @@ Subpackages
 Submodules
 ----------
 
-nems.cross\_validation module
+nems.cross_validation module
 -----------------------------
 
 .. automodule:: nems.cross_validation
