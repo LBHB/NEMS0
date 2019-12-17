@@ -47,7 +47,7 @@ work with many different types of timeseries data.
     discussions
     history
     nginx
-    API reference <api2/modules>
+    API reference <api/modules>
 
 Indices and tables
 ==================
