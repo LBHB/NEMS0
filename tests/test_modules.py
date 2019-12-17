@@ -60,9 +60,9 @@ def test_stp():
     r = stp.short_term_plasticity(rec, 'pred', 'pred_out', u=u, tau=tau)
     pred_out = r[0]
 
-    plt.figure()
-    plt.plot(pred.as_continuous().T)
-    plt.plot(pred_out.as_continuous().T)
+    # plt.figure()
+    # plt.plot(pred.as_continuous().T)
+    # plt.plot(pred_out.as_continuous().T)
     # print(pred_out.as_continuous().T)
     # Y = stp._stp(X, u, tau)
 
