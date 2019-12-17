@@ -29,9 +29,8 @@ work with many different types of timeseries data.
     :maxdepth: 1
     :caption: Organizing your models
 
-    modules
     modelspecs
-    database
+    modules
 
 .. toctree::
     :maxdepth: 1

@@ -1,5 +1,5 @@
-Modelspecs and Keywords
-=======================
+Modelspecs
+==========
 
 What's a ModelSpec?
 -------------------
@@ -13,7 +13,7 @@ a single :doc:`module <modules>` that performs an input-output
 transformation performed by a pure function (``fn``). An example of a
 simple modelspec before fitting is:
 
-::
+.. code-block:: python
 
     [{"id": "wc18x1",
       "fn": "nems.modules.weight_channels.weight_channels",
@@ -33,7 +33,7 @@ simple modelspec before fitting is:
 
 After fitting, that same modelspec might look like this:
 
-::
+.. code-block:: python
 
     [{"id": "wc18x1",
       "fn": "nems.modules.weight_channels.weight_channels",
@@ -120,7 +120,7 @@ advantages:
 More Complex Initializers
 -------------------------
 
-What if you know the overally structure of the model we want to fit, but
+What if you know the overall structure of the model we want to fit, but
 not the shape of the data coming in, and you want to adjust the model's
 keywords to the data?
 
