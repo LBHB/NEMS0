@@ -668,7 +668,7 @@ def mask_for_jackknife(rec, modelspec=None, epoch_name='REFERENCE',
 
 def jack_subset(est, val, modelspec=None, IsReload=False,
                 keep_only=1, **context):
-
+    
     if keep_only == 1:
         est = est.views(view_range=0)[0]
         val = val.views(view_range=0)[0]
@@ -1043,38 +1043,41 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
     modelspec = corr_fn(est, val, modelspec=modelspec, rec=rec, use_mask=use_mask)
 
     if find_module('state', modelspec) is not None:
-        s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='pred',
-                            state_sig='state_raw', state_chan=[])
-        j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='pred',
-                            state_sig='state_raw', state_chan=[], njacks=10)
-        modelspec.meta['state_mod'] = s
-        modelspec.meta['j_state_mod'] = j_s
-        modelspec.meta['se_state_mod'] = ee
-        modelspec.meta['state_chans'] = val['state'].chans
+        if 'state' not in val.signals.keys():
+            pass
+        else:
+            s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='pred',
+                                state_sig='state_raw', state_chan=[])
+            j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='pred',
+                                state_sig='state_raw', state_chan=[], njacks=10)
+            modelspec.meta['state_mod'] = s
+            modelspec.meta['j_state_mod'] = j_s
+            modelspec.meta['se_state_mod'] = ee
+            modelspec.meta['state_chans'] = val['state'].chans
 
-        # Charlie testing diff ways to calculate mod index
+            # Charlie testing diff ways to calculate mod index
 
-        # try using resp
-        s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='resp',
-                            state_sig='state_raw', state_chan=[])
-        j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='resp',
-                            state_sig='state_raw', state_chan=[], njacks=10)
-        modelspec.meta['state_mod_r'] = s
-        modelspec.meta['j_state_mod_r'] = j_s
-        modelspec.meta['se_state_mod_r'] = ee
+            # try using resp
+            s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='resp',
+                                state_sig='state_raw', state_chan=[])
+            j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='resp',
+                                state_sig='state_raw', state_chan=[], njacks=10)
+            modelspec.meta['state_mod_r'] = s
+            modelspec.meta['j_state_mod_r'] = j_s
+            modelspec.meta['se_state_mod_r'] = ee
 
-        # try using the "mod" signal (if it exists) which is calculated
-        if 'mod' in modelspec.meta['modelname']:
-            s = metrics.state_mod_index(val, epoch='REFERENCE',
-                                            psth_name='mod', divisor='resp',
-                                            state_sig='state_raw', state_chan=[])
-            j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE',
-                                            psth_name='mod', divisor='resp',
-                                            state_sig='state_raw', state_chan=[],
-                                            njacks=10)
-            modelspec.meta['state_mod_m'] = s
-            modelspec.meta['j_state_mod_m'] = j_s
-            modelspec.meta['se_state_mod_m'] = ee
+            # try using the "mod" signal (if it exists) which is calculated
+            if 'mod' in modelspec.meta['modelname']:
+                s = metrics.state_mod_index(val, epoch='REFERENCE',
+                                                psth_name='mod', divisor='resp',
+                                                state_sig='state_raw', state_chan=[])
+                j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE',
+                                                psth_name='mod', divisor='resp',
+                                                state_sig='state_raw', state_chan=[],
+                                                njacks=10)
+                modelspec.meta['state_mod_m'] = s
+                modelspec.meta['j_state_mod_m'] = j_s
+                modelspec.meta['se_state_mod_m'] = ee
 
     return {'modelspec': modelspec}
 
