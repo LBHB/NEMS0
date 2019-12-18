@@ -179,13 +179,13 @@ class ModelSpec:
             mod_index = self.mod_index
 
         if in_place:
-            for fit in np.flatten(self.raw):
+            for fit in self.raw.flatten():
                 del fit[mod_index]
             return None
 
         else:
             raw_copy = copy.deepcopy(self.raw)
-            for fit in np.flatten(raw_copy):
+            for fit in self.raw.flatten():
                 del fit[mod_index]
             new_spec = ModelSpec(raw_copy)
             new_spec.recording = self.recording
