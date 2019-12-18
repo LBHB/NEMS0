@@ -9,4 +9,4 @@ dependencies:
 - pip:
   - pygments-enaml
   - numpydoc
-#  - git+https://github.com/LBHB/NEMS.git
+  - git+https://github.com/LBHB/NEMS.git@awctomlison/update-docs
