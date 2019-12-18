@@ -202,7 +202,7 @@ class ModelSpec:
     # TODO support for multiple recording views/modelspec jackknifes (jack_count>0)
     #  and multiple fits (fit_count>0)
 
-    def tile_fits(self, fit_count=0):
+    def tile_fits(self, fit_count=1):
         """
         create <fit_count> sets of fit parameters to allow for multiple fits,
         useful for n-fold cross validation or starting from multiple intial
