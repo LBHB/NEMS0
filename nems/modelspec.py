@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 class ModelSpec:
     """Defines a model based on a NEMS modelspec.
 
-    Long goes here.
+    Long goes here. TODO docs
     """
 
     def __init__(self, raw=None, phis=None, fit_index=0, cell_index=0,
@@ -40,9 +40,9 @@ class ModelSpec:
         Long goes here. TODO docs
 
         :param dict raw: Nested list of dictionaries. Equivalent of the old NEMS modelspec. The first level is a
-                list of cells, each of which is a list of lists. The second level is a list of fits, each of which
-                is a list of dictionaries. The third level is a list of jacknifes, each of which is a list of
-                dictionaries. Each dictionary specifies a module, or one step in the model.
+            list of cells, each of which is a list of lists. The second level is a list of fits, each of which
+            is a list of dictionaries. The third level is a list of jacknifes, each of which is a list of
+            dictionaries. Each dictionary specifies a module, or one step in the model.
         :param list phis: The free parameters.
         :param int fit_index: Index of which fit to reference when multiple are present. Defaults to 0.
         :param int cell_index: Index of which cell to reference when multiple are present. Defaults to 0.
@@ -83,9 +83,6 @@ class ModelSpec:
         self.fast_eval_start = 0
         self.freeze_rec = None
 
-    #
-    # overloaded methods
-    #
     def __getitem__(self, key):
         """Get the given item from the modelspec.
 

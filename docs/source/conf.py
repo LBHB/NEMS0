@@ -50,6 +50,7 @@ extensions = [
     'sphinx.ext.githubpages',
     'sphinx.ext.napoleon',
 ]
+
 autodoc_default_options = {
     'member-order': 'bysource',
     'special-members': True,
