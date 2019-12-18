@@ -1,3 +1,5 @@
+"""Defines modelspec object and helper functions."""
+
 import copy
 import importlib
 import json
@@ -24,50 +26,42 @@ log = logging.getLogger(__name__)
 #       function names. If you do so, see /docs/planning/models.py and
 #       bring the ideas into this file, then delete it from docs/planning.
 
+
 class ModelSpec:
-    """
-    Defines a model based on a NEMS modelspec.
+    """Defines a model based on a NEMS modelspec.
 
-    Attributes
-    ----------
-    raw : nested list of dictionaries
-        Equivalent of old NEMS modelspec.
-        TODO check if/how multiple cells supported
-        TODO convert raw to numpy array of dicts
-        The first level is a list of cells, each of which is a list of
-        lists. (IS THIS SUPPORTED?)
-        The second level is a list of fits, each of which is a list of
-        dictionaries.
-        The third level is a list of jackknifes, each of which is a list of
-        dictionaries.
-        Each dictionary specifies a module, or one step in the model.
-        For example,
-    fit_index : int
-        Integer index of which fit to reference when multiple are present,
-        default 0, when jacknifing et cetera.
-    cell_index : int
-        Integer index of which "cell" to reference when multiple are present,
-        default 0.
-    fast_eval : testing (default false)
-
+    Long goes here.
     """
 
     def __init__(self, raw=None, phis=None, fit_index=0, cell_index=0,
                  jack_index=0, recording=None):
+        """Initialize the modelspec.
 
+        Long goes here. TODO docs
+
+        :param dict raw: Nested list of dictionaries. Equivalent of the old NEMS modelspec. The first level is a
+                list of cells, each of which is a list of lists. The second level is a list of fits, each of which
+                is a list of dictionaries. The third level is a list of jacknifes, each of which is a list of
+                dictionaries. Each dictionary specifies a module, or one step in the model.
+        :param list phis: The free parameters.
+        :param int fit_index: Index of which fit to reference when multiple are present. Defaults to 0.
+        :param int cell_index: Index of which cell to reference when multiple are present. Defaults to 0.
+        :param int jack_index: Index of which jacknife to reference when multiple are present. Defaults to 0.
+        :param recording: TODO docs
+        """
         if raw is None:
             # one model, no modules
             raw = np.full((1, 1, 1), None)
             raw[0, 0, 0] = []
         elif type(raw) is list:
             if type(raw[0]) is not list:
-                raw=[raw]
+                raw = [raw]
             # compatible with load_modelspec -- read in list of lists
             # make raw (1, fit_count, 1) array of lists
             # TODO default is to make single list into jack_counts!
-            r = np.full((1,1,len(raw)), None)
+            r = np.full((1, 1, len(raw)), None)
             for i, _r in enumerate(raw):
-                r[0,0,i]=_r
+                r[0, 0, i] = _r
             raw = r
 
         # otherwise, assume raw is a properly formatted 3D array (cell X fit X jack)
@@ -93,9 +87,18 @@ class ModelSpec:
     # overloaded methods
     #
     def __getitem__(self, key):
+        """Get the given item from the modelspec.
+
+        Overloaded in order to allow accessing of other elements. Key can be either an int,
+        a `slice` object, `meta`, or `phi`.
+
+        :param key: Index or object to retrieve from the modelspec.
+        :return: Either a module of the modelspec, or the `phi`, the `meta`, or the slice of the data.
+        :raises ValueError: Raised if `key` out of bounds or not one of the above.
+        """
         try:
             return self.get_module(key)
-        except:
+        except IndexError:
             if type(key) is slice:
                 return [self.raw[self.cell_index, self.fit_index, self.jack_index][ii]
                         for ii in range(*key.indices(len(self)))]
@@ -107,6 +110,15 @@ class ModelSpec:
                 raise ValueError('key {} not supported'.format(key))
 
     def __setitem__(self, key, val):
+        """Update the raw dict of the modelspec.
+
+        Updates the current modelspec raw dict at the current `cell_index`, `fit_index`, and `jack_index`.
+
+        :param int key: Which index in the modelspec to update the value of
+        :param val: The value to update to.
+        :return: Self, updated.
+        :raises ValueError: If unable to set
+        """
         try:
             # Try converting types like np.int64 instead of just
             # throwing an error.
@@ -116,6 +128,10 @@ class ModelSpec:
         return self
 
     def __iter__(self):
+        """Set the `mod_index` to zero for iterators.
+
+        :return: self, with updated `mod_index`
+        """
         self.mod_index = -1
         return self
 
@@ -124,6 +140,10 @@ class ModelSpec:
     #       Temp fix: use .modules instead and then iterate over the list
     #       returned by that.
     def __next__(self):
+        """Return the proper index of the modelspec for iterators, and update the `mod_index`.
+
+        :return: The current module `mod_index`.
+        """
         if self.mod_index < len(self.raw[self.cell_index, self.fit_index, self.jack_index])-1:
             self.mod_index += 1
             return self.get_module(self.mod_index)
@@ -131,20 +151,34 @@ class ModelSpec:
             raise StopIteration
 
     def __repr__(self):
+        """Overloaded repr.
+
+        :return: Repr of the modelspec `raw` dict.
+        """
         return repr(self.raw)
 
     def __str__(self):
+        """Overloaded str.
+
+        :return str: String newline concat of the module functions.
+        """
         x = [m['fn'] for m in self.raw[self.cell_index, self.fit_index, self.jack_index]]
         return "\n".join(x)
 
     def __len__(self):
+        """Overloaded len.
+
+        :return int: Length of the raw dict at the current `cell_index`, `fit_index`, and
+            `jack_index`..
+        """
         return len(self.raw[self.cell_index, self.fit_index, self.jack_index])
 
     def copy(self, lb=None, ub=None, fit_index=None, jack_index=None):
-        """
-        :param lb: start module (default 0) -- doesn't work
-        :param ub: stop module (default -1) -- doesn't work
-        :return: A deep copy of the modelspec (subset of modules if specified)
+        """Generate a deep copy of the modelspec.
+
+        :param int fit_index:
+        :param int jack_index:
+        :return: A deep copy of the modelspec (subset of modules if specified).
         """
         raw = copy.deepcopy(self.raw)
         meta_save = copy.deepcopy(self.meta)
@@ -167,19 +201,28 @@ class ModelSpec:
                       jack_index=_j)
         return m
 
-    #
-    # module control/listing -- act like a list of dictionaries
-    #
     def get_module(self, mod_index=None):
-        """
-        :param mod_index: index of module to return
-        :return: single module from current fit_index (doesn't create a copy!)
+        """Get the requested module.
+
+        Returns the raw dict at the `mod_index`, and current `cell_index`, `fit_index`, and
+        `jack_index`.
+
+        :param int mod_index: Index of module to return, defaults to `mod_index` if `None`.
+        :return: Single module from current `fit_index`. Does not create a copy.
         """
         if mod_index is None:
             mod_index = self.mod_index
         return self.raw[self.cell_index, self.fit_index, self.jack_index][mod_index]
 
     def drop_module(self, mod_index=None, in_place=False):
+        """Drop a module from the modelspec.
+
+        Return a new modelspec with the module dropped, or optionally drop the module in place.
+
+        :param int mod_index: Index of module ot drop.
+        :param bool in_place: Whether or not to drop in place, or return a copy.
+        :return: None if in place, otherwise a new modelspec without the dropped module.
+        """
         if mod_index is None:
             mod_index = self.mod_index
 
@@ -198,22 +241,21 @@ class ModelSpec:
 
     @property
     def modules(self):
+        """All of the modules for the current `cell_index`, `fit_index`, and `jack_index`."""
         return self.raw[self.cell_index, self.fit_index, self.jack_index]
-
-    #
-    # fit/jackknife control
-    #
 
     # TODO support for multiple recording views/modelspec jackknifes (jack_count>0)
     #  and multiple fits (fit_count>0)
 
     def tile_fits(self, fit_count=0):
-        """
-        create <fit_count> sets of fit parameters to allow for multiple fits,
-        useful for n-fold cross validation or starting from multiple intial
-        conditions. values of each phi are copied from the existing first
-        value.
-        Applied in-place.
+        """Create `fit_count` sets of fit parameters to allow for multiple fits.
+
+        Useful for n-fold cross validation or starting from multiple initial
+        conditions. Values of each phi are copied from the existing first
+        value. Applied in-place.
+
+        :param int fit_count: Number of tiles to create.
+        :return: Self.
         """
         meta_save = self.meta
 
@@ -226,12 +268,14 @@ class ModelSpec:
         return self
 
     def tile_jacks(self, jack_count=0):
-        """
-        create <jack_count> sets of fit parameters to allow for multiple jackknifes,
-        useful for n-fold cross validation or starting from multiple intial
-        conditions. values of each phi are copied from the existing first
-        value.
-        Applied in-place.
+        """Create `jack_count` sets of fit parameters to allow for multiple jackknifes.
+
+        Useful for n-fold cross validation or starting from multiple initial
+        conditions. Values of each phi are copied from the existing first
+        value. Applied in-place.
+
+        :param int jack_count: Number of tiles to create.
+        :return: Self.
         """
         meta_save = self.meta
 
@@ -245,26 +289,36 @@ class ModelSpec:
 
     @property
     def cell_count(self):
-        """Number of cells (sets of phi values) in this modelspec"""
+        """Number of cells (sets of phi values) in this modelspec."""
         return self.raw.shape[0]
 
     @property
     def fit_count(self):
-        """Number of fits (sets of phi values) in this modelspec"""
+        """Number of fits (sets of phi values) in this modelspec."""
         return self.raw.shape[1]
 
     @property
     def jack_count(self):
-        """Number of jackknifes (sets of phi values) in this modelspec"""
+        """Number of jackknifes (sets of phi values) in this modelspec."""
         return self.raw.shape[2]
 
     def set_cell(self, cell_index=None):
-        """return self with cell_index set to specified value. operation in place."""
+        """Set the `cell_index`. Done in place.
+
+        :param int cell_index: The updated `cell_index`.
+        :return: Self.
+        """
         if cell_index is not None:
             self.cell_index = cell_index
 
+        return self
+
     def set_fit(self, fit_index):
-        """return self with fit_index set to specified value. operation in place. """
+        """Set the `fit_index`. Done in place.
+
+        :param int fit_index: The updated `fit_index`.
+        :return: Self.
+        """
         if fit_index is None:
             pass
         elif fit_index > (self.fit_count - 1):
@@ -277,42 +331,42 @@ class ModelSpec:
         return self
 
     def set_jack(self, jack_index=None):
-        """return self with jack_index (current jackknife #) set to specified value. operation in place."""
+        """Set the `jack_index`. Done in place.
+
+        :param int jack_index: The updated `jack_index`.
+        :return: Self.
+        """
         if jack_index is not None:
             self.jack_index = jack_index
 
         return self
 
     def fits(self):
-        """List of modelspecs, one for each fit, for compatibility with some
-           old functions"""
-        return [ModelSpec(self.raw, jack_index=f)
-                for f in range(self.jack_count)]
+        """List of modelspecs, one for each fit, for compatibility with some old functions."""
+        return [ModelSpec(self.raw, jack_index=f) for f in range(self.jack_count)]
 
-    #
-    # metadata
-    #
     @property
     def meta(self):
-        if self.raw[0,0,0][0].get('meta') is None:
-            self.raw[0,0,0][0]['meta'] = {}
-        return self.raw[0,0,0][0]['meta']
+        """Dict of meta information."""
+        if self.raw[0, 0, 0][0].get('meta') is None:
+            self.raw[0, 0, 0][0]['meta'] = {}
+        return self.raw[0, 0, 0][0]['meta']
 
     @property
     def modelspecname(self):
+        """Name of the modelspec."""
         return '-'.join([m.get('id', 'BLANKID') for m in self.modules])
 
     def fn(self):
+        """List of fn for each module."""
         return [m['fn'] for m in self.raw[self.cell_index, self.fit_index, self.jack_index]]
 
-    #
-    # parameter info
-    #
     @property
-    def phi(self, cell_index=None, fit_index=None, jack_index=None, mod_idx=None):
-        """
-        :param fit_index: which model fit to use (default use self.fit_index
-        :return: list of phi dictionaries, or None for modules with no phi
+    def phi(self, fit_index=None, mod_idx=None):
+        """The free parameters for the model.
+
+        :param int fit_index: Which model fit to use (defaults to `fit_index`).
+        :return: List of phi dictionaries, or None for modules with no phi.
         """
         if fit_index is None:
             fit_index = self.fit_index
@@ -323,10 +377,10 @@ class ModelSpec:
 
     @property
     def phi_mean(self, mod_idx=None):
-        """
-        Returns mean of phi across fit_indexes and/or jack_indexes
-        :param mod_idx: which module to use (default all modules)
-        :return: list of phi dictionaries, mean of each value
+        """Mean of phi across fit_indexes and/or jack_indexes.
+
+        :param int mod_idx: Which module to use (default all modules).
+        :return: List of phi dictionaries, mean of each value.
         """
         if self.jack_count * self.fit_count == 1:
             return self.phi
@@ -355,10 +409,10 @@ class ModelSpec:
 
     @property
     def phi_sem(self, mod_idx=None):
-        """
-        Returns SEM of phi across fit_indexes and/or jack_indexes
-        :param mod_idx: which module to use (default all modules)
-        :return: list of phi dictionaries, jackknife sem of each value
+        """SEM of phi across fit_indexes and/or jack_indexes.
+
+        :param int mod_idx: Which module to use (default all modules).
+        :return: List of phi dictionaries, jackknife sem of each value.
         """
         modelcount = self.jack_count * self.fit_count
         if modelcount == 1:
@@ -389,9 +443,10 @@ class ModelSpec:
 
     @property
     def phi_vector(self, fit_index=None):
-        """
-        :param fit_index: which model fit to use (default use self.fit_index
-        :return: vector of phi values from all modules
+        """Vector of phi across fit_indexes.
+
+        :param int fit_index: Which model fit to use (defaults to `fit_index`).
+        :return: Vector of phi values from all modules.
         """
         if fit_index is None:
             fit_index = self.fit_index
@@ -403,14 +458,13 @@ class ModelSpec:
     # plotting support
     #
     def get_plot_fn(self, mod_index=None, plot_fn_idx=None, fit_index=None):
-        """
-        Gets the plotting function for the specified module.
+        """Get the plotting function for the specified module.
 
-        :param mod_index: which module in the modelspec to get the plotting function for
-        :param plot_fn_idx: which plotting function in the list to get
-        :param fit_index: update the fit index
+        :param int mod_index: Which module in the modelspec to get the plotting function for.
+        :param int plot_fn_idx: Which plotting function in the list to get.
+        :param int fit_index: Update the fit index if not None.
 
-        :return: a plotting function
+        :return: A plotting function.
         """
         if mod_index is None:
             mod_index = self.mod_index
@@ -449,17 +503,16 @@ class ModelSpec:
 
     def plot(self, mod_index, plot_fn_idx=None, fit_index=None, rec=None,
              sig_name='pred', channels=None, ax=None, **kwargs):
-        """
-        Generates the plot for a single module.
+        """Generate the plot for a single module.
 
-        :param mod_index: which module in the modelspec to generate the plot for
-        :param plot_fn_idx: which function in the list of plot functions
-        :param fit_index: update the fit index
-        :param rec: the recording from which to pull the data
-        :param sig_name: which signal in the recording
-        :param channels: which channel in the signal
-        :param ax: axis on which to plot
-        :param kwargs: optional keyword args
+        :param mod_index: Which module in the modelspec to generate the plot for.
+        :param plot_fn_idx: Which function in the list of plot functions.
+        :param fit_index: Update the fit index.
+        :param rec: The recording from which to pull the data.
+        :param sig_name: Which signal in the recording.
+        :param channels: Which channel in the signal.
+        :param ax: Axis on which to plot.
+        :param kwargs: Optional keyword args.
         """
         if rec is None:
             rec = self.recording
@@ -475,17 +528,17 @@ class ModelSpec:
     def quickplot(self, rec=None, epoch=None, occurrence=None, fit_index=None,
                   include_input=True, include_output=True, size_mult=(1.0, 3.0),
                   figsize=None):
-        """
-        Generates a summary plot of a subset of the data.
+        """Generate a summary plot of a subset of the data.
 
-        :param rec: the recording from which to pull the data
-        :param epoch: name of epoch from which to extract data
-        :param occurence: which occurences of the data to plot
-        :param fit_index: update the fit index
-        :param include_input:
-        :param include_output:
-        :param size_mult: scale factors for width and height of figure
-        :param figsize: size of figure (tuple of inches)
+        :param rec: The recording from which to pull the data.
+        :param epoch: Name of epoch from which to extract data.
+        :param int occurrence: Which occurrences of the data to plot.
+        :param int fit_index: Update the fit index.
+        :param bool include_input: Whether to include default plot of the inputs.
+        :param bool include_output: Whether to include default plot of the outputs.
+        :param tuple size_mult: Scale factors for width and height of figure.
+        :param tuple figsize: Size of figure (tuple of inches).
+        :return: Matplotlib figure.
         """
         if rec is None:
             rec = self.recording
@@ -690,12 +743,22 @@ class ModelSpec:
         return fig
 
     def append(self, module):
+        """Append a module to the modelspec.
+
+        :param module: A module dict.
+        """
         self.raw[self.cell_index, self.fit_index, self.jack_index].append(module)
 
     def pop_module(self):
+        """Remove the last module from the modelspec."""
         del self.raw[self.cell_index, self.fit_index, self.jack_index][-1]
 
     def get_priors(self, data):
+        """TODO docs.
+
+        :param data: TODO docs
+        :return: TODO docs
+        """
         # Here, we query each module for it's priors. A prior will be a
         # distribution, so we set phi to the mean (i.e., expected value) for
         # each parameter, then ask the module to evaluate the input data. By
@@ -715,8 +778,10 @@ class ModelSpec:
         return priors
 
     def evaluate(self, rec=None, **kwargs):
-        """
-        Evaluate the Model on a recording. essentially a wrapper for modelspec.evaluate
+        """Evaluate the Model on a recording. essentially a wrapper for `modelspec.evaluate`.
+
+        :param rec: The recording to evaluate.
+        :param kwargs: Optional keyword arguments, passed to `modelspec.evaluate`.
         """
         if rec is None:
             rec = self.recording
@@ -726,10 +791,14 @@ class ModelSpec:
         return rec
 
     def fast_eval_on(self, rec=None, subset=None):
-        """
-        enter fast eval mode, where model is evaluated up through the
-        first module that has a fittable phi. evaluate model on rec up through
-        the preceeding module and save in self.freeze_rec
+        """Quickly evaluates a model on a recording.
+
+        Enter fast eval mode, where model is evaluated up through the
+        first module that has a fittable phi. Evaluate model on rec up through
+        the preceding module and save in `freeze_rec`.
+
+        :param rec: Recording object to evaluate.
+        :param subset: Which subset of the data to evaluate.
         """
         if rec is None:
             raise ValueError("Must provide valid rec=<recording> object")
@@ -737,10 +806,10 @@ class ModelSpec:
             start_mod = subset[0]
         else:
             start_mod = len(self)-1
-            for i in range(len(self)-1,-1,-1):
+            for i in range(len(self)-1, -1, -1):
                 if ('phi' in self[i]) and self[i]['phi']:
                     start_mod = i
-        #import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         # eval from 0 to start position and save the result in freeze_rec
         self.fast_eval_start = 0
         self.freeze_rec = evaluate(rec, self, start=0, stop=start_mod)
@@ -751,29 +820,20 @@ class ModelSpec:
         log.info('Freezing fast rec at start=%d', self.fast_eval_start)
 
     def fast_eval_off(self):
-        """ turn off fast_eval and purge freeze_rec to free up memory """
+        """Turn off `fast_eval` and purge `freeze_rec` to free up memory."""
         self.fast_eval = False
         self.freeze_rec = None
         self.fast_eval_start = 0
 
     def generate_tensor(self, data, phi):
-        '''
-        Evaluate the module given the input data and phi
+        """Evaluate the module given the input data and phi.
 
-        Parameters
-        ----------
-        data : dictionary of arrays and/or tensors
-        phi : list of dictionaries
-            Each entry in the list maps to the corresponding module in the
-            model. If a module does not require any input parameters, use a
-            blank dictionary. All elements in phi must be scalars, arrays or
-            tensors.
-
-        Returns
-        -------
-        data : dictionary of Signals
-            dictionary of arrays and/or tensors
-        '''
+        :param dict data: Dictionary of arrays and/or tensors.
+        :param list(dict) phi: list of dictionaries. Each entry in the list maps to the corresponding
+            module in the model. If a module does not require any input parameters, use a blank
+            dictionary. All elements in phi must be scalars, arrays or tensors.
+        :return: dictionary of Signals
+        """
         # Loop through each module in the stack and transform the data.
         result = data.copy()
         for module, module_phi in zip(self.modules, phi):
@@ -782,17 +842,18 @@ class ModelSpec:
         return result
 
     def get_shortname(self):
-        '''
-        Returns a string that is just the module ids in this modelspec.
-        '''
+        """Get a string that is just the module IDs in this modelspec.
+
+        :return str: Shortname, the module IDs.
+        """
         keyword_string = '_'.join([m['id'] for m in self])
         return keyword_string
 
     def get_longname(self):
-        '''
-        Returns a LONG name for this modelspec suitable for use in saving to disk
-        without a path.
-        '''
+        """Return a long name for this modelspec suitable for use in saving to disk without a path.
+
+        :return str: Longname, more details about the modelspec.
+        """
         meta = self.meta
 
         recording_name = meta.get('exptid')
@@ -814,18 +875,26 @@ class ModelSpec:
 
 
 def get_modelspec_metadata(modelspec):
-    '''
-    Returns a dict of the metadata for this modelspec. Purely by convention,
-    metadata info for the entire modelspec is stored in the first module.
-    '''
+    """Return a dict of the metadata for this modelspec.
+
+    Purely by convention, metadata info for the entire modelspec is stored in the first module.
+
+    :param modelspec: Modelspec object from which to get metadata.
+    :return dict: Modelspec meta dict.
+    """
     return modelspec.meta
 
 
 def set_modelspec_metadata(modelspec, key, value):
-    '''
-    Sets a key/value pair in the modelspec's metadata. Purely by convention,
-    metadata info for the entire modelspec is stored in the first module.
-    '''
+    """Set a key/value pair in the modelspec's metadata.
+
+    Purely by convention, metadata info for the entire modelspec is stored in the first module.
+
+    :param modelspec: Modelspec object from which to get metadata.
+    :param key: Update key.
+    :param value: Update value.
+    :param: The modelspec with updated meta.
+    """
     if not modelspec.meta:
         modelspec[0]['meta'] = {}
     modelspec[0]['meta'][key] = value
@@ -833,43 +902,62 @@ def set_modelspec_metadata(modelspec, key, value):
 
 
 def get_modelspec_shortname(modelspec):
-    '''
-    Returns a string that is just the module ids in this modelspec.
-    '''
+    """Return a string that is just the module ids in this modelspec.
+
+    :param modelspec: Modelspec object from which to get metadata.
+    :return str: The modelspec shortname.
+    """
     return modelspec.get_shortname()
 
 
 def get_modelspec_longname(modelspec):
-    '''
-    Returns a LONG name for this modelspec suitable for use in saving to disk
-    without a path.
-    '''
+    """Return a LONG name for this modelspec suitable for use in saving to disk without a path.
+
+    :param modelspec: Modelspec object from which to get metadata.
+    :return str: The modelspec longname.
+    """
     return modelspec.get_longname()
 
 
 def _modelspec_filename(basepath, number):
+    """Append a number to the end of a filepath.
+
+    :param basepath: Path to add number to.
+    :param number: Number to add.
+    :return: String of basepath with suffix added.
+    """
     suffix = '.{:04d}.json'.format(number)
-    return (basepath + suffix)
+    return basepath + suffix
 
 
 def save_modelspec(modelspec, filepath):
-    '''
-    Saves a modelspec to filepath. Overwrites any existing file.
-    '''
+    """Save a modelspec to filepath. Overwrites any existing file.
+
+    :param modelspec: Modelspec object from which to get metadata.
+    :param filepath: Save location.
+    """
     if type(modelspec) is list:
         nems.uri.save_resource(filepath, json=modelspec)
     else:
         nems.uri.save_resource(filepath, json=modelspec.raw)
 
+
 def save_modelspecs(directory, modelspecs, basename=None):
-    '''
-    Saves one or more modelspecs to disk with stereotyped filenames:
+    """Save one or more modelspecs to disk with stereotyped filenames.
+
+    Ex:
         directory/basename.0000.json
         directory/basename.0001.json
         directory/basename.0002.json
         ...etc...
+
     Basename will be automatically generated if not provided.
-    '''
+
+    :param directory: Save location.
+    :param list modelspecs: List of modelspecs to save.
+    :param basename: Save name of modelspecs, otherwise will use modelspec long name.
+    :return: The filepath of the last saved modelspec.
+    """
     if not os.path.isdir(directory):
         os.makedirs(directory)
         os.chmod(directory, 0o777)
@@ -887,29 +975,35 @@ def save_modelspecs(directory, modelspecs, basename=None):
         else:
             # HACK for backwards compatibility. if saving a modelspecs list
             # then only need a single fit_index from the ModelSpec class
-            save_modelspec(modelspec.raw[0,0,0], filepath)
+            save_modelspec(modelspec.raw[0, 0, 0], filepath)
     return filepath
 
 
 def load_modelspec(uri):
-    '''
-    Returns a single modelspecs loaded from uri
-    '''
+    """Return a single modelspecs loaded from uri.
+
+    :param uri: URI of modelspec.
+    :return: A new modelspec object loaded form the uri.
+    """
     ms = nems.uri.load_resource(uri)
     return ModelSpec(ms)
 
 
 def load_modelspecs(directory, basename, regex=None):
-    '''
-    Returns a list of modelspecs loaded from directory/basename.*.json
-    '''
-    #regex = '^' + basename + '\.{\d+}\.json'
+    """Return a list of modelspecs loaded from `directory/basename.*.json`.
+
+    :param directory: Directory to search for modelspecs.
+    :param basename: Name of modelspecs to match against.
+    :param regex: Optional regex matching for modelspec names.
+    :return: A new modelspec object.
+    """
+    # regex = '^' + basename + '\.{\d+}\.json'
     # TODO: fnmatch is not matching pattern correctly, replacing
     #       with basic string matching for now.  -jacob 2/17/2018
-    #files = fnmatch.filter(os.listdir(directory), regex)
+    # files = fnmatch.filter(os.listdir(directory), regex)
     #       Also fnmatch was returning list of strings? But
     #       json.load expecting file object
-    #modelspecs = [json.load(f) for f in files]
+    # modelspecs = [json.load(f) for f in files]
     dir_list = os.listdir(directory)
     if regex:
         # TODO: Not sure why this isn't working? No errors but
@@ -928,37 +1022,40 @@ def load_modelspecs(directory, basename, regex=None):
         with open(file, 'r') as f:
             try:
                 m = json.load(f)
-                m[0]['meta']['filename']=file
+                m[0]['meta']['filename'] = file
             except json.JSONDecodeError as e:
                 print("Couldn't load modelspec: {0}"
                       "Error: {1}".format(file, e))
             modelspecs.append(m)
     return ModelSpec(modelspecs)
-    #return modelspecs
+    # return modelspecs
 
 
 lookup_table = {}  # TODO: Replace with real memoization/joblib later
 
 
 def _lookup_fn_at(fn_path, ignore_table=False):
-    '''
-    Private function that returns a function handle found at a
-    given module. Basically, a way to import a single function.
+    """Private function that returns a function handle found at a given module.
+
+    Basically, a way to import a single function.
     e.g.
         myfn = _lookup_fn_at('nems.modules.fir.fir_filter')
         myfn(data)
         ...
-    '''
 
+    :param fn_path: Path to the function.
+    :param ignore_table: Whether or not to look up the function in the cache.
+    :return: Function handle.
+    """
     # default is nems.xforms.<fn_path>
-    if not '.' in fn_path:
+    if '.' not in fn_path:
         fn_path = 'nems.xforms.' + fn_path
 
     if (not ignore_table) and (fn_path in lookup_table):
         fn = lookup_table[fn_path]
     else:
         api, fn_name = nems.utils.split_to_api_and_fn(fn_path)
-        api = api.replace('nems_db.xform','nems_lbhb.xform')
+        api = api.replace('nems_db.xform', 'nems_lbhb.xform')
         api_obj = importlib.import_module(api)
         if ignore_table:
             importlib.reload(api_obj)  # force overwrite old imports
@@ -969,9 +1066,14 @@ def _lookup_fn_at(fn_path, ignore_table=False):
 
 
 def fit_mode_on(modelspec, rec=None, subset=None):
-    '''
-    turn no norm.recalc for each module when present
-    '''
+    """Turn on `norm.recalc` for each module when present.
+
+    TODO docs can this be removed?
+
+    :param modelspec:
+    param rec:
+    param subset:
+    """
     """
     # norm functions deprecated. too messy
     for m in modelspec:
@@ -984,9 +1086,12 @@ def fit_mode_on(modelspec, rec=None, subset=None):
 
 
 def fit_mode_off(modelspec):
-    '''
-    turn off norm.recalc for each module when present
-    '''
+    """Turn off norm.recalc for each module when present.
+
+    TODO docs can this be removed?
+
+    :param modelspec:
+    """
     """
     # norm functions deprecated. too messy
     for m in modelspec:
@@ -997,26 +1102,26 @@ def fit_mode_off(modelspec):
 
 
 def evaluate(rec, modelspec, start=None, stop=None):
-    """
-    Given a recording object and a modelspec, return a prediction in a new recording.
-    Does not alter modelspec's arguments in any way.
-    Only evaluates modules at indices start through stop-1. A value of None for start will
-    include the beginning of the list, and a value of None for stop will include the end
-    of the list (whereas a value of -1 for stop will not).
-    Evaluates using cell/fit/jack currently selected for modelspec.
-    :param rec: recording object
-    :param modelspec: modelspec object
-    :param start: start evaluation at module start, assuming rec['pred'] is in the appropriate
-        state to feed into modelspec[start]
-    :param stop: stop at this module
-    :return: rec copy of input with 'pred' updated with prediction
+    """Given a recording object and a modelspec, return a prediction in a new recording.
+
+    Does not alter modelspec's arguments in any way. Only evaluates modules at indices start through stop-1.
+    A value of None for start will include the beginning of the list, and a value of None for stop will include
+    the end of the list (whereas a value of -1 for stop will not). Evaluates using cell/fit/jack currently
+    selected for modelspec.
+
+    :param rec: Recording object.
+    :param modelspec: Modelspec object.
+    :param start: Start evaluation at module start, assuming `rec['pred']` is in the appropriate
+        state to feed into modelspec[start].
+    :param stop: Stop at this module.
+    :return: `Recording` copy of input with `pred` updated with prediction.
     """
     if modelspec.fast_eval:
         # still kind of testing this out, though it seems to work
         start = modelspec.fast_eval_start
         d = modelspec.freeze_rec.copy()
-        #import pdb
-        #pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
     else:
         # don't need a deep copy, fact that signals are immutable means that there will be an error
         # if evaluation tries to modify a signal in place
@@ -1029,8 +1134,8 @@ def evaluate(rec, modelspec, start=None, stop=None):
         kwargs = {**fn_kwargs, **phi}  # Merges both dicts
         new_signals = fn(rec=d, **kwargs)
 
-        #if type(new_signals) is not list:
-        #    raise ValueError('Fn did not return list of signals: {}'.format(m))
+        # if type(new_signals) is not list:
+        #     raise ValueError('Fn did not return list of signals: {}'.format(m))
 
         """
         # testing normalization
@@ -1063,8 +1168,8 @@ def evaluate(rec, modelspec, start=None, stop=None):
 
 
 def summary_stats(modelspecs, mod_key='fn', meta_include=[], stats_keys=[]):
-    '''
-    Generates summary statistics for a list of modelspecs.
+    """Generate summary statistics for a list of modelspecs.
+
     Each modelspec must be of the same length and contain the same
     modules (though they need not be in the same order).
 
@@ -1074,19 +1179,16 @@ def summary_stats(modelspecs, mod_key='fn', meta_include=[], stats_keys=[]):
     be compared because there is no guarantee that they contain
     comparable parameter values.
 
-    Arguments:
-    ----------
-    modelspecs : list of modelspecs
-        See docs/modelspecs.md
+    :param list modelspecs: List of modelspecs
+    :param mod_key: TODO docs
+    :param stats_keys: TODO docs remove?
 
-    Returns:
-    --------
-    stats : nested dictionary
+    :return: Nested dictionary of stats.
         {'module.function---parameter':
             {'mean':M, 'std':S, 'values':[v1,v2 ...]}}
         Where M, S and v might be scalars or arrays depending on the
         typical type for the parameter.
-    '''
+    """
     # Make sure the modelspecs themselves aren't modified
     # deepcopy for nested container structure
     modelspecs = [copy.deepcopy(m) for m in modelspecs]
@@ -1137,7 +1239,6 @@ def summary_stats(modelspecs, mod_key='fn', meta_include=[], stats_keys=[]):
                 else:
                     columns.update({column_entry: [phi[p]]})
 
-
     # Convert entries from lists of values to dictionaries
     # containing keys for mean, std and the raw values.
     with_stats = {}
@@ -1149,7 +1250,7 @@ def summary_stats(modelspecs, mod_key='fn', meta_include=[], stats_keys=[]):
             sem = try_scalar((st.sem(values, axis=0)))
             max = try_scalar((np.max(values, axis=0)))
             min = try_scalar((np.min(values, axis=0)))
-        except:
+        except:  # TODO specify error type
             mean = np.nan
             std = np.nan
             sem = np.nan
@@ -1166,11 +1267,18 @@ def summary_stats(modelspecs, mod_key='fn', meta_include=[], stats_keys=[]):
 
 
 def get_best_modelspec(modelspecs, metakey='r_test', comparison='greatest'):
-    '''
-    Examines the first-module meta information within each modelspec in a list,
-    and returns a singleton list containing the modelspec with the greatest
+    """Get the best modelspec ranked by the given metakey.
+
+    Examine the first-module meta information within each modelspec in a list,
+    and return a singleton list containing the modelspec with the greatest
     value for the specified metakey by default (or the least value optionally).
-    '''
+
+    :param list modelspecs: Modelspecs to compare.
+    :param metakey: Key to compare across modelspecs.
+    :param str comparison: `greatest` or `least`.
+
+    :return list: Modelspec with greatest/least metakey.
+    """
     idx = None
     best = None
     for i, m in enumerate(modelspecs):
@@ -1202,12 +1310,18 @@ def get_best_modelspec(modelspecs, metakey='r_test', comparison='greatest'):
 
 
 def sort_modelspecs(modelspecs, metakey='r_test', order='descending'):
-    '''
+    """Sort Modelspecs by given metakey.
+
     Sorts modelspecs in order of the given metakey, which should be in
     the first-module meta entry of each modelspec.
-    '''
-    find_meta = lambda m: m[0]['meta'][metakey]
-    sort = sorted(modelspecs, key=find_meta)
+
+    :param list modelspecs: List of modelspecs to sort.
+    :param metakey: Key to compare across modelspecs.
+    :param order: `descending` or `ascending`.
+
+    :return list: Sorted list of modelspecs.
+    """
+    sort = sorted(modelspecs, key=lambda m: m[0]['meta'][metakey])
     if order.lower() in ['ascending', 'asc', 'a']:
         return sort
     elif order.lower() in ['descending', 'desc', 'd']:
@@ -1217,14 +1331,16 @@ def sort_modelspecs(modelspecs, metakey='r_test', order='descending'):
 
 
 def try_scalar(x):
-    """Try to convert x to scalar, in case of ValueError just return x."""
+    """Try to convert x to scalar, in case of ValueError just return x.
+
+    :param x: Value to convert to scalar.
+    """
     # TODO: Maybe move this to an appropriate utilities module?
     try:
         x = np.asscalar(x)
     except ValueError:
         pass
     return x
-
 
 # TODO: Check that the word 'phi' is not used in fn_kwargs
 # TODO: Error checking the modelspec before execution;
