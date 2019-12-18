@@ -1089,7 +1089,7 @@ def plot_summary(modelspec, val, figures=None, IsReload=False,
     if figures is None:
         figures = []
     if not IsReload:
-        fig = nplt.quickplot({'modelspec': modelspec, 'val': val})
+        fig = modelspec.quickplot()
         # Needed to make into a Bytes because you can't deepcopy figures!
         figures.append(nplt.fig2BytesIO(fig))
     else:
@@ -1263,7 +1263,7 @@ def regenerate_figures(batch, modelnames, cellids=None):
                 # result doesn't exist
                 continue
             xfspec, ctx = load_analysis(filepath, eval_model=True)
-            fig = nplt.quickplot(ctx)
+            fig = ctx['modlespec'].quickplot()
             fig_bytes = nplt.fig2BytesIO(fig)
             plt.close('all')
             save_resource(filepath + 'figure.0000.png', data=fig_bytes)
