@@ -121,7 +121,7 @@ class ModelSpec:
 
     def __next__(self):
         try:
-            ret = self.get_module(self.mod_index)
+            ret = self[self.mod_index]
             self.mod_index += 1
             return ret
         except ValueError:
