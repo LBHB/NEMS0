@@ -104,9 +104,6 @@ def fit_basic(data, modelspec,
     start_err = cost_fn(sigma)
     final_err = cost_fn(improved_sigma)
     log.info("Delta error: %.06f - %.06f = %e", start_err, final_err, final_err-start_err)
-    #if start_err == final_err:
-    #    import pdb
-    #    pdb.set_trace()
 
     # TODO: Should this maybe be moved to a higher level
     # so it applies to ALL the fittters?
@@ -122,14 +119,13 @@ def fit_basic(data, modelspec,
         return improved_modelspec.copy()
 
 
-
 def fit_random_subsets(data, modelspec, nsplits=1, rebuild_every=10000):
-    '''
+    """
     Randomly picks a small fraction of the data to fit on.
     Intended to speed up initial converge on fitting large data sets.
     To improve efficiency, you may generally good to use the same subset
     for a bunch of cost function evaluations in a row.
-    '''
+    """
     maker = nems.segmentors.random_jackknife_maker
     segmentor = maker(nsplits=nsplits, rebuild_every=rebuild_every,
                       invert=True, excise=True)
@@ -152,7 +148,8 @@ def fit_state_nfold(data_list, modelspecs, generate_psth=False,
 
     models = []
     if not metric:
-        metric = lambda d: metrics.nmse(d, 'pred', 'resp')
+        def metric(d):
+            metrics.nmse(d, 'pred', 'resp')
 
     for i in range(nfolds):
         log.info("Fitting fold {}/{}".format(i+1, nfolds))
