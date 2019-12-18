@@ -137,10 +137,8 @@ class ModelSpec:
     def __len__(self):
         return len(self.raw[self.cell_index, self.fit_index, self.jack_index])
 
-    def copy(self, lb=None, ub=None, fit_index=None, jack_index=None):
+    def copy(self, fit_index=None, jack_index=None):
         """
-        :param lb: start module (default 0) -- doesn't work
-        :param ub: stop module (default -1) -- doesn't work
         :return: A deep copy of the modelspec (subset of modules if specified)
         """
         raw = copy.deepcopy(self.raw)
