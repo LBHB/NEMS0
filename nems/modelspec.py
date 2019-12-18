@@ -116,18 +116,15 @@ class ModelSpec:
         return self
 
     def __iter__(self):
-        self.mod_index = -1
+        self.mod_index = 0
         return self
 
-    # TODO: Something funny is going on when iterating over modules directly
-    #       using these methods. The last couple modules were being excluded.
-    #       Temp fix: use .modules instead and then iterate over the list
-    #       returned by that.
     def __next__(self):
-        if self.mod_index < len(self.raw[self.cell_index, self.fit_index, self.jack_index])-1:
+        try:
+            ret = self.get_module(self.mod_index)
             self.mod_index += 1
-            return self.get_module(self.mod_index)
-        else:
+            return ret
+        except ValueError:
             raise StopIteration
 
     def __repr__(self):
