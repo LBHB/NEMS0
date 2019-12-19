@@ -33,7 +33,8 @@ def fit_nfold(data_list, modelspecs, generate_psth=False,
 
     models = []
     if metric is None:
-        metric = lambda d: metrics.nmse(d, 'pred', 'resp')
+        def metric(d):
+            metrics.nmse(d, 'pred', 'resp')
 
     for i in range(nfolds):
         if len(modelspecs) > 1:

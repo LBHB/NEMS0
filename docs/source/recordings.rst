@@ -1,5 +1,5 @@
-Recording Objects
-=================
+Recordings
+==========
 
 What is a recording?
 --------------------
@@ -12,7 +12,7 @@ dimension.
 
 Recordings provide a way for you to group related data, for example when
 simultaneously recording neural activity (a signal with several
-channels, one per neuron), the ambient sound heard (another signal) ,
+channels, one per neuron), the ambient sound heard (another signal),
 and the test subject motion (yet another signal, whose channels describe
 XYZ coordinates). Because all three signals occurred at the same time
 and may need to be considered together during analysis, they should be
@@ -42,8 +42,8 @@ As you can see,
 1. There is one directory holding all the signals in the recording
    (``gus027b13_p_PPS`` is the name of the recording);
 
-2. Each signal (``pupil``, ``resp``, and ``stim`` in this case) are
-   represented by two tabular CSV files and one JSON. Files that end in
+2. Each signal (``pupil``, ``resp``, and ``stim`` in this case) is
+   represented by two tabular CSV files and one JSON file. Files that end in
    '.epochs.csv' contain information that tag individual events and
    regions of time. Note that there are no tagged epochs for the
    ``pupil`` signal, while the ``stim`` signal presumably has
@@ -53,9 +53,3 @@ As you can see,
 
 More details on signal file formats may be found on the :doc:`Signals
 documentation page <signal>`.
-
-What sort of operations can I do on recordings?
------------------------------------------------
-
-TODO: Describe jackknifing, data splitting for est/val crossvalidation
-of recordings here.

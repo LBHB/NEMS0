@@ -1,5 +1,5 @@
-Modelspecs and Keywords
-=======================
+Modelspecs
+==========
 
 What's a ModelSpec?
 -------------------
@@ -13,7 +13,7 @@ a single :doc:`module <modules>` that performs an input-output
 transformation performed by a pure function (``fn``). An example of a
 simple modelspec before fitting is:
 
-::
+.. code-block:: python
 
     [{"id": "wc18x1",
       "fn": "nems.modules.weight_channels.weight_channels",
@@ -33,7 +33,7 @@ simple modelspec before fitting is:
 
 After fitting, that same modelspec might look like this:
 
-::
+.. code-block:: python
 
     [{"id": "wc18x1",
       "fn": "nems.modules.weight_channels.weight_channels",
@@ -120,7 +120,7 @@ advantages:
 More Complex Initializers
 -------------------------
 
-What if you know the overally structure of the model we want to fit, but
+What if you know the overall structure of the model we want to fit, but
 not the shape of the data coming in, and you want to adjust the model's
 keywords to the data?
 
@@ -162,7 +162,7 @@ migrated into the default registry.
 
 For example,
 
-::
+.. code-block:: python
 
     import defaults import nems.keywords.api
 
@@ -183,16 +183,16 @@ How do you save or load a modelspec?
 ``nems/modelspec.py`` contains useful functions for loading and saving
 modelspecs in files. The four functions of interest are:
 
-::
+.. code-block:: python
 
-    save_modelspec()    Saves a single modelspec to a single file
-    save_modelspecs()   Saves a list of related modelspecs to multiple files
-    load_modelspec()    Load a single modelspec from a single file.
-    load_modelspecs()   Loads multiple (related) modelspecs from multiple files
+    save_modelspec()   # Saves a single modelspec to a single file
+    save_modelspecs()  # Saves a list of related modelspecs to multiple files
+    load_modelspec()   # Load a single modelspec from a single file.
+    load_modelspecs()  # Loads multiple (related) modelspecs from multiple files
 
 These simple functions are mostly to encourage uniform pattern for model
 and file names. You may override the default file name if desired, but
-for compatability, the NEMS defaults for a model are generated using:
+for compatibility, the NEMS defaults for a model are generated using:
 
 ::
 
@@ -251,17 +251,13 @@ Priors
 branch today. There are three functions that return modified (copies) of
 modelspecs with the phi initialized from the priors.
 
-::
+.. code-block:: python
 
 
     new_modelspec = nems.priors.set_mean_phi(modelspec)
-
     # or
-
     new_modelspec = nems.priors.set_random_phi(modelspec)
-
     # or
-
     new_modelspec = nems.priors.set_percentile_phi(modelspec, 0.1)
 
 A value of phi initialized using the idea of specific and general
@@ -280,73 +276,73 @@ that I manually set the initial value of 'amplitude', manually define a
 prior for ``base``, and let the the 'shift' and 'kappa' values be set by
 default.
 
-\`\`\`defaults = {'wc40x1': {'fn':
-'nems.modules.weight\_channels.weight\_channels',
 
-::
 
-                       'fn_kwargs': {'i': 'stim',
+.. code-block:: python
 
-                                     'o': 'pred'},
-
-                       'phi': {'coefficients': [[1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-
-                                                 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-
-                                                 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-
-                                                 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-
-                                                 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-
-                                                 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
-
-                                                 1.0, 1.0, 1.0, 1.0]]}},
-
-            'fir10x1': {'fn': 'nems.modules.fir.fir_filter',
-
-                        'fn_kwargs': {'i': 'pred',
-
-                                      'o': 'pred'},
-
-                        'phi': {'coefficients': [[0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
-
-                                                  0.0, 0.0, 0.0, 0.0, 0.0]]}},
-
-            'dexp1': {'fn': 'nems.modules.nonlinearity.double_exponential',
-
-                      'fn_kwargs': {'i': 'pred',
-
-                                    'o': 'pred'},
-
-                      'phi': {'amplitude': 2.0},
-
-                      'prior': {'base': ('Normal', [0, 10])}
-
-                      }}
+    defaults = {
+        'wc40x1': {
+            'fn': 'nems.modules.weight_channels.weight_channels',
+            'fn_kwargs': {
+                'i': 'stim',
+                'o': 'pred'
+            },
+            'phi': {
+                'coefficients': [
+                    [1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                     1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                     1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                     1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                     1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                     1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                     1.0, 1.0, 1.0, 1.0]
+                ]
+            }
+        },
+        'fir10x1': {
+            'fn': 'nems.modules.fir.fir_filter',
+            'fn_kwargs': {
+                'i': 'pred',
+                'o': 'pred'
+            },
+            'phi': {
+                'coefficients': [
+                    [0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+                     0.0, 0.0, 0.0, 0.0, 0.0]
+                ]
+            }
+        },
+        'dexp1': {
+            'fn': 'nems.modules.nonlinearity.double_exponential',
+            'fn_kwargs': {
+                'i': 'pred',
+                'o': 'pred'
+            },
+            'phi': {'amplitude': 2.0},
+            'prior': {'base': ('Normal', [0, 10])}
+        }
+    }
 
 If not specified in the modelspec, these priors will be used
-============================================================
+------------------------------------------------------------
 
-default\_priors = {'nems.modules.fir.fir\_filter':
+.. code-block:: python
 
-::
+    default_priors = {
+        'nems.modules.fir.fir_filter': {
+            'coefficients': ('Normal', [
+                [[0, 0, 1, 0, 0, 0, 0, 0, 0, 0]],
+                [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]
+            ])
+        },
+        'nems.modules.nonlinearity.double_exponential': {
+            'base': ('Normal', [0, 1]),
+            'amplitude': ('HalfNormal', [0.5, 0.5]),
+            'shift': ('Normal', [0, 1]),
+            'kappa': ('HalfNormal', [0.5, 0.5])
+        }
+    }
 
-                  {'coefficients': ('Normal', [[[0, 0, 1, 0, 0, 0, 0, 0, 0, 0]],
-
-                                               [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]])},
-
-                  'nems.modules.nonlinearity.double_exponential':
-
-                  {'base': ('Normal', [0, 1]),
-
-                   'amplitude': ('HalfNormal', [0.5, 0.5]),
-
-                   'shift': ('Normal', [0, 1]),
-
-                   'kappa': ('HalfNormal', [0.5, 0.5])}}
-
-\`\`\`
 
 Note that in general, the size of the priors determine the size of
 ``phi``. The exception to this is ``default_priors`` which should always
