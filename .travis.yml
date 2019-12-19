@@ -15,7 +15,6 @@ matrix:
       sudo: false
       env: CONDA_OS="Linux"
       services: xvfb
-      addons: {apt: {packages: [libwebkitgtk-dev]}}
 
 # Setup anaconda
 # https://gist.github.com/dan-blanchard/7045057
