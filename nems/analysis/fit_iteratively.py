@@ -97,25 +97,25 @@ def _invert_subsets(modelspec, module_sets):
 
 def _module_set_loop(subset, data, modelspec, cost_function, fitter,
                      mapper, segmentor, evaluator, metric, fit_kwargs):
-        mods = [m['fn'] for i, m in enumerate(modelspec) if i in subset]
-        log.info("Fitting subset(s): %s %s", subset, mods)
-        ms.fit_mode_on(modelspec, data, subset)
+    mods = [m['fn'] for i, m in enumerate(modelspec) if i in subset]
+    log.info("Fitting subset(s): %s %s", subset, mods)
+    ms.fit_mode_on(modelspec, data, subset)
 
-        packer, unpacker, pack_bounds = mapper(modelspec, subset=subset)
+    packer, unpacker, pack_bounds = mapper(modelspec, subset=subset)
 
-        # cost_function.counter = 0
-        cost_function.error = None
-        cost_fn = partial(cost_function,
-                          unpacker=unpacker, modelspec=modelspec,
-                          data=data, segmentor=segmentor, evaluator=evaluator,
-                          metric=metric)
-        sigma = packer(modelspec)
-        bounds = pack_bounds(modelspec)
+    # cost_function.counter = 0
+    cost_function.error = None
+    cost_fn = partial(cost_function,
+                      unpacker=unpacker, modelspec=modelspec,
+                      data=data, segmentor=segmentor, evaluator=evaluator,
+                      metric=metric)
+    sigma = packer(modelspec)
+    bounds = pack_bounds(modelspec)
 
-        improved_sigma = fitter(sigma, cost_fn, bounds=bounds, **fit_kwargs)
-        improved_modelspec = unpacker(improved_sigma)
+    improved_sigma = fitter(sigma, cost_fn, bounds=bounds, **fit_kwargs)
+    improved_modelspec = unpacker(improved_sigma)
 
-        return improved_modelspec
+    return improved_modelspec
 
 
 def fit_iteratively(
