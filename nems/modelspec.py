@@ -667,9 +667,9 @@ class ModelSpec:
             plot_fns.append((fn, 1))
 
             # scatter text
-            n_cells = len(self.meta['r_test'])
-            r_test = np.mean(self.meta['r_test'])
-            r_fit = np.mean(self.meta['r_fit'])
+            n_cells = len(self.meta.get('r_test', []))
+            r_test = np.mean(self.meta.get('r_test', [0]))
+            r_fit = np.mean(self.meta.get('r_fit', [0]))
             scatter_text = f'r_test: {r_test:.3f} (n={n_cells})\nr_fit: {r_fit:.3f}'
 
             scatter_fn = _lookup_fn_at('nems.plots.api.plot_scatter')
