@@ -129,22 +129,19 @@ class ModelSpec:
 
         :return: self, with updated `mod_index`
         """
-        self.mod_index = -1
+        self.mod_index = 0
         return self
 
-    # TODO: Something funny is going on when iterating over modules directly
-    #       using these methods. The last couple modules were being excluded.
-    #       Temp fix: use .modules instead and then iterate over the list
-    #       returned by that.
     def __next__(self):
         """Return the proper index of the modelspec for iterators, and update the `mod_index`.
 
         :return: The current module `mod_index`.
         """
-        if self.mod_index < len(self.raw[self.cell_index, self.fit_index, self.jack_index])-1:
+        try:
+            ret = self[self.mod_index]
             self.mod_index += 1
-            return self.get_module(self.mod_index)
-        else:
+            return ret
+        except ValueError:
             raise StopIteration
 
     def __repr__(self):
@@ -170,7 +167,7 @@ class ModelSpec:
         """
         return len(self.raw[self.cell_index, self.fit_index, self.jack_index])
 
-    def copy(self, lb=None, ub=None, fit_index=None, jack_index=None):
+    def copy(self, fit_index=None, jack_index=None):
         """Generate a deep copy of the modelspec.
 
         :param int fit_index:
@@ -224,13 +221,13 @@ class ModelSpec:
             mod_index = self.mod_index
 
         if in_place:
-            for fit in np.flatten(self.raw):
+            for fit in self.raw.flatten():
                 del fit[mod_index]
             return None
 
         else:
             raw_copy = copy.deepcopy(self.raw)
-            for fit in np.flatten(raw_copy):
+            for fit in self.raw.flatten():
                 del fit[mod_index]
             new_spec = ModelSpec(raw_copy)
             new_spec.recording = self.recording
@@ -244,7 +241,7 @@ class ModelSpec:
     # TODO support for multiple recording views/modelspec jackknifes (jack_count>0)
     #  and multiple fits (fit_count>0)
 
-    def tile_fits(self, fit_count=0):
+    def tile_fits(self, fit_count=1):
         """Create `fit_count` sets of fit parameters to allow for multiple fits.
 
         Useful for n-fold cross validation or starting from multiple initial
@@ -735,6 +732,7 @@ class ModelSpec:
 
         # suptitle needs to be after the gridspecs in order to work with constrained_layout
         fig.suptitle(fig_title)
+        fig.set_constrained_layout_pads(w_pad=0.25, h_pad=0.1)
 
         log.info('Quickplot: generated fig with title "{}"'.format(fig_title.replace("\n", " ")))
         return fig
