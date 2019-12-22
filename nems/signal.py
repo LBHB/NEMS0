@@ -436,7 +436,6 @@ class SignalBase:
         '''
         bounds = self.get_epoch_bounds(epoch, boundary_mode, fix_overlap,
                                        overlapping_epoch)
-
         # Indices of segments and epochs
         s = 0
         e = 0
@@ -446,6 +445,7 @@ class SignalBase:
         n_segments = len(self.segments)
         n_epochs = len(bounds)
         indices = []
+
         while True:
             if s >= n_segments:
                 break
@@ -456,14 +456,27 @@ class SignalBase:
             while True:
                 # For given segment, loop through epochs that fall within that
                 # segment and calculate correct indices.
+                # (or span that segment - CRH 12/22/2019)
                 e_lb, e_ub = bounds[e]
-                if s_lb <= e_lb < s_ub:
+
+                if (e_lb <= s_lb) & (e_ub >= s_ub):
+                    # epoch spans this segment
+                    lb = o
+                    ub = round((s_ub-s_lb)*self.fs) + o
+                    indices.append((lb, ub))
+                    e += 1
+
+                elif s_lb <= e_lb < s_ub:
                     # Be sure to round otherwise an index of 1.999...999 will
                     # get converted to 1 rather than 2.
                     lb = round((e_lb-s_lb)*self.fs) + o
-                    ub = round((e_ub-s_lb)*self.fs) + o
+                    if e_ub <= s_ub:
+                        ub = round((e_ub-s_lb)*self.fs) + o
+                    else:
+                        ub = round((s_ub-s_lb)*self.fs) + o
                     indices.append((lb, ub))
                     e += 1
+
                 else:
                     # We are now at an epoch that falls in a different segment.
                     # Update the running offset. Break out of the loop and pull
