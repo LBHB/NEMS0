@@ -460,12 +460,12 @@ def _fit_net(F, D, modelspec, seed, fs, train_val_test, optimizer='Adam',
         else:
             state_dims = 0
 
-        layers = modelspec2tf(modelspec, tps_per_stim=D.shape[1], feat_dims=n_feats,
+        layers = modelspec.modelspec2tf(tps_per_stim=D.shape[1], feat_dims=n_feats,
                               data_dims=D.shape[2], state_dims=state_dims, fs=fs,
                               use_modelspec_init=use_modelspec_init)
         net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=modelspec.meta['modelpath'])
     else:
-        layers = modelspec2cnn(modelspec, n_inputs=n_feats, fs=fs, use_modelspec_init=use_modelspec_init)
+        layers = modelspec.modelspec2cnn(n_inputs=n_feats, fs=fs, use_modelspec_init=use_modelspec_init)
         # layers = [{'act': 'identity', 'n_kern': 1,
         #  'time_win_sec': 0.01, 'type': 'reweight-positive'},
         # {'act': 'relu', 'n_kern': 1, 'rank': None,
@@ -764,7 +764,7 @@ def eval_tf(modelspec, est):
     tf.reset_default_graph()
 
     # initialize tf and evaluate
-    layers = modelspec2tf(modelspec, tps_per_stim=n_tps_per_stim, feat_dims=n_feats,
+    layers = modelspec.modelspec2tf(tps_per_stim=n_tps_per_stim, feat_dims=n_feats,
                           data_dims=n_resp, state_dims=n_states, fs=fs,
                           use_modelspec_init=True)
     net = cnn.Net(data_dims, n_feats, fs, layers, seed=0, log_dir=modelspec.meta['modelpath'])
