@@ -19,399 +19,353 @@ log = logging.getLogger(__name__)
 modelspecs_dir = nems.get_setting('NEMS_RESULTS_DIR')
 
 
-def modelspec2tf(modelspec, tps_per_stim=550, feat_dims=1, data_dims=1, state_dims=0, fs=100,
-                 net_seed=1, weight_scale=0.1, use_modelspec_init=True):
-    """
-    Convert NEMS modelspec to TF layers.
-    Translations:
+def map_layer(layer: dict, fn: str, idx: int, modelspec,
+              n_input_feats, net_seed, weight_scale, use_modelspec_init: bool, ) -> dict:
+    """Maps a module to a tensorflow layer.
+
+    Available conversions:
         wc -> reweight
         fir -> conv
         firbank
         do
         dexp
-        dlog
+        dlog -> dlog
         relu
-        lvl
+        lvl -> offset
         wg.g
+
+    :param layer:
+    :param fn:
+    :param idx:
     :param modelspec:
-    :param feat_dims: [n_stim, n_tps_per_stim, n_feats] (tps = timepoints per stim, n_feats = input channels)
-    :param data_dims: [n_stim, n_tps_per_stim, n_resp] (n_resp = output channels)
-    :param fs: sampling rate (used?)
+    :param n_input_feats:
     :param net_seed:
-    :param use_modelspec_init: if True, initialize with existing phi. Otherwise random init.
-    :return: layers: list of layers compatible with cnn.net
+    :param weight_scale:
+    :param use_modelspec_init:
     """
-    F = tf.placeholder('float32', shape=[None, tps_per_stim, feat_dims])
-    if state_dims>0:
-        S = tf.placeholder('float32', shape=[None, tps_per_stim, state_dims])
-    D = tf.placeholder('float32', shape=[None, tps_per_stim, data_dims])
+    phi = modelspec.get(['phi'], None)
+    fn_kwargs = modelspec['fn_kwargs']
 
-    layers = []
-    for i, m in enumerate(modelspec):
-        log.info('modelspec2tf: ' + m['fn'])
+    if fn == 'nems.modules.nonlinearity.relu':
+        layer['type'] = 'relu'
+        c = -phi['offset'].astype('float32').T
+        layer['n_kern'] = c.shape[1]
+        log.info(f'Modelspec2tf: relu init {c}')
 
-        layer = {}
-        # input to each layer is output of previous layer
-        if i == 0:
-            layer['X'] = F
-            if state_dims > 0:
-                layer['S'] = S
-            layer['D'] = D
+        if use_modelspec_init:
+            layer['b'] = tf.Variable(c.reshape((1, c.shape[0], c.shape[1])))
         else:
-            layer['X'] = layers[-1]['Y']
-            if 'L' in layers[-1].keys():
-                layer['L'] = layers[-1]['L']
+            layer['b'] = tf.abs(cnn.kern2D(1, c.shape[0], c.shape[1], weight_scale,
+                                           seed=net_seed, distr='norm'))
 
-        n_input_feats = np.int32(layer['X'].shape[2])
-        # default integration time is one bin
-        layer['time_win_smp'] = 1 # default
+        layer['Y'] = cnn.act('relu')(layer['X'] + layer['b'])
 
-        if m['fn'] == 'nems.modules.nonlinearity.relu':
-            layer['type'] = 'relu'
-            c = -modelspec[i]['phi']['offset'].astype('float32').T
-            layer['n_kern'] = c.shape[1]
-            log.info('relu init %s', c)
-            if use_modelspec_init:
-                layer['b'] = tf.Variable(np.reshape(c, (1, c.shape[0], c.shape[1])))
-            else:
-                layer['b'] = tf.abs(cnn.kern2D(1, c.shape[0], c.shape[1],
-                                               weight_scale, seed=net_seed,
-                                               distr='norm'))
-            layer['Y'] = cnn.act('relu')(layer['X'] + layer['b'])
+    elif 'levelshift' in fn:
+        layer['type'] = 'offset'
+        c = phi['level'].astype('float32')
+        layer['n_kern'] = c.shape[1]
 
-        elif 'levelshift' in m['fn']:
-            layer['type'] = 'offset'
-            c = m['phi']['level'].astype('float32').T
-            layer['n_kern'] = c.shape[1]
+        if use_modelspec_init:
+            layer['b'] = tf.Variable(c.reshape((1, c.shape[0], c.shape[1])))
+        else:
+            layer['b'] = tf.abs(cnn.kern2D(1, c.shape[0], c.shape[1], weight_scale,
+                                           seed=net_seed, distr='norm'))
 
-            if use_modelspec_init:
-                layer['b'] = tf.Variable(np.reshape(c, (1, c.shape[0], c.shape[1])))
-            else:
-                layer['b'] = tf.abs(cnn.kern2D(1, c.shape[0], c.shape[1],
-                                               weight_scale, seed=net_seed,
-                                               distr='norm'))
-            layer['Y'] = cnn.act('identity')(layer['X'] + layer['b'])
+        layer['Y'] = cnn.act('identity')(layer['X'] + layer['b'])
 
-        elif m['fn'] in ['nems.modules.nonlinearity.dlog']:
-            layer['type'] = 'dlog'
+    elif fn == 'nems.modules.nonlinearity.dlog':
+        layer['type'] = 'dlog'
+        c = phi['offset'].astype('float32')
+        layer['n_kern'] = c.shape[1]
 
-            c = m['phi']['offset'].astype('float32').T
-            layer['n_kern'] = c.shape[1]
+        if use_modelspec_init:
+            layer['b'] = tf.Variable(c.reshape((1, c.shape[0], c.shape[1])))
+        else:
+            layer['b'] = tf.abs(cnn.kern2D(1, c.shape[0], c.shape[1], weight_scale,
+                                           seed=cnn.seed_to_randint(net_seed) + idx,
+                                           distr='tnorm'))
 
-            if use_modelspec_init:
-                layer['b'] = tf.Variable(np.reshape(c, (1, c.shape[0], c.shape[1])))
-            else:
-                layer['b'] = tf.abs(cnn.kern2D(1, c.shape[0], c.shape[1],
-                                               weight_scale, seed=cnn.seed_to_randint(net_seed)+i,
-                                               distr='tnorm'))
+        # clip b at +/-2 to avoid huge compression/expansion
+        layer['eb'] = tf.pow(tf.constant(10, dtype=tf.float32), tf.clip_by_value(layer['b'], -2, 2))
+        layer['Y'] = tf.math.log((layer['X'] + layer['eb']) / layer['eb'])
 
-            # clip b at +/-2 to avoid huge compression/expansion
-            layer['eb'] = tf.pow(tf.constant(10, dtype=tf.float32),
-                                          tf.clip_by_value(layer['b'], -2, 2))
-            layer['Y'] = tf.math.log((layer['X'] + layer['eb']) / layer['eb'])
+    elif fn == 'nems.modules.nonlinearity.double_exponential':
+        layer['type'] = 'dexp'
+        layer['n_kern'] = phi['base'].size
+        s = (1, layer['n_kern'], 1)
 
-        elif m['fn'] in ['nems.modules.nonlinearity.double_exponential']:
-            layer['type'] = 'dexp'
-            layer['n_kern'] = m['phi']['base'].size
-            s = (1, layer['n_kern'], 1)
+        if use_modelspec_init:
+            layer['base'] = tf.Variable(phi['base'].astype('float32').reshape(s))
+            layer['amplitude'] = tf.Variable(phi['amplitude'].astype('float32').reshape(s))
+            layer['shift'] = tf.Variable(phi['shift'].astype('float32').reshape(s))
+            layer['kappa'] = tf.Variable(phi['kappa'].astype('float32').reshape(s))
+        else:
+            log.info('Modelspec2tf: Using TF rand for double exponential')
+            layer['base'] = tf.Variable(tf.random.uniform(
+                s, minval=0, maxval=1, seed=cnn.seed_to_randint(net_seed + idx)))
+            layer['amplitude'] = tf.Variable(tf.random.uniform(
+                s, minval=0.1, maxval=0.5, seed=cnn.seed_to_randint(net_seed + 20 + idx)))
+            layer['shift'] = tf.Variable(tf.random.normal(
+                s, stddev=weight_scale, mean=0, seed=cnn.seed_to_randint(net_seed + 40 + idx)))
+            layer['kappa'] = tf.Variable(tf.random.uniform(
+                s, minval=0, maxval=2, seed=cnn.seed_to_randint(net_seed + 60 + idx)))
 
-            if use_modelspec_init:
-                layer['base'] = tf.Variable(np.reshape(m['phi']['base'].astype('float32'), s))
-                layer['amplitude'] = tf.Variable(np.reshape(m['phi']['amplitude'].astype('float32'), s))
-                layer['shift'] = tf.Variable(np.reshape(m['phi']['shift'].astype('float32'), s))
-                layer['kappa'] = tf.Variable(np.reshape(m['phi']['kappa'].astype('float32'), s))
-            else:
-                log.info('Using TF rand for double exponential')
-                layer['base'] = tf.Variable(tf.random.uniform(
-                    s, minval=0, maxval=1, seed=cnn.seed_to_randint(net_seed + i)))
-                layer['amplitude'] = tf.Variable(tf.random.uniform(
-                    s, minval=0.1, maxval=0.5, seed=cnn.seed_to_randint(net_seed + 20 + i)))
-                layer['shift'] = tf.Variable(tf.random.normal(
-                    s, stddev=weight_scale, mean=0, seed=cnn.seed_to_randint(net_seed + 40 + i)))
-                layer['kappa'] = tf.Variable(tf.random.uniform(
-                    s, minval=0, maxval=2, seed=cnn.seed_to_randint(net_seed + 60 + i)))
+        # base + amplitude * exp(  -exp(np.array(-exp(kappa)) * (x - shift))  )
+        layer['Y'] = layer['base'] + layer['amplitude'] * tf.math.exp(
+            -tf.math.exp(-tf.math.exp(layer['kappa']) * (layer['X'] - layer['shift'])))
 
-            # base + amplitude * exp(  -exp(np.array(-exp(kappa)) * (x - shift))  )
-            layer['Y'] = layer['base'] + layer['amplitude'] * tf.math.exp(
-                -tf.math.exp(-tf.math.exp(layer['kappa']) * (layer['X'] - layer['shift'])))
+    elif fn == 'nems.modules.fir.basic':
+        layer['type'] = 'conv'
+        layer['time_win_smp'] = phi['coefficients'].shape[1]
 
-        elif m['fn'] in ['nems.modules.fir.basic']:
-            layer['type'] = 'conv'
-            layer['time_win_smp'] = m['phi']['coefficients'].shape[1]
-            pad_size = np.int32(np.floor(layer['time_win_smp']-1))
+        c = np.fliplr(phi['coefficients']).astype('float32').T
+        c = c.reshape((c.shape[0], c.shape[1], 1))
+        if np.all(c == 0):
+            c = np.ones_like(c, dtype='float32') / 10
+
+        layer['n_kern'] = 1
+
+        if use_modelspec_init:
+            layer['W'] = tf.Variable(c)
+        else:
+            layer['W'] = cnn.kern2D(layer['time_win_smp'], c.shape[1], 1,
+                                    weight_scale, seed=net_seed, distr='norm')
+
+        pad_size = np.int32(np.floor(layer['time_win_smp'] - 1))
+        X_pad = tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]])
+        layer['Y'] = tf.nn.conv1d(X_pad, layer['W'], stride=1, padding='VALID')
+
+    elif fn == 'nems.modules.fir.damped_oscillator':
+        layer['type'] = 'conv'
+        layer['time_win_smp'] = fn_kwargs['n_coefs']
+        layer['rate'] = fn_kwargs.get('rate', 1)
+        cross_channels = fn_kwargs.get('cross_channels', False)
+        bank_count = fn_kwargs['bank_count']
+        layer['n_kern'] = bank_count
+
+        chan_count = int(phi['f1s'].size / bank_count)
+        in_chan_count = int(layer['X'].shape[2])
+        pad_size = np.int32(np.floor(layer['time_win_smp'] - 1))
+        if cross_channels and (bank_count > 1):
+            raise ValueError('cross_channels not supported for bank_count > 1.')
+
+        if cross_channels:
+            s = (1, 1, 1, chan_count * bank_count)
+        elif bank_count == 1:
+            # revert to simple conv1d, traditional FIR filter
+            s = (1, chan_count, 1)
+        elif in_chan_count == bank_count * chan_count:
+            # break up inputs to feed into each bank
+            s = (1, 1, chan_count * bank_count, 1)
+        else:
+            # apply each filter to all inputs
+            if chan_count != in_chan_count:
+                raise ValueError('Either chan_count*bank_count or chan_count must equal in_chan_count.')
+            s = (1, 1, chan_count, bank_count)
+
+        if use_modelspec_init:
+            layer['f1'] = tf.Variable(phi['f1s'].astype('float32').reshape(s))
+            layer['tau'] = tf.Variable(phi['taus'].astype('float32').reshape(s))
+            layer['delay'] = tf.Variable(phi['delays'].astype('float32').reshape(s))
+            layer['gain'] = tf.Variable(phi['gains'].astype('float32').reshape(s))
+        else:
+            log.info('Modelspec2tf: Using TF rand for damped oscillator')
+            layer['f1'] = tf.Variable(tf.random.uniform(
+                s, minval=0, maxval=1, seed=cnn.seed_to_randint(net_seed + idx)))
+            layer['tau'] = tf.Variable(tf.random.uniform(
+                s, minval=0.1, maxval=0.5, seed=cnn.seed_to_randint(net_seed + 20 + idx)))
+            layer['gain'] = tf.Variable(tf.random.normal(
+                s, stddev=weight_scale, mean=0, seed=cnn.seed_to_randint(net_seed + 40 + idx)))
+            layer['delay'] = tf.Variable(tf.random.uniform(
+                s, minval=0, maxval=2, seed=cnn.seed_to_randint(net_seed + 60 + idx)))
+
+        # time lag reversed
+        if len(s) == 3:
+            layer['t'] = tf.reshape(tf.range(layer['time_win_smp'] - 1, -1, -1, dtype=tf.float32),
+                                    [layer['time_win_smp'], 1, 1]) - layer['delay']
+        elif cross_channels and (bank_count == 1):
+            layer['t'] = tf.reshape(tf.range(layer['time_win_smp'] - 1, -1, -1, dtype=tf.float32),
+                                    [layer['time_win_smp'], 1, 1, 1]) - layer['delay']
+        else:
+            layer['t'] = tf.reshape(tf.range(layer['time_win_smp'] - 1, -1, -1, dtype=tf.float32),
+                                    [1, layer['time_win_smp'], 1, 1]) - layer['delay']
+        coefficients = tf.math.sin(layer['f1'] * layer['t']) * tf.math.exp(-layer['tau'] * layer['t']) * layer['gain']
+        layer['b'] = tf.math.greater(layer['t'], tf.constant(0, dtype=tf.float32))
+        layer['W'] = tf.multiply(coefficients, tf.cast(layer['b'], tf.float32))
+
+        if cross_channels & (bank_count == 1):
+            # special case: "outer product" convolve each channel with each filter
+            # insert placeholder dim on axis=3
+            X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 3)
+            layer['tY'] = tf.nn.conv2d(X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID')
+            layer['Y'] = tf.reshape(layer['tY'], [-1, layer['tY'].shape[1],
+                                                  layer['tY'].shape[2] * layer['tY'].shape[3]])
+        elif bank_count == 1:
+            # original implementation (no filter bank concept)
             X_pad = tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]])
-
-            c = np.fliplr(m['phi']['coefficients']).astype('float32').T
-            c = np.reshape(c, (c.shape[0], c.shape[1], 1))
-            if np.sum(np.abs(c)) == 0:
-                c = np.ones(c.shape, dtype='float32')/10
-            layer['n_kern'] = 1
-            chan_count = c.shape[1]
-            if use_modelspec_init:
-                layer['W'] = tf.Variable(c)
-            else:
-                layer['W'] = cnn.kern2D(layer['time_win_smp'], chan_count, 1,
-                                        weight_scale, seed=net_seed, distr='norm')
-            #log.info("W shape: %s", layer['W'].shape)
-            #log.info("X_pad shape: %s", X_pad.shape)
             layer['Y'] = tf.nn.conv1d(X_pad, layer['W'], stride=1, padding='VALID')
-            #log.info("Y shape: %s", layer['Y'].shape)
+        elif in_chan_count == bank_count * chan_count:
+            # each bank applied to a segment of the input channels
+            # insert placeholder dim on axis=1
+            X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 1)
+            layer['tY'] = tf.nn.depthwise_conv2d(
+                X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID', rate=[1, layer['rate']])
+            s = tf.shape(layer['tY'])
+            layer['Y'] = tf.reduce_sum(tf.reshape(
+                layer['tY'], [s[0], layer['tY'].shape[2],
+                              tf.Dimension(bank_count), tf.Dimension(chan_count)]), axis=3)
+        else:
+            # apply each fir bank to same input channels
+            # insert placeholder dim on axis=1
+            X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 1)
+            layer['tY'] = tf.nn.depthwise_conv2d(X_pad, layer['W'], strides=[1, 1, 1, 1],
+                                                 padding='VALID', rate=[1, layer['rate']])
+            s = tf.shape(layer['tY'])
+            layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'],
+                                                  [s[0], layer['tY'].shape[2], tf.Dimension(chan_count),
+                                                   tf.Dimension(bank_count)]), axis=2)
 
-        elif m['fn'] in ['nems.modules.fir.damped_oscillator']:
-            layer['type'] = 'conv'
-            layer['time_win_smp'] = m['fn_kwargs']['n_coefs']
-            layer['rate'] = m['fn_kwargs'].get('rate', 1)
-            cross_channels = m['fn_kwargs'].get('cross_channels', False)
-            bank_count = m['fn_kwargs']['bank_count']
-            layer['n_kern'] = bank_count
+    elif fn == 'nems.modules.fir.filter_bank':
+        layer['type'] = 'conv_bank_1d'
+        layer['time_win_smp'] = phi['coefficients'].shape[1]
+        layer['rate'] = fn_kwargs.get('rate', 1)
+        layer['rank'] = None  # we're handling rank with explicit spectral filters
+        bank_count = fn_kwargs['bank_count']
+        layer['n_kern'] = bank_count
 
-            chan_count = int(m['phi']['f1s'].size / bank_count)
-            in_chan_count = int(layer['X'].shape[2])
-            pad_size = np.int32(np.floor(layer['time_win_smp']-1))
-            if cross_channels and (bank_count > 1):
-                raise Warning('cross_channels not supported for bank_count>1')
-                cross_channels=False
+        c = np.fliplr(phi['coefficients']).astype('float32').T
+        chan_count = int(c.shape[1] / bank_count)
+        in_chan_count = int(layer['X'].shape[2])
 
-            if cross_channels:
-                s = (1, 1, 1, chan_count*bank_count)
-            elif bank_count == 1:
-                # revert to simple conv1d, traditional FIR filter
-                s = (1, chan_count, 1)
-            elif in_chan_count == bank_count*chan_count:
-                # break up inputs to feed into each bank
-                s = (1, 1, chan_count*bank_count, 1)
-            else:
-                # apply each filter to all inputs
-                if chan_count != in_chan_count:
-                    raise ValueError('Either chan_count*bank_count or chan_count must equal in_chan_count')
-                s = (1, 1, chan_count, bank_count)
+        # split inputs into the different kernels
+        if bank_count == 1:
+            c = c.reshape((c.shape[0], 1, 1, bank_count * chan_count))
+        elif in_chan_count == bank_count * chan_count:
+            c = c.reshape((1, c.shape[0], chan_count * bank_count, 1))
+        else:
+            c = c.reshape((1, c.shape[0], chan_count, bank_count))
 
-            if use_modelspec_init:
-                layer['f1'] = tf.Variable(np.reshape(m['phi']['f1s'].astype('float32'), s))
-                layer['tau'] = tf.Variable(np.reshape(m['phi']['taus'].astype('float32'), s))
-                layer['delay'] = tf.Variable(np.reshape(m['phi']['delays'].astype('float32'), s))
-                layer['gain'] = tf.Variable(np.reshape(m['phi']['gains'].astype('float32'), s))
-            else:
-                log.info('Using TF rand for damped oscillator')
-                layer['f1'] = tf.Variable(tf.random.uniform(
-                    s, minval=0, maxval=1, seed=cnn.seed_to_randint(net_seed + i)))
-                layer['tau'] = tf.Variable(tf.random.uniform(
-                    s, minval=0.1, maxval=0.5, seed=cnn.seed_to_randint(net_seed + 20 + i)))
-                layer['gain'] = tf.Variable(tf.random.normal(
-                    s, stddev=weight_scale, mean=0, seed=cnn.seed_to_randint(net_seed + 40 + i)))
-                layer['delay'] = tf.Variable(tf.random.uniform(
-                    s, minval=0, maxval=2, seed=cnn.seed_to_randint(net_seed + 60 + i)))
+        if np.all(c == 0):
+            c[:, :, :, :] = 1
 
-            # time lag reversed
-            if len(s) == 3:
-                layer['t'] = tf.reshape(tf.range(layer['time_win_smp']-1, -1, -1, dtype=tf.float32), [layer['time_win_smp'], 1, 1]) - layer['delay']
-            elif cross_channels and (bank_count == 1):
-                layer['t'] = tf.reshape(tf.range(layer['time_win_smp'] - 1, -1, -1, dtype=tf.float32),
-                                        [layer['time_win_smp'], 1, 1, 1]) - layer['delay']
-            else:
-                layer['t'] = tf.reshape(tf.range(layer['time_win_smp'] - 1, -1, -1, dtype=tf.float32),
-                                        [1, layer['time_win_smp'], 1, 1]) - layer['delay']
-            coefficients = tf.math.sin(layer['f1'] * layer['t']) * tf.math.exp(-layer['tau'] * layer['t']) * layer['gain']
-            layer['b'] = tf.math.greater(layer['t'], tf.constant(0, dtype=tf.float32))
-            layer['W'] = tf.multiply(coefficients, tf.cast(layer['b'], tf.float32))
+        # figure out input padding to ensure causality,
+        pad_size = np.int32((layer['time_win_smp'] - 1) * layer['rate'])
 
-            log.info("f1 shape: %s", layer['f1'].shape)
-            log.info("W shape: %s", layer['W'].shape)
+        if use_modelspec_init:
+            layer['W'] = tf.Variable(c)
+        else:
+            layer['W'] = cnn.weights_norm(c.shape, sig=weight_scale, seed=cnn.seed_to_randint(net_seed) + idx)
 
-            if cross_channels & (bank_count == 1):
-                # special case: "outer product" convolve each channel with each filter
-                # insert placeholder dim on axis=3
-                X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 3)
-                layer['tY'] = tf.nn.conv2d(X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID')
-                layer['Y'] = tf.reshape(layer['tY'], [-1, layer['tY'].shape[1], layer['tY'].shape[2]*layer['tY'].shape[3]])
-            elif bank_count == 1:
-                # original implementation (no filter bank concept)
-                X_pad = tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]])
-                layer['Y'] = tf.nn.conv1d(X_pad, layer['W'], stride=1, padding='VALID')
-            elif in_chan_count == bank_count*chan_count:
-                # each bank applied to a segment of the input channels
-                # insert placeholder dim on axis=1
-                X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 1)
-                layer['tY'] = tf.nn.depthwise_conv2d(
-                    X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID', rate=[1, layer['rate']])
-                s = tf.shape(layer['tY'])
-                layer['Y'] = tf.reduce_sum(tf.reshape(
-                    layer['tY'], [s[0], layer['tY'].shape[2],
-                                  tf.Dimension(bank_count), tf.Dimension(chan_count)]), axis=3)
-            else:
-                # apply each fir bank to same input channels
-                # insert placeholder dim on axis=1
-                X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 1)
-                layer['tY'] = tf.nn.depthwise_conv2d(
-                    X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID', rate=[1, layer['rate']])
-                s = tf.shape(layer['tY'])
-                layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'],
-                                                      [s[0], layer['tY'].shape[2], tf.Dimension(chan_count),
-                                                       tf.Dimension(bank_count)]), axis=2)
-            log.info("X_pad shape: %s", X_pad.shape)
-            log.info("Y shape: %s", layer['Y'].shape)
+        if bank_count == 1:
+            # "outer product" convolve each channel with each filter
+            # insert placeholder dim on axis=3
+            X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 3)
+            layer['tY'] = tf.nn.conv2d(X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID')
+            layer['Y'] = tf.reshape(layer['tY'],
+                                    [-1, layer['tY'].shape[1], layer['tY'].shape[2] * layer['tY'].shape[3]])
+        elif in_chan_count == bank_count * chan_count:
+            # each bank applied to a segment of the input channels
+            # insert placeholder dim on axis=1
+            X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 1)
+            layer['tY'] = tf.nn.depthwise_conv2d(
+                X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID', rate=[1, layer['rate']])
+            s = tf.shape(layer['tY'])
+            layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'], [s[0], layer['tY'].shape[2], tf.Dimension(bank_count),
+                                                                tf.Dimension(chan_count)]), axis=3)
+        else:
+            # apply each fir bank to same input channels
+            # insert placeholder dim on axis=1
+            X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 1)
+            layer['tY'] = tf.nn.depthwise_conv2d(X_pad, layer['W'], strides=[1, 1, 1, 1],
+                                                 padding='VALID', rate=[1, layer['rate']])
+            s = tf.shape(layer['tY'])
+            layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'],
+                                                  [s[0], layer['tY'].shape[2], tf.Dimension(chan_count),
+                                                   tf.Dimension(bank_count)]), axis=2)
 
-        elif m['fn'] in ['nems.modules.fir.filter_bank']:
+    elif fn == 'nems.modules.weight_channels.basic':
+        layer['type'] = 'reweight'
+        c = phi['coefficients'].astype('float32').T
+        layer['n_kern'] = c.shape[1]
 
-            layer['type'] = 'conv_bank_1d'
-            layer['time_win_smp'] = m['phi']['coefficients'].shape[1]
+        if use_modelspec_init and np.any(c != 0):
+            layer['W'] = tf.Variable(c.reshape((1, c.shape[0], c.shape[1])))
+        else:
+            s = [1, c.shape[0], c.shape[1]]
+            layer['W'] = tf.Variable(tf.random.normal(s, stddev=weight_scale, mean=0,
+                                                      seed=cnn.seed_to_randint(net_seed + idx)))
 
-            layer['rank'] = None  # we're handling rank with explicit spectral filters
-            bank_count = m['fn_kwargs']['bank_count']
-            layer['n_kern'] = bank_count
-            layer['rate'] = m['fn_kwargs'].get('rate', 1)
-
-            c = np.fliplr(m['phi']['coefficients']).astype('float32').T
-            chan_count = int(c.shape[1]/bank_count)
-            in_chan_count = int(layer['X'].shape[2])
-
-            # split inputs into the different kernels
-            if bank_count == 1:
-                c = np.reshape(c, (c.shape[0], 1, 1, bank_count*chan_count))
-            elif in_chan_count == bank_count*chan_count:
-                c = np.reshape(c, (1, c.shape[0], chan_count*bank_count, 1))
-            else:
-                c = np.reshape(c, (1, c.shape[0], chan_count, bank_count))
-
-            if np.sum(np.abs(c)) == 0:
-                c[:, :, :, :] = 1
-
-            # figure out input padding to ensure causality,
-            pad_size = np.int32((layer['time_win_smp']-1)*layer['rate'])
-
-            if use_modelspec_init:
-                layer['W'] = tf.Variable(c)
-            else:
-                layer['W'] = cnn.weights_norm(c.shape, sig=weight_scale, seed=cnn.seed_to_randint(net_seed)+i)
-
-            if bank_count == 1:
-                # "outer product" convolve each channel with each filter
-                # insert placeholder dim on axis=3
-                X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 3)
-                layer['tY'] = tf.nn.conv2d(X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID')
-                layer['Y'] = tf.reshape(layer['tY'],[-1, layer['tY'].shape[1], layer['tY'].shape[2]*layer['tY'].shape[3]])
-            elif in_chan_count == bank_count*chan_count:
-                # each bank applied to a segment of the input channels
-                # insert placeholder dim on axis=1
-                X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 1)
-                layer['tY'] = tf.nn.depthwise_conv2d(
-                    X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID', rate=[1, layer['rate']])
-                s = tf.shape(layer['tY'])
-                layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'],[s[0], layer['tY'].shape[2], tf.Dimension(bank_count), tf.Dimension(chan_count)]), axis=3)
-            else:
-                # apply each fir bank to same input channels
-                # insert placeholder dim on axis=1
-                X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 1)
-                layer['tY'] = tf.nn.depthwise_conv2d(
-                    X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID', rate=[1, layer['rate']])
-                s = tf.shape(layer['tY'])
-                layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'],
-                                                      [s[0], layer['tY'].shape[2], tf.Dimension(chan_count),
-                                                       tf.Dimension(bank_count)]), axis=2)
-
-            log.info("W shape: %s", layer['W'].shape)
-            log.info("X_pad shape: %s", X_pad.shape)
-            log.info("tY shape: %s", layer['tY'].shape)
-            log.info("Y shape: %s", layer['Y'].shape)
-
-        elif m['fn'] in ['nems.modules.weight_channels.basic']:
-            layer['type'] = 'reweight'
-            c = m['phi']['coefficients'].astype('float32').T
-            layer['n_kern'] = c.shape[1]
-
-            if use_modelspec_init & (np.sum(np.abs(c)) > 0):
-                layer['W'] = tf.Variable(np.reshape(c, (1, c.shape[0], c.shape[1])))
-            else:
-                s = [1, c.shape[0], c.shape[1]]
-                layer['W'] = tf.Variable(tf.random.normal(s, stddev=weight_scale, mean=0,
-                                                          seed=cnn.seed_to_randint(net_seed + i)))
-                #   cnn.kern2D(1, c.shape[0], c.shape[1],
-                #                       weight_scale, seed=net_seed, distr='norm')
-                #print('rand in init: %s',layer['W'].eval())
-
-            if m['fn_kwargs']['i'] == 'resp':
-                layer['L'] = tf.nn.conv1d(layer['D'], layer['W'], stride=1, padding='SAME')
-            else:
-                layer['Y'] = tf.nn.conv1d(layer['X'], layer['W'], stride=1, padding='SAME')
-
-        elif m['fn'] in ['nems.modules.weight_channels.gaussian']:
-            layer['n_kern'] = m['phi']['mean'].shape[0]
-
-            # HACK : scale sd by 10 to play well with TF fitter
-            mn = m['phi']['mean'].astype('float32')
-            sd = m['phi']['sd'].astype('float32') * 10
-
-            if use_modelspec_init:
-                layer['m'] = tf.Variable(np.reshape(mn, (1, 1, mn.shape[0])))
-                layer['s'] = tf.Variable(np.reshape(sd, (1, 1, sd.shape[0])))
-            else:
-                log.info('Using TF rand for wcg')
-                layer['m'] = tf.Variable(tf.random.uniform(
-                    [1, 1, layer['n_kern']], minval=0, maxval=1,
-                    seed=cnn.seed_to_randint(net_seed + i)))
-                layer['s'] = tf.Variable(tf.random.uniform(
-                    [1, 1, layer['n_kern']], minval=0.1, maxval=0.5,
-                    seed=cnn.seed_to_randint(net_seed + 20 + i)))
-
-            # trying to impose NEMS bounds
-            b = m['bounds']
-            layer['m0'] = tf.clip_by_value(layer['m'], b['mean'][0][0], b['mean'][1][0])
-            layer['s0'] = tf.clip_by_value(layer['s']/10, b['sd'][0][0], b['sd'][1][0])
-            #sd[sd < 0.00001] = 0.00001
-            #layer['s0'] = tf.clip_by_value(layer['s'], 0.00001*10, 100)
-            layer['f'] = tf.reshape(tf.range(n_input_feats, dtype=tf.float32),
-                                    [1, n_input_feats, 1]) / n_input_feats
-            layer['Wraw'] = tf.exp(-0.5 * tf.square((layer['f'] - layer['m0']) / layer['s0']))
-            layer['W'] = layer['Wraw'] / tf.reduce_sum(layer['Wraw'], axis=1)
+        if fn_kwargs['i'] == 'resp':
+            layer['L'] = tf.nn.conv1d(layer['D'], layer['W'], stride=1, padding='SAME')
+        else:
             layer['Y'] = tf.nn.conv1d(layer['X'], layer['W'], stride=1, padding='SAME')
 
-        elif m['fn'] == 'nems.modules.state.state_dc_gain':
-            # match this function from nems.modules.state.state_dc_gain
-            #fn = lambda x: np.matmul(g, rec[s]._data) * x + np.matmul(d, rec[s]._data)
-            if 'phi' in m.keys():
-                g = m['phi']['g'].astype('float32').T
-                d = m['phi']['d'].astype('float32').T
-                g = np.reshape(g, (1, g.shape[0], g.shape[1]))
-                d = np.reshape(d, (1, d.shape[0], d.shape[1]))
+    elif fn == 'nems.modules.weight_channels.gaussian':
+        layer['n_kern'] = phi['mean'].shape[0]
 
-                if use_modelspec_init:
-                    layer['g'] = tf.Variable(g)
-                    layer['d'] = tf.Variable(d)
-                else:
-                    layer['g'] = tf.Variable(tf.random_normal(
-                        g.shape, stddev=weight_scale, seed=cnn.seed_to_randint(net_seed + i)))
-                    layer['d'] = tf.Variable(tf.random_normal(
-                        d.shape, stddev=weight_scale, seed=cnn.seed_to_randint(net_seed + 20 + i)))
-            else:
-                # dc/gain values are fixed
-                g = m['fn_kwargs']['g'].astype('float32').T
-                d = m['fn_kwargs']['d'].astype('float32').T
-                g = np.reshape(g, (1, g.shape[0], g.shape[1]))
-                d = np.reshape(d, (1, d.shape[0], d.shape[1]))
+        # HACK : scale sd by 10 to play well with TF fitter
+        mn = phi['mean'].astype('float32')
+        sd = phi['sd'].astype('float32') * 10
 
-                layer['g'] = tf.constant(g)
-                layer['d'] = tf.constant(d)
-
-            layer['n_kern'] = g.shape[2]
-            layer['Sg'] = tf.nn.conv1d(layers[0]['S'], layer['g'], stride=1, padding='SAME')
-            layer['Sd'] = tf.nn.conv1d(layers[0]['S'], layer['d'], stride=1, padding='SAME')
-            #layer['Sg'] = tf.multiply(layers[0]['S'], layer['g'])
-            #layer['Sd'] = tf.multiply(layers[0]['S'], layer['d'])
-            layer['Y'] = layer['X'] * layer['Sg'] + layer['Sd']
-
-            log.info("g shape: %s", layer['g'].shape)  # [filter_width, in_channels, out_channels]
-            log.info("S shape: %s", layers[0]['S'].shape)  # [batch, in_width, in_channels]
-            log.info("X shape: %s", layer['X'].shape)  # [batch, in_width, in_channels]
-            log.info("Sg shape: %s", layer['Sg'].shape)
-            log.info("Y shape: %s", layer['Y'].shape)
+        if use_modelspec_init:
+            layer['m'] = tf.Variable(np.reshape(mn, (1, 1, mn.shape[0])))
+            layer['s'] = tf.Variable(np.reshape(sd, (1, 1, sd.shape[0])))
         else:
-            raise ValueError('Module %s not supported', m['fn'])
+            log.info('Modelspec2tf: Using TF rand for wcg')
+            layer['m'] = tf.Variable(tf.random.uniform(
+                [1, 1, layer['n_kern']], minval=0, maxval=1,
+                seed=cnn.seed_to_randint(net_seed + idx)))
+            layer['s'] = tf.Variable(tf.random.uniform(
+                [1, 1, layer['n_kern']], minval=0.1, maxval=0.5,
+                seed=cnn.seed_to_randint(net_seed + 20 + idx)))
 
-        # may not be necessary?
-        layer['time_win_sec'] = layer['time_win_smp'] / fs
+        # trying to impose NEMS bounds
+        b = modelspec['bounds']
+        layer['m0'] = tf.clip_by_value(layer['m'], b['mean'][0][0], b['mean'][1][0])
+        layer['s0'] = tf.clip_by_value(layer['s'] / 10, b['sd'][0][0], b['sd'][1][0])
+        # sd[sd < 0.00001] = 0.00001
+        # layer['s0'] = tf.clip_by_value(layer['s'], 0.00001*10, 100)
+        layer['f'] = tf.reshape(tf.range(n_input_feats, dtype=tf.float32),
+                                [1, n_input_feats, 1]) / n_input_feats
+        layer['Wraw'] = tf.exp(-0.5 * tf.square((layer['f'] - layer['m0']) / layer['s0']))
+        layer['W'] = layer['Wraw'] / tf.reduce_sum(layer['Wraw'], axis=1)
+        layer['Y'] = tf.nn.conv1d(layer['X'], layer['W'], stride=1, padding='SAME')
 
-        layers.append(layer)
-    return layers
+    # elif fn == 'nems.modules.state.state_dc_gain':
+    #     if phi is not None:
+    #         g = phi['g'].astype('float32').T
+    #         d = phi['d'].astype('float32').T
+    #         g = g.reshape((1, g.shape[0], g.shape[1]))
+    #         d = d.reshape((1, d.shape[0], d.shape[1]))
+    #
+    #         if use_modelspec_init:
+    #             layer['g'] = tf.Variable(g)
+    #             layer['d'] = tf.Variable(d)
+    #         else:
+    #             layer['g'] = tf.Variable(tf.random_normal(g.shape, stddev=weight_scale
+    #                                                       , seed=cnn.seed_to_randint(net_seed + idx)))
+    #             layer['d'] = tf.Variable(tf.random_normal(d.shape, stddev=weight_scale,
+    #                                                       seed=cnn.seed_to_randint(net_seed + 20 + idx)))
+    #
+    #     else:
+    #         # dc/gain values are fixed
+    #         g = fn_kwargs['g'].astype('float32').T
+    #         d = fn_kwargs['d'].astype('float32').T
+    #         g =g.reshape((1, g.shape[0], g.shape[1]))
+    #         d = d.reshape((1, d.shape[0], d.shape[1]))
+    #
+    #         layer['g'] = tf.constant(g)
+    #         layer['d'] = tf.constant(d)
+    #
+    #     layer['n_kern'] = g.shape[2]
+    #     layer['Sg'] = tf.nn.conv1d(layers[0]['S'], layer['g'], stride=1, padding='SAME')
+    #     layer['Sd'] = tf.nn.conv1d(layers[0]['S'], layer['d'], stride=1, padding='SAME')
+    #     layer['Y'] = layer['X'] * layer['Sg'] + layer['Sd']
+
+    else:
+        raise ValueError(f'Module "{fn}" not supported for mapping to cnn layer.')
+
+    return layer
 
 
 def tf2modelspec(net, modelspec):
