@@ -12,7 +12,9 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as st
+import tensorflow as tf
 
+from nems.cnnlink import map_layer
 import nems.uri
 import nems.utils
 from nems.fitters.mappers import simple_vector
@@ -867,6 +869,61 @@ class ModelSpec:
         guess = re.sub('[,]', '', guess)
 
         return guess
+
+    def modelspec2tf(self, tps_per_stim=550, feat_dims=1, data_dims=1, state_dims=0,
+                     fs=100, net_seed=1, weight_scale=0.1, use_modelspec_init=True):
+        """Converts a modelspec object to Tensorflow layers.
+
+        Maps modelspec modules to Tensorflow layers. Adapted from code by Sam Norman-Haignere.
+        https://github.com/snormanhaignere/cnn/blob/master/cnn.py
+
+        :param tps_per_stim:
+        :param int feat_dims:
+        :param int data_dims:
+        :param int state_dims:
+        :param fs:
+        :param net_seed:
+        :param weight_scale:
+        :param bool use_modelspec_init:
+        """
+        # placeholders
+        shape = [None, tps_per_stim, feat_dims]
+        F = tf.placeholder('float32', shape=shape)
+        D = tf.placeholder('float32', shape=shape)
+        if state_dims > 0:
+            S = tf.placeholder('float32', shape=shape)
+
+        layers = []
+        for idx, m in enumerate(self):
+            fn = m['fn']
+            log.info(f'Modelspec2tf: {fn}')
+
+            layer = {}
+            # input to each layer is output of previous layer
+            if idx == 0:
+                layer['X'] = F
+                layer['D'] = D
+                if state_dims > 0:
+                    layer['S'] = S
+
+            else:
+                layer['X'] = layers[-1]['Y']
+                if 'L' in layers[-1]:
+                    layers['L'] = layers[-1]['L']
+
+            n_input_feats = np.int32(layer['X'].shape[2])
+            # default integration time is one bin
+            layer['time_win_smp'] = 1  # default
+
+            layer = map_layer(layer=layer, fn=fn, idx=idx, modelspec=m, n_input_feats=n_input_feats, net_seed=net_seed,
+                              weight_scale=weight_scale, use_modelspec_init=use_modelspec_init)
+
+            # necessary?
+            layer['time_win_sec'] = layer['time_win_smp'] / fs
+
+            layers.append(layer)
+
+        return layers
 
 
 def get_modelspec_metadata(modelspec):
