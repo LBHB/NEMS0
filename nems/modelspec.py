@@ -14,7 +14,7 @@ import numpy as np
 import scipy.stats as st
 import tensorflow as tf
 
-from nems.cnnlink import map_layer
+import nems
 import nems.uri
 import nems.utils
 from nems.fitters.mappers import simple_vector
@@ -886,12 +886,15 @@ class ModelSpec:
         :param weight_scale:
         :param bool use_modelspec_init:
         """
+        # placeholders not compatible with eager execution, which is the default in tf 2.x
+        tf.compat.v1.disable_eager_execution()
+
         # placeholders
         shape = [None, tps_per_stim, feat_dims]
-        F = tf.placeholder('float32', shape=shape)
-        D = tf.placeholder('float32', shape=shape)
+        F = tf.compat.v1.placeholder('float32', shape=shape)
+        D = tf.compat.v1.placeholder('float32', shape=shape)
         if state_dims > 0:
-            S = tf.placeholder('float32', shape=shape)
+            S = tf.compat.v1.placeholder('float32', shape=shape)
 
         layers = []
         for idx, m in enumerate(self):
@@ -915,8 +918,8 @@ class ModelSpec:
             # default integration time is one bin
             layer['time_win_smp'] = 1  # default
 
-            layer = map_layer(layer=layer, fn=fn, idx=idx, modelspec=m, n_input_feats=n_input_feats, net_seed=net_seed,
-                              weight_scale=weight_scale, use_modelspec_init=use_modelspec_init)
+            layer = nems.tf.cnnlink.map_layer(layer=layer, fn=fn, idx=idx, modelspec=m, n_input_feats=n_input_feats, net_seed=net_seed,
+                                              weight_scale=weight_scale, use_modelspec_init=use_modelspec_init)
 
             # necessary?
             layer['time_win_sec'] = layer['time_win_smp'] / fs

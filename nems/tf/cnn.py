@@ -15,12 +15,12 @@ log = logging.getLogger(__name__)
 
 
 def weights_tnorm(shape, sig=0.1, seed=0):
-    W = tf.Variable(tf.truncated_normal(
+    W = tf.Variable(tf.random.truncated_normal(
         shape, stddev=sig, mean=sig, seed=seed))
     return W
 
 def weights_norm(shape, sig=0.1, seed=0):
-    W = tf.Variable(tf.random_normal(shape, stddev=sig, mean=0, seed=seed))
+    W = tf.Variable(tf.random.normal(shape, stddev=sig, mean=0, seed=seed))
     return W
 
 def weights_zeros(shape, sig=0.1, seed=0):
@@ -130,9 +130,9 @@ class Net:
         if 'X' in layers[0].keys():
             self.F = layers[0]['X']
         else:
-            self.F = tf.placeholder(
+            self.F = tf.compat.v1.placeholder(
                 'float32', shape=[None, self.n_tps_input, self.n_feats])
-        self.D = tf.placeholder(
+        self.D = tf.compat.v1.placeholder(
             'float32', shape=[None, self.n_tps_input, self.n_resp])
 
         # other parameters
@@ -154,7 +154,7 @@ class Net:
         self.val_loss = []
         self.test_loss = []
         self.iteration = []
-        self.learning_rate = tf.placeholder('float32')
+        self.learning_rate = tf.compat.v1.placeholder('float32')
         self.best_loss = 1e100
         self.best_loss_index = 0
 
@@ -187,28 +187,28 @@ class Net:
 
         # gradient optimizer
         if self.optimizer == 'Adam':
-            self.train_step = tf.train.AdamOptimizer(
+            self.train_step = tf.compat.v1.train.AdamOptimizer(
                 self.learning_rate).minimize(self.loss)
         elif self.optimizer == 'GradientDescent':
-            self.train_step = tf.train.GradientDescentOptimizer(
+            self.train_step = tf.compat.v1.train.GradientDescentOptimizer(
                 self.learning_rate).minimize(self.loss)
         elif self.optimizer == 'RMSProp':
-            self.train_step = tf.train.RMSPropOptimizer(
+            self.train_step = tf.compat.v1.train.RMSPropOptimizer(
                 self.learning_rate).minimize(self.loss)
         else:
             raise NameError('No matching optimizer')
 
         # initialize global variables
-        session_conf = tf.ConfigProto(
+        session_conf = tf.compat.v1.ConfigProto(
              intra_op_parallelism_threads=1,
              inter_op_parallelism_threads=1)
-        self.sess = tf.Session(config=session_conf)
+        self.sess = tf.compat.v1.Session(config=session_conf)
 
         #log.info('Initialize variables')
-        self.sess.run(tf.global_variables_initializer())
+        self.sess.run(tf.compat.v1.global_variables_initializer())
 
         #log.info('Initialize saver')
-        self.saver = tf.train.Saver(max_to_keep=1)
+        self.saver = tf.compat.v1.train.Saver(max_to_keep=1)
 
     def parse_layers(self, initialize=True):
         """deprecated for use in NEMS. replaced by modelspec2tf"""

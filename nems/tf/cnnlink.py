@@ -43,7 +43,7 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
     :param weight_scale:
     :param use_modelspec_init:
     """
-    phi = modelspec.get(['phi'], None)
+    phi = modelspec.get('phi', None)
     fn_kwargs = modelspec['fn_kwargs']
 
     if fn == 'nems.modules.nonlinearity.relu':
@@ -453,7 +453,7 @@ def _fit_net(F, D, modelspec, seed, fs, train_val_test, optimizer='Adam',
     data_dims = D.shape
     sr_Hz = fs
 
-    tf.reset_default_graph()
+    tf.compat.v1.reset_default_graph()
     if 1:
         if S is not None:
             state_dims = S.shape[2]
@@ -761,7 +761,7 @@ def eval_tf(modelspec, est):
 
     fs = est['resp'].fs
 
-    tf.reset_default_graph()
+    tf.compat.v1.reset_default_graph()
 
     # initialize tf and evaluate
     layers = modelspec.modelspec2tf(tps_per_stim=n_tps_per_stim, feat_dims=n_feats,
