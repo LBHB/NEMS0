@@ -365,7 +365,7 @@ def basic_error(data, modelspec, cost_function=None,
     return error
 
 def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
-                  jackknifed_fit=False, IsReload=False, **context):
+                  metric_fn='nems.metrics.mse.nmse', jackknifed_fit=False, IsReload=False, **context):
 
     """
     For models with multiple fits (eg, based on multiple initial conditions),
@@ -399,16 +399,24 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
         view_range = [i * jack_count + j for i in range(fit_count)]
         this_est = new_est.view_subset(view_range)
         this_modelspec = modelspec.copy(jack_index=j)
-        new_modelspec = standard_correlation(est=this_est, val=new_val, modelspec=this_modelspec)
+        
+        if (metric_fn == 'nems.metrics.mse.nmse') & (criterion == 'mse_fit'):
+            # for backwards compatibility, run the below code to compute metric specified
+            # by criterion.
+            new_modelspec = standard_correlation(est=this_est, val=new_val, modelspec=this_modelspec)
+            # average performance across output channels (if more than one output)
+            x = np.mean(new_modelspec.meta[criterion], axis=0)
 
-        # average performance across output channels (if more than one output)
-        x = np.mean(new_modelspec.meta[criterion], axis=0)
-
+        else:
+            fn = nems.utils.lookup_fn_at(metric_fn)
+            x = []
+            for e in this_est.views():
+                x.append(fn(e, **context))
         best_idx[j] = int(np.argmin(x))
         new_raw[0, 0, j] = modelspec.raw[0, best_idx[j], j]
 
-        log.info('jack %d: best phi (fit_idx=%d) has %s=%.5f',
-                 j, best_idx[j], criterion, x[best_idx[j]])
+        log.info('jack %d: best phi (fit_idx=%d) has fit_metric=%.5f',
+                 j, best_idx[j], x[best_idx[j]])
 
     new_raw[0,0,0][0]['meta'] = modelspec.meta.copy()
     new_modelspec = ms.ModelSpec(new_raw)

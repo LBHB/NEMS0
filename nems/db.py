@@ -204,6 +204,8 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
         Path to executable python (or other command line program)
     script_path : string (defaults to nems' copy of nems/nems_fit_single.py)
         First parameter to pass to executable
+    GPU_job: int
+        Whether or not to run run as a GPU job.
 
     Returns:
     --------
@@ -261,13 +263,13 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
             if force_rerun:
                 if complete == 1:
                     message = "Resetting existing queue entry for: %s\n" % note
-                    sql = "UPDATE tQueue SET complete=0, killnow=0, progname='{}', user='{}' WHERE id={}".format(
-                        commandPrompt, user, queueid)
+                    sql = "UPDATE tQueue SET complete=0, killnow=0, progname='{}', GPU_job='{}', user='{}' WHERE id={}".format(
+                        commandPrompt, GPU_job, user, queueid)
                     r = conn.execute(sql)
 
                 elif complete == 2:
                     message = "Dead queue entry for: %s exists, resetting.\n" % note
-                    sql = "UPDATE tQueue SET complete=0, killnow=0 WHERE id={}".format(queueid)
+                    sql = "UPDATE tQueue SET complete=0, killnow=0, GPU_job='{}' WHERE id={}".format(GPU_job, queueid)
                     r = conn.execute(sql)
 
                 else:  # complete in [-1, 0] -- already running or queued
