@@ -7,12 +7,16 @@ from nems.plots.utils import ax_remove_box
 
 
 def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
-                     cmap=None, clim=None, extent=True, **options):
+                     cmap=None, clim=None, extent=True, range=None, **options):
 
     if not ax:
         ax = plt.gca()
 
-    if extent:
+    if range is not None:
+        ax.imshow(array[:, np.arange(range[0],range[1])],
+                  origin='lower', interpolation='none',
+                  aspect='auto', cmap=cmap, clim=clim)
+    elif extent:
         if fs is None:
             times = np.arange(0, array.shape[1])
         else:
@@ -65,14 +69,15 @@ def spectrogram_from_epoch(signal, epoch, occurrence=0, ax=None, **options):
     plot_spectrogram(array, fs=signal.fs, ax=ax, **options)
 
 
-def spectrogram(rec, stim_name='stim', ax=None, title=None, **options):
+def spectrogram(rec, stim_name='stim', ax=None, title=None, range=None, **options):
     """
     plot a spectrogram of an entire signal (typically stim), **options passed through
     :param rec:
     :param stim_name:
     :param ax:
     :param title:
-    :param options:
+    :param range: if not None, plot range[0]:range[1] of the signal timeseries
+    :param options: extra dict
     :return:
 
     TODO: How can the colorbar be scaled to match other signals?
@@ -83,6 +88,10 @@ def spectrogram(rec, stim_name='stim', ax=None, title=None, **options):
         signal = rec[stim_name]
 
     array = signal.as_continuous()
+
+    if range is not None:
+        array = array[:, np.arange(range[0],range[1])]
+
     ax = plot_spectrogram(array, fs=signal.fs, title=title, ax=ax, **options)
 
     return ax

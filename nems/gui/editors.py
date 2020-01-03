@@ -552,9 +552,9 @@ class ModuleCanvas(qw.QFrame):
         gc = self.parent.parent.global_controls
         ax = self.canvas.figure.add_subplot(111)
         rec = self.parent.modelspec.recording
-        self.parent.modelspec.plot(self.mod_index, rec, ax,
-                                   self.plot_fn_idx, self.fit_index,
-                                   self.sig_name, no_legend=True,
+        self.parent.modelspec.plot(mod_index=self.mod_index, rec=rec, ax=ax,
+                                   plot_fn_idx=self.plot_fn_idx, fit_index=self.fit_index,
+                                   sig_name=self.sig_name, no_legend=True,
                                    channels=self.plot_channel,
                                    cursor_time=gc.cursor_time)
         if self.scrollable:
@@ -983,6 +983,9 @@ class GlobalControls(qw.QFrame):
         self.cursor_time_line.editingFinished.connect(self.update_cursor_time)
         self.cursor_time_line.setText(str(self.cursor_time))
 
+        self.quickplot_btn = qw.QPushButton('Save Quickplot')
+        self.quickplot_btn.clicked.connect(self.export_plot)
+
         self.buttons_layout.addWidget(self.reset_model_btn)
         self.buttons_layout.addWidget(self.fit_index_label)
         self.buttons_layout.addWidget(self.fit_index_line)
@@ -990,6 +993,7 @@ class GlobalControls(qw.QFrame):
         self.buttons_layout.addWidget(self.cell_index_line)
         self.buttons_layout.addWidget(self.cursor_time_label)
         self.buttons_layout.addWidget(self.cursor_time_line)
+        self.buttons_layout.addWidget(self.quickplot_btn)
 
         layout = qw.QVBoxLayout()
         layout.setAlignment(qc.Qt.AlignTop)
@@ -1067,6 +1071,12 @@ class GlobalControls(qw.QFrame):
 
     def reset_model(self):
         self.parent.modelspec_editor.reset_model()
+
+    def export_plot(self):
+        range = (int(self.start_time * self.parent.rec['resp'].fs),
+                 int(self.stop_time * self.parent.rec['resp'].fs))
+        fig = self.parent.modelspec.quickplot(range=range)
+        fig.savefig('/tmp/test.pdf')
 
     def update_fit_index(self):
         i = int(self.fit_index_line.text())

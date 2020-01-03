@@ -86,9 +86,17 @@ def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
     return ax
 
 
-def timeseries_from_signals(signals, channels=0,
-                            no_legend=False, **options):
-    """TODO: doc"""
+def timeseries_from_signals(signals, channels=0, no_legend=False,
+                            range=None, **options):
+    """
+    Plot one or more timeseries extracted from a list of signals
+
+        :param signals: List of signals to plot
+        :param channels: List of channels, one per signal(??)
+        :param no_legend: True/False guess what this means?
+        :param range: if not None, plot range[0]:range[1] of the signal timeseries
+        :return: Matplotlib axes containing the plot
+    """
     if channels is None:
         channels = 0
 
@@ -114,6 +122,10 @@ def timeseries_from_signals(signals, channels=0,
 
     if no_legend:
         legend = None
+
+    if range is not None:
+        times = [t[np.arange(range[0],range[1])] for t in times]
+        values = [v[np.arange(range[0],range[1])] for v in values]
 
     ax = plot_timeseries(times, values, legend=legend, **options)
 
@@ -286,7 +298,7 @@ def before_and_after(rec, modelspec, sig_name, ax=None, title=None, idx=0,
     after.name += ' after'
     timeseries_from_signals([before, after], channels=channels,
                             xlabel=xlabel, ylabel=ylabel, ax=ax,
-                            title=title)
+                            title=title, **options)
 
 def mod_output(rec, modelspec, sig_name='pred', ax=None, title=None, idx=0,
                channels=0, xlabel='Time', ylabel='Value', **options):
@@ -322,7 +334,7 @@ def mod_output(rec, modelspec, sig_name='pred', ax=None, title=None, idx=0,
     sigs = [trec[s] for s in sig_name]
     ax = timeseries_from_signals(sigs, channels=channels,
                                  xlabel=xlabel, ylabel=ylabel, ax=ax,
-                                 title=title)
+                                 title=title, **options)
     return ax
 
 def mod_output_all(rec, modelspec, sig_name='pred', idx=0, **options):
@@ -354,7 +366,7 @@ def mod_output_all(rec, modelspec, sig_name='pred', idx=0, **options):
         trec = trec.apply_mask()
 
     options['channels']=np.arange(trec[sig_name].shape[0])
-    ax = timeseries_from_signals([trec[sig_name]],**options)
+    ax = timeseries_from_signals([trec[sig_name]], **options)
 
     return ax
 
@@ -424,5 +436,5 @@ def pred_resp(rec, modelspec, ax=None, title=None,
     sigs = [rec[s] for s in sig_list]
     ax = timeseries_from_signals(sigs, channels=channels,
                                  xlabel=xlabel, ylabel=ylabel, ax=ax,
-                                 title=title, no_legend=no_legend)
+                                 title=title, no_legend=no_legend, **options)
     return ax
