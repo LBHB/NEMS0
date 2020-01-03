@@ -957,8 +957,8 @@ def fit_wrapper(modelspec, est=None, fit_function='nems.analysis.api.fit_basic',
         raise ValueError("Inputs modelspec and est required")
 
     if modelspec.jack_count < est.view_count:
-        raise Warning('modelspec.jack_count does not match est.view_count')
-        modelspec.tile_jacks(nfolds)
+        log.info('modelspec.jack_count does not match est.view_count. TILING.')
+        modelspec.tile_jacks(est.view_count)
 
     # load function into path
     fn = lookup_fn_at(fit_function)

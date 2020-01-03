@@ -322,7 +322,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
                 del m['phi']
                 del m['prior']
                 exclude_idx.append(i)
-                # log.info(m)
+
         if ('relu' in m['fn']):
             log.info('found relu')
 
@@ -334,7 +334,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
             except NotImplementedError:
                 # as_continuous only available for RasterizedSignal
                 mean_resp = np.nanmean(rec[output_name].rasterize().as_continuous(), axis=1, keepdims=True)
-            log.info('Mod %d (%s) fixing level to %s mean %.3f',
+            log.info('Mod %d (%s) initializing level to %s mean %.3f',
                      i, m['fn'], output_name, mean_resp[0])
             log.info('resp has %d channels', len(mean_resp))
             m['phi']['level'][:] = mean_resp
