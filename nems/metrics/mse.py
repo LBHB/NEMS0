@@ -59,7 +59,11 @@ def nmse(result, pred_name='pred', resp_name='resp'):
     respstd = np.nanstd(X2)
     squared_errors = (X1-X2)**2
     mse = np.sqrt(np.nanmean(squared_errors))
-    return mse / respstd
+
+    if respstd == 0:
+        return 1
+    else:
+        return mse / respstd
 
 
 def j_nmse(result, pred_name='pred', resp_name='resp', njacks=20):
@@ -129,7 +133,10 @@ def j_nmse(result, pred_name='pred', resp_name='resp', njacks=20):
                 respstd = np.nanstd(X2)
                 squared_errors = (X1-X2)**2
                 E = np.sqrt(np.nanmean(squared_errors))
-                jc[jj] = E / respstd
+                if respstd == 0:
+                    jc[jj] = 1
+                else:
+                    jc[jj] = E / respstd
 
             mse[i] = np.nanmean(jc)
             se_mse[i] = np.nanstd(jc) * np.sqrt(njacks-1)
