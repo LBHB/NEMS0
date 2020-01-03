@@ -8,7 +8,7 @@ The different parts of the editor are layed out as follows:
 : : :-------------------ModelspecEditor-----------------: :---XfspecEditor---:::
 : : : EpochsCollapser |                  | EpochCanvas  : :                  :::
 : : :                                                   : :                  :::
-: : : ModuleCollapser |-ModuleController-| ModuleCanvas : :   XfstepEditor   :::
+: : : ModuleCollapser | -ModuleControls- | ModuleCanvas : :   XfstepEditor   :::
 : : :      [+/-]        :  PhiEditor   :      [Plot]    : :                  :::
 : : :                   :..............:                : :                  :::
 : : :          (1 of each per module in modelspec)      : :  (1 per step in  :::
@@ -76,7 +76,7 @@ import PyQt5.QtGui as qg
 
 from nems import xforms
 from nems.gui.models import ArrayModel
-from nems.gui.canvas import NemsCanvas, EpochCanvas
+from nems.gui.canvas import NemsCanvas, EpochCanvas, MplWindow
 from nems.modelspec import _lookup_fn_at
 import nems.db as nd
 from nems.registry import KeywordRegistry
@@ -553,6 +553,7 @@ class ModuleCanvas(qw.QFrame):
         gc = self.parent.parent.global_controls
         ax = self.canvas.figure.add_subplot(111)
         rec = self.parent.modelspec.recording
+        self.parent.modelspec[self.mod_index]['plot_fn_idx']=self.plot_fn_idx
         self.parent.modelspec.plot(mod_index=self.mod_index, rec=rec, ax=ax,
                                    plot_fn_idx=self.plot_fn_idx, fit_index=self.fit_index,
                                    sig_name=self.sig_name, no_legend=True,
@@ -1092,7 +1093,11 @@ class GlobalControls(qw.QFrame):
     def export_plot(self):
         range = (int(self.start_time * self.parent.rec['resp'].fs),
                  int(self.stop_time * self.parent.rec['resp'].fs))
+
         fig = self.parent.modelspec.quickplot(range=range)
+        w = MplWindow(fig=fig)
+        w.show()
+
         path = join(self.export_path,self.parent.modelspec.meta['cellid']+
                     "_"+self.parent.modelspec.modelspecname+'.pdf')
 

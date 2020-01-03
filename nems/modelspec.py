@@ -484,7 +484,6 @@ class ModelSpec:
 
         if plot_fn_idx is None:
             plot_fn_idx = module.get('plot_fn_idx', 0)
-
         try:
             fn_path = fn_list[plot_fn_idx]
         except IndexError:
@@ -521,7 +520,7 @@ class ModelSpec:
 
     def quickplot(self, rec=None, epoch=None, occurrence=None, fit_index=None,
                   include_input=True, include_output=True, size_mult=(1.0, 3.0),
-                  figsize=None, range=None):
+                  figsize=None, fig=None, range=None):
         """Generate a summary plot of a subset of the data.
 
         :param rec: The recording from which to pull the data.
@@ -709,8 +708,10 @@ class ModelSpec:
         # make the figure and the grids for the plots
         if figsize is None:
             figsize = (10 * size_mult[0], n_rows * size_mult[1])
-
-        fig = plt.figure(figsize=figsize, constrained_layout=True)
+        if fig is None:
+            fig = plt.figure(figsize=figsize, constrained_layout=True)
+        else:
+            fig.set_size_inches(figsize[0], figsize[1], forward=True)
 
         # each module gets a row in the gridspec, giving plots control over subplots, etc.
         gs_rows = gridspec.GridSpec(n_rows, 1, figure=fig)
