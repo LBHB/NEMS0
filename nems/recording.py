@@ -116,8 +116,10 @@ class Recording:
         """
         rec = self.copy()
         rec.signal_views = [rec.signal_views[v] for v in view_range]
+        rec.signals = rec.signal_views[0]
+        rec.view_idx = 0
 
-        return rec.set_view(0)
+        return rec
 
     def views(self, view_range=None):
         rec = self.copy()
