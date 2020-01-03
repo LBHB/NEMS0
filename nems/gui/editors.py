@@ -66,6 +66,7 @@ import sys
 import copy
 import json
 import logging
+from os.path import expanduser, join, dirname
 
 import numpy as np
 import matplotlib
@@ -937,6 +938,15 @@ class GlobalControls(qw.QFrame):
         self.time_slider = qw.QScrollBar(orientation=1)
         policy = qw.QSizePolicy()
         policy.setHorizontalPolicy(qw.QSizePolicy.Expanding)
+
+        # Set start for plot views
+        self.display_start = qw.QLineEdit()
+        #self.display_start.setValidator(
+        #        qg.QDoubleValidator(0, 10000.0, 4)
+        #        )
+        self.display_start.editingFinished.connect(self.set_display_range)
+        self.display_start.setText(str(self.start_time))
+
         self.time_slider.setSizePolicy(policy)
         self._update_max_time()
         self.time_slider.setRange(0, self.max_time)
@@ -959,7 +969,7 @@ class GlobalControls(qw.QFrame):
         minus.clicked.connect(self.decrement_display_range)
         self.range_layout = qw.QHBoxLayout()
         self.range_layout.setAlignment(qc.Qt.AlignTop)
-        [self.range_layout.addWidget(w) for w in [self.display_range, plus, minus]]
+        [self.range_layout.addWidget(w) for w in [qw.QLabel('Start(s)'), self.display_start, qw.QLabel('Dur(s)'), self.display_range, plus, minus]]
 
         self.buttons_layout = qw.QHBoxLayout()
         self.buttons_layout.setAlignment(qc.Qt.AlignTop)
@@ -1007,11 +1017,14 @@ class GlobalControls(qw.QFrame):
         self.time_slider.setSingleStep(int(np.ceil(self.display_duration/10)))
         self.time_slider.setPageStep(int(self.display_duration))
 
+        self.export_path = expanduser("~")
+
     def scroll_all(self):
         '''Update xlims for all plots based on slider value.'''
         #self.start_time = self.time_slider.value()/self.slider_scaling
         self.start_time = self.time_slider.value()
         self.stop_time = self.start_time + self.display_duration
+        self.display_start.setText(str(self.start_time))
 
         # don't go past the latest time of the biggest plot
         # (should all have the same max most of the time)
@@ -1034,22 +1047,26 @@ class GlobalControls(qw.QFrame):
         #self.time_slider.setRange(0, self.max_time-self.display_duration)
         #self.slider_scaling = self.max_time/(self.max_signal_time - self.display_duration)
 
-    def tap_right(self):
-        self.time_slider.set_value(
-                self.time_slider.value + self.time_slider.singleStep
-                )
-
-    def tap_left(self):
-        self.time_slider.set_value(
-                self.time_slider.value - self.time_slider.singleStep
-                )
+    # def tap_right(self):
+    #     self.time_slider.setValue(
+    #             self.time_slider.value() + self.time_slider.singleStep
+    #             )
+    #
+    # def tap_left(self):
+    #     self.time_slider.setValue(
+    #             self.time_slider.value() - self.time_slider.singleStep
+    #             )
 
     def set_display_range(self):
-        duration = float(self.display_range.text())
-        if not duration:
-            print("Duration not set to a valid value. Please enter a"
-                  "a number > 0")
-            return
+        try:
+            start = float(self.display_start.text())
+        except:
+            start = 0
+        try:
+            duration = float(self.display_range.text())
+        except:
+            duration = 10
+        self.time_slider.setValue(start)
         self.display_duration = duration
         self._update_range()
 
@@ -1076,7 +1093,14 @@ class GlobalControls(qw.QFrame):
         range = (int(self.start_time * self.parent.rec['resp'].fs),
                  int(self.stop_time * self.parent.rec['resp'].fs))
         fig = self.parent.modelspec.quickplot(range=range)
-        fig.savefig('/tmp/test.pdf')
+        path = join(self.export_path,self.parent.modelspec.meta['cellid']+
+                    "_"+self.parent.modelspec.modelspecname+'.pdf')
+
+        fname, mask = qw.QFileDialog.getSaveFileName(self, 'Save file', path, '*.pdf')
+        log.info('saving quickplot to %s', fname)
+        fig.savefig(fname)
+        # keep path in memory for next save
+        self.export_path = dirname(fname)
 
     def update_fit_index(self):
         i = int(self.fit_index_line.text())
