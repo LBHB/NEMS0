@@ -484,7 +484,6 @@ class ModelSpec:
 
         if plot_fn_idx is None:
             plot_fn_idx = module.get('plot_fn_idx', 0)
-
         try:
             fn_path = fn_list[plot_fn_idx]
         except IndexError:
@@ -495,7 +494,7 @@ class ModelSpec:
         log.info(f'Found plot fn "{fn_path}" for module "{module["fn"]}"')
         return _lookup_fn_at(fn_path)
 
-    def plot(self, mod_index, plot_fn_idx=None, fit_index=None, rec=None,
+    def plot(self, mod_index=0, plot_fn_idx=None, fit_index=None, rec=None,
              sig_name='pred', channels=None, ax=None, **kwargs):
         """Generate the plot for a single module.
 
@@ -521,7 +520,7 @@ class ModelSpec:
 
     def quickplot(self, rec=None, epoch=None, occurrence=None, fit_index=None,
                   include_input=True, include_output=True, size_mult=(1.0, 3.0),
-                  figsize=None):
+                  figsize=None, fig=None, range=None):
         """Generate a summary plot of a subset of the data.
 
         :param rec: The recording from which to pull the data.
@@ -532,6 +531,7 @@ class ModelSpec:
         :param bool include_output: Whether to include default plot of the outputs.
         :param tuple size_mult: Scale factors for width and height of figure.
         :param tuple figsize: Size of figure (tuple of inches).
+        :param tuple range: If not None, plot only slice np.array(range) from timeseries
         :return: Matplotlib figure.
         """
         if rec is None:
@@ -636,7 +636,8 @@ class ModelSpec:
                      rec=rec,
                      modelspec=self,
                      idx=mod_idx,
-                     channels=rec_stim.chans
+                     channels=rec_stim.chans,
+                     range=range,
                      ), 1)
             for mod_idx, plot_fn in plot_fn_modules
         ]
@@ -707,8 +708,10 @@ class ModelSpec:
         # make the figure and the grids for the plots
         if figsize is None:
             figsize = (10 * size_mult[0], n_rows * size_mult[1])
-
-        fig = plt.figure(figsize=figsize, constrained_layout=True)
+        if fig is None:
+            fig = plt.figure(figsize=figsize, constrained_layout=True)
+        else:
+            fig.set_size_inches(figsize[0], figsize[1], forward=True)
 
         # each module gets a row in the gridspec, giving plots control over subplots, etc.
         gs_rows = gridspec.GridSpec(n_rows, 1, figure=fig)
