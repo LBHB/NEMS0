@@ -203,9 +203,9 @@ class EditorWidget(qw.QWidget):
         self.modelspec.recording=self.rec
         if ctx is not None:
             meta = ctx['modelspec'].meta
-            modelname = meta['modelname']
-            batch = meta['batch']
-            cellid = meta['cellid']
+            modelname = meta.get('modelname', 'n/a')
+            batch = meta.get('batch', 'n/a')
+            cellid = meta.get('cellid', 'n/a')
             self.title = "%s  ||  %s  ||  %s  " % (modelname, cellid, batch)
         if ctx is None:
             self.ctx = {}
@@ -756,7 +756,7 @@ class ModuleControls(qw.QFrame):
         button_layout.addWidget(self.reset_phi_btn)
         self.layout.addLayout(button_layout)
 
-        self.phi_editor = PhiEditor(self.module_data['phi'], self)
+        self.phi_editor = PhiEditor(self.module_data.get('phi', {}), self)
         self.phi_editor.hide()
         self.save_phi_btn = qw.QPushButton('Save Phi')
         self.save_phi_btn.hide()
