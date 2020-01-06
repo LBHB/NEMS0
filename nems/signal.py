@@ -1613,10 +1613,12 @@ class RasterizedSignal(SignalBase):
         '''
         # TODO: Update this to work with a mapping of key -> Nx2 epoch
         # structure as well.
-        new_data = np.full(self.shape, np.nan, dtype = self._data.dtype)
-        for epoch_name in list_of_epoch_names:
-            for (lb, ub) in self.get_epoch_indices(epoch_name):
-                new_data[:, lb:ub] = self._data[:, lb:ub]
+        new_data = np.full(self.shape, np.nan, dtype=self._data.dtype)
+
+        mask = self.epochs['name'].isin(list_of_epoch_names)
+        for (lb, ub) in self.get_epoch_indices(mask):
+            new_data[:, lb:ub] = self._data[:, lb:ub]
+
         if np.all(np.isnan(new_data)):
             warnings.warn("No matched occurrences for epochs: \n{}\n"
                                  "Returned signal will be only NaN."
