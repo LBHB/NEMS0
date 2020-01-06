@@ -43,6 +43,24 @@ Create a NEMS environment, then activate it and install NEMS:
     pip install -e ./NEMS
 
 
+Extra dependencies
+------------------
+
+NWB support. After installing nems, install the allensdk packages:
+
+::
+
+    cd NEMS
+    pip install -e .[nwb]
+
+Tensorflow, after installing NEMS, install Tensorflow
+::
+
+    cd NEMS
+    pip install -e .[tensorflow]
+
+(Or, even better, install Tensorflow via conda before installing NEMS.)
+
 Notes
 -----
 
