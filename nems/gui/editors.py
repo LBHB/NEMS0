@@ -697,6 +697,40 @@ class EpochsCollapser(qw.QWidget):
         self.collapsed = not self.collapsed
 
 
+class SignalCollapser(qw.QWidget):
+
+    def __init__(self, signal_display, signal_controller, parent=None):
+        '''Button for controlling visibility of a signal .'''
+        super(qw.QWidget, self).__init__()
+        self.rec = rec
+        self.signal_display = signal_display
+        self.controller = signal_controller
+        self.parent = parent
+        self.collapsed = False
+
+        layout = qw.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.toggle = qw.QPushButton('-', self)
+        self.toggle.setFixedSize(12, 12)
+        self.toggle.clicked.connect(self.toggle_collapsed)
+        layout.addWidget(self.toggle)
+        layout.setAlignment(qc.Qt.AlignTop)
+        self.setLayout(layout)
+
+    def toggle_collapsed(self):
+        '''Toggle visibility of ModuleCanvas and ModuleController.'''
+        if self.collapsed:
+            self.signal_display.show()
+            if not self.parent.parent.modules_collapsed:
+                self.controller.show()
+            self.toggle.setText('-')
+        else:
+            self.module.hide()
+            self.controller.hide()
+            self.toggle.setText('+')
+        self.collapsed = not self.collapsed
+
+
 class ModuleControls(qw.QFrame):
 
     def __init__(self, module, parent=None):
@@ -869,6 +903,105 @@ class PhiEditor(qw.QWidget):
     def export_phi(self):
         '''Return all phi entries and their current values as a dict.'''
         return {k: v.export_array() for k, v in self.arrays.items()}
+
+
+class SignalControls(qw.QFrame):
+
+    def __init__(self, signal_display, rec, signame, parent=None):
+        '''QWidget for choosing module plot type and editing parameters.'''
+        super(qw.QFrame, self).__init__()
+        self.signal_display = signal_display
+        self.parent = parent
+        self.rec = rec
+        self.signal_list = list(rec.signals.keys())
+        self.signame = signame
+        self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Raised)
+
+        self.layout = qw.QVBoxLayout()
+
+        name = self.signame
+        self.label = qw.QLabel(name)
+        self.label.setFixedSize(330, 20)
+        self.label.setStyleSheet("background-color: rgb(255, 255, 255);")
+        self.layout.addWidget(self.label)
+
+        plot_layout = qw.QHBoxLayout()
+
+        self.signal_menu = qw.QComboBox()
+        self.signal_menu.addItems(self.signal_list)
+        initial_index = self.signal_list.index(signame)
+        if initial_index is None:
+            initial_index = 0
+        self.signal_menu.setCurrentIndex(initial_index)
+        self.signal_menu.setFixedSize(250, 24)
+        self.signal_menu.currentIndexChanged.connect(self.change_signal)
+
+        """
+        self.plot_functions_menu = qw.QComboBox()
+        self.plot_functions_menu.addItems(self.module.plot_list)
+        initial_index = self.module.plot_fn_idx
+        if initial_index is None:
+            initial_index = 0
+        self.plot_functions_menu.setCurrentIndex(initial_index)
+        self.plot_functions_menu.setFixedSize(250, 24)
+        self.plot_functions_menu.currentIndexChanged.connect(self.change_plot)
+        """
+        plot_channel_layout = qw.QHBoxLayout()
+        self.decrease_channel_btn = qw.QPushButton('-')
+        self.decrease_channel_btn.clicked.connect(self.decrease_channel)
+        self.decrease_channel_btn.setFixedSize(15, 15)
+        self.channel_entry = qw.QLineEdit(str(self.module.plot_channel))
+        self.channel_entry.textChanged.connect(self.change_channel)
+        self.channel_entry.setFixedSize(30, 15)
+        self.increase_channel_btn = qw.QPushButton('+')
+        self.increase_channel_btn.clicked.connect(self.increase_channel)
+        self.increase_channel_btn.setFixedSize(15, 15)
+        plot_channel_layout.addWidget(self.decrease_channel_btn)
+        plot_channel_layout.addWidget(self.channel_entry)
+        plot_channel_layout.addWidget(self.increase_channel_btn)
+
+        plot_layout.addWidget(self.signal_menu)
+        #plot_layout.addWidget(self.plot_functions_menu)
+        plot_layout.addLayout(plot_channel_layout)
+        self.layout.addLayout(plot_layout)
+
+        self.layout.setAlignment(qc.Qt.AlignTop)
+        self.setLayout(self.layout)
+
+    def change_signal(self, index):
+        '''Change change plot to new signal.'''
+        self.signame = self.sig_list[index]
+        self.signal_display.new_plot()
+
+        self.label.setText(self.signame)
+
+    def change_plot(self, index):
+        '''Change plot type according to plot_fn_idx and regenerate plot.'''
+        self.module.plot_fn_idx = int(index)
+        self.module.new_plot()
+
+    def change_channel(self):
+        old_channel = self.module.plot_channel
+        new_channel = self.channel_entry.text()
+        try:
+            self.signal_display.change_channel(int(new_channel))
+        except:
+            # Leaving this bare b/c not clear what exception type it will be.
+            # But reason is if plot channel is not valid for whichever
+            # plot function the module is using.
+            log.warning("Invalid plot channel: %s for module: %s"
+                        % (new_channel, self.mod_index))
+            self.channel_entry.setText(str(old_channel))
+
+    def decrease_channel(self):
+        old_channel = self.module.plot_channel
+        self.channel_entry.setText(str(max(0, old_channel-1)))
+
+    def increase_channel(self):
+        # TODO: Would be nice to know a valid channel range but
+        #       I'm not sure how to extract that information from the modules.
+        old_channel = self.module.plot_channel
+        self.channel_entry.setText(str((old_channel+1)))
 
 
 class XfspecEditor(qw.QWidget):

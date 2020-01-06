@@ -129,9 +129,11 @@ class EpochCanvas(NemsCanvas):
             e = r['end']
             n = r['name']
 
-            prefix = n.split('_')[0]
-            if prefix in ['PreStimSilence', 'PostStimSilence',
-                          'REFERENCE','TARGET']:
+            prefix = n.split('_')[0].split(',')[0].strip(' ').lower()
+            if len(n) < 5:
+                prefix = 'X'
+            if prefix in ['prestimsilence', 'poststimsilence',
+                          'reference', 'target', 'stim']:
                 # skip
                 pass
             elif prefix in self.epoch_groups:
@@ -141,9 +143,8 @@ class EpochCanvas(NemsCanvas):
 
         colors = ['Red', 'Orange', 'Green', 'LightBlue',
                   'DarkBlue', 'Purple', 'Pink', 'Black', 'Gray']
-        i = 0
         for i, g in enumerate(self.epoch_groups):
-            for j in self.epoch_groups[g]:
+            for j in self.epoch_groups[g][:2]:
                 n = valid_epochs['name'][j]
                 s = valid_epochs['start'][j]
                 e = valid_epochs['end'][j]
