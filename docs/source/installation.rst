@@ -38,7 +38,7 @@ Create a NEMS environment, then activate it and install NEMS:
 
 ::
 
-    conda create -n NEMS -f ./NEMS/environment.yml
+    conda env create -n NEMS -f ./NEMS/environment.yml
     conda activate NEMS
     pip install -e ./NEMS
 
