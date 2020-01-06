@@ -53,13 +53,13 @@ NWB support. After installing nems, install the allensdk packages:
     cd NEMS
     pip install -e .[nwb]
 
-Tensor support. After installing nems, install the allensdk packages:
-
+Tensorflow, after installing NEMS, install Tensorflow
 ::
 
     cd NEMS
-    pip install -e .[nwb]
+    pip install -e .[tensorflow]
 
+(Or, even better, install Tensorflow via conda before installing NEMS.)
 
 Notes
 -----
