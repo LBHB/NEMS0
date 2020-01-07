@@ -86,8 +86,8 @@ def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
     return ax
 
 
-def timeseries_from_signals(signals, channels=0, no_legend=False,
-                            range=None, **options):
+def timeseries_from_signals(signals=None, channels=0, no_legend=False,
+                            range=None, rec=None, sig_name=None, **options):
     """
     Plot one or more timeseries extracted from a list of signals
 
@@ -99,6 +99,8 @@ def timeseries_from_signals(signals, channels=0, no_legend=False,
     """
     if channels is None:
         channels = 0
+    if signals is None:
+        signals = [rec[sig_name]]
 
     channels = pad_to_signals(signals, channels)
 

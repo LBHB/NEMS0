@@ -23,6 +23,9 @@ def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
             times = np.arange(0, array.shape[1])/fs-time_offset
 
         extent = [times[0], times[-1], 1, array.shape[0]]
+        if extent[2]==extent[3]:
+            extent[3]=2
+
         ax.imshow(array, origin='lower', interpolation='none',
                   aspect='auto', extent=extent, cmap=cmap, clim=clim)
     else:
@@ -69,11 +72,11 @@ def spectrogram_from_epoch(signal, epoch, occurrence=0, ax=None, **options):
     plot_spectrogram(array, fs=signal.fs, ax=ax, **options)
 
 
-def spectrogram(rec, stim_name='stim', ax=None, title=None, range=None, **options):
+def spectrogram(rec, sig_name='stim', ax=None, title=None, range=None, **options):
     """
     plot a spectrogram of an entire signal (typically stim), **options passed through
     :param rec:
-    :param stim_name:
+    :param sig_name:
     :param ax:
     :param title:
     :param range: if not None, plot range[0]:range[1] of the signal timeseries
@@ -83,9 +86,9 @@ def spectrogram(rec, stim_name='stim', ax=None, title=None, range=None, **option
     TODO: How can the colorbar be scaled to match other signals?
     """
     if 'mask' in rec.signals.keys():
-        signal = rec.apply_mask()[stim_name]
+        signal = rec.apply_mask()[sig_name]
     else:
-        signal = rec[stim_name]
+        signal = rec[sig_name]
 
     array = signal.as_continuous()
 
@@ -97,26 +100,26 @@ def spectrogram(rec, stim_name='stim', ax=None, title=None, range=None, **option
     return ax
 
 
-def pred_spectrogram(stim_name='pred', **options):
+def pred_spectrogram(sig_name='pred', **options):
     """
     wrapper for spectrogram, forces stim_name to be pred. other **options passed through
-    :param stim_name:
+    :param sig_name:
     :param options: passed through to spectrogram
     :return:
     """
-    ax = spectrogram(stim_name=stim_name, **options)
+    ax = spectrogram(sig_name=sig_name, **options)
 
     return ax
 
 
-def resp_spectrogram(stim_name='resp', **options):
+def resp_spectrogram(sig_name='resp', **options):
     """
     wrapper for spectrogram, forces stim_name to be resp. other **options passed through
-    :param stim_name:
+    :param sig_name:
     :param options: passed through to spectrogram
     :return:
     """
-    ax = spectrogram(stim_name=stim_name, **options)
+    ax = spectrogram(sig_name=sig_name, **options)
 
     return ax
 
