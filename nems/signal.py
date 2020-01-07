@@ -384,7 +384,7 @@ class SignalBase:
             overlap_bounds = self.get_epoch_bounds(overlapping_epoch)
             bounds = epoch_intersection(bounds, overlap_bounds)
 
-        bounds = np.sort(bounds, axis=0)
+        # bounds = np.sort(bounds, axis=0)
 
         if mask is not None:
             raise ValueError("mask not supported for get_epoch_bounds yet")
@@ -1545,46 +1545,28 @@ class RasterizedSignal(SignalBase):
         if preserve_nan:
             nan_bins = np.isnan(data[0, :])
 
-        # intialize with nans so that any subsequent prediction will be
-        # restricted to the specified epochs
-        # TODO - remove this - not necessary anymore?
-#        if data.dtype == bool:
-#            data[:] = False
-#        else:
-#            data[:] = np.nan
+        epochs = sorted(list(epoch_dict.keys()))
+        # get the length of the epochs so that we can iterate through the aggregated epoch indices
+        epoch_data_lens = self.epochs['name'].value_counts()[epochs].values
 
-        for epoch, epoch_data in epoch_dict.items():
-            indices = self.get_epoch_indices(epoch, mask=mask)
-            if epoch_data.ndim == 2:
-                # ndim==2: single PSTH to be inserted in every matching epoch
-                for lb, ub in indices:
-                    # SVD kludge to deal with rounding from floating-point time
-                    # to integer bin index --- DEPRECATED????
-#                    if ub-lb < epoch_data.shape[1]:
-#                        # epoch data may be too long bc padded with nans,
-#                        # truncate!
-#                        epoch_data = epoch_data[:, 0:(ub-lb)]
-#                        # ub += epoch_data.shape[1]-(ub-lb)
-#                    elif ub-lb > epoch_data.shape[1]:
-#                        ub -= (ub-lb)-epoch_data.shape[1]
-                    if ub-lb > epoch_data.shape[1]:
-                        ub = lb + epoch_data.shape[1]
-                    if ub > data.shape[1]:
-                        ub = data.shape[1]
-                    #print(ub-lb)
-                    #print(epoch_data.shape)
-                    data[:, lb:ub] = epoch_data[:, :(ub-lb)]
+        # need to reorder epochs dataframe to ensure that the indices are returned in the
+        # same order as the epochs we pulled from the dict; return to original order when done
+        old_index = self.epochs.index.values
+        self.epochs = self.epochs.sort_values('name')
 
-            else:
-                # ndim==3: different segment to insert for each epoch
-                # (assume epoch_data.shape[1] == len(indices))
-                ii = 0
-                for lb, ub in indices:
-                    if ub > data.shape[1]:
-                        ub = data.shape[1]
-                    n = ub-lb
-                    data[:, lb:ub] = epoch_data[ii, :, :n]
-                    ii += 1
+        epoch_mask = self.epochs['name'].isin(epochs)
+        indices = self.get_epoch_indices(epoch_mask, mask=mask)
+
+        # return epochs df to old order
+        self.epochs = self.epochs.loc[old_index]
+
+        start = 0
+        for epoch, epoch_data_len in zip(epochs, epoch_data_lens):
+            epoch_data = epoch_dict[epoch]
+
+            for lb, ub in indices[start: start + epoch_data_len]:
+                data[:, lb:ub] = epoch_data[:, :(ub-lb)]
+            start += epoch_data_len
 
         if preserve_nan:
             data[:, nan_bins] = np.nan
