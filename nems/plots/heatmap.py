@@ -9,6 +9,7 @@ from nems.utils import find_module
 from nems.modules.fir import (pz_coefficients, fir_dexp_coefficients,
                               fir_exp_coefficients, _offset_coefficients)
 from nems.plots.utils import ax_remove_box
+from nems import get_setting
 
 log = logging.getLogger(__name__)
 
@@ -23,6 +24,9 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
         plt.sca(ax)
     else:
         ax = plt.gca()
+
+    if cmap is None:
+        cmap = get_setting('WEIGHTS_CMAP')
 
     # Make sure array is converted to ndarray if passed as list
     array = np.array(array)
@@ -160,10 +164,10 @@ def weight_channels_heatmap(modelspec, idx=None, ax=None, clim=None, title=None,
     # make bigger dimension horizontal
     if coefficients.shape[0]>coefficients.shape[1]:
         ax = plot_heatmap(coefficients.T, xlabel='Channel Out', ylabel='Channel In',
-                     ax=ax, clim=clim, title=title, cmap='bwr')
+                     ax=ax, clim=clim, title=title, cmap=get_setting('WEIGHTS_CMAP'))
     else:
         ax = plot_heatmap(coefficients, xlabel='Channel In', ylabel='Channel Out',
-                     ax=ax, clim=clim, title=title, cmap='bwr')
+                     ax=ax, clim=clim, title=title, cmap=get_setting('WEIGHTS_CMAP'))
     if chans is not None:
         for i, c in enumerate(chans):
             plt.text(i, 0, c)
@@ -174,7 +178,7 @@ def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None,
                 fir_idx=0, **options):
     coefficients = _get_fir_coefficients(modelspec, idx=fir_idx)
     plot_heatmap(coefficients, xlabel='Time Bin', ylabel='Channel In',
-                 ax=ax, clim=clim, title=title)
+                 ax=ax, clim=clim, cmap=get_setting('FILTER_CMAP'), title=title)
     if chans is not None:
         for i, c in enumerate(chans):
             plt.text(-0.4, i, c, verticalalignment='center')
@@ -183,7 +187,7 @@ def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None,
 def nonparametric_strf(modelspec, idx, ax=None, clim=None, title=None, **kwargs):
     coefficients = modelspec[idx]['phi']['coefficients']
     plot_heatmap(coefficients, xlabel='Time Bin', ylabel='Channel In',
-                 ax=ax, clim=clim, title=title)
+                 ax=ax, clim=clim, cmap=get_setting('FILTER_CMAP'), title=title)
 
 
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
@@ -296,7 +300,7 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
 
     plot_heatmap(everything, xlabel='Lag (s)',
                  ylabel='Channel In', ax=ax, skip=skip, title=title, fs=fs,
-                 interpolation=interpolation, cmap='RdYlBu_r')
+                 interpolation=interpolation, cmap=get_setting('FILTER_CMAP'))
 
     ax_remove_box(left=True, bottom=True, ticks=True)
 
@@ -334,7 +338,7 @@ def strf_local_lin(rec, modelspec, cursor_time=20, channels=0,
             strf[c, t] = (_p2 - _p1) / eps
     print('strf min: {} max: {}'.format(np.min(strf), np.max(strf)))
     options['clim'] = np.array([-np.max(np.abs(strf)), np.max(np.abs(strf))])
-    plot_heatmap(strf, **options)
+    plot_heatmap(strf, cmap=get_setting('FILTER_CMAP'), **options)
 
 
 def strf_timeseries(modelspec, ax=None, show_factorized=True,

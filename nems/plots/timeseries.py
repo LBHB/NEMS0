@@ -87,14 +87,14 @@ def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
 
 
 def timeseries_from_signals(signals=None, channels=0, no_legend=False,
-                            range=None, rec=None, sig_name=None, **options):
+                            time_range=None, rec=None, sig_name=None, **options):
     """
     Plot one or more timeseries extracted from a list of signals
 
         :param signals: List of signals to plot
         :param channels: List of channels, one per signal(??)
         :param no_legend: True/False guess what this means?
-        :param range: if not None, plot range[0]:range[1] of the signal timeseries
+        :param time_range: if not None, plot time_range[0]:time_range[1] (seconds) of the signal
         :return: Matplotlib axes containing the plot
     """
     if channels is None:
@@ -125,9 +125,10 @@ def timeseries_from_signals(signals=None, channels=0, no_legend=False,
     if no_legend:
         legend = None
 
-    if range is not None:
-        times = [t[np.arange(range[0],range[1])] for t in times]
-        values = [v[np.arange(range[0],range[1])] for v in values]
+    if time_range is not None:
+        time_range = np.round(np.array(time_range)*s.fs).astype(int)
+        times = [t[np.arange(time_range[0], time_range[1])] for t in times]
+        values = [v[np.arange(time_range[0], time_range[1])] for v in values]
 
     ax = plot_timeseries(times, values, legend=legend, **options)
 

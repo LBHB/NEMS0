@@ -1232,9 +1232,9 @@ class GlobalControls(qw.QFrame):
 
         # Set start for plot views
         self.display_start = qw.QLineEdit()
-        #self.display_start.setValidator(
-        #        qg.QDoubleValidator(0, 10000.0, 4)
-        #        )
+        self.display_start.setValidator(
+                qg.QDoubleValidator(0, 10000.0, 4)
+                )
         self.display_start.editingFinished.connect(self.set_display_range)
         self.display_start.setText(str(self.start_time))
 
@@ -1382,10 +1382,9 @@ class GlobalControls(qw.QFrame):
         self.parent.modelspec_editor.reset_model()
 
     def export_plot(self):
-        range = (int(self.start_time * self.parent.rec['resp'].fs),
-                 int(self.stop_time * self.parent.rec['resp'].fs))
+        time_range = (self.start_time, self.stop_time)
 
-        fig = self.parent.modelspec.quickplot(range=range)
+        fig = self.parent.modelspec.quickplot(time_range=time_range, modidx_set=None)
         w = MplWindow(fig=fig)
         w.show()
 

@@ -7,13 +7,16 @@ from nems.plots.utils import ax_remove_box
 
 
 def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
-                     cmap=None, clim=None, extent=True, range=None, **options):
+                     cmap=None, clim=None, extent=True, time_range=None, **options):
 
     if not ax:
         ax = plt.gca()
 
-    if range is not None:
-        ax.imshow(array[:, np.arange(range[0],range[1])],
+    if time_range is not None:
+        if fs is not None:
+            time_range = np.round(np.array(time_range)*fs).astype(int)
+        print('bin range: {}-{}'.format(time_range[0],time_range[1]))
+        ax.imshow(array[:, np.arange(time_range[0],time_range[1])],
                   origin='lower', interpolation='none',
                   aspect='auto', cmap=cmap, clim=clim)
     elif extent:
@@ -72,15 +75,15 @@ def spectrogram_from_epoch(signal, epoch, occurrence=0, ax=None, **options):
     plot_spectrogram(array, fs=signal.fs, ax=ax, **options)
 
 
-def spectrogram(rec, sig_name='stim', ax=None, title=None, range=None, **options):
+def spectrogram(rec, sig_name='stim', ax=None, title=None, **options):
     """
     plot a spectrogram of an entire signal (typically stim), **options passed through
     :param rec:
     :param sig_name:
     :param ax:
     :param title:
-    :param range: if not None, plot range[0]:range[1] of the signal timeseries
-    :param options: extra dict
+    :param time_range: if not None, plot time_range[0]:time_range[1] (seconds) of the signal
+    :param options: extra dict passed through to plot_spectrogram
     :return:
 
     TODO: How can the colorbar be scaled to match other signals?
@@ -92,8 +95,8 @@ def spectrogram(rec, sig_name='stim', ax=None, title=None, range=None, **options
 
     array = signal.as_continuous()
 
-    if range is not None:
-        array = array[:, np.arange(range[0],range[1])]
+    #if time_range is not None:
+    #    array = array[:, np.arange(time_range[0],time_range[1])]
 
     ax = plot_spectrogram(array, fs=signal.fs, title=title, ax=ax, **options)
 
