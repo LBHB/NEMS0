@@ -9,6 +9,7 @@ from nems.plots.utils import ax_remove_box
 def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
                      cmap=None, clim=None, extent=True, time_range=None, **options):
 
+
     if not ax:
         ax = plt.gca()
 
@@ -73,6 +74,7 @@ def spectrogram_from_epoch(signal, epoch, occurrence=0, ax=None, **options):
         extracted = signal.extract_epoch(epoch)
         array = extracted[occurrence]
     plot_spectrogram(array, fs=signal.fs, ax=ax, **options)
+
 
 
 def spectrogram(rec, sig_name='stim', ax=None, title=None, **options):

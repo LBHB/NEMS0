@@ -1383,7 +1383,6 @@ class GlobalControls(qw.QFrame):
 
     def export_plot(self):
         time_range = (self.start_time, self.stop_time)
-
         fig = self.parent.modelspec.quickplot(time_range=time_range, modidx_set=None)
         w = MplWindow(fig=fig)
         w.show()

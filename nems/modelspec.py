@@ -522,6 +522,7 @@ class ModelSpec:
                   include_input=True, include_output=True, size_mult=(1.0, 3.0),
                   figsize=None, fig=None, time_range=None, sig_names=None,
                   modidx_set=None):
+
         """Generate a summary plot of a subset of the data.
 
         :param rec: The recording from which to pull the data.
@@ -651,7 +652,7 @@ class ModelSpec:
                      modelspec=self,
                      idx=mod_idx,
                      channels=rec_stim.chans,
-                     time_range=time_range,
+                     time_range=time_range
                      ), 1)
             for mod_idx, plot_fn in plot_fn_modules
         ]
