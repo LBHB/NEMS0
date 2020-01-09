@@ -828,16 +828,22 @@ class SignalBase:
         :param mask:
         :return:
         """
-        sig = self.copy()
-        e = sig.epochs['start'].copy()
-        for i, r in sig.epochs.iterrows():
-            d = mask._data[0,int(r['start']*mask.fs):int(r['end']*mask.fs)]
-            if np.sum(d)<d.size:
-                e[i] = False
-            else:
-                e[i] = True
-        sig.epochs = self.epochs.loc[e]
-        return sig
+        signal = self.copy()
+        fs = mask.fs
+
+        temp_epochs = signal.epochs.copy()
+        temp_epochs['start'] = (temp_epochs['start'] * fs).astype(int)
+        temp_epochs['end'] = (temp_epochs['end'] * fs).astype(int)
+
+        new_mask = np.full(len(temp_epochs), False)
+        mask_data = mask._data[0]
+
+        for idx, (start, end) in enumerate(temp_epochs[['start', 'end']].values):
+            if mask_data[start:end].all():
+                new_mask[idx] = True
+
+        signal.epochs = self.epochs.loc[new_mask]
+        return signal
 
     @staticmethod
     def load(basepath):
