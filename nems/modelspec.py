@@ -520,7 +520,9 @@ class ModelSpec:
 
     def quickplot(self, rec=None, epoch=None, occurrence=None, fit_index=None,
                   include_input=True, include_output=True, size_mult=(1.0, 3.0),
-                  figsize=None, fig=None, range=None):
+                  figsize=None, fig=None, time_range=None, sig_names=None,
+                  modidx_set=None):
+
         """Generate a summary plot of a subset of the data.
 
         :param rec: The recording from which to pull the data.
@@ -531,14 +533,26 @@ class ModelSpec:
         :param bool include_output: Whether to include default plot of the outputs.
         :param tuple size_mult: Scale factors for width and height of figure.
         :param tuple figsize: Size of figure (tuple of inches).
-        :param tuple range: If not None, plot only slice np.array(range) from timeseries
+        :param tuple time_range: If not None, plot signals from time_range[0]-time_range[1] sec
+        :param sig_names: list of signal name strings (default ['stim'])
+        :param modidx_set: list of mod indexes to plot (default all)
         :return: Matplotlib figure.
         """
         if rec is None:
             rec = self.recording
+        if 'mask' in rec.signals.keys():
+            rec = rec.apply_mask()
 
         if fit_index is not None:
             self.fit_index = fit_index
+
+        if sig_names is None:
+            if include_input:
+                sig_names = ['stim']
+            else:
+                sig_names = []
+        if modidx_set is None:
+            modidx_set = range(len(self))
 
         rec_resp = rec['resp']
         rec_pred = rec['pred']
@@ -580,8 +594,13 @@ class ModelSpec:
 
         # data to plot
         if epoch is not None:
-            extracted = rec_resp.extract_epoch(epoch)
-        else:
+            try:
+                extracted = rec_resp.extract_epoch(epoch)
+            except:
+                log.warning(f'Quickplot: no valid epochs matching {epoch}. Will not subset data.')
+                epoch = None
+
+        if epoch is None:
             extracted = rec_resp.as_continuous()
 
         # figure out which occurrence
@@ -615,7 +634,8 @@ class ModelSpec:
             if self[mod_idx]['fn'] == 'nems.modules.nonlinearity.dlog':
                 continue
 
-            plot_fn_modules.append((mod_idx, self.get_plot_fn(mod_idx)))
+            if mod_idx in modidx_set:
+                plot_fn_modules.append((mod_idx, self.get_plot_fn(mod_idx)))
 
         # drop duplicates
         temp_plot_fn_set = []
@@ -637,27 +657,38 @@ class ModelSpec:
                      modelspec=self,
                      idx=mod_idx,
                      channels=rec_stim.chans,
-                     range=range,
+                     time_range=time_range
                      ), 1)
             for mod_idx, plot_fn in plot_fn_modules
         ]
 
-        if include_input:
-            plot_fn = _lookup_fn_at('nems.plots.api.spectrogram_from_epoch')
-            fn = partial(plot_fn,
-                         signal=rec_stim,
+        for s in sig_names:
+            if rec[s].shape[0]>1:
+                plot_fn = _lookup_fn_at('nems.plots.api.spectrogram')
+                title = s + ' spectrogram'
+            else:
+                plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_signals')
+                title = s + ' timeseries'
+
+            fn = partial(plot_fn, rec,
+                         sig_name=s,
                          epoch=epoch,
                          occurrence=occurrence,
-                         title='Stimulus Spectrogram'
+                         time_range=time_range,
+                         title=title
                          )
             # add to front
             plot_fns = [(fn, 1)] + plot_fns
 
         if include_output:
-            plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_epoch')
+            if (time_range is not None) and (epoch is not None):
+                plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_signals')
+            else:
+                plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_epoch')
             fn = partial(plot_fn,
                          signals=[rec_resp, rec_pred],
                          epoch=epoch,
+                         time_range=time_range,
                          occurrences=occurrence,
                          title=f'Prediction vs Response, {epoch} #{occurrence}'
                          )

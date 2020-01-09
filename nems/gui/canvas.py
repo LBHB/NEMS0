@@ -129,9 +129,11 @@ class EpochCanvas(NemsCanvas):
             e = r['end']
             n = r['name']
 
-            prefix = n.split('_')[0]
-            if prefix in ['PreStimSilence', 'PostStimSilence',
-                          'REFERENCE','TARGET']:
+            prefix = n.split('_')[0].split(',')[0].strip(' ').lower()
+            if len(n) < 5:
+                prefix = 'X'
+            if prefix in ['prestimsilence', 'poststimsilence',
+                          'reference', 'target', 'stim']:
                 # skip
                 pass
             elif prefix in self.epoch_groups:
@@ -141,9 +143,8 @@ class EpochCanvas(NemsCanvas):
 
         colors = ['Red', 'Orange', 'Green', 'LightBlue',
                   'DarkBlue', 'Purple', 'Pink', 'Black', 'Gray']
-        i = 0
         for i, g in enumerate(self.epoch_groups):
-            for j in self.epoch_groups[g]:
+            for j in self.epoch_groups[g][:2]:
                 n = valid_epochs['name'][j]
                 s = valid_epochs['start'][j]
                 e = valid_epochs['end'][j]
@@ -195,17 +196,18 @@ class PrettyWidget(qw.QWidget):
     def __init__(self, parent=None, imagepath=None):
         qw.QWidget.__init__(self, parent=parent)
         self.imagepath = imagepath
-        self.resize(1000, 600)
+        self.resize(400, 300)
 
         self.center()
         self.setWindowTitle('Browser')
+        self.config_group = 'PrettyWidget'
 
         self.lb = qw.QLabel(self)
         self.lb.resize(self.width(), self.height())
         self.pixmap = None
 
         self.update_imagepath(imagepath)
-        self.show()
+        #self.show()
 
     def resizeEvent(self, event):
         self.lb.resize(self.width(), self.height())
