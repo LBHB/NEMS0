@@ -171,6 +171,14 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=Tru
 
     new_epochs = pd.concat(concat).sort_values(['start', 'end', 'name']).reset_index(drop=True)
 
+    # make name the temp_epochs index for quick start/end lookup in loop below
+    temp_epochs = (temp_epochs[['name', 'start', 'end']]
+                   .drop_duplicates()
+                   .set_index('name')
+                   .assign(dur=lambda x: (x['end'] - x['start']).astype(float))
+                   .drop(['start', 'end'], axis='columns')
+                   )
+
     #averaged_recording = recording.copy()
     averaged_signals = {}
     for signal_name, signal in recording.signals.items():
@@ -183,6 +191,7 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=Tru
         #print(signal_name)
         epoch_data = signal.rasterize().extract_epochs(epoch_names)
 
+        fs = signal.fs
         # Average over all occurrences of each epoch
         data = []
         #import pdb; pdb.set_trace()
@@ -197,10 +206,8 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=Tru
             else:
                 epoch = epoch[0,...]
 
-            mask = new_epochs['name'] == epoch_name
-            bounds = new_epochs.loc[mask, ['start', 'end']].values
-            bounds = np.round(bounds.astype(float) * signal.fs).astype(int)
-            elen = bounds[0,1] - bounds[0, 0]
+            elen = int(round((temp_epochs.loc[epoch_name, 'dur'] * fs)))
+
             if epoch.shape[-1] > elen:
                 log.info('truncating epoch_data for epoch %s', epoch_name)
                 epoch = epoch[..., :elen]
