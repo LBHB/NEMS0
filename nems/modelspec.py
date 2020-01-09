@@ -594,8 +594,13 @@ class ModelSpec:
 
         # data to plot
         if epoch is not None:
-            extracted = rec_resp.extract_epoch(epoch)
-        else:
+            try:
+                extracted = rec_resp.extract_epoch(epoch)
+            except:
+                log.warning(f'Quickplot: no valid epochs matching {epoch}. Will not subset data.')
+                epoch = None
+
+        if epoch is None:
             extracted = rec_resp.as_continuous()
 
         # figure out which occurrence
@@ -676,7 +681,7 @@ class ModelSpec:
             plot_fns = [(fn, 1)] + plot_fns
 
         if include_output:
-            if time_range is not None:
+            if (time_range is not None) and (epoch is not None):
                 plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_signals')
             else:
                 plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_epoch')

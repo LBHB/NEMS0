@@ -196,17 +196,18 @@ class PrettyWidget(qw.QWidget):
     def __init__(self, parent=None, imagepath=None):
         qw.QWidget.__init__(self, parent=parent)
         self.imagepath = imagepath
-        self.resize(1000, 600)
+        self.resize(400, 300)
 
         self.center()
         self.setWindowTitle('Browser')
+        self.config_group = 'PrettyWidget'
 
         self.lb = qw.QLabel(self)
         self.lb.resize(self.width(), self.height())
         self.pixmap = None
 
         self.update_imagepath(imagepath)
-        self.show()
+        #self.show()
 
     def resizeEvent(self, event):
         self.lb.resize(self.width(), self.height())

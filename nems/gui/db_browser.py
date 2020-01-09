@@ -41,12 +41,17 @@ def load_settings(m):
 
     config = ConfigParser()
     try:
-        config.read(configfile)
-        m.batchLE.setText(config.get('db_browser_last', 'batch'))
-        m.cellLE.setText(config.get('db_browser_last', 'cells'))
-        m.modelLE.setText(config.get('db_browser_last', 'models'))
+        config_group = m.config_group
+    except:
+        config_group = 'db_browser_last'
 
-        geostr = config.get('db_browser_last', 'geometry')
+    try:
+        config.read(configfile)
+        m.batchLE.setText(config.get(config_group, 'batch'))
+        m.cellLE.setText(config.get(config_group, 'cells'))
+        m.modelLE.setText(config.get(config_group, 'models'))
+
+        geostr = config.get(config_group, 'geometry')
         g=[int(x) for x in geostr.split(",")]
         m.setGeometry(*g)
 
@@ -59,6 +64,10 @@ def save_settings(m):
 
     config = ConfigParser()
     config.read(configfile)
+    try:
+        config_group = m.config_group
+    except:
+        config_group = 'db_browser_last'
 
     batch = m.batchLE.text()
     cellmask = m.cellLE.text()
@@ -68,14 +77,14 @@ def save_settings(m):
     #print(geostr)
     try:
         # Create non-existent section
-        config.add_section('db_browser_last')
+        config.add_section(config_group)
     except:
         pass
 
-    config.set('db_browser_last', 'batch', batch)
-    config.set('db_browser_last', 'cells', cellmask)
-    config.set('db_browser_last', 'models', modelmask)
-    config.set('db_browser_last', 'geometry', geostr)
+    config.set(config_group, 'batch', batch)
+    config.set(config_group, 'cells', cellmask)
+    config.set(config_group, 'models', modelmask)
+    config.set(config_group, 'geometry', geostr)
 
     with open(configfile, 'w') as f:
         config.write(f)
@@ -255,6 +264,8 @@ class model_browser(qw.QWidget):
         self.update_widgets()
 
         self.im_window = PrettyWidget(imagepath=os.path.join(nems_root, 'nems_logo.jpg'))
+        self.im_window.config_group = 'preview_window'
+        #load_settings(self.im_window)
 
         self.show()
         self.raise_()
@@ -474,7 +485,110 @@ def view_model_recording(cellid="TAR010c-18-2", batch=289,
                                   cellid=cellid, modelname=modelname)
     return aw
 
-""" """
+class load_model(qw.QDialog):
+    """
+    Load a model based on cellid, batch, modelname.
+
+    """
+    config_group = 'load_model'
+
+    def __init__(self, batch=289, cellid="", modelname="", parent=None):
+        qw.QWidget.__init__(self, parent=parent)
+
+        # main layout
+        vlayout = qw.QVBoxLayout(self)
+
+        formLayout = qw.QFormLayout(self)
+        batchlabel = qw.QLabel(self)
+        batchlabel.setText('Batch:')
+        batchlabel.setMaximumWidth(200)
+        self.batchLE = qw.QLineEdit(self)
+        self.batchLE.setText(str(batch))
+        self.batchLE.setMaximumWidth(200)
+        formLayout.addRow(batchlabel, self.batchLE)
+
+        celllabel = qw.QLabel(self)
+        celllabel.setText('CellID:')
+        celllabel.setMaximumWidth(200)
+        self.cellLE = qw.QLineEdit(self)
+        self.cellLE.setText(cellid)
+        self.cellLE.setMaximumWidth(200)
+        formLayout.addRow(celllabel,self.cellLE)
+
+        modellabel = qw.QLabel(self)
+        modellabel.setMaximumWidth(200)
+        modellabel.setText('Modelname:')
+        self.modelLE = qw.QLineEdit(self)
+        self.modelLE.setText(modelname)
+        # self.modelLE.setMaximumWidth(500)
+        formLayout.addRow(modellabel,self.modelLE)
+
+        hLayout = qw.QHBoxLayout()
+
+        self.LoadBtn = qw.QPushButton("Load", self)
+        self.LoadBtn.clicked.connect(self.load)
+        hLayout.addWidget(self.LoadBtn)
+        self.LoadBtn.setMaximumWidth(150)
+
+        self.viewBtn = qw.QPushButton("Preview", self)
+        self.viewBtn.clicked.connect(self.preview)
+        hLayout.addWidget(self.viewBtn)
+        self.viewBtn.setMaximumWidth(150)
+
+        self.CloseBtn = qw.QPushButton("Cancel", self)
+        self.CloseBtn.clicked.connect(self.close)
+        hLayout.addWidget(self.CloseBtn)
+        self.CloseBtn.setMaximumWidth(150)
+
+        vlayout.addLayout(formLayout)
+        vlayout.addLayout(hLayout)
+
+        self.im_window = PrettyWidget(imagepath=os.path.join(nems_root, 'nems_logo.jpg'))
+        self.im_window.config_group = 'preview_window'
+        #load_settings(self.im_window)
+
+        # now that widgets are created, populate with saved values
+        load_settings(self)
+
+        self.show()
+        self.raise_()
+
+    def reimport_libs(self):
+        print('Re-importing GUI libraries')
+        importlib.reload(browser)
+        importlib.reload(editor)
+
+    def resizeEvent(self, event):
+        save_settings(self)
+
+    def moveEvent(self, event):
+        save_settings(self)
+
+    def load(self):
+        batch = self.batchLE.text()
+        cellid = self.cellLE.text()
+        modelname = self.modelLE.text()
+        print('Loading {}/{}/{}'.format(cellid,batch,modelname))
+
+        xfspec, ctx = xhelp.load_model_xform(cellid, batch, modelname)
+        self.close()
+        return xfspec, ctx
+
+    def preview(self):
+        batch = self.batchLE.text()
+        cellid = self.cellLE.text()
+        modelname = self.modelLE.text()
+        print("Viewing {},{},{}".format(batch,cellid,modelname))
+        xf, ctx = xhelp.load_model_xform(cellid, batch, modelname, eval_model=False)
+        figurefile = ctx['modelspec'].meta['figurefile']
+        print('Figure file: ' + figurefile)
+        self.im_window.update_imagepath(imagepath=figurefile)
+        self.im_window.show()
+        #save_settings(self.im_window)
+
+"""
+execute if run stand-alone 
+"""
 if __name__ == '__main__':
     print(sys.argv[0])
     if sys.argv[0] != '':

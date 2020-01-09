@@ -76,7 +76,6 @@ def spectrogram_from_epoch(signal, epoch, occurrence=0, ax=None, **options):
     plot_spectrogram(array, fs=signal.fs, ax=ax, **options)
 
 
-
 def spectrogram(rec, sig_name='stim', ax=None, title=None, **options):
     """
     plot a spectrogram of an entire signal (typically stim), **options passed through

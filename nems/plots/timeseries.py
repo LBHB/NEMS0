@@ -139,7 +139,7 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
                           xlabel='Time', ylabel='Value',
                           linestyle='-', linewidth=1,
                           ax=None, title=None, pre_dur=None, dur=None,
-                          PreStimSilence=None):
+                          PreStimSilence=None, **options):
     """TODO: doc"""
     if occurrences is None:
         return
