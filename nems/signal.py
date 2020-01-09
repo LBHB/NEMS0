@@ -665,47 +665,22 @@ class SignalBase:
             epoch_regex = epoch_names
             epoch_names = epoch_names_matching(self.epochs, epoch_regex)
 
-        epoch_data_lens = self.epochs['name'].value_counts()[epoch_names].values
-        # early out to avoid errors
-        if not len(epoch_data_lens):
-            return {}
+        data = {}
+        for name in epoch_names:
+            v = self.extract_epoch(name, allow_empty=True,
+                                   overlapping_epoch=overlapping_epoch,
+                                   mask=mask)
+            # only return matrices for epochs with non-empty data matrices
+            # (deal with possibility that some stimuli are masked out)
+            if len(v)>0:
+                data[name] = v
 
-        # need to reorder epochs dataframe to ensure that the indices are returned in the
-        # same order as the epochs we pulled from the dict; return to original order when done
-        old_index = self.epochs.index.values
-        self.epochs = self.epochs.sort_values('name')
-
-        epoch_mask = self.epochs['name'].isin(epoch_names)
-        epoch_indices = self.get_epoch_indices(epoch_mask, mask=mask)
-
-        # return epochs df to old order
-        self.epochs = self.epochs.loc[old_index]
-
-        signal_data = self.as_continuous()
-
-        n_chans = signal_data.shape[0]
-        n_samples = np.diff(epoch_indices, axis=1).max()
-
-        data_dict = {}
-
-        start = 0
-        # iterate through the epochs
-        for idx, (epoch, epoch_data_len) in enumerate(zip(epoch_names, epoch_data_lens)):
-
-            # build the array to hold the incoming epoch data
-            if signal_data.dtype == bool:
-                epoch_data = np.full((epoch_data_len, n_chans, n_samples), False, dtype=bool)
-            else:
-                epoch_data = np.full((epoch_data_len, n_chans, n_samples), np.nan)
-
-            # populate the newly built array with the appropriate signal data
-            for bound_idx, (lb, ub) in enumerate(epoch_indices[start: start + epoch_data_len]):
-                epoch_data[bound_idx, :, :] = signal_data[:, lb:ub]
-
-            data_dict[epoch] = epoch_data
-            start += epoch_data_len
-
-        return data_dict
+        return data
+        #
+        # return {name: self.extract_epoch(name, allow_empty=True,
+        #                                 overlapping_epoch=overlapping_epoch,
+        #                                 mask=mask)
+        #        for name in epoch_names}
 
     def generate_epoch_mask(self, epoch=True):
         '''
@@ -1516,6 +1491,85 @@ class RasterizedSignal(SignalBase):
         if name is None:
             name = self.name
         return self._modified_copy(array[s], chans=chans, name=name)
+
+    def extract_epochs(self, epoch_names, overlapping_epoch=None, mask=None):
+        '''
+        Returns a dictionary of the data matching each element in epoch_names.
+
+        Parameters
+        ----------
+        epoch_names : list OR string
+            if list, list of epoch names to extract. These will be keys in the
+            result dictionary.
+            if string, will find matches via nems.epoch.epoch_names_matching
+
+        chans : {None, iterable of strings}
+            Names of channels to return. If None, return the full set of
+            channels.  If an iterable of strings, return those channels (in the
+            order specified by the iterable).
+
+        overlapping_epoch: {None, string}
+            if not None, only extracts epochs that overlap with occurrences
+            of overlapping epoch
+
+        mask: {None, signal}
+            if provided, onlye extract epochs overlapping periods where
+            mask.as_continuous()==True in all time bins
+
+        Returns
+        -------
+        epoch_datasets : dict
+            Keys are the names of the epochs, values are 3D arrays created by
+            `extract_epoch`.
+        '''
+        # TODO: Update this to work with a mapping of key -> Nx2 epoch
+        # structure as well.
+
+        if type(epoch_names) is str:
+            epoch_regex = epoch_names
+            epoch_names = epoch_names_matching(self.epochs, epoch_regex)
+
+        epoch_data_lens = self.epochs['name'].value_counts()[epoch_names].values
+        # early out to avoid errors
+        if not len(epoch_data_lens):
+            return {}
+
+        # need to reorder epochs dataframe to ensure that the indices are returned in the
+        # same order as the epochs we pulled from the dict; return to original order when done
+        old_index = self.epochs.index.values
+        self.epochs = self.epochs.sort_values('name')
+
+        epoch_mask = self.epochs['name'].isin(epoch_names)
+        epoch_indices = self.get_epoch_indices(epoch_mask, mask=mask)
+
+        # return epochs df to old order
+        self.epochs = self.epochs.loc[old_index]
+
+        signal_data = self.as_continuous()
+
+        n_chans = signal_data.shape[0]
+        n_samples = np.diff(epoch_indices, axis=1).max()
+
+        data_dict = {}
+
+        start = 0
+        # iterate through the epochs
+        for idx, (epoch, epoch_data_len) in enumerate(zip(epoch_names, epoch_data_lens)):
+
+            # build the array to hold the incoming epoch data
+            if signal_data.dtype == bool:
+                epoch_data = np.full((epoch_data_len, n_chans, n_samples), False, dtype=bool)
+            else:
+                epoch_data = np.full((epoch_data_len, n_chans, n_samples), np.nan)
+
+            # populate the newly built array with the appropriate signal data
+            for bound_idx, (lb, ub) in enumerate(epoch_indices[start: start + epoch_data_len]):
+                epoch_data[bound_idx, :, :] = signal_data[:, lb:ub]
+
+            data_dict[epoch] = epoch_data
+            start += epoch_data_len
+
+        return data_dict
 
     def replace_epoch(self, epoch, epoch_data, preserve_nan=True, mask=None):
         '''
