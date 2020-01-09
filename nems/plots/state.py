@@ -8,7 +8,7 @@ import nems.modelspec as ms
 from nems.utils import get_channel_number, find_module
 from nems.metrics.state import state_mod_split
 from nems.plots.utils import ax_remove_box
-
+from nems.gui.decorators import scrollable 
 
 line_colors = {'actual_psth': (0,0,0),
                'predicted_psth': 'red',
@@ -49,6 +49,7 @@ fill_colors = {'actual_psth': (.8,.8,.8),
                'large': (69/255, 191/255, 89/255),
                'small': (215/255, 242/255, 199/255)}
 
+@scrollable
 def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
                           decimate_by=1, channel=None, **options):
 

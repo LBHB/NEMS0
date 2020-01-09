@@ -4,6 +4,7 @@ import importlib
 import nems.modelspec as ms
 import nems.metrics.api as nm
 from nems.plots.utils import ax_remove_box
+from nems.gui.decorators import cursor
 
 import logging
 log = logging.getLogger(__name__)
@@ -147,6 +148,7 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
 
     return ax
 
+@cursor
 def nl_scatter(rec, modelspec, idx, sig_name='pred',
                compare='resp', smoothing_bins=False, cursor_time=None,
                xlabel1=None, ylabel1=None, **options):
