@@ -665,22 +665,47 @@ class SignalBase:
             epoch_regex = epoch_names
             epoch_names = epoch_names_matching(self.epochs, epoch_regex)
 
-        data = {}
-        for name in epoch_names:
-            v = self.extract_epoch(name, allow_empty=True,
-                                   overlapping_epoch=overlapping_epoch,
-                                   mask=mask)
-            # only return matrices for epochs with non-empty data matrices
-            # (deal with possibility that some stimuli are masked out)
-            if len(v)>0:
-                data[name] = v
+        epoch_data_lens = self.epochs['name'].value_counts()[epoch_names].values
+        # early out to avoid errors
+        if not len(epoch_data_lens):
+            return {}
 
-        return data
-        #
-        # return {name: self.extract_epoch(name, allow_empty=True,
-        #                                 overlapping_epoch=overlapping_epoch,
-        #                                 mask=mask)
-        #        for name in epoch_names}
+        # need to reorder epochs dataframe to ensure that the indices are returned in the
+        # same order as the epochs we pulled from the dict; return to original order when done
+        old_index = self.epochs.index.values
+        self.epochs = self.epochs.sort_values('name')
+
+        epoch_mask = self.epochs['name'].isin(epoch_names)
+        epoch_indices = self.get_epoch_indices(epoch_mask, mask=mask)
+
+        # return epochs df to old order
+        self.epochs = self.epochs.loc[old_index]
+
+        signal_data = self.as_continuous()
+
+        n_chans = signal_data.shape[0]
+        n_samples = np.diff(epoch_indices, axis=1).max()
+
+        data_dict = {}
+
+        start = 0
+        # iterate through the epochs
+        for idx, (epoch, epoch_data_len) in enumerate(zip(epoch_names, epoch_data_lens)):
+
+            # build the array to hold the incoming epoch data
+            if signal_data.dtype == bool:
+                epoch_data = np.full((epoch_data_len, n_chans, n_samples), False, dtype=bool)
+            else:
+                epoch_data = np.full((epoch_data_len, n_chans, n_samples), np.nan)
+
+            # populate the newly built array with the appropriate signal data
+            for bound_idx, (lb, ub) in enumerate(epoch_indices[start: start + epoch_data_len]):
+                epoch_data[bound_idx, :, :] = signal_data[:, lb:ub]
+
+            data_dict[epoch] = epoch_data
+            start += epoch_data_len
+
+        return data_dict
 
     def generate_epoch_mask(self, epoch=True):
         '''

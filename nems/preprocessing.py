@@ -76,7 +76,7 @@ def add_average_sig(rec, signal_to_average='resp',
 
 
 def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=True):
-    '''
+    """
     Returns a recording with _all_ signals averaged across epochs that
     match epoch_regex, shortening them so that each epoch occurs only
     once in the new signals. i.e. unlike 'add_average_sig', the new
@@ -98,28 +98,78 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=Tru
     that are based on behavioral state, you may need to create new epochs
     (based on stimulus and behaviorial state, for example) and then match
     the epoch_regex to those.
-    '''
-    #import pdb; pdb.set_trace()
+    """
     if use_mask:
         recording = recording.remove_masked_epochs()
-    epochs = recording['resp'].epochs
-    epoch_names = sorted(set(ep.epoch_names_matching(epochs, epoch_regex)))
+
+    # need to edit the epochs dataframe, so make a working copy
+    temp_epochs = recording['resp'].epochs.copy()
+
+    # only pull out matching epochs
+    regex_mask = temp_epochs['name'].str.contains(pat=epoch_regex, na=False, regex=True)
+    epoch_stims = temp_epochs[regex_mask]
+
+    # get a list of the unique epoch names
+    epoch_names = temp_epochs.loc[regex_mask, 'name'].sort_values().unique()
+
+    # what to round to when checking if epoch timings match
+    d = int(np.ceil(np.log10(recording[list(recording.signals.keys())[0]].fs))+1)
+
+    # build a series with an interval index, to lookup where epochs fall
+    s_name = pd.Series(epoch_stims['name'].values, pd.IntervalIndex.from_arrays(epoch_stims['start'], epoch_stims['end'], closed='both'))
+    s_cat = pd.Series(np.arange(len(epoch_stims['start']), dtype='int'), pd.IntervalIndex.from_arrays(epoch_stims['start'], epoch_stims['end'], closed='both'))
+
+    # add helper columns using the interval index lookups
+    temp_epochs['cat'] = temp_epochs['start'].map(s_cat)
+    temp_epochs['cat_end'] = temp_epochs['end'].map(s_cat)
+    temp_epochs['stim'] = temp_epochs['start'].map(s_name)
+
+    # only want epochs that fall within a stim epoch, so drop the ones that don't
+    drop_mask = temp_epochs['cat'] != temp_epochs['cat_end']
+    trial_mask = temp_epochs['name'] == 'TRIAL'  # also dorp this
+    temp_epochs = temp_epochs.loc[~drop_mask & ~trial_mask, ['name', 'start', 'end', 'cat', 'stim']]
+
+    temp_epochs['cat'] = temp_epochs['cat'].astype(int)  # cast back to int to make into index
+
+    # build another helper series, to map in times to subtract from start/end
+    work_mask = temp_epochs['name'].str.contains(pat=epoch_regex, na=False, regex=True)
+    s_starts = pd.Series(temp_epochs.loc[work_mask, 'start'].values, temp_epochs.loc[work_mask, 'cat'].values)
+
+    temp_epochs['start'] -= temp_epochs['cat'].map(s_starts)
+    temp_epochs['end'] -= temp_epochs['cat'].map(s_starts)
+    temp_epochs = temp_epochs.round(d)
+
+    concat = []
 
     offset = 0
-    new_epochs = [] # pd.DataFrame()
-    fs = recording[list(recording.signals.keys())[0]].fs
-    d = int(np.ceil(np.log10(fs))+1)
+    for name, group in temp_epochs.groupby('stim'):
+        # build a list of epoch names where all the values are equal
+        m_equal =(group.groupby('name').agg({
+            'start': lambda x: len(set(x)) == 1,
+            'end': lambda x: len(set(x)) == 1,
+        }).all(axis=1)
+           )
+        m_equal = m_equal.index[m_equal].values
 
-    for epoch_name in epoch_names:
-        common_epochs = ep.find_common_epochs(epochs, epoch_name, d=d)
-        common_epochs = common_epochs[common_epochs['name']!='TRIAL']
-        query = 'name == "{}"'.format(epoch_name)
-        end = common_epochs.query(query).iloc[0]['end']
-        common_epochs[['start', 'end']] += offset
-        offset += end
-        new_epochs.append(common_epochs)
+        # find the epoch names that are common to every group
+        s = set()
+        for idx, (cat_name, cat_group) in enumerate(group.groupby('cat')):
+            if idx == 0:
+                s.update(cat_group['name'])
+            else:
+                s.intersection_update(cat_group['name'])
 
-    new_epochs = pd.concat(new_epochs, ignore_index=True)
+        # drop where values across names aren't equal, or where a group is missing an epoch
+        keep_mask = (group['name'].isin(m_equal)) & (group['name'].isin(s))
+
+        g = group[keep_mask].drop(['cat', 'stim'], axis=1).drop_duplicates()
+        max_end = g['end'].max()
+        g[['start', 'end']] += offset
+        offset += max_end
+
+        concat.append(g)
+
+    new_epochs = pd.concat(concat).sort_values(['start', 'end', 'name']).reset_index(drop=True)
 
     #averaged_recording = recording.copy()
     averaged_signals = {}
