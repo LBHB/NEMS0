@@ -54,8 +54,7 @@ def fit_basic(data, modelspec,
         # choose prior mean if not found
         for i, m in enumerate(modelspec.modules):
             if ('phi' not in m.keys()) and ('prior' in m.keys()):
-                log.debug('Phi not found for module, using mean of prior: %s',
-                          m)
+                log.debug('Phi not found for module, using mean of prior: %s', m)
                 m = nems.priors.set_mean_phi([m])[0]  # Inits phi for 1 module
                 modelspec[i] = m
 
@@ -69,7 +68,7 @@ def fit_basic(data, modelspec,
     # turn on "fit mode". currently this serves one purpose, for normalization
     # parameters to be re-fit for the output of each module that uses
     # normalization. does nothing if normalization is not being used.
-    ms.fit_mode_on(modelspec)
+    ms.fit_mode_on(modelspec, data)
 
     # Create the mapper functions that translates to and from modelspecs.
     # It has three functions that, when defined as mathematical functions, are:
@@ -100,8 +99,11 @@ def fit_basic(data, modelspec,
     # (might only be one in list, but still should be packaged as a list)
     improved_sigma = fitter(sigma, cost_fn, bounds=bounds, **fit_kwargs)
     improved_modelspec = unpacker(improved_sigma)
-
     elapsed_time = (time.time() - start_time)
+
+    start_err = cost_fn(sigma)
+    final_err = cost_fn(improved_sigma)
+    log.info("Delta error: %.06f - %.06f = %e", start_err, final_err, final_err-start_err)
 
     # TODO: Should this maybe be moved to a higher level
     # so it applies to ALL the fittters?
@@ -117,14 +119,13 @@ def fit_basic(data, modelspec,
         return improved_modelspec.copy()
 
 
-
 def fit_random_subsets(data, modelspec, nsplits=1, rebuild_every=10000):
-    '''
+    """
     Randomly picks a small fraction of the data to fit on.
     Intended to speed up initial converge on fitting large data sets.
     To improve efficiency, you may generally good to use the same subset
     for a bunch of cost function evaluations in a row.
-    '''
+    """
     maker = nems.segmentors.random_jackknife_maker
     segmentor = maker(nsplits=nsplits, rebuild_every=rebuild_every,
                       invert=True, excise=True)
@@ -147,7 +148,8 @@ def fit_state_nfold(data_list, modelspecs, generate_psth=False,
 
     models = []
     if not metric:
-        metric = lambda d: metrics.nmse(d, 'pred', 'resp')
+        def metric(d):
+            metrics.nmse(d, 'pred', 'resp')
 
     for i in range(nfolds):
         log.info("Fitting fold {}/{}".format(i+1, nfolds))

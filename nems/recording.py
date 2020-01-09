@@ -1,24 +1,25 @@
-import io
-import os
-import gzip
-import time
-import tarfile
-import logging
-import requests
-import pandas as pd
-import numpy as np
 import copy
-import tempfile
-import shutil
+import io
 import json
+import logging
+import os
+import shutil
+import tarfile
+import tempfile
+import time
 import warnings
+from pathlib import Path
 
-from nems.uri import local_uri, http_uri, targz_uri
+import numpy as np
+import pandas as pd
+import requests
+
 import nems.epoch as ep
-from nems.signal import SignalBase, RasterizedSignal, merge_selections, \
-                        list_signals, load_signal, load_signal_from_streams
-from nems.utils import recording_filename_hash
 from nems import get_setting
+from nems.signal import SignalBase, RasterizedSignal, PointProcess, merge_selections, \
+    list_signals, load_signal, load_signal_from_streams
+from nems.uri import local_uri, http_uri, targz_uri
+from nems.utils import recording_filename_hash
 
 log = logging.getLogger(__name__)
 
@@ -108,6 +109,18 @@ class Recording:
 
         return rec
 
+    def view_subset(self, view_range):
+        """
+        shallow copy recording, preserving a subset of views
+        view_range - list of view ids to keep
+        """
+        rec = self.copy()
+        rec.signal_views = [rec.signal_views[v] for v in view_range]
+        rec.signals = rec.signal_views[0]
+        rec.view_idx = 0
+
+        return rec
+
     def views(self, view_range=None):
         rec = self.copy()
 
@@ -115,11 +128,12 @@ class Recording:
             if type(view_range) is int:
                 rec.signal_views = [rec.signal_views[view_range]]
             else:
-                rec.signal_views = rec.signal_views[view_range]
+                rec.signal_views = [rec.signal_views[v] for v in view_range]
 
         """return a list of all views of this recording"""
-        return [rec.set_view(i) for i in range(rec.view_count())]
+        return [rec.set_view(i) for i in range(rec.view_count)]
 
+    @property
     def view_count(self):
         """return how many views exist in this recording"""
         return len(self.signal_views)
@@ -129,8 +143,11 @@ class Recording:
         returns a shallow copy of the recording, signals preserved in place"""
         rec = self.copy()
 
-        rec.signal_views = [rec.signals] * view_count
+        #rec.signal_views = [rec.signals] * view_count
+        rec.signal_views = rec.signal_views * view_count
         rec.view_idx = 0
+        rec.signals = rec.signal_views[rec.view_idx]
+
         return rec
 
     @staticmethod
@@ -326,6 +343,96 @@ class Recording:
         signals = {s.name:s for s in signals}
         # Combine into recording and return
         return Recording(signals)
+
+    @classmethod
+    def from_nwb(cls, nwb_file, nwb_format):
+        """
+        The NWB (Neurodata Without Borders) format is a unified data format developed by the Allen Brain Institute.
+        Data is stored as an HDF5 file, with the format varying depending how the data was saved.
+        
+        References:
+          - https://nwb.org
+          - https://pynwb.readthedocs.io/en/latest/index.html
+
+        :param nwb_file: path to the nwb file
+        :param nwb_format: specifier for how the data is saved in the container
+
+        :return: a recording object
+        """
+        log.info(f'Loading NWB file with format "{nwb_format}" from "{nwb_file}".')
+
+        # add in supported nwb formats here
+        assert nwb_format in ['neuropixel'], f'"{nwb_format}" not a supported NWB file format.'
+
+        nwb_filepath = Path(nwb_file)
+        if not nwb_filepath.exists():
+            raise FileNotFoundError(f'"{nwb_file}" could not be found.')
+
+        if nwb_format == 'neuropixel':
+            """
+            In neuropixel ecephys nwb files, data is stored in several attributes of the container: 
+              - units: individual cell metadata, a dataframe
+              - epochs: timing of the stimuli, series of arrays
+              - lab_meta_data: metadata about the experiment, such as specimen details
+              
+            Spike times are saved as arrays in the 'spike_times' column of the units dataframe as xarrays. 
+            The frequency is 1250.
+              
+            Refs:
+              - https://allensdk.readthedocs.io/en/latest/visual_coding_neuropixels.html
+              - https://allensdk.readthedocs.io/en/latest/_static/examples/nb/ecephys_quickstart.html
+              - https://allensdk.readthedocs.io/en/latest/_static/examples/nb/ecephys_data_access.html
+            """
+            try:
+                from pynwb import NWBHDF5IO
+                from allensdk.brain_observatory.ecephys import nwb  # needed for ecephys format compat
+            except ImportError:
+                m = 'The "allensdk" library is required to work with neuropixel nwb formats, available on PyPI.'
+                log.error(m)
+                raise ImportError(m)
+
+            session_name = nwb_filepath.stem
+
+            with NWBHDF5IO(str(nwb_filepath), 'r') as nwb_io:
+                nwbfile = nwb_io.read()
+
+                units = nwbfile.units
+                epochs = nwbfile.epochs
+
+                spike_times = dict(zip(units.id[:], units['spike_times'][:]))
+
+                # extract the metadata and convert to dict
+                metadata = nwbfile.lab_meta_data['metadata'].to_dict()
+                metadata['uri'] = str(nwb_filepath)  # add in uri
+
+                # build the units metadata
+                units_data = {
+                    col.name: col.data for col in units.columns
+                    if col.name not in ['spike_times', 'spike_times_index', 'spike_amplitudes',
+                                        'spike_amplitudes_index', 'waveform_mean', 'waveform_mean_index']
+                }
+
+                # needs to be a dict
+                units_meta = pd.DataFrame(units_data, index=units.id[:]).to_dict('index')
+
+                # build the epoch dataframe
+                epoch_data = {
+                    col.name: col.data for col in epochs.columns
+                    if col.name not in ['tags', 'timeseries', 'tags_index', 'timeseries_index']
+                }
+
+                epoch_df = pd.DataFrame(epoch_data, index=epochs.id[:]).rename({
+                    'start_time': 'start',
+                    'stop_time': 'end',
+                    'stimulus_name': 'name'
+                }, axis='columns')
+
+                # save the spike times as a point process signal
+                pp = PointProcess(1250, spike_times, name='spike_times', recording=session_name, epochs=epoch_df,
+                                  meta=units_meta)
+
+                log.info('Successfully loaded nwb file.')
+                return cls({pp.recording: pp}, meta=metadata)
 
     def save(self, uri='', uncompressed=False):
         '''
@@ -639,7 +746,7 @@ class Recording:
         hi_rep_epochs = groups[n_occurrences[1]]
         return self.split_by_epochs(lo_rep_epochs, hi_rep_epochs)
 
-    def get_epoch_indices(self, epoch_name):
+    def get_epoch_indices(self, epoch_name, allow_partial_epochs=False):
 
         keys = list(self.signals.keys())
         if 'mask' not in keys:
@@ -652,13 +759,17 @@ class Recording:
 
             epochs = np.zeros([0, 2], dtype=np.int32)
             for lb, ub in all_epochs:
-                if np.sum(1 - (m_data[0, lb:ub])) == 0:
-                    epochs = np.append(epochs, [[lb, ub]], axis=0)
+                if allow_partial_epochs:
+                    if np.sum(m_data[0, lb:ub]) > 0:
+                        epochs = np.append(epochs, [[lb, ub]], axis=0)
+                else:
+                    if np.sum(1 - (m_data[0, lb:ub])) == 0:
+                        epochs = np.append(epochs, [[lb, ub]], axis=0)
 
         return epochs
 
-    def jackknife_mask_by_epoch(self, njacks, jack_idx, epoch_name,
-                                tiled=True, invert=False):
+    def jackknife_mask_by_epoch(self, njacks, jack_idx, epoch_name, tiled=True,
+                                invert=False, allow_partial_epochs=False):
         '''
         Creates mask or updates existing mask, with subset of epochs
           matching epoch_name set to False
@@ -703,7 +814,7 @@ class Recording:
         m_data = rec['mask'].as_continuous().copy()
 
         # find all matching epochs
-        epochs = self.get_epoch_indices(epoch_name)
+        epochs = self.get_epoch_indices(epoch_name, allow_partial_epochs=allow_partial_epochs)
         occurrences = epochs.shape[0]
 
         if occurrences == 0:
@@ -744,15 +855,17 @@ class Recording:
         return rec
 
     def jackknife_masks_by_epoch(self, njacks, epoch_name,
-                                 tiled=True, invert=False):
+                                 tiled=True, invert=False, allow_partial_epochs=False):
         signal_views = []
         for jack_idx in range(njacks):
             trec = self.jackknife_mask_by_epoch(njacks, jack_idx, epoch_name,
-                                                tiled, invert)
+                                                tiled, invert,
+                                                allow_partial_epochs=allow_partial_epochs)
             signal_views += [trec.signals]
         rec = self.copy()
         rec.signal_views = signal_views
-        rec.signals = signal_views
+        rec.view_idx = 0
+        rec.signals = signal_views[rec.view_idx]
 
         return rec
 
@@ -829,7 +942,8 @@ class Recording:
             signal_views += [trec.signals]
         rec = self.copy()
         rec.signal_views = signal_views
-        rec.signals = signal_views
+        rec.view_idx = 0
+        rec.signals = signal_views[rec.view_idx]
 
         return rec
 
@@ -890,7 +1004,7 @@ class Recording:
         currently two different approaches, depending on whether mask signal
         is present.
         '''
-        if self.view_count() == 1:
+        if self.view_count == 1:
             raise ValueError('Expecting recording with multiple views')
 
         sig_list = list(self.signals.keys())
@@ -935,6 +1049,7 @@ class Recording:
         Concatenate more recordings on to the end of this Recording,
         and return the result. Recordings must have identical signal
         names, channels, and fs, or an exception will be thrown.
+        meta of the new recording will be inherited from recordings[0]
         '''
         signal_names = self.signals.keys()
         for recording in recordings:
@@ -947,10 +1062,10 @@ class Recording:
             signals = [r.signals[signal_name] for r in recordings]
             merged_signals[signal_name] = Signal.concatenate_time(signals)
 
-        # TODO: copy the epochs as well
-        raise NotImplementedError    # TODO
+        # TODO: copy the epochs as well ? TAKEN CARE OF BY Signal concatenation?
+        #raise NotImplementedError    # TODO
 
-        return Recording(merged_signals)
+        return Recording(merged_signals, meta=recordings[0].meta)
 
         # TODO: copy the epochs as well
     def select_epoch():
@@ -1072,10 +1187,10 @@ class Recording:
     def apply_mask(self, reset_epochs=False):
         '''
         Used to excise data based on boolean called mask. Returns new recording
-        with only data specified mask. To make mask, see "create_epoch_mask"
+        with only data specified mask. To make mask, see "create_mask"
         '''
         if 'mask' not in self.signals.keys():
-            warnings.warn("No mask specified, apply_mask() simply copying recording.")
+            log.info("No mask specified, apply_mask() simply copying recording.")
             return self.copy()
 
         rec = self.copy()
@@ -1099,6 +1214,53 @@ class Recording:
         newrec = rec.select_times(times, reset_epochs=reset_epochs)
 
         return newrec
+
+    def nan_mask(self, remove_epochs=True):
+        """
+        Nan-out data based on boolean signal called mask. Returns new recording
+        with only data specified mask. To make mask, see "create_mask"
+        :param remove_epochs: (True) if true, delete epochs that are all nan
+        :return: rec : copy of self with masked periods set to nan
+        """
+        if 'mask' not in self.signals.keys():
+            warnings.warn("No mask specified, nan_mask() simply copying recording.")
+            return self.copy()
+
+        rec = self.copy()
+        m = rec['mask'].copy()
+
+        if np.sum(m._data == False) == 0:
+            # mask is all true, passthrough
+            return rec
+
+        for k, sig in rec.signals.items():
+            if k != 'mask':
+                rec[k] = sig.rasterize().nan_mask(m, remove_epochs=remove_epochs)
+            else:
+                rec[k] = sig.remove_epochs(m)
+
+        return rec
+
+    def remove_masked_epochs(self):
+        """
+        Delete epochs that fall outside of the mask periods
+        :return: rec : copy of self with masked epochs removed
+        """
+        if 'mask' not in self.signals.keys():
+            #warnings.warn("No mask specified, nan_mask() simply copying recording.")
+            return self.copy()
+
+        rec = self.copy()
+        m = rec['mask'].copy()
+
+        if np.sum(m._data == False) == 0:
+            # mask is all true, passthrough
+            return rec
+
+        for k, sig in rec.signals.items():
+            rec[k] = sig.remove_epochs(m)
+
+        return rec
 
 ## I/O functions
 def load_recording_from_targz(targz):
@@ -1234,7 +1396,10 @@ def load_recording_from_url(url):
     Loads the recording object from a URL. File must be tgz format.
     '''
     r = requests.get(url, stream=True)
-    if not (r.status_code == 200 and
+    if (r.status_code == 400):
+        m = 'Not found on server: {}'.format(url)
+        raise Exception(m)
+    elif not (r.status_code == 200 and
             (r.headers['content-type'] == 'application/gzip' or
              r.headers['content-type'] == 'text/plain' or
              r.headers['content-type'] == 'application/x-gzip' or

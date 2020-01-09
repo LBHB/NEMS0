@@ -116,7 +116,7 @@ def kern2D(n_x, n_y, n_kern, sig, rank=None, seed=0, distr='tnorm'):
 class Net:
 
     def __init__(self, data_dims, n_feats, sr_Hz, layers, loss_type='squared_error',
-                 weight_scale=0.1, seed=0, log_dir=None, log_id=None, optimizer='Adam'):
+                 weight_scale=0.1, seed=0, log_dir=None, log_id=None, optimizer='Adam', n_states=0):
 
         # dimensionality of feature sand data
         self.n_stim = data_dims[0]
@@ -125,8 +125,13 @@ class Net:
         self.n_feats = n_feats
 
         # place holders for input features and data
-        self.F = tf.placeholder(
-            'float32', shape=[None, self.n_tps_input, self.n_feats])
+        if 'S' in layers[0].keys():
+            self.S = layers[0]['S']
+        if 'X' in layers[0].keys():
+            self.F = layers[0]['X']
+        else:
+            self.F = tf.placeholder(
+                'float32', shape=[None, self.n_tps_input, self.n_feats])
         self.D = tf.placeholder(
             'float32', shape=[None, self.n_tps_input, self.n_resp])
 
@@ -169,19 +174,45 @@ class Net:
 
     def initialize(self):
 
-        log.info('Initialize TF session for fit')
+        log.info('Net.initialize(): setting output, loss, optimizer, globals, tf session')
+        self.Y = self.layers[self.n_layers - 1]['Y'][:, 0:self.n_tps_input, :]
+
+        # loss
+        if self.loss_type == 'squared_error':
+            self.loss = tf.reduce_mean(tf.square(self.D - self.Y)) / tf.reduce_mean(tf.square(self.D))
+        elif self.loss_type == 'poisson':
+            self.loss = poisson(self.D, self.Y)
+        else:
+            raise NameError('Loss must be squared_error or poisson')
+
+        # gradient optimizer
+        if self.optimizer == 'Adam':
+            self.train_step = tf.train.AdamOptimizer(
+                self.learning_rate).minimize(self.loss)
+        elif self.optimizer == 'GradientDescent':
+            self.train_step = tf.train.GradientDescentOptimizer(
+                self.learning_rate).minimize(self.loss)
+        elif self.optimizer == 'RMSProp':
+            self.train_step = tf.train.RMSPropOptimizer(
+                self.learning_rate).minimize(self.loss)
+        else:
+            raise NameError('No matching optimizer')
+
+        # initialize global variables
         session_conf = tf.ConfigProto(
              intra_op_parallelism_threads=1,
              inter_op_parallelism_threads=1)
         self.sess = tf.Session(config=session_conf)
-        #self.sess = tf.Session()
+
         #log.info('Initialize variables')
         self.sess.run(tf.global_variables_initializer())
+
         #log.info('Initialize saver')
         self.saver = tf.train.Saver(max_to_keep=1)
 
-    def build(self, initialize=True):
-
+    def parse_layers(self, initialize=True):
+        """deprecated for use in NEMS. replaced by modelspec2tf"""
+        raise Warning("DEPRECATED?")
         log.info('Building CNN Model (Loc 0)')
 
         self.W = []
@@ -242,9 +273,9 @@ class Net:
                     self.layers[i]['W'] = tf.Variable(self.layers[i]['init_W'])
                     self.layers[i]['b'] = tf.Variable(self.layers[i]['init_b'])
                 else:
-                    self.layers[i]['W'] = weights_norm([1, self.layers[i]['time_win_smp'],
-                                                        self.layers[i]['n_kern'], 1], sig=self.weight_scale,
-                                                seed=seed_to_randint(self.seed)+i)
+                    self.layers[i]['W'] = weights_norm(
+                        [1, self.layers[i]['time_win_smp'], self.layers[i]['n_kern'], 1],
+                        sig=self.weight_scale, seed=seed_to_randint(self.seed)+i)
                     self.layers[i]['b'] = tf.abs(kern2D(1, 1, self.layers[i]['n_kern'],
                                                         self.weight_scale, seed=seed_to_randint(self.seed)+i+self.n_layers,
                                                         distr='norm'))
@@ -434,40 +465,10 @@ class Net:
             else:
                 raise NameError('No matching layer type')
 
-        # remove padding-induced extensions
-
-        log.info('Loc 1')
-        self.Y = self.layers[self.n_layers - 1]['Y'][:, 0:self.n_tps_input, :]
-
-        # loss
-        log.info('Loc 2')
-        if self.loss_type == 'squared_error':
-            self.loss = tf.reduce_mean(tf.square(self.D - self.Y))
-        elif self.loss_type == 'poisson':
-            self.loss = poisson(self.D, self.Y)
-        else:
-            raise NameError('Loss must be squared_error or poisson')
-
-        # gradient optimizer
-        log.info('Loc 3')
-        if self.optimizer == 'Adam':
-            self.train_step = tf.train.AdamOptimizer(
-                self.learning_rate).minimize(self.loss)
-        elif self.optimizer == 'GradientDescent':
-            self.train_step = tf.train.GradientDescentOptimizer(
-                self.learning_rate).minimize(self.loss)
-        elif self.optimizer == 'RMSProp':
-            self.train_step = tf.train.RMSPropOptimizer(
-                self.learning_rate).minimize(self.loss)
-        else:
-            raise NameError('No matching optimizer')
-
-        # initialize global variables
-        log.info('Loc 4')
         if initialize:
             self.initialize()
 
-    def feed_dict(self, F, D=None, inds=None, learning_rate=None):
+    def feed_dict(self, F, D=None, S=None, inds=None, learning_rate=None):
 
         if inds is None:
             inds = np.arange(F.shape[0])
@@ -476,6 +477,8 @@ class Net:
 
         if not (D is None):
             d[self.D] = D[inds, :, :]
+        if not (S is None):
+            d[self.S] = S[inds, :, :]
 
         if not (learning_rate is None):
             d[self.learning_rate] = learning_rate
@@ -491,7 +494,8 @@ class Net:
         self.saver.restore(self.sess, fname)
 
     def train(self, F, D, learning_rate=0.5, max_iter=300, eval_interval=30, batch_size=None,
-              train_val_test=None, early_stopping_steps=5, print_iter=True):
+              train_val_test=None, early_stopping_steps=5, print_iter=True, S=None):
+
         self.save()
         if train_val_test is None:
             train_val_test = np.zeros(D.shape[0])
@@ -504,9 +508,9 @@ class Net:
         # dictionaries for validation and test
         # can initialize them now, because they are not batch dependent
         if len(val_inds) > 0:
-            val_dict = self.feed_dict(F, D=D, inds=val_inds)
+            val_dict = self.feed_dict(F, D=D, S=S, inds=val_inds)
         if len(test_inds) > 0:
-            test_dict = self.feed_dict(F, D=D, inds=test_inds)
+            test_dict = self.feed_dict(F, D=D, S=S, inds=test_inds)
 
         # by default batch size equals the size of the training data
         if batch_size is None:
@@ -519,7 +523,7 @@ class Net:
 
             # evaluate loss before any training
             if len(self.train_loss) == 0:
-                train_dict = self.feed_dict(F, D=D, inds=train_inds[batch_inds],
+                train_dict = self.feed_dict(F, D=D, S=S, inds=train_inds[batch_inds],
                                             learning_rate=learning_rate)
                 self.train_loss.append(self.loss.eval(feed_dict=train_dict))
                 if len(val_inds) > 0:
@@ -532,7 +536,7 @@ class Net:
             for i in range(max_iter):
 
                 # update
-                train_dict = self.feed_dict(F, D=D, inds=train_inds[batch_inds],
+                train_dict = self.feed_dict(F, D=D, S=S, inds=train_inds[batch_inds],
                                             learning_rate=learning_rate)
                 self.train_step.run(feed_dict=train_dict)
 
@@ -540,8 +544,6 @@ class Net:
                 if np.mod(i + 1, eval_interval) == 0:
                     self.iteration.append(
                         self.iteration[len(self.iteration) - 1] + eval_interval)
-                    if print_iter:
-                        log.info(self.iteration[len(self.iteration) - 1])
                     train_loss = self.loss.eval(feed_dict=train_dict)
                     self.train_loss.append(train_loss)
                     if len(val_inds) > 0:
@@ -551,6 +553,9 @@ class Net:
                     if len(test_inds) > 0:
                         self.test_loss.append(
                             self.loss.eval(feed_dict=test_dict))
+                    if print_iter:
+                        log.info("%d e=%.7f v=%.7f", self.iteration[len(self.iteration) - 1],
+                                 train_loss, validation_loss)
 
                     # early stopping / saving
                     if early_stopping_steps > 0:
@@ -585,14 +590,24 @@ class Net:
             if early_stopping_steps > 0:
                 self.load()
 
-    def predict(self, F, sess=None):
+    def predict(self, F, S=None, sess=None):
 
         if sess is None:
             sess = self.sess
 
         with sess.as_default():
 
-            return self.Y.eval(feed_dict=self.feed_dict(F))
+            return self.Y.eval(feed_dict=self.feed_dict(F, S=S))
+
+    def eval_to_layer(self, F=None, i=None, S=None, sess=None):
+
+        if i is None:
+            i = len(self.layers)-1
+        if sess is None:
+            sess = self.sess
+
+        with sess.as_default():
+            return self.layers[i]['Y'].eval(feed_dict=self.feed_dict(F, S=S))
 
     def layer_vals(self, sess=None):
         """
@@ -608,6 +623,8 @@ class Net:
             layers = []
             for i in range(self.n_layers):
                 layer = {}
+            #    for j in self.layers[i].keys():
+            #        layer[j] = self.layers[i][j].eval()
                 if 'W' in self.layers[i]:
                     layer['W'] = self.layers[i]['W'].eval()
                 if 'b' in self.layers[i]:
@@ -616,6 +633,26 @@ class Net:
                     layer['m'] = self.layers[i]['m'].eval()
                 if 's' in self.layers[i]:
                     layer['s'] = self.layers[i]['s'].eval()
+                if 'g' in self.layers[i]:
+                    layer['g'] = self.layers[i]['g'].eval()
+                if 'd' in self.layers[i]:
+                    layer['d'] = self.layers[i]['d'].eval()
+                if 'gain' in self.layers[i]:
+                    layer['gain'] = self.layers[i]['gain'].eval()
+                if 'f1' in self.layers[i]:
+                    layer['f1'] = self.layers[i]['f1'].eval()
+                if 'delay' in self.layers[i]:
+                    layer['delay'] = self.layers[i]['delay'].eval()
+                if 'tau' in self.layers[i]:
+                    layer['tau'] = self.layers[i]['tau'].eval()
+                if 'base' in self.layers[i]:
+                    layer['base'] = self.layers[i]['base'].eval()
+                if 'amplitude' in self.layers[i]:
+                    layer['amplitude'] = self.layers[i]['amplitude'].eval()
+                if 'kappa' in self.layers[i]:
+                    layer['kappa'] = self.layers[i]['kappa'].eval()
+                if 'shift' in self.layers[i]:
+                    layer['shift'] = self.layers[i]['shift'].eval()
                 layers.append(layer)
 
             return layers

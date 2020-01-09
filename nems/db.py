@@ -168,7 +168,7 @@ def pd_query(sql=None, params=None):
 def enqueue_models(celllist, batch, modellist, force_rerun=False,
                    user="nems", codeHash="master", jerbQuery='',
                    executable_path=None, script_path=None,
-                   priority=1, reserve_gb=0):
+                   priority=1, GPU_job=0, reserve_gb=0):
     """Call enqueue_single_model for every combination of cellid and modelname
     contained in the user's selections.
 
@@ -204,6 +204,8 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
         Path to executable python (or other command line program)
     script_path : string (defaults to nems' copy of nems/nems_fit_single.py)
         First parameter to pass to executable
+    GPU_job: int
+        Whether or not to run run as a GPU job.
 
     Returns:
     --------
@@ -261,12 +263,13 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
             if force_rerun:
                 if complete == 1:
                     message = "Resetting existing queue entry for: %s\n" % note
-                    sql = "UPDATE tQueue SET complete=0, killnow=0 WHERE id={}".format(queueid)
+                    sql = "UPDATE tQueue SET complete=0, killnow=0, progname='{}', GPU_job='{}', user='{}' WHERE id={}".format(
+                        commandPrompt, GPU_job, user, queueid)
                     r = conn.execute(sql)
 
                 elif complete == 2:
                     message = "Dead queue entry for: %s exists, resetting.\n" % note
-                    sql = "UPDATE tQueue SET complete=0, killnow=0 WHERE id={}".format(queueid)
+                    sql = "UPDATE tQueue SET complete=0, killnow=0, GPU_job='{}' WHERE id={}".format(GPU_job, queueid)
                     r = conn.execute(sql)
 
                 else:  # complete in [-1, 0] -- already running or queued
@@ -284,12 +287,12 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
         else:
             # new job
             sql = "INSERT INTO tQueue (rundataid,progname,priority," +\
-                   "reserve_gb,parmstring,allowqueuemaster,user," +\
+                   "GPU_job,reserve_gb,parmstring,allowqueuemaster,user," +\
                    "linux_user,note,waitid,codehash,queuedate) VALUES"+\
                    " ({},'{}',{}," +\
-                   "{},'{}',{},'{}'," +\
+                   "{},{},'{}',{},'{}'," +\
                    "'{}','{}',{},'{}',NOW())"
-            sql = sql.format(rundataid, commandPrompt, priority, reserve_gb,
+            sql = sql.format(rundataid, commandPrompt, priority, GPU_job, reserve_gb,
                              parmstring, allowqueuemaster, user, linux_user,
                              note, waitid, codeHash)
             r = conn.execute(sql)
@@ -307,129 +310,13 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
 def enqueue_single_model(cellid, batch, modelname, user=None,
                          force_rerun=False, codeHash="master", jerbQuery='',
                          executable_path=None, script_path=None,
-                         priority=1, reserve_gb=0):
+                         priority=1, GPU_job=0, reserve_gb=0):
 
     zipped = enqueue_models([cellid], batch, [modelname], force_rerun,
                             user, codeHash, jerbQuery, executable_path,
-                            script_path, priority, reserve_gb)
+                            script_path, priority, GPU_job, reserve_gb)
 
     queueid, message = next(zipped)
-    return queueid, message
-
-
-def enqueue_single_model_duplicate(
-        cellid, batch, modelname, user=None,
-        session=None,
-        force_rerun=False, codeHash="master", jerbQuery='',
-        executable_path=None, script_path=None):
-    """
-    Adds one model to the queue to be fitted for a single cell/batch
-
-    Inputs:
-    -------
-    if executable_path is None:
-        executable_path = "/home/nems/anaconda3/bin/python"
-    if script_path is None:
-        script_path = "/home/nems/nems_db/nems_fit_single.py"
-
-    Returns:
-    --------
-    queueid : int
-        id (primary key) that was assigned to the new tQueue entry, or -1.
-    message : str
-        description of the action taken, to be reported to the console by
-        the calling enqueue_models function.
-    """
-    raise NotImplementedError("DEPRECATED?")
-
-    if session is None:
-        session = Session()
-
-    db_tables = Tables()
-    NarfResults = db_tables['NarfResults']
-    tQueue = db_tables['tQueue']
-
-    if executable_path is None:
-        executable_path = "/home/nems/anaconda3/bin/python"
-
-    if script_path is None:
-        script_path = "/home/nems/nems_db/nems_fit_single.py"
-
-    commandPrompt = ("{0} {1} {2} {3} {4}"
-                     .format(executable_path, script_path,
-                             cellid, batch, modelname)
-                     )
-
-    note = "%s/%s/%s" % (cellid, batch, modelname)
-
-    result = (session.query(NarfResults)
-              .filter(NarfResults.cellid == cellid)
-              .filter(NarfResults.batch == batch)
-              .filter(NarfResults.modelname == modelname)
-              .first()
-              )
-    if result and not force_rerun:
-        log.info("Entry in NarfResults already exists for: %s, skipping.\n",
-                 note)
-        return -1, 'skip'
-
-    # query tQueue to check if entry with same cell/batch/model already exists
-    qdata = (
-        session.query(tQueue)
-        .filter(tQueue.note == note)
-        .first()
-    )
-
-    job = None
-    message = None
-
-    if qdata and (int(qdata.complete) <= 0):
-        # TODO:
-        # incomplete entry for note already exists, skipping
-        # update entry with same note? what does this accomplish?
-        # moves it back into queue maybe?
-        message = "Incomplete entry for: %s exists, skipping.\n" % note
-        job = qdata
-    elif qdata and (int(qdata.complete) == 2):
-        # TODO:
-        # dead queue entry for note exists, resetting
-        # update complete and progress status each to 0
-        # what does this do? doesn't look like the sql is sent right away,
-        # instead gets assigned to [res,r]
-        message = "Dead queue entry for: %s exists, resetting.\n" % note
-        qdata.complete = 0
-        qdata.progress = 0
-        job = qdata
-        job.codeHash = codeHash
-        # update command prompt incase a new executable or script path
-        # has been provided.
-        job.commandPrompt = commandPrompt
-    elif qdata and (int(qdata.complete) == 1):
-        # TODO:
-        # resetting existing queue entry for note
-        # update complete and progress status each to 0
-        # same as above, what does this do?
-        message = "Resetting existing queue entry for: %s\n" % note
-        qdata.complete = 0
-        qdata.progress = 0
-        job = qdata
-        # update codeHash on re-run
-        job.codeHash = codeHash
-        # update command prompt incase a new executable or script path
-        # has been provided.
-        job.commandPrompt = commandPrompt
-    else:
-        # result must not have existed, or status value was greater than 2
-        # add new entry
-        message = "Adding job to queue for: %s\n" % note
-        job = _add_model_to_queue(
-            commandPrompt, note, user, codeHash, jerbQuery
-            )
-        session.add(job)
-
-    session.commit()
-    queueid = job.id
-
     return queueid, message
 
 
@@ -517,17 +404,21 @@ def add_job_to_queue(args, note, force_rerun=False,
         queueid = x['id']
         complete = x['complete']
         if force_rerun:
+            sql = "UPDATE tQueue SET complete=0, killnow=0, progname='{}', user='{}' WHERE id={}".format(
+                commandPrompt, user, queueid)
             if complete == 1:
                 message = "Resetting existing queue entry for: %s\n" % note
-                sql = "UPDATE tQueue SET complete=0, killnow=0 WHERE id={}".format(queueid)
                 r = conn.execute(sql)
 
             elif complete == 2:
                 message = "Dead queue entry for: %s exists, resetting.\n" % note
-                sql = "UPDATE tQueue SET complete=0, killnow=0 WHERE id={}".format(queueid)
                 r = conn.execute(sql)
 
-            else:  # complete in [-1, 0] -- already running or queued
+            elif complete == 0:
+                message = "Updating unstarted entry for: %s.\n" % note
+                r = conn.execute(sql)
+
+            else:  # complete in [-1] -- already running
                 message = "Incomplete entry for: %s exists, skipping.\n" % note
 
         else:
@@ -753,11 +644,22 @@ def save_results(stack, preview_file, queueid=None):
 
 
 def update_results_table(modelspec, preview=None,
-                         username="svd", labgroup="lbhb"):
+                         username="svd", labgroup="lbhb", public=1):
+    """
+    Save information about a fit based on modelspec.meta
+    :param modelspec: NEMS modelspec
+    :param preview: filename of saved results figure (optional)
+    :param username: username id for logging
+    :param labgroup: labgroup id for logging
+    :param public: (True) if True, flag as publicly visible outside of labgroup
+    :return: results_id identifier for new/updated entry in Results table
+    """
     db_tables = Tables()
     NarfResults = db_tables['NarfResults']
     NarfBatches = db_tables['NarfBatches']
     session = Session()
+    results_id = None
+
     cellids = modelspec.meta.get('cellids', [modelspec.meta['cellid']])
 
     for cellid in cellids:
@@ -794,34 +696,28 @@ def update_results_table(modelspec, preview=None,
 
         if not r:
             r = NarfResults()
-            if preview:
-                r.figurefile = preview
-            r.username = username
-            r.public = 1
-            if not labgroup == 'SPECIAL_NONE_FLAG':
-                try:
-                    if not labgroup in r.labgroup:
-                        r.labgroup += ', %s' % labgroup
-                except TypeError:
-                    # if r.labgroup is none, can't check if user.labgroup is in it
-                    r.labgroup = labgroup
-            fetch_meta_data(modelspec, r, attrs, cellid)
-            session.add(r)
+            new_entry = True
         else:
-            if preview:
-                r.figurefile = preview
-            # TODO: This overrides any existing username or labgroup assignment.
-            #       Is this the desired behavior?
-            r.username = username
-            r.public=1
-            if not labgroup == 'SPECIAL_NONE_FLAG':
-                try:
-                    if not labgroup in r.labgroup:
-                        r.labgroup += ', %s' % labgroup
-                except TypeError:
-                    # if r.labgroup is none, can't check if labgroup is in it
-                    r.labgroup = labgroup
-            fetch_meta_data(modelspec, r, attrs, cellid)
+            new_entry = False
+
+        if preview:
+            r.figurefile = preview
+        # TODO: This overrides any existing username and labgroup assignment.
+        #       Is this the desired behavior?
+        r.username = username
+        r.public = public
+        if not labgroup == 'SPECIAL_NONE_FLAG':
+            try:
+                if not labgroup in r.labgroup:
+                    r.labgroup += ', %s' % labgroup
+            except TypeError:
+                # if r.labgroup is none, can't check if labgroup is in it
+                r.labgroup = labgroup
+        fetch_meta_data(modelspec, r, attrs, cellid)
+
+        if new_entry:
+            session.add(r)
+
         r.cellid = cellid
         session.commit()
         results_id = r.id
@@ -926,7 +822,30 @@ def get_batch(name=None, batchid=None):
 
     return d
 
-def get_batch_cells(batch=None, cellid=None, rawid=None):
+def get_batch_cells(batch=None, cellid=None, rawid=None, as_list=False):
+    '''
+    Retrieve a dataframe from NarfData containing all cellids in a batch.
+
+    Parameters:
+    ----------
+    batch : int
+        The batch number to retrieve cellids from.
+    cellid : str
+        A full or partial (must include beginning) cellid to match entries to.
+        Ex: cellid='AMT' would return all cellids beginning with AMT.
+    rawid : int
+        A full rawid to match entries to (must be an exact match).
+    as_list : bool
+        If true, return cellids as a list instead of a dataframe.
+        (default False).
+
+    Returns:
+    -------
+    d : Integer-indexed dataframe with one column for matched cellids and
+        one column for batch number.
+        If as_list=True, d will instead be a list of cellids.
+
+    '''
     # eg, sql="SELECT * from NarfBatches WHERE batch=301"
     #engine = Engine()
     SQL_ENGINE = get_setting('SQL_ENGINE')
@@ -954,8 +873,10 @@ def get_batch_cells(batch=None, cellid=None, rawid=None):
     #print(params)
 
     d = pd_query(sql=sql, params=params)
-
-    return d
+    if as_list:
+        return d['cellid'].values.tolist()
+    else:
+        return d
 
 
 def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None):
@@ -1123,11 +1044,11 @@ def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test'):
         if cellids is not None:
             q = q.filter(NarfResults.cellid.in_(cellids))
         tr = psql.read_sql_query(q.statement, session.bind)
-        tc=tr[['cellid',stat]]
-        tc=tc.set_index('cellid')
-        tc.columns=[mn]
+        tc = tr[['cellid',stat]]
+        tc = tc.set_index('cellid')
+        tc.columns = [mn]
         if results is None:
-            results=tc
+            results = tc
         else:
             results=results.join(tc)
 
@@ -1330,6 +1251,50 @@ def get_rawid(cellid, run_num):
     d = pd.read_sql(sql=sql, con=engine, params=params)
 
     return [d['rawid'].values[0]]
+
+def get_pen_location(cellid):
+    """
+    Cellid can be string or list. For every channel in the list, return the
+    well position. For example, if cellid = ['AMT024a-01-2', 'AMT024a-03-2']
+    then this code expects there to be at least 3 well positions in the db,
+    it will return the 0th and 2nd positions.
+
+    DO NOT pass list of cellids from different sites. This will not work
+
+    If recording with a single probe array, there is only one well position for
+    all 64 channels. For this reason, it doesn't make sense for cellid to be a
+    list
+    """
+    engine = Engine()
+    params = ()
+    sql = "SELECT wellposition FROM gPenetration WHERE penname like '{}'"
+
+    if type(cellid) is list:
+        penname = cellid[0][:6]
+    if type(cellid is np.ndarray):
+        penname = cellid[0][:6]
+    if type(cellid) is str:
+        penname = cellid[:6]
+
+    sql = sql.format(penname)
+
+    d = pd.read_sql(sql=sql, con=engine)
+    xy = d.values[0][0].split('+')
+    # return table of x y values
+    if type(cellid) is str:
+        table_xy = pd.DataFrame(index=[cellid], columns=['x', 'y'])
+    else:
+        # only keep unique chans
+        cellid = np.unique([c[:10] for c in cellid])
+        table_xy = pd.DataFrame(index=cellid, columns=['x', 'y'])
+
+    for i, pos in enumerate(xy):
+        vals = pos.split(',')
+        if (len(vals) > 1) & (i < len(cellid)):
+            table_xy['x'][i] = int(vals[0])
+            table_xy['y'][i] = int(vals[1])
+
+    return table_xy
 
 
 #### NarfData management

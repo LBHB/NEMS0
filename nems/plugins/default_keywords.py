@@ -41,7 +41,8 @@ def _one_zz(zerocount=1):
 
 def wc(kw):
     '''
-    Parses the default modulespec for basic and gaussian channel weighting.
+    Parses the default modulespec for basic and gaussian channel weighting. By default, weights are initialized
+    to small positive value (0.01). TODO: Should this be zero instead??
 
     Parameter
     ---------
@@ -52,7 +53,7 @@ def wc(kw):
     -------
     c : Used when n_outputs is greater than n_inputs (overwrites g)
     g : For gaussian coefficients (overwrites c)
-    z : initialize all coefficients to zero
+    z : initialize all coefficients to zero (or mean zero if shuffling)
     n : To apply normalization
     o : include offset paramater, a constant ("bias") added to each output
 
@@ -87,8 +88,8 @@ def wc(kw):
     # This is the default for wc, but options might overwrite it.
     fn = 'nems.modules.weight_channels.basic'
     fn_kwargs = {'i': 'pred', 'o': 'pred', 'normalize_coefs': False}
-    p_coefficients = {'mean': np.zeros((n_outputs, n_inputs))+0.01,
-                      'sd': np.ones((n_outputs, n_inputs))}
+    p_coefficients = {'mean': np.full((n_outputs, n_inputs), 0.01),
+                      'sd': np.full((n_outputs, n_inputs), 0.2)}
     # add some variety across channels to help get the fitter started
     for i in range(n_outputs):
         x0 = int(i/n_outputs*n_inputs)
@@ -98,10 +99,13 @@ def wc(kw):
     normalize = False
     coefs = None
 
+    bounds = None
+
     for op in options[2:]:  # will be empty if only wc and {in}x{out}
         if op == 'z':
+            # weighting scheme from https://medium.com/usf-msds/deep-learning-best-practices-1-weight-initialization-14e5c0295b94
             p_coefficients = {'mean': np.zeros((n_outputs, n_inputs)),
-                              'sd': np.ones((n_outputs, n_inputs))}
+                              'sd': np.full((n_outputs, n_inputs), np.sqrt(2/(n_outputs)))}
             prior = {'coefficients': ('Normal', p_coefficients)}
 
         elif op == 'c':
@@ -109,14 +113,17 @@ def wc(kw):
             if n_outputs == 1:
                 p_coefficients = {
                     'mean': np.ones((n_outputs, n_inputs))/n_outputs,
-                    'sd': np.ones((n_outputs, n_inputs)),
+                    'sd': np.full((n_outputs, n_inputs), 0.2),
                 }
             else:
                 p_coefficients = {
                     'mean': np.eye(n_outputs, n_inputs),
-                    'sd': np.ones((n_outputs, n_inputs)),
+                    'sd': np.full((n_outputs, n_inputs), 0.2),
                 }
-                p_coefficients['mean'][(n_outputs-1):, :] = 1 / n_inputs
+                if n_outputs > n_inputs:
+                    p_coefficients['mean'][n_outputs:, :] = 1 / n_inputs
+                elif n_inputs > n_outputs:
+                    p_coefficients['mean'][:, n_inputs:] = 1 / n_outputs
 
             prior = {'coefficients': ('Normal', p_coefficients)}
 
@@ -133,11 +140,14 @@ def wc(kw):
 
             mean_prior_coefficients = {
                 'mean': mean,
-                'sd': np.ones_like(mean),
+                'sd': np.full_like(mean, 0.4),
             }
             sd_prior_coefficients = {'sd': sd}
             prior = {'mean': ('Normal', mean_prior_coefficients),
                      'sd': ('HalfNormal', sd_prior_coefficients)}
+            bounds = {
+                'mean': (np.full_like(mean, -0.01), np.full_like(mean, 1.01)),
+                'sd': (np.full_like(mean, 0.05), np.full_like(mean, 0.6))}
 
         elif op == 'n':
             normalize = True
@@ -153,15 +163,25 @@ def wc(kw):
         }
         prior['offset'] = ('Normal', o_coefficients)
 
+    if 'r' in options:
+        fn = 'nems.modules.weight_channels.basic_with_rect'
+        o_coefficients = {
+            'mean': np.zeros((n_outputs, 1)),
+            'sd': np.ones((n_outputs, 1))
+        }
+        prior['offset'] = ('Normal', o_coefficients)
+
     template = {
         'fn': fn,
         'fn_kwargs': fn_kwargs,
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.weight_channels_heatmap'],
-        'plot_fn_idx': 1,
+        'plot_fn_idx': 2,
         'prior': prior
     }
-
+    if bounds is not None:
+        template['bounds'] = bounds
 #    if normalize:
 #        template['norm'] = {'type': 'minmax', 'recalc': 0,
 #                            'd': np.zeros([n_outputs, 1]),
@@ -169,6 +189,64 @@ def wc(kw):
 
     if coefs is not None:
         template['fn_coefficients'] = coefs
+
+    return template
+
+def lv(kw):
+    '''
+    weighted sum of r responses (inputs) into n channels (outputs)
+
+    Parameter
+    ---------
+    kw : string
+        A string of the form: lv.{n_inputs}x{n_outputs}.option1.option2...
+
+    Options
+    -------
+
+    '''
+    options = kw.split('.')
+    in_out_pattern = re.compile(r'^(\d{1,})x(\d{1,})$')
+    try:
+        parsed = re.match(in_out_pattern, options[1])
+        n_inputs = int(parsed.group(1))
+        n_outputs = int(parsed.group(2))
+    except (TypeError, IndexError):
+        # n_inputs x n_outputs should always follow wc.
+        # TODO: Ideally would like the order to not matter like with other
+        #       options but this seemed like a sensible solution for now
+        #       since the information is mandatory.
+        raise ValueError("Got TypeError or IndexError when attempting to parse "
+                         "wc keyword.\nMake sure <in>x<out> is provided "
+                         "as the first option after 'wc', e.g.: 'wc.2x15'"
+                         "\nkeyword given: %s" % kw)
+
+    if 'c' in options and 'g' in options:
+        log.warning("Options 'c' and 'g' both given for weight_channels, but"
+                    " are mutually exclusive. Whichever comes last will "
+                    "overwrite the previous option. kw given: {}".format(kw))
+
+    # This is the default for wc, but options might overwrite it.
+    fn = 'nems.modules.weight_channels.basic'
+    fn_kwargs = {'i': 'resp', 'o': 'lv'}
+    p_coefficients = {'mean': np.zeros((n_outputs, n_inputs))+0.01,
+                      'sd': np.full((n_outputs, n_inputs), 0.1)}
+    prior = {'coefficients': ('Normal', p_coefficients)}
+
+    bounds = None
+
+    template = {
+        'fn': fn,
+        'fn_kwargs': fn_kwargs,
+        'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
+                     'nems.plots.api.weight_channels_heatmap'],
+        'plot_fn_idx': 2,
+        'prior': prior
+    }
+
+    if bounds is not None:
+        template['bounds'] = bounds
 
     return template
 
@@ -180,7 +258,7 @@ def fir(kw):
     Parameters
     ----------
     kw : str
-        A string of the form: fir.{n_outputs}x{n_coefs}x{n_banks}
+        A string of the form: fir.{n_inputs}x{n_coefs}x{n_banks}
 
     Options
     -------
@@ -191,52 +269,63 @@ def fir(kw):
     kw = ".".join(ops[:2])
     parsed = re.match(pattern, kw)
     try:
-        n_outputs = int(parsed.group(1))
+        n_inputs = int(parsed.group(1))
         n_coefs = int(parsed.group(2))
         n_banks = parsed.group(3)  # None if not given in keyword string
     except TypeError:
         raise ValueError("Got a TypeError when parsing fir keyword. Make sure "
                          "keyword has the form: \n"
-                         "fir.{n_outputs}x{n_coefs}x{n_banks} (banks optional)"
+                         "fir.{n_inputs}x{n_coefs}x{n_banks} (banks optional)"
                          "\nkeyword given: %s" % kw)
     if n_banks is None:
-        p_coefficients = {
-            'mean': np.zeros((n_outputs, n_coefs)),
-            'sd': np.ones((n_outputs, n_coefs)),
-        }
+        n_banks = 1
     else:
         n_banks = int(n_banks)
-        p_coefficients = {
-            'mean': np.zeros((n_outputs * n_banks, n_coefs)),
-            'sd': np.ones((n_outputs * n_banks, n_coefs)),
-        }
+
+    p_coefficients = {
+        'mean': np.zeros((n_inputs * n_banks, n_coefs)),
+        'sd': np.ones((n_inputs * n_banks, n_coefs)),
+    }
 
     if n_coefs > 2:
-        #p_coefficients['mean'][:, 1] = 0.1
-        # p_coefficients['mean'][:, 2] = -0.05
+        p_coefficients['mean'][:, 1] = 0.1
+        p_coefficients['mean'][:, 2] = -0.05
         pass
     else:
         p_coefficients['mean'][:, 0] = 1
 
     rate = 1
+    non_causal = False
+    include_offset = False
+    cross_channels = False
     for op in ops:
         if op == 'fl':
-            p_coefficients['mean'][:] = 1/(n_outputs*n_coefs)
+            p_coefficients['mean'][:] = 1/(n_inputs*n_coefs)
+        elif op == 'x':
+            cross_channels = True
         elif op == 'z':
             p_coefficients['mean'][:] = 0
         elif op.startswith('r'):
             rate = int(op[1:])
+        elif op == 'nc':
+            # noncausal fir implementation (for reverse model)
+            non_causal = True
+        elif op == 'off':
+            # add variable offset parameter
+            include_offset = True
 
-    if n_banks is None:
+    if (n_banks == 1) and (not cross_channels):
         template = {
             'fn': 'nems.modules.fir.basic',
-            'fn_kwargs': {'i': 'pred', 'o': 'pred'},
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 'non_causal': non_causal,
+                          'cross_channels': cross_channels},
             'plot_fns': ['nems.plots.api.mod_output',
+                         'nems.plots.api.spectrogram_output',
                          'nems.plots.api.strf_heatmap',
                          'nems.plots.api.strf_local_lin',
                          'nems.plots.api.strf_timeseries',
                          'nems.plots.api.fir_output_all'],
-            'plot_fn_idx': 1,
+            'plot_fn_idx': 2,
             'prior': {
                 'coefficients': ('Normal', p_coefficients),
             }
@@ -244,20 +333,67 @@ def fir(kw):
     else:
         template = {
             'fn': 'nems.modules.fir.filter_bank',
-            'fn_kwargs': {'i': 'pred', 'o': 'pred',
-                          'bank_count': n_banks},
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 'non_causal': non_causal,
+                          'bank_count': n_banks, 'cross_channels': cross_channels},
             'plot_fns': ['nems.plots.api.mod_output',
+                         'nems.plots.api.spectrogram_output',
                          'nems.plots.api.strf_heatmap',
                          'nems.plots.api.strf_local_lin',
                          'nems.plots.api.strf_timeseries',
                          'nems.plots.api.fir_output_all'],
-            'plot_fn_idx': 1,
+            'plot_fn_idx': 2,
             'prior': {
                 'coefficients': ('Normal', p_coefficients),
             }
         }
     if rate > 1:
         template['fn_kwargs']['rate'] = rate
+    if include_offset:
+        mean_off = np.zeros((n_inputs, 1))
+        sd_off = np.full((n_inputs, 1), 1)
+        template['prior']['offsets'] = ('Normal', {'mean': mean_off,
+                                                   'sd': sd_off})
+
+    return template
+
+
+def strf(kw):
+    '''
+    Generate a stim_channel x time_bin array of coefficients to be used
+    as an inseparable STRF.
+
+    Parameters
+    ----------
+    kw : str
+        A string of the form: strf.{stim_channel_count}x{n_coefs}
+
+    Options
+    -------
+    f : "first module" - change input from pred to stim
+    TODO: approximations with different basis functions
+
+    '''
+    options = kw.split('.')
+    stim_channels, temporal_bins = [int(a) for a in options[1].split('x')]
+
+    input_name = 'pred'
+    for op in options[2:]:
+        if op == 'f':
+            input_name = 'stim'
+
+    prior_coeffs = {
+            'mean': np.zeros((stim_channels, temporal_bins)),
+            'sd': np.ones((stim_channels, temporal_bins))
+            }
+    template = {
+            'fn': 'nems.modules.strf.nonparametric',
+            'fn_kwargs': {'i': input_name, 'o': 'pred'},
+            'plot_fns': ['nems.plots.heatmap.nonparametric_strf'],
+            'plot_fn_idx': 0,
+            'prior': {
+                    'coefficients': ('Normal', prior_coeffs)
+                    }
+            }
 
     return template
 
@@ -269,7 +405,7 @@ def pz(kw):
     Parameters
     ----------
     kw : str
-        A string of the form: fir.{n_outputs}x{n_coefs}x{n_banks}
+        A string of the form: fir.{n_inputs}x{n_coefs}x{n_banks}
 
     Options
     -------
@@ -279,13 +415,13 @@ def pz(kw):
     pattern = re.compile(r'^(\d{1,})x(\d{1,})x?(\d{1,})?$')
     parsed = re.match(pattern, options[1])
     try:
-        n_outputs = int(parsed.group(1))
+        n_inputs = int(parsed.group(1))
         n_coefs = int(parsed.group(2))
         n_banks = parsed.group(3)  # None if not given in keyword string
     except TypeError:
         raise ValueError("Got a TypeError when parsing fir keyword. Make sure "
                          "keyword has the form: \n"
-                         "pz.{n_outputs}x{n_coefs}x{n_banks} (banks optional)"
+                         "pz.{n_inputs}x{n_coefs}x{n_banks} (banks optional)"
                          "\nkeyword given: %s" % kw)
     if n_banks is None:
         n_banks = 1
@@ -294,7 +430,7 @@ def pz(kw):
     if n_banks > 1:
         raise ValueError("nbanks > 1 not yet supported for pz")
 
-    npoles = 1
+    npoles = 3
     nzeros = 1
 
     for op in options[2:]:
@@ -303,33 +439,125 @@ def pz(kw):
 
         elif op.startswith('z'):
             nzeros = int(op[1:])
-    pole_set = np.array([[0.2, 0.4, 0.8, 0.8]])
+    pole_set = np.array([[0.8, -0.4, 0.1, 0, 0]])
+    zero_set = np.array([[0.1, 0.1, 0.1, 0.1, 0]])
     p_poles = {
-        'mean': np.repeat(pole_set[:,:npoles], n_outputs, axis=0),
-        'sd': np.ones((n_outputs, npoles))*.1,
+        'mean': np.repeat(pole_set[:,:npoles], n_inputs, axis=0),
+        'sd': np.ones((n_inputs, npoles))*.3,
     }
     p_zeros = {
-        'mean': np.zeros((n_outputs, nzeros))+.1,
-        'sd': np.ones((n_outputs, nzeros))*.1,
+        'mean': np.repeat(zero_set[:,:nzeros], n_inputs, axis=0),
+        'sd': np.ones((n_inputs, nzeros))*.2,
     }
     p_delays = {
-        'mean': np.zeros((n_outputs, 1))+1,
-        'sd': np.ones((n_outputs, 1))*.1,
+        'sd': np.ones((n_inputs, 1))*.02,
     }
     p_gains = {
-        'mean': np.zeros((n_outputs, 1))+.1,
-        'sd': np.ones((n_outputs, 1))*.1,
+        'mean': np.zeros((n_inputs, 1))+.1,
+        'sd': np.ones((n_inputs, 1))*.2,
     }
 
     template = {
         'fn': 'nems.modules.fir.pole_zero',
         'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs},
+        'fn_coefficients': 'nems.modules.fir.pz_coefficients',
+        'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
+                     'nems.plots.api.strf_heatmap',
+                     'nems.plots.api.strf_local_lin',
+                     'nems.plots.api.strf_timeseries',
+                     'nems.plots.api.fir_output_all'],
+        'plot_fn_idx': 2,
         'prior': {
             'poles': ('Normal', p_poles),
             'zeros': ('Normal', p_zeros),
             'gains': ('Normal', p_gains),
-            'delays': ('Normal', p_delays),
+            'delays': ('HalfNormal', p_delays),
         }
+    }
+
+    return template
+
+
+def do(kw):
+    '''
+    Generate and register default modulespec for damped oscillator-based filters.
+    Several parameters have bounds
+
+    Parameters
+    ----------
+    kw : str
+        A string of the form: do.{n_inputs}x{n_coefs}x{n_banks}
+
+    Options
+    -------
+    n_banks : default 1
+    x : (False) if true cross each filter with each input (requires n_inputs==1?)
+
+    '''
+    options = kw.split('.')
+    pattern = re.compile(r'^(\d{1,})x(\d{1,})x?(\d{1,})?$')
+    parsed = re.match(pattern, options[1])
+    try:
+        n_inputs = int(parsed.group(1))
+        n_coefs = int(parsed.group(2))
+        n_banks = parsed.group(3)  # None if not given in keyword string
+    except TypeError:
+        raise ValueError("Got a TypeError when parsing do() keyword. Make sure "
+                         "keyword has the form: \n"
+                         "do.{n_inputs}x{n_coefs}x{n_banks} (n_banks optional)"
+                         "\nkeyword given: %s" % kw)
+
+    if n_banks is None:
+        n_banks = 1
+    else:
+        n_banks = int(n_banks)
+
+    n_channels = n_inputs * n_banks
+    cross_channels = False
+
+    # additional options
+    for op in options[2:]:
+        if op == 'x':
+            cross_channels = True
+
+    p_f1s = {
+        'sd': np.full((n_channels, 1), 1)
+    }
+    p_taus = {
+        'sd': np.full((n_channels, 1), 0.2)
+    }
+    g0 = np.array([[0.5, -0.25, 0.5, -0.25, 0.5, -0.25, 0.5, -0.25]]).T
+    p_gains = {
+            'mean': np.tile(g0[:n_inputs, :], (n_banks, 1)),
+            'sd': np.ones((n_channels, 1))*.4,
+    }
+    p_delays = {
+        'sd': np.full((n_channels, 1), 1)
+    }
+
+    template = {
+        'fn': 'nems.modules.fir.damped_oscillator',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs,
+                      'bank_count': n_banks, 'cross_channels': cross_channels},
+        'fn_coefficients': 'nems.modules.fir.do_coefficients',
+        'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
+                     'nems.plots.api.strf_heatmap',
+                     'nems.plots.api.strf_local_lin',
+                     'nems.plots.api.strf_timeseries',
+                     'nems.plots.api.fir_output_all'],
+        'plot_fn_idx': 2,
+        'prior': {
+            'f1s': ('HalfNormal', p_f1s),
+            'taus': ('HalfNormal', p_taus),
+            'gains': ('Normal', p_gains),
+            'delays': ('HalfNormal', p_delays)},
+        'bounds': {
+            'f1s': (np.full((n_channels, 1), 1e-15), np.full((n_channels, 1), 2*np.pi)),
+            'taus': (np.full((n_channels, 1), 0), np.full((n_channels, 1), np.inf)),
+            'gains': (np.full((n_channels, 1), -np.inf), np.full((n_channels, 1), np.inf)),
+            'delays': (np.full((n_channels, 1), -1), np.full((n_channels, 1), n_coefs))}
     }
 
     return template
@@ -394,11 +622,6 @@ def firexp(kw):
     kw : str
         A string of the form: firexp.{n_outputs}x{n_coefs}
 
-    Options
-    -------
-    s : Fix a and b as constants (1, and 0, respectively).
-        Reduces firexp to a one-parameter exponential e^(-x/tau)
-
     '''
     options = kw.split('.')
     pattern = re.compile(r'^(\d{1,})x(\d{1,})?$')
@@ -412,28 +635,28 @@ def firexp(kw):
                          "firexp.{n_outputs}x{n_coefs}"
                          "\nkeyword given: %s" % kw)
 
-    tau = np.ones(n_chans)
-    a = np.ones(n_chans)
-    b = np.zeros(n_chans)
+    tau = np.ones((n_chans, 1))
+    a = np.ones((n_chans, 1))
+    b = np.zeros((n_chans, 1))
+    s = np.zeros((n_chans, 1))
     prior = {'tau': ('Normal', {'mean': tau, 'sd': np.ones(n_chans)})}
     fn_kwargs = {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs}
-    if 's' not in options:
-        prior.update({
-                'a': ('Normal', {'mean': a, 'sd': np.ones(n_chans)}),
-                'b': ('Normal', {'mean': b, 'sd': np.ones(n_chans)})
-                })
-    else:
-        fn_kwargs.update({'a': a, 'b': b})
+    prior.update({
+            'a': ('Exponential', {'beta': a}),
+            'b': ('Normal', {'mean': b, 'sd': np.ones(n_chans, 1)}),
+            's': ('Normal', {'mean': s, 'sd': np.ones(n_chans, 1)})
+            })
 
     template = {
         'fn': 'nems.modules.fir.fir_exp',
         'fn_kwargs': fn_kwargs,
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.strf_heatmap',
                      'nems.plots.api.strf_timeseries'],
-        'plot_fn_idx': 1,
+        'plot_fn_idx': 2,
         'prior': prior,
-        'bounds': {'tau': (1e-15, None)}
+        'bounds': {'tau': (1e-15, None), 'a': (1e-15, None)}
     }
 
     return template
@@ -468,8 +691,9 @@ def lvl(kw):
         'fn': 'nems.modules.levelshift.levelshift',
         'fn_kwargs': {'i': 'pred', 'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp'],
-        'plot_fn_idx': 1,
+        'plot_fn_idx': 2,
         'prior': {'level': ('Normal', {'mean': np.zeros([n_shifts, 1]),
                                        'sd': np.ones([n_shifts, 1])})}
         }
@@ -503,7 +727,9 @@ def scl(kw):
     template = {
         'fn': 'nems.modules.scale.scale',
         'fn_kwargs': {'i': 'pred', 'o': 'pred'},
-        'plot_fns': ['nems.plots.api.mod_output'],
+        'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
+                     ],
         'plot_fn_idx': 0,
         'prior': {'a': ('Normal', {'mean': np.ones([n_scales, 1]),
                                    'sd': np.ones([n_scales, 1])})}
@@ -519,7 +745,7 @@ def stp(kw):
     Parameters
     ----------
     kw : str
-        Expected format: r'^stp\.?(\d{1,})\.?([z,b,n]*)$'
+        Expected format: r'^stp\.?(\d{1,})\.?([zbnstxq.]*)$'
 
     Options
     -------
@@ -527,8 +753,9 @@ def stp(kw):
     b : Set bounds on 'tau' to be greater than or equal to 0
     n : Apply normalization
     t : Threshold inputs to synapse
+    q : quick version of STP, fits differently for some reason? so not default
     '''
-    pattern = re.compile(r'^stp\.?(\d{1,})\.?([z,b,n,s,t,\.]*)$')
+    pattern = re.compile(r'^stp\.?(\d{1,})\.?([zbnstxq.\.]*)$')
     parsed = re.match(pattern, kw)
     try:
         n_synapse = int(parsed.group(1))
@@ -543,44 +770,145 @@ def stp(kw):
     u_mean = [0.01] * n_synapse
     tau_mean = [0.05] * n_synapse
     x0_mean = [0] * n_synapse
+    crosstalk = 0
 
-    normalize = False
-    bounds = False
-    threshold = False
+    quick_eval = ('q' in options)
+    normalize = ('n' in options)
+    threshold = ('t' in options)
+    bounds = ('b' in options)
 
     for op in options:
         if op == 'z':
             tau_mean = [0.01] * n_synapse
         elif op == 's':
             u_mean = [0.1] * n_synapse
-        elif op == 'n':
-            normalize = True
-        elif op == 't':
-            threshold = True
-        elif op == 'b':
-            bounds = True
+        elif op == 'x':
+            crosstalk = 1
 
-    u_sd = u_mean
+    u_sd = [0.05] * n_synapse
     if n_synapse == 1:
         # TODO:
         # @SVD: stp1 had this as 0.01, all others 0.05. intentional?
         #       if not can just set tau_sd = [0.05]*n_synapse
         tau_sd = u_sd
     else:
-        tau_sd = [0.05]*n_synapse
+        tau_sd = [0.01]*n_synapse
 
     template = {
         'fn': 'nems.modules.stp.short_term_plasticity',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      'crosstalk': 0,
-                      'reset_signal': 'epoch_onsets'},
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'crosstalk': crosstalk,
+                      'quick_eval': quick_eval, 'reset_signal': 'epoch_onsets'},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.before_and_after_stp'],
-        'plot_fn_idx': 2,
+        'plot_fn_idx': 3,
         'prior': {'u': ('Normal', {'mean': u_mean, 'sd': u_sd}),
-                  'tau': ('Normal', {'mean': tau_mean, 'sd': tau_sd})}
+                  'tau': ('Normal', {'mean': tau_mean, 'sd': tau_sd})},
+        'bounds': {'u': (np.full_like(u_mean, -np.inf), np.full_like(u_mean, np.inf)),
+                   'tau': (np.full_like(tau_mean, 0.01), np.full_like(tau_mean, np.inf))}
+    }
+    if normalize:
+        d = np.array([0]*n_synapse)
+        g = np.array([1]*n_synapse)
+        template['norm'] = {'type': 'minmax', 'recalc': 0, 'd': d, 'g': g}
+
+    if threshold:
+        template['prior']['x0'] = ('Normal', {'mean': x0_mean, 'sd': u_sd})
+        template['bounds']['x0'] = (np.full_like(x0_mean, -np.inf), np.full_like(x0_mean, np.inf))
+
+    return template
+
+
+def dep(kw):
+    """ same as stp(kw) but sets kw_args->dep_only = True """
+    template = stp(kw.replace('dep','stp'))
+    #template['kw_args']['dep_only'] = True
+    u_mean = template['prior']['u'][1]['mean']
+    tau_mean = template['prior']['tau'][1]['mean']
+    template['bounds'] = {'u': (np.full_like(u_mean, 0), np.full_like(u_mean, np.inf)),
+                          'tau': (np.full_like(tau_mean, 0.01), np.full_like(tau_mean, np.inf))}
+
+    return template
+
+
+def stp2(kw):
+    '''
+    Generate and register modulespec for short_term_plasticity2 module. Two plasticity timecoursees
+
+    Parameters
+    ----------
+    kw : str
+        Expected format: r'^stp2\.?(\d{1,})\.?([zbnstxq.]*)$'
+
+    Options
+    -------
+    z : Change prior conditions (see function body)
+    b : Set bounds on 'tau' to be greater than or equal to 0
+    n : Apply normalization
+    t : Threshold inputs to synapse
+    q : quick version of STP, fits differently for some reason? so not default
+    '''
+    pattern = re.compile(r'^stp2\.?(\d{1,})\.?([zbnstxq.\.]*)$')
+    parsed = re.match(pattern, kw)
+    try:
+        n_synapse = int(parsed.group(1))
+    except (TypeError, IndexError):
+        raise ValueError("Got TypeError or IndexError while parsing stp "
+                         "keyword,\nmake sure keyword is of the form: \n"
+                         "stp.{n_synapse}.option1.option2...\n"
+                         "keyword given: %s" % kw)
+    options = parsed.group(2).split('.')
+
+    # Default values, may be overwritten by options
+    u_mean = [0.01] * n_synapse
+    tau_mean = [0.1] * n_synapse
+    x0_mean = [0] * n_synapse
+    crosstalk = 0
+
+    quick_eval = ('q' in options)
+    normalize = ('n' in options)
+    threshold = ('t' in options)
+    bounds = ('b' in options)
+
+    for op in options:
+        if op == 'z':
+            tau_mean = [0.01] * n_synapse
+        elif op == 's':
+            u_mean = [0.05] * n_synapse
+        elif op == 'x':
+            crosstalk = 1
+
+    u_sd = [0.05] * n_synapse
+    if n_synapse == 1:
+        # TODO:
+        # @SVD: stp1 had this as 0.01, all others 0.05. intentional?
+        #       if not can just set tau_sd = [0.05]*n_synapse
+        tau_sd = u_sd
+    else:
+        tau_sd = [0.01]*n_synapse
+
+    template = {
+        'fn': 'nems.modules.stp.short_term_plasticity2',
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'crosstalk': crosstalk,
+                      'quick_eval': quick_eval, 'reset_signal': 'epoch_onsets'},
+        'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
+                     'nems.plots.api.before_and_after',
+                     'nems.plots.api.before_and_after_stp'],
+        'plot_fn_idx': 3,
+        'prior': {'u': ('Normal', {'mean': u_mean, 'sd': u_sd}),
+                  'tau': ('Normal', {'mean': tau_mean, 'sd': tau_sd}),
+                  'u2': ('Normal', {'mean': [uu*5 for uu in u_mean], 'sd': [uu*5 for uu in u_sd]}),
+                  'tau2': ('Normal', {'mean': [tt/5 for tt in tau_mean], 'sd': [tt/5 for tt in tau_sd]}),
+                  'urat': ('Normal', {'mean': 0.5, 'sd': 0.2})
+                  },
+        'bounds': {'u': (np.full_like(u_mean, -np.inf), np.full_like(u_mean, np.inf)),
+                  'tau': (np.full_like(u_mean, 0.01), np.full_like(u_mean, np.inf)),
+                  'u2': (np.full_like(u_mean, -np.inf), np.full_like(u_mean, np.inf)),
+                  'tau2': (np.full_like(u_mean, 0.01), np.full_like(u_mean, np.inf)),
+                  'urat': (0, 1)
+                  }
         }
 
     if normalize:
@@ -608,40 +936,58 @@ def dexp(kw):
 
     Options
     -------
-    None
+       <n> : n dimensions
+       s : apply to state rather than pred (pred==default in/out)
     '''
-    pattern = re.compile(r'^dexp\.?(\d{1,})$')
-    parsed = re.match(pattern, kw)
-    try:
-        n_dims = int(parsed.group(1))
-    except TypeError:
-        raise ValueError("Got TypeError while parsing dexp keyword,\n"
-                         "make sure keyword is of the form: \n"
-                         "dexp.{n_dims}\nkeyword given: %s" % kw)
+    #pattern = re.compile(r'^dexp\.?(\d{1,})$')
+    #parsed = re.match(pattern, kw)
+    ops = kw.split(".")
+    if len(ops) == 1:
+        raise ValueError("required parameter dexp.<n>")
+
+    n_dims = int(ops[1])
+    inout_name = 'pred'
+    bounded = False
+    for op in ops[2:]:
+        if op == 's':
+            inout_name = 'state'
+        elif op == 'b':
+            bounded = True
+        else:
+            raise ValueError('dexp keyword: invalid option %s' % op)
 
     base_mean = np.zeros([n_dims, 1]) if n_dims > 1 else np.array([0])
     base_sd = np.ones([n_dims, 1]) if n_dims > 1 else np.array([1])
-    amp_mean = base_mean + 0.2
-    amp_sd = base_mean + 0.1
+    amp_mean = base_mean + 1
+    amp_sd = base_mean + 0.5
     shift_mean = base_mean
     shift_sd = base_sd
-    kappa_mean = base_mean
+    kappa_mean = base_mean + 1
     kappa_sd = amp_sd
 
     template = {
         'fn': 'nems.modules.nonlinearity.double_exponential',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred'},
+        'fn_kwargs': {'i': inout_name,
+                      'o': inout_name},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.nl_scatter'],
-        'plot_fn_idx': 3,
+        'plot_fn_idx': 4,
         'prior': {'base': ('Normal', {'mean': base_mean, 'sd': base_sd}),
                   'amplitude': ('Normal', {'mean': amp_mean, 'sd': amp_sd}),
                   'shift': ('Normal', {'mean': shift_mean, 'sd': shift_sd}),
                   'kappa': ('Normal', {'mean': kappa_mean, 'sd': kappa_sd})}
         }
+
+    if bounded:
+        template['bounds'] = {
+                'base': (1e-15, None),
+                'amplitude': (None, None),
+                'shift': (None, None),
+                'kappa': (None, None),
+                }
 
     return template
 
@@ -678,10 +1024,11 @@ def qsig(kw):
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.nl_scatter'],
-        'plot_fn_idx': 1,
+        'plot_fn_idx': 2,
         'prior': {'base': ('Normal', {'mean': base_mean, 'sd': base_sd}),
                   'amplitude': ('Normal', {'mean': amp_mean, 'sd': amp_sd}),
                   'shift': ('Normal', {'mean': shift_mean, 'sd': shift_sd}),
@@ -716,10 +1063,11 @@ def logsig(kw):
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.nl_scatter'],
-        'plot_fn_idx': 1,
+        'plot_fn_idx': 2,
         'prior': {'base': ('Exponential', {'beta': [0.1]}),
                   'amplitude': ('Exponential', {'beta': [2.0]}),
                   'shift': ('Normal', {'mean': [1.0], 'sd': [1.0]}),
@@ -768,10 +1116,11 @@ def tanh(kw):
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.nl_scatter'],
-        'plot_fn_idx': 1,
+        'plot_fn_idx': 2,
         'prior': {'base': ('Normal', {'mean': base_mean, 'sd': base_sd}),
                   'amplitude': ('Normal', {'mean': amp_mean, 'sd': amp_sd}),
                   'shift': ('Normal', {'mean': shift_mean, 'sd': shift_sd}),
@@ -807,25 +1156,24 @@ def dlog(kw):
     options = kw.split(".")
     chans = 1
     nchans = 0
-    offset = False
 
+    offset = ('f' in options)
     for op in options:
         if op.startswith('c'):
             chans = int(op[1:])
         elif op.startswith('n'):
             nchans = int(op[1:])
-        elif op == 'f':
-            offset = True
 
     template = {
         'fn': 'nems.modules.nonlinearity.dlog',
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.spectrogram'],
-        'plot_fn_idx': 3,
+        'plot_fn_idx': 2,
     }
 
     if nchans:
@@ -835,10 +1183,11 @@ def dlog(kw):
 
     if offset:
         template['fn_kwargs']['offset'] = np.array([[-1]])
+        template['prior'] = {}
     else:
         template['prior'] = {'offset': ('Normal', {
                 'mean': np.zeros((chans, 1)),
-                'sd': np.ones((chans, 1))*2})}
+                'sd': np.full((chans, 1), 0.5)})}
 
     return template
 
@@ -857,37 +1206,78 @@ def relu(kw):
     N : Apply threshold for the given number of channels, N.
          E.g. `n18` or `n2`
     f : fixed threshold of zero
+    b : add baseline (spont rate) after threshold
 
     '''
     options = kw.split(".")[1:]
     chans = 1
-    offset = False
+    var_offset = True
+    fname = 'nems.modules.nonlinearity.relu'
+    baseline = False
 
     for op in options:
         if op == 'f':
-            offset = True
+            var_offset = False
+        elif op == 'b':
+            baseline=True
+            fname = 'nems.modules.nonlinearity.relub'
         else:
             chans = int(op)
 
     template = {
-        'fn': 'nems.modules.nonlinearity.relu',
+        'fn': fname,
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.resp_spectrogram',
                      'nems.plots.api.pred_spectrogram',
                      'nems.plots.api.before_and_after',
                      'nems.plots.api.perf_per_cell'],
-        'plot_fn_idx': 1
+        'plot_fn_idx': 2
     }
 
-    if offset:
+    if var_offset is False:
         template['fn_kwargs']['offset'] = np.array([[0]])
     else:
         template['prior'] = {'offset': ('Normal', {
                 'mean': np.zeros((chans, 1)),
-                'sd': np.ones((chans, 1))*2})}
+                'sd': np.ones((chans, 1))/np.sqrt(chans)})}
+    if baseline:
+        template['prior']['baseline'] = ('Normal', {
+                'mean': np.zeros((chans, 1)),
+                'sd': np.ones((chans, 1))*2})
+
+    return template
+
+
+def relsat(kw):
+    '''
+    Saturated rectifier, similar to relu but uses sigmoidal parameters.
+
+    '''
+
+    # Default mean initialization is just relu with a truncation at y=2
+    base_prior = ('Exponential', {'beta': np.array([0])})
+    amplitude_prior = ('Exponential', {'beta': np.array([2])})
+    shift_prior = ('Normal', {'mean': np.array([0]), 'sd': np.array([0.5])})
+    kappa_prior = ('Exponential', {'beta': np.array([1])})
+
+    template = {
+        'fn': 'nems.modules.nonlinearity.saturated_rectifier',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred'},
+        'plot_fns': ['nems.plots.api.mod_output',
+                     'nems.plots.api.spectrogram_output',
+                     'nems.plots.api.pred_resp',
+                     'nems.plots.api.before_and_after'],
+        'prior': {'base': base_prior,
+                  'amplitude': amplitude_prior,
+                  'shift': shift_prior,
+                  'kappa': kappa_prior},
+        'plot_fn_idx': 2
+    }
 
     return template
 
@@ -944,14 +1334,10 @@ def stategain(kw):
                          "stategain.{n_variables} or stategain.{n_variables}x{n_chans} \n"
                          "keyword given: %s" % kw)
 
-    gain_only=False
-    include_spont=False
-    for op in options[2:]:
-        if op == 'g':
-            gain_only=True
-        if op == 's':
-            include_spont=True
-
+    gain_only=('g' in options[2:])
+    include_spont=('s' in options[2:])
+    dc_only=('d' in options[2:])
+    include_lv = ('lv' in options[2:])
     zeros = np.zeros([n_chans, n_vars])
     ones = np.ones([n_chans, n_vars])
     g_mean = zeros.copy()
@@ -960,18 +1346,29 @@ def stategain(kw):
     d_mean = zeros
     d_sd = ones
 
-    plot_fns = ['nems.plots.api.mod_output_all',
-                'nems.plots.api.mod_output',
+    plot_fns = ['nems.plots.api.mod_output',
+                'nems.plots.api.spectrogram_output',
                 'nems.plots.api.before_and_after',
                 'nems.plots.api.pred_resp',
                 'nems.plots.api.state_vars_timeseries',
                 'nems.plots.api.state_vars_psth_all']
-    if gain_only:
+    if dc_only:
+        template = {
+            'fn': 'nems.modules.state.state_dc_gain',
+            'fn_kwargs': {'i': 'pred',
+                          'o': 'pred',
+                          's': 'state',
+                          'g': g_mean, 'include_lv': include_lv},
+            'plot_fns': plot_fns,
+            'plot_fn_idx': 4,
+            'prior': {'d': ('Normal', {'mean': d_mean, 'sd': d_sd})}
+        }
+    elif gain_only:
         template = {
             'fn': 'nems.modules.state.state_gain',
             'fn_kwargs': {'i': 'pred',
                           'o': 'pred',
-                          's': 'state'},
+                          's': 'state', 'include_lv': include_lv},
             'plot_fns': plot_fns,
             'plot_fn_idx': 4,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd})}
@@ -981,7 +1378,7 @@ def stategain(kw):
            'fn': 'nems.modules.state.state_sp_dc_gain',
             'fn_kwargs': {'i': 'pred',
                           'o': 'pred',
-                          's': 'state'},
+                          's': 'state', 'include_lv': include_lv},
             'plot_fns': plot_fns,
             'plot_fn_idx': 4,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
@@ -993,7 +1390,8 @@ def stategain(kw):
             'fn': 'nems.modules.state.state_dc_gain',
             'fn_kwargs': {'i': 'pred',
                           'o': 'pred',
-                          's': 'state'},
+                          's': 'state',
+                          'include_lv': include_lv},
             'plot_fns': plot_fns,
             'plot_fn_idx': 4,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),

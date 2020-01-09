@@ -7,7 +7,7 @@ from scipy.ndimage import zoom
 from nems.plots.timeseries import plot_timeseries
 from nems.utils import find_module
 from nems.modules.fir import (pz_coefficients, fir_dexp_coefficients,
-                              fir_exp_coefficients)
+                              fir_exp_coefficients, _offset_coefficients)
 from nems.plots.utils import ax_remove_box
 
 log = logging.getLogger(__name__)
@@ -36,9 +36,6 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
     else:
         extent = None
 
-    if cmap is None:
-        cmap = plt.get_cmap('jet')
-
     plt.imshow(array, aspect='auto', origin='lower', cmap=cmap,
                clim=clim, interpolation=interpolation, extent=extent)
 
@@ -53,8 +50,12 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
     plt.ylabel(ylabel)
 
     # Set the color bar
-    # cbar = ax.colorbar()
-    # cbar.set_label('Gain')
+    cbar = plt.colorbar()
+    cbar.ax.tick_params(labelsize=7)
+    cbar.ax.yaxis.set_major_locator(plt.MaxNLocator(3))
+    cbar.set_label('Gain')
+    cbar.outline.set_edgecolor('white')
+
     if title is not None:
         plt.title(title)
 
@@ -81,20 +82,25 @@ def _get_wc_coefficients(modelspec, idx=0):
     return None
 
 
-def _get_fir_coefficients(modelspec, idx=0):
+def _get_fir_coefficients(modelspec, idx=0, fs=None):
     i = 0
     for m in modelspec:
         if 'fir' in m['fn']:
-            if 'pole_zero' in m['fn']:
-                c = pz_coefficients(poles=m['phi']['poles'],
-                                    zeros=m['phi']['zeros'],
-                                    delays=m['phi']['delays'],
-                    gains=m['phi']['gains'],
-                    n_coefs=m['fn_kwargs']['n_coefs'], fs=100)
-                return c
+            if 'fn_coefficients' in m.keys():
+                fn = ms._lookup_fn_at(m['fn_coefficients'])
+                kwargs = {**m['fn_kwargs'], **m['phi']}  # Merges dicts
+                return fn(**kwargs)
+
+            #elif 'pole_zero' in m['fn']:
+            #    c = pz_coefficients(poles=m['phi']['poles'],
+            #                        zeros=m['phi']['zeros'],
+            #                        delays=m['phi']['delays'],
+            #                        gains=m['phi']['gains'],
+            #                        n_coefs=m['fn_kwargs']['n_coefs'], fs=100)
+            #    return c
             elif 'dexp' in m['fn']:
                 c = fir_dexp_coefficients(phi=m['phi']['phi'],
-                                    n_coefs=m['fn_kwargs']['n_coefs'])
+                                          n_coefs=m['fn_kwargs']['n_coefs'])
                 return c
             elif 'exp' in m['fn']:
                 tau = m['phi']['tau']
@@ -113,7 +119,16 @@ def _get_fir_coefficients(modelspec, idx=0):
                                          n_coefs=m['fn_kwargs']['n_coefs'])
                 return c
             elif i == idx:
-                return m['phi']['coefficients']
+                coefficients = m['phi']['coefficients']
+                if 'offsets' in m['phi']:
+                    if fs is None:
+                        log.warning("couldn't compute offset coefficients for "
+                                    "STRF heatmap, no fs provided.")
+                    else:
+                        coefficients = _offset_coefficients(coefficients,
+                                                            m['phi']['offsets'],
+                                                            fs=fs)
+                return coefficients
             else:
                 i += 1
     return None
@@ -165,6 +180,12 @@ def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None,
             plt.text(-0.4, i, c, verticalalignment='center')
 
 
+def nonparametric_strf(modelspec, idx, ax=None, clim=None, title=None, **kwargs):
+    coefficients = modelspec[idx]['phi']['coefficients']
+    plot_heatmap(coefficients, xlabel='Time Bin', ylabel='Channel In',
+                 ax=ax, clim=clim, title=title)
+
+
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
                  title=None, fs=None, chans=None, wc_idx=0, fir_idx=0,
                  interpolation='none', absolute_value=False, **options):
@@ -176,8 +197,13 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
        if string, passed on as parameter to imshow
        if tuple, ndimage "zoom" by a factor of (x,y) on each dimension
     """
+    if fs is None:
+        try:
+            fs = modelspec.recording['stim'].fs
+        except:
+            pass
     wcc = _get_wc_coefficients(modelspec, idx=wc_idx)
-    firc = _get_fir_coefficients(modelspec, idx=fir_idx)
+    firc = _get_fir_coefficients(modelspec, idx=fir_idx, fs=fs)
     fir_mod = find_module('fir', modelspec, find_all_matches=True)[fir_idx]
 
     if wcc is None and firc is None:
@@ -196,18 +222,21 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
         bank_count = modelspec[fir_mod]['fn_kwargs']['bank_count']
         chan_count = wcc.shape[0]
         bank_chans = int(chan_count / bank_count)
-        strfs = [wc_coefs[:, (bank_chans*i):(bank_chans*(i+1))] @
-                          fir_coefs[(bank_chans*i):(bank_chans*(i+1)), :]
-                          for i in range(bank_count)]
-        for i in range(bank_count):
-            m = np.max(np.abs(strfs[i]))
-            if m:
-                strfs[i] = strfs[i] / m
-            if i > 0:
-                gap = np.full([strfs[i].shape[0], 1], np.nan)
-                strfs[i] = np.concatenate((gap, strfs[i]/np.max(np.abs(strfs[i]))), axis=1)
+        if wc_coefs.shape[1]==fir_coefs.shape[0]:
+            strfs = [wc_coefs[:, (bank_chans*i):(bank_chans*(i+1))] @
+                              fir_coefs[(bank_chans*i):(bank_chans*(i+1)), :]
+                              for i in range(bank_count)]
+            for i in range(bank_count):
+                m = np.max(np.abs(strfs[i]))
+                if m:
+                    strfs[i] = strfs[i] / m
+                if i > 0:
+                    gap = np.full([strfs[i].shape[0], 1], np.nan)
+                    strfs[i] = np.concatenate((gap, strfs[i]/np.max(np.abs(strfs[i]))), axis=1)
 
-        strf = np.concatenate(strfs,axis=1)
+            strf = np.concatenate(strfs,axis=1)
+        else:
+            strf = fir_coefs
         show_factorized = False
     else:
         wc_coefs = np.array(wcc).T
@@ -262,9 +291,15 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
     if absolute_value:
         everything = np.abs(everything)
 
+    if title is None:
+        title = 'STRF'
+
     plot_heatmap(everything, xlabel='Lag (s)',
                  ylabel='Channel In', ax=ax, skip=skip, title=title, fs=fs,
-                 interpolation=interpolation)
+                 interpolation=interpolation, cmap='RdYlBu_r')
+
+    ax_remove_box(left=True, bottom=True, ticks=True)
+
     if chans is not None:
         for i, c in enumerate(chans):
             plt.text(0, i + nchans + 1, c, verticalalignment='center')
@@ -341,7 +376,15 @@ def strf_timeseries(modelspec, ax=None, show_factorized=True,
                       [217/255, 217/255, 217/255],
                       [129/255, 201/255, 224/255]
                       ]
-
+        elif strf.shape[0] > 3:
+            colors = [[254/255, 15/255, 6/255],
+                      [217/255, 217/255, 217/255],
+                      [129/255, 201/255, 224/255],
+                      [128/255, 128/255, 128/255],
+                      [32/255, 32/255, 32/255]
+                      ]
+    #import pdb
+    #pdb.set_trace()
     _,strf_h=plot_timeseries(times, filters, xlabel='Time lag', ylabel='Gain',
                     legend=chans, linestyle='-', linewidth=1,
                     ax=ax, title=title, colors=colors)
@@ -363,4 +406,3 @@ def strf_timeseries(modelspec, ax=None, show_factorized=True,
         plt.legend(strf_h+fir_h,strf_l+fir_l, loc=1,fontsize='x-small')
         ax.set_xticks(np.hstack((np.arange(-1*wcN,0),np.arange(0,len(times)+1,2))))
         ax.set_xticklabels(np.hstack((np.arange(1,wcN+1),np.arange(0,len(times)+1,2))))
-

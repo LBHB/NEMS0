@@ -52,10 +52,9 @@ def basic_with_copy(sigma, unpacker, modelspec, data, segmentor,
 
     if copy_phi is not None:
         for t in copy_phi:
-            m1 = updated_spec.get_module(mod_index=t[0])
-            m2 = updated_spec.get_module(mod_index=t[1])
-            p = m1['phi'].copy()
-            m2['fn_kwargs'].update(p)
+            m = updated_spec.get_module(mod_index=t[0])
+            p = m['phi'].copy()
+            updated_spec[t[1]]['fn_kwargs'].update(p)
 
     data_subset = segmentor(data)
     updated_data_subset = evaluator(data_subset, updated_spec)

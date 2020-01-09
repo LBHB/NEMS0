@@ -11,7 +11,7 @@ import nems.signal as signal
 import nems.recording as recording
 import nems.modules.stp as stp
 
-def stp_magnitude(tau, u, fs=100, A=0.5):
+def stp_magnitude(tau, u, u2=None, tau2=None, urat=0.5, fs=100, A=0.5):
     """ compute effect of stp (tau,u) on a dummy signal and computer effect magnitude
     """
     c = len(tau)
@@ -32,8 +32,11 @@ def stp_magnitude(tau, u, fs=100, A=0.5):
     }
     pred = signal.RasterizedSignal(**kwargs)
     r = recording.Recording({'pred': pred})
+    if tau2 is None:
+        r = stp.short_term_plasticity(r, 'pred', 'pred_out', u=u, tau=tau)
+    else:
+        r = stp.short_term_plasticity2(r, 'pred', 'pred_out', u=u, tau=tau, u2=u2, tau2=tau2, urat=urat)
 
-    r = stp.short_term_plasticity(r, 'pred', 'pred_out', u=u, tau=tau)
     pred_out = r[0]
 
     stp_mag = (np.sum(pred.as_continuous()-pred_out.as_continuous(),axis=1) /

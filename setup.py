@@ -6,12 +6,19 @@ NAME = 'NEMS'
 
 VERSION = '0.0.1a'
 
-with codecs.open('README.md', encoding='utf-8') as f:
+with codecs.open('README.rst', encoding='utf-8') as f:
     long_description = f.read()
 
 GENERAL_REQUIRES = ['numpy', 'scipy', 'matplotlib', 'pandas', 'requests',
-                    'h5py', 'sqlalchemy', 'configparser', 'tensorflow']
+                    'h5py', 'sqlalchemy', 'configparser']
 # pycharm also requires: tornado
+# TF modules require tensorflow
+# GUI requires pyqt
+
+EXTRAS_REQUIRES = {
+    'docs': ['sphinx', 'sphinx_rtd_theme', 'pygments-enaml'],
+    'nwb': ['allensdk'],
+}
 
 setup(
     name=NAME,
@@ -25,6 +32,7 @@ setup(
     long_description=long_description,
     url='http://neuralprediction.org',
     install_requires=GENERAL_REQUIRES,
+    extras_require=EXTRAS_REQUIRES,
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',

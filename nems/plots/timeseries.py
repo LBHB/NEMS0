@@ -45,7 +45,7 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
             v=v[:,np.newaxis]
         for idx in range(v.shape[1]):
             gidx = np.isfinite(v[:,idx])
-            h_=plt.plot(t[gidx], v[gidx,idx], linestyle=linestyle, 
+            h_=plt.plot(t[gidx], v[gidx, idx], linestyle=linestyle,
                         linewidth=linewidth, **opt)
             h = h + h_
         cc += 1
@@ -59,7 +59,7 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
     if legend:
         plt.legend(legend)
     if title:
-        plt.title(title, fontsize=8)
+        plt.title(title)
 
     ax_remove_box(ax)
 
@@ -86,9 +86,20 @@ def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
     return ax
 
 
-def timeseries_from_signals(signals, channels=0,
-                            no_legend=False, **options):
-    """TODO: doc"""
+def timeseries_from_signals(signals, channels=0, no_legend=False,
+                            range=None, **options):
+    """
+    Plot one or more timeseries extracted from a list of signals
+
+        :param signals: List of signals to plot
+        :param channels: List of channels, one per signal(??)
+        :param no_legend: True/False guess what this means?
+        :param range: if not None, plot range[0]:range[1] of the signal timeseries
+        :return: Matplotlib axes containing the plot
+    """
+    if channels is None:
+        channels = 0
+
     channels = pad_to_signals(signals, channels)
 
     times = []
@@ -111,6 +122,10 @@ def timeseries_from_signals(signals, channels=0,
 
     if no_legend:
         legend = None
+
+    if range is not None:
+        times = [t[np.arange(range[0],range[1])] for t in times]
+        values = [v[np.arange(range[0],range[1])] for v in values]
 
     ax = plot_timeseries(times, values, legend=legend, **options)
 
@@ -166,7 +181,8 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
                     ax=ax, title=title)
 
 
-def before_and_after_stp(modelspec, sig_name='pred', ax=None, title=None,
+def before_and_after_stp(modelspec=None, mod_index=None, tau=None, u=None, tau2=None, u2=None,
+                         ax=None, title=None, colors=None,
                          channels=0, xlabel='Time', ylabel='Value', fs=100, **options):
     '''
     Plots a timeseries of specified signal just before and just after
@@ -174,24 +190,40 @@ def before_and_after_stp(modelspec, sig_name='pred', ax=None, title=None,
 
     Arguments:
     ----------
-    rec : recording object
-        really only used to get the sampling rate, since we're using
-        a cartoon stimulus
-
-    modelspec : list of dicts
-        The transformations to perform. See nems/modelspec.py.
+    u, tau : np arrays of STP parameters. if not specified, use modelspec
+    modelspec : modelspec with an STP module
+    mod_index : index of STP module to plot (allows models with multiple STPs), d
+                default=None, in which case use first STP module
+    fs : sampling rate (default 100 Hz)
 
     Returns:
     --------
     None
     '''
 
-    for m in modelspec:
-        if 'stp' in m['fn']:
-            break
+    if (tau is None) or (u is None):
+        if mod_index:
+            m = modelspec[mod_index]
+        else:
+            for m in modelspec:
+                if 'stp' in m['fn']:
+                    break
+        tau = m['phi']['tau']
+        u = m['phi']['u']
+        tau2 = m['phi'].get('tau2', None)
+        u2 = m['phi'].get('u2', None)
+        urat = m['phi'].get('urat', 0.5)
 
-    stp_mag, pred, pred_out = stp_magnitude(m['phi']['tau'], m['phi']['u'], fs)
-    c = len(m['phi']['tau'])
+    if type(u) in [float, int]:
+        u=np.array([u])
+    if type(tau) in [float, int]:
+        tau=np.array([tau])
+    if type(u2) in [float, int]:
+        u2=np.array([u2])
+    if type(tau2) in [float, int]:
+        tau2=np.array([tau2])
+    stp_mag, pred, pred_out = stp_magnitude(tau=tau, u=u, fs=fs, tau2=tau2, u2=u2, urat=urat)
+    c = len(tau)
     pred.name = 'before'
     pred_out.name = 'after'
     signals = []
@@ -202,7 +234,9 @@ def before_and_after_stp(modelspec, sig_name='pred', ax=None, title=None,
     signals.append(pred)
     channels.append(0)
 
-    if c == 1:
+    if colors is not None:
+        pass
+    elif c == 1:
         colors = [[0, 0, 0],
                   [128/255, 128/255, 128/255]]
     elif c == 2:
@@ -264,7 +298,7 @@ def before_and_after(rec, modelspec, sig_name, ax=None, title=None, idx=0,
     after.name += ' after'
     timeseries_from_signals([before, after], channels=channels,
                             xlabel=xlabel, ylabel=ylabel, ax=ax,
-                            title=title)
+                            title=title, **options)
 
 def mod_output(rec, modelspec, sig_name='pred', ax=None, title=None, idx=0,
                channels=0, xlabel='Time', ylabel='Value', **options):
@@ -293,14 +327,14 @@ def mod_output(rec, modelspec, sig_name='pred', ax=None, title=None, idx=0,
     if type(sig_name) is str:
         sig_name = [sig_name]
 
-    trec = modelspec.evaluate(rec, stop=idx+1)
+    trec = ms.evaluate(rec, modelspec, stop=idx+1)
     if 'mask' in trec.signals.keys():
         trec = trec.apply_mask()
 
     sigs = [trec[s] for s in sig_name]
     ax = timeseries_from_signals(sigs, channels=channels,
                                  xlabel=xlabel, ylabel=ylabel, ax=ax,
-                                 title=title)
+                                 title=title, **options)
     return ax
 
 def mod_output_all(rec, modelspec, sig_name='pred', idx=0, **options):
@@ -332,7 +366,8 @@ def mod_output_all(rec, modelspec, sig_name='pred', idx=0, **options):
         trec = trec.apply_mask()
 
     options['channels']=np.arange(trec[sig_name].shape[0])
-    ax = timeseries_from_signals([trec[sig_name]],**options)
+    ax = timeseries_from_signals([trec[sig_name]], **options)
+
     return ax
 
 
@@ -399,8 +434,7 @@ def pred_resp(rec, modelspec, ax=None, title=None,
     '''
     sig_list = ['pred', 'resp']
     sigs = [rec[s] for s in sig_list]
-    print(channels)
     ax = timeseries_from_signals(sigs, channels=channels,
                                  xlabel=xlabel, ylabel=ylabel, ax=ax,
-                                 title=title, no_legend=no_legend)
+                                 title=title, no_legend=no_legend, **options)
     return ax

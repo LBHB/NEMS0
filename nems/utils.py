@@ -1,13 +1,22 @@
+"""utils library
+
+This module contains random utility functions called by a number of different NEMS libraries
+
+"""
 import time
 import hashlib
 import json
 import os
 from collections import Sequence
+import logging
+import importlib
+import re
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-import logging
+from nems import get_setting
+
 log = logging.getLogger(__name__)
 
 
@@ -128,36 +137,33 @@ def find_module(query: object, modelspec: object, find_all_matches: object = Fal
     return target_i
 
 
-def escaped_split(string, delimiter):
-    '''
-    Allows escaping of characters when splitting a string to a list,
-    useful for some arguments in keyword strings that need to use
-    underscores, decimals, hyphens, or other characters parsed by
-    the keyword system.
-    '''
-    x = 'EXTREMELYUNLIKELYTOEVERENCOUNTERTHISEXACTSTRINGANYWHEREELSE'
-    match = "\%s" % delimiter
-    temp = string.replace(match, x)
-    temp_split = temp.split(delimiter)
-    final_split = [s.replace(x, match) for s in temp_split]
+def escaped_split(string: str, delimiter: str):
+    """
+    Splits string along delimiter, ignoring escaped delimiters. Useful
+    for some arguments in keyword strings that need to use delimiter
+    for other reason.
 
-    return final_split
+    :param string: string to be split
+    :param delimiter: character to split on
+    :return: list of strings
+    """
+    # strip out leading and trailing delimiters to avoid empty strings in split
+    string = string.strip(delimiter)
+    # use a negative lookbehind to ignore matches preceded by '\'
+    split = re.split(fr'(?<!\\)\{delimiter}', string)
+
+    return split
 
 
-def escaped_join(list, delimiter):
-    '''
-    Allows escaping of characters when joining a list of strings,
-    useful for some arguments in keyword strings that need to use
-    underscores, decimals, hyphens, or other characters parsed by
-    the keyword system.
-    '''
-    x = 'EXTREMELYUNLIKELYTOEVERENCOUNTERTHISEXACTSTRINGANYWHEREELSE'
-    match = "\%s" % delimiter
-    temp = [s.replace(match, x) for s in list]
-    temp_join = delimiter.join(temp)
-    final_join = temp_join.replace(x, match)
+def escaped_join(split_list, delimiter: str):
+    """
+    Joins a list of strings along a delimiter.
 
-    return final_join
+    :param split_list: list of strings to join
+    :param delimiter: delimiter to join on
+    :return: joined string
+    """
+    return delimiter.join(split_list)
 
 
 def keyword_extract_options(kw):
@@ -373,3 +379,51 @@ def find_common(s_list, pre=True, suf=True):
         log.debug("final s: %s" % s)
 
     return (shortened, prefix, suffix)
+
+
+def get_default_savepath(modelspec):
+    if get_setting('USE_NEMS_BAPHY_API'):
+        results_dir = 'http://'+get_setting('NEMS_BAPHY_API_HOST')+":"+ \
+                      str(get_setting('NEMS_BAPHY_API_PORT')) + '/results'
+    else:
+        results_dir = get_setting('NEMS_RESULTS_DIR')
+    batch = modelspec.meta.get('batch', 0)
+    exptid = modelspec.meta.get('exptid', 'DATA')
+    siteid = modelspec.meta.get('siteid', exptid)
+    cellid = modelspec.meta.get('cellid', siteid)
+    if type(cellid) is list:
+        destination = os.path.join(results_dir, str(batch), siteid,
+                                   modelspec.get_longname())
+    else:
+        destination = os.path.join(results_dir, str(batch), cellid,
+                                   modelspec.get_longname())
+    return destination
+
+lookup_table = {}  # TODO: Replace with real memoization/joblib later
+
+def lookup_fn_at(fn_path, ignore_table=False):
+    '''
+    Private function that returns a function handle found at a
+    given module. Basically, a way to import a single function.
+    e.g.
+        myfn = _lookup_fn_at('nems.modules.fir.fir_filter')
+        myfn(data)
+        ...
+    '''
+
+    # default is nems.xforms.<fn_path>
+    if not '.' in fn_path:
+        fn_path = 'nems.xforms.' + fn_path
+
+    if (not ignore_table) and (fn_path in lookup_table):
+        fn = lookup_table[fn_path]
+    else:
+        api, fn_name = split_to_api_and_fn(fn_path)
+        api = api.replace('nems_db.xform','nems_lbhb.xform')
+        api_obj = importlib.import_module(api)
+        if ignore_table:
+            importlib.reload(api_obj)  # force overwrite old imports
+        fn = getattr(api_obj, fn_name)
+        if not ignore_table:
+            lookup_table[fn_path] = fn
+    return fn

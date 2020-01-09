@@ -1,14 +1,23 @@
-import re
-import os
+"""Defines modelspec object and helper functions."""
+
 import copy
-import json
 import importlib
+import json
+import logging
+import os
+import re
+from functools import partial
+
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as st
-import nems.utils
+
 import nems.uri
+import nems.utils
 from nems.fitters.mappers import simple_vector
-import matplotlib.pyplot as plt
+
+log = logging.getLogger(__name__)
 
 # Functions for saving, loading, and evaluating modelspecs
 
@@ -17,54 +26,78 @@ import matplotlib.pyplot as plt
 #       function names. If you do so, see /docs/planning/models.py and
 #       bring the ideas into this file, then delete it from docs/planning.
 
+
 class ModelSpec:
-    """
-    Defines a model based on a NEMS modelspec.
+    """Defines a model based on a NEMS modelspec.
 
-    Attributes
-    ----------
-    raw : nested list of dictionaries
-        Equialent of old NEMS modelspec.
-        The first level is a list of cells, each of which is a list of
-        lists.
-        The second level is a list of fits, each of which is a list of
-        dictionaries.
-        Each dictionary specifies a module, or one step in the model.
-        For example,
-    fit_index : int
-        Integer index of which fit to reference when multiple are present,
-        default 0, when jacknifing et cetera.
-    cell_index : int
-        Integer index of which "cell" to reference when multiple are present,
-        default 0.
-
+    Long goes here. TODO docs
     """
 
     def __init__(self, raw=None, phis=None, fit_index=0, cell_index=0,
-                 recording=None):
+                 jack_index=0, recording=None):
+        """Initialize the modelspec.
 
-        self.raw = [[]] if raw is None else raw
-        if nems.utils.depth(self.raw) != 2:
-            raise ValueError('ModelSpec.raw should be a list of lists of dicts')
+        Long goes here. TODO docs
+
+        :param dict raw: Nested list of dictionaries. Equivalent of the old NEMS modelspec. The first level is a
+            list of cells, each of which is a list of lists. The second level is a list of fits, each of which
+            is a list of dictionaries. The third level is a list of jacknifes, each of which is a list of
+            dictionaries. Each dictionary specifies a module, or one step in the model.
+        :param list phis: The free parameters.
+        :param int fit_index: Index of which fit to reference when multiple are present. Defaults to 0.
+        :param int cell_index: Index of which cell to reference when multiple are present. Defaults to 0.
+        :param int jack_index: Index of which jacknife to reference when multiple are present. Defaults to 0.
+        :param recording: TODO docs
+        """
+        if raw is None:
+            # one model, no modules
+            raw = np.full((1, 1, 1), None)
+            raw[0, 0, 0] = []
+        elif type(raw) is list:
+            if type(raw[0]) is not list:
+                raw = [raw]
+            # compatible with load_modelspec -- read in list of lists
+            # make raw (1, fit_count, 1) array of lists
+            # TODO default is to make single list into jack_counts!
+            r = np.full((1, 1, len(raw)), None)
+            for i, _r in enumerate(raw):
+                r[0, 0, i] = _r
+            raw = r
+
+        # otherwise, assume raw is a properly formatted 3D array (cell X fit X jack)
+        self.raw = raw
         self.phis = [] if phis is None else phis
 
         # a Model can have multiple fits, each of which contains a different
         # set of phi values. fit_index re
-        # rerences the default phi
+        # references the default phi
         self.fit_index = fit_index
+        self.jack_index = jack_index
         self.cell_index = cell_index
         self.mod_index = 0
         self.plot_epoch = 'REFERENCE'
         self.plot_occurrence = 0
         self.plot_channel = 0   # channel of pred/resp to plot in timeseries (for population models)
         self.recording = recording  # default recording for evaluation & plotting
+        self.fast_eval = False
+        self.fast_eval_start = 0
+        self.freeze_rec = None
 
     def __getitem__(self, key):
+        """Get the given item from the modelspec.
+
+        Overloaded in order to allow accessing of other elements. Key can be either an int,
+        a `slice` object, `meta`, or `phi`.
+
+        :param key: Index or object to retrieve from the modelspec.
+        :return: Either a module of the modelspec, or the `phi`, the `meta`, or the slice of the data.
+        :raises ValueError: Raised if `key` out of bounds or not one of the above.
+        """
         try:
             return self.get_module(key)
-        except:
+        except IndexError:
             if type(key) is slice:
-                return [self.raw[self.fit_index][ii]
+                return [self.raw[self.cell_index, self.fit_index, self.jack_index][ii]
                         for ii in range(*key.indices(len(self)))]
             elif key == 'meta':
                 return self.meta
@@ -74,60 +107,127 @@ class ModelSpec:
                 raise ValueError('key {} not supported'.format(key))
 
     def __setitem__(self, key, val):
+        """Update the raw dict of the modelspec.
+
+        Updates the current modelspec raw dict at the current `cell_index`, `fit_index`, and `jack_index`.
+
+        :param int key: Which index in the modelspec to update the value of
+        :param val: The value to update to.
+        :return: Self, updated.
+        :raises ValueError: If unable to set
+        """
         try:
             # Try converting types like np.int64 instead of just
             # throwing an error.
-            self.raw[self.fit_index][int(key)] = val
+            self.raw[self.cell_index, self.fit_index, self.jack_index][int(key)] = val
         except ValueError:
             raise ValueError('key {} not supported'.format(key))
         return self
 
     def __iter__(self):
-        self.mod_index = -1
+        """Set the `mod_index` to zero for iterators.
+
+        :return: self, with updated `mod_index`
+        """
+        self.mod_index = 0
         return self
 
-    # TODO: Something funny is going on when iterating oveer modules directly
-    #       using these methods. The last couple modules were being excluded.
-    #       Temp fix: use .modules instead and then iterate over the list
-    #       returned by that.
     def __next__(self):
-        if self.mod_index < len(self.raw[self.fit_index])-1:
+        """Return the proper index of the modelspec for iterators, and update the `mod_index`.
+
+        :return: The current module `mod_index`.
+        """
+        try:
+            ret = self[self.mod_index]
             self.mod_index += 1
-            return self.get_module(self.mod_index)
-        else:
+            return ret
+        except ValueError:
             raise StopIteration
 
     def __repr__(self):
+        """Overloaded repr.
+
+        :return: Repr of the modelspec `raw` dict.
+        """
         return repr(self.raw)
 
     def __str__(self):
-        x = [m['fn'] for m in self.raw[0]]
+        """Overloaded str.
+
+        :return str: String newline concat of the module functions.
+        """
+        x = [m['fn'] for m in self.raw[self.cell_index, self.fit_index, self.jack_index]]
         return "\n".join(x)
 
     def __len__(self):
-        return len(self.raw[0])
+        """Overloaded len.
+
+        :return int: Length of the raw dict at the current `cell_index`, `fit_index`, and
+            `jack_index`..
+        """
+        return len(self.raw[self.cell_index, self.fit_index, self.jack_index])
+
+    def copy(self, fit_index=None, jack_index=None):
+        """Generate a deep copy of the modelspec.
+
+        :param int fit_index:
+        :param int jack_index:
+        :return: A deep copy of the modelspec (subset of modules if specified).
+        """
+        raw = copy.deepcopy(self.raw)
+        meta_save = copy.deepcopy(self.meta)
+
+        if fit_index is not None:
+            raw = raw[:, fit_index:(fit_index+1), :]
+            _f = 0
+        else:
+            _f = self.fit_index
+        if jack_index is not None:
+            raw = raw[:, :, jack_index:(jack_index + 1)]
+            _j = 0
+        else:
+            _j = self.jack_index
+
+        for r in self.raw.flatten():
+            r[0]['meta'] = meta_save
+
+        m = ModelSpec(raw, fit_index=_f, cell_index=self.cell_index,
+                      jack_index=_j)
+        return m
 
     def get_module(self, mod_index=None):
-        """
-        :param mod_index: index of module to return
-        :return: single module from current fit_index (doesn't create a copy!)
+        """Get the requested module.
+
+        Returns the raw dict at the `mod_index`, and current `cell_index`, `fit_index`, and
+        `jack_index`.
+
+        :param int mod_index: Index of module to return, defaults to `mod_index` if `None`.
+        :return: Single module from current `fit_index`. Does not create a copy.
         """
         if mod_index is None:
             mod_index = self.mod_index
-        return self.raw[self.fit_index][mod_index]
+        return self.raw[self.cell_index, self.fit_index, self.jack_index][mod_index]
 
     def drop_module(self, mod_index=None, in_place=False):
+        """Drop a module from the modelspec.
+
+        Return a new modelspec with the module dropped, or optionally drop the module in place.
+
+        :param int mod_index: Index of module ot drop.
+        :param bool in_place: Whether or not to drop in place, or return a copy.
+        :return: None if in place, otherwise a new modelspec without the dropped module.
+        """
         if mod_index is None:
             mod_index = self.mod_index
 
         if in_place:
-            for fit in self.raw:
+            for fit in self.raw.flatten():
                 del fit[mod_index]
             return None
 
         else:
             raw_copy = copy.deepcopy(self.raw)
-            for fit in raw_copy:
+            for fit in self.raw.flatten():
                 del fit[mod_index]
             new_spec = ModelSpec(raw_copy)
             new_spec.recording = self.recording
@@ -135,70 +235,212 @@ class ModelSpec:
 
     @property
     def modules(self):
-        return self.raw[self.fit_index]
+        """All of the modules for the current `cell_index`, `fit_index`, and `jack_index`."""
+        return self.raw[self.cell_index, self.fit_index, self.jack_index]
+
+    # TODO support for multiple recording views/modelspec jackknifes (jack_count>0)
+    #  and multiple fits (fit_count>0)
+
+    def tile_fits(self, fit_count=1):
+        """Create `fit_count` sets of fit parameters to allow for multiple fits.
+
+        Useful for n-fold cross validation or starting from multiple initial
+        conditions. Values of each phi are copied from the existing first
+        value. Applied in-place.
+
+        :param int fit_count: Number of tiles to create.
+        :return: Self.
+        """
+        meta_save = self.meta
+
+        fits = [copy.deepcopy(self.raw[:, 0:1, :]) for i in range(fit_count)]
+        self.raw = np.concatenate(fits, axis=1)
+
+        for r in self.raw.flatten():
+            r[0]['meta'] = meta_save
+
+        return self
+
+    def tile_jacks(self, jack_count=0):
+        """Create `jack_count` sets of fit parameters to allow for multiple jackknifes.
+
+        Useful for n-fold cross validation or starting from multiple initial
+        conditions. Values of each phi are copied from the existing first
+        value. Applied in-place.
+
+        :param int jack_count: Number of tiles to create.
+        :return: Self.
+        """
+        meta_save = self.meta
+
+        jacks = [copy.deepcopy(self.raw[:, :, 0:1]) for i in range(jack_count)]
+        self.raw = np.concatenate(jacks, axis=2)
+
+        for r in self.raw.flatten():
+            r[0]['meta'] = meta_save
+
+        return self
 
     @property
-    def modelspecname(self):
-        return '-'.join([m.get('id', 'BLANKID') for m in self.modules])
-
-    def copy(self, lb=None, ub=None, fit_index=None):
-        """
-        :param lb: start module (default 0)
-        :param ub: stop module (default -1)
-        :return: A deep copy of the modelspec (subset of modules if specified)
-        """
-        raw = [copy.deepcopy(m[lb:ub]) for m in self.raw]
-        if fit_index is not None:
-            raw = [raw[fit_index]]
-        m = ModelSpec(raw)
-
-        return m
+    def cell_count(self):
+        """Number of cells (sets of phi values) in this modelspec."""
+        return self.raw.shape[0]
 
     @property
     def fit_count(self):
-        """Number of fits in this modelspec"""
-        return len(self.raw)
+        """Number of fits (sets of phi values) in this modelspec."""
+        return self.raw.shape[1]
 
-    def set_fit(self, fit_index=None):
-        """return self with fit_index set to specified value"""
-        if fit_index is not None:
+    @property
+    def jack_count(self):
+        """Number of jackknifes (sets of phi values) in this modelspec."""
+        return self.raw.shape[2]
+
+    def set_cell(self, cell_index=None):
+        """Set the `cell_index`. Done in place.
+
+        :param int cell_index: The updated `cell_index`.
+        :return: Self.
+        """
+        if cell_index is not None:
+            self.cell_index = cell_index
+
+        return self
+
+    def set_fit(self, fit_index):
+        """Set the `fit_index`. Done in place.
+
+        :param int fit_index: The updated `fit_index`.
+        :return: Self.
+        """
+        if fit_index is None:
+            pass
+        elif fit_index > (self.fit_count - 1):
+            raise ValueError('fit_index greater than fit_count-1')
+        elif fit_index < self.fit_count*-1:
+            raise ValueError('negative fit_index smaller than fit_count')
+        else:
             self.fit_index = fit_index
 
         return self
 
+    def set_jack(self, jack_index=None):
+        """Set the `jack_index`. Done in place.
+
+        :param int jack_index: The updated `jack_index`.
+        :return: Self.
+        """
+        if jack_index is not None:
+            self.jack_index = jack_index
+
+        return self
+
     def fits(self):
-        """List of modelspecs, one for each fit, for compatibility with some
-           old functions"""
-        return [ModelSpec(self.raw, fit_index=f)
-                for f, _ in enumerate(self.raw)]
+        """List of modelspecs, one for each fit, for compatibility with some old functions."""
+        return [ModelSpec(self.raw, jack_index=f) for f in range(self.jack_count)]
 
     @property
     def meta(self):
-        if self.raw[0][0].get('meta') is None:
-            self.raw[0][0]['meta'] = {}
-        return self.raw[0][0]['meta']
+        """Dict of meta information."""
+        if self.raw[0, 0, 0][0].get('meta') is None:
+            self.raw[0, 0, 0][0]['meta'] = {}
+        return self.raw[0, 0, 0][0]['meta']
+
+    @property
+    def modelspecname(self):
+        """Name of the modelspec."""
+        return '-'.join([m.get('id', 'BLANKID') for m in self.modules])
 
     def fn(self):
-        return [m['fn'] for m in self.raw[0]]
+        """List of fn for each module."""
+        return [m['fn'] for m in self.raw[self.cell_index, self.fit_index, self.jack_index]]
 
     @property
     def phi(self, fit_index=None, mod_idx=None):
-        """
-        :param fit_index: which model fit to use (default use self.fit_index
-        :return: list of phi dictionaries, or None for modules with no phi
+        """The free parameters for the model.
+
+        :param int fit_index: Which model fit to use (defaults to `fit_index`).
+        :return: List of phi dictionaries, or None for modules with no phi.
         """
         if fit_index is None:
             fit_index = self.fit_index
         if mod_idx is None:
-            return [m.get('phi') for m in self.raw[fit_index]]
+            return [m.get('phi') for m in self.raw[self.cell_index, fit_index, self.jack_index]]
         else:
-            return self.raw[fit_index][mod_idx].get('phi')
+            return self.raw[self.cell_index, fit_index, self.jack_index][mod_idx].get('phi')
+
+    @property
+    def phi_mean(self, mod_idx=None):
+        """Mean of phi across fit_indexes and/or jack_indexes.
+
+        :param int mod_idx: Which module to use (default all modules).
+        :return: List of phi dictionaries, mean of each value.
+        """
+        if self.jack_count * self.fit_count == 1:
+            return self.phi
+
+        if type(mod_idx) is list:
+            mod_range = mod_idx
+        elif mod_idx is not None:
+            mod_range = [mod_idx]
+        else:
+            mod_range = range(len(self.raw[0]))
+
+        phi = []
+        raw = []
+        for sublist in self.raw[self.cell_index]:
+            for item in sublist:
+                raw.append(item)
+        for mod_idx in mod_range:
+            p = {}
+            for k in raw[0][mod_idx]['phi'].keys():
+                maxdim = len(raw[0][mod_idx]['phi'][k].shape)
+                p[k] = np.mean(np.concatenate([np.expand_dims(f[mod_idx]['phi'][k], axis=maxdim)
+                                               for f in raw], axis=maxdim), axis=maxdim, keepdims=False)
+            phi.append(p)
+
+        return phi
+
+    @property
+    def phi_sem(self, mod_idx=None):
+        """SEM of phi across fit_indexes and/or jack_indexes.
+
+        :param int mod_idx: Which module to use (default all modules).
+        :return: List of phi dictionaries, jackknife sem of each value.
+        """
+        modelcount = self.jack_count * self.fit_count
+        if modelcount == 1:
+            return self.phi
+
+        if type(mod_idx) is list:
+            mod_range = mod_idx
+        elif mod_idx is not None:
+            mod_range = [mod_idx]
+        else:
+            mod_range = range(len(self.raw[0]))
+
+        phi = []
+        raw = []
+        for sublist in self.raw[self.cell_index]:
+            for item in sublist:
+                raw.append(item)
+        for mod_idx in mod_range:
+            p = {}
+            for k in raw[0][mod_idx]['phi'].keys():
+                maxdim = len(raw[0][mod_idx]['phi'][k].shape)
+                p[k] = np.std(np.concatenate(
+                    [np.expand_dims(f[mod_idx]['phi'][k], axis=maxdim) for f in raw],
+                    axis=maxdim), axis=maxdim, keepdims=False) / np.sqrt(modelcount-1)
+            phi.append(p)
+
+        return phi
 
     @property
     def phi_vector(self, fit_index=None):
-        """
-        :param fit_index: which model fit to use (default use self.fit_index
-        :return: vector of phi values from all modules
+        """Vector of phi across fit_indexes.
+
+        :param int fit_index: Which model fit to use (defaults to `fit_index`).
+        :return: Vector of phi values from all modules.
         """
         if fit_index is None:
             fit_index = self.fit_index
@@ -206,58 +448,315 @@ class ModelSpec:
         packer, unpacker, bounds = simple_vector(m)
         return packer(self)
 
-    def plot_fn(self, mod_index=None, plot_fn_idx=None, fit_index=None):
-        """get function for plotting something about a module"""
+    #
+    # plotting support
+    #
+    def get_plot_fn(self, mod_index=None, plot_fn_idx=None, fit_index=None):
+        """Get the plotting function for the specified module.
+
+        :param int mod_index: Which module in the modelspec to get the plotting function for.
+        :param int plot_fn_idx: Which plotting function in the list to get.
+        :param int fit_index: Update the fit index if not None.
+
+        :return: A plotting function.
+        """
         if mod_index is None:
             mod_index = self.mod_index
+
         if fit_index is not None:
             self.fit_index = fit_index
 
         module = self.get_module(mod_index)
+
+        fallback_fn_path = 'nems.plots.api.mod_output'
+
+        try:
+            fn_list = module['plot_fns']
+        except KeyError:
+            # if no 'plot_fns', then early out
+            log.warning(f'No "plot_fns" found for module "{module["fn"]}", defaulting to "{fallback_fn_path}"')
+            return _lookup_fn_at(fallback_fn_path)
+
+        if not fn_list:
+            # if 'plot_fns' present but empty, then early out
+            log.warning(f'Empty "plot_fns" found for module "{module["fn"]}", defaulting to "{fallback_fn_path}"')
+            return _lookup_fn_at(fallback_fn_path)
+
         if plot_fn_idx is None:
             plot_fn_idx = module.get('plot_fn_idx', 0)
         try:
-            fn_path = module.get('plot_fns')[plot_fn_idx]
-        except:
-            fn_path = 'nems.plots.timeseries.mod_output'
+            fn_path = fn_list[plot_fn_idx]
+        except IndexError:
+            log.warning(f'plot_fn_idx of "{plot_fn_idx}" is out of bounds for module idx {mod_index},'
+                        'defaulting to first entry.')
+            fn_path = fn_list[0]
 
+        log.info(f'Found plot fn "{fn_path}" for module "{module["fn"]}"')
         return _lookup_fn_at(fn_path)
 
-    def plot(self, mod_index=None, rec=None, ax=None, plot_fn_idx=None,
-             fit_index=None, sig_name='pred', channels=None, **options):
-        """generate plot for a single module"""
+    def plot(self, mod_index=0, plot_fn_idx=None, fit_index=None, rec=None,
+             sig_name='pred', channels=None, ax=None, **kwargs):
+        """Generate the plot for a single module.
 
+        :param mod_index: Which module in the modelspec to generate the plot for.
+        :param plot_fn_idx: Which function in the list of plot functions.
+        :param fit_index: Update the fit index.
+        :param rec: The recording from which to pull the data.
+        :param sig_name: Which signal in the recording.
+        :param channels: Which channel in the signal.
+        :param ax: Axis on which to plot.
+        :param kwargs: Optional keyword args.
+        """
         if rec is None:
             rec = self.recording
+
         if channels is None:
             channels = self.plot_channel
-        plot_fn = self.plot_fn(mod_index=mod_index, plot_fn_idx=plot_fn_idx,
-                               fit_index=fit_index)
+
+        plot_fn = self.get_plot_fn(mod_index, plot_fn_idx, fit_index)
+        # call the plot func
         plot_fn(rec=rec, modelspec=self, sig_name=sig_name, idx=mod_index,
-                channels=channels, ax=ax, **options)
+                channels=channels, ax=ax, **kwargs)
 
-    def quickplot(self, rec=None):
+    def quickplot(self, rec=None, epoch=None, occurrence=None, fit_index=None,
+                  include_input=True, include_output=True, size_mult=(1.0, 3.0),
+                  figsize=None, fig=None, range=None):
+        """Generate a summary plot of a subset of the data.
 
+        :param rec: The recording from which to pull the data.
+        :param epoch: Name of epoch from which to extract data.
+        :param int occurrence: Which occurrences of the data to plot.
+        :param int fit_index: Update the fit index.
+        :param bool include_input: Whether to include default plot of the inputs.
+        :param bool include_output: Whether to include default plot of the outputs.
+        :param tuple size_mult: Scale factors for width and height of figure.
+        :param tuple figsize: Size of figure (tuple of inches).
+        :param tuple range: If not None, plot only slice np.array(range) from timeseries
+        :return: Matplotlib figure.
+        """
         if rec is None:
             rec = self.recording
-        fig = plt.figure()
-        plot_count = len(self)
-        for i in range(plot_count):
-            ax = fig.add_subplot(plot_count, 1, i+1)
-            self.plot(mod_index=i, rec=rec, ax=ax)
+
+        if fit_index is not None:
+            self.fit_index = fit_index
+
+        rec_resp = rec['resp']
+        rec_pred = rec['pred']
+        rec_stim = rec['stim']
+
+        # if there's no epoch, don't bother
+        if rec_resp.epochs is None:
+            pass
+
+        else:
+            # list of possible epochs
+            available_epochs = rec_resp.epochs.name.unique()
+
+            # if the epoch is correct, move on
+            if (epoch is not None) and (epoch in available_epochs):
+                pass
+
+            # otherwise try the default fall backs
+            else:
+                # order of fallback epochs to search for
+                epoch_sequence = [
+                    'REFERENCE',
+                    'TARGET',
+                    'TRIAL',
+                    'SIGNAL',
+                    'SEQUENCE1',
+                    None  # leave None as the last in the sequence, to know when not found
+                ]
+
+                for e in epoch_sequence:
+                    if e is None:
+                        # reached the end of the fallbacks, not found
+                        log.warning(f'Quickplot: no epoch specified, and no fallback found. Will not subset data')
+
+                    if e in available_epochs:
+                        epoch = e
+                        log.info(f'Quickplot: no epoch specified, falling back to "{epoch}"')
+                        break
+
+        # data to plot
+        if epoch is not None:
+            extracted = rec_resp.extract_epoch(epoch)
+        else:
+            extracted = rec_resp.as_continuous()
+
+        # figure out which occurrence
+        not_empty = [np.any(np.isfinite(x)) for x in extracted]  # occurrences containing non inf/nan data
+        possible_occurrences, = np.where(not_empty)
+
+        # if there's no possible occurrences, then occurrence passed in doesn't matter
+        if possible_occurrences.size == 0:
+            # only warn if passed in occurrence
+            if occurrence is not None:
+                log.warning('Quickplot: no possible occurrences, ignoring passed occurrence')
+            occurrence = None
+        # otherwise, if the passed occurrence is not possible, then default to the first one
+        else:
+            if occurrence not in possible_occurrences:
+                # only warn if had passed in occurrence
+                if occurrence is not None:
+                    log.warning(f'Quickplot: Passed occurrence not possible, defaulting to first possible '
+                                f'(idx: {occurrence}).')
+                occurrence = possible_occurrences[0]
+
+        # determine the plot functions
+        plot_fn_modules = []
+        for mod_idx, m in enumerate(self):
+            # do some forward checking here for strf: skip gaussian weights if next is strf
+            # clunky, better way?
+            if mod_idx < len(self) and self[mod_idx]['fn'] == 'nems.modules.weight_channels.gaussian' and \
+                    self[mod_idx + 1]['fn'] == 'nems.modules.fir.basic':
+                continue
+            # don't double up on spectrograms
+            if self[mod_idx]['fn'] == 'nems.modules.nonlinearity.dlog':
+                continue
+
+            plot_fn_modules.append((mod_idx, self.get_plot_fn(mod_idx)))
+
+        # drop duplicates
+        temp_plot_fn_set = []
+        seen_fn = set()
+        for mod_idx, plot_fn in plot_fn_modules:
+            if plot_fn not in seen_fn:
+                seen_fn.add(plot_fn)
+                temp_plot_fn_set.append((mod_idx, plot_fn))
+
+        plot_fn_modules = temp_plot_fn_set
+
+        # use partial so ax can be specified later
+        # the format is (fn, col_span), where col_span is 1 for all of these, but will vary for the custom pre-post
+        # below fn and col_span should be list, but for simplicity here they are just int and partial and converted
+        # in the plotting loop below
+        plot_fns = [
+            (partial(plot_fn,
+                     rec=rec,
+                     modelspec=self,
+                     idx=mod_idx,
+                     channels=rec_stim.chans,
+                     range=range,
+                     ), 1)
+            for mod_idx, plot_fn in plot_fn_modules
+        ]
+
+        if include_input:
+            plot_fn = _lookup_fn_at('nems.plots.api.spectrogram_from_epoch')
+            fn = partial(plot_fn,
+                         signal=rec_stim,
+                         epoch=epoch,
+                         occurrence=occurrence,
+                         title='Stimulus Spectrogram'
+                         )
+            # add to front
+            plot_fns = [(fn, 1)] + plot_fns
+
+        if include_output:
+            plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_epoch')
+            fn = partial(plot_fn,
+                         signals=[rec_resp, rec_pred],
+                         epoch=epoch,
+                         occurrences=occurrence,
+                         title=f'Prediction vs Response, {epoch} #{occurrence}'
+                         )
+            # add to end
+            plot_fns.append((fn, 1))
+
+            # scatter text
+            n_cells = len(self.meta.get('r_test', []))
+            r_test = np.mean(self.meta.get('r_test', [0]))
+            r_fit = np.mean(self.meta.get('r_fit', [0]))
+            scatter_text = f'r_test: {r_test:.3f} (n={n_cells})\nr_fit: {r_fit:.3f}'
+
+            scatter_fn = _lookup_fn_at('nems.plots.api.plot_scatter')
+            n_bins = 100
+            fn_smooth = partial(scatter_fn,
+                                sig1=rec_pred,
+                                sig2=rec_resp,
+                                smoothing_bins=n_bins,
+                                force_square=False,
+                                text=scatter_text,
+                                title=f'Smoothed, bins={n_bins}'
+                                )
+
+            if rec_resp.shape[0] > 1:
+                not_smooth_fn = _lookup_fn_at('nems.plots.api.perf_per_cell')
+                fn_not_smooth = partial(not_smooth_fn, self)
+            else:
+                fn_not_smooth = partial(scatter_fn,
+                                        sig1=rec_pred,
+                                        sig2=rec_resp,
+                                        smoothing_bins=False,
+                                        force_square=False,
+                                        text=scatter_text,
+                                        title='Unsmoothed'
+                                        )
+
+            plot_fns.append(([fn_smooth, fn_not_smooth], [1, 1]))
+
+        # done with plot functions, get figure title
+        cellid = self.meta.get('cellid', 'UNKNOWN')
+        modelname = self.meta.get('modelname', 'UNKNOWN')
+        batch = self.meta.get('batch', 0)
+
+        fig_title = f'Cell: {cellid}, Batch: {batch}, {epoch} #{occurrence}\n{modelname}'
+
+        n_rows = len(plot_fns)
+
+        # make the figure and the grids for the plots
+        if figsize is None:
+            figsize = (10 * size_mult[0], n_rows * size_mult[1])
+        if fig is None:
+            fig = plt.figure(figsize=figsize, constrained_layout=True)
+        else:
+            fig.set_size_inches(figsize[0], figsize[1], forward=True)
+
+        # each module gets a row in the gridspec, giving plots control over subplots, etc.
+        gs_rows = gridspec.GridSpec(n_rows, 1, figure=fig)
+
+        # iterate through the plotting partials and plot them to the gridspec
+        for row_idx, (plot_fn, col_spans) in enumerate(plot_fns):
+            # plot_fn, col_spans should be list, so convert if necessary
+            if isinstance(col_spans, int) and not isinstance(plot_fn, list):
+                col_spans = [col_spans]
+                plot_fn = [plot_fn]
+
+            n_cols = sum(col_spans)
+            gs_cols = gridspec.GridSpecFromSubplotSpec(1, n_cols, gs_rows[row_idx])
+
+            col_idx = 0
+            for fn, col_span in zip(plot_fn, col_spans):
+                ax = plt.Subplot(fig, gs_cols[0, col_idx:col_idx + col_span])
+                fig.add_subplot(ax)
+                fn(ax=ax)
+                col_idx += col_span
+
+        # suptitle needs to be after the gridspecs in order to work with constrained_layout
+        fig.suptitle(fig_title)
+        fig.set_constrained_layout_pads(w_pad=0.25, h_pad=0.1)
+
+        log.info('Quickplot: generated fig with title "{}"'.format(fig_title.replace("\n", " ")))
         return fig
 
     def append(self, module):
-        self.raw[0].append(module)
+        """Append a module to the modelspec.
+
+        :param module: A module dict.
+        """
+        self.raw[self.cell_index, self.fit_index, self.jack_index].append(module)
 
     def pop_module(self):
-        del self.raw[self.fit_index][-1]
-
-    def tile_fits(self, fit_count):
-        self.raw = [self.raw[0].copy() for i in range(fit_count)]
-        return self
+        """Remove the last module from the modelspec."""
+        del self.raw[self.cell_index, self.fit_index, self.jack_index][-1]
 
     def get_priors(self, data):
+        """TODO docs.
+
+        :param data: TODO docs
+        :return: TODO docs
+        """
         # Here, we query each module for it's priors. A prior will be a
         # distribution, so we set phi to the mean (i.e., expected value) for
         # each parameter, then ask the module to evaluate the input data. By
@@ -276,34 +775,63 @@ class ModelSpec:
 
         return priors
 
-    def evaluate(self, rec=None, start=None, stop=None):
-        """
-        Evaluate the Model on a recording.
+    def evaluate(self, rec=None, **kwargs):
+        """Evaluate the Model on a recording. essentially a wrapper for `modelspec.evaluate`.
+
+        :param rec: The recording to evaluate.
+        :param kwargs: Optional keyword arguments, passed to `modelspec.evaluate`.
         """
         if rec is None:
             rec = self.recording
-        rec = evaluate(rec, self.raw[self.fit_index], start=start, stop=stop)
+
+        rec = evaluate(rec, self, **kwargs)
 
         return rec
 
+    def fast_eval_on(self, rec=None, subset=None):
+        """Quickly evaluates a model on a recording.
+
+        Enter fast eval mode, where model is evaluated up through the
+        first module that has a fittable phi. Evaluate model on rec up through
+        the preceding module and save in `freeze_rec`.
+
+        :param rec: Recording object to evaluate.
+        :param subset: Which subset of the data to evaluate.
+        """
+        if rec is None:
+            raise ValueError("Must provide valid rec=<recording> object")
+        if subset is not None:
+            start_mod = subset[0]
+        else:
+            start_mod = len(self)-1
+            for i in range(len(self)-1, -1, -1):
+                if ('phi' in self[i]) and self[i]['phi']:
+                    start_mod = i
+        # import pdb; pdb.set_trace()
+        # eval from 0 to start position and save the result in freeze_rec
+        self.fast_eval_start = 0
+        self.freeze_rec = evaluate(rec, self, start=0, stop=start_mod)
+
+        # then switch to fast_eval mode
+        self.fast_eval = True
+        self.fast_eval_start = start_mod
+        log.info('Freezing fast rec at start=%d', self.fast_eval_start)
+
+    def fast_eval_off(self):
+        """Turn off `fast_eval` and purge `freeze_rec` to free up memory."""
+        self.fast_eval = False
+        self.freeze_rec = None
+        self.fast_eval_start = 0
+
     def generate_tensor(self, data, phi):
-        '''
-        Evaluate the module given the input data and phi
+        """Evaluate the module given the input data and phi.
 
-        Parameters
-        ----------
-        data : dictionary of arrays and/or tensors
-        phi : list of dictionaries
-            Each entry in the list maps to the corresponding module in the
-            model. If a module does not require any input parameters, use a
-            blank dictionary. All elements in phi must be scalars, arrays or
-            tensors.
-
-        Returns
-        -------
-        data : dictionary of Signals
-            dictionary of arrays and/or tensors
-        '''
+        :param dict data: Dictionary of arrays and/or tensors.
+        :param list(dict) phi: list of dictionaries. Each entry in the list maps to the corresponding
+            module in the model. If a module does not require any input parameters, use a blank
+            dictionary. All elements in phi must be scalars, arrays or tensors.
+        :return: dictionary of Signals
+        """
         # Loop through each module in the stack and transform the data.
         result = data.copy()
         for module, module_phi in zip(self.modules, phi):
@@ -312,17 +840,18 @@ class ModelSpec:
         return result
 
     def get_shortname(self):
-        '''
-        Returns a string that is just the module ids in this modelspec.
-        '''
+        """Get a string that is just the module IDs in this modelspec.
+
+        :return str: Shortname, the module IDs.
+        """
         keyword_string = '_'.join([m['id'] for m in self])
         return keyword_string
 
     def get_longname(self):
-        '''
-        Returns a LONG name for this modelspec suitable for use in saving to disk
-        without a path.
-        '''
+        """Return a long name for this modelspec suitable for use in saving to disk without a path.
+
+        :return str: Longname, more details about the modelspec.
+        """
         meta = self.meta
 
         recording_name = meta.get('exptid')
@@ -344,18 +873,26 @@ class ModelSpec:
 
 
 def get_modelspec_metadata(modelspec):
-    '''
-    Returns a dict of the metadata for this modelspec. Purely by convention,
-    metadata info for the entire modelspec is stored in the first module.
-    '''
+    """Return a dict of the metadata for this modelspec.
+
+    Purely by convention, metadata info for the entire modelspec is stored in the first module.
+
+    :param modelspec: Modelspec object from which to get metadata.
+    :return dict: Modelspec meta dict.
+    """
     return modelspec.meta
 
 
 def set_modelspec_metadata(modelspec, key, value):
-    '''
-    Sets a key/value pair in the modelspec's metadata. Purely by convention,
-    metadata info for the entire modelspec is stored in the first module.
-    '''
+    """Set a key/value pair in the modelspec's metadata.
+
+    Purely by convention, metadata info for the entire modelspec is stored in the first module.
+
+    :param modelspec: Modelspec object from which to get metadata.
+    :param key: Update key.
+    :param value: Update value.
+    :param: The modelspec with updated meta.
+    """
     if not modelspec.meta:
         modelspec[0]['meta'] = {}
     modelspec[0]['meta'][key] = value
@@ -363,43 +900,62 @@ def set_modelspec_metadata(modelspec, key, value):
 
 
 def get_modelspec_shortname(modelspec):
-    '''
-    Returns a string that is just the module ids in this modelspec.
-    '''
+    """Return a string that is just the module ids in this modelspec.
+
+    :param modelspec: Modelspec object from which to get metadata.
+    :return str: The modelspec shortname.
+    """
     return modelspec.get_shortname()
 
 
 def get_modelspec_longname(modelspec):
-    '''
-    Returns a LONG name for this modelspec suitable for use in saving to disk
-    without a path.
-    '''
+    """Return a LONG name for this modelspec suitable for use in saving to disk without a path.
+
+    :param modelspec: Modelspec object from which to get metadata.
+    :return str: The modelspec longname.
+    """
     return modelspec.get_longname()
 
 
 def _modelspec_filename(basepath, number):
+    """Append a number to the end of a filepath.
+
+    :param basepath: Path to add number to.
+    :param number: Number to add.
+    :return: String of basepath with suffix added.
+    """
     suffix = '.{:04d}.json'.format(number)
-    return (basepath + suffix)
+    return basepath + suffix
 
 
 def save_modelspec(modelspec, filepath):
-    '''
-    Saves a modelspec to filepath. Overwrites any existing file.
-    '''
+    """Save a modelspec to filepath. Overwrites any existing file.
+
+    :param modelspec: Modelspec object from which to get metadata.
+    :param filepath: Save location.
+    """
     if type(modelspec) is list:
         nems.uri.save_resource(filepath, json=modelspec)
     else:
         nems.uri.save_resource(filepath, json=modelspec.raw)
 
+
 def save_modelspecs(directory, modelspecs, basename=None):
-    '''
-    Saves one or more modelspecs to disk with stereotyped filenames:
+    """Save one or more modelspecs to disk with stereotyped filenames.
+
+    Ex:
         directory/basename.0000.json
         directory/basename.0001.json
         directory/basename.0002.json
         ...etc...
+
     Basename will be automatically generated if not provided.
-    '''
+
+    :param directory: Save location.
+    :param list modelspecs: List of modelspecs to save.
+    :param basename: Save name of modelspecs, otherwise will use modelspec long name.
+    :return: The filepath of the last saved modelspec.
+    """
     if not os.path.isdir(directory):
         os.makedirs(directory)
         os.chmod(directory, 0o777)
@@ -412,33 +968,40 @@ def save_modelspecs(directory, modelspecs, basename=None):
         basepath = os.path.join(directory, bname)
         filepath = _modelspec_filename(basepath, idx)
         if type(modelspec) is list:
+            # TODO fix save with array
             save_modelspec(modelspec, filepath)
         else:
             # HACK for backwards compatibility. if saving a modelspecs list
             # then only need a single fit_index from the ModelSpec class
-            save_modelspec(modelspec.raw[0], filepath)
+            save_modelspec(modelspec.raw[0, 0, 0], filepath)
     return filepath
 
 
 def load_modelspec(uri):
-    '''
-    Returns a single modelspecs loaded from uri
-    '''
+    """Return a single modelspecs loaded from uri.
+
+    :param uri: URI of modelspec.
+    :return: A new modelspec object loaded form the uri.
+    """
     ms = nems.uri.load_resource(uri)
     return ModelSpec(ms)
 
 
 def load_modelspecs(directory, basename, regex=None):
-    '''
-    Returns a list of modelspecs loaded from directory/basename.*.json
-    '''
-    #regex = '^' + basename + '\.{\d+}\.json'
+    """Return a list of modelspecs loaded from `directory/basename.*.json`.
+
+    :param directory: Directory to search for modelspecs.
+    :param basename: Name of modelspecs to match against.
+    :param regex: Optional regex matching for modelspec names.
+    :return: A new modelspec object.
+    """
+    # regex = '^' + basename + '\.{\d+}\.json'
     # TODO: fnmatch is not matching pattern correctly, replacing
     #       with basic string matching for now.  -jacob 2/17/2018
-    #files = fnmatch.filter(os.listdir(directory), regex)
+    # files = fnmatch.filter(os.listdir(directory), regex)
     #       Also fnmatch was returning list of strings? But
     #       json.load expecting file object
-    #modelspecs = [json.load(f) for f in files]
+    # modelspecs = [json.load(f) for f in files]
     dir_list = os.listdir(directory)
     if regex:
         # TODO: Not sure why this isn't working? No errors but
@@ -457,71 +1020,111 @@ def load_modelspecs(directory, basename, regex=None):
         with open(file, 'r') as f:
             try:
                 m = json.load(f)
-                m[0]['meta']['filename']=file
+                m[0]['meta']['filename'] = file
             except json.JSONDecodeError as e:
                 print("Couldn't load modelspec: {0}"
                       "Error: {1}".format(file, e))
             modelspecs.append(m)
     return ModelSpec(modelspecs)
-    #return modelspecs
+    # return modelspecs
 
 
 lookup_table = {}  # TODO: Replace with real memoization/joblib later
 
 
-def _lookup_fn_at(fn_path):
-    '''
-    Private function that returns a function handle found at a
-    given module. Basically, a way to import a single function.
+def _lookup_fn_at(fn_path, ignore_table=False):
+    """Private function that returns a function handle found at a given module.
+
+    Basically, a way to import a single function.
     e.g.
         myfn = _lookup_fn_at('nems.modules.fir.fir_filter')
         myfn(data)
         ...
-    '''
 
+    :param fn_path: Path to the function.
+    :param ignore_table: Whether or not to look up the function in the cache.
+    :return: Function handle.
+    """
     # default is nems.xforms.<fn_path>
-    if not '.' in fn_path:
+    if '.' not in fn_path:
         fn_path = 'nems.xforms.' + fn_path
 
-    if fn_path in lookup_table:
+    if (not ignore_table) and (fn_path in lookup_table):
         fn = lookup_table[fn_path]
     else:
         api, fn_name = nems.utils.split_to_api_and_fn(fn_path)
+        api = api.replace('nems_db.xform', 'nems_lbhb.xform')
         api_obj = importlib.import_module(api)
+        if ignore_table:
+            importlib.reload(api_obj)  # force overwrite old imports
         fn = getattr(api_obj, fn_name)
-        lookup_table[fn_path] = fn
+        if not ignore_table:
+            lookup_table[fn_path] = fn
     return fn
 
 
-def fit_mode_on(modelspec):
-    '''
-    turn no norm.recalc for each module when present
-    '''
+def fit_mode_on(modelspec, rec=None, subset=None):
+    """Turn on `norm.recalc` for each module when present.
+
+    TODO docs can this be removed?
+
+    :param modelspec:
+    param rec:
+    param subset:
+    """
+    """
+    # norm functions deprecated. too messy
     for m in modelspec:
         if 'norm' in m.keys():
             m['norm']['recalc'] = 1
+    """
+    if rec is None:
+        raise ValueError('rec must be specified')
+    modelspec.fast_eval_on(rec, subset)
 
 
 def fit_mode_off(modelspec):
-    '''
-    turn off norm.recalc for each module when present
-    '''
+    """Turn off norm.recalc for each module when present.
+
+    TODO docs can this be removed?
+
+    :param modelspec:
+    """
+    """
+    # norm functions deprecated. too messy
     for m in modelspec:
         if 'norm' in m.keys():
             m['norm']['recalc'] = 0
+    """
+    modelspec.fast_eval_off()
 
 
 def evaluate(rec, modelspec, start=None, stop=None):
-    '''
-    Given a recording object and a modelspec, return a prediction.
-    Does not alter its arguments in any way.
-    Only evaluates modules at indices start through stop-1.
-    Note that a value of None for start will include the beginning
-    of the list, and a value of None for stop will include the end
-    of the list (whereas a value of -1 for stop will not).
-    '''
-    # d = copy.deepcopy(rec)  # Paranoid, but 100% safe
-    d = rec.copy()  # About 10x faster & fine if Signals are immutable
+    """Given a recording object and a modelspec, return a prediction in a new recording.
+
+    Does not alter modelspec's arguments in any way. Only evaluates modules at indices start through stop-1.
+    A value of None for start will include the beginning of the list, and a value of None for stop will include
+    the end of the list (whereas a value of -1 for stop will not). Evaluates using cell/fit/jack currently
+    selected for modelspec.
+
+    :param rec: Recording object.
+    :param modelspec: Modelspec object.
+    :param start: Start evaluation at module start, assuming `rec['pred']` is in the appropriate
+        state to feed into modelspec[start].
+    :param stop: Stop at this module.
+    :return: `Recording` copy of input with `pred` updated with prediction.
+    """
+    if modelspec.fast_eval:
+        # still kind of testing this out, though it seems to work
+        start = modelspec.fast_eval_start
+        d = modelspec.freeze_rec.copy()
+        # import pdb
+        # pdb.set_trace()
+    else:
+        # don't need a deep copy, fact that signals are immutable means that there will be an error
+        # if evaluation tries to modify a signal in place
+        d = rec.copy()
+
     for m in modelspec[start:stop]:
         fn = _lookup_fn_at(m['fn'])
         fn_kwargs = m.get('fn_kwargs', {})
@@ -529,11 +1132,11 @@ def evaluate(rec, modelspec, start=None, stop=None):
         kwargs = {**fn_kwargs, **phi}  # Merges both dicts
         new_signals = fn(rec=d, **kwargs)
 
-        #if type(new_signals) is not list:
-        #    raise ValueError('Fn did not return list of signals: {}'.format(m))
+        # if type(new_signals) is not list:
+        #     raise ValueError('Fn did not return list of signals: {}'.format(m))
 
-        # testing normalization
         """
+        # testing normalization
         if 'norm' in m.keys():
             s = new_signals[0]
             k = s.name
@@ -563,8 +1166,8 @@ def evaluate(rec, modelspec, start=None, stop=None):
 
 
 def summary_stats(modelspecs, mod_key='fn', meta_include=[], stats_keys=[]):
-    '''
-    Generates summary statistics for a list of modelspecs.
+    """Generate summary statistics for a list of modelspecs.
+
     Each modelspec must be of the same length and contain the same
     modules (though they need not be in the same order).
 
@@ -574,19 +1177,16 @@ def summary_stats(modelspecs, mod_key='fn', meta_include=[], stats_keys=[]):
     be compared because there is no guarantee that they contain
     comparable parameter values.
 
-    Arguments:
-    ----------
-    modelspecs : list of modelspecs
-        See docs/modelspecs.md
+    :param list modelspecs: List of modelspecs
+    :param mod_key: TODO docs
+    :param stats_keys: TODO docs remove?
 
-    Returns:
-    --------
-    stats : nested dictionary
+    :return: Nested dictionary of stats.
         {'module.function---parameter':
             {'mean':M, 'std':S, 'values':[v1,v2 ...]}}
         Where M, S and v might be scalars or arrays depending on the
         typical type for the parameter.
-    '''
+    """
     # Make sure the modelspecs themselves aren't modified
     # deepcopy for nested container structure
     modelspecs = [copy.deepcopy(m) for m in modelspecs]
@@ -637,7 +1237,6 @@ def summary_stats(modelspecs, mod_key='fn', meta_include=[], stats_keys=[]):
                 else:
                     columns.update({column_entry: [phi[p]]})
 
-
     # Convert entries from lists of values to dictionaries
     # containing keys for mean, std and the raw values.
     with_stats = {}
@@ -649,7 +1248,7 @@ def summary_stats(modelspecs, mod_key='fn', meta_include=[], stats_keys=[]):
             sem = try_scalar((st.sem(values, axis=0)))
             max = try_scalar((np.max(values, axis=0)))
             min = try_scalar((np.min(values, axis=0)))
-        except:
+        except:  # TODO specify error type
             mean = np.nan
             std = np.nan
             sem = np.nan
@@ -666,11 +1265,18 @@ def summary_stats(modelspecs, mod_key='fn', meta_include=[], stats_keys=[]):
 
 
 def get_best_modelspec(modelspecs, metakey='r_test', comparison='greatest'):
-    '''
-    Examines the first-module meta information within each modelspec in a list,
-    and returns a singleton list containing the modelspec with the greatest
+    """Get the best modelspec ranked by the given metakey.
+
+    Examine the first-module meta information within each modelspec in a list,
+    and return a singleton list containing the modelspec with the greatest
     value for the specified metakey by default (or the least value optionally).
-    '''
+
+    :param list modelspecs: Modelspecs to compare.
+    :param metakey: Key to compare across modelspecs.
+    :param str comparison: `greatest` or `least`.
+
+    :return list: Modelspec with greatest/least metakey.
+    """
     idx = None
     best = None
     for i, m in enumerate(modelspecs):
@@ -702,12 +1308,18 @@ def get_best_modelspec(modelspecs, metakey='r_test', comparison='greatest'):
 
 
 def sort_modelspecs(modelspecs, metakey='r_test', order='descending'):
-    '''
+    """Sort Modelspecs by given metakey.
+
     Sorts modelspecs in order of the given metakey, which should be in
     the first-module meta entry of each modelspec.
-    '''
-    find_meta = lambda m: m[0]['meta'][metakey]
-    sort = sorted(modelspecs, key=find_meta)
+
+    :param list modelspecs: List of modelspecs to sort.
+    :param metakey: Key to compare across modelspecs.
+    :param order: `descending` or `ascending`.
+
+    :return list: Sorted list of modelspecs.
+    """
+    sort = sorted(modelspecs, key=lambda m: m[0]['meta'][metakey])
     if order.lower() in ['ascending', 'asc', 'a']:
         return sort
     elif order.lower() in ['descending', 'desc', 'd']:
@@ -717,14 +1329,16 @@ def sort_modelspecs(modelspecs, metakey='r_test', order='descending'):
 
 
 def try_scalar(x):
-    """Try to convert x to scalar, in case of ValueError just return x."""
+    """Try to convert x to scalar, in case of ValueError just return x.
+
+    :param x: Value to convert to scalar.
+    """
     # TODO: Maybe move this to an appropriate utilities module?
     try:
         x = np.asscalar(x)
     except ValueError:
         pass
     return x
-
 
 # TODO: Check that the word 'phi' is not used in fn_kwargs
 # TODO: Error checking the modelspec before execution;

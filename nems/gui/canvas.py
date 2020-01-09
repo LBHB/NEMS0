@@ -1,23 +1,74 @@
 import matplotlib.ticker as tkr
 import numpy as np
 import PyQt5.QtWidgets as qw
+import PyQt5.QtGui as qg
+import PyQt5.QtCore as qc
+
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
+import random
 
-import nems.signal
 from nems.plots.utils import ax_remove_box
+
+class MplWindow(qw.QWidget):
+    def __init__(self, parent=None, fig=None):
+        super(MplWindow, self).__init__(parent)
+
+        # a figure instance to plot on
+        if fig is None:
+            self.figure = plt.figure()
+        else:
+            self.figure = fig
+
+        # this is the Canvas Widget that displays the `figure`
+        # it takes the `figure` instance as a parameter to __init__
+        self.canvas = FigureCanvas(self.figure)
+
+        # this is the Navigation widget
+        # it takes the Canvas widget and a parent
+        self.toolbar = NavigationToolbar(self.canvas, self)
+
+        # Just some button connected to `plot` method
+        self.button = qw.QPushButton('Plot')
+        self.button.clicked.connect(self.plot)
+
+        # set the layout
+        layout = qw.QVBoxLayout()
+        layout.addWidget(self.toolbar)
+        layout.addWidget(self.canvas)
+        layout.addWidget(self.button)
+        self.setLayout(layout)
+
+    def plot(self):
+        ''' plot some random stuff '''
+        # random data
+        data = [random.random() for i in range(10)]
+
+        # create an axis
+        ax = self.figure.add_subplot(111)
+
+        # discards the old graph
+        ax.clear()
+
+        # plot data
+        ax.plot(data, '*-')
+
+        # refresh canvas
+        self.canvas.draw()
 
 
 class NemsCanvas(FigureCanvas):
 
-    def __init__(self, parent=None, width=5, height=4, dpi=100):
+    def __init__(self, parent=None, width=5, height=4, dpi=100, hide_axes=True):
         '''QWidget for displaying a matplotlib axes.'''
         plt.ioff()
         fig = plt.figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
-        self.axes.get_yaxis().set_visible(False)
-        self.axes.get_xaxis().set_visible(False)
+        if hide_axes:
+            self.axes.get_yaxis().set_visible(False)
+            self.axes.get_xaxis().set_visible(False)
 
         super(FigureCanvas, self).__init__(fig)
         self._bbox_queue = []
@@ -25,13 +76,15 @@ class NemsCanvas(FigureCanvas):
         FigureCanvas.setSizePolicy(self, qw.QSizePolicy.Expanding,
                                    qw.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
-        self.setContentsMargins(0, 0, 0, 0)
-        self.figure.subplots_adjust(left=0, bottom=0, right=1,
-                                    top=1, wspace=0, hspace=0)
-        self.axes.spines['right'].set_visible(False)
-        self.axes.spines['top'].set_visible(False)
-        self.axes.spines['bottom'].set_visible(False)
-        self.axes.spines['left'].set_visible(False)
+        if hide_axes:
+            self.setContentsMargins(0, 0, 0, 0)
+            self.figure.subplots_adjust(left=0, bottom=0, right=1,
+                                        top=1, wspace=0, hspace=0)
+        if hide_axes:
+            self.axes.spines['right'].set_visible(False)
+            self.axes.spines['top'].set_visible(False)
+            self.axes.spines['bottom'].set_visible(False)
+            self.axes.spines['left'].set_visible(False)
 
 
 class ComparisonCanvas(NemsCanvas):
@@ -127,10 +180,51 @@ class EpochCanvas(NemsCanvas):
                 y = np.array([i, i])
 
                 self.axes.plot(x, y, '-', color=colors[i % len(colors)])
-                self.axes.text(s, i, n, va='bottom', fontsize='small',
-                               color=colors[i % len(colors)])
+                if len(self.epoch_groups[g]) < 5:
+                    self.axes.text(s, i, n, va='bottom', fontsize='small',
+                                   color=colors[i % len(colors)])
 
         self.axes.set_xlim([p.start_time, p.stop_time])
         self.axes.set_ylim([-0.5, i+0.5])
         ax_remove_box(self.axes)
         self.draw()
+
+
+class PrettyWidget(qw.QWidget):
+
+    def __init__(self, parent=None, imagepath=None):
+        qw.QWidget.__init__(self, parent=parent)
+        self.imagepath = imagepath
+        self.resize(1000, 600)
+
+        self.center()
+        self.setWindowTitle('Browser')
+
+        self.lb = qw.QLabel(self)
+        self.lb.resize(self.width(), self.height())
+        self.pixmap = None
+
+        self.update_imagepath(imagepath)
+        self.show()
+
+    def resizeEvent(self, event):
+        self.lb.resize(self.width(), self.height())
+        self.lb.setPixmap(self.pixmap.scaled(self.size(), qc.Qt.KeepAspectRatio, qc.Qt.SmoothTransformation))
+        qw.QWidget.resizeEvent(self, event)
+
+    def update_imagepath(self, imagepath):
+        self.imagepath=imagepath
+        self.pixmap = qg.QPixmap(self.imagepath)
+        self.resize(self.pixmap.width(), self.pixmap.height())
+        self.lb.resize(self.width(), self.height())
+        self.lb.setPixmap(self.pixmap.scaled(self.size(), qc.Qt.KeepAspectRatio, qc.Qt.SmoothTransformation))
+
+        #self.lb.setPixmap(self.pixmap.scaled(self.size(), qc.Qt.KeepAspectRatio, qc.Qt.SmoothTransformation))
+        #self.pixmap.repaint()
+
+    def center(self):
+        qr = self.frameGeometry()
+        cp = qw.QDesktopWidget().availableGeometry().center()
+        qr.moveCenter(cp)
+        self.move(qr.topLeft())
+

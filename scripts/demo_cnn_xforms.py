@@ -52,32 +52,25 @@ batch = 271
 siteid = "TAR010c"
 
 # SINGLE MODEL SPEC
-#cellids = ["TAR010c-18-2"]
-#modelspecname = 'dlog-wc.18x2.g-fir.2x15-relu.1'
+cellids = ["TAR010c-18-2"]
+modelspecname = 'dlog-wc.18x3.g-fir.3x15-relu.1'
 
 # POP MODEL SPEC
-cellids = ["TAR010c-18-2", "TAR010c-30-3", "TAR010c-43-2" ]
+#cellids = ["TAR010c-18-2", "TAR010c-30-3", "TAR010c-43-2" ]
 #modelspecname = 'wc.18x2.g-fir.1x10x2-relu.2-wc.2xR-lvl.R'
 #modelspecname = 'wc.18x1.g-fir.1x10x1-relu.1-lvl.R'
 #modelspecname = 'dlog-wc.18x1.g-fir.1x15x1-relu.1'
-modelspecname = 'wc.18x2.g-fir.1x10x2-relu.2-wc.2xR-lvl.R'
+#modelspecname = 'wc.18x2.g-fir.1x10x2-relu.2-wc.2xR-lvl.R'
 
-meta = {'siteid': siteid, 'batch': batch, 'modelname': modelspecname,
-        'recording': exptid}
+#meta = {'siteid': siteid, 'batch': batch, 'modelname': modelspecname,
+#        'recording': exptid}
+meta = {'cellid': cellids, 'batch': batch, 'modelname': modelspecname,
+        'recording': exptid, 'temp_path': results_dir}
 
-xforms_init_context = {'siteid': siteid, 'batch': int(batch)}
+xforms_init_context = {'cellid': cellids, 'batch': int(batch)}
 xforms_init_context['keywordstring'] = modelspecname
 xforms_init_context['meta'] = meta
 xforms_init_context['recording_uri_list'] = [datafile]
-
-# generate modelspec
-xfspec = []
-# load internally:
-xfspec.append(['nems.xforms.init_context', xforms_init_context])
-
-
-meta = {'cellid': cellids, 'batch': batch, 'modelname': modelspecname,
-        'recording': exptid, 'temp_path': results_dir}
 
 # generate xfspec
 xfspec = []
@@ -99,7 +92,8 @@ xfspec.append(['nems.xforms.init_from_keywords', {}])
 
 #xfspec.append(['nems.xforms.fit_basic_init', {'tolerance': 1e-4}])
 #xfspec.append(['nems.tf.cnnlink.fit_tf', {'init_count': 1, 'max_iter': 1000, 'use_modelspec_init': True}])
-xfspec.append(['nems.tf.cnnlink.fit_tf', {'init_count': 1, 'max_iter': 200, 'use_modelspec_init': False}])
+xfspec.append(['nems.tf.cnnlink.fit_tf', {'init_count': 1, 'max_iter': 200,
+                                          'use_modelspec_init': True, 'optimizer': 'GradientDescent'}])
 
 #xfspec.append(['nems.xforms.fit_basic', {}])
 # xfspec.append(['nems.xforms.fit_basic_shrink', {}])

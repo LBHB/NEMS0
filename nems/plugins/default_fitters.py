@@ -113,10 +113,35 @@ def basic(fitkey):
     xfspec = []
 
     options = _extract_options(fitkey)
-    max_iter, tolerance, fitter = _parse_basic(options)
-    xfspec = [['nems.xforms.fit_basic',
-               {'max_iter': max_iter,
-                'fitter': fitter, 'tolerance': tolerance}]]
+    max_iter, tolerance, fitter, choose_best, fast_eval, rand_count = _parse_basic(options)
+    xfspec = []
+    #if fast_eval:
+    #    xfspec = [['nems.xforms.fast_eval', {}]]
+    #else:
+    #    xfspec = []
+    if rand_count>1:
+        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
+    xfspec.append(['nems.xforms.fit_basic',
+                  {'max_iter': max_iter,
+                   'fitter': fitter, 'tolerance': tolerance}])
+    if choose_best:
+        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
+
+    return xfspec
+
+
+def nrc(fitkey):
+    '''
+    Use normalized reverse correlation to fit phi. Right now, pretty dumb.
+    Expects two modules (fir and lvl). Will fit both simultaneously. Can stack
+    this with fit basic in order to initialize a full rank model with the reverse
+    correlation solution.
+    '''
+    xfspec = []
+
+    #options = _extract_options(fitkey)
+    #max_iter, tolerance, fitter = _parse_basic(options)
+    xfspec = [['nems.xforms.reverse_correlation', {}]]
 
     return xfspec
 
@@ -140,7 +165,7 @@ def tf(fitkey):
     i<N> : Set maximum iterations to N, any positive integer.
     s<S> : Initialize with S random seeds, pick the best performer across
            the entire fit set.
-
+    n : use modelspec initialized by NEMS
     '''
 
     options = _extract_options(fitkey)
@@ -149,6 +174,8 @@ def tf(fitkey):
     fitter = 'Adam'
     init_count = 1
     use_modelspec_init = False
+    pick_best = False
+    rand_count = 0
 
     for op in options:
         if op[:1] == 'i':
@@ -159,12 +186,33 @@ def tf(fitkey):
             init_count = int(op[1:])
         elif op[:1] == 'n':
             use_modelspec_init = True
+        elif op == 'b':
+            pick_best = True
+        elif op.startswith('rb'):
+            if len(op) == 2:
+                rand_count = 10
+            else:
+                rand_count = int(op[2:])
+            pick_best = True
+        elif op.startswith('r'):
+            if len(op) == 1:
+                rand_count = 10
+            else:
+                rand_count = int(op[1:])
 
-    xfspec = [['nems.tf.cnnlink.fit_tf',
-               {'max_iter': max_iter,
-                'use_modelspec_init': use_modelspec_init,
-                'optimizer': fitter,
-                'init_count': init_count}]]
+    xfspec = []
+    if rand_count > 0:
+        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
+
+    xfspec.append(['nems.xforms.fit_wrapper',
+                   {'max_iter': max_iter,
+                    'use_modelspec_init': use_modelspec_init,
+                    'optimizer': fitter,
+                    'init_count': init_count,
+                    'fit_function': 'nems.tf.cnnlink.fit_tf'}])
+    
+    if pick_best:
+        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
     return xfspec
 
@@ -199,13 +247,15 @@ def iter(fitkey):
           positive integer. Default=50
     fiN : Perform N per-fit iterations, where N is any positive integer.
           Default=10
-
+    b : choose best fit_idx based on mse_fit (relevant only when multiple
+        initial conditions)
     '''
 
     # TODO: Support nfold and state fits for fit_iteratively?
     #       And epoch to go with state.
     options = _extract_options(fitkey)
-    tolerances, module_sets, fit_iter, tol_iter, fitter = _parse_iter(options)
+    tolerances, module_sets, fit_iter, tol_iter, fitter, choose_best, fast_eval = \
+        _parse_iter(options)
 
     if 'pop' in options:
         xfspec = [['nems.analysis.fit_pop_model.fit_population_iteratively',
@@ -218,6 +268,8 @@ def iter(fitkey):
                    {'module_sets': module_sets, 'fitter': fitter,
                     'tolerances': tolerances, 'tol_iter': tol_iter,
                     'fit_iter': fit_iter}]]
+    if choose_best:
+        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
     return xfspec
 
@@ -237,6 +289,9 @@ def _parse_basic(options):
     max_iter = 1000
     tolerance = 1e-7
     fitter = 'scipy_minimize'
+    choose_best = False
+    fast_eval = False
+    rand_count = 1
     for op in options:
         if op.startswith('mi'):
             pattern = re.compile(r'^mi(\d{1,})')
@@ -249,8 +304,18 @@ def _parse_basic(options):
             tolerance = 10**tolpower
         elif op == 'cd':
             fitter = 'coordinate_descent'
+        elif op == 'b':
+            choose_best = True
+        elif op.startswith('rb'):
+            if len(op) == 2:
+                rand_count = 10
+            else:
+                rand_count = int(op[2:])
+            choose_best = True
+        elif op == 'f':
+            fast_eval = True
 
-    return max_iter, tolerance, fitter
+    return max_iter, tolerance, fitter, choose_best, fast_eval, rand_count
 
 
 def _parse_iter(options):
@@ -260,7 +325,8 @@ def _parse_iter(options):
     fit_iter = 10
     tol_iter = 50
     fitter = 'scipy_minimize'
-
+    choose_best = False
+    fast_eval = False
     for op in options:
         if op.startswith('ti'):
             tol_iter = int(op[2:])
@@ -277,10 +343,14 @@ def _parse_iter(options):
             module_sets.append(indices)
         elif op == 'cd':
             fitter = 'coordinate_descent'
+        elif op == 'b':
+            choose_best = True
+        elif op == 'f':
+            fast_eval = True
 
     if not tolerances:
         tolerances = None
     if not module_sets:
         module_sets = None
 
-    return tolerances, module_sets, fit_iter, tol_iter, fitter
+    return tolerances, module_sets, fit_iter, tol_iter, fitter, choose_best, fast_eval

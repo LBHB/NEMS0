@@ -262,7 +262,6 @@ def epoch_intersection(a, b, precision=6):
 
     lb, ub = a.pop()
     lb_b, ub_b = b.pop()
-
     while True:
         if lb >= ub_b:
             #           [ a ]
@@ -317,7 +316,7 @@ def epoch_intersection(a, b, precision=6):
                 lb, ub = a.pop()
             except IndexError:
                 break
-        elif (lb > lb_b) and (lb <= ub_b):
+        elif (lb > lb_b) and (ub <= ub_b):
             #   [  a    ]
             # [       b     ]
             # Current epoch in a is fully contained in b
@@ -326,7 +325,7 @@ def epoch_intersection(a, b, precision=6):
                 lb, ub = a.pop()
             except IndexError:
                 break
-        elif (ub > lb_b) and (ub < ub_b) and (lb > ub_b):
+        elif (lb > lb_b) and (ub > ub_b):
             #   [  a    ]
             # [ b    ]
             intersection.append((lb, ub_b))
@@ -490,8 +489,8 @@ def group_epochs_by_occurrence_counts(epochs, regex=None):
 def find_common_epochs(epochs, epoch_name, d=12):
     '''
     Finds all epochs contained by `epoch_name` that are common to all
-    occurances of `epoch_name`. An epoch is considered "common" to all
-    occurances if the name matches and the start and end times, relative to the
+    occurences of `epoch_name`. An epoch is considered "common" to all
+    occurences if the name matches and the start and end times, relative to the
     start `epoch_name`, are the same to the number of decimal places indicated.
 
     Parameters
@@ -524,6 +523,7 @@ def find_common_epochs(epochs, epoch_name, d=12):
         epoch_subset['end'] -= lb
         epoch_subset = set((n, round(s, d), round(e, d)) for (n, s, e) \
                            in epoch_subset[['name', 'start', 'end']].values)
+
         epoch_subsets.append(epoch_subset)
 
     # Now, determine which epochs are common to all occurrences.

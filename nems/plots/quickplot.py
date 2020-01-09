@@ -24,6 +24,7 @@ from nems.plots.state import (state_vars_timeseries, state_var_psth_from_epoch,
 from nems.plots.summary import perf_per_cell
 from nems.utils import find_module
 
+
 log = logging.getLogger(__name__)
 
 # NOTE: Currently the quickplot function is set up to hard-code LBHB-specific
@@ -217,22 +218,25 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
        (find_module('state_dc_gain', modelspec) is not None) or
        (find_module('state_weight', modelspec) is not None) or
        (find_module('state_dexp', modelspec) is not None)):
-        if rec['state'].shape[0]<=15:
+        if rec['state'].shape[0]<=10:
             #fns = state_vars_psths(rec, epoch, psth_name='resp',
             #                       occurrence=occurrence)
             #
             #_plot_axes([1]*len(fns), fns, -2)
-            fn2 = partial(state_vars_psth_all, rec, epoch, psth_name='resp',
+            fn2 = partial(state_vars_psth_all, rec, epoch, psth_name=modelspec.meta['output_name'],
                           psth_name2='pred', state_sig='state_raw',
                           colors=None, channel=None, decimate_by=1)
             _plot_axes(1, fn2, -2)
         else:
+            colors = ((0.7, 0.7, 0.7),
+                      (44/255, 125/255, 61/255),
+                      (129/255, 64/255, 138/255))
 
             fn2 = partial(state_gain_plot, modelspec)
             _plot_axes(1, fn2, -2)
 
     else:
-        sigs = [rec['resp'], rec['pred']]
+        sigs = [rec[modelspec.meta['output_name']], rec['pred']]
         title = 'Prediction vs Response, {} #{}'.format(epoch, occurrence)
         timeseries = partial(timeseries_from_epoch, sigs, epoch, title=title,
                              occurrences=occurrence)
@@ -241,8 +245,8 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
 
     # Pred v Resp Scatter Smoothed
     n_cells = len(modelspec.meta['r_test'])
-    r_test = np.mean(modelspec[0]['meta']['r_test'])
-    r_fit = np.mean(modelspec[0]['meta']['r_fit'])
+    r_test = np.mean(modelspec.meta['r_test'])
+    r_fit = np.mean(modelspec.meta['r_fit'])
     text = 'r_test: {:.3f} (n={})\nr_fit: {:.3f}'.format(r_test, n_cells, r_fit)
 
     smoothed = partial(
@@ -262,15 +266,15 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
 
     # Whole-figure title
     try:
-        cellid = modelspec[0]['meta']['cellid']
+        cellid = modelspec.meta['cellid']
     except KeyError:
         cellid = "UNKNOWN"
     try:
-        modelname = modelspec[0]['meta']['modelname']
+        modelname = modelspec.meta['modelname']
     except KeyError:
         modelname = "UNKNOWN"
     try:
-        batch = modelspec[0]['meta']['batch']
+        batch = modelspec.meta['batch']
     except KeyError:
         batch = 0
     fig.suptitle('Cell: {}, Batch: {}, {} #{}\n{}'
@@ -347,11 +351,13 @@ def _get_plot_fns(rec, modelspec, default='val', epoch='TRIAL', occurrence=0, m_
                     plot = (fn, 1)
                     plot_fns.append(plot)
                 elif 'fir.filter_bank' in fname:
-                    fns = [partial(fir_heatmap, m) for m in ctx['modelspec'].fits()]
+                    fns = [partial(fir_heatmap, m) for m in modelspec.fits()]
                     plot = (fns, [1]*len(fns))
                     plot_fns.append(plot)
                 else:
-                    pass
+                    fns = [partial(fir_heatmap, m) for m in modelspec.fits()]
+                    plot = (fns, [1]*len(fns))
+                    plot_fns.append(plot)
         # do strf
         else:
             if ('fir' in fname) and not strf_done:
@@ -451,32 +457,20 @@ def _get_plot_fns(rec, modelspec, default='val', epoch='TRIAL', occurrence=0, m_
               ('state.state_sp_dc_gain' in fname) or
               ('state_dexp' in fname) or
               ('state.state_weight' in fname)):
-            fn1 = partial(state_vars_timeseries, rec, modelspec)
-            plot1 = (fn1, 1)
 
-            #if len(m['phi']['g']) > 5:
-            #    fn2 = partial(state_gain_plot, modelspec)
-            #    plot2 = (fn2, 1)
-            #
-            #else:
-            #    fns = state_vars_psths(rec, epoch, psth_name='resp',
-            #                           occurrence=occurrence)
-            #    plot2 = (fns, [1]*len(fns))
-            # plot_fns.extend([plot1, plot2])
-            plot_fns.append(plot1)
+            if len(m['phi'].get('g', m['phi']['d'])) > 5:
+                fn1 = partial(state_gain_plot, modelspec)
+                plot1 = (fn1, 1)
+                plot_fns.append(plot1)
+            else:
+                fn1 = partial(state_vars_timeseries, rec, modelspec)
+                plot1 = (fn1, 1)
+                plot_fns.append(plot1)
 
-        elif 'dynamic_sigmoid' in fname:
-            #if rec['contrast'].shape[0] > 1:
-            def contrast_strf(modelspec, chans, ax):
-                try:
-                    strf_heatmap(modelspec, title='Contrast STRF', chans=chans,
-                                 wc_idx=1, fir_idx=1, ax=ax)
-                except IndexError:
-                    strf_heatmap(modelspec, title='Contrast STRF (Fixed A.V.)',
-                                 chans=chans, wc_idx=0, fir_idx=0,
-                                 absolute_value=True, ax=ax)
+        elif 'summed_contrast_kernel' in fname:
+            from nems_lbhb.gcmodel.guiplots import summed_contrast
 
-            fn = partial(contrast_strf, modelspec, chans=None)
+            fn = partial(summed_contrast, rec, modelspec)
             plot = (fn, 1)
             plot_fns.append(plot)
 
@@ -488,6 +482,33 @@ def _get_plot_fns(rec, modelspec, default='val', epoch='TRIAL', occurrence=0, m_
                     )
             plot = (fn, 1)
             plot_fns.insert(0, plot)
+
+        elif 'contrast_kernel' in fname:
+            from nems_lbhb.gcmodel.guiplots import contrast_kernel_heatmap
+
+            fn = partial(contrast_kernel_heatmap, rec, modelspec,
+                         title='Contrast Kernel')
+            plot = (fn, 1)
+            plot_fns.append(plot)
+
+            extent = False if rec['contrast'].shape[0] == 1 else True
+            fn = partial(
+                    spectrogram_from_epoch, rec['contrast'], epoch,
+                    occurrence=occurrence, title='Contrast Input',
+                    extent=extent
+                    )
+            plot = (fn, 1)
+            plot_fns.insert(0, plot)
+
+        elif 'contrast' in fname:
+            from nems_lbhb.gcmodel.guiplots import contrast_kernel_heatmap2
+
+            fn = partial(contrast_kernel_heatmap2, rec, modelspec,
+                         title='(Pseudo) Contrast Kernel')
+            plot = (fn, 1)
+            plot_fns.append(plot)
+
+            # TODO: include contrast spectrogram
 
     return plot_fns
 
@@ -539,7 +560,7 @@ def before_and_after_psth(rec, modelspec, idx, sig_name='pred',
 
 
 def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
-                             compare='resp', smoothing_bins=False,
+                             compare=None, smoothing_bins=False,
                              mod_name='Unknown', xlabel1=None, xlabel2=None,
                              ylabel1=None, ylabel2=None):
 
@@ -549,8 +570,14 @@ def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
     if idx == 0:
         # Can't have anything before index 0, so use input stimulus
         before = rec.copy()
-        before_sig = rec['stim']
-        before.name = '**stim'
+        if 'stim' in rec.signals.keys():
+            before_sig = rec['stim']
+            before.name = '**stim'
+        elif 'state' in rec.signals.keys():
+            before_sig = rec['state']
+            before.name = '**state'
+        else:
+            ValueError("Don't know how to choose before signal")
     else:
         before = ms.evaluate(rec.copy(), modelspec, start=None, stop=idx)
         before_sig = before[sig_name]
@@ -558,6 +585,9 @@ def before_and_after_scatter(rec, modelspec, idx, sig_name='pred',
     # now evaluate next module step
     after = ms.evaluate(before.copy(), modelspec, start=idx, stop=idx+1)
     after_sig = after[sig_name]
+
+    if compare is None:
+        compare = modelspec.meta.get('output_name', 'resp')
 
     # compute correlation for pre-module before it's over-written
     if before[sig_name].shape[0] == 1:

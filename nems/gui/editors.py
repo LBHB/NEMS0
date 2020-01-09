@@ -6,9 +6,9 @@ The different parts of the editor are layed out as follows:
 ------------------------------EditorWindow--------------------------------------
 : :------------------------------ EditorWidget--------------------------------::
 : : :-------------------ModelspecEditor-----------------: :---XfspecEditor---:::
-: : : EpochsCollapser |                  | EpochsCanvas : :                  :::
+: : : EpochsCollapser |                  | EpochCanvas  : :                  :::
 : : :                                                   : :                  :::
-: : : ModuleCollapser |-ModuleController-| ModuleCanvas : :   XfstepEditor   :::
+: : : ModuleCollapser | -ModuleControls- | ModuleCanvas : :   XfstepEditor   :::
 : : :      [+/-]        :  PhiEditor   :      [Plot]    : :                  :::
 : : :                   :..............:                : :                  :::
 : : :          (1 of each per module in modelspec)      : :  (1 per step in  :::
@@ -66,6 +66,7 @@ import sys
 import copy
 import json
 import logging
+from os.path import expanduser, join, dirname
 
 import numpy as np
 import matplotlib
@@ -75,7 +76,7 @@ import PyQt5.QtGui as qg
 
 from nems import xforms
 from nems.gui.models import ArrayModel
-from nems.gui.canvas import NemsCanvas, EpochCanvas
+from nems.gui.canvas import NemsCanvas, EpochCanvas, MplWindow
 from nems.modelspec import _lookup_fn_at
 import nems.db as nd
 from nems.registry import KeywordRegistry
@@ -552,9 +553,10 @@ class ModuleCanvas(qw.QFrame):
         gc = self.parent.parent.global_controls
         ax = self.canvas.figure.add_subplot(111)
         rec = self.parent.modelspec.recording
-        self.parent.modelspec.plot(self.mod_index, rec, ax,
-                                   self.plot_fn_idx, self.fit_index,
-                                   self.sig_name, no_legend=True,
+        self.parent.modelspec[self.mod_index]['plot_fn_idx']=self.plot_fn_idx
+        self.parent.modelspec.plot(mod_index=self.mod_index, rec=rec, ax=ax,
+                                   plot_fn_idx=self.plot_fn_idx, fit_index=self.fit_index,
+                                   sig_name=self.sig_name, no_legend=True,
                                    channels=self.plot_channel,
                                    cursor_time=gc.cursor_time)
         if self.scrollable:
@@ -937,6 +939,15 @@ class GlobalControls(qw.QFrame):
         self.time_slider = qw.QScrollBar(orientation=1)
         policy = qw.QSizePolicy()
         policy.setHorizontalPolicy(qw.QSizePolicy.Expanding)
+
+        # Set start for plot views
+        self.display_start = qw.QLineEdit()
+        #self.display_start.setValidator(
+        #        qg.QDoubleValidator(0, 10000.0, 4)
+        #        )
+        self.display_start.editingFinished.connect(self.set_display_range)
+        self.display_start.setText(str(self.start_time))
+
         self.time_slider.setSizePolicy(policy)
         self._update_max_time()
         self.time_slider.setRange(0, self.max_time)
@@ -959,7 +970,7 @@ class GlobalControls(qw.QFrame):
         minus.clicked.connect(self.decrement_display_range)
         self.range_layout = qw.QHBoxLayout()
         self.range_layout.setAlignment(qc.Qt.AlignTop)
-        [self.range_layout.addWidget(w) for w in [self.display_range, plus, minus]]
+        [self.range_layout.addWidget(w) for w in [qw.QLabel('Start(s)'), self.display_start, qw.QLabel('Dur(s)'), self.display_range, plus, minus]]
 
         self.buttons_layout = qw.QHBoxLayout()
         self.buttons_layout.setAlignment(qc.Qt.AlignTop)
@@ -983,6 +994,9 @@ class GlobalControls(qw.QFrame):
         self.cursor_time_line.editingFinished.connect(self.update_cursor_time)
         self.cursor_time_line.setText(str(self.cursor_time))
 
+        self.quickplot_btn = qw.QPushButton('Save Quickplot')
+        self.quickplot_btn.clicked.connect(self.export_plot)
+
         self.buttons_layout.addWidget(self.reset_model_btn)
         self.buttons_layout.addWidget(self.fit_index_label)
         self.buttons_layout.addWidget(self.fit_index_line)
@@ -990,6 +1004,7 @@ class GlobalControls(qw.QFrame):
         self.buttons_layout.addWidget(self.cell_index_line)
         self.buttons_layout.addWidget(self.cursor_time_label)
         self.buttons_layout.addWidget(self.cursor_time_line)
+        self.buttons_layout.addWidget(self.quickplot_btn)
 
         layout = qw.QVBoxLayout()
         layout.setAlignment(qc.Qt.AlignTop)
@@ -1003,11 +1018,14 @@ class GlobalControls(qw.QFrame):
         self.time_slider.setSingleStep(int(np.ceil(self.display_duration/10)))
         self.time_slider.setPageStep(int(self.display_duration))
 
+        self.export_path = expanduser("~")
+
     def scroll_all(self):
         '''Update xlims for all plots based on slider value.'''
         #self.start_time = self.time_slider.value()/self.slider_scaling
         self.start_time = self.time_slider.value()
         self.stop_time = self.start_time + self.display_duration
+        self.display_start.setText(str(self.start_time))
 
         # don't go past the latest time of the biggest plot
         # (should all have the same max most of the time)
@@ -1030,22 +1048,26 @@ class GlobalControls(qw.QFrame):
         #self.time_slider.setRange(0, self.max_time-self.display_duration)
         #self.slider_scaling = self.max_time/(self.max_signal_time - self.display_duration)
 
-    def tap_right(self):
-        self.time_slider.set_value(
-                self.time_slider.value + self.time_slider.singleStep
-                )
-
-    def tap_left(self):
-        self.time_slider.set_value(
-                self.time_slider.value - self.time_slider.singleStep
-                )
+    # def tap_right(self):
+    #     self.time_slider.setValue(
+    #             self.time_slider.value() + self.time_slider.singleStep
+    #             )
+    #
+    # def tap_left(self):
+    #     self.time_slider.setValue(
+    #             self.time_slider.value() - self.time_slider.singleStep
+    #             )
 
     def set_display_range(self):
-        duration = float(self.display_range.text())
-        if not duration:
-            print("Duration not set to a valid value. Please enter a"
-                  "a number > 0")
-            return
+        try:
+            start = float(self.display_start.text())
+        except:
+            start = 0
+        try:
+            duration = float(self.display_range.text())
+        except:
+            duration = 10
+        self.time_slider.setValue(start)
         self.display_duration = duration
         self._update_range()
 
@@ -1067,6 +1089,23 @@ class GlobalControls(qw.QFrame):
 
     def reset_model(self):
         self.parent.modelspec_editor.reset_model()
+
+    def export_plot(self):
+        range = (int(self.start_time * self.parent.rec['resp'].fs),
+                 int(self.stop_time * self.parent.rec['resp'].fs))
+
+        fig = self.parent.modelspec.quickplot(range=range)
+        w = MplWindow(fig=fig)
+        w.show()
+
+        path = join(self.export_path,self.parent.modelspec.meta['cellid']+
+                    "_"+self.parent.modelspec.modelspecname+'.pdf')
+
+        fname, mask = qw.QFileDialog.getSaveFileName(self, 'Save file', path, '*.pdf')
+        log.info('saving quickplot to %s', fname)
+        fig.savefig(fname)
+        # keep path in memory for next save
+        self.export_path = dirname(fname)
 
     def update_fit_index(self):
         i = int(self.fit_index_line.text())

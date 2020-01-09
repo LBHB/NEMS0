@@ -25,8 +25,10 @@ def perf_per_cell(modelspec, channels=0, ax=None, **options):
 
     cellids = modelspec.meta.get('cellids', [modelspec.meta.get('cellid', None)])
     cellcount = len(cellids)
-    ax.plot(modelspec.meta['r_test'])
-    ax.plot(modelspec.meta['r_fit'], ls='--')
+    ax.plot(modelspec.meta['r_test'], color='black')
+    ax.plot(modelspec.meta['r_fit'], ls='--', color='blue')
+    ax.plot(modelspec.meta['r_floor'], ls='-.', color='gray')
+
     ax.plot(channels, modelspec.meta['r_test'][channels], 'o')
     ax.set_xticks(np.arange(cellcount))
     ax.set_xticklabels(cellids)
@@ -37,8 +39,8 @@ def perf_per_cell(modelspec, channels=0, ax=None, **options):
         hoffset = 1
     ax.text(0.1+hoffset, 0.1,
             'mean r={:.3f}'.format(np.mean(modelspec.meta['r_test'])))
-    ax.text(channels+0.1, modelspec.meta['r_test'][channels],
-            '{:.3f}'.format(modelspec.meta['r_test'][channels]))
+    ax.text(channels+0.1, modelspec.meta['r_test'][channels, 0],
+            '{:.3f}'.format(modelspec.meta['r_test'][channels, 0]))
 
     ax_remove_box(ax)
 

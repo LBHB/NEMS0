@@ -143,18 +143,19 @@ def scipy_minimize(sigma, cost_fn, tolerance=None, max_iter=None,
     elif max_iter is None and 'maxiter' not in options:
         options['maxiter'] = 1000
 
-    log.info("Starting sigma: %s", np.round(sigma,4))
+    start_err = cost_fn(sigma)
 
     if np.isnan(np.array(sigma)).any():
         raise ValueError('Sigma contains NaN!')
 
     # convert to format required by scipy
     bounds = list(zip(*bounds))
+    log.info("Start sigma: %s", np.round(sigma, 4))
     result = scp.optimize.minimize(cost_fn, sigma, method=method,
                                    bounds=bounds, options=options)
     sigma = result.x
     final_err = cost_fn(sigma)
-    log.info("Final error: %.06f", final_err)
+    log.info("Starting error: %.06f -- Final error: %.06f", start_err, final_err)
     log.info("Final sigma: %s", np.round(sigma, 4))
 
     return sigma

@@ -1,3 +1,9 @@
+"""xforms library
+
+This module contains standard transformations ("xforms") applied sequentially during a NEMS
+fitting process. Custom xforms can be developed as long as they adhere to the required syntax.
+
+"""
 import io
 import os
 import copy
@@ -7,6 +13,7 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 
+import nems.db as nd
 import nems.analysis.api
 import nems.initializers as init
 import nems.metrics.api as metrics
@@ -22,7 +29,8 @@ from nems.plugins import (default_keywords, default_loaders, default_fitters,
                           default_initializers)
 from nems.signal import RasterizedSignal
 from nems.uri import save_resource, load_resource
-from nems.utils import iso8601_datestring, find_module, recording_filename_hash
+from nems.utils import (iso8601_datestring, find_module,
+                        recording_filename_hash, get_default_savepath, lookup_fn_at)
 from nems.fitters.api import scipy_minimize
 from nems.recording import load_recording, Recording
 
@@ -31,28 +39,28 @@ xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
 
 
 def defxf(keyword, xformspec):
-    '''
+    """
     Adds xformspec to the xforms keyword dictionary.
     A helper function so not every keyword mapping has to be in a single
     file and part of a very large single multiline dict.
-    '''
+    """
     if keyword in xforms:
         raise ValueError("Keyword already defined! Choose another name.")
     xforms[keyword] = xformspec
 
 
 def load_xform(uri):
-    '''
+    """
     Loads and returns xform saved as a JSON.
-    '''
+    """
     xform = load_resource(uri)
     return xform
 
 
 def xfspec_shortname(xformspec):
-    '''
+    """
     Given an xformspec, makes a shortname for it.
-    '''
+    """
     n = len('nems.xforms.')
     fn_names = [xf[n:] for xf, xfa in xformspec]
     name = ".".join(fn_names)
@@ -60,13 +68,19 @@ def xfspec_shortname(xformspec):
 
 
 def evaluate_step(xfa, context={}):
-    '''
-    Helper function for evaluate. Take one step
-    SVD revised 2018-03-23 so specialized xforms wrapper functions not required
-      but now xfa can be len 4, where xfa[2] indicates context in keys and
-      xfa[3] is context out keys
-    '''
-
+    """
+    Take one step in evaluation of xforms sequence.
+    :param xfa: list of 2 or 4 elements specifying function to be evaluated on this step
+                and relevant args for that function.
+                xfa[0] : string of python path to function evaluated on this step. e.g.,
+                         `nems.xforms.load_recording_wrapper`
+                xfa[1] : dictionary of args to pass to xfa[0]
+                xfa[2] : optional (DEPRECATED?), indicates context-in keys (if xfa[0] returns a tuple rather than context dict)
+                xfa[3] : optional (DEPRECATED?), context-out keys
+    :param context: xforms context prior to evaluating this step, combined with xfa[1] to
+                    provide input to xfa[0]
+    :return: context_out dictionary updated with output of xfa[0]
+    """
     if not(len(xfa) == 2 or len(xfa) == 4):
         raise ValueError('Got non 2- or 4-tuple for xform: {}'.format(xfa))
     xf = xfa[0]
@@ -83,7 +97,9 @@ def evaluate_step(xfa, context={}):
     else:
         context_out_keys = []
 
-    fn = ms._lookup_fn_at(xf)
+    # Load relevant function into lib path
+    fn = lookup_fn_at(xf)
+
     # Check for collisions; more to avoid confusion than for correctness:
     for k in xfargs:
         if k in context_in:
@@ -144,8 +160,10 @@ def evaluate(xformspec, context={}, start=0, stop=None):
     log.info('Done (re-)evaluating xforms.')
     ch.close()
     rootlogger.removeFilter(ch)
+    logstring = log_stream.getvalue()
+    context['log'] = logstring
 
-    return context, log_stream.getvalue()
+    return context, logstring
 
 
 ###############################################################################
@@ -218,7 +236,7 @@ def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
         rec = load_recording(data_file)
     else:
 
-        fn = ms._lookup_fn_at(load_command)
+        fn = lookup_fn_at(load_command)
 
         data = fn(exptid=exptid, **context)
 
@@ -255,7 +273,8 @@ def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
 
 
 def load_recordings(recording_uri_list, normalize=False, cellid=None,
-                    save_other_cells_to_state=False, **context):
+                    save_other_cells_to_state=None, input_name='stim',
+                    output_name='resp', meta={}, **context):
     '''
     Load one or more recordings into memory given a list of URIs.
     '''
@@ -270,29 +289,42 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
 
     # if cellid is provided, use it to select channel or subset of channels
     # from resp signal.
-    if cellid is None:
-        pass
+    if type(cellid) is str:
+        if cellid in rec['resp'].chans:
+            cellid = [cellid]
+        elif len(cellid.split('+')) > 1:
+            cellid = cellid.split('+')
+        else:
+            log.info('No cellid match, keeping all resp channels')
+
+    if (cellid is None) or (save_other_cells_to_state is not None and (save_other_cells_to_state == 'keep')):
+        # Special situation where the resp signal keeps all channels in the recording,
+        # eg, all the cells recorded at a single site--for population models
+        meta['cellids'] = rec['resp'].chans
+        log.info('Keeping all resp channels; labeling in meta[cellids]')
 
     elif type(cellid) is list:
+        # select only cellids in the cellid list
         log.info('Extracting channels %s', cellid)
-        excluded_cells = [cell for cell in rec['resp'].chans if cell in cellid]
-        if save_other_cells_to_state is True:
-            s = rec['resp'].extract_channels(excluded_cells).rasterize()
-            rec = preproc.concatenate_state_channel(rec, s, 'state')
-            rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
+        excluded_cells = [cell for cell in rec['resp'].chans if cell not in cellid]
+
+        if save_other_cells_to_state is not None:
+            if type(save_other_cells_to_state) is str:
+                pop_var = save_other_cells_to_state
+            else:
+                pop_var = 'state'
+            s = rec['resp'].extract_channels(excluded_cells, name=pop_var).rasterize()
+            #s.name = pop_var
+            rec.add_signal(s)
+            #rec = preproc.concatenate_state_channel(rec, s, pop_var)
+            if pop_var == 'state':
+                rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
+            else:
+                raise ValueError('pop_var {} unknown'.format(pop_var))
         rec['resp'] = rec['resp'].extract_channels(cellid)
 
-    elif cellid in rec['resp'].chans:
-        log.info('Extracting channel %s', cellid)
-        excluded_cells = rec['resp'].chans.copy()
-        excluded_cells.remove(cellid)
-        if save_other_cells_to_state is True:
-            s = rec['resp'].extract_channels(excluded_cells).rasterize()
-            rec = preproc.concatenate_state_channel(rec, s, 'state')
-            rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
-        rec['resp'] = rec['resp'].extract_channels([cellid])
-
     else:
+        meta['cellids'] = rec['resp'].chans
         log.info('No cellid match, keeping all resp channels')
 
     # Quick fix - will take care of this on the baphy loading side in the future.
@@ -306,11 +338,23 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
     rec = preproc.generate_stim_from_epochs(rec, new_signal_name='epoch_onsets',
                                             epoch_regex='TRIAL', onsets_only=True)
 
-
-    return {'rec': rec}
+    return {'rec': rec, 'input_name': input_name, 'output_name': output_name,
+            'meta': meta}
 
 
 def normalize_stim(rec=None, sig='stim', norm_method='meanstd', **context):
+    """
+    Normalize each channel of rec[sig] according to norm_method
+    :param rec:  NEMS recording
+    :param norm_method:  string {'meanstd', 'minmax'}
+    :param context: pass-through for other variables in xforms context dictionary that aren't used.
+    :return: copy(?) of rec with updated signal.
+    """
+    rec[sig] = rec.copy()[sig].rasterize().normalize(norm_method)
+    return {'rec': rec}
+
+
+def normalize_sig(rec=None, sig='stim', norm_method='meanstd', **context):
     """
     Normalize each channel of rec[sig] according to norm_method
     :param rec:  NEMS recording
@@ -330,14 +374,17 @@ def init_from_keywords(keywordstring, meta={}, IsReload=False,
                                        meta=meta, registry=registry, rec=rec,
                                        input_name=input_name,
                                        output_name=output_name)
-
-        return {'modelspec': modelspec}
     else:
-        return {}
+        modelspec=context['modelspec']
+        if modelspec is not None:
+            if modelspec.meta.get('input_name', None) is None:
+                modelspec.meta['input_name'] = input_name
+                modelspec.meta['output_name'] = output_name
+
+    return {'modelspec': modelspec}
 
 
-def load_modelspecs(modelspecs, uris,
-                    IsReload=False, **context):
+def load_modelspecs(modelspecs, uris, IsReload=False, **context):
     '''
     i.e. Load a modelspec from a specific place. This is not
     the same as reloading a model for later inspection; it would be more
@@ -461,7 +508,7 @@ def mask_all_but_targets(rec, **context):
     return {'rec': rec}
 
 
-def generate_psth_from_resp(rec, epoch_regex='^STIM_',
+def generate_psth_from_resp(rec, epoch_regex='^STIM_', use_as_input=True,
                             smooth_resp=False, **context):
     '''
     generate PSTH prediction from rec['resp'] (before est/val split). Could
@@ -474,8 +521,10 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_',
 
     rec = preproc.generate_psth_from_resp(rec, epoch_regex=epoch_regex,
                                           smooth_resp=smooth_resp)
-
-    return {'rec': rec}
+    if use_as_input:
+        return {'rec': rec, 'input_name': 'psth'}
+    else:
+        return {'rec': rec}
 
 
 def generate_psth_from_est_for_both_est_and_val_nfold(
@@ -497,6 +546,13 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
 
     return {'rec': rec}
 
+
+def concatenate_input_channels(rec, input_signals=[], **context):
+    input_name = context.get('input_name', 'stim')
+    rec = preproc.concatenate_input_channels(rec, input_signals=input_signals,
+                                             input_name=input_name)
+
+    return {'rec': rec}
 
 def make_mod_signal(rec, signal='resp'):
     """
@@ -587,17 +643,21 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
 
 
 def mask_for_jackknife(rec, modelspec=None, epoch_name='REFERENCE',
-                       by_time=False, njacks=10, IsReload=False, **context):
+                       by_time=False, njacks=10, IsReload=False,
+                       allow_partial_epochs=False, **context):
 
     if by_time != True:
         est_out, val_out, modelspec_out = \
             preproc.mask_est_val_for_jackknife(rec, modelspec=modelspec,
                                                epoch_name=epoch_name,
-                                               njacks=njacks, IsReload=IsReload)
+                                               njacks=njacks,
+                                               allow_partial_epochs=allow_partial_epochs,
+                                               IsReload=IsReload)
     else:
         est_out, val_out, modelspec_out = \
             preproc.mask_est_val_for_jackknife_by_time(rec, modelspec=modelspec,
-                                               njacks=njacks, IsReload=IsReload)
+                                               njacks=njacks,
+                                               IsReload=IsReload)
 
     if IsReload:
         return {'est': est_out, 'val': val_out}
@@ -608,28 +668,28 @@ def mask_for_jackknife(rec, modelspec=None, epoch_name='REFERENCE',
 
 def jack_subset(est, val, modelspec=None, IsReload=False,
                 keep_only=1, **context):
-
+    
     if keep_only == 1:
         est = est.views(view_range=0)[0]
         val = val.views(view_range=0)[0]
-        est['resp']=est['resp'].rasterize()
-        val['resp']=val['resp'].rasterize()
-        est['stim']=est['stim'].rasterize()
-        val['stim']=val['stim'].rasterize()
+        est['resp'] = est['resp'].rasterize()
+        val['resp'] = val['resp'].rasterize()
+        if 'stim' in est.signals.keys():
+            est['stim'] = est['stim'].rasterize()
+            val['stim'] = val['stim'].rasterize()
 
     else:
         est = est.views(keep_only)[0]
         val = val.views(keep_only)[0]
 
     if modelspec is not None:
-        modelspec_out = modelspec.copy()
-        modelspec_out.raw = modelspec_out.raw[:keep_only]
+        modelspec_out = modelspec.copy(jack_index=keep_only)
         modelspec_out.fit_index = 0
 
     if IsReload:
-        return {'est': est, 'val': val}
+        return {'est': est, 'val': val, 'jackknifed_fit': False}
     else:
-        return {'est': est, 'val': val, 'modelspec': modelspec_out}
+        return {'est': est, 'val': val, 'modelspec': modelspec_out, 'jackknifed_fit': False}
 
 
 ###############################################################################
@@ -639,52 +699,74 @@ def jack_subset(est, val, modelspec=None, IsReload=False,
 
 def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
                    IsReload=False, norm_fir=False, nl_kw={},
-                   jackknifed_fit=False, output_name='resp', **context):
+                   output_name='resp', **context):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
     local minima.
 
     written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
     optional modules in (parens)
-
     '''
     # only run if fitting
-    if not IsReload:
-        if isinstance(metric, str):
-            metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
-        else:
-            metric_fn = metric
+    if IsReload:
+        return {}
 
-        # TODO : handle multiple fits for single est
+    if isinstance(metric, str):
+        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
+    else:
+        metric_fn = metric
+    modelspec = nems.initializers.prefit_LN(
+            est, modelspec,
+            analysis_function=nems.analysis.api.fit_basic,
+            fitter=scipy_minimize, metric=metric_fn,
+            tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+            nl_kw=nl_kw)
+    return {'modelspec': modelspec}
 
-        # TODO : make structure here parallel to fit_basic?
-        if jackknifed_fit:
-            nfolds = est.view_count()
-            if modelspec.fit_count < est.view_count():
-                modelspec.tile_fits(nfolds)
-
-            for fit_idx, e in enumerate(est.views()):
+"""
+    # TODO : merge JK and non-JK code if possible.
+    if jackknifed_fit:
+        nfolds = est.view_count
+        if modelspec.jack_count < est.view_count:
+            modelspec.tile_jacks(nfolds)
+            # TODO replace with tile_jacks
+            #  allow nested loop for multiple fits (init conditions) within a jackknife
+            #  initialize each jackknife with the same random ICs?
+        for fit_idx in range(modelspec.fit_count):
+            for jack_idx, e in enumerate(est.views()):
+                modelspec.fit_index = fit_idx
+                log.info("----------------------------------------------------")
+                log.info("Init fitting model fit %d/%d, fold %d/%d",
+                         fit_idx+1, modelspec.fit_count,
+                         jack_idx + 1, modelspec.jack_count)
 
                 modelspec = nems.initializers.prefit_LN(
-                        e, modelspec.set_fit(fit_idx),
+                        e, modelspec.set_jack(jack_idx),
                         analysis_function=nems.analysis.api.fit_basic,
                         fitter=scipy_minimize, metric=metric_fn,
                         tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
                         nl_kw=nl_kw)
-        else:
+    else:
+        #import pdb
+        #pdb.set_trace()
+        for fit_idx in range(modelspec.fit_count):
+            log.info("Init fitting model instance %d/%d", fit_idx + 1, modelspec.fit_count)
             modelspec = nems.initializers.prefit_LN(
-                    est, modelspec,
+                    est, modelspec.set_fit(fit_idx),
                     analysis_function=nems.analysis.api.fit_basic,
                     fitter=scipy_minimize, metric=metric_fn,
                     tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
                     nl_kw=nl_kw)
-
-    return {'modelspec': modelspec}
-
+"""
 
 def _set_zero(x):
+    """ fill x with zeros, except preserve nans """
     y = x.copy()
-    y[np.isfinite(y)] = 0
+    if y.shape[0]>1:
+        y[0,np.isfinite(y[0,:])] = 1
+        y[1:,np.isfinite(y[0,:])] = 0
+    else:
+        y[np.isfinite(y)] = 0
     return y
 
 
@@ -701,52 +783,48 @@ def fit_state_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
 
     assumption -- est['state'] signal is being used for merge
     '''
-    if not IsReload:
-        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
+    if IsReload:
+        return {}
 
-        for i, d in enumerate(est.views()):
-            log.info("Initializing modelspec %d/%d state-free",
-                     i+1, len(modelspec))
-            modelspec.fit_index = i
+    metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
 
-            # set state to 0 for all timepoints so that only first filterbank
-            # is used
-            dc = d.copy()
-            dc['state'] = dc['state'].transform(_set_zero, 'state')
-            if fit_sig != 'resp':
-                log.info("Subbing %s for resp signal", fit_sig)
-                dc['resp'] = dc[fit_sig]
-
-            modelspec = nems.initializers.prefit_LN(
-                    dc, modelspec,
-                    analysis_function=nems.analysis.api.fit_basic,
-                    fitter=scipy_minimize, metric=metric_fn,
-                    tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
-                    nl_kw=nl_kw)
-            # fit a bit more to settle in STP variables and anything else
-            # that might have been excluded
-            fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
-            modelspec = nems.analysis.api.fit_basic(
-                    dc, modelspec, fit_kwargs=fit_kwargs, metric=metric_fn,
-                    fitter=scipy_minimize)
-            rep_idx = find_module('replicate_channels', modelspec)
-            mrg_idx = find_module('merge_channels', modelspec)
-            if rep_idx is not None:
-                repcount = modelspec[rep_idx]['fn_kwargs']['repcount']
-                for j in range(rep_idx+1, mrg_idx):
-                    # assume all phi
-                    log.debug(modelspec[j]['fn'])
-                    if 'phi' in modelspec[j].keys():
-                        for phi in modelspec[j]['phi'].keys():
-                            s = modelspec[j]['phi'][phi].shape
-                            setcount = int(s[0] / repcount)
-                            log.debug('phi[%s] setcount=%d', phi, setcount)
-                            snew = np.ones(len(s))
-                            snew[0] = repcount
-                            new_v = np.tile(m[j]['phi'][phi][:setcount, ...],
-                                            snew.astype(int))
-                            log.debug(new_v)
-                            modelspec[j]['phi'][phi] = new_v
+    # set state to 0 for all timepoints so that only first filterbank
+    # is used
+    dc = est.copy()
+    dc['state'] = dc['state'].transform(_set_zero, 'state')
+    if fit_sig != 'resp':
+        log.info("Subbing %s for resp signal", fit_sig)
+        dc['resp'] = dc[fit_sig]
+    modelspec = nems.initializers.prefit_LN(
+            dc, modelspec,
+            analysis_function=nems.analysis.api.fit_basic,
+            fitter=scipy_minimize, metric=metric_fn,
+            tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+            nl_kw=nl_kw)
+    # fit a bit more to settle in STP variables and anything else
+    # that might have been excluded
+    fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
+    modelspec = nems.analysis.api.fit_basic(
+            dc, modelspec, fit_kwargs=fit_kwargs, metric=metric_fn,
+            fitter=scipy_minimize)
+    rep_idx = find_module('replicate_channels', modelspec)
+    mrg_idx = find_module('merge_channels', modelspec)
+    if rep_idx is not None:
+        repcount = modelspec[rep_idx]['fn_kwargs']['repcount']
+        for j in range(rep_idx+1, mrg_idx):
+            # assume all phi
+            log.debug(modelspec[j]['fn'])
+            if 'phi' in modelspec[j].keys():
+                for phi in modelspec[j]['phi'].keys():
+                    s = modelspec[j]['phi'][phi].shape
+                    setcount = int(s[0] / repcount)
+                    log.debug('phi[%s] setcount=%d', phi, setcount)
+                    snew = np.ones(len(s))
+                    snew[0] = repcount
+                    new_v = np.tile(modelspec[j]['phi'][phi][:setcount, ...],
+                                    snew.astype(int))
+                    log.debug(new_v)
+                    modelspec[j]['phi'][phi] = new_v
 
     return {'modelspec': modelspec}
 
@@ -763,35 +841,25 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
               output_name='resp', **context):
     ''' A basic fit that optimizes every input modelspec. '''
 
-    if not IsReload:
-        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
-        fitter_fn = getattr(nems.fitters.api, fitter)
-        fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
+    if IsReload:
+        return {}
+    metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
+    fitter_fn = getattr(nems.fitters.api, fitter)
+    fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
 
-        if jackknifed_fit:
-            nfolds = est.view_count()
-            if modelspec.fit_count < est.view_count():
-                modelspec.tile_fits(nfolds)
-            for fit_idx, e in enumerate(est.views()):
-                log.info("Fitting fold %d/%d", fit_idx + 1, nfolds)
-                modelspec = nems.analysis.api.fit_basic(
-                        e, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
-                        metric=metric_fn, fitter=fitter_fn)
-
-        elif random_sample_fit:
-            basic_kwargs = {'metric': metric_fn, 'fitter': fitter_fn,
-                            'fit_kwargs': fit_kwargs}
-            raise NotImplementedError("random_sample_fit not tested in new modelspec system")
-            return fit_n_times_from_random_starts(
-                        modelspec, est, ntimes=n_random_samples,
-                        subset=random_fit_subset,
-                        analysis='fit_basic', basic_kwargs=basic_kwargs
-                        )
-        else:
-            # standard single shot
-            for fit_idx in range(modelspec.fit_count):
-                modelspec = nems.analysis.api.fit_basic(
-                    est, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
+    if modelspec.jack_count < est.view_count:
+        raise Warning('modelspec.jack_count does not match est.view_count')
+        modelspec.tile_jacks(nfolds)
+    for fit_idx in range(modelspec.fit_count):
+        for jack_idx, e in enumerate(est.views()):
+            modelspec.jack_index = jack_idx
+            modelspec.fit_index = fit_idx
+            log.info("----------------------------------------------------")
+            log.info("Fitting: fit %d/%d, fold %d/%d",
+                     fit_idx + 1, modelspec.fit_count,
+                     jack_idx + 1, modelspec.jack_count)
+            modelspec = nems.analysis.api.fit_basic(
+                    e, modelspec, fit_kwargs=fit_kwargs,
                     metric=metric_fn, fitter=fitter_fn)
 
     return {'modelspec': modelspec}
@@ -804,13 +872,20 @@ def reverse_correlation(modelspec, est, IsReload=False, jackknifed_fit=False,
     if not IsReload:
 
         if jackknifed_fit:
-            nfolds = est.view_count()
-            if modelspec.fit_count < est.view_count():
-                modelspec.tile_fits(nfolds)
-            for fit_idx, e in enumerate(est.views()):
-                log.info("Fitting fold %d/%d", fit_idx + 1, nfolds)
-                modelspec = nems.analysis.api.reverse_correlation(
-                        e, modelspec.set_fit(fit_idx), input_name)
+            nfolds = est.view_count
+            if modelspec.jack_count < est.view_count:
+                modelspec.tile_jacks(nfolds)
+            for fit_idx in range(modelspec.fit_count):
+                for jack_idx, e in enumerate(est.views()):
+                    modelspec.fit_index = fit_idx
+                    modelspec.jack_index = jack_idx
+                    log.info("----------------------------------------------------")
+                    log.info("Fitting: fit %d/%d, fold %d/%d",
+                             fit_idx + 1, modelspec.fit_count,
+                             jack_idx + 1, modelspec.jack_count)
+
+                    modelspec = nems.analysis.api.reverse_correlation(
+                            e, modelspec, input_name)
 
         else:
             # standard single shot
@@ -822,44 +897,80 @@ def reverse_correlation(modelspec, est, IsReload=False, jackknifed_fit=False,
 
 
 def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
-                    module_sets=None, invert=False, tolerances=[1e-4],
+                    module_sets=None, invert=False, tolerances=[1e-4, 1e-5, 1e-6, 1e-7],
                     metric='nmse', fitter='scipy_minimize', fit_kwargs={},
-                    jackknifed_fit=False, random_sample_fit=False,
-                    n_random_samples=0, random_fit_subset=None,
-                    output_name='resp', **context):
+                    jackknifed_fit=False, output_name='resp', **context):
+    if IsReload:
+        return {}
 
     fitter_fn = getattr(nems.fitters.api, fitter)
     metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
 
-    if not IsReload:
-        if jackknifed_fit:
-            return fit_nfold(modelspec, est, tol_iter=tol_iter,
-                             fit_iter=fit_iter, module_sets=module_sets,
-                             tolerances=tolerances, metric=metric,
-                             fitter=fitter, fit_kwargs=fit_kwargs,
-                             analysis='fit_iteratively', **context)
+    if modelspec.jack_count < est.view_count:
+        raise Warning('modelspec.jack_count does not match est.view_count')
+        modelspec.tile_jacks(nfolds)
 
-        elif random_sample_fit:
-            iter_kwargs = {'tol_iter': tol_iter, 'fit_iter': fit_iter,
-                           'invert': invert, 'tolerances': tolerances,
-                           'module_sets': module_sets, 'metric': metric_fn,
-                           'fitter': fitter_fn, 'fit_kwargs': fit_kwargs}
-            return fit_n_times_from_random_starts(
-                        modelspec, est, ntimes=n_random_samples,
-                        subset=random_fit_subset,
-                        analysis='fit_iteratively', iter_kwargs=iter_kwargs,
-                        )
-
-        else:
-            for fit_idx in range(modelspec.fit_count):
-                modelspec = nems.analysis.api.fit_iteratively(
-                            est, modelspec.set_fit(fit_idx), fit_kwargs=fit_kwargs,
-                            fitter=fitter_fn, module_sets=module_sets,
-                            invert=invert, tolerances=tolerances,
-                            tol_iter=tol_iter, fit_iter=fit_iter,
-                            metric=metric_fn)
+    for fit_idx in range(modelspec.fit_count):
+        for jack_idx, e in enumerate(est.views()):
+            modelspec.jack_index = jack_idx
+            modelspec.fit_index = fit_idx
+            log.info("----------------------------------------------------")
+            log.info("Iter fitting: fit %d/%d, fold %d/%d",
+                     fit_idx + 1, modelspec.fit_count,
+                     jack_idx + 1, modelspec.jack_count)
+            modelspec = nems.analysis.api.fit_iteratively(
+                        e, modelspec, fit_kwargs=fit_kwargs,
+                        fitter=fitter_fn, module_sets=module_sets,
+                        invert=invert, tolerances=tolerances,
+                        tol_iter=tol_iter, fit_iter=fit_iter,
+                        metric=metric_fn)
 
     return {'modelspec': modelspec}
+
+
+def fit_wrapper(modelspec, est=None, fit_function='nems.analysis.api.fit_basic',
+                IsReload=False, **context):
+    """
+    wrapper to loop through all jacks and fits for a modelspec, calling fit_function to fit each
+    :param modelspec:
+    :param est:
+    :param fit_function:
+    :param IsReload:
+    :param context:
+    :return: results = xforms context dictionary update
+    """
+
+    if IsReload:
+        return {}
+
+    if (modelspec is None) or (est is None):
+        raise ValueError("Inputs modelspec and est required")
+
+    if modelspec.jack_count < est.view_count:
+        log.info('modelspec.jack_count does not match est.view_count. TILING.')
+        modelspec.tile_jacks(est.view_count)
+
+    # load function into path
+    fn = lookup_fn_at(fit_function)
+
+    for fit_idx in range(modelspec.fit_count):
+        for jack_idx, e in enumerate(est.views()):
+            modelspec.jack_index = jack_idx
+            modelspec.fit_index = fit_idx
+            log.info("----------------------------------------------------")
+            log.info("Fitting: %s, fit %d/%d, fold %d/%d", fit_function,
+                     fit_idx + 1, modelspec.fit_count,
+                     jack_idx + 1, modelspec.jack_count)
+            results = fn(modelspec=modelspec, est=e, **context)
+
+            # compatible with direct modelspec return or xforms-ese dictionary
+            if type(results) is dict:
+                modelspec = results['modelspec']
+            else:
+                modelspec = results
+                results = {'modelspec', modelspec}
+
+    return results
 
 
 def fit_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
@@ -887,6 +998,7 @@ def fit_n_times_from_random_starts(modelspecs, est, ntimes, subset,
                                    analysis='fit_basic', basic_kwargs={},
                                    IsReload=False, **context):
     ''' Self explanatory. '''
+    raise Warning ('This is deprecated. Replaced by set_random_phi and analysis.test_prediction.pick_best_phi')
     if not IsReload:
         if len(modelspecs) > 1:
             raise NotImplementedError('I only work on 1 modelspec')
@@ -909,11 +1021,11 @@ def save_recordings(modelspec, est, val, **context):
     return {'modelspec': modelspec}
 
 
-def predict(modelspec, est, val, **context):
+def predict(modelspec, est, val, jackknifed_fit=False, **context):
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
     # TODO: Add statistics to metadata of every modelspec
 
-    est, val = nems.analysis.api.generate_prediction(est, val, modelspec)
+    est, val = nems.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
     modelspec.recording = val
 
     return {'val': val, 'est': est, 'modelspec': modelspec}
@@ -931,51 +1043,58 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
     modelspec = corr_fn(est, val, modelspec=modelspec, rec=rec, use_mask=use_mask)
 
     if find_module('state', modelspec) is not None:
-        s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='pred',
-                            state_sig='state_raw', state_chan=[])
-        j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='pred',
-                            state_sig='state_raw', state_chan=[], njacks=10)
-        modelspec.meta['state_mod'] = s
-        modelspec.meta['j_state_mod'] = j_s
-        modelspec.meta['se_state_mod'] = ee
-        modelspec.meta['state_chans'] = val['state'].chans
+        if 'state' not in val.signals.keys():
+            pass
+        else:
+            s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='pred',
+                                state_sig='state_raw', state_chan=[])
+            j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='pred',
+                                state_sig='state_raw', state_chan=[], njacks=10)
+            modelspec.meta['state_mod'] = s
+            modelspec.meta['j_state_mod'] = j_s
+            modelspec.meta['se_state_mod'] = ee
+            modelspec.meta['state_chans'] = val['state'].chans
 
-        # Charlie testing diff ways to calculate mod index
+            # Charlie testing diff ways to calculate mod index
 
-        # try using resp
-        s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='resp',
-                            state_sig='state_raw', state_chan=[])
-        j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='resp',
-                            state_sig='state_raw', state_chan=[], njacks=10)
-        modelspec.meta['state_mod_r'] = s
-        modelspec.meta['j_state_mod_r'] = j_s
-        modelspec.meta['se_state_mod_r'] = ee
+            # try using resp
+            s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='resp',
+                                state_sig='state_raw', state_chan=[])
+            j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='resp',
+                                state_sig='state_raw', state_chan=[], njacks=10)
+            modelspec.meta['state_mod_r'] = s
+            modelspec.meta['j_state_mod_r'] = j_s
+            modelspec.meta['se_state_mod_r'] = ee
 
-        # try using the "mod" signal (if it exists) which is calculated
-        if 'mod' in modelspec.meta['modelname']:
-            s = metrics.state_mod_index(val, epoch='REFERENCE',
-                                            psth_name='mod', divisor='resp',
-                                            state_sig='state_raw', state_chan=[])
-            j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE',
-                                            psth_name='mod', divisor='resp',
-                                            state_sig='state_raw', state_chan=[],
-                                            njacks=10)
-            modelspec.meta['state_mod_m'] = s
-            modelspec.meta['j_state_mod_m'] = j_s
-            modelspec.meta['se_state_mod_m'] = ee
+            # try using the "mod" signal (if it exists) which is calculated
+            if 'mod' in modelspec.meta['modelname']:
+                s = metrics.state_mod_index(val, epoch='REFERENCE',
+                                                psth_name='mod', divisor='resp',
+                                                state_sig='state_raw', state_chan=[])
+                j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE',
+                                                psth_name='mod', divisor='resp',
+                                                state_sig='state_raw', state_chan=[],
+                                                njacks=10)
+                modelspec.meta['state_mod_m'] = s
+                modelspec.meta['j_state_mod_m'] = j_s
+                modelspec.meta['se_state_mod_m'] = ee
 
     return {'modelspec': modelspec}
 
 
-def plot_summary(modelspec, val, figures=None, IsReload=False, **context):
+def plot_summary(modelspec, val, figures=None, IsReload=False,
+                 figures_to_load=None, **context):
     # CANNOT initialize figures=[] in optional args our you will create a bug
 
     if figures is None:
         figures = []
     if not IsReload:
-        fig = nplt.quickplot({'modelspec': modelspec, 'val': val})
+        fig = modelspec.quickplot()
         # Needed to make into a Bytes because you can't deepcopy figures!
         figures.append(nplt.fig2BytesIO(fig))
+    else:
+        if figures_to_load is not None:
+            figures.extend([load_resource(f) for f in figures_to_load])
 
     return {'figures': figures}
 
@@ -997,6 +1116,11 @@ def jackknifed_fit(IsReload=False, **context):
         return {'jackknifed_fit': True}
     else:
         return {}
+
+def fast_eval(modelspec, est, **context):
+    modelspec.fast_eval_on(est)
+
+    return {'modelspec': modelspec}
 
 
 def random_sample_fit(ntimes=10, subset=None, IsReload=False, **context):
@@ -1045,30 +1169,31 @@ def tree_path(recording, modelspecs, xfspec):
     return path
 
 
-def save_analysis(destination,
-                  recording,
-                  modelspec,
-                  xfspec,
-                  figures,
-                  log,
-                  add_tree_path=False):
+def save_analysis(destination, recording, modelspec, xfspec, figures,
+                  log, add_tree_path=False):
     '''Save an analysis file collection to a particular destination.'''
     if add_tree_path:
-        treepath = tree_path(recording, modelspecs, xfspec)
+        treepath = tree_path(recording, [modelspec], xfspec)
         base_uri = os.path.join(destination, treepath)
     else:
         base_uri = destination
 
+    if destination is None:
+        destination = get_default_savepath(modelspec)
+        base_uri = destination
+
+    modelspec.meta['modelpath'] = base_uri
+    modelspec.meta['figurefile'] = os.path.join(base_uri,'figure.0000.png')
     base_uri = base_uri if base_uri[-1] == '/' else base_uri + '/'
     xfspec_uri = base_uri + 'xfspec.json'  # For attaching to modelspecs
 
-    for number, m in enumerate(modelspec.fits()):
+    for number in range(modelspec.jack_count):
+        m = modelspec.copy()
+        m.jack_index = number
         set_modelspec_metadata(m, 'xfspec', xfspec_uri)
-        save_resource(base_uri + 'modelspec.{:04d}.json'.format(number),
-                      json=m[:])
+        save_resource(base_uri + 'modelspec.{:04d}.json'.format(number), json=m[:])
     for number, figure in enumerate(figures):
-        save_resource(base_uri + 'figure.{:04d}.png'.format(number),
-                      data=figure)
+        save_resource(base_uri + 'figure.{:04d}.png'.format(number), data=figure)
     save_resource(base_uri + 'log.txt', data=log)
     save_resource(xfspec_uri, json=xfspec)
     return {'savepath': base_uri}
@@ -1087,13 +1212,22 @@ def load_analysis(filepath, eval_model=True, only=None):
     log.info('Loading xfspec and context from %s...', filepath)
 
     xfspec = load_xform(os.path.join(filepath, 'xfspec.json'))
-
     mspaths = []
+    figures_to_load = []
+    logstring = ''
     for file in os.listdir(filepath):
         if file.startswith("modelspec"):
             mspaths.append(os.path.join(filepath, file))
+        elif file.startswith("figure"):
+            figures_to_load.append(os.path.join(filepath, file))
+        elif file.startswith("log"):
+            logpath = os.path.join(filepath, file)
+            with open(logpath) as logfile:
+                logstring = logfile.read()
     ctx = load_modelspecs([], uris=mspaths, IsReload=False)
     ctx['IsReload'] = True
+    ctx['figures_to_load'] = figures_to_load
+    ctx['log'] = logstring
 
     if eval_model:
         ctx, log_xf = evaluate(xfspec, ctx)
@@ -1106,6 +1240,34 @@ def load_analysis(filepath, eval_model=True, only=None):
             ctx, log_xf = evaluate(xfspec[only], ctx)
 
     return xfspec, ctx
+
+
+def regenerate_figures(batch, modelnames, cellids=None):
+    '''
+    Regenerate quickplot figures for a given modelname and batch.
+    Intended to be used in cases where plot code has been updated and
+    needs to be included in existing models, but a re-fit is not necessary.
+
+    '''
+    if cellids is None:
+        cells = nd.get_batch_cells(batch)['cellid'].values.tolist()
+    else:
+        cells = cellids
+    r = nd.get_results_file(batch, modelnames, cellids=cellids)
+
+    for m in modelnames:
+        for c in cells:
+            try:
+                filepath = r[r.cellid == c][r.modelname == m]['modelpath'].iat[0] + '/'
+            except IndexError:
+                # result doesn't exist
+                continue
+            xfspec, ctx = load_analysis(filepath, eval_model=True)
+            fig = ctx['modlespec'].quickplot()
+            fig_bytes = nplt.fig2BytesIO(fig)
+            plt.close('all')
+            save_resource(filepath + 'figure.0000.png', data=fig_bytes)
+            # TODO: also have to tell
 
 
 ###############################################################################

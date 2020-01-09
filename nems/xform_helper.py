@@ -1,3 +1,9 @@
+"""xforms_helper library
+
+This module contains wrappers for transformations ("xforms") applied sequentially during a NEMS
+fitting process.
+
+"""
 import logging
 import os
 
@@ -158,6 +164,9 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False):
             'githash': os.environ.get('CODEHASH', ''),
             'recording': loadkey}
 
+    if type(cellid) is list:
+        meta['siteid'] = cellid[0][:7]
+
     # registry_args = {'cellid': cellid, 'batch': int(batch)}
     registry_args = {}
     xforms_init_context = {'cellid': cellid, 'batch': int(batch)}
@@ -165,7 +174,8 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False):
     log.info("TODO: simplify generate_xforms_spec parameters")
     xfspec = generate_xforms_spec(recording_uri=None, modelname=modelname,
                                   meta=meta,  xforms_kwargs=registry_args,
-                                  xforms_init_context=xforms_init_context)
+                                  xforms_init_context=xforms_init_context,
+                                  autoPlot=autoPlot)
     log.info(xfspec)
 
     # actually do the loading, preprocessing, fit
@@ -174,22 +184,34 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False):
     # save some extra metadata
     modelspec = ctx['modelspec']
 
-    # this code may not be necessary any more.
-    #destination = '{0}/{1}/{2}/{3}'.format(
-    #    get_setting('NEMS_RESULTS_DIR'), batch, cellid, modelspec.get_longname())
-    destination = os.path.join(
-        get_setting('NEMS_RESULTS_DIR'), str(batch), cellid, modelspec.get_longname())
+    # figure out URI for location to save results (either file or http, depending on USE_NEMS_BAPHY_API)
+    if get_setting('USE_NEMS_BAPHY_API'):
+        prefix = 'http://'+get_setting('NEMS_BAPHY_API_HOST')+":"+str(get_setting('NEMS_BAPHY_API_PORT')) + '/results/'
+    else:
+        prefix = get_setting('NEMS_RESULTS_DIR')
+
+    if type(cellid) is list:
+        cell_name = cellid[0].split("-")[0]
+    else:
+        cell_name = cellid
+
+    destination = os.path.join(prefix, str(batch), cell_name, modelspec.get_longname())
+
     modelspec.meta['modelpath'] = destination
     modelspec.meta['figurefile'] = os.path.join(destination, 'figure.0000.png')
     modelspec.meta.update(meta)
 
     # save results
     log.info('Saving modelspec(s) to {0} ...'.format(destination))
+    if 'figures' in ctx.keys():
+        figs = ctx['figures']
+    else:
+        figs = []
     save_data = xforms.save_analysis(destination,
                                      recording=ctx['rec'],
                                      modelspec=modelspec,
                                      xfspec=xfspec,
-                                     figures=ctx['figures'],
+                                     figures=figs,
                                      log=log_xf)
 
     # save in database as well
@@ -251,8 +273,8 @@ def _parse_kw_string(kw_string, registry):
         try:
             xfspec.extend(registry[kw])
         except KeyError:
-            log.info("No keyword found for: %s , skipping ...", kw)
-            pass
+            log.error("No keyword found for: '%s', raising KeyError.", kw)
+            raise
 
     return xfspec
 
