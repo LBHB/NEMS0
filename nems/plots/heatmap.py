@@ -10,6 +10,7 @@ from nems.modules.fir import (pz_coefficients, fir_dexp_coefficients,
                               fir_exp_coefficients, _offset_coefficients)
 from nems.plots.utils import ax_remove_box
 from nems import get_setting
+from nems.gui.decorators import cursor
 
 log = logging.getLogger(__name__)
 
@@ -309,6 +310,7 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
             plt.text(0, i + nchans + 1, c, verticalalignment='center')
 
 
+@cursor
 def strf_local_lin(rec, modelspec, cursor_time=20, channels=0,
                    **options):
     rec = rec.copy()

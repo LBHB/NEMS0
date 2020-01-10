@@ -92,29 +92,6 @@ keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
 log = logging.getLogger(__name__)
 
-# Only module plots included here will be scrolled in time
-# by the slider.
-_SCROLLABLE_PLOT_FNS = [
-    #'nems.plots.api.strf_timeseries',
-    'nems.plots.api.state_vars_timeseries',
-    'nems.plots.api.before_and_after',
-    'nems.plots.api.pred_resp',
-    'nems.plots.api.spectrogram_output',
-    'nems.plots.api.spectrogram',
-    'nems.plots.api.pred_spectrogram',
-    'nems.plots.api.resp_spectrogram',
-    'nems.plots.api.mod_output',
-    'nems.plots.api.mod_output_all',
-    'nems.plots.api.fir_output_all',
-    'nems_lbhb.gcmodel.guiplots.contrast_kernel_output',
-    'nems_lbhb.gcmodel.guiplots.contrast_spectrogram',
-    'nems.plots.api.timeseries_from_signals'
-]
-_CURSOR_PLOT_FNS = [
-    'nems.plots.api.strf_local_lin',
-    'nems.plots.api.nl_scatter'
-]
-
 # These are used as click-once operations
 # TODO: separate initialization from prefitting
 _INIT_FNS = [
@@ -430,7 +407,8 @@ class ModelspecEditor(qw.QWidget):
         self.controllers = [ModuleControls(m, self) for m in self.modules]
         self.collapsers = [ModuleCollapser(m, self) for m in self.modules]
 
-        self.signal_displays = [SignalCanvas(self.rec, 'stim', self)]
+        signal = list(self.rec.signals.keys())[0]
+        self.signal_displays = [SignalCanvas(self.rec, signal, self)]
         self.signal_controllers = [SignalControls(s, self) for s in self.signal_displays]
         self.signal_collapsers = [SignalCollapser(s, c, self)
                                   for s, c in zip(self.signal_displays, self.signal_controllers)]
@@ -595,7 +573,8 @@ class ModuleCanvas(qw.QFrame):
         #plots = self.parent.modelspec[self.mod_index].get(
         #        'plot_fns', ['nems.plots.api.mod_output']
         #        )
-        if self.plot_list[self.plot_fn_idx] in _SCROLLABLE_PLOT_FNS:
+        fn_ref = _lookup_fn_at(self.plot_list[self.plot_fn_idx])
+        if ('scrollable' in dir(fn_ref)) and fn_ref.scrollable:
             scrollable = True
         else:
             scrollable = False
@@ -614,7 +593,7 @@ class ModuleCanvas(qw.QFrame):
     def update_cursor(self):
         '''plot/move cursor bar on scrollable plots, adjust other plots that depend on cursor value.'''
         gc = self.parent.parent.global_controls
-
+        fn_ref = _lookup_fn_at(self.plot_list[self.plot_fn_idx])
         if self.scrollable:
             self.canvas.axes.set_xlim(gc.start_time, gc.stop_time)
 
@@ -626,7 +605,7 @@ class ModuleCanvas(qw.QFrame):
                 self.highlight_obj.set_xdata(h_times)
 
             self.canvas.draw()
-        elif self.plot_list[self.plot_fn_idx] in _CURSOR_PLOT_FNS:
+        elif ('cursor' in dir(fn_ref)) and fn_ref.cursor:
             print('update plot {}: {} cursor time={:.3f}'.format(
                 self.mod_index, self.plot_list[self.plot_fn_idx], gc.cursor_time))
             self.new_plot()
@@ -725,7 +704,8 @@ class SignalCanvas(qw.QFrame):
 
     def check_scrollable(self):
         '''Set self.scrollable based on if current plot type is scrollable.'''
-        if self.plot_list[self.plot_fn_idx] in _SCROLLABLE_PLOT_FNS:
+        fn_ref = _lookup_fn_at(self.plot_list[self.plot_fn_idx])
+        if ('scrollable' in dir(fn_ref)) & fn_ref.scrollable:
             scrollable = True
         else:
             scrollable = False
@@ -744,7 +724,7 @@ class SignalCanvas(qw.QFrame):
     def update_cursor(self):
         '''plot/move cursor bar on scrollable plots, adjust other plots that depend on cursor value.'''
         gc = self.parent.parent.global_controls
-
+        fn_ref = _lookup_fn_at(self.plot_list[self.plot_fn_idx])
         if self.scrollable:
             self.canvas.axes.set_xlim(gc.start_time, gc.stop_time)
 
@@ -756,7 +736,7 @@ class SignalCanvas(qw.QFrame):
                 self.highlight_obj.set_xdata(h_times)
 
             self.canvas.draw()
-        elif self.plot_list[self.plot_fn_idx] in _CURSOR_PLOT_FNS:
+        elif ('cursor' in dir(fn_ref)) and fn_ref.cursor:
             print('update plot {}: {} cursor time={:.3f}'.format(
                 self.sig_name, self.plot_list[self.plot_fn_idx], gc.cursor_time))
             self.new_plot()
