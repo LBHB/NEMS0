@@ -718,7 +718,7 @@ class SignalCanvas(qw.QFrame):
     def update_cursor(self):
         '''plot/move cursor bar on scrollable plots, adjust other plots that depend on cursor value.'''
         gc = self.parent.parent.global_controls
-        fn_red = _lookup_fn_at(self.plot_list[self.plot_fn_idx])
+        fn_ref = _lookup_fn_at(self.plot_list[self.plot_fn_idx])
         if self.scrollable:
             self.canvas.axes.set_xlim(gc.start_time, gc.stop_time)
 
