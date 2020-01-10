@@ -9,7 +9,7 @@ import nems.recording as recording
 #import nems.modules.stp as stp
 from nems.metrics.stp import stp_magnitude
 from nems.plots.utils import ax_remove_box
-
+from nems.gui.decorators import scrollable
 
 def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
                     linestyle='-', linewidth=1,
@@ -85,7 +85,7 @@ def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
                     ax=ax, title=title, colors=colors)
     return ax
 
-
+@scrollable
 def timeseries_from_signals(signals=None, channels=0, no_legend=False,
                             time_range=None, rec=None, sig_name=None, **options):
     """
@@ -261,6 +261,7 @@ def before_and_after_stp(modelspec=None, mod_index=None, tau=None, u=None, tau2=
                             title=title, colors=colors)
 
 
+@scrollable
 def before_and_after(rec, modelspec, sig_name, ax=None, title=None, idx=0,
                      channels=0, xlabel='Time', ylabel='Value', **options):
     '''
@@ -303,6 +304,7 @@ def before_and_after(rec, modelspec, sig_name, ax=None, title=None, idx=0,
                             xlabel=xlabel, ylabel=ylabel, ax=ax,
                             title=title, **options)
 
+@scrollable
 def mod_output(rec, modelspec, sig_name='pred', ax=None, title=None, idx=0,
                channels=0, xlabel='Time', ylabel='Value', **options):
     '''
@@ -340,6 +342,7 @@ def mod_output(rec, modelspec, sig_name='pred', ax=None, title=None, idx=0,
                                  title=title, **options)
     return ax
 
+@scrollable
 def mod_output_all(rec, modelspec, sig_name='pred', idx=0, **options):
     '''
     Plots a time series of specified signal output by step in the modelspec.
@@ -395,6 +398,7 @@ def before_and_after_signal(rec, modelspec, idx, sig_name='pred'):
     return before_sig, after_sig
 
 
+@scrollable
 def fir_output_all(rec, modelspec, sig_name='pred', idx=0, **options):
     """ plot output of fir filter channels separately"""
     # now evaluate next module step
@@ -417,6 +421,7 @@ def fir_output_all(rec, modelspec, sig_name='pred', idx=0, **options):
     return ax
 
 
+@scrollable
 def pred_resp(rec, modelspec, ax=None, title=None,
               channels=0, xlabel='Time', ylabel='Value',
               no_legend=False, **options):

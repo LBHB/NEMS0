@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from nems.plots.utils import ax_remove_box
-
+from nems.gui.decorators import scrollable
 
 def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
                      cmap=None, clim=None, extent=True, time_range=None, **options):
@@ -76,6 +76,7 @@ def spectrogram_from_epoch(signal, epoch, occurrence=0, ax=None, **options):
     plot_spectrogram(array, fs=signal.fs, ax=ax, **options)
 
 
+@scrollable
 def spectrogram(rec, sig_name='stim', ax=None, title=None, **options):
     """
     plot a spectrogram of an entire signal (typically stim), **options passed through
@@ -104,6 +105,7 @@ def spectrogram(rec, sig_name='stim', ax=None, title=None, **options):
     return ax
 
 
+@scrollable
 def pred_spectrogram(sig_name='pred', **options):
     """
     wrapper for spectrogram, forces stim_name to be pred. other **options passed through
@@ -116,6 +118,7 @@ def pred_spectrogram(sig_name='pred', **options):
     return ax
 
 
+@scrollable
 def resp_spectrogram(sig_name='resp', **options):
     """
     wrapper for spectrogram, forces stim_name to be resp. other **options passed through
@@ -128,6 +131,7 @@ def resp_spectrogram(sig_name='resp', **options):
     return ax
 
 
+@scrollable
 def spectrogram_output(rec, modelspec, sig_name='pred', idx=0, ax=None, **options):
     '''
     Wrapper for spectrogram, displays signal output by set in modelspec.
