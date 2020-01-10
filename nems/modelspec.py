@@ -551,6 +551,10 @@ class ModelSpec:
                 sig_names = ['stim']
             else:
                 sig_names = []
+
+        # strip out any signals that aren't in the recording
+        sig_names = [s for s in sig_names if s in rec.signals.keys()]
+
         if modidx_set is None:
             modidx_set = range(len(self))
 
@@ -646,19 +650,22 @@ class ModelSpec:
                 temp_plot_fn_set.append((mod_idx, plot_fn))
 
         plot_fn_modules = temp_plot_fn_set
-
+        
         # use partial so ax can be specified later
         # the format is (fn, col_span), where col_span is 1 for all of these, but will vary for the custom pre-post
         # below fn and col_span should be list, but for simplicity here they are just int and partial and converted
         # in the plotting loop below
+        if rec_stim is None:
+            opts = {}
+        else:
+            opts = {'channels': rec_stim.chans}
         plot_fns = [
             (partial(plot_fn,
                      rec=rec,
                      modelspec=self,
                      idx=mod_idx,
-                     channels=rec_stim.chans,
-                     time_range=time_range
-                     ), 1)
+                     time_range=time_range,
+                     **opts), 1)
             for mod_idx, plot_fn in plot_fn_modules
         ]
 
