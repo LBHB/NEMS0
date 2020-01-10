@@ -1331,6 +1331,7 @@ class GlobalControls(qw.QFrame):
         #    self.stop_time = self.max_signal_time
         #    self.start_time = max(0, self.max_signal_time - self.display_duration)
         #    #self.time_slider.setValue(0)
+
         for ed in self.editors:
             [m.update_plot() for m in ed.modelspec_editor.modules]
             [s.update_plot() for s in ed.modelspec_editor.signal_displays]
