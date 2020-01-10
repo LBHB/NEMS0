@@ -11,6 +11,7 @@ import copy
 import nems
 import nems.modelspec as ms
 import nems.tf.cnn as cnn
+from nems.initializers import init_dexp, init_logsig, init_relsat
 import nems.metrics.api as nmet
 import nems.utils
 import logging
@@ -636,6 +637,20 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
     #print(modelspec.phi[2])
     for i in np.setdiff1d(np.arange(target_i), np.array(exclude_idx)).tolist():
         modelspec[int(i)] = tmodelspec[int(i)]
+
+    # pre-fit static NL if it exists
+    for m in modelspec.modules:
+        if 'double_exponential' in m['fn']:
+            modelspec = init_dexp(est, modelspec)
+            break
+        elif 'logistic_sigmoid' in m['fn']:
+            log.info("initializing priors and bounds for logsig ...\n")
+            modelspec = init_logsig(est, modelspec)
+            break
+        elif 'saturated_rectifier' in m['fn']:
+            log.info('initializing priors and bounds for relat ...\n')
+            modelspec = init_relsat(est, modelspec)
+            break
 
     return {'modelspec': modelspec}
 

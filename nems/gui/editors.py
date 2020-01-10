@@ -118,7 +118,7 @@ _FIT_FNS = [
 class EditorWindow(qw.QMainWindow):
 
     def __init__(self, modelspec=None, xfspec=None, rec=None, ctx=None,
-                 rec_name='val'):
+                 rec_name='val', control_widget=None):
         '''
         Main Window wrapper for NEMS model editor GUI.
         Allows browsing and editing of fitted model parameters,
@@ -148,7 +148,7 @@ class EditorWindow(qw.QMainWindow):
             modelspec = ctx.get('modelspec', None)
         if (rec is None) and (ctx is not None):
             rec = ctx.get(rec_name, None)
-        self.editor = EditorWidget(modelspec, xfspec, rec, ctx, self)
+        self.editor = EditorWidget(modelspec, xfspec, rec, ctx, self, control_widget=control_widget)
         self.title = 'NEMS Model Browser'
         self.setCentralWidget(self.editor)
         self.setWindowTitle(self.title)
@@ -158,7 +158,7 @@ class EditorWindow(qw.QMainWindow):
 class EditorWidget(qw.QWidget):
 
     def __init__(self, modelspec=None, xfspec=None, rec=None, ctx=None,
-                 parent=None):
+                 parent=None, control_widget=None):
         '''
         Parameters
         ----------
@@ -211,7 +211,12 @@ class EditorWidget(qw.QWidget):
         if self.xfspec is None:
             self.xfspec = []
         self.xfspec_editor = XfspecEditor(self.xfspec, self)
-        self.global_controls = GlobalControls(self)
+        if control_widget is None:
+            self.global_controls = GlobalControls(self)
+        else:
+            self.global_controls = control_widget
+            self.global_controls.link_editor(self)
+
         self.fit_editor = FitEditor(self)
 
         self.modelspec_editor.setup_layout()
@@ -229,7 +234,8 @@ class EditorWidget(qw.QWidget):
         row_one_layout.addWidget(self.modelspec_editor)
         row_one_layout.addWidget(self.xfspec_editor)
         row_one_layout.addLayout(self.xfstep_collapser_layout)
-        row_two_layout.addWidget(self.global_controls)
+        if control_widget is None:
+            row_two_layout.addWidget(self.global_controls)
         row_two_layout.addWidget(self.fit_editor)
         row_two_layout.setContentsMargins(10, 10, 10, 2)
         outer_layout.addLayout(row_one_layout)
@@ -1202,6 +1208,7 @@ class GlobalControls(qw.QFrame):
         '''QWidget for controlling cell_index, fit_index, and plot xlims.'''
         super(qw.QFrame, self).__init__()
         self.parent = parent
+        self.editors = [parent]
         self.collapsed = False
         self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Raised)
 
@@ -1305,10 +1312,11 @@ class GlobalControls(qw.QFrame):
         #    self.start_time = max(0, self.max_signal_time - self.display_duration)
         #    #self.time_slider.setValue(0)
 
-        [m.update_plot() for m in self.parent.modelspec_editor.modules]
-        [s.update_plot() for s in self.parent.modelspec_editor.signal_displays]
-        if len(self.parent.modelspec_editor.modules):
-            self.parent.modelspec_editor.epochs.update_figure()
+        for ed in self.editors:
+            [m.update_plot() for m in ed.modelspec_editor.modules]
+            [s.update_plot() for s in ed.modelspec_editor.signal_displays]
+            if len(ed.modelspec_editor.modules):
+                ed.modelspec_editor.epochs.update_figure()
 
     def _update_max_time(self):
         resp = self.parent.rec.apply_mask()['resp']
@@ -1378,33 +1386,36 @@ class GlobalControls(qw.QFrame):
 
     def update_fit_index(self):
         i = int(self.fit_index_line.text())
-        j = self.parent.modelspec_editor.modelspec.fit_index
 
-        if i == j:
-            return
+        for ed in self.editors:
+            j = ed.modelspec_editor.modelspec.fit_index
 
-        if i > len(self.parent.modelspec_editor.modelspec.raw):
-            # TODO: Flash red or something to indicate error
-            self.fit_index_line.setText(str(j))
-            return
+            if i == j:
+                return
 
-        self.parent.modelspec_editor.modelspec.fit_index = i
-        self.parent.modelspec_editor.evaluate_model()
+            if i > len(ed.modelspec_editor.modelspec.raw):
+                # TODO: Flash red or something to indicate error
+                self.fit_index_line.setText(str(j))
+                return
+
+            ed.modelspec_editor.modelspec.fit_index = i
+            ed.modelspec_editor.evaluate_model()
 
     def update_cell_index(self):
         i = int(self.cell_index_line.text())
-        j = self.parent.modelspec_editor.modelspec.cell_index
+        for ed in self.editors:
+            j = ed.modelspec_editor.modelspec.cell_index
 
-        if i == j:
-           return
+            if i == j:
+               return
 
-        if i > len(self.parent.modelspec_editor.modelspec.phis):
-           # TODO: Flash red or something to indicate error
-           self.cell_index_line.setText(str(j))
-           return
+            if i > len(ed.modelspec_editor.modelspec.phis):
+               # TODO: Flash red or something to indicate error
+               self.cell_index_line.setText(str(j))
+               return
 
-        self.parent.modelspec_editor.modelspec.cell_index = i
-        self.parent.modelspec_editor.evaluate_model()
+            ed.modelspec_editor.modelspec.cell_index = i
+            ed.modelspec_editor.evaluate_model()
 
     def update_cursor_time(self, t=None):
         if t is None:
@@ -1418,7 +1429,8 @@ class GlobalControls(qw.QFrame):
             return
 
         self.cursor_time = t
-        [m.update_cursor() for m in self.parent.modelspec_editor.modules]
+        for ed in self.editors:
+            [m.update_cursor() for m in ed.modelspec_editor.modules]
 
     def toggle_controls(self):
         if self.collapsed:
@@ -1428,6 +1440,12 @@ class GlobalControls(qw.QFrame):
             hide_layout(self.buttons_layout)
             hide_layout(self.range_layout)
         self.collapsed = not self.collapsed
+
+    def link_editor(self, editor):
+        """
+        link controls to an additional editor window so that scrolling and scaling are yoked
+        """
+        self.editors.append(editor)
 
 
 class FitEditor(qw.QFrame):
@@ -1525,11 +1543,12 @@ def run(modelspec, xfspec, rec, ctx):
     ex = EditorWindow(modelspec=modelspec, xfspec=xfspec, rec=rec, ctx=ctx)
     sys.exit(app.exec_())
 
-def browse_xform_fit(ctx, xfspec, recname='val'):
+def browse_xform_fit(ctx, xfspec, recname='val', control_widget=None):
 
     modelspec=ctx['modelspec']
     rec=ctx[recname]
-    ex = EditorWindow(modelspec=modelspec, xfspec=xfspec, rec=rec, ctx=ctx)
+    ex = EditorWindow(modelspec=modelspec, xfspec=xfspec, rec=rec,
+                      ctx=ctx, control_widget=control_widget)
 
     return ex
 
