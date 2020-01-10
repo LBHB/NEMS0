@@ -542,6 +542,8 @@ def _fit_net(F, D, modelspec, seed, fs, train_val_test, optimizer='Adam',
 def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
                 optimizer='Adam', max_iter=500, cost_function='mse', **context):
     """
+    pre-fit a model with the final output NL stripped. TF equivalent of
+    nems.initializers.prefit_to_target()
     :param est: A recording object
     :param modelspec: A modelspec object
     :param use_modelspec_init: [True] use input modelspec phi for initialization. Otherwise use random inits
@@ -619,22 +621,14 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
         if (i < target_i) or ('merge_channels' in m['fn']):
             tmodelspec.append(m)
     log.info(tmodelspec)
-    # fit the subset of modules
+
+    # fit the subset of modules - this is instead of calling analysis_function in
+    # nems.initializers.prefit_to_target
     new_context = fit_tf(modelspec=tmodelspec, est=est, use_modelspec_init=use_modelspec_init,
                      optimizer=optimizer, max_iter=max_iter, cost_function=cost_function,
                      **context)
     tmodelspec = new_context['modelspec']
 
-    #if metric is None:
-    #    tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-    #                                   fit_kwargs=fit_kwargs)
-    #else:
-    #    tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-    #                                   metric=metric, fit_kwargs=fit_kwargs)
-
-    # reassemble the full modelspec with updated phi values from tmodelspec
-    #print(modelspec[0])
-    #print(modelspec.phi[2])
     for i in np.setdiff1d(np.arange(target_i), np.array(exclude_idx)).tolist():
         modelspec[int(i)] = tmodelspec[int(i)]
 

@@ -1564,7 +1564,8 @@ class RasterizedSignal(SignalBase):
 
             # populate the newly built array with the appropriate signal data
             for bound_idx, (lb, ub) in enumerate(epoch_indices[start: start + epoch_data_len]):
-                epoch_data[bound_idx, :, :] = signal_data[:, lb:ub]
+                ub = np.min((ub,signal_data.shape[1]))
+                epoch_data[bound_idx, :, :(ub-lb)] = signal_data[:, lb:ub]
 
             data_dict[epoch] = epoch_data
             start += epoch_data_len
@@ -1648,7 +1649,6 @@ class RasterizedSignal(SignalBase):
         start = 0
         for epoch, epoch_data_len in zip(epochs, epoch_data_lens):
             epoch_data = epoch_dict[epoch]
-
             for lb, ub in indices[start: start + epoch_data_len]:
                 data[:, lb:ub] = epoch_data[:, :(ub-lb)]
             start += epoch_data_len
