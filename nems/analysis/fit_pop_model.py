@@ -48,8 +48,10 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
     modelspec = copy.deepcopy(modelspec)
 
     ifir = find_module('filter_bank', modelspec)
-
-    dim_count = modelspec[ifir]['fn_kwargs']['bank_count']
+    try:
+        dim_count = modelspec[ifir]['fn_kwargs'].get('bank_count', 1)
+    except:
+        dim_count = 1
 
     rec = est.copy()
     respcount = est['resp'].shape[0]

@@ -578,9 +578,9 @@ class ModelSpec:
             else:
                 # order of fallback epochs to search for
                 epoch_sequence = [
+                    'TRIAL',
                     'REFERENCE',
                     'TARGET',
-                    'TRIAL',
                     'SIGNAL',
                     'SEQUENCE1',
                     None  # leave None as the last in the sequence, to know when not found
@@ -688,7 +688,7 @@ class ModelSpec:
             plot_fns = [(fn, 1)] + plot_fns
 
         if include_output:
-            if (time_range is not None) and (epoch is not None):
+            if (time_range is not None) or (epoch is None):
                 plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_signals')
             else:
                 plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_epoch')
@@ -757,6 +757,7 @@ class ModelSpec:
         # iterate through the plotting partials and plot them to the gridspec
         for row_idx, (plot_fn, col_spans) in enumerate(plot_fns):
             # plot_fn, col_spans should be list, so convert if necessary
+            log.info('plotting row {}/{}'.format(row_idx, len(plot_fns)))
             if isinstance(col_spans, int) and not isinstance(plot_fn, list):
                 col_spans = [col_spans]
                 plot_fn = [plot_fn]
@@ -770,6 +771,8 @@ class ModelSpec:
                 fig.add_subplot(ax)
                 fn(ax=ax)
                 col_idx += col_span
+
+        log.info('done plotting')
 
         # suptitle needs to be after the gridspecs in order to work with constrained_layout
         fig.suptitle(fig_title)
