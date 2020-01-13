@@ -1584,7 +1584,7 @@ class RasterizedSignal(SignalBase):
         n_samples = np.diff(epoch_indices, axis=1).max()
 
         # don't go out of bounds of signal_data: clip the upper bounds of indices
-        epoch_indices[:, 1] = np.clip(epoch_indices[:, 1], None, signal_data.shape[-1])
+        epoch_indices = np.clip(epoch_indices, None, signal_data.shape[-1])
 
         data_dict = {}
 
@@ -1682,21 +1682,22 @@ class RasterizedSignal(SignalBase):
         self.epochs = self.epochs.loc[old_index]
 
         # make sure indices don't go out of bounds of data array
-        epoch_indices[:, 1] = np.clip(epoch_indices[:, 1], None, data.shape[-1])
+        epoch_indices = np.clip(epoch_indices, None, data.shape[-1])
 
         start = 0
         for epoch, epoch_data_len in zip(epochs, epoch_data_lens):
             epoch_data = epoch_dict[epoch]
+            subset_epoch_indices = epoch_indices[start: start + epoch_data_len]
 
             # don't go out of bounds of epoch_data array
-            epoch_indices[:, 1] = np.clip(epoch_indices[:, 1], None, epoch_indices[:, 0] + epoch_data.shape[-1])
+            subset_epoch_indices = np.clip(subset_epoch_indices, None, subset_epoch_indices + epoch_data.shape[-1])
 
             if epoch_data.ndim == 2:
-                for lb, ub in epoch_indices[start: start + epoch_data_len]:
+                for lb, ub in subset_epoch_indices:
                     data[:, lb:ub] = epoch_data[:, :(ub-lb)]
 
             elif epoch_data.ndim == 3:
-                for idx, (lb, ub) in enumerate(epoch_indices[start: start + epoch_data_len]):
+                for idx, (lb, ub) in enumerate(subset_epoch_indices):
                     data[:, lb:ub] = epoch_data[idx, :, :(ub-lb)]
 
             start += epoch_data_len
