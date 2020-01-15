@@ -1625,7 +1625,8 @@ class RasterizedSignal(SignalBase):
                           "Nothing to replace.".format(epoch))
         if epoch_data.ndim == 2:
             for lb, ub in indices:
-                data[:, lb:ub] = epoch_data
+                n = ub - lb
+                data[:, lb:ub] = epoch_data[..., :n]
         else:
             ii = 0
             for lb, ub in indices:
