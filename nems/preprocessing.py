@@ -595,15 +595,13 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
     #pdb.set_trace()
     for ename in epochs_to_extract:
         ematch = np.argwhere(resp.epochs['name']==ename)
+        import pdb; pdb.set_trace()
         ff = resp.get_epoch_indices(ename, mask=mask)
         for i,fe in enumerate(ff):
             re = ((resp.epochs['name']=='REFERENCE') &
                   (resp.epochs['start']==fe[0]/resp.fs))
             pe = ep.epoch_contained(preidx, [fe])
             thispdur = np.diff(preidx[pe])
-
-            #import pdb
-            #pdb.set_trace()
 
             if np.sum(pe)==1 and thispdur>minpre:
                 print('adjust {} to {}'.format(thispdur, minpre))

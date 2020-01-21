@@ -268,6 +268,8 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
     # TODO: Does using epochs make sense for these?
     if ax is not None:
         plt.sca(ax)
+    if epoch is None:
+        epoch="REFERENCE"
 
     newrec = rec.copy()
     fn = lambda x: x - newrec['pred']._data

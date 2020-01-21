@@ -19,6 +19,7 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
     #c = rec[psth_name].chans[chanidx]
     #full_psth = rec[psth_name].loc[c]
     full_psth = rec[psth_name]
+
     folded_psth = full_psth.extract_epoch(epoch)[:, [chanidx], :] * fs
 
     full_var = rec[state_sig].loc[state_chan]
@@ -49,6 +50,7 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
         ltidx = np.logical_not(gtidx) & g
 
     # low = response on epochs when state less than mean
+    import pdb; pdb.set_trace()
     if (np.sum(ltidx) == 0):
         low = np.zeros_like(folded_psth[0, :, :].T) * np.nan
     else:
@@ -91,12 +93,17 @@ def state_mod_index(rec, epoch='REFERENCE', psth_name='pred', divisor=None,
     #except IndexError:
     #    log.info('no %s epochs found. Trying TARGET instead', epoch)
     #    epoch = 'TARGET'
-
+    log.info('state_mod_index for {}, {}, {}'.format(psth_name,state_sig,state_chan))
     low, high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
                                 state_sig=state_sig, state_chan=state_chan)
 
     # kludge to deal with variable length REFERENCES.
     kk = np.isfinite(low) & np.isfinite(high)
+
+    if sum(kk) == 0:
+        # no timepoints that are valid in both low and high, MI fails to 0
+        return 0
+
     low = low[kk]
     high = high[kk]
 
