@@ -50,7 +50,7 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
         ltidx = np.logical_not(gtidx) & g
 
     # low = response on epochs when state less than mean
-    import pdb; pdb.set_trace()
+    #import pdb; pdb.set_trace()
     if (np.sum(ltidx) == 0):
         low = np.zeros_like(folded_psth[0, :, :].T) * np.nan
     else:

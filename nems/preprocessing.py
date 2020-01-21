@@ -553,6 +553,10 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
     subtract spont rate based on pre-stim silence for ALL estimation data.
 
     if rec['mask'] exists, uses rec['mask'] == True to determine valid epochs
+
+    Problem: not all the Pre/Dur/Post lengths are the same across reps of a stimulus.
+    Shorten everything to minimum of each. If Dur is variable, throw away post-stim silence.
+
     '''
 
     newrec = rec.copy()
@@ -564,24 +568,7 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
     else:
         mask = None
 
-    prestimsilence = resp.extract_epoch('PreStimSilence', mask=mask)
-
-    if len(prestimsilence.shape) == 3:
-        spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
-    else:
-        spont_rate = np.nanmean(prestimsilence)
-
-    preidx = resp.get_epoch_indices('PreStimSilence', mask=mask)
-    dpre=preidx[:,1]-preidx[:,0]
-    minpre=np.min(dpre)
-    prebins = preidx[0][1] - preidx[0][0]
-    posidx = resp.get_epoch_indices('PostStimSilence', mask=mask)
-    dpos=posidx[:,1]-posidx[:,0]
-    minpos=np.min(dpre)
-    postbins = posidx[0][1] - posidx[0][0]
-    #refidx = resp.get_epoch_indices('REFERENCE')
-
-    # compute PSTH response during valid trials
+    # Figure out list of matching epoch names: epochs_to_extract
     if type(epoch_regex) == list:
         epochs_to_extract = []
         for rx in epoch_regex:
@@ -591,34 +578,109 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
     elif type(epoch_regex) == str:
         epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
 
-    #import pdb
-    #pdb.set_trace()
-    for ename in epochs_to_extract:
-        ematch = np.argwhere(resp.epochs['name']==ename)
-        import pdb; pdb.set_trace()
-        ff = resp.get_epoch_indices(ename, mask=mask)
-        for i,fe in enumerate(ff):
-            re = ((resp.epochs['name']=='REFERENCE') &
-                  (resp.epochs['start']==fe[0]/resp.fs))
-            pe = ep.epoch_contained(preidx, [fe])
-            thispdur = np.diff(preidx[pe])
+    # figure out spont rate for subtraction from PSTH
+    prestimsilence = resp.extract_epoch('PreStimSilence', mask=mask)
+    if len(prestimsilence.shape) == 3:
+        spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
+    else:
+        spont_rate = np.nanmean(prestimsilence)
 
-            if np.sum(pe)==1 and thispdur>minpre:
-                print('adjust {} to {}'.format(thispdur, minpre))
-                print(resp.epochs.loc[ematch[i]])
-                resp.epochs.loc[ematch[i],'start'] += (thispdur[0,0]-minpre)/resp.fs
-                resp.epochs.loc[re,'start'] += (thispdur[0,0]-minpre)/resp.fs
-                print(resp.epochs.loc[ematch[i]])
+    NEW_WAY = True
+    if NEW_WAY:
+        # find all pre/post-stimsilence epochs
+        preidx = resp.get_epoch_bounds('PreStimSilence')
+        posidx = resp.get_epoch_bounds('PostStimSilence')
+        #import pdb
+        #pdb.set_trace()
+        epochs_new = resp.epochs.copy()
+        for ename in epochs_to_extract:
+            ematch = resp.get_epoch_bounds(ename)
+            ematch_new = ematch.copy()
+            prematch = np.zeros((ematch.shape[0],1))
+            posmatch = np.zeros((ematch.shape[0],1))
+            for i,e in enumerate(ematch):
+                x = ep.epoch_intersection(preidx, [e], precision=3)
+                if len(x):
+                    prematch[i] = np.diff(x)
+                else:
+                    log.info('pre missing?')
+                    import pdb; pdb.set_trace()
+                x = ep.epoch_intersection(posidx, [e], precision=3)
+                if len(x):
+                    posmatch[i] = np.diff(x)
+            dur = np.diff(ematch, axis=1)-prematch-posmatch
 
-            pe = ep.epoch_contained(posidx, [fe])
-            thispdur = np.diff(posidx[pe])
-            if thispdur.shape and thispdur>minpos:
-                print('adjust {} to {}'.format(thispdur, minpos))
-                print(resp.epochs.loc[ematch[i]])
-                resp.epochs.loc[ematch[i],'end'] -= (thispdur[0,0]-minpos)/resp.fs
-                resp.epochs.loc[re,'end'] -= (thispdur[0,0]-minpos)/resp.fs
-                print(resp.epochs.loc[ematch[i]])
-    newrec['resp'].epochs = resp.epochs.copy()
+            # weird hack to deal with CC data dropping post-stimsilence
+            udur = np.sort(np.unique(dur[posmatch>0]))
+            mindur = np.min(udur)
+            dur[dur<mindur]=mindur
+
+            #import pdb;pdb.set_trace()
+
+            minpre = np.min(prematch)
+            minpos = np.min(posmatch[posmatch>0])
+            posmatch[posmatch<minpos]=minpos
+            if (minpre<np.max(prematch)) & (ematch.shape[0]==prematch.shape[0]):
+                log.info('epoch %s pre varies, fixing to %.3f s', ename, minpre)
+                ematch_new[:,0] = ematch_new[:,0]-minpre+prematch.T
+            if (mindur<np.max(dur)):
+                log.info('epoch %s dur varies, fixing to %.3f s', ename, mindur)
+                ematch_new[:,1] = ematch_new[:,0]+mindur
+            elif (minpos<np.max(posmatch)):
+                log.info('epoch %s pos varies, fixing to %.3f s', ename, minpos)
+                ematch_new[:,1] = ematch_new[:,0]+minpos-posmatch.T
+
+            for e_old, e_new in zip(ematch, ematch_new):
+                _mask = (np.abs(epochs_new['start']-e_old[0])<0.0001) & \
+                        (np.abs(epochs_new['end']-e_old[1])<0.0001)
+                epochs_new.loc[_mask,'start']=e_new[0]
+                epochs_new.loc[_mask,'end']=e_new[1]
+
+        # save revised epochs back to recording
+        for k in newrec.signals.keys():
+            newrec[k].epochs = epochs_new.copy()
+
+    else:
+        # find all pre/post-stimsilence epochs
+        preidx = resp.get_epoch_indices('PreStimSilence', mask=mask)
+        posidx = resp.get_epoch_indices('PostStimSilence', mask=mask)
+        dpre=preidx[:,1]-preidx[:,0]
+        minpre=np.min(dpre)
+        prebins = preidx[0][1] - preidx[0][0]
+        dpos=posidx[:,1]-posidx[:,0]
+        minpos=np.min(dpre)
+        postbins = posidx[0][1] - posidx[0][0]
+        #refidx = resp.get_epoch_indices('REFERENCE')
+
+        #import pdb
+        #pdb.set_trace()
+        for ename in epochs_to_extract:
+            ematch = np.argwhere(resp.epochs['name']==ename)
+            import pdb; pdb.set_trace()
+            ff = resp.get_epoch_indices(ename, mask=mask)
+            for i,fe in enumerate(ff):
+                re = ((resp.epochs['name']=='REFERENCE') &
+                      (resp.epochs['start']==fe[0]/resp.fs))
+                pe = ep.epoch_contained(preidx, [fe])
+                thispdur = np.diff(preidx[pe])
+
+                if np.sum(pe)==1 and thispdur>minpre:
+                    print('adjust {} to {}'.format(thispdur, minpre))
+                    print(resp.epochs.loc[ematch[i]])
+                    resp.epochs.loc[ematch[i],'start'] += (thispdur[0,0]-minpre)/resp.fs
+                    resp.epochs.loc[re,'start'] += (thispdur[0,0]-minpre)/resp.fs
+                    print(resp.epochs.loc[ematch[i]])
+
+                pe = ep.epoch_contained(posidx, [fe])
+                thispdur = np.diff(posidx[pe])
+                if thispdur.shape and thispdur>minpos:
+                    print('adjust {} to {}'.format(thispdur, minpos))
+                    print(resp.epochs.loc[ematch[i]])
+                    resp.epochs.loc[ematch[i],'end'] -= (thispdur[0,0]-minpos)/resp.fs
+                    resp.epochs.loc[re,'end'] -= (thispdur[0,0]-minpos)/resp.fs
+                    print(resp.epochs.loc[ematch[i]])
+
+        newrec['resp'].epochs = resp.epochs.copy()
 
     if 'mask' in newrec.signals.keys():
         folded_matrices = resp.extract_epochs(epochs_to_extract,
