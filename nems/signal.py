@@ -779,6 +779,9 @@ class SignalBase:
         return RasterizedSignal(data=data, safety_checks=False, **attributes)
         # return self._modified_copy(data, chans=[epoch_name])
 
+    def to_epochs(self):
+        raise NotImplementedError
+
     @property
     def shape(self):
         return self.nchans, self.ntimes
@@ -1800,6 +1803,25 @@ class RasterizedSignal(SignalBase):
             'end': ends,
             'name': 'trial'
         })
+
+    def to_epochs(self):
+        """
+        :return: epochs list for each segment where self._data > 0
+        """
+        s = np.array(self._data.shape)
+        s[-1] = 1
+        nz = np.concatenate((np.zeros(s, dtype=int),
+                             (np.abs(self._data) > 0).astype(int)),
+                            axis=self._data.ndim-1)
+        _, starts = np.where(np.diff(nz)>0)
+        _, ends = np.where(np.diff(nz)<0)
+
+        return pd.DataFrame({
+            'start': starts/self.fs,
+            'end': ends/self.fs,
+            'name': self.name
+        })
+
 
     def transform(self, fn, newname=None):
         '''

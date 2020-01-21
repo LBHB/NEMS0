@@ -268,6 +268,7 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
     # TODO: Does using epochs make sense for these?
     if ax is not None:
         plt.sca(ax)
+
     if epoch is None:
         epoch="REFERENCE"
 
@@ -305,6 +306,8 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
         state_chan_list = [s for s in state_chan_list
                            if (s.startswith('FILE') | s.startswith('ACTIVE') |
                                s.startswith('PASSIVE')) ]
+    #import pdb; pdb.set_trace()
+
     for state_chan in state_chan_list:
 
         _low, _high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
