@@ -116,7 +116,7 @@ def tf_nmse(response, prediction, per_cell=False):
         _prediction = tf.reshape(_prediction, shape=(10, -1))
 
     squared_error = ((_response - _prediction) ** 2)
-    nmses = tf.math.reduce_mean(squared_error, axis=-1) ** 0.5 / tf.math.reduce_std(_prediction, axis=-1)
+    nmses = tf.math.reduce_mean(squared_error, axis=-1) ** 0.5 / tf.math.reduce_std(_response, axis=-1)
 
     mE = tf.math.reduce_mean(nmses, axis=-1)
     sE = tf.math.reduce_std(nmses, axis=-1) / 10 ** 0.5
