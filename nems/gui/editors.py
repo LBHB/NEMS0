@@ -8,7 +8,9 @@ The different parts of the editor are layed out as follows:
 : : :-------------------ModelspecEditor-----------------: :---XfspecEditor---:::
 : : : EpochsCollapser |                  | EpochCanvas  : :                  :::
 : : :                                                   : :                  :::
-: : : ModuleCollapser |-ModuleController-| ModuleCanvas : :   XfstepEditor   :::
+: : : SignalCollapser | -SignalControls- | SignalCanvas : :                  :::
+: : :                                                   : :                  :::
+: : : ModuleCollapser | -ModuleControls- | ModuleCanvas : :   XfstepEditor   :::
 : : :      [+/-]        :  PhiEditor   :      [Plot]    : :                  :::
 : : :                   :..............:                : :                  :::
 : : :          (1 of each per module in modelspec)      : :  (1 per step in  :::
@@ -66,6 +68,7 @@ import sys
 import copy
 import json
 import logging
+from os.path import expanduser, join, dirname
 
 import numpy as np
 import matplotlib
@@ -75,7 +78,7 @@ import PyQt5.QtGui as qg
 
 from nems import xforms
 from nems.gui.models import ArrayModel
-from nems.gui.canvas import NemsCanvas, EpochCanvas
+from nems.gui.canvas import NemsCanvas, EpochCanvas, MplWindow
 from nems.modelspec import _lookup_fn_at
 import nems.db as nd
 from nems.registry import KeywordRegistry
@@ -88,28 +91,6 @@ keyword_lib.register_module(default_keywords)
 keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
 log = logging.getLogger(__name__)
-
-# Only module plots included here will be scrolled in time
-# by the slider.
-_SCROLLABLE_PLOT_FNS = [
-    #'nems.plots.api.strf_timeseries',
-    'nems.plots.api.state_vars_timeseries',
-    'nems.plots.api.before_and_after',
-    'nems.plots.api.pred_resp',
-    'nems.plots.api.spectrogram_output',
-    'nems.plots.api.spectrogram',
-    'nems.plots.api.pred_spectrogram',
-    'nems.plots.api.resp_spectrogram',
-    'nems.plots.api.mod_output',
-    'nems.plots.api.mod_output_all',
-    'nems.plots.api.fir_output_all',
-    'nems_lbhb.gcmodel.guiplots.contrast_kernel_output',
-    'nems_lbhb.gcmodel.guiplots.contrast_spectrogram'
-]
-_CURSOR_PLOT_FNS = [
-    'nems.plots.api.strf_local_lin',
-    'nems.plots.api.nl_scatter'
-]
 
 # These are used as click-once operations
 # TODO: separate initialization from prefitting
@@ -137,7 +118,7 @@ _FIT_FNS = [
 class EditorWindow(qw.QMainWindow):
 
     def __init__(self, modelspec=None, xfspec=None, rec=None, ctx=None,
-                 rec_name='val'):
+                 rec_name='val', control_widget=None):
         '''
         Main Window wrapper for NEMS model editor GUI.
         Allows browsing and editing of fitted model parameters,
@@ -167,7 +148,7 @@ class EditorWindow(qw.QMainWindow):
             modelspec = ctx.get('modelspec', None)
         if (rec is None) and (ctx is not None):
             rec = ctx.get(rec_name, None)
-        self.editor = EditorWidget(modelspec, xfspec, rec, ctx, self)
+        self.editor = EditorWidget(modelspec, xfspec, rec, ctx, self, control_widget=control_widget)
         self.title = 'NEMS Model Browser'
         self.setCentralWidget(self.editor)
         self.setWindowTitle(self.title)
@@ -177,7 +158,7 @@ class EditorWindow(qw.QMainWindow):
 class EditorWidget(qw.QWidget):
 
     def __init__(self, modelspec=None, xfspec=None, rec=None, ctx=None,
-                 parent=None):
+                 parent=None, control_widget=None):
         '''
         Parameters
         ----------
@@ -204,7 +185,7 @@ class EditorWidget(qw.QWidget):
             meta = ctx['modelspec'].meta
             modelname = meta['modelname']
             batch = meta['batch']
-            cellid = meta['cellid']
+            cellid = meta.get('cellid', 'CELL')
             self.title = "%s  ||  %s  ||  %s  " % (modelname, cellid, batch)
         if ctx is None:
             self.ctx = {}
@@ -230,7 +211,12 @@ class EditorWidget(qw.QWidget):
         if self.xfspec is None:
             self.xfspec = []
         self.xfspec_editor = XfspecEditor(self.xfspec, self)
-        self.global_controls = GlobalControls(self)
+        if control_widget is None:
+            self.global_controls = GlobalControls(self)
+        else:
+            self.global_controls = control_widget
+            self.global_controls.link_editor(self)
+
         self.fit_editor = FitEditor(self)
 
         self.modelspec_editor.setup_layout()
@@ -248,7 +234,8 @@ class EditorWidget(qw.QWidget):
         row_one_layout.addWidget(self.modelspec_editor)
         row_one_layout.addWidget(self.xfspec_editor)
         row_one_layout.addLayout(self.xfstep_collapser_layout)
-        row_two_layout.addWidget(self.global_controls)
+        if control_widget is None:
+            row_two_layout.addWidget(self.global_controls)
         row_two_layout.addWidget(self.fit_editor)
         row_two_layout.setContentsMargins(10, 10, 10, 2)
         outer_layout.addLayout(row_one_layout)
@@ -401,6 +388,7 @@ class ModelspecEditor(qw.QWidget):
         self.rec = rec
         self.parent = parent
         self.modules = []
+        self.signal_displays = []
 
     def setup_layout(self):
         '''
@@ -419,19 +407,33 @@ class ModelspecEditor(qw.QWidget):
         self.controllers = [ModuleControls(m, self) for m in self.modules]
         self.collapsers = [ModuleCollapser(m, self) for m in self.modules]
 
-        widgets = zip(self.collapsers, self.controllers, self.modules)
-        j = 0
-        for col, cnt, m in widgets:
-            if j == 0:
-                self.epochs = EpochsWrapper(
-                    recording=self.rec,
-                    parent=self.parent.global_controls
-                    )
-                self.epochs_collapser = EpochsCollapser(self.epochs, self)
-                self.layout.addWidget(self.epochs_collapser, 0, 0)
-                self.layout.addWidget(self.epochs, 0, 2)
-                j += 1
+        signal = list(self.rec.signals.keys())[0]
+        self.signal_displays = [SignalCanvas(self.rec, signal, self)]
+        self.signal_controllers = [SignalControls(s, self) for s in self.signal_displays]
+        self.signal_collapsers = [SignalCollapser(s, c, self)
+                                  for s, c in zip(self.signal_displays, self.signal_controllers)]
 
+        # epochs at top
+        self.epochs = EpochsWrapper(
+            recording=self.rec,
+            parent=self.parent.global_controls
+        )
+        self.epochs_collapser = EpochsCollapser(self.epochs, self)
+        self.layout.addWidget(self.epochs_collapser, 0, 0)
+        self.layout.addWidget(self.epochs, 0, 2)
+        j = 1
+
+        # then signals
+        swidgets = zip(self.signal_collapsers, self.signal_controllers, self.signal_displays)
+        for col, cnt, m in swidgets:
+            self.layout.addWidget(col, j, 0)
+            self.layout.addWidget(cnt, j, 1)
+            self.layout.addWidget(m, j, 2)
+            j += 1
+
+        # then all the modules
+        widgets = zip(self.collapsers, self.controllers, self.modules)
+        for col, cnt, m in widgets:
             self.layout.addWidget(col, j, 0)
             self.layout.addWidget(cnt, j, 1)
             self.layout.addWidget(m, j, 2)
@@ -442,8 +444,11 @@ class ModelspecEditor(qw.QWidget):
         self.setLayout(self.layout)
 
     def refresh_plots(self):
-        '''Regenerate plot for each module.'''
+        '''Regenerate plot for each module and signal.'''
         for m in self.modules:
+            m.new_plot()
+
+        for m in self.signal_displays:
             m.new_plot()
 
     def evaluate_model(self):
@@ -552,9 +557,10 @@ class ModuleCanvas(qw.QFrame):
         gc = self.parent.parent.global_controls
         ax = self.canvas.figure.add_subplot(111)
         rec = self.parent.modelspec.recording
-        self.parent.modelspec.plot(self.mod_index, rec, ax,
-                                   self.plot_fn_idx, self.fit_index,
-                                   self.sig_name, no_legend=True,
+        self.parent.modelspec[self.mod_index]['plot_fn_idx']=self.plot_fn_idx
+        self.parent.modelspec.plot(mod_index=self.mod_index, rec=rec, ax=ax,
+                                   plot_fn_idx=self.plot_fn_idx, fit_index=self.fit_index,
+                                   sig_name=self.sig_name, no_legend=True,
                                    channels=self.plot_channel,
                                    cursor_time=gc.cursor_time)
         if self.scrollable:
@@ -567,7 +573,8 @@ class ModuleCanvas(qw.QFrame):
         #plots = self.parent.modelspec[self.mod_index].get(
         #        'plot_fns', ['nems.plots.api.mod_output']
         #        )
-        if self.plot_list[self.plot_fn_idx] in _SCROLLABLE_PLOT_FNS:
+        fn_ref = _lookup_fn_at(self.plot_list[self.plot_fn_idx])
+        if ('scrollable' in dir(fn_ref)) and fn_ref.scrollable:
             scrollable = True
         else:
             scrollable = False
@@ -586,7 +593,7 @@ class ModuleCanvas(qw.QFrame):
     def update_cursor(self):
         '''plot/move cursor bar on scrollable plots, adjust other plots that depend on cursor value.'''
         gc = self.parent.parent.global_controls
-
+        fn_ref = _lookup_fn_at(self.plot_list[self.plot_fn_idx])
         if self.scrollable:
             self.canvas.axes.set_xlim(gc.start_time, gc.stop_time)
 
@@ -598,7 +605,7 @@ class ModuleCanvas(qw.QFrame):
                 self.highlight_obj.set_xdata(h_times)
 
             self.canvas.draw()
-        elif self.plot_list[self.plot_fn_idx] in _CURSOR_PLOT_FNS:
+        elif ('cursor' in dir(fn_ref)) and fn_ref.cursor:
             print('update plot {}: {} cursor time={:.3f}'.format(
                 self.mod_index, self.plot_list[self.plot_fn_idx], gc.cursor_time))
             self.new_plot()
@@ -608,6 +615,138 @@ class ModuleCanvas(qw.QFrame):
     def change_channel(self, value):
         self.plot_channel = int(value)
         self.new_plot()
+
+
+class SignalCanvas(qw.QFrame):
+
+    def __init__(self, rec, sig_name, parent):
+        '''
+        QWidget for displaying a signal
+
+        Parameters
+        ----------
+        rec : Recording object (typically inherited from parent)
+            NEMS recording object
+        sig_name : str
+            Name of signal to plot
+        parent : QWidget*
+            Expected to be an instance of ModelspecEditor.
+
+        Attributes
+        ----------
+        plot_fn_idx : int
+            Index for plot_fns list in data to use for choosing a plot type.
+        scrollable : boolean
+            Determines whether or not plot can be scrolled in time by
+            the GlobalControls slider.
+
+        '''
+        super(qw.QFrame, self).__init__()
+        self.rec = rec
+        self.parent = parent
+        self.sig_name = sig_name
+        self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Sunken)
+        self.highlight_obj = None
+
+        # define plot_list here rather than in ModuleControls
+        self.plot_list = ['nems.plots.api.spectrogram',
+                          'nems.plots.api.timeseries_from_signals']
+
+        # Default plot options - set them up here then change w/ controller
+        self.plot_fn_idx = 0
+        self.plot_channel = parent.modelspec.plot_channel
+        self.scrollable = self.check_scrollable()
+
+        self.layout = qw.QHBoxLayout()
+        self.canvas = qw.QWidget()
+        self.layout.addWidget(self.canvas)
+        self.layout.setAlignment(qc.Qt.AlignTop)
+        self.setLayout(self.layout)
+
+    def new_plot(self):
+        '''Remove plot from layout and replace it with a new one.'''
+        self.layout.removeWidget(self.canvas)
+        self.highlight_obj = None
+        self.canvas.close()
+        self.canvas = NemsCanvas(parent=self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.plot_on_axes()
+        self.layout.addWidget(self.canvas)
+        self.scrollable = self.check_scrollable()
+
+        self.update_plot()
+
+    def onclick(self, event):
+        #print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+        #      ('double' if event.dblclick else 'single', event.button,
+        #       event.x, event.y, event.xdata, event.ydata))
+        t = round(event.xdata,3)
+        #self.parent.parent.global_controls.cursor_time = t
+        #self.parent.parent.global_controls.cursor_time_line.setText(str(t))
+        self.parent.parent.global_controls.update_cursor_time(t)
+
+    def plot_on_axes(self):
+        '''Draw plot on current canvas axes.'''
+        gc = self.parent.parent.global_controls
+        ax = self.canvas.figure.add_subplot(111)
+        rec = self.rec
+        from nems.modelspec import _lookup_fn_at
+        plot_fn = _lookup_fn_at(self.plot_list[self.plot_fn_idx])
+        print('running SignalCanvas.plot_on_axes() sig_name={}'.format(self.sig_name))
+        plot_fn(rec=rec, modelspec=self.parent.modelspec, sig_name=self.sig_name,
+                channels=self.plot_channel, no_legend=True,
+                ax=ax, cursor_time=gc.cursor_time)
+
+        if self.scrollable:
+            cid = self.canvas.mpl_connect('button_press_event', self.onclick)
+
+        self.canvas.draw()
+
+    def check_scrollable(self):
+        '''Set self.scrollable based on if current plot type is scrollable.'''
+        fn_ref = _lookup_fn_at(self.plot_list[self.plot_fn_idx])
+        if ('scrollable' in dir(fn_ref)) & fn_ref.scrollable:
+            scrollable = True
+        else:
+            scrollable = False
+        return scrollable
+
+    def update_plot(self):
+        '''Shift xlimits of current plot if it's scrollable.'''
+
+        if self.scrollable:
+            gc = self.parent.parent.global_controls
+            self.canvas.axes.set_xlim(gc.start_time, gc.stop_time)
+            self.canvas.draw()
+        else:
+            pass
+
+    def update_cursor(self):
+        '''plot/move cursor bar on scrollable plots, adjust other plots that depend on cursor value.'''
+        gc = self.parent.parent.global_controls
+        fn_ref = _lookup_fn_at(self.plot_list[self.plot_fn_idx])
+        if self.scrollable:
+            self.canvas.axes.set_xlim(gc.start_time, gc.stop_time)
+
+            h_times = np.ones(2) * gc.cursor_time
+            if self.highlight_obj is None:
+                ylim = self.canvas.axes.get_ylim()
+                self.highlight_obj = self.canvas.axes.plot(h_times, ylim, 'r-')[0]
+            else:
+                self.highlight_obj.set_xdata(h_times)
+
+            self.canvas.draw()
+        elif ('cursor' in dir(fn_ref)) and fn_ref.cursor:
+            print('update plot {}: {} cursor time={:.3f}'.format(
+                self.sig_name, self.plot_list[self.plot_fn_idx], gc.cursor_time))
+            self.new_plot()
+        else:
+            pass
+
+    def change_channel(self, value):
+        self.plot_channel = int(value)
+        self.new_plot()
+
 
 
 class EpochsWrapper(qw.QFrame):
@@ -691,6 +830,40 @@ class EpochsCollapser(qw.QWidget):
             self.toggle.setText('-')
         else:
             self.epochs.hide()
+            self.toggle.setText('+')
+        self.collapsed = not self.collapsed
+
+
+class SignalCollapser(qw.QWidget):
+
+    def __init__(self, signal_display, signal_controller, parent=None):
+        '''Button for controlling visibility of a signal .'''
+        super(qw.QWidget, self).__init__()
+        self.rec = parent.rec
+        self.signal_display = signal_display
+        self.controller = signal_controller
+        self.parent = parent
+        self.collapsed = False
+
+        layout = qw.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.toggle = qw.QPushButton('-', self)
+        self.toggle.setFixedSize(12, 12)
+        self.toggle.clicked.connect(self.toggle_collapsed)
+        layout.addWidget(self.toggle)
+        layout.setAlignment(qc.Qt.AlignTop)
+        self.setLayout(layout)
+
+    def toggle_collapsed(self):
+        '''Toggle visibility of ModuleCanvas and ModuleController.'''
+        if self.collapsed:
+            self.signal_display.show()
+            if not self.parent.parent.modules_collapsed:
+                self.controller.show()
+            self.toggle.setText('-')
+        else:
+            self.signal_display.hide()
+            self.controller.hide()
             self.toggle.setText('+')
         self.collapsed = not self.collapsed
 
@@ -869,6 +1042,111 @@ class PhiEditor(qw.QWidget):
         return {k: v.export_array() for k, v in self.arrays.items()}
 
 
+class SignalControls(qw.QFrame):
+
+    def __init__(self, signal_display, parent=None):
+        '''QWidget for choosing signal to plot and plot type.'''
+        super(qw.QFrame, self).__init__()
+        self.signal_display = signal_display
+        self.parent = parent
+        self.signal_list = list(parent.rec.signals.keys())
+        self.sig_name = signal_display.sig_name
+        self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Raised)
+
+        self.layout = qw.QVBoxLayout()
+
+        sig_name = self.sig_name
+        self.label = qw.QLabel(sig_name)
+        self.label.setFixedSize(330, 20)
+        self.label.setStyleSheet("background-color: rgb(255, 255, 255);")
+        #self.layout.addWidget(self.label)
+
+        plot_layout = qw.QHBoxLayout()
+
+        self.signal_menu = qw.QComboBox()
+        self.signal_menu.addItems(self.signal_list)
+        initial_index = self.signal_list.index(sig_name)
+        if initial_index is None:
+            initial_index = 0
+        self.signal_menu.setCurrentIndex(initial_index)
+        self.signal_menu.setFixedSize(250, 24)
+        self.signal_menu.currentIndexChanged.connect(self.change_signal)
+
+        self.plot_functions_menu = qw.QComboBox()
+        self.plot_functions_menu.addItems(self.signal_display.plot_list)
+        initial_index = self.signal_display.plot_fn_idx
+        if initial_index is None:
+            initial_index = 0
+        self.plot_functions_menu.setCurrentIndex(initial_index)
+        self.plot_functions_menu.setFixedSize(250, 24)
+        self.plot_functions_menu.currentIndexChanged.connect(self.change_plot)
+
+        plot_channel_layout = qw.QHBoxLayout()
+        self.decrease_channel_btn = qw.QPushButton('-')
+        self.decrease_channel_btn.clicked.connect(self.decrease_channel)
+        self.decrease_channel_btn.setFixedSize(15, 15)
+        self.channel_entry = qw.QLineEdit(str(self.signal_display.plot_channel))
+        self.channel_entry.textChanged.connect(self.change_channel)
+        self.channel_entry.setFixedSize(30, 15)
+        self.increase_channel_btn = qw.QPushButton('+')
+        self.increase_channel_btn.clicked.connect(self.increase_channel)
+        self.increase_channel_btn.setFixedSize(15, 15)
+        plot_channel_layout.addWidget(self.decrease_channel_btn)
+        plot_channel_layout.addWidget(self.channel_entry)
+        plot_channel_layout.addWidget(self.increase_channel_btn)
+
+        self.layout.addWidget(self.signal_menu)
+        plot_layout.addWidget(self.plot_functions_menu)
+        plot_layout.addLayout(plot_channel_layout)
+        self.layout.addLayout(plot_layout)
+
+        self.layout.setAlignment(qc.Qt.AlignTop)
+        self.setLayout(self.layout)
+
+    def change_signal(self, index):
+        '''Change change plot to new signal.'''
+        self.sig_name = self.signal_list[index]
+
+        # avoid crashing b/c new signal doesn't have enough channels
+        if self.signal_display.rec[self.sig_name].shape[0]<self.signal_display.plot_channel:
+            self.channel_entry.setText(str(0))
+            self.signal_display.plot_channel = 0
+            self.signal_display.change_channel(0)
+
+        self.signal_display.sig_name = self.sig_name
+        self.signal_display.new_plot()
+
+        self.label.setText(self.sig_name)
+
+    def change_plot(self, index):
+        '''Change plot type according to plot_fn_idx and regenerate plot.'''
+        self.signal_display.plot_fn_idx = int(index)
+        self.signal_display.new_plot()
+
+    def change_channel(self):
+        old_channel = self.signal_display.plot_channel
+        new_channel = self.channel_entry.text()
+        try:
+            self.signal_display.change_channel(int(new_channel))
+        except:
+            # Leaving this bare b/c not clear what exception type it will be.
+            # But reason is if plot channel is not valid for whichever
+            # plot function the module is using.
+            log.warning("Invalid plot channel: %s for signal: %s"
+                        % (new_channel, self.sig_name))
+            self.channel_entry.setText(str(old_channel))
+
+    def decrease_channel(self):
+        old_channel = self.signal_display.plot_channel
+        self.channel_entry.setText(str(max(0, old_channel-1)))
+
+    def increase_channel(self):
+        # TODO: Would be nice to know a valid channel range but
+        #       I'm not sure how to extract that information from the modules.
+        old_channel = self.signal_display.plot_channel
+        self.channel_entry.setText(str((old_channel+1)))
+
+
 class XfspecEditor(qw.QWidget):
 
     def __init__(self, xfspec, parent=None):
@@ -930,6 +1208,7 @@ class GlobalControls(qw.QFrame):
         '''QWidget for controlling cell_index, fit_index, and plot xlims.'''
         super(qw.QFrame, self).__init__()
         self.parent = parent
+        self.editors = [parent]
         self.collapsed = False
         self.setFrameStyle(qw.QFrame.Panel | qw.QFrame.Raised)
 
@@ -937,6 +1216,15 @@ class GlobalControls(qw.QFrame):
         self.time_slider = qw.QScrollBar(orientation=1)
         policy = qw.QSizePolicy()
         policy.setHorizontalPolicy(qw.QSizePolicy.Expanding)
+
+        # Set start for plot views
+        self.display_start = qw.QLineEdit()
+        self.display_start.setValidator(
+                qg.QDoubleValidator(0, 10000.0, 4)
+                )
+        self.display_start.editingFinished.connect(self.set_display_range)
+        self.display_start.setText(str(self.start_time))
+
         self.time_slider.setSizePolicy(policy)
         self._update_max_time()
         self.time_slider.setRange(0, self.max_time)
@@ -959,7 +1247,7 @@ class GlobalControls(qw.QFrame):
         minus.clicked.connect(self.decrement_display_range)
         self.range_layout = qw.QHBoxLayout()
         self.range_layout.setAlignment(qc.Qt.AlignTop)
-        [self.range_layout.addWidget(w) for w in [self.display_range, plus, minus]]
+        [self.range_layout.addWidget(w) for w in [qw.QLabel('Start(s)'), self.display_start, qw.QLabel('Dur(s)'), self.display_range, plus, minus]]
 
         self.buttons_layout = qw.QHBoxLayout()
         self.buttons_layout.setAlignment(qc.Qt.AlignTop)
@@ -983,6 +1271,9 @@ class GlobalControls(qw.QFrame):
         self.cursor_time_line.editingFinished.connect(self.update_cursor_time)
         self.cursor_time_line.setText(str(self.cursor_time))
 
+        self.quickplot_btn = qw.QPushButton('Save Quickplot')
+        self.quickplot_btn.clicked.connect(self.export_plot)
+
         self.buttons_layout.addWidget(self.reset_model_btn)
         self.buttons_layout.addWidget(self.fit_index_label)
         self.buttons_layout.addWidget(self.fit_index_line)
@@ -990,6 +1281,7 @@ class GlobalControls(qw.QFrame):
         self.buttons_layout.addWidget(self.cell_index_line)
         self.buttons_layout.addWidget(self.cursor_time_label)
         self.buttons_layout.addWidget(self.cursor_time_line)
+        self.buttons_layout.addWidget(self.quickplot_btn)
 
         layout = qw.QVBoxLayout()
         layout.setAlignment(qc.Qt.AlignTop)
@@ -1003,11 +1295,14 @@ class GlobalControls(qw.QFrame):
         self.time_slider.setSingleStep(int(np.ceil(self.display_duration/10)))
         self.time_slider.setPageStep(int(self.display_duration))
 
+        self.export_path = expanduser("~")
+
     def scroll_all(self):
         '''Update xlims for all plots based on slider value.'''
         #self.start_time = self.time_slider.value()/self.slider_scaling
         self.start_time = self.time_slider.value()
         self.stop_time = self.start_time + self.display_duration
+        self.display_start.setText(str(self.start_time))
 
         # don't go past the latest time of the biggest plot
         # (should all have the same max most of the time)
@@ -1017,9 +1312,11 @@ class GlobalControls(qw.QFrame):
         #    self.start_time = max(0, self.max_signal_time - self.display_duration)
         #    #self.time_slider.setValue(0)
 
-        [m.update_plot() for m in self.parent.modelspec_editor.modules]
-        if len(self.parent.modelspec_editor.modules):
-            self.parent.modelspec_editor.epochs.update_figure()
+        for ed in self.editors:
+            [m.update_plot() for m in ed.modelspec_editor.modules]
+            [s.update_plot() for s in ed.modelspec_editor.signal_displays]
+            if len(ed.modelspec_editor.modules):
+                ed.modelspec_editor.epochs.update_figure()
 
     def _update_max_time(self):
         resp = self.parent.rec.apply_mask()['resp']
@@ -1030,22 +1327,26 @@ class GlobalControls(qw.QFrame):
         #self.time_slider.setRange(0, self.max_time-self.display_duration)
         #self.slider_scaling = self.max_time/(self.max_signal_time - self.display_duration)
 
-    def tap_right(self):
-        self.time_slider.set_value(
-                self.time_slider.value + self.time_slider.singleStep
-                )
-
-    def tap_left(self):
-        self.time_slider.set_value(
-                self.time_slider.value - self.time_slider.singleStep
-                )
+    # def tap_right(self):
+    #     self.time_slider.setValue(
+    #             self.time_slider.value() + self.time_slider.singleStep
+    #             )
+    #
+    # def tap_left(self):
+    #     self.time_slider.setValue(
+    #             self.time_slider.value() - self.time_slider.singleStep
+    #             )
 
     def set_display_range(self):
-        duration = float(self.display_range.text())
-        if not duration:
-            print("Duration not set to a valid value. Please enter a"
-                  "a number > 0")
-            return
+        try:
+            start = float(self.display_start.text())
+        except:
+            start = 0
+        try:
+            duration = float(self.display_range.text())
+        except:
+            duration = 10
+        self.time_slider.setValue(start)
         self.display_duration = duration
         self._update_range()
 
@@ -1068,35 +1369,53 @@ class GlobalControls(qw.QFrame):
     def reset_model(self):
         self.parent.modelspec_editor.reset_model()
 
+    def export_plot(self):
+        time_range = (self.start_time, self.stop_time)
+        fig = self.parent.modelspec.quickplot(time_range=time_range, modidx_set=None)
+        w = MplWindow(fig=fig)
+        w.show()
+
+        path = join(self.export_path,self.parent.modelspec.meta['cellid']+
+                    "_"+self.parent.modelspec.modelspecname+'.pdf')
+
+        fname, mask = qw.QFileDialog.getSaveFileName(self, 'Save file', path, '*.pdf')
+        log.info('saving quickplot to %s', fname)
+        fig.savefig(fname)
+        # keep path in memory for next save
+        self.export_path = dirname(fname)
+
     def update_fit_index(self):
         i = int(self.fit_index_line.text())
-        j = self.parent.modelspec_editor.modelspec.fit_index
 
-        if i == j:
-            return
+        for ed in self.editors:
+            j = ed.modelspec_editor.modelspec.fit_index
 
-        if i > len(self.parent.modelspec_editor.modelspec.raw):
-            # TODO: Flash red or something to indicate error
-            self.fit_index_line.setText(str(j))
-            return
+            if i == j:
+                return
 
-        self.parent.modelspec_editor.modelspec.fit_index = i
-        self.parent.modelspec_editor.evaluate_model()
+            if i > len(ed.modelspec_editor.modelspec.raw):
+                # TODO: Flash red or something to indicate error
+                self.fit_index_line.setText(str(j))
+                return
+
+            ed.modelspec_editor.modelspec.fit_index = i
+            ed.modelspec_editor.evaluate_model()
 
     def update_cell_index(self):
         i = int(self.cell_index_line.text())
-        j = self.parent.modelspec_editor.modelspec.cell_index
+        for ed in self.editors:
+            j = ed.modelspec_editor.modelspec.cell_index
 
-        if i == j:
-           return
+            if i == j:
+               return
 
-        if i > len(self.parent.modelspec_editor.modelspec.phis):
-           # TODO: Flash red or something to indicate error
-           self.cell_index_line.setText(str(j))
-           return
+            if i > len(ed.modelspec_editor.modelspec.phis):
+               # TODO: Flash red or something to indicate error
+               self.cell_index_line.setText(str(j))
+               return
 
-        self.parent.modelspec_editor.modelspec.cell_index = i
-        self.parent.modelspec_editor.evaluate_model()
+            ed.modelspec_editor.modelspec.cell_index = i
+            ed.modelspec_editor.evaluate_model()
 
     def update_cursor_time(self, t=None):
         if t is None:
@@ -1110,7 +1429,8 @@ class GlobalControls(qw.QFrame):
             return
 
         self.cursor_time = t
-        [m.update_cursor() for m in self.parent.modelspec_editor.modules]
+        for ed in self.editors:
+            [m.update_cursor() for m in ed.modelspec_editor.modules]
 
     def toggle_controls(self):
         if self.collapsed:
@@ -1120,6 +1440,12 @@ class GlobalControls(qw.QFrame):
             hide_layout(self.buttons_layout)
             hide_layout(self.range_layout)
         self.collapsed = not self.collapsed
+
+    def link_editor(self, editor):
+        """
+        link controls to an additional editor window so that scrolling and scaling are yoked
+        """
+        self.editors.append(editor)
 
 
 class FitEditor(qw.QFrame):
@@ -1217,11 +1543,12 @@ def run(modelspec, xfspec, rec, ctx):
     ex = EditorWindow(modelspec=modelspec, xfspec=xfspec, rec=rec, ctx=ctx)
     sys.exit(app.exec_())
 
-def browse_xform_fit(ctx, xfspec, recname='val'):
+def browse_xform_fit(ctx, xfspec, recname='val', control_widget=None):
 
     modelspec=ctx['modelspec']
     rec=ctx[recname]
-    ex = EditorWindow(modelspec=modelspec, xfspec=xfspec, rec=rec, ctx=ctx)
+    ex = EditorWindow(modelspec=modelspec, xfspec=xfspec, rec=rec,
+                      ctx=ctx, control_widget=control_widget)
 
     return ex
 

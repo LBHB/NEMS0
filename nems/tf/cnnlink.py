@@ -11,6 +11,7 @@ import copy
 import nems
 import nems.modelspec as ms
 import nems.tf.cnn as cnn
+from nems.initializers import init_dexp, init_logsig, init_relsat
 import nems.metrics.api as nmet
 import nems.utils
 import logging
@@ -495,6 +496,8 @@ def _fit_net(F, D, modelspec, seed, fs, train_val_test, optimizer='Adam',
 def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
                 optimizer='Adam', max_iter=500, cost_function='mse', **context):
     """
+    pre-fit a model with the final output NL stripped. TF equivalent of
+    nems.initializers.prefit_to_target()
     :param est: A recording object
     :param modelspec: A modelspec object
     :param use_modelspec_init: [True] use input modelspec phi for initialization. Otherwise use random inits
@@ -572,24 +575,30 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
         if (i < target_i) or ('merge_channels' in m['fn']):
             tmodelspec.append(m)
     log.info(tmodelspec)
-    # fit the subset of modules
+
+    # fit the subset of modules - this is instead of calling analysis_function in
+    # nems.initializers.prefit_to_target
     new_context = fit_tf(modelspec=tmodelspec, est=est, use_modelspec_init=use_modelspec_init,
                      optimizer=optimizer, max_iter=max_iter, cost_function=cost_function,
                      **context)
     tmodelspec = new_context['modelspec']
 
-    #if metric is None:
-    #    tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-    #                                   fit_kwargs=fit_kwargs)
-    #else:
-    #    tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
-    #                                   metric=metric, fit_kwargs=fit_kwargs)
-
-    # reassemble the full modelspec with updated phi values from tmodelspec
-    #print(modelspec[0])
-    #print(modelspec.phi[2])
     for i in np.setdiff1d(np.arange(target_i), np.array(exclude_idx)).tolist():
         modelspec[int(i)] = tmodelspec[int(i)]
+
+    # pre-fit static NL if it exists
+    for m in modelspec.modules:
+        if 'double_exponential' in m['fn']:
+            modelspec = init_dexp(est, modelspec)
+            break
+        elif 'logistic_sigmoid' in m['fn']:
+            log.info("initializing priors and bounds for logsig ...\n")
+            modelspec = init_logsig(est, modelspec)
+            break
+        elif 'saturated_rectifier' in m['fn']:
+            log.info('initializing priors and bounds for relat ...\n')
+            modelspec = init_relsat(est, modelspec)
+            break
 
     return {'modelspec': modelspec}
 

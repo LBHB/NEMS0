@@ -5,10 +5,58 @@ import PyQt5.QtGui as qg
 import PyQt5.QtCore as qc
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
+import random
 
 from nems.plots.utils import ax_remove_box
+
+class MplWindow(qw.QWidget):
+    def __init__(self, parent=None, fig=None):
+        super(MplWindow, self).__init__(parent)
+
+        # a figure instance to plot on
+        if fig is None:
+            self.figure = plt.figure()
+        else:
+            self.figure = fig
+
+        # this is the Canvas Widget that displays the `figure`
+        # it takes the `figure` instance as a parameter to __init__
+        self.canvas = FigureCanvas(self.figure)
+
+        # this is the Navigation widget
+        # it takes the Canvas widget and a parent
+        self.toolbar = NavigationToolbar(self.canvas, self)
+
+        # Just some button connected to `plot` method
+        self.button = qw.QPushButton('Plot')
+        self.button.clicked.connect(self.plot)
+
+        # set the layout
+        layout = qw.QVBoxLayout()
+        layout.addWidget(self.toolbar)
+        layout.addWidget(self.canvas)
+        layout.addWidget(self.button)
+        self.setLayout(layout)
+
+    def plot(self):
+        ''' plot some random stuff '''
+        # random data
+        data = [random.random() for i in range(10)]
+
+        # create an axis
+        ax = self.figure.add_subplot(111)
+
+        # discards the old graph
+        ax.clear()
+
+        # plot data
+        ax.plot(data, '*-')
+
+        # refresh canvas
+        self.canvas.draw()
 
 
 class NemsCanvas(FigureCanvas):
@@ -81,9 +129,11 @@ class EpochCanvas(NemsCanvas):
             e = r['end']
             n = r['name']
 
-            prefix = n.split('_')[0]
-            if prefix in ['PreStimSilence', 'PostStimSilence',
-                          'REFERENCE','TARGET']:
+            prefix = n.split('_')[0].split(',')[0].strip(' ').lower()
+            if len(n) < 5:
+                prefix = 'X'
+            if prefix in ['prestimsilence', 'poststimsilence',
+                          'reference', 'target', 'stim']:
                 # skip
                 pass
             elif prefix in self.epoch_groups:
@@ -93,9 +143,8 @@ class EpochCanvas(NemsCanvas):
 
         colors = ['Red', 'Orange', 'Green', 'LightBlue',
                   'DarkBlue', 'Purple', 'Pink', 'Black', 'Gray']
-        i = 0
         for i, g in enumerate(self.epoch_groups):
-            for j in self.epoch_groups[g]:
+            for j in self.epoch_groups[g][:2]:
                 n = valid_epochs['name'][j]
                 s = valid_epochs['start'][j]
                 e = valid_epochs['end'][j]
@@ -147,17 +196,18 @@ class PrettyWidget(qw.QWidget):
     def __init__(self, parent=None, imagepath=None):
         qw.QWidget.__init__(self, parent=parent)
         self.imagepath = imagepath
-        self.resize(1000, 600)
+        self.resize(400, 300)
 
         self.center()
         self.setWindowTitle('Browser')
+        self.config_group = 'PrettyWidget'
 
         self.lb = qw.QLabel(self)
         self.lb.resize(self.width(), self.height())
         self.pixmap = None
 
         self.update_imagepath(imagepath)
-        self.show()
+        #self.show()
 
     def resizeEvent(self, event):
         self.lb.resize(self.width(), self.height())
