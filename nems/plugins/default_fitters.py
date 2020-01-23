@@ -166,6 +166,7 @@ def tf(fitkey):
     s<S> : Initialize with S random seeds, pick the best performer across
            the entire fit set.
     n : use modelspec initialized by NEMS
+    l<L>: Specify the loss function {'se': 'squared_error', 'p': 'poisson', 'nmses': 'nmse_shrinkage'}
     '''
 
     options = _extract_options(fitkey)
@@ -176,6 +177,7 @@ def tf(fitkey):
     use_modelspec_init = False
     pick_best = False
     rand_count = 0
+    loss_type = 'squared_error'
 
     for op in options:
         if op[:1] == 'i':
@@ -199,6 +201,14 @@ def tf(fitkey):
                 rand_count = 10
             else:
                 rand_count = int(op[1:])
+        elif op[:1] == 'l':
+            loss_type = op[1:]
+            if loss_type == 'se':
+                loss_type = 'squared_error'
+            if loss_type == 'p':
+                loss_type = 'poisson'
+            if loss_type == 'nmses':
+                loss_type = 'nmse_shrinkage'
 
     xfspec = []
     if rand_count > 0:
@@ -208,6 +218,7 @@ def tf(fitkey):
                    {'max_iter': max_iter,
                     'use_modelspec_init': use_modelspec_init,
                     'optimizer': fitter,
+                    'cost_function': loss_type,
                     'init_count': init_count,
                     'fit_function': 'nems.tf.cnnlink.fit_tf'}])
     

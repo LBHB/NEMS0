@@ -448,7 +448,8 @@ def tf2modelspec(net, modelspec):
 
 
 def _fit_net(F, D, modelspec, seed, fs, train_val_test, optimizer='Adam',
-             max_iter=1000, learning_rate=0.01, use_modelspec_init=False, S=None):
+             max_iter=1000, learning_rate=0.01, use_modelspec_init=False, S=None,
+             loss_type='squared_error'):
 
     n_feats = F.shape[2]
     data_dims = D.shape
@@ -464,7 +465,7 @@ def _fit_net(F, D, modelspec, seed, fs, train_val_test, optimizer='Adam',
         layers = modelspec.modelspec2tf(tps_per_stim=D.shape[1], feat_dims=n_feats,
                               data_dims=D.shape[2], state_dims=state_dims, fs=fs,
                               use_modelspec_init=use_modelspec_init)
-        net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=modelspec.meta['modelpath'])
+        net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=modelspec.meta['modelpath'], loss_type=loss_type)
     else:
         layers = modelspec.modelspec2cnn(n_inputs=n_feats, fs=fs, use_modelspec_init=use_modelspec_init)
         # layers = [{'act': 'identity', 'n_kern': 1,
@@ -605,7 +606,7 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
 
 def fit_tf(modelspec=None, est=None,
            use_modelspec_init=True, init_count=1,
-           optimizer='Adam', max_iter=1000, cost_function='mse', **context):
+           optimizer='Adam', max_iter=1000, cost_function='squared_error', **context):
     """
     :param est: A recording object
     :param modelspec: A modelspec object
@@ -613,7 +614,7 @@ def fit_tf(modelspec=None, est=None,
     :param init_count: number of random initializations (if use_modelspec_init==False)
     :param optimizer:
     :param max_iter: max number of training iterations
-    :param cost_function: not implemented
+    :param cost_function: cost_function to use when fitting
     :param metaname:
     :param context:
     :return: dictionary with modelspec, compatible with xforms
@@ -660,7 +661,7 @@ def fit_tf(modelspec=None, est=None,
     modelspec, net = _fit_net(F, D, modelspec, seed, new_est['resp'].fs,
                          train_val_test=train_val_test,
                          optimizer=optimizer, max_iter=np.min([max_iter]),
-                         use_modelspec_init=use_modelspec_init, S=S)
+                         use_modelspec_init=use_modelspec_init, S=S, loss_type=cost_function)
 
     new_est = eval_tf(modelspec, new_est)
     y = new_est['pred'].as_continuous()
