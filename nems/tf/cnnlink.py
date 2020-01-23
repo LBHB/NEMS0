@@ -63,7 +63,7 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
 
     elif 'levelshift' in fn:
         layer['type'] = 'offset'
-        c = phi['level'].astype('float32')
+        c = phi['level'].astype('float32').T
         layer['n_kern'] = c.shape[1]
 
         if use_modelspec_init:
@@ -495,7 +495,7 @@ def _fit_net(F, D, modelspec, seed, fs, train_val_test, optimizer='Adam',
 
 
 def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
-                optimizer='Adam', max_iter=500, cost_function='mse', **context):
+                optimizer='Adam', max_iter=500, cost_function='squared_error', **context):
     """
     pre-fit a model with the final output NL stripped. TF equivalent of
     nems.initializers.prefit_to_target()
@@ -504,7 +504,7 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
     :param use_modelspec_init: [True] use input modelspec phi for initialization. Otherwise use random inits
     :param optimizer:
     :param max_iter: max number of training iterations
-    :param cost_function: TODO, not implemented yet
+    :param cost_function: which loss function to use
     :param context: extra stuff from xforms context
     :return: dictionary with modelspec, compatible with xforms
     """
