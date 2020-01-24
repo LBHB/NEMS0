@@ -624,7 +624,7 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
         mindur = np.min(udur)
         dur[dur<mindur]=mindur
 
-        log.info('epoch %s: n=%d dur range=%.4f-%.4f', ename,
+        log.debug('epoch %s: n=%d dur range=%.4f-%.4f', ename,
                  len(ematch), mindur, np.max(dur))
 
         #import pdb;pdb.set_trace()
@@ -1151,13 +1151,19 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         ('pupil_ev' in state_signals) or ('pupil_bs' in state_signals) or \
         ('pupil_stim' in state_signals) or ('pupil_x_population' in state_signals):
         # save raw pupil trace
-        newrec["pupil_raw"] = newrec["pupil"].copy()
         # normalize min-max
-        p = newrec["pupil"].as_continuous().copy()
+        p_raw = newrec["pupil"].as_continuous().copy()
         # p[p < np.nanmax(p)/5] = np.nanmax(p)/5
-        p -= np.nanmean(p)
+        p = p_raw - np.nanmean(p_raw)
         p /= np.nanstd(p)
+        # hack to make sure state signal matches size of resp
+        if 'resp' in newrec.signals.keys():
+            #import pdb;pdb.set_trace()
+            if p.shape[1] > newrec['resp'].shape[1]:
+                p = p[:, :newrec['resp'].shape[1]]
+                p_raw = p_raw[:, :newrec['resp'].shape[1]]
         newrec["pupil"] = newrec["pupil"]._modified_copy(p)
+        newrec["pupil_raw"] = newrec["pupil"]._modified_copy(p_raw)
 
         if ('pupil2') in state_signals:
             newrec["pupil2"] = newrec["pupil"]._modified_copy(p ** 2)

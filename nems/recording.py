@@ -1372,8 +1372,6 @@ def load_recording(uri):
         raise ValueError('Invalid URI: {}'.format(uri))
     rec.uri = uri
 
-    # TODO ? create copy of 'stim' to 'pred' ?
-
     return rec
 
 def load_recording_from_dir(directory_or_targz):
