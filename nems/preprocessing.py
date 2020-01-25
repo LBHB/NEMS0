@@ -409,7 +409,7 @@ def mask_keep_passive(rec):
     return newrec
 
 
-def mask_all_but_targets(rec):
+def mask_all_but_targets(rec, include_incorrect=True):
     """
     Specialized function for removing incorrect trials from data
     collected using baphy during behavior.
@@ -419,10 +419,14 @@ def mask_all_but_targets(rec):
 
     newrec = rec.copy()
     newrec['resp'] = newrec['resp'].rasterize()
+    #newrec = normalize_epoch_lengths(newrec, resp_sig='resp', epoch_regex='TARGET',
+    #                                include_incorrect=include_incorrect)
     if 'stim' in newrec.signals.keys():
         newrec['stim'] = newrec['stim'].rasterize()
 
-    newrec = newrec.or_mask(['TARGET'])
+    #newrec = newrec.or_mask(['TARGET'])
+    newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'TARGET'])
+    newrec = newrec.and_mask(['REFERENCE','TARGET'])
 
     return newrec
 
@@ -760,6 +764,7 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
                                               mask=newrec['mask'])
     else:
         folded_matrices = resp.extract_epochs(epochs_to_extract)
+    log.info('generating PSTHs for epochs: %s', folded_matrices.keys())
 
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()
