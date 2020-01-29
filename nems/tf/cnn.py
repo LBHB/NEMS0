@@ -41,8 +41,20 @@ def poisson(response, prediction):
     return tf.reduce_mean(prediction - response * tf.log(prediction + 1e-5), name='poisson')
 
 
+def loss_tf_nmse_shrinkage(response, prediction):
+    """NMSE with shrinkage"""
+    return tf_nmse_shrinkage(response, prediction)
+
+
+def loss_tf_nmse(response, prediction):
+    """NMSE"""
+    mE, sE = tf_nmse(response, prediction)
+
+    return mE
+
+
 def tf_nmse_shrinkage(response, prediction, shrink_factor=0.5, per_cell=False, thresh=False):
-    """Calculates the normalized mean squared error.
+    """Calculates the normalized mean squared error, with an adjustment for error.
 
     Averages across the batches, but optionally can return a per cell error.
 
@@ -125,11 +137,13 @@ def tf_nmse(response, prediction, per_cell=False):
 
 
 def tf_shrinkage(mE, sE, shrink_factor=0.5, thresh=False):
-    smd = tf.math.divide_no_nan(abs(1 - mE), sE) / shrink_factor
+    """Adjusts the mean error based on the standard error"""
+    mE = 1 - mE
+    smd = tf.math.divide_no_nan(abs(mE), sE) / shrink_factor
     smd = 1 - smd ** -2
 
     if thresh:
-        return mE * tf.dtypes.cast(smd > 1, mE.dtype)
+        return 1 - mE * tf.dtypes.cast(smd > 1, mE.dtype)
 
     smd = smd * tf.dtypes.cast(smd > 0, smd.dtype)
 
@@ -277,10 +291,12 @@ class Net:
             self.loss = tf.reduce_mean(tf.square(self.D - self.Y)) / tf.reduce_mean(tf.square(self.D))
         elif self.loss_type == 'poisson':
             self.loss = poisson(self.D, self.Y)
+        elif self.loss_type == 'nmse':
+            self.loss = loss_tf_nmse(self.D, self.Y)
         elif self.loss_type == 'nmse_shrinkage':
-            self.loss = tf_nmse_shrinkage(self.D, self.Y)
+            self.loss = loss_tf_nmse_shrinkage(self.D, self.Y)
         else:
-            raise NameError(f'Loss must be "squared_error", "poisson", or "nmse_shrinkage", not {self.loss_type}')
+            raise NameError(f'Loss must be "squared_error", "poisson", "nmse", or "nmse_shrinkage", not {self.loss_type}')
 
         # gradient optimizer
         if self.optimizer == 'Adam':
@@ -643,38 +659,27 @@ class Net:
                         self.iteration[len(self.iteration) - 1] + eval_interval)
                     train_loss = self.loss.eval(feed_dict=train_dict)
                     self.train_loss.append(train_loss)
-                    if len(val_inds) > 0:
-                        validation_loss = self.loss.eval(feed_dict=val_dict)
-                        stop_loss = validation_loss
-                        self.val_loss.append(validation_loss)
-                    if len(test_inds) > 0:
-                        self.test_loss.append(
-                            self.loss.eval(feed_dict=test_dict))
+
                     if print_iter:
-                        log.info("%d e=%.7f v=%.7f", self.iteration[len(self.iteration) - 1],
-                                 train_loss, validation_loss)
+                        log.info("%04d e=%8.7f, delta= %+8.7f", self.iteration[len(self.iteration) - 1],
+                                 train_loss, train_loss - self.best_loss)
 
                     # early stopping / saving
                     if early_stopping_steps > 0:
-
-                        # prefer to use validation loss
-                        if len(val_inds) > 0:
-                            stop_loss = validation_loss
-                        else:
-                            stop_loss = train_loss
-
-                        # check if improved, if so save
-                        if stop_loss < self.best_loss:
-                            self.best_loss = stop_loss
-                            self.best_loss_index = len(self.val_loss) - 1
+                        if self.best_loss > train_loss:
+                            self.best_loss, self.best_loss_index = train_loss, len(self.train_loss)
                             self.save()
-                            not_improved = 0
-                        else:
-                            not_improved += 1
 
-                        # check if we should stop
-                        if not_improved == early_stopping_steps:
-                            not_improved = 0
+                        # early stopping for > 5 non improving iterations
+                        # TODO: redundant with tolerance early stopping?
+                        elif self.best_loss_index < len(self.train_loss) - early_stopping_steps:
+                            log.info('Best epoch > 5 iterations ago, stopping early!')
+                            break
+
+                        # early stopping for not exceeding tolerance
+                        # TODO: make tolerance value an option
+                        elif np.all(abs(np.array(self.train_loss[-5:]) - self.best_loss) < 5e-4):
+                            log.info('5 epochs without significant change, stopping early!')
                             break
 
                 # update batch
