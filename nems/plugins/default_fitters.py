@@ -153,11 +153,11 @@ def tf(fitkey):
     Parameters
     ----------
     fitkey : str
-        Expected format: tf.f<fitter>.i<max_iter>.s<start_conditions>
-        Example: tf.fAdam.i1000.s20
+        Expected format: tf.f<fitter>.i<max_iter>.s<start_conditions>.rb<count>.l<loss_function>
+        Example: tf.fAdam.i1000.s20.rb10.lse
         Example translation:
             Use Adam fitter, max 1000 iterations, starting from 20 random
-            initial condition
+            initial condition, picking the best of 10 random fits, with squared error loss function
 
     Options
     -------
@@ -165,8 +165,13 @@ def tf(fitkey):
     i<N> : Set maximum iterations to N, any positive integer.
     s<S> : Initialize with S random seeds, pick the best performer across
            the entire fit set.
-    n : use modelspec initialized by NEMS
-    l<L>: Specify the loss function {'se': 'squared_error', 'p': 'poisson', 'nmse': 'nmse', 'nmses': 'nmse_shrinkage'}
+    rb<N>: Picks the best of multiple random fits
+    n    : Use modelspec initialized by NEMS
+    l<S> : Specify the loss function {'se': 'squared_error', 'p': 'poisson', 'nmse': 'nmse', 'nmses': 'nmse_shrinkage'}
+    e<N> : Specify the number of early stopping steps, i.e. the consecutive number of failed conditions before
+           early stopping.
+    et<N>: Specify the tolerance for early stopping. The value should be an integer, and the tolerance will be
+           10 to the power of said negative integer.
     '''
 
     options = _extract_options(fitkey)
@@ -178,6 +183,8 @@ def tf(fitkey):
     pick_best = False
     rand_count = 0
     loss_type = 'squared_error'
+    early_stopping_steps = 5
+    early_stopping_tolerance = 1e-5
 
     for op in options:
         if op[:1] == 'i':
@@ -211,18 +218,26 @@ def tf(fitkey):
                 loss_type = 'nmse'
             if loss_type == 'nmses':
                 loss_type = 'nmse_shrinkage'
+        elif op.startswith('et'):
+            early_stopping_tolerance = 1 * 10 ** -int(op[2:])
+        elif op[:1] == 'e':
+            early_stopping_steps = int(op[1:])
 
     xfspec = []
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
 
     xfspec.append(['nems.xforms.fit_wrapper',
-                   {'max_iter': max_iter,
-                    'use_modelspec_init': use_modelspec_init,
-                    'optimizer': fitter,
-                    'cost_function': loss_type,
-                    'init_count': init_count,
-                    'fit_function': 'nems.tf.cnnlink.fit_tf'}])
+                   {
+                       'max_iter': max_iter,
+                       'use_modelspec_init': use_modelspec_init,
+                       'optimizer': fitter,
+                       'cost_function': loss_type,
+                       'init_count': init_count,
+                       'fit_function': 'nems.tf.cnnlink.fit_tf',
+                       'early_stopping_steps': early_stopping_steps,
+                       'early_stopping_tolerance': early_stopping_tolerance,
+                   }])
     
     if pick_best:
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])

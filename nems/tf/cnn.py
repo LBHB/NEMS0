@@ -102,7 +102,7 @@ def tf_nmse(response, prediction, per_cell=False):
     :return: 2 tensors, one of the mean error, the other of the std of the error. If not per cell, then
      tensor is of shape (), else tensor if of shape (n_cells) (i.e. last dimension of the resp/pred tensor)
     """
-    n_drop = response.shape[-2] % 10
+    n_drop = response.shape[-2].value % 10
     if n_drop:
         # use slices to handle varying tensor shapes
         drop_slice = [slice(None) for i in range(len(response.shape))]
@@ -607,27 +607,19 @@ class Net:
         self.saver.restore(self.sess, fname)
 
     def train(self, F, D, learning_rate=0.5, max_iter=300, eval_interval=30, batch_size=None,
-              train_val_test=None, early_stopping_steps=5, print_iter=True, S=None):
+              early_stopping_steps=5, early_stopping_tolerance=5e-4, print_iter=True, S=None):
 
         self.save()
-        if train_val_test is None:
-            train_val_test = np.zeros(D.shape[0])
 
-        # samples used for training, validation, and testing
-        train_inds = np.where(train_val_test == 0)[0]
-        val_inds = np.where(train_val_test == 1)[0]
-        test_inds = np.where(train_val_test == 2)[0]
-
-        # dictionaries for validation and test
-        # can initialize them now, because they are not batch dependent
-        if len(val_inds) > 0:
-            val_dict = self.feed_dict(F, D=D, S=S, inds=val_inds)
-        if len(test_inds) > 0:
-            test_dict = self.feed_dict(F, D=D, S=S, inds=test_inds)
+        # samples used for training
+        train_inds = np.arange(D.shape[0])
 
         # by default batch size equals the size of the training data
         if batch_size is None:
             batch_size = len(train_inds)
+
+        log.info(f'Training with batch_size={batch_size}, LR={learning_rate}, max_iter={max_iter}, '
+                 f'early_stopping_steps={early_stopping_steps}, early_stopping_tolerance={early_stopping_tolerance}.')
 
         with self.sess.as_default():
 
@@ -636,13 +628,8 @@ class Net:
 
             # evaluate loss before any training
             if len(self.train_loss) == 0:
-                train_dict = self.feed_dict(F, D=D, S=S, inds=train_inds[batch_inds],
-                                            learning_rate=learning_rate)
+                train_dict = self.feed_dict(F, D=D, S=S, inds=train_inds[batch_inds], learning_rate=learning_rate)
                 self.train_loss.append(self.loss.eval(feed_dict=train_dict))
-                if len(val_inds) > 0:
-                    self.val_loss.append(self.loss.eval(feed_dict=val_dict))
-                if len(test_inds) > 0:
-                    self.test_loss.append(self.loss.eval(feed_dict=test_dict))
                 self.iteration = [0]
             
             not_improved = 0
@@ -661,7 +648,7 @@ class Net:
                     self.train_loss.append(train_loss)
 
                     if print_iter:
-                        log.info("%04d e=%8.7f, delta= %+8.7f", self.iteration[len(self.iteration) - 1],
+                        log.info("%04d e=%8.7f, delta= %+8.7f", self.iteration[-1],
                                  train_loss, train_loss - self.best_loss)
 
                     # early stopping / saving
@@ -677,8 +664,8 @@ class Net:
                             break
 
                         # early stopping for not exceeding tolerance
-                        # TODO: make tolerance value an option
-                        elif np.all(abs(np.array(self.train_loss[-5:]) - self.best_loss) < 5e-4):
+                        elif np.all(abs(np.array(self.train_loss[-early_stopping_steps:]) - self.best_loss) <
+                                    early_stopping_tolerance):
                             log.info('5 epochs without significant change, stopping early!')
                             break
 
