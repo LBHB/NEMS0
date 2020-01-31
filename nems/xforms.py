@@ -642,14 +642,17 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
         return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
 
-def mask_for_jackknife(rec, modelspec=None, epoch_name='REFERENCE',
+def mask_for_jackknife(rec, modelspec=None, epoch_name='REFERENCE', epoch_regex=None,
                        by_time=False, njacks=10, IsReload=False,
                        allow_partial_epochs=False, **context):
+
+    if epoch_regex is None:
+        epoch_regex=epoch_name
 
     if by_time != True:
         est_out, val_out, modelspec_out = \
             preproc.mask_est_val_for_jackknife(rec, modelspec=modelspec,
-                                               epoch_name=epoch_name,
+                                               epoch_name=epoch_name, epoch_regex=epoch_regex,
                                                njacks=njacks,
                                                allow_partial_epochs=allow_partial_epochs,
                                                IsReload=IsReload)

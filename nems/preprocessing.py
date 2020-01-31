@@ -1568,7 +1568,8 @@ def split_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
     return est, val, modelspecs_out
 
 
-def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
+def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', epoch_regex=None,
+                               modelspec=None,
                                njacks=10, allow_partial_epochs=False,
                                IsReload=False, **context):
     """
@@ -1576,7 +1577,9 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
     jackknife logic. returns lists est_out and val_out of corresponding
     jackknife subsamples. removed timepoints are replaced with nan
     """
-
+    if epoch_regex is None:
+        epoch_regex=epoch_name
+    
     # logging.info("Generating {} jackknifes".format(njacks))
     if rec.get_epoch_indices(epoch_name, allow_partial_epochs=allow_partial_epochs).shape[0]:
         pass
