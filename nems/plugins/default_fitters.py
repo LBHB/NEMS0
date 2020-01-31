@@ -161,7 +161,7 @@ def tf(fitkey):
 
     Options
     -------
-    f<fitter> : string specifying fitter, passed through to TF
+    f<fitter> : string specifying fitter, passed through to TF {'adam': 'Adam', 'gd': 'GradientDescent'}
     i<N> : Set maximum iterations to N, any positive integer.
     s<S> : Initialize with S random seeds, pick the best performer across
            the entire fit set.
@@ -194,6 +194,10 @@ def tf(fitkey):
                 max_iter = int(op[1:])
         elif op[:1] == 'f':
             fitter = op[1:]
+            if fitter == 'adam':
+                fitter = 'Adam'
+            elif fitter == 'gd':
+                fitter = 'GradientDescent'
         elif op[:1] == 's':
             init_count = int(op[1:])
         elif op[:1] == 'n':
