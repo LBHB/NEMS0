@@ -1,16 +1,12 @@
 """code for fitting LN network models based on Sam Norman-Haignere's cnn library"""
 
-import numpy as np
-import scipy.io as sio
-import h5py
-import tensorflow as tf
-import pickle
-import os
-from matplotlib import pyplot as plt
-import importlib
-import inspect
-from copy import deepcopy
+import itertools
 import logging
+import os
+
+import numpy as np
+import tensorflow as tf
+
 log = logging.getLogger(__name__)
 
 
@@ -632,9 +628,9 @@ class Net:
                 self.train_loss.append(self.loss.eval(feed_dict=train_dict))
                 self.iteration = [0]
             
-            not_improved = 0
-            for i in range(max_iter):
-
+            for i in itertools.count():
+                if max_iter is not None and i > max_iter:
+                    break
                 # update
                 train_dict = self.feed_dict(F, D=D, S=S, inds=train_inds[batch_inds],
                                             learning_rate=learning_rate)

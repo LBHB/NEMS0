@@ -188,7 +188,10 @@ def tf(fitkey):
 
     for op in options:
         if op[:1] == 'i':
-            max_iter = int(op[1:])
+            if len(op[1:]) == 0:
+                max_iter = None
+            else:
+                max_iter = int(op[1:])
         elif op[:1] == 'f':
             fitter = op[1:]
         elif op[:1] == 's':
