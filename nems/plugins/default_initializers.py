@@ -170,6 +170,12 @@ def sev(kw):
     return xfspec
 
 
+def aev(kw):
+    xfspec= [['nems.xforms.use_all_data_for_est_and_val', 
+                {}]]
+    return xfspec
+
+
 def sevst(kw):
     ops = kw.split('.')[1:]
     epoch_regex = '^STIM' if not ops else ops[0]

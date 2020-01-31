@@ -619,12 +619,12 @@ def split_val_and_average_reps(rec, epoch_regex='^STIM_', **context):
 def use_all_data_for_est_and_val(rec, **context):
     est = rec.copy()
     val = rec.copy()
-    rec['resp'] = rec['resp'].rasterize()
-    rec['stim'] = rec['stim'].rasterize()
-    est['resp'] = est['resp'].rasterize()
-    est['stim'] = est['stim'].rasterize()
-    val['resp'] = val['resp'].rasterize()
-    val['stim'] = val['stim'].rasterize()
+    signals = ['resp', 'stim']
+    signals = [s for s in rec.signals.keys()]
+    for s in signals:
+        rec[s] = rec[s].rasterize()
+        est[s] = est[s].rasterize()
+        val[s] = val[s].rasterize()
 
     return {'rec': rec, 'est': est, 'val': val}
 
@@ -950,8 +950,8 @@ def fit_wrapper(modelspec, est=None, fit_function='nems.analysis.api.fit_basic',
         raise ValueError("Inputs modelspec and est required")
 
     if modelspec.jack_count < est.view_count:
-        log.info('modelspec.jack_count does not match est.view_count. TILING.')
-        modelspec.tile_jacks(est.view_count)
+        raise Warning('modelspec.jack_count does not match est.view_count')
+        modelspec.tile_jacks(nfolds)
 
     # load function into path
     fn = lookup_fn_at(fit_function)
