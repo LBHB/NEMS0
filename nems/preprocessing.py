@@ -428,6 +428,11 @@ def mask_all_but_targets(rec, include_incorrect=True):
     newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'TARGET'])
     newrec = newrec.and_mask(['REFERENCE','TARGET'])
 
+    # svd attempt to kludge this masking to work with a lot of code that assumes all relevant epochs are
+    # called "REFERENCE"
+    #import pdb;pdb.set_trace()
+    for k in newrec.signals.keys():
+        newrec[k].epochs.name = newrec[k].epochs.name.str.replace("TARGET", "REFERENCE")
     return newrec
 
 
@@ -1578,10 +1583,12 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', epoch_regex=None,
     jackknife subsamples. removed timepoints are replaced with nan
     """
     if epoch_regex is None:
-        epoch_regex=epoch_name
+        epochs_to_extract=[epoch_name]
+    else:
+        epochs_to_extract = ep.epoch_names_matching(rec.epochs, epoch_regex)
     
     # logging.info("Generating {} jackknifes".format(njacks))
-    if rec.get_epoch_indices(epoch_name, allow_partial_epochs=allow_partial_epochs).shape[0]:
+    if rec.get_epoch_indices(epochs_to_extract, allow_partial_epochs=allow_partial_epochs).shape[0]:
         pass
     elif rec.get_epoch_indices('REFERENCE', allow_partial_epochs=allow_partial_epochs).shape[0]:
         log.info('Jackknifing by REFERENCE epochs')
@@ -1595,13 +1602,13 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', epoch_regex=None,
     else:
         raise ValueError('No epochs matching '+epoch_name)
 
-    est = rec.jackknife_masks_by_epoch(njacks, epoch_name, tiled=True,
+    est = rec.jackknife_masks_by_epoch(njacks, epochs_to_extract, tiled=True,
                                        allow_partial_epochs=allow_partial_epochs)
-    val = rec.jackknife_masks_by_epoch(njacks, epoch_name,
+    val = rec.jackknife_masks_by_epoch(njacks, epochs_to_extract,
                                        tiled=True, invert=True,
                                        allow_partial_epochs=allow_partial_epochs)
+    #import pdb;pdb.set_trace()
 
-    modelspec_out = []
     if (not IsReload) and (modelspec is not None):
         if modelspec.jack_count == 1:
             modelspec_out = modelspec.tile_jacks(njacks)

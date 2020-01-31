@@ -204,6 +204,8 @@ def jk(kw):
     for op in ops:
         if op.startswith('nf'):
             jk_kwargs['njacks'] = int(op[2:])
+        elif op == 'stim':
+            jk_kwargs['epoch_name'] = "^STIM_"
         elif op == 'm':
             do_split = True
         elif op == 'p':
