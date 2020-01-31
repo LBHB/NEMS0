@@ -655,7 +655,7 @@ class Net:
 
                         # early stopping for > 5 non improving iterations
                         # TODO: redundant with tolerance early stopping?
-                        elif self.best_loss_index < len(self.train_loss) - early_stopping_steps:
+                        if self.best_loss_index < len(self.train_loss) - early_stopping_steps:
                             log.info('Best epoch > 5 iterations ago, stopping early!')
                             break
 
