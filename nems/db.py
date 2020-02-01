@@ -1138,6 +1138,7 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
         params = params+(rawid,)
         print(sql)
         print(params)
+
         d = pd.read_sql(sql=sql, con=engine, params=params)
 
         cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)

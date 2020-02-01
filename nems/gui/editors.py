@@ -184,7 +184,7 @@ class EditorWidget(qw.QWidget):
         if ctx is not None:
             meta = ctx['modelspec'].meta
             modelname = meta['modelname']
-            batch = meta['batch']
+            batch = meta.get('batch', 0)
             cellid = meta.get('cellid', 'CELL')
             self.title = "%s  ||  %s  ||  %s  " % (modelname, cellid, batch)
         if ctx is None:

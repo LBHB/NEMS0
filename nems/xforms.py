@@ -642,14 +642,17 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
         return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
 
-def mask_for_jackknife(rec, modelspec=None, epoch_name='REFERENCE',
+def mask_for_jackknife(rec, modelspec=None, epoch_name='REFERENCE', epoch_regex=None,
                        by_time=False, njacks=10, IsReload=False,
                        allow_partial_epochs=False, **context):
+
+    if epoch_regex is None:
+        epoch_regex=epoch_name
 
     if by_time != True:
         est_out, val_out, modelspec_out = \
             preproc.mask_est_val_for_jackknife(rec, modelspec=modelspec,
-                                               epoch_name=epoch_name,
+                                               epoch_name=epoch_name, epoch_regex=epoch_regex,
                                                njacks=njacks,
                                                allow_partial_epochs=allow_partial_epochs,
                                                IsReload=IsReload)
@@ -1046,10 +1049,13 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
         if 'state' not in val.signals.keys():
             pass
         else:
+            log.info('Skipping jackknife MI calculations')
             s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='pred',
                                 state_sig='state_raw', state_chan=[])
-            j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='pred',
-                                state_sig='state_raw', state_chan=[], njacks=10)
+            #j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='pred',
+            #                    state_sig='state_raw', state_chan=[], njacks=10)
+            j_s = s
+            ee = np.zeros(j_s.shape)
             modelspec.meta['state_mod'] = s
             modelspec.meta['j_state_mod'] = j_s
             modelspec.meta['se_state_mod'] = ee
@@ -1060,8 +1066,10 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
             # try using resp
             s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='resp',
                                 state_sig='state_raw', state_chan=[])
-            j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='resp',
-                                state_sig='state_raw', state_chan=[], njacks=10)
+            #j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='resp',
+            #                    state_sig='state_raw', state_chan=[], njacks=10)
+            j_s = s
+            ee = np.zeros(j_s.shape)
             modelspec.meta['state_mod_r'] = s
             modelspec.meta['j_state_mod_r'] = j_s
             modelspec.meta['se_state_mod_r'] = ee
@@ -1071,10 +1079,13 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
                 s = metrics.state_mod_index(val, epoch='REFERENCE',
                                                 psth_name='mod', divisor='resp',
                                                 state_sig='state_raw', state_chan=[])
-                j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE',
-                                                psth_name='mod', divisor='resp',
-                                                state_sig='state_raw', state_chan=[],
-                                                njacks=10)
+                #j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE',
+                #                                psth_name='mod', divisor='resp',
+                #                                state_sig='state_raw', state_chan=[],
+                #                                njacks=10)
+                j_s = s
+                ee = np.zeros(j_s.shape)
+
                 modelspec.meta['state_mod_m'] = s
                 modelspec.meta['j_state_mod_m'] = j_s
                 modelspec.meta['se_state_mod_m'] = ee

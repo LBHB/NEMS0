@@ -204,6 +204,18 @@ class KeywordRegistry():
                 # on, for example.
         return registry
 
+    def info(self, kw=None):
+        """
+        :param kw:
+        :return: dictionary with source info for keywords containing string kw
+                 or (if kw is None) all keywords
+        """
+        kw_list = list(self.keywords.keys())
+        s = {}
+        for k in kw_list:
+            if (kw is None) or kw in k:
+                s[k] = self.source(k)
+        return s
 
 class Keyword():
     '''
