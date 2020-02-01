@@ -749,22 +749,25 @@ class Recording:
     def get_epoch_indices(self, epoch_name, allow_partial_epochs=False):
 
         keys = list(self.signals.keys())
-        if 'mask' not in keys:
-            epochs = self[keys[0]].get_epoch_indices(epoch_name)
+        epochs = self[keys[0]].get_epoch_indices(epoch_name, mask=self['mask'])
 
-        else:
-            # only keep epoch matching mask
-            m_data = self['mask'].as_continuous().copy()
-            all_epochs = self['mask'].get_epoch_indices(epoch_name)
-
-            epochs = np.zeros([0, 2], dtype=np.int32)
-            for lb, ub in all_epochs:
-                if allow_partial_epochs:
-                    if np.sum(m_data[0, lb:ub]) > 0:
-                        epochs = np.append(epochs, [[lb, ub]], axis=0)
-                else:
-                    if np.sum(1 - (m_data[0, lb:ub])) == 0:
-                        epochs = np.append(epochs, [[lb, ub]], axis=0)
+        # code below replaced by mask handling in signal object
+        #if 'mask' not in keys:
+        #    epochs = self[keys[0]].get_epoch_indices(epoch_name)
+        #
+        #else:
+        #    # only keep epoch matching mask
+        #    m_data = self['mask'].as_continuous().copy()
+        #    all_epochs = self['mask'].get_epoch_indices(epoch_name)
+        #
+        #    epochs = np.zeros([0, 2], dtype=np.int32)
+        #    for lb, ub in all_epochs:
+        #        if allow_partial_epochs:
+        #            if np.sum(m_data[0, lb:ub]) > 0:
+        #                epochs = np.append(epochs, [[lb, ub]], axis=0)
+        #        else:
+        #            if np.sum(1 - (m_data[0, lb:ub])) == 0:
+        #                epochs = np.append(epochs, [[lb, ub]], axis=0)
 
         return epochs
 

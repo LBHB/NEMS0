@@ -409,7 +409,7 @@ def mask_keep_passive(rec):
     return newrec
 
 
-def mask_all_but_targets(rec):
+def mask_all_but_targets(rec, include_incorrect=True):
     """
     Specialized function for removing incorrect trials from data
     collected using baphy during behavior.
@@ -419,11 +419,20 @@ def mask_all_but_targets(rec):
 
     newrec = rec.copy()
     newrec['resp'] = newrec['resp'].rasterize()
+    #newrec = normalize_epoch_lengths(newrec, resp_sig='resp', epoch_regex='TARGET',
+    #                                include_incorrect=include_incorrect)
     if 'stim' in newrec.signals.keys():
         newrec['stim'] = newrec['stim'].rasterize()
 
-    newrec = newrec.or_mask(['TARGET'])
+    #newrec = newrec.or_mask(['TARGET'])
+    newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'TARGET'])
+    newrec = newrec.and_mask(['REFERENCE','TARGET'])
 
+    # svd attempt to kludge this masking to work with a lot of code that assumes all relevant epochs are
+    # called "REFERENCE"
+    #import pdb;pdb.set_trace()
+    for k in newrec.signals.keys():
+        newrec[k].epochs.name = newrec[k].epochs.name.str.replace("TARGET", "REFERENCE")
     return newrec
 
 
@@ -760,6 +769,7 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
                                               mask=newrec['mask'])
     else:
         folded_matrices = resp.extract_epochs(epochs_to_extract)
+    log.info('generating PSTHs for epochs: %s', folded_matrices.keys())
 
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()
@@ -1563,7 +1573,8 @@ def split_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
     return est, val, modelspecs_out
 
 
-def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
+def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', epoch_regex=None,
+                               modelspec=None,
                                njacks=10, allow_partial_epochs=False,
                                IsReload=False, **context):
     """
@@ -1571,9 +1582,13 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
     jackknife logic. returns lists est_out and val_out of corresponding
     jackknife subsamples. removed timepoints are replaced with nan
     """
-
+    if epoch_regex is None:
+        epochs_to_extract=[epoch_name]
+    else:
+        epochs_to_extract = ep.epoch_names_matching(rec.epochs, epoch_regex)
+    
     # logging.info("Generating {} jackknifes".format(njacks))
-    if rec.get_epoch_indices(epoch_name, allow_partial_epochs=allow_partial_epochs).shape[0]:
+    if rec.get_epoch_indices(epochs_to_extract, allow_partial_epochs=allow_partial_epochs).shape[0]:
         pass
     elif rec.get_epoch_indices('REFERENCE', allow_partial_epochs=allow_partial_epochs).shape[0]:
         log.info('Jackknifing by REFERENCE epochs')
@@ -1587,13 +1602,13 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
     else:
         raise ValueError('No epochs matching '+epoch_name)
 
-    est = rec.jackknife_masks_by_epoch(njacks, epoch_name, tiled=True,
+    est = rec.jackknife_masks_by_epoch(njacks, epochs_to_extract, tiled=True,
                                        allow_partial_epochs=allow_partial_epochs)
-    val = rec.jackknife_masks_by_epoch(njacks, epoch_name,
+    val = rec.jackknife_masks_by_epoch(njacks, epochs_to_extract,
                                        tiled=True, invert=True,
                                        allow_partial_epochs=allow_partial_epochs)
+    #import pdb;pdb.set_trace()
 
-    modelspec_out = []
     if (not IsReload) and (modelspec is not None):
         if modelspec.jack_count == 1:
             modelspec_out = modelspec.tile_jacks(njacks)

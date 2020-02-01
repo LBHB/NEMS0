@@ -170,6 +170,12 @@ def sev(kw):
     return xfspec
 
 
+def aev(kw):
+    xfspec= [['nems.xforms.use_all_data_for_est_and_val', 
+                {}]]
+    return xfspec
+
+
 def sevst(kw):
     ops = kw.split('.')[1:]
     epoch_regex = '^STIM' if not ops else ops[0]
@@ -204,6 +210,8 @@ def jk(kw):
     for op in ops:
         if op.startswith('nf'):
             jk_kwargs['njacks'] = int(op[2:])
+        elif op == 'stim':
+            jk_kwargs['epoch_name'] = "^STIM_"
         elif op == 'm':
             do_split = True
         elif op == 'p':
