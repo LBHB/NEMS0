@@ -1144,7 +1144,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     """
 
     newrec = rec.copy()
-    resp = newrec['resp'].rasterize()
+    resp = newrec['resp'].rasterize()    
 
     # normalize mean/std of pupil trace if being used
     if ('pupil' in state_signals) or ('pupil2' in state_signals) or \

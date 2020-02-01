@@ -9,7 +9,10 @@ import copy
 import numpy as np
 import matplotlib.pyplot as plt
 
-import nems
+USE_GUI=True
+
+if USE_GUI:
+    import nems.gui.editors as gui
 import nems.initializers
 import nems.epoch as ep
 import nems.priors
@@ -32,9 +35,9 @@ nems_dir = os.path.abspath(os.path.dirname(recording.__file__) + '/..')
 signals_dir = nems_dir + '/recordings'
 modelspecs_dir = nems_dir + '/modelspecs'
 
-cellid = "TAR010c-06-1"
-recording_uri = os.path.join(signals_dir, cellid + ".tgz")
-
+#cellid = "TAR010c-06-1"
+#recording_uri = os.path.join(signals_dir, cellid + ".tgz")
+cellid = '951762773' #allen
 # ----------------------------------------------------------------------------
 # DATA LOADING
 
@@ -43,32 +46,39 @@ logging.info('Loading data...')
 
 # Method #1: Load the data from a local directory
 # download demo data if necessary:
-recording.get_demo_recordings(signals_dir)
-rec = recording.load_recording(recording_uri)
+#recording.get_demo_recordings(signals_dir)
+#rec = recording.load_recording(recording_uri)
+rec=from_nwb_pupil(nwb_filepath,'neuropixel',with_pupil=True,fs=20)
+rec = rec[cellid] #try out allen data
 
 # ----------------------------------------------------------------------------
 # PREPROCESSING
 
-# create a new signal that will be used to modulate the output of the linear
+# create a new signal that will be used to modulates the output of the linear
 # predicted response
 logging.info('Generating state signal...')
 #rec = preproc.make_state_signal(rec, ['active','pupil'], [''], 'state')
 rec = preproc.make_state_signal(rec, state_signals=['pupil'],
-                                permute_signals=[''], new_signalname='state')
+                               permute_signals=[''], new_signalname='state')
+rec = preproc.make_state_signal(rec, state_signals=['pupil'],
+                                permute_signals=['pupil'], new_signalname='state') #shuffled pupil
 
 # mask out data from incorrect trials
-rec = preproc.mask_all_but_correct_references(rec)
+#rec = preproc.mask_all_but_correct_references(rec)#not for allen?
 
 # calculate a PSTH response for each stimulus, save to a new signal 'psth'
-epoch_regex="^STIM_"
-rec = preproc.generate_psth_from_resp(rec, epoch_regex=epoch_regex, smooth_resp=False)
+#epoch_regex="^STIM_"
+epoch_regex="^natural_scene" #only natural scene stimulus
+#rec = preproc.generate_psth_from_resp(rec, epoch_regex=epoch_regex, smooth_resp=False)
+rec=nwb_resp_psth(rec,epoch_regex) #should return similar results as above for allen data
 
 # ----------------------------------------------------------------------------
 # INSPECT THE DATA
 
 resp = rec['resp'].rasterize()
 epochs = resp.epochs
-epoch_regex="^STIM_"
+#epoch_regex="^STIM_"
+#epoch_regex="^natural_scene" #only natural scene stimulus
 epoch_list = ep.epoch_names_matching(epochs, epoch_regex)
 
 # list all stimulus events
@@ -80,7 +90,8 @@ print(epochs[epochs['name'] == epoch])
 
 # extract raster of all these events on correct or passive trials
 # use rec['mask'] to remove all incorrect trial data
-raster = resp.extract_epoch(epoch, mask=rec['mask'])[:,0,:]
+#raster = resp.extract_epoch(epoch, mask=rec['mask'])[:,0,:]
+raster = resp.extract_epoch(epoch)[:,0,:]#no mask for allen
 t = np.arange(raster.shape[1]) /resp.fs
 
 plt.figure()
@@ -104,7 +115,8 @@ meta = {'cellid': cellid, 'modelname': modelname}
 
 # Method #1: create from "shorthand" keyword string
 modelspec = nems.initializers.from_keywords(modelname, rec=rec, meta=meta,
-                                            input_name='psth')
+                                            #input_name='psth')
+                                            input_name='psth_sp') #don't subtract spont mean w/allen?
 
 # ----------------------------------------------------------------------------
 # DATA WITHHOLDING
@@ -119,6 +131,7 @@ logging.info('Generating jackknife datasets for n-fold cross-validation...')
 nfolds = 10
 est, val, m = preproc.mask_est_val_for_jackknife(rec, modelspecs=None,
                                                  njacks=nfolds)
+
 
 # ----------------------------------------------------------------------------
 # RUN AN ANALYSIS
@@ -152,10 +165,11 @@ est, val = nems.analysis.api.generate_prediction(est, val, modelspec)
 
 # evaluate prediction accuracy
 modelspec = nems.analysis.api.standard_correlation(est, val, modelspec)
-
+#slow with allen data
 s = nems.metrics.api.state_mod_index(val, epoch='REFERENCE',
                                      psth_name='pred',
                                     state_sig='state', state_chan=[])
+
 modelspec.meta['state_mod'] = s
 modelspec.meta['state_chans'] = est['state'].chans
 
@@ -163,7 +177,7 @@ logging.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
         modelspec.meta['r_fit'][0,0],
         modelspec.meta['r_test'][0,0]))
 
-print(single_state_mod_index(val, modelspec, state_chan="pupil"))
+print(single_state_mod_index(val, modelspec, epoch='REFERENCE', state_chan="pupil"))
 
 # ----------------------------------------------------------------------------
 # GENERATE PLOTS
@@ -173,5 +187,22 @@ print(single_state_mod_index(val, modelspec, state_chan="pupil"))
 
 logging.info('Generating summary plot...')
 
+# set modelspec to plot psth for big vs. small pupil
+modelspec[0]['plot_fn_idx']=5
+
 # Generate a summary plot
-modelspec.quickplot(rec=val)
+
+modelspec.quickplot(rec=val,epoch='REFERENCE',include_input=False)
+#plot timeseries seperately overides quickplot errors
+epoch_bounds = val['resp'].get_epoch_bounds('REFERENCE')
+possible_occurrences = np.arange(epoch_bounds.shape[1])
+occurrence = possible_occurrences[0]
+time_range = epoch_bounds[occurrence]
+nems.plots.timeseries.timeseries_from_signals(signals=[val['resp'], val['pred']], channels=0, no_legend=False, 
+                                              time_range=time_range, rec=val, sig_name=None)
+fig=plt.figure()
+fig.add_subplot(ax)
+
+if USE_GUI:
+    # interactive gui
+    ex = gui.browse_xform_fit({'modelspec': modelspec, 'val': val}, [])

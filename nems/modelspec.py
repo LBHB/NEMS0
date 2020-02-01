@@ -612,7 +612,9 @@ class ModelSpec:
         #possible_occurrences, = np.where(not_empty)
         possible_occurrences = np.arange(epoch_bounds.shape[1])
         # if there's no possible occurrences, then occurrence passed in doesn't matter
-        if len(possible_occurrences) == 0:
+        if time_range is not None:
+            pass
+        elif len(possible_occurrences) == 0:
             # only warn if passed in occurrence
             if occurrence is not None:
                 log.warning('Quickplot: no possible occurrences, ignoring passed occurrence')
@@ -769,10 +771,13 @@ class ModelSpec:
 
             col_idx = 0
             for fn, col_span in zip(plot_fn, col_spans):
-                ax = plt.Subplot(fig, gs_cols[0, col_idx:col_idx + col_span])
-                fig.add_subplot(ax)
-                fn(ax=ax)
-                col_idx += col_span
+                try:
+                    ax = plt.Subplot(fig, gs_cols[0, col_idx:col_idx + col_span])
+                    fig.add_subplot(ax)
+                    fn(ax=ax)
+                    col_idx += col_span
+                except:
+                    import pdb;pdb.set_trace()
 
         log.debug('done plotting')
 

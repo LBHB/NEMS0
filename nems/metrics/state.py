@@ -9,8 +9,11 @@ log = logging.getLogger(__name__)
 
 def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
                     state_sig='state_raw', state_chan='pupil', stat=np.nanmean):
-    if 'mask' in rec.signals.keys():
-        rec = rec.apply_mask(reset_epochs=True)
+    
+    #import pdb;pdb.set_trace()
+
+    #if 'mask' in rec.signals.keys():
+    #    rec = rec.apply_mask(reset_epochs=True)
 
     fs = rec[psth_name].fs
 
@@ -19,11 +22,10 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
     #c = rec[psth_name].chans[chanidx]
     #full_psth = rec[psth_name].loc[c]
     full_psth = rec[psth_name]
-
-    folded_psth = full_psth.extract_epoch(epoch)[:, [chanidx], :] * fs
+    folded_psth = full_psth.extract_epoch(epoch, mask=rec['mask'])[:, [chanidx], :] * fs
 
     full_var = rec[state_sig].loc[state_chan]
-    folded_var = np.squeeze(full_var.extract_epoch(epoch)) * fs
+    folded_var = np.squeeze(full_var.extract_epoch(epoch, mask=rec['mask'])) * fs
 
     # compute the mean state for each occurrence
     g = (np.sum(np.isfinite(folded_var), axis=1) > 0)
@@ -42,7 +44,7 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
             if (s.startswith('FILE') | s.startswith('ACTIVE') |
                 s.startswith('PASSIVE')) and s != state_chan:
                 full_var = rec[state_sig].loc[s]
-                folded_var = np.squeeze(full_var.extract_epoch(epoch))
+                folded_var = np.squeeze(full_var.extract_epoch(epoch, mask=rec['mask']))
                 g = (np.sum(np.isfinite(folded_var), axis=1) > 0)
                 m0[g] += np.nanmean(folded_var[g, :], axis=1)
         ltidx = np.logical_not(gtidx) & np.logical_not(m0) & g
