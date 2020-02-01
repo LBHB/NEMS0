@@ -1075,7 +1075,7 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
             modelspec.meta['se_state_mod_r'] = ee
 
             # try using the "mod" signal (if it exists) which is calculated
-            if 'mod' in modelspec.meta['modelname']:
+            if ('mod' in modelspec.meta['modelname']) and ('mod' in val.signals.keys()):
                 s = metrics.state_mod_index(val, epoch='REFERENCE',
                                                 psth_name='mod', divisor='resp',
                                                 state_sig='state_raw', state_chan=[])

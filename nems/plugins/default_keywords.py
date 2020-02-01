@@ -1316,18 +1316,6 @@ def stategain(kw):
             else:
                 n_chans = 1
 
-#    pattern = re.compile(r'^stategain\.?(\d{1,})x(\d{1,})$')
-#    parsed = re.match(pattern, kw)
-#    if parsed is None:
-#        # backward compatible parsing if R not specified
-#        pattern = re.compile(r'^stategain\.?(\d{1,})$')
-#        parsed = re.match(pattern, kw)
-#    try:
-#        n_vars = int(parsed.group(1))
-#        if len(parsed.groups())>1:
-#            n_chans = int(parsed.group(2))
-#        else:
-#            n_chans = 1
     except TypeError:
         raise ValueError("Got TypeError when parsing stategain keyword.\n"
                          "Make sure keyword is of the form: \n"
