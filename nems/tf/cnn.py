@@ -631,6 +631,7 @@ class Net:
             for i in itertools.count():
                 if max_iter is not None and i > max_iter:
                     break
+
                 # update
                 train_dict = self.feed_dict(F, D=D, S=S, inds=train_inds[batch_inds],
                                             learning_rate=learning_rate)
@@ -660,7 +661,7 @@ class Net:
                             break
 
                         # early stopping for not exceeding tolerance
-                        elif np.all(abs(np.array(self.train_loss[-early_stopping_steps:]) - self.best_loss) <
+                        elif np.all(abs(np.diff(np.array(self.train_loss[-early_stopping_steps - 1:]))) <
                                     early_stopping_tolerance):
                             log.info('5 epochs without significant change, stopping early!')
                             break
