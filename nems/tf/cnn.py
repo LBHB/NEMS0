@@ -668,7 +668,7 @@ class Net:
 
                 # update batch
                 batch_inds = batch_inds + batch_size
-                if batch_inds[-1] > len(train_inds):
+                if batch_inds[-1] > len(train_inds) - 1:
                     np.random.shuffle(train_inds)
                     batch_inds = np.arange(batch_size)
 
