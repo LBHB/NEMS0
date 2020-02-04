@@ -194,7 +194,7 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, rand_seed=1234, **context
     return {'modelspec': modelspec}
 
 
-def prefit_LN(est, modelspec, analysis_function=fit_basic,
+def prefit_LN(rec, modelspec, analysis_function=fit_basic,
               fitter=scipy_minimize, metric=None, norm_fir=False,
               tolerance=10**-5.5, max_iter=700, nl_kw={}):
     '''
@@ -220,7 +220,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
         modelspec = fir_L2_norm(modelspec)
 
     # fit without STP module first (if there is one)
-    modelspec = prefit_to_target(est, modelspec, fit_basic,
+    modelspec = prefit_to_target(rec, modelspec, fit_basic,
                                  target_module=['levelshift', 'relu'],
                                  extra_exclude=['stp', 'rdt_gain','state_dc_gain','state_gain'],
                                  fitter=fitter,
@@ -235,48 +235,41 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
             break
 
     # pre-fit static NL if it exists
+    d = init_static_nl(rec, modelspec, **nl_kw)
+    modelspec = d['modelspec']
+    include_names = d['include_names']
+
+    modelspec = prefit_subset(
+        rec, modelspec, fit_basic, include_names=include_names,
+        fitter=scipy_minimize, metric=metric, tolerance=tolerance, max_iter=max_iter)
+
+    return modelspec
+
+
+def init_static_nl(rec, modelspec, **nl_kw):
+
+    include_names = []
+
+    # pre-fit static NL if it exists
     for m in modelspec.modules:
         if 'double_exponential' in m['fn']:
-            modelspec = init_dexp(est, modelspec, **nl_kw)
-            modelspec = prefit_subset(
-                    est, modelspec, fit_basic,
-                    include_names=['double_exponential'],
-                    fitter=scipy_minimize,
-                    metric=metric,
-                    fit_kwargs=fit_kwargs)
-            #modelspec = prefit_mod_subset(
-            #        est, modelspec, fit_basic,
-            #        fit_set=['double_exponential'],
-            #        fitter=scipy_minimize,
-            #        metric=metric,
-            #        fit_kwargs=fit_kwargs)
+            modelspec = init_dexp(rec, modelspec, **nl_kw)
+            include_names = ['double_exponential']
             break
 
         elif 'logistic_sigmoid' in m['fn']:
             log.info("initializing priors and bounds for logsig ...\n")
-            modelspec = init_logsig(est, modelspec)
-            modelspec = prefit_mod_subset(
-                    est, modelspec, fit_basic,
-                    fit_set=['logistic_sigmoid'],
-                    fitter=scipy_minimize,
-                    metric=metric,
-                    fit_kwargs=fit_kwargs)
-
+            modelspec = init_logsig(rec, modelspec)
+            include_names = ['logistic_sigmoid']
             break
 
         elif 'saturated_rectifier' in m['fn']:
             log.info('initializing priors and bounds for relat ...\n')
-            modelspec = init_relsat(est, modelspec)
-            modelspec = prefit_mod_subset(
-                    est, modelspec, fit_basic,
-                    fit_set=['saturated_rectifier'],
-                    fitter=scipy_minimize,
-                    metric=metric,
-                    fit_kwargs=fit_kwargs)
-
+            modelspec = init_relsat(rec, modelspec)
+            include_names = ['saturated_rectifier']
             break
 
-    return modelspec
+    return {'modelspec': modelspec, 'include_names': include_names}
 
 
 def prefit_to_target(rec, modelspec, analysis_function, target_module,
@@ -346,7 +339,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
                   include_idx=include_idx,
                   exclude_idx=exclude_idx,
                   freeze_idx=freeze_idx,
-                  fitter=fitter, metric=metric, fit_kwargs=fit_kwargs)
+                  fitter=fitter, metric=metric, **fit_kwargs)
 
     return modelspec
 
@@ -520,18 +513,20 @@ def _calc_neg_modidx(idx_list, ms_len):
 
     return idx_list
 
-def prefit_subset(rec, modelspec, analysis_function,
+def prefit_subset(est, modelspec, analysis_function=fit_basic,
                   include_idx=None, include_through=None,
                   include_names=None,
                   exclude_idx=None, exclude_after=None,
                   freeze_idx=None, freeze_after=None,
-                  fitter=scipy_minimize, metric=None, fit_kwargs={}):
+                  fitter=scipy_minimize, metric=None,
+                  tolerance=10**-5.5, max_iter=700,
+                  **context):
     """
     Fit subset of modules in a modelspec. Exact behavior depends on how
     included/excluded modules are specified. Default is to fit all modules.
     Non-negative indexes specify modules from the start, negative from the
     end
-    :param rec:
+    :param est:
     :param modelspec:
     :param analysis_function:
     :param include_idx: list of modules to include, if not specified, fit
@@ -553,6 +548,7 @@ def prefit_subset(rec, modelspec, analysis_function,
     # preserve input modelspec
     modelspec = copy.deepcopy(modelspec)
     mslen=len(modelspec)
+    fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
 
     #first, figure out which modules to fit
     include_set = []
@@ -614,7 +610,7 @@ def prefit_subset(rec, modelspec, analysis_function,
             tmodelspec[i] = m
 
     # fit the subset of modules
-    tmodelspec = analysis_function(rec, tmodelspec, fitter=fitter,
+    tmodelspec = analysis_function(est, tmodelspec, fitter=fitter,
                                    metric=metric, fit_kwargs=fit_kwargs)
 
     # pull out updated phi values from tmodelspec, include_set only

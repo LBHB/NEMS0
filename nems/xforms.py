@@ -726,6 +726,27 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
             nl_kw=nl_kw)
     return {'modelspec': modelspec}
 
+def fit_basic_subset(modelspec, est, metric='nmse', output_name='resp',
+                     IsReload=False, **context):
+    '''
+    Initialize modelspecs in a way that avoids getting stuck in
+    local minima.
+
+    written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
+    optional modules in (parens)
+    '''
+    # only run if fitting
+    if IsReload:
+        return {}
+
+    if isinstance(metric, str):
+        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
+    else:
+        metric_fn = metric
+    modelspec = nems.initializers.prefit_subset(
+            est, modelspec, metric=metric_fn, **context)
+    return {'modelspec': modelspec}
+
 """
     # TODO : merge JK and non-JK code if possible.
     if jackknifed_fit:
