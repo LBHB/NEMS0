@@ -22,7 +22,6 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
     #c = rec[psth_name].chans[chanidx]
     #full_psth = rec[psth_name].loc[c]
     full_psth = rec[psth_name]
-    import pdb; pdb.set_trace()
     folded_psth = full_psth.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True)[:, [chanidx], :] * fs
 
     full_var = rec[state_sig].loc[state_chan]
