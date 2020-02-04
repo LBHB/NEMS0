@@ -406,7 +406,7 @@ class SignalBase:
 
     def get_epoch_indices(self, epoch, boundary_mode='exclude',
                           fix_overlap=None, overlapping_epoch=None,
-                          mask=None):
+                          mask=None, allow_incomplete=False):
         '''
         Get boundaries of named epoch as index.
 
@@ -437,6 +437,9 @@ class SignalBase:
             occurences of overlapping_epoch
         mask : {None or signal}
             only include epochs (fully?) spanned by the mask==True
+        allow_incomplete: {True, False}  (added CRH 2/4/2020)
+            if True, allow mask to not perfectly match epoch lb and ub. However, epoch ub and lb must
+            still span the mask.
 
             TODO: check how mask interacts with segments. Currently, masking is
             only tested before segmentation (ie, the application of the mask)
@@ -502,7 +505,6 @@ class SignalBase:
                     break
 
         indices = np.asarray(indices, dtype='i')
-
         if mask is not None:
             # remove instances of the epoch that do not fall in the mask
             m_data = mask.as_continuous()
@@ -511,6 +513,16 @@ class SignalBase:
                 #                samples = ub-lb
                 if np.all(m_data[0, lb:ub]):
                     keepidx.append(i)
+            
+                elif (np.sum(m_data[0, lb:ub]) > 0) & allow_incomplete:
+                    # define new indices
+                    idx = np.where(m_data[0, lb:ub])
+                    lb = lb + idx[0][0]
+                    ub = ub - (ub - idx[0][-1])
+                    # check to make sure all True in this new range (i.e. can't extract non-continuous chunks of an epoch)
+                    if np.all(m_data[0, lb:ub]):
+                        keepidx.append(i)
+
             if len(keepidx) > 0:
                 keepidx = np.array(keepidx)
                 indices = indices[keepidx]
@@ -642,7 +654,7 @@ class SignalBase:
         epoch_data = self.extract_epoch(epoch, mask=mask)
         return np.nanmean(epoch_data, axis=0)
 
-    def extract_epochs(self, epoch_names, overlapping_epoch=None, mask=None):
+    def extract_epochs(self, epoch_names, overlapping_epoch=None, mask=None, allow_incomplete=False):
         '''
         Returns a dictionary of the data matching each element in epoch_names.
 
@@ -683,7 +695,7 @@ class SignalBase:
         for name in epoch_names:
             v = self.extract_epoch(name, allow_empty=True,
                                    overlapping_epoch=overlapping_epoch,
-                                   mask=mask)
+                                   mask=mask, allow_incomplete=allow_incomplete)
             # only return matrices for epochs with non-empty data matrices
             # (deal with possibility that some stimuli are masked out)
             if len(v)>0:
@@ -1122,7 +1134,7 @@ class RasterizedSignal(SignalBase):
 
     def extract_epoch(self, epoch, boundary_mode='exclude',
                       fix_overlap='first', allow_empty=False,
-                      overlapping_epoch=None, mask=None):
+                      overlapping_epoch=None, mask=None, allow_incomplete=False):
         '''
         Extracts all occurances of epoch from the signal.
 
@@ -1163,7 +1175,8 @@ class RasterizedSignal(SignalBase):
             epoch_indices = self.get_epoch_indices(epoch,
                                                    boundary_mode=boundary_mode,
                                                    fix_overlap=fix_overlap,
-                                                   mask=mask)
+                                                   mask=mask,
+                                                   allow_incomplete=allow_incomplete)
         else:
             epoch_indices = epoch
 
@@ -2265,7 +2278,7 @@ class PointProcess(SignalBase):
 
     def extract_epoch(self, epoch, boundary_mode='exclude',
                       fix_overlap='first', allow_empty=False,
-                      overlapping_epoch=None, mask=None):
+                      overlapping_epoch=None, mask=None, allow_incomplete=False):
         '''
         Extracts all occurances of epoch from the signal.
 
@@ -2300,7 +2313,8 @@ class PointProcess(SignalBase):
             epoch_bounds = self.get_epoch_bounds(epoch,
                                                   boundary_mode=boundary_mode,
                                                   fix_overlap=fix_overlap,
-                                                  mask=mask)
+                                                  mask=mask, 
+                                                  allow_incomplete=allow_incomplete)
         else:
             epoch_bounds = epoch
 

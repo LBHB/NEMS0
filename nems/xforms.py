@@ -1067,7 +1067,7 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
     modelspec = corr_fn(est, val, modelspec=modelspec, rec=rec, use_mask=use_mask)
 
     if find_module('state', modelspec) is not None:
-        if 'state' not in val.signals.keys():
+        if ('state' not in val.signals.keys()):
             pass
         else:
             log.info('Skipping jackknife MI calculations')

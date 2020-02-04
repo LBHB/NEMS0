@@ -22,10 +22,11 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
     #c = rec[psth_name].chans[chanidx]
     #full_psth = rec[psth_name].loc[c]
     full_psth = rec[psth_name]
-    folded_psth = full_psth.extract_epoch(epoch, mask=rec['mask'])[:, [chanidx], :] * fs
+    import pdb; pdb.set_trace()
+    folded_psth = full_psth.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True)[:, [chanidx], :] * fs
 
     full_var = rec[state_sig].loc[state_chan]
-    folded_var = np.squeeze(full_var.extract_epoch(epoch, mask=rec['mask'])) * fs
+    folded_var = np.squeeze(full_var.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True)) * fs
 
     # compute the mean state for each occurrence
     g = (np.sum(np.isfinite(folded_var), axis=1) > 0)
@@ -44,7 +45,7 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
             if (s.startswith('FILE') | s.startswith('ACTIVE') |
                 s.startswith('PASSIVE')) and s != state_chan:
                 full_var = rec[state_sig].loc[s]
-                folded_var = np.squeeze(full_var.extract_epoch(epoch, mask=rec['mask']))
+                folded_var = np.squeeze(full_var.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True))
                 g = (np.sum(np.isfinite(folded_var), axis=1) > 0)
                 m0[g] += np.nanmean(folded_var[g, :], axis=1)
         ltidx = np.logical_not(gtidx) & np.logical_not(m0) & g
