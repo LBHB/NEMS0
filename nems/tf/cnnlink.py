@@ -489,6 +489,13 @@ def _fit_net(F, D, modelspec, seed, fs, optimizer='Adam',
     else:
         modelspec = cnn2modelspec(net2, modelspec)
 
+    # record last iter in extra results
+    try:
+        max_iter = modelspec.meta['extra_results']
+        modelspec.meta['extra_results'] = max(max_iter, net2.last_iter)
+    except KeyError:
+        modelspec.meta['extra_results'] = net2.last_iter
+
     return modelspec, net2
 
 

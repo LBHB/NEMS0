@@ -262,6 +262,7 @@ class Net:
         self.learning_rate = tf.compat.v1.placeholder('float32')
         self.best_loss = 1e100
         self.best_loss_index = 0
+        self.last_iter = None
 
         # directory and file info
         if log_dir is None:
@@ -675,6 +676,9 @@ class Net:
             # load the best loss
             if early_stopping_steps > 0:
                 self.load()
+
+            # record the last iter step
+            self.last_iter = i + 1
 
     def predict(self, F, S=None, sess=None):
 
