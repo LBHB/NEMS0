@@ -21,7 +21,8 @@ modelspecs_dir = nems.get_setting('NEMS_RESULTS_DIR')
 
 
 def map_layer(layer: dict, fn: str, idx: int, modelspec,
-              n_input_feats, net_seed, weight_scale, use_modelspec_init: bool, ) -> dict:
+              n_input_feats, net_seed, weight_scale, use_modelspec_init: bool,
+              distr: str='norm',) -> dict:
     """Maps a module to a tensorflow layer.
 
     Available conversions:
@@ -43,6 +44,8 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
     :param net_seed:
     :param weight_scale:
     :param use_modelspec_init:
+    :param distr: The type of distribution to init layers with. Only applicable if use_modelspec_init
+                       is False.
     """
     phi = modelspec.get('phi', None)
     fn_kwargs = modelspec['fn_kwargs']
@@ -57,7 +60,7 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
             layer['b'] = tf.Variable(c.reshape((1, c.shape[0], c.shape[1])))
         else:
             layer['b'] = tf.abs(cnn.kern2D(1, c.shape[0], c.shape[1], weight_scale,
-                                           seed=net_seed, distr='norm'))
+                                           seed=net_seed, distr=distr))
 
         layer['Y'] = cnn.act('relu')(layer['X'] + layer['b'])
 
@@ -70,7 +73,7 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
             layer['b'] = tf.Variable(c.reshape((1, c.shape[0], c.shape[1])))
         else:
             layer['b'] = tf.abs(cnn.kern2D(1, c.shape[0], c.shape[1], weight_scale,
-                                           seed=net_seed, distr='norm'))
+                                           seed=net_seed, distr=distr))
 
         layer['Y'] = cnn.act('identity')(layer['X'] + layer['b'])
 
@@ -82,6 +85,7 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
         if use_modelspec_init:
             layer['b'] = tf.Variable(c.reshape((1, c.shape[0], c.shape[1])))
         else:
+            # TODO: why does this default to 'tnorm' instead of 'norm'? Change to be var distr?
             layer['b'] = tf.abs(cnn.kern2D(1, c.shape[0], c.shape[1], weight_scale,
                                            seed=cnn.seed_to_randint(net_seed) + idx,
                                            distr='tnorm'))
@@ -130,7 +134,7 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
             layer['W'] = tf.Variable(c)
         else:
             layer['W'] = cnn.kern2D(layer['time_win_smp'], c.shape[1], 1,
-                                    weight_scale, seed=net_seed, distr='norm')
+                                    weight_scale, seed=net_seed, distr=distr)
 
         pad_size = np.int32(np.floor(layer['time_win_smp'] - 1))
         X_pad = tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]])
@@ -449,7 +453,8 @@ def tf2modelspec(net, modelspec):
 
 def _fit_net(F, D, modelspec, seed, fs, optimizer='Adam',
              max_iter=1000, learning_rate=0.01, use_modelspec_init=False, S=None,
-             loss_type='squared_error', early_stopping_steps=5, early_stopping_tolerance=5e-4):
+             loss_type='squared_error', early_stopping_steps=5, early_stopping_tolerance=5e-4,
+             distr='norm'):
 
     n_feats = F.shape[2]
     data_dims = D.shape
@@ -464,7 +469,7 @@ def _fit_net(F, D, modelspec, seed, fs, optimizer='Adam',
 
         layers = modelspec.modelspec2tf(tps_per_stim=D.shape[1], feat_dims=n_feats,
                               data_dims=D.shape[2], state_dims=state_dims, fs=fs,
-                              use_modelspec_init=use_modelspec_init)
+                              use_modelspec_init=use_modelspec_init, distr=distr, net_seed=seed)
         net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=modelspec.meta['modelpath'], loss_type=loss_type)
     else:
         layers = modelspec.modelspec2cnn(n_inputs=n_feats, fs=fs, use_modelspec_init=use_modelspec_init)
@@ -613,7 +618,7 @@ def fit_tf(modelspec=None, est=None,
            use_modelspec_init=True, init_count=1,
            optimizer='Adam', max_iter=1000, cost_function='squared_error',
            early_stopping_steps=5, early_stopping_tolerance=5e-4, learning_rate=0.01,
-           **context):
+           distr='norm', **context):
     """
     :param est: A recording object
     :param modelspec: A modelspec object
@@ -664,7 +669,8 @@ def fit_tf(modelspec=None, est=None,
     modelspec, net = _fit_net(F, D, modelspec, seed, new_est['resp'].fs,
                               optimizer=optimizer, max_iter=np.min([max_iter]), learning_rate=learning_rate,
                               use_modelspec_init=use_modelspec_init, S=S, loss_type=cost_function,
-                              early_stopping_steps=early_stopping_steps, early_stopping_tolerance=early_stopping_tolerance)
+                              early_stopping_steps=early_stopping_steps,
+                              early_stopping_tolerance=early_stopping_tolerance, distr=distr)
 
     new_est = eval_tf(modelspec, new_est)
     y = new_est['pred'].as_continuous()

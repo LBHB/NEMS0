@@ -915,7 +915,8 @@ class ModelSpec:
         return guess
 
     def modelspec2tf(self, tps_per_stim=550, feat_dims=1, data_dims=1, state_dims=0,
-                     fs=100, net_seed=1, weight_scale=0.1, use_modelspec_init=True):
+                     fs=100, net_seed=1, weight_scale=0.1, use_modelspec_init=True,
+                     distr='norm',):
         """Converts a modelspec object to Tensorflow layers.
 
         Maps modelspec modules to Tensorflow layers. Adapted from code by Sam Norman-Haignere.
@@ -962,8 +963,9 @@ class ModelSpec:
             # default integration time is one bin
             layer['time_win_smp'] = 1  # default
 
-            layer = nems.tf.cnnlink.map_layer(layer=layer, fn=fn, idx=idx, modelspec=m, n_input_feats=n_input_feats, net_seed=net_seed,
-                                              weight_scale=weight_scale, use_modelspec_init=use_modelspec_init)
+            layer = nems.tf.cnnlink.map_layer(layer=layer, fn=fn, idx=idx, modelspec=m, n_input_feats=n_input_feats,
+                                              net_seed=net_seed, weight_scale=weight_scale,
+                                              use_modelspec_init=use_modelspec_init, distr=distr,)
 
             # necessary?
             layer['time_win_sec'] = layer['time_win_smp'] / fs

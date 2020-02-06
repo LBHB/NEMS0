@@ -28,6 +28,14 @@ def weights_uniform(shape, minval=0, maxval=1, sig=0.1, seed=0):
     W = tf.Variable(tf.random_uniform(shape, minval=minval, maxval=maxval, seed=seed))
     return W
 
+def weights_glorot_uniform(shape, seed=0, sig=None):
+    W = tf.Variable(tf.compat.v1.keras.initializers.glorot_uniform(seed)(shape))
+    return W
+
+def weights_he_uniform(shape, seed=0, sig=None):
+    W = tf.Variable(tf.compat.v1.keras.initializers.he_uniform(seed)(shape))
+    return W
+
 def weights_matrix(d):
     """ variable with specified initial values """
     W = tf.Variable(d)
@@ -190,6 +198,10 @@ def kern2D(n_x, n_y, n_kern, sig, rank=None, seed=0, distr='tnorm'):
         fn = weights_zeros
     elif distr == 'uniform':
         fn = weights_uniform
+    elif distr == 'glorot_uniform':
+        fn = weights_glorot_uniform
+    elif distr == 'he_uniform':
+        fn = weights_he_uniform
     else:
         raise NameError('No matching distribution')
 

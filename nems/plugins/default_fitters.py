@@ -174,6 +174,7 @@ def tf(fitkey):
            10 to the power of said negative integer.
     lr<N>e<N>: Specify the learning rate. The value should be two integers separated by the letter "e". The first
                integer will be multiplied by 10 raised to the negative second integer. Ex: lr5e2 = 0.05
+    d<S> : String specifying the distribution with which to initialize the layers. Only used if .n not passed
     '''
 
     options = _extract_options(fitkey)
@@ -188,6 +189,7 @@ def tf(fitkey):
     early_stopping_steps = 5
     early_stopping_tolerance = 1e-5
     learning_rate = 0.01
+    distr = 'norm'
 
     for op in options:
         if op[:1] == 'i':
@@ -239,6 +241,12 @@ def tf(fitkey):
             early_stopping_tolerance = 1 * 10 ** -int(op[2:])
         elif op[:1] == 'e':
             early_stopping_steps = int(op[1:])
+        elif op[:1] == 'd':
+            distr = op[1:]
+            if distr == 'gu':
+                distr = 'glorot_uniform'
+            elif distr == 'heu':
+                distr = 'he_uniform'
 
     xfspec = []
     if rand_count > 0:
@@ -255,6 +263,7 @@ def tf(fitkey):
                        'early_stopping_steps': early_stopping_steps,
                        'early_stopping_tolerance': early_stopping_tolerance,
                        'learning_rate': learning_rate,
+                       'distr': distr,
                    }])
     
     if pick_best:
