@@ -603,7 +603,7 @@ class Net:
         fname = self.log_dir + '/' + self.log_id + '-model.ckpt'
         self.saver.restore(self.sess, fname)
 
-    def train(self, F, D, learning_rate=0.5, max_iter=300, eval_interval=30, batch_size=None,
+    def train(self, F, D, learning_rate=0.01, max_iter=300, eval_interval=30, batch_size=None,
               early_stopping_steps=5, early_stopping_tolerance=5e-4, print_iter=True, S=None):
 
         self.save()

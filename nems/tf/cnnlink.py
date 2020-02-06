@@ -612,7 +612,8 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
 def fit_tf(modelspec=None, est=None,
            use_modelspec_init=True, init_count=1,
            optimizer='Adam', max_iter=1000, cost_function='squared_error',
-           early_stopping_steps=5, early_stopping_tolerance=5e-4, **context):
+           early_stopping_steps=5, early_stopping_tolerance=5e-4, learning_rate=0.01,
+           **context):
     """
     :param est: A recording object
     :param modelspec: A modelspec object
@@ -661,7 +662,7 @@ def fit_tf(modelspec=None, est=None,
 
     modelspec_pre = modelspec.copy()
     modelspec, net = _fit_net(F, D, modelspec, seed, new_est['resp'].fs,
-                              optimizer=optimizer, max_iter=np.min([max_iter]),
+                              optimizer=optimizer, max_iter=np.min([max_iter]), learning_rate=learning_rate,
                               use_modelspec_init=use_modelspec_init, S=S, loss_type=cost_function,
                               early_stopping_steps=early_stopping_steps, early_stopping_tolerance=early_stopping_tolerance)
 

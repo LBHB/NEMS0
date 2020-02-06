@@ -759,7 +759,7 @@ class ModelSpec:
         # iterate through the plotting partials and plot them to the gridspec
         for row_idx, (plot_fn, col_spans) in enumerate(plot_fns):
             # plot_fn, col_spans should be list, so convert if necessary
-            log.info('plotting row {}/{}'.format(row_idx, len(plot_fns)))
+            log.info('plotting row {}/{}'.format(row_idx + 1, len(plot_fns)))
             if isinstance(col_spans, int) and not isinstance(plot_fn, list):
                 col_spans = [col_spans]
                 plot_fn = [plot_fn]

@@ -172,6 +172,8 @@ def tf(fitkey):
            early stopping.
     et<N>: Specify the tolerance for early stopping. The value should be an integer, and the tolerance will be
            10 to the power of said negative integer.
+    lr<N>e<N>: Specify the learning rate. The value should be two integers separated by the letter "e". The first
+               integer will be multiplied by 10 raised to the negative second integer. Ex: lr5e2 = 0.05
     '''
 
     options = _extract_options(fitkey)
@@ -185,6 +187,7 @@ def tf(fitkey):
     loss_type = 'squared_error'
     early_stopping_steps = 5
     early_stopping_tolerance = 1e-5
+    learning_rate = 0.01
 
     for op in options:
         if op[:1] == 'i':
@@ -210,6 +213,13 @@ def tf(fitkey):
             else:
                 rand_count = int(op[2:])
             pick_best = True
+        elif op.startswith('lr'):
+            learning_rate = op[2:]
+            if 'e' in learning_rate:
+                base, exponent = learning_rate.split('e')
+                learning_rate = int(base) * 10 ** -int(exponent)
+            else:
+                learning_rate = int(learning_rate)
         elif op.startswith('r'):
             if len(op) == 1:
                 rand_count = 10
@@ -244,6 +254,7 @@ def tf(fitkey):
                        'fit_function': 'nems.tf.cnnlink.fit_tf',
                        'early_stopping_steps': early_stopping_steps,
                        'early_stopping_tolerance': early_stopping_tolerance,
+                       'learning_rate': learning_rate,
                    }])
     
     if pick_best:
