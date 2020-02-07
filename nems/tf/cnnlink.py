@@ -3,18 +3,21 @@ Tools for mapping NEMS modelspecs to and from Tensorflow CNNs
 Uses Sam Norman-Haignere's CNN library as a front end for TF
 
 """
-import tensorflow as tf
-import numpy as np
-import time
 import copy
+import logging
+import shutil
+import time
+from pathlib import Path
+
+import numpy as np
+import tensorflow as tf
 
 import nems
 import nems.modelspec as ms
 import nems.tf.cnn as cnn
-from nems.initializers import init_dexp, init_logsig, init_relsat
-import nems.metrics.api as nmet
 import nems.utils
-import logging
+from nems.initializers import init_dexp, init_logsig, init_relsat
+
 log = logging.getLogger(__name__)
 
 modelspecs_dir = nems.get_setting('NEMS_RESULTS_DIR')
@@ -451,7 +454,7 @@ def tf2modelspec(net, modelspec):
     return modelspec
 
 
-def _fit_net(F, D, modelspec, seed, fs, optimizer='Adam',
+def _fit_net(F, D, modelspec, seed, fs, log_dir, optimizer='Adam',
              max_iter=1000, learning_rate=0.01, use_modelspec_init=False, S=None,
              loss_type='squared_error', early_stopping_steps=5, early_stopping_tolerance=5e-4,
              distr='norm'):
@@ -470,7 +473,7 @@ def _fit_net(F, D, modelspec, seed, fs, optimizer='Adam',
         layers = modelspec.modelspec2tf(tps_per_stim=D.shape[1], feat_dims=n_feats,
                               data_dims=D.shape[2], state_dims=state_dims, fs=fs,
                               use_modelspec_init=use_modelspec_init, distr=distr, net_seed=seed)
-        net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=modelspec.meta['modelpath'], loss_type=loss_type)
+        net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=log_dir, loss_type=loss_type)
     else:
         layers = modelspec.modelspec2cnn(n_inputs=n_feats, fs=fs, use_modelspec_init=use_modelspec_init)
         # layers = [{'act': 'identity', 'n_kern': 1,
@@ -665,14 +668,35 @@ def fit_tf(modelspec=None, est=None,
 
     seed = net1_seed + modelspec.fit_index
 
+    # check to see if we should log model weights elsewhere
+    log_dir = modelspec.meta['modelpath']
+    if nems.get_setting('USE_EXACLOUD'):
+        log_dir_root = Path('/mnt/scratch')
+        assert log_dir_root.exists()
+        log_dir_sub = Path(str(modelspec.meta['batch'])) / modelspec.meta['cellid'] / modelspec.meta['modelname']
+        log_dir = log_dir_root / log_dir_sub
+
     modelspec_pre = modelspec.copy()
-    modelspec, net = _fit_net(F, D, modelspec, seed, new_est['resp'].fs,
+    modelspec, net = _fit_net(F, D, modelspec, seed, new_est['resp'].fs, log_dir=str(log_dir),
                               optimizer=optimizer, max_iter=np.min([max_iter]), learning_rate=learning_rate,
                               use_modelspec_init=use_modelspec_init, S=S, loss_type=cost_function,
                               early_stopping_steps=early_stopping_steps,
                               early_stopping_tolerance=early_stopping_tolerance, distr=distr)
 
-    new_est = eval_tf(modelspec, new_est)
+    new_est = eval_tf(modelspec, new_est, log_dir)
+
+    # clear out tmp dir
+    if nems.get_setting('USE_EXACLOUD'):
+        try:
+            shutil.rmtree(log_dir)
+            try:
+                for p in list(log_dir.parents)[:3]:
+                    p.rmdir()
+            except OSError:
+                pass
+        except:  # TODO what's the error here raised by shutil
+            pass
+
     y = new_est['pred'].as_continuous()
     y2 = new_est['pred_nems'].as_continuous()
     E = np.nanstd(y[:,10:]-y2[:,10:])
@@ -741,7 +765,7 @@ def fit_tf(modelspec=None, est=None,
     return {'modelspec': modelspec}
 
 
-def eval_tf(modelspec, est):
+def eval_tf(modelspec, est, log_dir):
     """
     TODO : evaluate a NEMS model through TF
     :param modelspec:
