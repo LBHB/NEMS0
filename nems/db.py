@@ -6,6 +6,7 @@ import logging
 import itertools
 import json
 import socket
+import shutil
 
 import pandas as pd
 import numpy as np
@@ -1087,6 +1088,31 @@ def get_results_file(batch, modelnames=None, cellids=None):
                          .format(batch, modelnames, cellids))
     else:
         return results
+
+def export_fits(batch, modelnames=None, cellids=None, dest=None):
+    """
+
+    :param batch: required
+    :param modelnames: required - [list of modelnames]
+    :param cellids: [list of cellids] - default all cells
+    :param dest: path where exported models should be saved
+    :return:
+    """
+    if modelnames is None:
+        raise ValueError('currently must specify modelname list')
+    if dest is None:
+        raise ValueError('currently must specify dest path')
+    if not os.path.exists(dest):
+        raise ValueError('dest path {} does not exist'.format(dest))
+
+    if type(modelnames) is str:
+        modelnames=[modelnames]
+
+    df = get_results_file(batch, modelnames=modelnames, cellids=cellids)
+    for index, row in df.iterrows():
+        print('copy {} to {}'.format(row['modelpath'],'/tmp/'))
+
+    return dest
 
 
 def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
