@@ -681,7 +681,7 @@ class ModelSpec:
                 plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_signals')
                 title = s + ' timeseries'
 
-            fn = partial(plot_fn, rec,
+            fn = partial(plot_fn, rec=rec,
                          sig_name=s,
                          epoch=epoch,
                          occurrence=occurrence,
