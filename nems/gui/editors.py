@@ -148,6 +148,8 @@ class EditorWindow(qw.QMainWindow):
             modelspec = ctx.get('modelspec', None)
         if (rec is None) and (ctx is not None):
             rec = ctx.get(rec_name, None)
+        if ctx is None:
+            ctx={'modelspec':modelspec, 'rec': rec}
         self.editor = EditorWidget(modelspec, xfspec, rec, ctx, self, control_widget=control_widget)
         self.title = 'NEMS Model Browser'
         self.setCentralWidget(self.editor)
@@ -181,12 +183,11 @@ class EditorWidget(qw.QWidget):
         self.rec = rec
         self.rec=self.rec.apply_mask(reset_epochs=True)
         self.modelspec.recording=self.rec
-        if ctx is not None:
-            meta = ctx['modelspec'].meta
-            modelname = meta['modelname']
-            batch = meta.get('batch', 0)
-            cellid = meta.get('cellid', 'CELL')
-            self.title = "%s  ||  %s  ||  %s  " % (modelname, cellid, batch)
+        meta = modelspec.meta
+        modelname = meta['modelname']
+        batch = meta.get('batch', 0)
+        cellid = meta.get('cellid', 'CELL')
+        self.title = "%s  ||  %s  ||  %s  " % (modelname, cellid, batch)
         if ctx is None:
             self.ctx = {}
         else:

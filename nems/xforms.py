@@ -726,6 +726,27 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
             nl_kw=nl_kw)
     return {'modelspec': modelspec}
 
+def fit_basic_subset(modelspec, est, metric='nmse', output_name='resp',
+                     IsReload=False, **context):
+    '''
+    Initialize modelspecs in a way that avoids getting stuck in
+    local minima.
+
+    written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
+    optional modules in (parens)
+    '''
+    # only run if fitting
+    if IsReload:
+        return {}
+
+    if isinstance(metric, str):
+        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
+    else:
+        metric_fn = metric
+    modelspec = nems.initializers.prefit_subset(
+            est, modelspec, metric=metric_fn, **context)
+    return {'modelspec': modelspec}
+
 """
     # TODO : merge JK and non-JK code if possible.
     if jackknifed_fit:
@@ -1046,7 +1067,7 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
     modelspec = corr_fn(est, val, modelspec=modelspec, rec=rec, use_mask=use_mask)
 
     if find_module('state', modelspec) is not None:
-        if 'state' not in val.signals.keys():
+        if ('state' not in val.signals.keys()):
             pass
         else:
             log.info('Skipping jackknife MI calculations')
@@ -1075,7 +1096,7 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
             modelspec.meta['se_state_mod_r'] = ee
 
             # try using the "mod" signal (if it exists) which is calculated
-            if 'mod' in modelspec.meta['modelname']:
+            if ('mod' in modelspec.meta['modelname']) and ('mod' in val.signals.keys()):
                 s = metrics.state_mod_index(val, epoch='REFERENCE',
                                                 psth_name='mod', divisor='resp',
                                                 state_sig='state_raw', state_chan=[])

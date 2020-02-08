@@ -427,3 +427,4 @@ def lookup_fn_at(fn_path, ignore_table=False):
         if not ignore_table:
             lookup_table[fn_path] = fn
     return fn
+
