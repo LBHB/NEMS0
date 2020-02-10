@@ -66,7 +66,7 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
             layer['b'] = tf.abs(cnn.kern2D(1, c.shape[0], c.shape[1], weight_scale,
                                            seed=net_seed, distr=distr))
 
-        layer['Y'] = cnn.act('relu')(layer['X'] + layer['b'])
+        layer['Y'] = tf.nn.relu(layer['X'] + layer['b'])
 
     elif 'levelshift' in fn:
         layer['type'] = 'offset'
@@ -79,7 +79,7 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
             layer['b'] = tf.abs(cnn.kern2D(1, c.shape[0], c.shape[1], weight_scale,
                                            seed=net_seed, distr=distr))
 
-        layer['Y'] = cnn.act('identity')(layer['X'] + layer['b'])
+        layer['Y'] = tf.identity(layer['X'] + layer['b'])
 
     elif fn == 'nems.modules.nonlinearity.dlog':
         layer['type'] = 'dlog'
@@ -465,25 +465,15 @@ def _fit_net(F, D, modelspec, seed, fs, log_dir, optimizer='Adam',
     sr_Hz = fs
 
     tf.compat.v1.reset_default_graph()
-    if 1:
-        if S is not None:
-            state_dims = S.shape[2]
-        else:
-            state_dims = 0
-
-        layers = modelspec.modelspec2tf(tps_per_stim=D.shape[1], feat_dims=n_feats,
-                              data_dims=D.shape[2], state_dims=state_dims, fs=fs,
-                              use_modelspec_init=use_modelspec_init, distr=distr, net_seed=seed)
-        net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=log_dir, loss_type=loss_type)
+    if S is not None:
+        state_dims = S.shape[2]
     else:
-        layers = modelspec.modelspec2cnn(n_inputs=n_feats, fs=fs, use_modelspec_init=use_modelspec_init)
-        # layers = [{'act': 'identity', 'n_kern': 1,
-        #  'time_win_sec': 0.01, 'type': 'reweight-positive'},
-        # {'act': 'relu', 'n_kern': 1, 'rank': None,
-        #  'time_win_sec': 0.15, 'type': 'conv'}]
+        state_dims = 0
 
-        net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=modelspec.meta['modelpath'])
-        net2.parse_layers()
+    layers = modelspec.modelspec2tf(tps_per_stim=D.shape[1], feat_dims=n_feats,
+                          data_dims=D.shape[2], state_dims=state_dims, fs=fs,
+                          use_modelspec_init=use_modelspec_init, distr=distr, net_seed=seed)
+    net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=log_dir, loss_type=loss_type)
 
     net2.initialize()
     net2.optimizer = optimizer
@@ -493,10 +483,7 @@ def _fit_net(F, D, modelspec, seed, fs, log_dir, optimizer='Adam',
     net2.train(F, D, max_iter=max_iter, learning_rate=learning_rate, S=S,
                early_stopping_steps=early_stopping_steps, early_stopping_tolerance=early_stopping_tolerance)
 
-    if 1:
-        modelspec = tf2modelspec(net2, modelspec)
-    else:
-        modelspec = cnn2modelspec(net2, modelspec)
+    modelspec = tf2modelspec(net2, modelspec)
 
     # record last iter in extra results
     try:
