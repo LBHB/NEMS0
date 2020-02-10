@@ -1,8 +1,8 @@
 """
 Tools for mapping NEMS modelspecs to and from Tensorflow CNNs
 Uses Sam Norman-Haignere's CNN library as a front end for TF
-
 """
+
 import copy
 import logging
 import shutil
@@ -17,6 +17,7 @@ import nems.modelspec as ms
 import nems.tf.cnn as cnn
 import nems.utils
 from nems.initializers import init_dexp, init_logsig, init_relsat
+from nems.tf import initializers
 
 log = logging.getLogger(__name__)
 
@@ -262,7 +263,7 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
         if use_modelspec_init:
             layer['W'] = tf.Variable(c)
         else:
-            layer['W'] = cnn.weights_norm(c.shape, sig=weight_scale, seed=cnn.seed_to_randint(net_seed) + idx)
+            layer['W'] = initializers.weights_norm(c.shape, sig=weight_scale, seed=cnn.seed_to_randint(net_seed) + idx)
 
         if bank_count == 1:
             # "outer product" convolve each channel with each filter

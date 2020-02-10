@@ -1,4 +1,4 @@
-"""code for fitting LN network models based on Sam Norman-Haignere's cnn library"""
+"""Code for fitting LN network models based on Sam Norman-Haignere's cnn library"""
 
 import itertools
 import logging
@@ -7,39 +7,10 @@ import os
 import numpy as np
 import tensorflow as tf
 
+from nems.tf import initializers
+
 log = logging.getLogger(__name__)
 
-
-def weights_tnorm(shape, sig=0.1, seed=0):
-    W = tf.Variable(tf.random.truncated_normal(
-        shape, stddev=sig, mean=sig, seed=seed))
-    return W
-
-def weights_norm(shape, sig=0.1, seed=0):
-    W = tf.Variable(tf.random.normal(shape, stddev=sig, mean=0, seed=seed))
-    return W
-
-def weights_zeros(shape, sig=0.1, seed=0):
-    #W = tf.Variable(tf.random_normal(shape, stddev=0.001, mean=0, seed=seed))
-    W = tf.Variable(tf.zeros(shape))
-    return W
-
-def weights_uniform(shape, minval=0, maxval=1, sig=0.1, seed=0):
-    W = tf.Variable(tf.random_uniform(shape, minval=minval, maxval=maxval, seed=seed))
-    return W
-
-def weights_glorot_uniform(shape, seed=0, sig=None):
-    W = tf.Variable(tf.compat.v1.keras.initializers.glorot_uniform(seed)(shape))
-    return W
-
-def weights_he_uniform(shape, seed=0, sig=None):
-    W = tf.Variable(tf.compat.v1.keras.initializers.he_uniform(seed)(shape))
-    return W
-
-def weights_matrix(d):
-    """ variable with specified initial values """
-    W = tf.Variable(d)
-    return W
 
 def poisson(response, prediction):
     return tf.reduce_mean(prediction - response * tf.log(prediction + 1e-5), name='poisson')
@@ -171,9 +142,11 @@ def act(name):
         raise NameError('No matching activation')
     return fn
 
+
 def seed_to_randint(seed):
     np.random.seed(seed)
     return np.random.randint(1e9)
+
 
 def kern2D(n_x, n_y, n_kern, sig, rank=None, seed=0, distr='tnorm'):
     """
@@ -189,25 +162,25 @@ def kern2D(n_x, n_y, n_kern, sig, rank=None, seed=0, distr='tnorm'):
     log.info(distr)
 
     if type(distr) is np.ndarray:
-        fn = weights_matrix
+        fn = initializers.weights_matrix
     elif distr == 'tnorm':
-        fn = weights_tnorm
+        fn = initializers.weights_tnorm
     elif distr == 'norm':
-        fn = weights_norm
+        fn = initializers.weights_norm
     elif distr == 'zeros':
-        fn = weights_zeros
+        fn = initializers.weights_zeros
     elif distr == 'uniform':
-        fn = weights_uniform
+        fn = initializers.weights_uniform
     elif distr == 'glorot_uniform':
-        fn = weights_glorot_uniform
+        fn = initializers.weights_glorot_uniform
     elif distr == 'he_uniform':
-        fn = weights_he_uniform
+        fn = initializers.weights_he_uniform
     else:
         raise NameError('No matching distribution')
 
     if type(distr) is np.ndarray:
         # TODO : break out to separate kern
-        W = weights_matrix(distr)
+        W = initializers.weights_matrix(distr)
     elif rank is None:
         log.info('seed: %d',seed_to_randint(seed))
         W = fn([n_x, n_y, n_kern], sig=sig, seed=seed_to_randint(seed))
@@ -235,7 +208,7 @@ class Net:
     def __init__(self, data_dims, n_feats, sr_Hz, layers, loss_type='squared_error',
                  weight_scale=0.1, seed=0, log_dir=None, log_id=None, optimizer='Adam', n_states=0):
 
-        # dimensionality of feature sand data
+        # dimensionality of features and data
         self.n_stim = data_dims[0]
         self.n_tps_input = data_dims[1]
         self.n_resp = data_dims[2]
@@ -770,8 +743,6 @@ class MultiNet(Net):
 
         # other misc parameters
         self.train_loss = []
-        self.val_loss = []
-        self.test_loss = []
         self.iteration = []
         self.learning_rate = tf.placeholder('float32')
         self.best_loss = 1e100
