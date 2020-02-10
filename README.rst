@@ -42,8 +42,7 @@ If you already have Python and Git, download NEMS:
 
    git clone https://github.com/lbhb/NEMS
 
-Add the NEMS library via pip (where ``./NEMS`` is the installation directory and ``-e`` means editable mode,
-which is not necessary, but is useful if you end up customizing your model fits):
+Add the NEMS library via pip (where ``./NEMS`` is the installation directory and ``-e`` means editable mode):
 
 ::
 
