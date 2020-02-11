@@ -740,7 +740,10 @@ def fit_basic_subset(modelspec, est, metric='nmse', output_name='resp',
         return {}
 
     if isinstance(metric, str):
-        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
+        if metric == 'pup_dep_LV':
+            metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name, **context)
+        else:
+            metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
     else:
         metric_fn = metric
     modelspec = nems.initializers.prefit_subset(
