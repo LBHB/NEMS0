@@ -135,7 +135,8 @@ def fit_xfspec(xfspec):
     return ctx
 
 
-def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False):
+def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
+                    returnModel=False):
     """
     Fit a single NEMS model using data stored in database. First generates an xforms
     script based on modelname parameter and then evaluates it.
@@ -145,7 +146,9 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False):
     and fit method
     :param autoPlot: generate summary plot when complete
     :param saveInDB: save results to Results table
-    :return: savepath = path to saved results
+    :param returnModel: boolean (default False). If False, return savepath
+       if True return xfspec, ctx tuple
+    :return: savepath = path to saved results or (xfspec, ctx) tuple
     """
 
     log.info('Initializing modelspec(s) for cell/batch %s/%d...',
@@ -200,6 +203,10 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False):
     modelspec.meta['modelpath'] = destination
     modelspec.meta['figurefile'] = os.path.join(destination, 'figure.0000.png')
     modelspec.meta.update(meta)
+
+    if returnModel:
+        # return fit, skip save!
+        return xfspec, ctx
 
     # save results
     log.info('Saving modelspec(s) to {0} ...'.format(destination))

@@ -492,7 +492,7 @@ class ModelSpec:
                         'defaulting to first entry.')
             fn_path = fn_list[0]
 
-        log.info(f'Found plot fn "{fn_path}" for module "{module["fn"]}"')
+        log.debug(f'Found plot fn "{fn_path}" for module "{module["fn"]}"')
         return _lookup_fn_at(fn_path)
 
     def plot(self, mod_index=0, plot_fn_idx=None, fit_index=None, rec=None,
@@ -600,32 +600,36 @@ class ModelSpec:
         # data to plot
         if epoch is not None:
             try:
-                extracted = rec_resp.extract_epoch(epoch)
+                epoch_bounds = rec_resp.get_epoch_bounds(epoch)
             except:
                 log.warning(f'Quickplot: no valid epochs matching {epoch}. Will not subset data.')
                 epoch = None
 
-        if epoch is None:
-            extracted = rec_resp.as_continuous()
+        if (epoch is None) or (len(epoch_bounds)==0):
+            epoch_bounds = np.array([[0, rec_resp.shape[1]/rec_resp.fs]])
 
         # figure out which occurrence
-        not_empty = [np.any(np.isfinite(x)) for x in extracted]  # occurrences containing non inf/nan data
-        possible_occurrences, = np.where(not_empty)
-
+        #not_empty = [np.any(np.isfinite(x)) for x in extracted]  # occurrences containing non inf/nan data
+        #possible_occurrences, = np.where(not_empty)
+        possible_occurrences = np.arange(epoch_bounds.shape[1])
         # if there's no possible occurrences, then occurrence passed in doesn't matter
-        if possible_occurrences.size == 0:
+        if time_range is not None:
+            pass
+        elif len(possible_occurrences) == 0:
             # only warn if passed in occurrence
             if occurrence is not None:
                 log.warning('Quickplot: no possible occurrences, ignoring passed occurrence')
             occurrence = None
-        # otherwise, if the passed occurrence is not possible, then default to the first one
+            time_range = epoch_bounds[0]
         else:
+            # otherwise, if the passed occurrence is not possible, then default to the first one
             if occurrence not in possible_occurrences:
                 # only warn if had passed in occurrence
                 if occurrence is not None:
                     log.warning(f'Quickplot: Passed occurrence not possible, defaulting to first possible '
                                 f'(idx: {occurrence}).')
                 occurrence = possible_occurrences[0]
+            time_range = epoch_bounds[occurrence]
 
         # determine the plot functions
         plot_fn_modules = []
@@ -768,12 +772,15 @@ class ModelSpec:
 
             col_idx = 0
             for fn, col_span in zip(plot_fn, col_spans):
-                ax = plt.Subplot(fig, gs_cols[0, col_idx:col_idx + col_span])
-                fig.add_subplot(ax)
-                fn(ax=ax)
-                col_idx += col_span
+                try:
+                    ax = plt.Subplot(fig, gs_cols[0, col_idx:col_idx + col_span])
+                    fig.add_subplot(ax)
+                    fn(ax=ax)
+                    col_idx += col_span
+                except:
+                    import pdb;pdb.set_trace()
 
-        log.info('done plotting')
+        log.debug('done plotting')
 
         # suptitle needs to be after the gridspecs in order to work with constrained_layout
         fig.suptitle(fig_title)

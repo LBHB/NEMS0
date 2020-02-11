@@ -144,7 +144,7 @@ class EpochCanvas(NemsCanvas):
         colors = ['Red', 'Orange', 'Green', 'LightBlue',
                   'DarkBlue', 'Purple', 'Pink', 'Black', 'Gray']
         for i, g in enumerate(self.epoch_groups):
-            for j in self.epoch_groups[g][:2]:
+            for j in self.epoch_groups[g]:
                 n = valid_epochs['name'][j]
                 s = valid_epochs['start'][j]
                 e = valid_epochs['end'][j]

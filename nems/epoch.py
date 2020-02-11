@@ -397,7 +397,7 @@ def epoch_contains(a, b, mode):
 
 def epoch_contained(a, b):
     '''
-    Tests whether an occurence of a is fully contained inside b
+    Tests whether an occurrence of a is fully contained inside b
     '''
     mask = _epoch_contains_mask(b, a)
     return mask.all(axis=2).any(axis=0)

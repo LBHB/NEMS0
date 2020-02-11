@@ -75,7 +75,13 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
             kw = kw.replace(".S", ".{}".format(S))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        if (kw.endswith(".R") or (".Rx" in kw)) and (rec is not None):
+        if ("xS" in kw) and (rec is not None):
+            S = rec['state'].nchans
+            kw_old = kw
+            kw = kw.replace("xS", "x{}".format(S))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+
+        if (".R" in kw) and (rec is not None):
             R = rec[output_name].nchans
             kw_old = kw
             kw = kw.replace(".R", ".{}".format(R))
@@ -188,7 +194,7 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, rand_seed=1234, **context
     return {'modelspec': modelspec}
 
 
-def prefit_LN(est, modelspec, analysis_function=fit_basic,
+def prefit_LN(rec, modelspec, analysis_function=fit_basic,
               fitter=scipy_minimize, metric=None, norm_fir=False,
               tolerance=10**-5.5, max_iter=700, nl_kw={}):
     '''
@@ -214,7 +220,7 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
         modelspec = fir_L2_norm(modelspec)
 
     # fit without STP module first (if there is one)
-    modelspec = prefit_to_target(est, modelspec, fit_basic,
+    modelspec = prefit_to_target(rec, modelspec, fit_basic,
                                  target_module=['levelshift', 'relu'],
                                  extra_exclude=['stp', 'rdt_gain','state_dc_gain','state_gain'],
                                  fitter=fitter,
@@ -229,46 +235,116 @@ def prefit_LN(est, modelspec, analysis_function=fit_basic,
             break
 
     # pre-fit static NL if it exists
-    for m in modelspec.modules:
-        if 'double_exponential' in m['fn']:
-            modelspec = init_dexp(est, modelspec, **nl_kw)
-            modelspec = prefit_mod_subset(
-                    est, modelspec, fit_basic,
-                    fit_set=['double_exponential'],
-                    fitter=scipy_minimize,
-                    metric=metric,
-                    fit_kwargs=fit_kwargs)
-            break
+    d = init_static_nl(rec, modelspec, **nl_kw)
+    modelspec = d['modelspec']
+    include_names = d['include_names']
 
-        elif 'logistic_sigmoid' in m['fn']:
-            log.info("initializing priors and bounds for logsig ...\n")
-            modelspec = init_logsig(est, modelspec)
-            modelspec = prefit_mod_subset(
-                    est, modelspec, fit_basic,
-                    fit_set=['logistic_sigmoid'],
-                    fitter=scipy_minimize,
-                    metric=metric,
-                    fit_kwargs=fit_kwargs)
-
-            break
-
-        elif 'saturated_rectifier' in m['fn']:
-            log.info('initializing priors and bounds for relat ...\n')
-            modelspec = init_relsat(est, modelspec)
-            modelspec = prefit_mod_subset(
-                    est, modelspec, fit_basic,
-                    fit_set=['saturated_rectifier'],
-                    fitter=scipy_minimize,
-                    metric=metric,
-                    fit_kwargs=fit_kwargs)
-
-            break
-
+    modelspec = prefit_subset(
+        rec, modelspec, fit_basic, include_names=include_names,
+        fitter=scipy_minimize, metric=metric, tolerance=tolerance, max_iter=max_iter)
 
     return modelspec
 
 
+def init_static_nl(rec, modelspec, **nl_kw):
+
+    include_names = []
+
+    # pre-fit static NL if it exists
+    for m in modelspec.modules:
+        if 'double_exponential' in m['fn']:
+            modelspec = init_dexp(rec, modelspec, **nl_kw)
+            include_names = ['double_exponential']
+            break
+
+        elif 'logistic_sigmoid' in m['fn']:
+            log.info("initializing priors and bounds for logsig ...\n")
+            modelspec = init_logsig(rec, modelspec)
+            include_names = ['logistic_sigmoid']
+            break
+
+        elif 'saturated_rectifier' in m['fn']:
+            log.info('initializing priors and bounds for relat ...\n')
+            modelspec = init_relsat(rec, modelspec)
+            include_names = ['saturated_rectifier']
+            break
+
+    return {'modelspec': modelspec, 'include_names': include_names}
+
+
 def prefit_to_target(rec, modelspec, analysis_function, target_module,
+                     extra_exclude=[],
+                     fitter=scipy_minimize, metric=None,
+                     fit_kwargs={}):
+    """Removes all modules from the modelspec that come after the
+    first occurrence of the target module, then performs a
+    rough fit on the shortened modelspec, then adds the latter
+    modules back on and returns the full modelspec.
+    """
+
+    # preserve input modelspec
+    modelspec = copy.deepcopy(modelspec)
+
+    # figure out last modelspec module to fit
+    target_i = None
+    if type(target_module) is not list:
+        target_module = [target_module]
+    for i, m in enumerate(modelspec.modules):
+        tlist = [True for t in target_module if t in m['fn']]
+
+        if len(tlist):
+            target_i = i + 1
+            # don't break. use last occurrence of target module
+
+    if not target_i:
+        log.info("target_module: {} not found in modelspec."
+                 .format(target_module))
+        return modelspec
+    else:
+        log.info("target_module: {0} found at modelspec[{1}]."
+                 .format(target_module, target_i-1))
+
+    # identify any excluded modules and take them out of temp modelspec
+    # that will be fit here
+    exclude_idx = []
+    freeze_idx = []
+    include_idx = []
+    for i in range(len(modelspec)):
+        m = modelspec[i]
+
+        for fn in extra_exclude:
+            if (fn in m['fn']):
+                freeze_idx.append(i)
+
+        if ('relu' in m['fn']):
+            log.info('found relu')
+
+        elif ('levelshift' in m['fn']):
+            #m = priors.set_mean_phi([m])[0]
+            output_name = modelspec.meta.get('output_name', 'resp')
+            try:
+                mean_resp = np.nanmean(rec[output_name].as_continuous(), axis=1, keepdims=True)
+            except NotImplementedError:
+                # as_continuous only available for RasterizedSignal
+                mean_resp = np.nanmean(rec[output_name].rasterize().as_continuous(), axis=1, keepdims=True)
+            log.info('Mod %d (%s) initializing level to %s mean %.3f',
+                     i, m['fn'], output_name, mean_resp[0])
+            log.info('resp has %d channels', len(mean_resp))
+            m['phi']['level'][:] = mean_resp
+
+        if (i < target_i) or ('merge_channels' in m['fn']):
+            include_idx.append(i)
+    exclude_idx=np.setdiff1d(np.arange(len(modelspec)), np.union1d(include_idx, freeze_idx))
+    modelspec = prefit_subset(rec, modelspec, analysis_function,
+                  include_idx=include_idx,
+                  exclude_idx=exclude_idx,
+                  freeze_idx=freeze_idx,
+                  fitter=fitter, metric=metric, **fit_kwargs)
+
+    return modelspec
+
+
+def _prefit_to_target(rec, modelspec, analysis_function, target_module,
                      extra_exclude=[],
                      fitter=scipy_minimize, metric=None,
                      fit_kwargs={}):
@@ -308,9 +384,6 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
         m = copy.deepcopy(modelspec[i])
 
         for fn in extra_exclude:
-            # log.info('exluding '+fn)
-            # log.info(m['fn'])
-            # log.info(m.get('phi'))
             if (fn in m['fn']):
                 if (m.get('phi') is None):
                     m = priors.set_mean_phi([m])[0]  # Inits phi
@@ -426,6 +499,123 @@ def prefit_mod_subset(rec, modelspec, analysis_function,
 
     # reassemble the full modelspec with updated phi values from tmodelspec
     for i in fit_idx:
+        modelspec[i] = tmodelspec[i]
+
+    return modelspec
+
+
+def _calc_neg_modidx(idx_list, ms_len):
+    if type(idx_list) is int:
+        idx_list=np.array([idx_list], dtype=int)
+    else:
+        idx_list=np.array(idx_list)
+    idx_list[idx_list<0]=ms_len+idx_list[idx_list<0]
+
+    return idx_list
+
+def prefit_subset(est, modelspec, analysis_function=fit_basic,
+                  include_idx=None, include_through=None,
+                  include_names=None,
+                  exclude_idx=None, exclude_after=None,
+                  freeze_idx=None, freeze_after=None,
+                  fitter=scipy_minimize, metric=None,
+                  tolerance=10**-5.5, max_iter=700,
+                  **context):
+    """
+    Fit subset of modules in a modelspec. Exact behavior depends on how
+    included/excluded modules are specified. Default is to fit all modules.
+    Non-negative indexes specify modules from the start, negative from the
+    end
+    :param est:
+    :param modelspec:
+    :param analysis_function:
+    :param include_idx: list of modules to include, if not specified, fit
+                        all modules. By default, freeze all others.
+    :param include_through: fit all modules up to and including this index
+    :param freeze_idx: list of modules to freeze (move phi entries into
+                       fn_kwargs)
+    :param freeze_after: freeze all modules from this index to the end
+    :param exclude_idx: modules to remove before fitting, should run faster
+                        than freezing, but user must ensure this doesn't
+                        break the model
+    :param exclude_after: exclude all modules from this index to the end
+    :param fitter:
+    :param metric:
+    :param fit_kwargs:
+    :return: updated modelspec
+    """
+
+    # preserve input modelspec
+    modelspec = copy.deepcopy(modelspec)
+    mslen=len(modelspec)
+    fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
+
+    #first, figure out which modules to fit
+    include_set = []
+    if include_names is not None:
+        for i, m in enumerate(modelspec.modules):
+            for fn in include_names:
+                if fn in m['fn']:
+                    include_set.append(i)
+                    log.info('Found module %d (%s) for subset prefit', i, fn)
+    include_set = np.array(include_set, dtype=int)
+    if include_through is not None:
+        include_set=np.union1d(include_set, np.arange(_calc_neg_modidx(include_through, mslen), dtype=int))
+    if include_idx is not None:
+        include_set=np.union1d(include_set, _calc_neg_modidx(include_idx, mslen))
+    if len(include_set)==0:
+        include_set = np.arange(mslen, dtype=int)
+
+    # then figure out which ones to freeze, possibly overwriting some of the fits
+    freeze_set = np.setdiff1d(np.arange(mslen), include_set)
+    if freeze_idx is not None:
+        freeze_set=np.union1d(freeze_set,_calc_neg_modidx(freeze_idx, mslen))
+    if freeze_after is not None:
+        freeze_set = np.union1d(freeze_set, np.arange(_calc_neg_modidx(freeze_after, mslen)[0], mslen))
+    include_set = np.setdiff1d(include_set, freeze_set)
+
+    # then figure out which ones to exclude, again possibly overwriting the include/freeze sets
+    exclude_set = []
+    if exclude_idx is not None:
+        exclude_set=np.union1d(exclude_set, _calc_neg_modidx(exclude_idx,mslen))
+    if exclude_after is not None:
+        exclude_set = np.union1d(exclude_set, np.arange(_calc_neg_modidx(exclude_after, mslen)[0], mslen, dtype=int))
+    include_set = np.setdiff1d(include_set, exclude_set)
+    freeze_set = np.setdiff1d(freeze_set, exclude_set)
+
+    log.info("Fit: %s", include_set)
+    log.info("Freeze: %s", freeze_set)
+    log.info("Exclude: %s", exclude_set)
+
+    if len(include_set) == 0:
+        log.info('No modules matching include_set for subset prefit')
+        return modelspec
+
+    tmodelspec = copy.deepcopy(modelspec)
+    for i in range(mslen):
+        m = tmodelspec[i]
+        if not m.get('phi'):
+            log.info('Intializing phi for module %d (%s)', i, m['fn'])
+            m = priors.set_mean_phi([m])[0]  # Inits phi
+        if i in freeze_set:
+            log.info('Freezing phi for module %d (%s)', i, m['fn'])
+            m['fn_kwargs'].update(m['phi'])
+            m['phi'] = {}
+            tmodelspec[i] = m
+        elif i in exclude_set:
+            # replace with null module
+            log.info('Excluding module %d (%s)', i, m['fn'])
+            m['fn'] = 'nems.modules.scale.null'
+            m['phi'] = {}
+            tmodelspec[i] = m
+
+    # fit the subset of modules
+    tmodelspec = analysis_function(est, tmodelspec, fitter=fitter,
+                                   metric=metric, fit_kwargs=fit_kwargs)
+
+    # pull out updated phi values from tmodelspec, include_set only
+    for i in include_set:
+        #log.info('restoring %d', i)
         modelspec[i] = tmodelspec[i]
 
     return modelspec

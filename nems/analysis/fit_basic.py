@@ -19,7 +19,7 @@ def fit_basic(data, modelspec,
               fitter=scipy_minimize, cost_function=None,
               segmentor=nems.segmentors.use_all_data,
               mapper=nems.fitters.mappers.simple_vector,
-              metric=lambda data: metrics.nmse(data, 'pred', 'resp'),
+              metric=None,
               metaname='fit_basic', fit_kwargs={}, require_phi=True):
     '''
     Required Arguments:
@@ -44,6 +44,9 @@ def fit_basic(data, modelspec,
     start_time = time.time()
 
     modelspec = copy.deepcopy(modelspec)
+
+    if metric is None:
+        metric = lambda data: metrics.nmse(data, 'pred', 'resp')
 
     if cost_function is None:
         # Use the cost function defined in this module by default

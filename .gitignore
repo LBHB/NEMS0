@@ -102,6 +102,7 @@ ENV/
 # NEMS-specific
 modelspecs/
 gui.ini
+.idea/
 
 #signals/
 *~
