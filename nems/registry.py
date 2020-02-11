@@ -234,6 +234,18 @@ class Keyword():
         self.parse = parse
         self.source_string = source_string
 
+def xforms_kw_info(kw_string, **xforms_kwargs):
+    from nems.plugins import (default_loaders,
+                              default_initializers, default_fitters)
+    from nems import get_setting
+
+    xforms_lib = KeywordRegistry(**xforms_kwargs)
+    xforms_lib.register_modules([default_loaders, default_fitters,
+                                default_initializers])
+    xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
+
+    return xforms_lib.info(kw_string)
+
 def test_xforms_kw(kw_string, **xforms_kwargs):
     from nems.plugins import (default_loaders,
                               default_initializers, default_fitters)
