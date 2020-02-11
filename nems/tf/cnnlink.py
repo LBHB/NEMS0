@@ -473,17 +473,12 @@ def _fit_net(F, D, modelspec, seed, fs, log_dir, optimizer='Adam',
     layers = modelspec.modelspec2tf(tps_per_stim=D.shape[1], feat_dims=n_feats,
                           data_dims=D.shape[2], state_dims=state_dims, fs=fs,
                           use_modelspec_init=use_modelspec_init, distr=distr, net_seed=seed)
-    net2 = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=log_dir, loss_type=loss_type)
+    net = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=log_dir, loss_type=loss_type, optimizer=optimizer)
 
-    net2.initialize()
-    net2.optimizer = optimizer
-    # net2_layer_init = net2.layer_vals()
-    # log.info(net2_layer_init)
-
-    net2.train(F, D, max_iter=max_iter, learning_rate=learning_rate, S=S,
+    net.train(F, D, max_iter=max_iter, learning_rate=learning_rate, S=S,
                early_stopping_steps=early_stopping_steps, early_stopping_tolerance=early_stopping_tolerance)
 
-    modelspec = tf2modelspec(net2, modelspec)
+    modelspec = tf2modelspec(net, modelspec)
 
     # record last iter in extra results
     try:
@@ -492,7 +487,7 @@ def _fit_net(F, D, modelspec, seed, fs, log_dir, optimizer='Adam',
     except KeyError:
         modelspec.meta['extra_results'] = net2.last_iter
 
-    return modelspec, net2
+    return modelspec, net
 
 
 def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
