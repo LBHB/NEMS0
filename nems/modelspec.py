@@ -12,7 +12,6 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as st
-import tensorflow as tf
 
 import nems
 import nems.uri
@@ -931,7 +930,8 @@ class ModelSpec:
         :param weight_scale:
         :param bool use_modelspec_init:
         """
-        # placeholders not compatible with eager execution, which is the default in tf 2.x
+        import tensorflow as tf
+        # placeholders not compatible with eager execution, which is the default in tf 2
         tf.compat.v1.disable_eager_execution()
 
         # placeholders
