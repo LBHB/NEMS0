@@ -22,7 +22,6 @@ def loss_tf_nmse_shrinkage(response, prediction):
 def loss_tf_nmse(response, prediction):
     """Normalized means squared error loss."""
     mE, sE = tf_nmse(response, prediction)
-
     return mE
 
 
@@ -73,9 +72,9 @@ def tf_nmse(response, prediction, per_cell=False):
     :param prediction:
     :param per_cell: Whether to average across all cells or not
     :return: 2 tensors, one of the mean error, the other of the std of the error. If not per cell, then
-     tensor is of shape (), else tensor if of shape (n_cells) (i.e. last dimension of the resp/pred tensor)
+     tensor is of shape (), else tensor if of shape (n_cells,) (i.e. last dimension of the resp/pred tensor)
     """
-    n_drop = response.shape[-2].value % 10
+    n_drop = list(response.shape)[-2] % 10
     if n_drop:
         # use slices to handle varying tensor shapes
         drop_slice = [slice(None) for i in range(len(response.shape))]

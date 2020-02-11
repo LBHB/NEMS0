@@ -199,7 +199,7 @@ def tf(fitkey):
                 max_iter = int(op[1:])
         elif op[:1] == 'f':
             fitter = op[1:]
-            if fitter == 'adam':
+            if fitter in ['adam', 'a']:
                 fitter = 'Adam'
             elif fitter == 'gd':
                 fitter = 'GradientDescent'

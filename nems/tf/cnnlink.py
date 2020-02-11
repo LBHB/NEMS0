@@ -63,7 +63,7 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
         if use_modelspec_init:
             layer['b'] = tf.Variable(c.reshape((1, c.shape[0], c.shape[1])))
         else:
-            layer['b'] = tf.abs(cnn.kern2D(1, c.shape[0], c.shape[1], weight_scale,
+            layer['b'] = tf.abs(cnn.kern2d(1, c.shape[0], c.shape[1], weight_scale,
                                            seed=net_seed, distr=distr))
 
         layer['Y'] = tf.nn.relu(layer['X'] + layer['b'])
@@ -76,7 +76,7 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
         if use_modelspec_init:
             layer['b'] = tf.Variable(c.reshape((1, c.shape[0], c.shape[1])))
         else:
-            layer['b'] = tf.abs(cnn.kern2D(1, c.shape[0], c.shape[1], weight_scale,
+            layer['b'] = tf.abs(cnn.kern2d(1, c.shape[0], c.shape[1], weight_scale,
                                            seed=net_seed, distr=distr))
 
         layer['Y'] = tf.identity(layer['X'] + layer['b'])
@@ -90,7 +90,7 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
             layer['b'] = tf.Variable(c.reshape((1, c.shape[0], c.shape[1])))
         else:
             # TODO: why does this default to 'tnorm' instead of 'norm'? Change to be var distr?
-            layer['b'] = tf.abs(cnn.kern2D(1, c.shape[0], c.shape[1], weight_scale,
+            layer['b'] = tf.abs(cnn.kern2d(1, c.shape[0], c.shape[1], weight_scale,
                                            seed=cnn.seed_to_randint(net_seed) + idx,
                                            distr='tnorm'))
 
@@ -137,7 +137,7 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
         if use_modelspec_init:
             layer['W'] = tf.Variable(c)
         else:
-            layer['W'] = cnn.kern2D(layer['time_win_smp'], c.shape[1], 1,
+            layer['W'] = cnn.kern2d(layer['time_win_smp'], c.shape[1], 1,
                                     weight_scale, seed=net_seed, distr=distr)
 
         pad_size = np.int32(np.floor(layer['time_win_smp'] - 1))
@@ -483,9 +483,9 @@ def _fit_net(F, D, modelspec, seed, fs, log_dir, optimizer='Adam',
     # record last iter in extra results
     try:
         max_iter = modelspec.meta['extra_results']
-        modelspec.meta['extra_results'] = max(max_iter, net2.last_iter)
+        modelspec.meta['extra_results'] = max(max_iter, net.last_iter)
     except KeyError:
-        modelspec.meta['extra_results'] = net2.last_iter
+        modelspec.meta['extra_results'] = net.last_iter
 
     return modelspec, net
 
@@ -794,7 +794,6 @@ def eval_tf(modelspec, est, log_dir):
                           data_dims=n_resp, state_dims=n_states, fs=fs,
                           use_modelspec_init=True)
     net = cnn.Net(data_dims, n_feats, fs, layers, seed=0, log_dir=modelspec.meta['modelpath'])
-    net.initialize()
 
     y = np.reshape(net.predict(F, S=S).T, [n_resp, n_tps_per_stim])
 
