@@ -105,15 +105,15 @@ class Net:
 
         # placeholders for input features and data
         if 'S' in layers[0].keys():
-            self.S = layers[0]['S']
+            self.state = layers[0]['S']
 
         if 'X' in layers[0].keys():
-            self.F = layers[0]['X']
+            self.stim = layers[0]['X']
         else:
-            self.F = tf.compat.v1.placeholder(
+            self.stim = tf.compat.v1.placeholder(
                 'float32', shape=[None, self.n_tps_input, self.n_feats])
 
-        self.D = tf.compat.v1.placeholder(
+        self.resp = tf.compat.v1.placeholder(
             'float32', shape=[None, self.n_tps_input, self.n_resp])
 
         # layer parameters
@@ -140,7 +140,7 @@ class Net:
             log_dir = Path(r'/auto/data/tmp/cnn_scratch')
 
         self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(exist_ok=True)
+        self.log_dir.mkdir(exist_ok=True, parents=True)
 
         if log_id is None:
             self.log_id = 'seed' + str(seed)
@@ -152,17 +152,17 @@ class Net:
     def initialize(self):
         """Initialize the properties of the neural net."""
         log.info('Initializing net: setting output, loss, optimizer, globals, tf session')
-        self.Y = self.layers[-1]['Y'][:, 0:self.n_tps_input, :]
+        self.pred = self.layers[-1]['Y'][:, 0:self.n_tps_input, :]
 
         # loss type
         if self.loss_type == 'squared_error':
-            self.loss = loss_functions.loss_se(self.D, self.Y)
+            self.loss = loss_functions.loss_se(self.resp, self.pred)
         elif self.loss_type == 'poisson':
-            self.loss = loss_functions.poisson(self.D, self.Y)
+            self.loss = loss_functions.poisson(self.resp, self.pred)
         elif self.loss_type == 'nmse':
-            self.loss = loss_functions.loss_tf_nmse(self.D, self.Y)
+            self.loss = loss_functions.loss_tf_nmse(self.resp, self.pred)
         elif self.loss_type == 'nmse_shrinkage':
-            self.loss = loss_functions.loss_tf_nmse_shrinkage(self.D, self.Y)
+            self.loss = loss_functions.loss_tf_nmse_shrinkage(self.resp, self.pred)
         else:
             raise NameError(f'Loss must be "squared_error", "poisson", "nmse",'
                             f' or "nmse_shrinkage", not {self.loss_type}')
@@ -189,26 +189,26 @@ class Net:
         self.sess.run(tf.compat.v1.global_variables_initializer())
         self.saver = tf.compat.v1.train.Saver(max_to_keep=1)
 
-    def feed_dict(self, F, D=None, S=None, indicies=None, learning_rate=None):
+    def feed_dict(self, stim, resp=None, state=None, indices=None, learning_rate=None):
         """Generates the feed dict that is passed to the training step.
 
-        :param F:
-        :param D:
-        :param S:
-        :param indicies:
+        :param stim:
+        :param resp:
+        :param state:
+        :param indices:
         :param learning_rate:
 
         :return: Feed dict.
         """
-        if indicies is None:
-            indicies = np.arange(F.shape[0])
+        if indices is None:
+            indices = np.arange(stim.shape[0])
 
-        d = {self.F: F[indicies, :, :]}
+        d = {self.stim: stim[indices, :, :]}
 
-        if not (D is None):
-            d[self.D] = D[indicies, :, :]
-        if not (S is None):
-            d[self.S] = S[indicies, :, :]
+        if not (resp is None):
+            d[self.resp] = resp[indices, :, :]
+        if not (state is None):
+            d[self.state] = state[indices, :, :]
 
         if not (learning_rate is None):
             d[self.learning_rate] = learning_rate
@@ -225,12 +225,12 @@ class Net:
         filename = self.log_dir / (self.log_id + '-model.ckpt')
         self.saver.restore(self.sess, str(filename))
 
-    def train(self, F, D, learning_rate=0.01, max_iter=300, eval_interval=30, batch_size=None,
-              early_stopping_steps=5, early_stopping_tolerance=5e-4, print_iter=True, S=None):
+    def train(self, stim, resp, learning_rate=0.01, max_iter=300, eval_interval=30, batch_size=None,
+              early_stopping_steps=5, early_stopping_tolerance=5e-4, print_iter=True, state=None):
         """Custom training loop for the net.
 
-        :param F:
-        :param D:
+        :param stim:
+        :param resp:
         :param learning_rate:
         :param max_iter:
         :param eval_interval:
@@ -238,13 +238,13 @@ class Net:
         :param early_stopping_steps:
         :param early_stopping_tolerance:
         :param print_iter:
-        :param S:
+        :param state:
         """
         # save a baseline
         self.save()
 
         # samples used for training
-        train_indices = np.arange(D.shape[0])
+        train_indices = np.arange(resp.shape[0])
 
         # by default batch size equals the size of the training data
         if batch_size is None:
@@ -260,7 +260,7 @@ class Net:
 
             # evaluate loss before any training
             if len(self.train_loss) == 0:
-                train_dict = self.feed_dict(F, D=D, S=S, indicies=train_indices[batch_indices],
+                train_dict = self.feed_dict(stim, resp=resp, state=state, indices=train_indices[batch_indices],
                                             learning_rate=learning_rate)
                 initial_loss = self.loss.eval(feed_dict=train_dict)
                 self.train_loss.append(initial_loss)
@@ -268,14 +268,14 @@ class Net:
                 self.iteration = [-1]
 
                 if print_iter:
-                    log.info("Initial: e=%8.7f", initial_loss)
+                    log.info("Initial loss=%8.7f", initial_loss)
             
             for epoch_num in itertools.count():
                 if max_iter is not None and epoch_num >= max_iter:
                     break
 
                 # update
-                train_dict = self.feed_dict(F, D=D, S=S, indicies=train_indices[batch_indices],
+                train_dict = self.feed_dict(stim, resp=resp, state=state, indices=train_indices[batch_indices],
                                             learning_rate=learning_rate)
                 self.train_step.run(feed_dict=train_dict)
 
@@ -322,11 +322,11 @@ class Net:
             # record the last iter step
             self.last_iter = epoch_num
 
-    def predict(self, F, S=None, sess=None):
+    def predict(self, stim, state=None, sess=None):
         """Generates a prediction from the net.
 
-        :param F:
-        :param S:
+        :param stim:
+        :param state:
         :param sess: TF session.
 
         :return: A prediction.
@@ -335,14 +335,14 @@ class Net:
             sess = self.sess
 
         with sess.as_default():
-            return self.Y.eval(feed_dict=self.feed_dict(F, S=S))
+            return self.pred.eval(feed_dict=self.feed_dict(stim, state=state))
 
-    def eval_to_layer(self, F=None, layer_idx=None, S=None, sess=None):
+    def eval_to_layer(self, stim=None, layer_idx=None, state=None, sess=None):
         """Evaluates the net at a specific layer.
 
-        :param F:
+        :param stim:
         :param layer_idx:
-        :param S:
+        :param state:
         :param sess: TF session.
 
         :return:
@@ -354,7 +354,7 @@ class Net:
             sess = self.sess
 
         with sess.as_default():
-            return self.layers[layer_idx]['Y'].eval(feed_dict=self.feed_dict(F, S=S))
+            return self.layers[layer_idx]['Y'].eval(feed_dict=self.feed_dict(stim, state=state))
 
     def layer_vals(self, sess=None):
         """Get matrix values out TF variables.
@@ -438,20 +438,20 @@ class MultiNet(Net):
         # initialize global variables
         self.initialize()
 
-    def feed_dict(self, F, D=None, indicies=None, learning_rate=None):
+    def feed_dict(self, stim, resp=None, indices=None, learning_rate=None):
 
-        assert(len(self.nets) == len(F))
+        assert(len(self.nets) == len(stim))
 
-        if indicies is None:
-            indicies = np.arange(F[0].shape[0])
+        if indices is None:
+            indices = np.arange(stim[0].shape[0])
 
         d = {}
-        for i in range(len(F)):
-            d[self.nets[i].F] = F[i][indicies, :, :]
+        for i in range(len(stim)):
+            d[self.nets[i].F] = stim[i][indices, :, :]
 
-        if not (D is None):
+        if not (resp is None):
             for i in range(len(self.nets)):
-                d[self.nets[i].D] = D[indicies, :, :]
+                d[self.nets[i].D] = resp[indices, :, :]
 
         if not (learning_rate is None):
             d[self.learning_rate] = learning_rate
