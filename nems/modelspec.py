@@ -605,12 +605,12 @@ class ModelSpec:
                 log.warning(f'Quickplot: no valid epochs matching {epoch}. Will not subset data.')
                 epoch = None
 
-        if (epoch is None) or (len(epoch_bounds)==0):
-            epoch_bounds = np.array([[0, rec_resp.shape[1]/rec_resp.fs]])
+        if (epoch is None) or (len(epoch_bounds) == 0):
+            epoch_bounds = np.array([[0, rec_resp.shape[1] / rec_resp.fs]])
 
         # figure out which occurrence
-        #not_empty = [np.any(np.isfinite(x)) for x in extracted]  # occurrences containing non inf/nan data
-        #possible_occurrences, = np.where(not_empty)
+        # not_empty = [np.any(np.isfinite(x)) for x in extracted]  # occurrences containing non inf/nan data
+        # possible_occurrences, = np.where(not_empty)
         possible_occurrences = np.arange(epoch_bounds.shape[1])
         # if there's no possible occurrences, then occurrence passed in doesn't matter
         if time_range is not None:
@@ -778,7 +778,7 @@ class ModelSpec:
                     fn(ax=ax)
                     col_idx += col_span
                 except:
-                    import pdb;pdb.set_trace()
+                    log.warning(f'Quickplot: failed plotting function: "{fn}", skipping.')
 
         log.debug('done plotting')
 

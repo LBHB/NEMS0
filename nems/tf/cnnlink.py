@@ -475,8 +475,8 @@ def _fit_net(F, D, modelspec, seed, fs, log_dir, optimizer='Adam',
                           use_modelspec_init=use_modelspec_init, distr=distr, net_seed=seed)
     net = cnn.Net(data_dims, n_feats, sr_Hz, layers, seed=seed, log_dir=log_dir, loss_type=loss_type, optimizer=optimizer)
 
-    net.train(F, D, max_iter=max_iter, learning_rate=learning_rate, S=S,
-               early_stopping_steps=early_stopping_steps, early_stopping_tolerance=early_stopping_tolerance)
+    net.train(F, D, max_iter=max_iter, learning_rate=learning_rate, state=S,
+              early_stopping_steps=early_stopping_steps, early_stopping_tolerance=early_stopping_tolerance)
 
     modelspec = tf2modelspec(net, modelspec)
 
@@ -795,7 +795,7 @@ def eval_tf(modelspec, est, log_dir):
                           use_modelspec_init=True)
     net = cnn.Net(data_dims, n_feats, fs, layers, seed=0, log_dir=modelspec.meta['modelpath'])
 
-    y = np.reshape(net.predict(F, S=S).T, [n_resp, n_tps_per_stim])
+    y = np.reshape(net.predict(F, state=S).T, [n_resp, n_tps_per_stim])
 
     # paste back into rec
     new_est['pred'] = new_est['pred']._modified_copy(data=y)
