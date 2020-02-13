@@ -1293,10 +1293,13 @@ def stategain(kw):
         e.g., "stategain.SxR" :
             S : number of state channels (required)
             R : number of channels to modulate (default = 1)
-
+            (S, R can be left as variables and often figured out during modelspec generation in from_keywords)
     Options
     -------
         .g -- gain only (no dc term)
+        .d -- dc only
+        .s -- separate dc term for spont period
+        .lv -- concatenate latent variable "lv" onto 'state'. Will need to specify accurate S for this to work.
     None
     '''
     options = kw.split('.')
@@ -1323,7 +1326,7 @@ def stategain(kw):
                          "keyword given: %s" % kw)
 
     gain_only=('g' in options[2:])
-    include_spont=('s' in options[2:])
+    include_spont=('s' in options[2:]) # separate offset for spont than during evoked
     dc_only=('d' in options[2:])
     include_lv = ('lv' in options[2:])
     zeros = np.zeros([n_chans, n_vars])

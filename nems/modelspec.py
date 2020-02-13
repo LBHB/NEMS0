@@ -540,8 +540,6 @@ class ModelSpec:
         """
         if rec is None:
             rec = self.recording
-        if 'mask' in rec.signals.keys():
-            rec = rec.apply_mask()
 
         if fit_index is not None:
             self.fit_index = fit_index
@@ -558,17 +556,13 @@ class ModelSpec:
         if modidx_set is None:
             modidx_set = range(len(self))
 
-        rec_resp = rec['resp']
-        rec_pred = rec['pred']
-        rec_stim = rec['stim']
-
         # if there's no epoch, don't bother
-        if rec_resp.epochs is None:
+        if rec['resp'].epochs is None:
             pass
 
         else:
             # list of possible epochs
-            available_epochs = rec_resp.epochs.name.unique()
+            available_epochs = rec['resp'].epochs.name.unique()
 
             # if the epoch is correct, move on
             if (epoch is not None) and (epoch in available_epochs):
@@ -599,13 +593,19 @@ class ModelSpec:
         # data to plot
         if epoch is not None:
             try:
-                epoch_bounds = rec_resp.get_epoch_bounds(epoch)
+                epoch_bounds = rec['resp'].get_epoch_bounds(epoch, mask=rec['mask'])
             except:
                 log.warning(f'Quickplot: no valid epochs matching {epoch}. Will not subset data.')
                 epoch = None
 
+        if 'mask' in rec.signals.keys():
+            rec = rec.apply_mask()
+        rec_resp = rec['resp']
+        rec_pred = rec['pred']
+        rec_stim = rec['stim']
+
         if (epoch is None) or (len(epoch_bounds)==0):
-            epoch_bounds = np.array([[0, rec_resp.shape[1]/rec_resp.fs]])
+            epoch_bounds = np.array([[0, rec['resp'].shape[1]/rec['resp'].fs]])
 
         # figure out which occurrence
         #not_empty = [np.any(np.isfinite(x)) for x in extracted]  # occurrences containing non inf/nan data
@@ -662,7 +662,7 @@ class ModelSpec:
         if rec_stim is None:
             opts = {}
         else:
-            opts = {'channels': rec_stim.chans}
+            opts = {'chan_names': rec_stim.chans}
         plot_fns = [
             (partial(plot_fn,
                      rec=rec,
@@ -777,6 +777,8 @@ class ModelSpec:
                     fn(ax=ax)
                     col_idx += col_span
                 except:
+                    print('FAILED')
+                    print(fn)
                     import pdb;pdb.set_trace()
 
         log.debug('done plotting')
