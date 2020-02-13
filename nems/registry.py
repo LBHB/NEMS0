@@ -234,6 +234,7 @@ class Keyword():
         self.parse = parse
         self.source_string = source_string
 
+
 def xforms_kw_info(kw_string, **xforms_kwargs):
     from nems.plugins import (default_loaders,
                               default_initializers, default_fitters)
@@ -246,6 +247,7 @@ def xforms_kw_info(kw_string, **xforms_kwargs):
 
     return xforms_lib.info(kw_string)
 
+
 def test_xforms_kw(kw_string, **xforms_kwargs):
     from nems.plugins import (default_loaders,
                               default_initializers, default_fitters)
@@ -257,6 +259,7 @@ def test_xforms_kw(kw_string, **xforms_kwargs):
     xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
 
     return xforms_lib[kw_string]
+
 
 def test_modelspec_kw(kw_string):
     from nems.plugins import (default_keywords)
