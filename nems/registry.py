@@ -260,6 +260,7 @@ def test_xforms_kw(kw_string, **xforms_kwargs):
 
     return xforms_lib[kw_string]
 
+
 def test_modelspec_kw(kw_string):
     from nems.plugins import (default_keywords)
     from nems import get_setting
