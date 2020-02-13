@@ -608,60 +608,63 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
         # remove events outside of valid trial mask (if excluding incorrect)
         if not include_incorrect:
             ematch = ep.epoch_intersection(ematch, mask_bounds)
-        ematch_new = ematch.copy()
-        prematch = np.zeros((ematch.shape[0],1))
-        posmatch = np.zeros((ematch.shape[0],1))
-        for i,e in enumerate(ematch):
-            x = ep.epoch_intersection(preidx, [e], precision=precision)
-            if len(x):
-                prematch[i] = np.diff(x)
-            else:
-                log.info('pre missing?')
-                import pdb; pdb.set_trace()
-            x = ep.epoch_intersection(posidx, [e], precision=precision)
-            if len(x):
-                posmatch[i] = np.diff(x)
-        prematch = np.round(prematch, decimals=precision)
-        posmatch = np.round(posmatch, decimals=precision)
-        dur = np.round(np.diff(ematch, axis=1)-prematch-posmatch, decimals=precision)
-
-        # weird hack to deal with CC data dropping post-stimsilence
-        if sum(posmatch>0)>0:
-            udur = np.sort(np.unique(dur[posmatch>0]))
-        else:
-            udur = np.sort(np.unique(dur))
-        mindur = np.min(udur)
-        dur[dur<mindur]=mindur
-
-        log.debug('epoch %s: n=%d dur range=%.4f-%.4f', ename,
-                 len(ematch), mindur, np.max(dur))
-
-        #import pdb;pdb.set_trace()
-        minpre = np.min(prematch)
-        minpos = np.min(posmatch[posmatch>0])
-        posmatch[posmatch<minpos]=minpos
-        remove_post_stim = False
-        if (minpre<np.max(prematch)) & (ematch.shape[0]==prematch.shape[0]):
-            log.info('epoch %s pre varies, fixing to %.3f s', ename, minpre)
-            ematch_new[:,0] = ematch_new[:,0]-minpre+prematch.T
-        if (mindur<np.max(dur)):
-            log.info('epoch %s dur varies, fixing to %.3f s', ename, mindur)
-            ematch_new[:,1] = ematch_new[:,0]+mindur
-            remove_post_stim = True
-        elif (minpos<np.max(posmatch)):
-            log.info('epoch %s pos varies, fixing to %.3f s', ename, minpos)
-            ematch_new[:,1] = ematch_new[:,0]+minpos-posmatch.T
-
-        for e_old, e_new in zip(ematch, ematch_new):
-            _mask = (np.round(epochs_new['start']-e_old[0], precision)==0) & \
-                    (np.round(epochs_new['end']-e_old[1], precision)==0)
-            epochs_new.loc[_mask,'start'] = e_new[0]
-            epochs_new.loc[_mask,'end'] = e_new[1]
-            if remove_post_stim:
-                _mask = epochs_new['name'].str.startswith("PostStimSilence") & \
-                        (np.round(epochs_new['end'] - e_old[1], precision) == 0)
-                epochs_new.loc[_mask, 'start'] = e_new[1]
-                epochs_new.loc[_mask, 'end'] = e_new[1]
+        if len(ematch)>0:
+           # for CC data, may be "STIM_nnn" tone events that have been excluded in REF analysis
+           ematch_new = ematch.copy()
+           prematch = np.zeros((ematch.shape[0],1))
+           posmatch = np.zeros((ematch.shape[0],1))
+           for i,e in enumerate(ematch):
+               x = ep.epoch_intersection(preidx, [e], precision=precision)
+               if len(x):
+                   prematch[i] = np.diff(x)
+               else:
+                   log.info('pre missing?')
+                   import pdb; pdb.set_trace()
+               x = ep.epoch_intersection(posidx, [e], precision=precision)
+               if len(x):
+                   posmatch[i] = np.diff(x)
+           prematch = np.round(prematch, decimals=precision)
+           posmatch = np.round(posmatch, decimals=precision)
+           #import pdb;pdb.set_trace()
+           dur = np.round(np.diff(ematch, axis=1)-prematch-posmatch, decimals=precision)
+   
+           # weird hack to deal with CC data dropping post-stimsilence
+           if sum(posmatch>0)>0:
+               udur = np.sort(np.unique(dur[posmatch>0]))
+           else:
+               udur = np.sort(np.unique(dur))
+           mindur = np.min(udur)
+           dur[dur<mindur]=mindur
+   
+           log.debug('epoch %s: n=%d dur range=%.4f-%.4f', ename,
+                    len(ematch), mindur, np.max(dur))
+   
+           #import pdb;pdb.set_trace()
+           minpre = np.min(prematch)
+           minpos = np.min(posmatch[posmatch>0])
+           posmatch[posmatch<minpos]=minpos
+           remove_post_stim = False
+           if (minpre<np.max(prematch)) & (ematch.shape[0]==prematch.shape[0]):
+               log.info('epoch %s pre varies, fixing to %.3f s', ename, minpre)
+               ematch_new[:,0] = ematch_new[:,0]-minpre+prematch.T
+           if (mindur<np.max(dur)):
+               log.info('epoch %s dur varies, fixing to %.3f s', ename, mindur)
+               ematch_new[:,1] = ematch_new[:,0]+mindur
+               remove_post_stim = True
+           elif (minpos<np.max(posmatch)):
+               log.info('epoch %s pos varies, fixing to %.3f s', ename, minpos)
+               ematch_new[:,1] = ematch_new[:,0]+minpos-posmatch.T
+   
+           for e_old, e_new in zip(ematch, ematch_new):
+               _mask = (np.round(epochs_new['start']-e_old[0], precision)==0) & \
+                       (np.round(epochs_new['end']-e_old[1], precision)==0)
+               epochs_new.loc[_mask,'start'] = e_new[0]
+               epochs_new.loc[_mask,'end'] = e_new[1]
+               if remove_post_stim:
+                   _mask = epochs_new['name'].str.startswith("PostStimSilence") & \
+                           (np.round(epochs_new['end'] - e_old[1], precision) == 0)
+                   epochs_new.loc[_mask, 'start'] = e_new[1]
+                   epochs_new.loc[_mask, 'end'] = e_new[1]
 
     # save revised epochs back to all signals in the recording
     for k in newrec.signals.keys():

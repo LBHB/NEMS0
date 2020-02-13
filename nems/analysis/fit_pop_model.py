@@ -726,7 +726,7 @@ def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
         m = copy.deepcopy(m)
         # need to have phi in place
         if not m.get('phi'):
-            log.info('Intializing phi for module %d (%s)', i, m['fn'])
+            log.info('Initializing phi for module %d (%s)', i, m['fn'])
             m = priors.set_mean_phi([m])[0]  # Inits phi
 
         if i in fit_idx:

@@ -1833,16 +1833,19 @@ class RasterizedSignal(SignalBase):
 
     def to_epochs(self):
         """
+        create list of epochs for when a signal is non-zero. intended 
+        for boolean-type signals that are sparsely True, but works
+        for any signal type
         :return: epochs list for each segment where self._data > 0
         """
         s = np.array(self._data.shape)
         s[-1] = 1
         nz = np.concatenate((np.zeros(s, dtype=int),
-                             (np.abs(self._data) > 0).astype(int)),
+                             (np.abs(self._data) > 0).astype(int),
+                             np.zeros(s, dtype=int)),
                             axis=self._data.ndim-1)
         _, starts = np.where(np.diff(nz)>0)
         _, ends = np.where(np.diff(nz)<0)
-
         return pd.DataFrame({
             'start': starts/self.fs,
             'end': ends/self.fs,
