@@ -202,6 +202,7 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     else:
         save_destination = destination
 
+    log.info(f'Setting modelpath to "{destination}"')
     modelspec.meta['modelpath'] = destination
     modelspec.meta['figurefile'] = os.path.join(destination, 'figure.0000.png')
     modelspec.meta.update(meta)
