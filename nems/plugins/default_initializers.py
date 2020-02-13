@@ -72,6 +72,7 @@ def init(kw):
     fast_eval = ('f' in ops)
     tf = False
     sel_options = {'include_idx': [], 'exclude_idx': [], 'freeze_idx': []}
+    metric_options = {'metric': 'nmse', 'alpha': 0}
     for op in ops:
         if op == 'st':
             st = True
@@ -87,6 +88,11 @@ def init(kw):
             num = op.replace('d', '.').replace('\\', '')
             tolpower = float(num[1:])*(-1)
             tolerance = 10**tolpower
+        elif op.startswith('pLV'):
+            # pupil dep. cost function
+            metric = 'pup_dep_LV'
+            alpha = float(op[3:].replace(',', '.'))
+            metric_options.update({'metric': metric, 'alpha': alpha})
         elif op == 'L2f':
             norm_fir = True
         elif op.startswith('rb'):
@@ -154,6 +160,9 @@ def init(kw):
         sel_options['fit_function'] = 'nems.xforms.fit_basic_subset'
     else:
         sel_options['fit_function'] = 'nems.xforms.fit_basic_init'
+
+    # save cost function for use by fitter (default is nmse)
+    sel_options.update(metric_options)
 
     xfspec.append(['nems.xforms.fit_wrapper', sel_options])
 
