@@ -3,6 +3,7 @@ Tools for mapping NEMS modelspecs to and from Tensorflow CNNs
 Uses Sam Norman-Haignere's CNN library as a front end for TF
 """
 
+import os
 import copy
 import logging
 import shutil
@@ -653,11 +654,19 @@ def fit_tf(modelspec=None, est=None,
 
     # check to see if we should log model weights elsewhere
     log_dir = modelspec.meta['modelpath']
-    if nems.get_setting('USE_EXACLOUD'):
+
+    try:
+        job_id = os.environ['SLURM_JOBID']
+        # keep a record of the job id
+        modelspec.meta['slurm_jobid'] = job_id
+
         log_dir_root = Path('/mnt/scratch')
         assert log_dir_root.exists()
-        log_dir_sub = Path(str(modelspec.meta['batch'])) / modelspec.meta['cellid'] / modelspec.meta['modelname']
+        log_dir_sub = Path('SLURM_JOBID' + job_id) / str(modelspec.meta['batch'])\
+                      / modelspec.meta['cellid'] / modelspec.meta['modelname']
         log_dir = log_dir_root / log_dir_sub
+    except KeyError:
+        pass
 
     modelspec_pre = modelspec.copy()
     modelspec, net = _fit_net(F, D, modelspec, seed, new_est['resp'].fs, log_dir=str(log_dir),
@@ -669,15 +678,15 @@ def fit_tf(modelspec=None, est=None,
     new_est = eval_tf(modelspec, new_est, log_dir)
 
     # clear out tmp dir
-    if nems.get_setting('USE_EXACLOUD'):
+    if os.environ.get('SLURM_JOBID'):
         try:
             shutil.rmtree(log_dir)
             try:
-                for p in list(log_dir.parents)[:3]:
+                for p in list(log_dir.parents)[:4]:
                     p.rmdir()
             except OSError:
                 pass
-        except:  # TODO what's the error here raised by shutil
+        except:  # TODO what's the error raised by shutil
             pass
 
     y = new_est['pred'].as_continuous()
