@@ -222,7 +222,8 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
                                      modelspec=modelspec,
                                      xfspec=xfspec,
                                      figures=figs,
-                                     log=log_xf)
+                                     log=log_xf,
+                                     update_meta=False)
 
     # save in database as well
     if saveInDB:
