@@ -140,6 +140,7 @@ def save_resource(uri, data=None, json=None):
     For saving a resource to a URI. Throws an exception if there was a
     problem saving.
     '''
+    import pdb; pdb.set_trace()
     err = None
     if json:
         if http_uri(uri):
