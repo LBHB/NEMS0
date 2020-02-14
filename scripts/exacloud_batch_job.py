@@ -36,7 +36,7 @@ if __name__ == '__main__':
     job_dir.mkdir(exist_ok=True, parents=True)
 
     job_file_name = datetime.now().isoformat(timespec='seconds') + \
-                    '_'.join([args.batch, args.batch, args.modelname]) + '.sh'
+                    '_'.join([args.arguments]) + '.sh'
     job_file_loc = job_dir / job_file_name
 
     with open(job_file_loc, 'w') as f:
