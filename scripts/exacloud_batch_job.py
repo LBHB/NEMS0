@@ -37,4 +37,4 @@ if __name__ == '__main__':
         f.write(' '.join(['srun'] + args.arguments))
         f.write('\n')
 
-    subprocess.run(f'sbatch {str(job_file_loc)}')
+    subprocess.run(['sbatch', str(job_file_loc)])
