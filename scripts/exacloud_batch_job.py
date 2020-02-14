@@ -2,6 +2,10 @@ import argparse
 import subprocess
 from datetime import datetime
 from pathlib import Path
+import logging
+
+log = logging.getLogger(__name__)
+
 
 if __name__ == '__main__':
     """Creates a slurm batch file to run. Batch files are saved in the user job_history directory in /lustre1/LBHB.
@@ -31,11 +35,15 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    log.info(f'EXEC PATH: {args.exec_path}')
+    log.info(f'SCRIPT PATH: {args.script_path}')
+    log.info(f'ARGUMENTS: {args.arguments}')
+
     job_dir = Path.home() / 'job_history'
     # create job dir if doesn't exist
     job_dir.mkdir(exist_ok=True, parents=True)
 
-    job_file_name = datetime.now().isoformat(timespec='seconds') + \
+    job_file_name = datetime.now().strftime('%Y-%m-%d-T%H%M%S') + \
                     '_'.join(args.arguments) + '.sh'
     job_file_loc = job_dir / job_file_name
 
