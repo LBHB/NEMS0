@@ -22,17 +22,24 @@ if __name__ == '__main__':
     # create job dir if doesn't exist
     job_dir.mkdir(exist_ok=True, parents=True)
 
-    job_file_name = datetime.now().strftime('%Y-%m-%d-T%H%M%S') + '.sh'
+    dt_string = datetime.now().strftime('%Y-%m-%d-T%H%M%S')
+    job_file_name = dt_string + '.sh'
     job_file_loc = job_dir / job_file_name
+
+    job_log_name = dt_string + '_jobid'
+    job_log_loc = job_dir / job_log_name
 
     with open(job_file_loc, 'w') as f:
         f.write('#!/bin/bash\n')
         f.write('#SBATCH --account=lbhb\n')
         f.write('#SBATCH --time=2:00:00\n')
         f.write('#SBATCH --partition=gpu\n')
+        f.write('#SBATCH --cpus-per-task=1')
         f.write('#SBATCH --mem=4G\n')
         f.write('#SBATCH --gres=disk:5\n')
         f.write('#SBATCH --job-name=nems\n')
+        f.write(f'#SBATCH --error={str(job_log_loc)}%j_log_stderr.out')
+        f.write(f'#SBATCH --output={str(job_log_loc)}%j_log_stout.out')
         f.write(' '.join(['srun'] + args.arguments))
         f.write('\n')
 
