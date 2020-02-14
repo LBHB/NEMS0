@@ -57,5 +57,6 @@ if __name__ == '__main__':
         f.write('#SBATCH --job-name=nems\n')
         f.writelines(f'srun {args.exec_path} {args.script_path}')
         f.write(' '.join(['srun', str(args.exec_path), str(args.script_path)] + list(map(str, args.arguments))))
+        f.write('\n')
 
-    subprocess.run(f'sbatch {str(job_file_loc)}')
+    # subprocess.run(f'sbatch {str(job_file_loc)}')
