@@ -8,36 +8,15 @@ log = logging.getLogger(__name__)
 
 
 if __name__ == '__main__':
-    """Creates a slurm batch file to run. Batch files are saved in the user job_history directory in /lustre1/LBHB.
+    """Creates a slurm batch file to run. 
     
-    Expects several arguments:
-      - "exec_path": The executable path (i.e. Python install to call).
-      - "exec_script": The script invoked by the executable (i.e. 'fit_single.py' or other).
-      
-    Any arguments included after are appended to the call. 
+    Batch files are saved in the user job_history directory in /lustre1/LBHB.
     """
-    # parse arguments using argparse in order to have defaults and help text
+    # parse arguments in order to collect all args into list
     parser = argparse.ArgumentParser(description='Run jobs on exacloud!')
-
-    # execution arguments
-    # exec_group = parser.add_argument_group('Script execution')
-    #
-    # exec_default = Path(r'/home/exacloud/lustre1/LBHB/code/python-envs/nems-gpu/bin/python')
-    # exec_group.add_argument('--exec_path', type=Path, help='Python executable location, defaults to standard nems.',
-    #                         default=exec_default)
-    # script_default = Path(r'/home/exacloud/lustre1/LBHB/code/NEMS/scripts/fit_single.py')
-    # exec_group.add_argument('--script_path', type=Path, help='Python script to call, defaults to "fit_single.py".',
-    #                         default=script_default)
-    #
-    # # script arguments
-    # script_group = parser.add_argument_group('SRUN arguments')
     parser.add_argument('arguments', nargs=argparse.REMAINDER)
 
     args = parser.parse_args()
-
-    # print(f'EXEC PATH: {args.exec_path}')
-    # print(f'SCRIPT PATH: {args.script_path}')
-    print(f'ARGUMENTS: {args.arguments}')
 
     job_dir = Path.home() / 'job_history'
     # create job dir if doesn't exist
@@ -55,8 +34,7 @@ if __name__ == '__main__':
         f.write('#SBATCH --mem=4G\n')
         f.write('#SBATCH --gres=disk:5G\n')
         f.write('#SBATCH --job-name=nems\n')
-        # f.write(' '.join(['srun', str(args.exec_path), str(args.script_path)] + list(map(str, args.arguments))))
         f.write(' '.join(['srun'] + args.arguments))
         f.write('\n')
 
-    # subprocess.run(f'sbatch {str(job_file_loc)}')
+    subprocess.run(f'sbatch {str(job_file_loc)}')
