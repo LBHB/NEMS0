@@ -55,7 +55,6 @@ if __name__ == '__main__':
         f.write('#SBATCH --mem=4G\n')
         f.write('#SBATCH --gres=disk:5G\n')
         f.write('#SBATCH --job-name=nems\n')
-        f.writelines(f'srun {args.exec_path} {args.script_path}')
         f.write(' '.join(['srun', str(args.exec_path), str(args.script_path)] + list(map(str, args.arguments))))
         f.write('\n')
 
