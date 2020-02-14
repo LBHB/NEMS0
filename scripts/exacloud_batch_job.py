@@ -31,9 +31,9 @@ if __name__ == '__main__':
         f.write('#SBATCH --time=2:00:00\n')
         f.write('#SBATCH --partition=gpu\n')
         f.write('#SBATCH --mem=4G\n')
-        f.write('#SBATCH --gres=disk:5G\n')
+        f.write('#SBATCH --gres=disk:5\n')
         f.write('#SBATCH --job-name=nems\n')
         f.write(' '.join(['srun'] + args.arguments))
-        # f.write('\n')
+        f.write('\n')
 
     subprocess.run(['sbatch', str(job_file_loc)])
