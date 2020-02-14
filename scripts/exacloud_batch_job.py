@@ -20,23 +20,23 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run jobs on exacloud!')
 
     # execution arguments
-    exec_group = parser.add_argument_group('Script execution')
-
-    exec_default = Path(r'/home/exacloud/lustre1/LBHB/code/python-envs/nems-gpu/bin/python')
-    exec_group.add_argument('--exec_path', type=Path, help='Python executable location, defaults to standard nems.',
-                            default=exec_default)
-    script_default = Path(r'/home/exacloud/lustre1/LBHB/code/NEMS/scripts/fit_single.py')
-    exec_group.add_argument('--script_path', type=Path, help='Python script to call, defaults to "fit_single.py".',
-                            default=script_default)
-
-    # script arguments
-    script_group = parser.add_argument_group('Script arguments')
-    script_group.add_argument('arguments', nargs=argparse.REMAINDER)
+    # exec_group = parser.add_argument_group('Script execution')
+    #
+    # exec_default = Path(r'/home/exacloud/lustre1/LBHB/code/python-envs/nems-gpu/bin/python')
+    # exec_group.add_argument('--exec_path', type=Path, help='Python executable location, defaults to standard nems.',
+    #                         default=exec_default)
+    # script_default = Path(r'/home/exacloud/lustre1/LBHB/code/NEMS/scripts/fit_single.py')
+    # exec_group.add_argument('--script_path', type=Path, help='Python script to call, defaults to "fit_single.py".',
+    #                         default=script_default)
+    #
+    # # script arguments
+    # script_group = parser.add_argument_group('SRUN arguments')
+    parser.add_argument('arguments', nargs=argparse.REMAINDER)
 
     args = parser.parse_args()
 
-    print(f'EXEC PATH: {args.exec_path}')
-    print(f'SCRIPT PATH: {args.script_path}')
+    # print(f'EXEC PATH: {args.exec_path}')
+    # print(f'SCRIPT PATH: {args.script_path}')
     print(f'ARGUMENTS: {args.arguments}')
 
     job_dir = Path.home() / 'job_history'
@@ -55,7 +55,8 @@ if __name__ == '__main__':
         f.write('#SBATCH --mem=4G\n')
         f.write('#SBATCH --gres=disk:5G\n')
         f.write('#SBATCH --job-name=nems\n')
-        f.write(' '.join(['srun', str(args.exec_path), str(args.script_path)] + list(map(str, args.arguments))))
+        # f.write(' '.join(['srun', str(args.exec_path), str(args.script_path)] + list(map(str, args.arguments))))
+        f.write(' '.join(['srun'] + args.arguments))
         f.write('\n')
 
     # subprocess.run(f'sbatch {str(job_file_loc)}')
