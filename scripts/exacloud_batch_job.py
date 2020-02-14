@@ -39,7 +39,7 @@ if __name__ == '__main__':
                     '_'.join([args.batch, args.batch, args.modelname]) + '.sh'
     job_file_loc = job_dir / job_file_name
 
-    with open(job_file_loc) as f:
+    with open(job_file_loc, 'w') as f:
         f.write('#!/bin/bash\n')
         f.write('#SBATCH --account=lbhb\n')
         f.write('#SBATCH --time=2:00:00\n')
