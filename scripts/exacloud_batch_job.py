@@ -35,9 +35,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    log.info(f'EXEC PATH: {args.exec_path}')
-    log.info(f'SCRIPT PATH: {args.script_path}')
-    log.info(f'ARGUMENTS: {args.arguments}')
+    print(f'EXEC PATH: {args.exec_path}')
+    print(f'SCRIPT PATH: {args.script_path}')
+    print(f'ARGUMENTS: {args.arguments}')
 
     job_dir = Path.home() / 'job_history'
     # create job dir if doesn't exist
