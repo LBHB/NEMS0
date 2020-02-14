@@ -28,11 +28,11 @@ if __name__ == '__main__':
     with open(job_file_loc, 'w') as f:
         f.write('#!/bin/bash\n')
         f.write('#SBATCH --account=lbhb\n')
-        # f.write('#SBATCH --time=2:00:00\n')
+        f.write('#SBATCH --time=2:00:00\n')
         f.write('#SBATCH --partition=gpu\n')
-        # f.write('#SBATCH --mem=4G\n')
-        # f.write('#SBATCH --gres=disk:5G\n')
-        # f.write('#SBATCH --job-name=nems\n')
+        f.write('#SBATCH --mem=4G\n')
+        f.write('#SBATCH --gres=disk:5G\n')
+        f.write('#SBATCH --job-name=nems\n')
         f.write(' '.join(['srun'] + args.arguments))
         # f.write('\n')
 
