@@ -43,7 +43,7 @@ if __name__ == '__main__':
     # create job dir if doesn't exist
     job_dir.mkdir(exist_ok=True, parents=True)
 
-    job_file_name = datetime.now().strftime('%Y-%m-%d-T%H%M%S') + '.sh'
+    job_file_name = datetime.now().strftime('%Y-%m-%d-T%H%M%S') +   '.sh'
     job_file_loc = job_dir / job_file_name
 
     with open(job_file_loc, 'w') as f:
@@ -56,6 +56,6 @@ if __name__ == '__main__':
         f.write('#SBATCH --gres=disk:5G\n')
         f.write('#SBATCH --job-name=nems\n')
         f.writelines(f'srun {args.exec_path} {args.script_path}')
-        f.write(' '.join(['srun', args.exec_path, args.script_path] + args.arguments))
+        f.write(' '.join(['srun', str(args.exec_path), str(args.script_path)] + list(map(str, args.arguments))))
 
     subprocess.run(f'sbatch {str(job_file_loc)}')
