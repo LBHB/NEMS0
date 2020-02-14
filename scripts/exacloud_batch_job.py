@@ -29,15 +29,26 @@ if __name__ == '__main__':
     job_log_name = dt_string + '_jobid'
     job_log_loc = job_dir / job_log_name
 
+    # first two components of args (i.e. exec and script)
+    job_name = []
+    # chop if paths
+    for arg in args.arguments[:2]:
+        if Path(arg).exists():
+            job_name.append(Path(arg).name)
+    job_name = ':'.join(job_name)
+
+    job_comment = [' '.join(args.arguments[2:])]
+
     with open(job_file_loc, 'w') as f:
         f.write('#!/bin/bash\n')
         f.write('#SBATCH --account=lbhb\n')
-        f.write('#SBATCH --time=2:00:00\n')
+        f.write('#SBATCH --time=3:00:00\n')
         f.write('#SBATCH --partition=gpu\n')
         f.write('#SBATCH --cpus-per-task=1')
         f.write('#SBATCH --mem=4G\n')
         f.write('#SBATCH --gres=disk:5\n')
-        f.write('#SBATCH --job-name=nems\n')
+        f.write(f'#SBATCH --job-name={job_name}\n')
+        f.write(f'#SBATCH --comment="{job_comment}"\n')
         f.write(f'#SBATCH --output={str(job_log_loc)}%j_log.out\n')
         f.write(' '.join(['srun'] + args.arguments))
         f.write('\n')
