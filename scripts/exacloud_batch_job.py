@@ -35,9 +35,11 @@ if __name__ == '__main__':
     for arg in args.arguments[:2]:
         if Path(arg).exists():
             job_name.append(Path(arg).name)
+        else:
+            job_name.append(arg)
     job_name = ':'.join(job_name)
 
-    job_comment = [' '.join(args.arguments[2:])]
+    job_comment = ' '.join(args.arguments[2:])
 
     with open(job_file_loc, 'w') as f:
         f.write('#!/bin/bash\n')
