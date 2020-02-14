@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 if __name__ == '__main__':
-    """Creates a slurm batch file to run. Batch files are saved in the job_history directory in /lustre1/LBHB.
+    """Creates a slurm batch file to run. Batch files are saved in the user job_history directory in /lustre1/LBHB.
     
     Expects several arguments:
       - "exec_path": The executable path (i.e. Python install to call).
@@ -31,7 +31,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    job_dir = Path(r'/home/exacloud/lustre1/LBHB/job_history')
+    job_dir = Path.home() / 'job_history'
     # create job dir if doesn't exist
     job_dir.mkdir(exist_ok=True, parents=True)
 
