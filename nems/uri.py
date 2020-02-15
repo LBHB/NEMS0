@@ -115,6 +115,8 @@ def local_uri(uri):
         return uri[7:]
     elif uri[0] == '/':
         return uri
+    elif (uri[1:3] == ':\\') or (uri[1:3] == ':/'):
+        return uri
     else:
         return None
 
