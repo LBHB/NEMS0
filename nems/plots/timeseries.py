@@ -103,7 +103,6 @@ def timeseries_from_signals(signals=None, channels=0, no_legend=False,
         signals = [rec[sig_name]]
 
     channels = pad_to_signals(signals, channels)
-
     times = []
     values = []
     legend = []
@@ -113,6 +112,8 @@ def timeseries_from_signals(signals=None, channels=0, no_legend=False,
         else:
             chanset = channels
         for c in chanset:
+            if type(c) is str:
+                c=0
             # Get values from specified channel
             value_vector = s.as_continuous()[c]
             # Convert indices to absolute time based on sampling frequency
@@ -422,7 +423,7 @@ def fir_output_all(rec, modelspec, sig_name='pred', idx=0, **options):
 
 
 @scrollable
-def pred_resp(rec, modelspec, ax=None, title=None,
+def pred_resp(rec=None, modelspec=None, ax=None, title=None,
               channels=0, xlabel='Time', ylabel='Value',
               no_legend=False, **options):
     '''

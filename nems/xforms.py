@@ -740,7 +740,10 @@ def fit_basic_subset(modelspec, est, metric='nmse', output_name='resp',
         return {}
 
     if isinstance(metric, str):
-        metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
+        if metric == 'pup_dep_LV':
+            metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name, **context)
+        else:
+            metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
     else:
         metric_fn = metric
     modelspec = nems.initializers.prefit_subset(
@@ -1244,18 +1247,25 @@ def load_analysis(filepath, eval_model=True, only=None):
     :return: (xfspec, ctx) tuple
     """
     log.info('Loading xfspec and context from %s...', filepath)
+    def _path_join(*args):
+        if os.name == 'nt':
+            # deal with problems on Windows OS
+            path = "/".join(*args)
+        else:
+            path = os.path.join(*args)
+        return path
 
-    xfspec = load_xform(os.path.join(filepath, 'xfspec.json'))
+    xfspec = load_xform(_path_join(filepath, 'xfspec.json'))
     mspaths = []
     figures_to_load = []
     logstring = ''
     for file in os.listdir(filepath):
         if file.startswith("modelspec"):
-            mspaths.append(os.path.join(filepath, file))
+            mspaths.append(_path_join(filepath, file))
         elif file.startswith("figure"):
-            figures_to_load.append(os.path.join(filepath, file))
+            figures_to_load.append(_path_join(filepath, file))
         elif file.startswith("log"):
-            logpath = os.path.join(filepath, file)
+            logpath = _path_join(filepath, file)
             with open(logpath) as logfile:
                 logstring = logfile.read()
     ctx = load_modelspecs([], uris=mspaths, IsReload=False)

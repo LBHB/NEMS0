@@ -1293,10 +1293,13 @@ def stategain(kw):
         e.g., "stategain.SxR" :
             S : number of state channels (required)
             R : number of channels to modulate (default = 1)
-
+            (S, R can be left as variables and often figured out during modelspec generation in from_keywords)
     Options
     -------
         .g -- gain only (no dc term)
+        .d -- dc only
+        .s -- separate dc term for spont period
+        .lv -- concatenate latent variable "lv" onto 'state'. Will need to specify accurate S for this to work.
     None
     '''
     options = kw.split('.')
@@ -1323,9 +1326,11 @@ def stategain(kw):
                          "keyword given: %s" % kw)
 
     gain_only=('g' in options[2:])
-    include_spont=('s' in options[2:])
+    include_spont=('s' in options[2:]) # separate offset for spont than during evoked
     dc_only=('d' in options[2:])
-    include_lv = ('lv' in options[2:])
+    state = 'state'
+    if 'lv' in options[2:]:
+        state = 'lv'
     zeros = np.zeros([n_chans, n_vars])
     ones = np.ones([n_chans, n_vars])
     g_mean = zeros.copy()
@@ -1345,8 +1350,8 @@ def stategain(kw):
             'fn': 'nems.modules.state.state_dc_gain',
             'fn_kwargs': {'i': 'pred',
                           'o': 'pred',
-                          's': 'state',
-                          'g': g_mean, 'include_lv': include_lv},
+                          's': state,
+                          'g': g_mean},
             'plot_fns': plot_fns,
             'plot_fn_idx': 4,
             'prior': {'d': ('Normal', {'mean': d_mean, 'sd': d_sd})}
@@ -1356,7 +1361,7 @@ def stategain(kw):
             'fn': 'nems.modules.state.state_gain',
             'fn_kwargs': {'i': 'pred',
                           'o': 'pred',
-                          's': 'state', 'include_lv': include_lv},
+                          's': state},
             'plot_fns': plot_fns,
             'plot_fn_idx': 4,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd})}
@@ -1366,7 +1371,7 @@ def stategain(kw):
            'fn': 'nems.modules.state.state_sp_dc_gain',
             'fn_kwargs': {'i': 'pred',
                           'o': 'pred',
-                          's': 'state', 'include_lv': include_lv},
+                          's': state},
             'plot_fns': plot_fns,
             'plot_fn_idx': 4,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
@@ -1378,8 +1383,7 @@ def stategain(kw):
             'fn': 'nems.modules.state.state_dc_gain',
             'fn_kwargs': {'i': 'pred',
                           'o': 'pred',
-                          's': 'state',
-                          'include_lv': include_lv},
+                          's': state},
             'plot_fns': plot_fns,
             'plot_fn_idx': 4,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
