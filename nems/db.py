@@ -1159,7 +1159,7 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
     if rawid is not None:
         sql += " AND rawid IN %s"
         if type(rawid) is not list:
-            rawid = [rawid]
+            rawid = list(rawid)
         rawid=tuple([str(i) for i in rawid])
         params = params+(rawid,)
         print(sql)

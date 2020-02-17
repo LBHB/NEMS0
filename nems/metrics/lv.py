@@ -1,4 +1,7 @@
 import numpy as np
+import logging
+
+log = logging.getLogger(__name__)
 
 def pup_dep_LV(result, pred_name='pred', resp_name='resp', **context):
     '''
@@ -21,8 +24,10 @@ def pup_dep_LV(result, pred_name='pred', resp_name='resp', **context):
     signed_correlation = context.get('signed_correlation', False)
 
     if len(lv_chans) > 3:
-        raise ValueError("Not set up to handle greater than 2 LVs right now due to \
-                        complications with hyperparameter specification")
+        pass
+        #log.info("WARNING: Not set up to handle greater than 2 LVs right now due to \
+        #                complications with hyperparameter specification. Be aware that if you're not careful \
+        #                with parameter spec here, sum of alpha could be > 1")
 
     if type(alpha) is dict:
         # passed different hyperparameters for each of the LVs
