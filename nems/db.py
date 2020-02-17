@@ -6,6 +6,7 @@ import logging
 import itertools
 import json
 import socket
+import shutil
 
 import pandas as pd
 import numpy as np
@@ -1088,6 +1089,38 @@ def get_results_file(batch, modelnames=None, cellids=None):
     else:
         return results
 
+def export_fits(batch, modelnames=None, cellids=None, dest=None):
+    """
+
+    :param batch: required
+    :param modelnames: required - [list of modelnames]
+    :param cellids: [list of cellids] - default all cells
+    :param dest: path where exported models should be saved
+    :return:
+    """
+    if modelnames is None:
+        raise ValueError('currently must specify modelname list')
+    if dest is None:
+        raise ValueError('currently must specify dest path')
+    if not os.path.exists(dest):
+        raise ValueError('dest path {} does not exist'.format(dest))
+
+    if type(modelnames) is str:
+        modelnames=[modelnames]
+
+    df = get_results_file(batch, modelnames=modelnames, cellids=cellids)
+    for index, row in df.iterrows():
+        modelpath = row['modelpath']
+        subdir = row['cellid'] + '_' + os.path.basename(modelpath)
+        outpath = os.path.join(dest, subdir)
+        print('copy {} to {}'.format(modelpath,outpath))
+        if not os.path.exists(outpath):
+            shutil.copytree(modelpath,outpath)
+        else:
+            print('{} already exists, skipping'.format(subdir))
+
+    return dest
+
 
 def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
                              label ='parm'):
@@ -1138,6 +1171,7 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
         params = params+(rawid,)
         print(sql)
         print(params)
+
         d = pd.read_sql(sql=sql, con=engine, params=params)
 
         cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)

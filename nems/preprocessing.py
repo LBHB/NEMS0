@@ -76,7 +76,7 @@ def add_average_sig(rec, signal_to_average='resp',
 
 
 def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=True):
-    '''
+    """
     Returns a recording with _all_ signals averaged across epochs that
     match epoch_regex, shortening them so that each epoch occurs only
     once in the new signals. i.e. unlike 'add_average_sig', the new
@@ -98,28 +98,86 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=Tru
     that are based on behavioral state, you may need to create new epochs
     (based on stimulus and behaviorial state, for example) and then match
     the epoch_regex to those.
-    '''
-    #import pdb; pdb.set_trace()
+    """
     if use_mask:
         recording = recording.remove_masked_epochs()
-    epochs = recording['resp'].epochs
-    epoch_names = sorted(set(ep.epoch_names_matching(epochs, epoch_regex)))
+
+    # need to edit the epochs dataframe, so make a working copy
+    temp_epochs = recording['resp'].epochs.copy()
+
+    # only pull out matching epochs
+    regex_mask = temp_epochs['name'].str.contains(pat=epoch_regex, na=False, regex=True)
+    epoch_stims = temp_epochs[regex_mask]
+
+    # get a list of the unique epoch names
+    epoch_names = temp_epochs.loc[regex_mask, 'name'].sort_values().unique()
+
+    # what to round to when checking if epoch timings match
+    d = int(np.ceil(np.log10(recording[list(recording.signals.keys())[0]].fs))+1)
+
+    # build a series with an interval index, to lookup where epochs fall
+    s_name = pd.Series(epoch_stims['name'].values, pd.IntervalIndex.from_arrays(epoch_stims['start'], epoch_stims['end'], closed='both'))
+    s_cat = pd.Series(np.arange(len(epoch_stims['start']), dtype='int'), pd.IntervalIndex.from_arrays(epoch_stims['start'], epoch_stims['end'], closed='both'))
+
+    # add helper columns using the interval index lookups
+    temp_epochs['cat'] = temp_epochs['start'].map(s_cat)
+    temp_epochs['cat_end'] = temp_epochs['end'].map(s_cat)
+    temp_epochs['stim'] = temp_epochs['start'].map(s_name)
+
+    # only want epochs that fall within a stim epoch, so drop the ones that don't
+    drop_mask = temp_epochs['cat'] != temp_epochs['cat_end']
+    trial_mask = temp_epochs['name'] == 'TRIAL'  # also dorp this
+    temp_epochs = temp_epochs.loc[~drop_mask & ~trial_mask, ['name', 'start', 'end', 'cat', 'stim']]
+
+    temp_epochs['cat'] = temp_epochs['cat'].astype(int)  # cast back to int to make into index
+
+    # build another helper series, to map in times to subtract from start/end
+    work_mask = temp_epochs['name'].str.contains(pat=epoch_regex, na=False, regex=True)
+    s_starts = pd.Series(temp_epochs.loc[work_mask, 'start'].values, temp_epochs.loc[work_mask, 'cat'].values)
+
+    temp_epochs['start'] -= temp_epochs['cat'].map(s_starts)
+    temp_epochs['end'] -= temp_epochs['cat'].map(s_starts)
+    temp_epochs = temp_epochs.round(d)
+
+    concat = []
 
     offset = 0
-    new_epochs = [] # pd.DataFrame()
-    fs = recording[list(recording.signals.keys())[0]].fs
-    d = int(np.ceil(np.log10(fs))+1)
+    for name, group in temp_epochs.groupby('stim'):
+        # build a list of epoch names where all the values are equal
+        m_equal =(group.groupby('name').agg({
+            'start': lambda x: len(set(x)) == 1,
+            'end': lambda x: len(set(x)) == 1,
+        }).all(axis=1)
+           )
+        m_equal = m_equal.index[m_equal].values
 
-    for epoch_name in epoch_names:
-        common_epochs = ep.find_common_epochs(epochs, epoch_name, d=d)
-        common_epochs = common_epochs[common_epochs['name']!='TRIAL']
-        query = 'name == "{}"'.format(epoch_name)
-        end = common_epochs.query(query).iloc[0]['end']
-        common_epochs[['start', 'end']] += offset
-        offset += end
-        new_epochs.append(common_epochs)
+        # find the epoch names that are common to every group
+        s = set()
+        for idx, (cat_name, cat_group) in enumerate(group.groupby('cat')):
+            if idx == 0:
+                s.update(cat_group['name'])
+            else:
+                s.intersection_update(cat_group['name'])
 
-    new_epochs = pd.concat(new_epochs, ignore_index=True)
+        # drop where values across names aren't equal, or where a group is missing an epoch
+        keep_mask = (group['name'].isin(m_equal)) & (group['name'].isin(s))
+
+        g = group[keep_mask].drop(['cat', 'stim'], axis=1).drop_duplicates()
+        max_end = g['end'].max()
+        g[['start', 'end']] += offset
+        offset += max_end
+
+        concat.append(g)
+
+    new_epochs = pd.concat(concat).sort_values(['start', 'end', 'name']).reset_index(drop=True)
+
+    # make name the temp_epochs index for quick start/end lookup in loop below
+    temp_epochs = (temp_epochs[['name', 'start', 'end']]
+                   .drop_duplicates()
+                   .set_index('name')
+                   .assign(dur=lambda x: (x['end'] - x['start']).astype(float))
+                   .drop(['start', 'end'], axis='columns')
+                   )
 
     #averaged_recording = recording.copy()
     averaged_signals = {}
@@ -133,6 +191,7 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=Tru
         #print(signal_name)
         epoch_data = signal.rasterize().extract_epochs(epoch_names)
 
+        fs = signal.fs
         # Average over all occurrences of each epoch
         data = []
         #import pdb; pdb.set_trace()
@@ -147,10 +206,8 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=Tru
             else:
                 epoch = epoch[0,...]
 
-            mask = new_epochs['name'] == epoch_name
-            bounds = new_epochs.loc[mask, ['start', 'end']].values
-            bounds = np.round(bounds.astype(float) * signal.fs).astype(int)
-            elen = bounds[0,1] - bounds[0, 0]
+            elen = int(round((temp_epochs.loc[epoch_name, 'dur'] * fs)))
+
             if epoch.shape[-1] > elen:
                 log.info('truncating epoch_data for epoch %s', epoch_name)
                 epoch = epoch[..., :elen]
@@ -233,6 +290,10 @@ def mask_all_but_correct_references(rec, balance_rep_count=False,
     TODO: Migrate to nems_lbhb and/or make a more generic version
     """
     newrec = rec.copy()
+
+    newrec = normalize_epoch_lengths(newrec, resp_sig='resp', epoch_regex='^STIM_',
+                                     include_incorrect=include_incorrect)
+
     newrec['resp'] = newrec['resp'].rasterize()
     if 'stim' in newrec.signals.keys():
         newrec['stim'] = newrec['stim'].rasterize()
@@ -348,7 +409,7 @@ def mask_keep_passive(rec):
     return newrec
 
 
-def mask_all_but_targets(rec):
+def mask_all_but_targets(rec, include_incorrect=True):
     """
     Specialized function for removing incorrect trials from data
     collected using baphy during behavior.
@@ -358,11 +419,20 @@ def mask_all_but_targets(rec):
 
     newrec = rec.copy()
     newrec['resp'] = newrec['resp'].rasterize()
+    #newrec = normalize_epoch_lengths(newrec, resp_sig='resp', epoch_regex='TARGET',
+    #                                include_incorrect=include_incorrect)
     if 'stim' in newrec.signals.keys():
         newrec['stim'] = newrec['stim'].rasterize()
 
-    newrec = newrec.or_mask(['TARGET'])
+    #newrec = newrec.or_mask(['TARGET'])
+    newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'TARGET'])
+    newrec = newrec.and_mask(['REFERENCE','TARGET'])
 
+    # svd attempt to kludge this masking to work with a lot of code that assumes all relevant epochs are
+    # called "REFERENCE"
+    #import pdb;pdb.set_trace()
+    for k in newrec.signals.keys():
+        newrec[k].epochs.name = newrec[k].epochs.name.str.replace("TARGET", "REFERENCE")
     return newrec
 
 
@@ -489,6 +559,120 @@ def integrate_signal_per_epoch(rec, sig='stim', sig_out='stim_int', epoch_regex=
     return newrec
 
 
+def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
+                            include_incorrect=False):
+    """
+    for each set of epochs matching epoch_regex, figure out minimum length and truncate all
+    occurrences to that length
+    :param rec:
+    :param resp_sig:
+    :param epoch_regex:
+    :param include_incorrect: (False) not used
+    :return:
+    """
+    newrec = rec.copy()
+    resp = newrec[resp_sig].rasterize()
+
+    if include_incorrect:
+        log.info('INCLUDING ALL TRIALS (CORRECT AND INCORRECT)')
+        newrec = newrec.and_mask(['REFERENCE'])
+    else:
+        newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
+        newrec = newrec.and_mask(['REFERENCE'])
+
+    mask=newrec['mask']
+    del newrec.signals['mask']
+    mask.epochs = mask.to_epochs()
+    mask_bounds = mask.get_epoch_bounds('mask')
+
+    # Figure out list of matching epoch names: epochs_to_extract
+    if type(epoch_regex) == list:
+        epochs_to_extract = []
+        for rx in epoch_regex:
+            eps = ep.epoch_names_matching(resp.epochs, rx)
+            epochs_to_extract += eps
+
+    elif type(epoch_regex) == str:
+        epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
+    else:
+        raise ValueError('unknown epoch_regex format')
+
+    # find all pre/post-stim silence epochs
+    preidx = resp.get_epoch_bounds('PreStimSilence')
+    posidx = resp.get_epoch_bounds('PostStimSilence')
+    epochs_new = resp.epochs.copy()
+    precision = int(np.ceil(np.log(resp.fs)))
+    log.debug('decimal precision = %d', precision)
+    for ename in epochs_to_extract:
+        ematch = resp.get_epoch_bounds(ename)
+        # remove events outside of valid trial mask (if excluding incorrect)
+        if not include_incorrect:
+            ematch = ep.epoch_intersection(ematch, mask_bounds)
+        if len(ematch)>0:
+           # for CC data, may be "STIM_nnn" tone events that have been excluded in REF analysis
+           ematch_new = ematch.copy()
+           prematch = np.zeros((ematch.shape[0],1))
+           posmatch = np.zeros((ematch.shape[0],1))
+           for i,e in enumerate(ematch):
+               x = ep.epoch_intersection(preidx, [e], precision=precision)
+               if len(x):
+                   prematch[i] = np.diff(x)
+               else:
+                   log.info('pre missing?')
+                   import pdb; pdb.set_trace()
+               x = ep.epoch_intersection(posidx, [e], precision=precision)
+               if len(x):
+                   posmatch[i] = np.diff(x)
+           prematch = np.round(prematch, decimals=precision)
+           posmatch = np.round(posmatch, decimals=precision)
+           #import pdb;pdb.set_trace()
+           dur = np.round(np.diff(ematch, axis=1)-prematch-posmatch, decimals=precision)
+   
+           # weird hack to deal with CC data dropping post-stimsilence
+           if sum(posmatch>0)>0:
+               udur = np.sort(np.unique(dur[posmatch>0]))
+           else:
+               udur = np.sort(np.unique(dur))
+           mindur = np.min(udur)
+           dur[dur<mindur]=mindur
+   
+           log.debug('epoch %s: n=%d dur range=%.4f-%.4f', ename,
+                    len(ematch), mindur, np.max(dur))
+   
+           #import pdb;pdb.set_trace()
+           minpre = np.min(prematch)
+           minpos = np.min(posmatch[posmatch>0])
+           posmatch[posmatch<minpos]=minpos
+           remove_post_stim = False
+           if (minpre<np.max(prematch)) & (ematch.shape[0]==prematch.shape[0]):
+               log.info('epoch %s pre varies, fixing to %.3f s', ename, minpre)
+               ematch_new[:,0] = ematch_new[:,0]-minpre+prematch.T
+           if (mindur<np.max(dur)):
+               log.info('epoch %s dur varies, fixing to %.3f s', ename, mindur)
+               ematch_new[:,1] = ematch_new[:,0]+mindur
+               remove_post_stim = True
+           elif (minpos<np.max(posmatch)):
+               log.info('epoch %s pos varies, fixing to %.3f s', ename, minpos)
+               ematch_new[:,1] = ematch_new[:,0]+minpos-posmatch.T
+   
+           for e_old, e_new in zip(ematch, ematch_new):
+               _mask = (np.round(epochs_new['start']-e_old[0], precision)==0) & \
+                       (np.round(epochs_new['end']-e_old[1], precision)==0)
+               epochs_new.loc[_mask,'start'] = e_new[0]
+               epochs_new.loc[_mask,'end'] = e_new[1]
+               if remove_post_stim:
+                   _mask = epochs_new['name'].str.startswith("PostStimSilence") & \
+                           (np.round(epochs_new['end'] - e_old[1], precision) == 0)
+                   epochs_new.loc[_mask, 'start'] = e_new[1]
+                   epochs_new.loc[_mask, 'end'] = e_new[1]
+
+    # save revised epochs back to all signals in the recording
+    for k in newrec.signals.keys():
+        newrec[k].epochs = epochs_new.copy()
+
+    return newrec
+
+
 def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_resp=False):
     '''
     Estimates a PSTH from all responses to each regex match in a recording
@@ -496,6 +680,10 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
     subtract spont rate based on pre-stim silence for ALL estimation data.
 
     if rec['mask'] exists, uses rec['mask'] == True to determine valid epochs
+
+    Problem: not all the Pre/Dur/Post lengths are the same across reps of a stimulus.
+    Shorten everything to minimum of each. If Dur is variable, throw away post-stim silence.
+
     '''
 
     newrec = rec.copy()
@@ -507,24 +695,7 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
     else:
         mask = None
 
-    prestimsilence = resp.extract_epoch('PreStimSilence', mask=mask)
-
-    if len(prestimsilence.shape) == 3:
-        spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
-    else:
-        spont_rate = np.nanmean(prestimsilence)
-
-    preidx = resp.get_epoch_indices('PreStimSilence', mask=mask)
-    dpre=preidx[:,1]-preidx[:,0]
-    minpre=np.min(dpre)
-    prebins = preidx[0][1] - preidx[0][0]
-    posidx = resp.get_epoch_indices('PostStimSilence', mask=mask)
-    dpos=posidx[:,1]-posidx[:,0]
-    minpos=np.min(dpre)
-    postbins = posidx[0][1] - posidx[0][0]
-    #refidx = resp.get_epoch_indices('REFERENCE')
-
-    # compute PSTH response during valid trials
+    # Figure out list of matching epoch names: epochs_to_extract
     if type(epoch_regex) == list:
         epochs_to_extract = []
         for rx in epoch_regex:
@@ -534,42 +705,74 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
     elif type(epoch_regex) == str:
         epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
 
-    #import pdb
-    #pdb.set_trace()
-    for ename in epochs_to_extract:
-        ematch = np.argwhere(resp.epochs['name']==ename)
-        ff = resp.get_epoch_indices(ename, mask=mask)
-        for i,fe in enumerate(ff):
-            re = ((resp.epochs['name']=='REFERENCE') &
-                  (resp.epochs['start']==fe[0]/resp.fs))
-            pe = ep.epoch_contained(preidx, [fe])
-            thispdur = np.diff(preidx[pe])
+    # figure out spont rate for subtraction from PSTH
+    prestimsilence = resp.extract_epoch('PreStimSilence', mask=mask)
+    if len(prestimsilence.shape) == 3:
+        spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
+    else:
+        spont_rate = np.nanmean(prestimsilence)
 
-            #import pdb
-            #pdb.set_trace()
+    NEW_WAY = True
+    if NEW_WAY:
+        # already taken care of?
+        #newrec = normalize_epoch_lengths(newrec, resp_sig=resp_sig, epoch_regex='^STIM_')
+        #resp = newrec[resp_sig].rasterize()
+        # find all pre/post-stimsilence epochs
+        preidx = resp.get_epoch_indices('PreStimSilence', mask=mask)
+        posidx = resp.get_epoch_indices('PostStimSilence', mask=mask)
+        prebins = preidx[0][1] - preidx[0][0]
+        if posidx.shape[0]>0:
+            postbins = posidx[0][1] - posidx[0][0]
+        else:
+            postbins = 0
+    else:
+        # find all pre/post-stimsilence epochs
+        preidx = resp.get_epoch_indices('PreStimSilence', mask=mask)
+        posidx = resp.get_epoch_indices('PostStimSilence', mask=mask)
+        dpre=preidx[:,1]-preidx[:,0]
+        minpre=np.min(dpre)
+        prebins = preidx[0][1] - preidx[0][0]
+        dpos=posidx[:,1]-posidx[:,0]
+        minpos=np.min(dpre)
+        postbins = posidx[0][1] - posidx[0][0]
+        #refidx = resp.get_epoch_indices('REFERENCE')
 
-            if np.sum(pe)==1 and thispdur>minpre:
-                print('adjust {} to {}'.format(thispdur, minpre))
-                print(resp.epochs.loc[ematch[i]])
-                resp.epochs.loc[ematch[i],'start'] += (thispdur[0,0]-minpre)/resp.fs
-                resp.epochs.loc[re,'start'] += (thispdur[0,0]-minpre)/resp.fs
-                print(resp.epochs.loc[ematch[i]])
+        #import pdb
+        #pdb.set_trace()
+        for ename in epochs_to_extract:
+            ematch = np.argwhere(resp.epochs['name']==ename)
+            import pdb; pdb.set_trace()
+            ff = resp.get_epoch_indices(ename, mask=mask)
+            for i,fe in enumerate(ff):
+                re = ((resp.epochs['name']=='REFERENCE') &
+                      (resp.epochs['start']==fe[0]/resp.fs))
+                pe = ep.epoch_contained(preidx, [fe])
+                thispdur = np.diff(preidx[pe])
 
-            pe = ep.epoch_contained(posidx, [fe])
-            thispdur = np.diff(posidx[pe])
-            if thispdur.shape and thispdur>minpos:
-                print('adjust {} to {}'.format(thispdur, minpos))
-                print(resp.epochs.loc[ematch[i]])
-                resp.epochs.loc[ematch[i],'end'] -= (thispdur[0,0]-minpos)/resp.fs
-                resp.epochs.loc[re,'end'] -= (thispdur[0,0]-minpos)/resp.fs
-                print(resp.epochs.loc[ematch[i]])
-    newrec['resp'].epochs = resp.epochs.copy()
+                if np.sum(pe)==1 and thispdur>minpre:
+                    print('adjust {} to {}'.format(thispdur, minpre))
+                    print(resp.epochs.loc[ematch[i]])
+                    resp.epochs.loc[ematch[i],'start'] += (thispdur[0,0]-minpre)/resp.fs
+                    resp.epochs.loc[re,'start'] += (thispdur[0,0]-minpre)/resp.fs
+                    print(resp.epochs.loc[ematch[i]])
+
+                pe = ep.epoch_contained(posidx, [fe])
+                thispdur = np.diff(posidx[pe])
+                if thispdur.shape and thispdur>minpos:
+                    print('adjust {} to {}'.format(thispdur, minpos))
+                    print(resp.epochs.loc[ematch[i]])
+                    resp.epochs.loc[ematch[i],'end'] -= (thispdur[0,0]-minpos)/resp.fs
+                    resp.epochs.loc[re,'end'] -= (thispdur[0,0]-minpos)/resp.fs
+                    print(resp.epochs.loc[ematch[i]])
+
+        newrec['resp'].epochs = resp.epochs.copy()
 
     if 'mask' in newrec.signals.keys():
         folded_matrices = resp.extract_epochs(epochs_to_extract,
                                               mask=newrec['mask'])
     else:
         folded_matrices = resp.extract_epochs(epochs_to_extract)
+    log.info('generating PSTHs for epochs: %s', folded_matrices.keys())
 
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()
@@ -954,20 +1157,26 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     """
 
     newrec = rec.copy()
-    resp = newrec['resp'].rasterize()
+    resp = newrec['resp'].rasterize()    
 
     # normalize mean/std of pupil trace if being used
     if ('pupil' in state_signals) or ('pupil2' in state_signals) or \
         ('pupil_ev' in state_signals) or ('pupil_bs' in state_signals) or \
         ('pupil_stim' in state_signals) or ('pupil_x_population' in state_signals):
         # save raw pupil trace
-        newrec["pupil_raw"] = newrec["pupil"].copy()
         # normalize min-max
-        p = newrec["pupil"].as_continuous().copy()
+        p_raw = newrec["pupil"].as_continuous().copy()
         # p[p < np.nanmax(p)/5] = np.nanmax(p)/5
-        p -= np.nanmean(p)
+        p = p_raw - np.nanmean(p_raw)
         p /= np.nanstd(p)
+        # hack to make sure state signal matches size of resp
+        if 'resp' in newrec.signals.keys():
+            #import pdb;pdb.set_trace()
+            if p.shape[1] > newrec['resp'].shape[1]:
+                p = p[:, :newrec['resp'].shape[1]]
+                p_raw = p_raw[:, :newrec['resp'].shape[1]]
         newrec["pupil"] = newrec["pupil"]._modified_copy(p)
+        newrec["pupil_raw"] = newrec["pupil"]._modified_copy(p_raw)
 
         if ('pupil2') in state_signals:
             newrec["pupil2"] = newrec["pupil"]._modified_copy(p ** 2)
@@ -1367,7 +1576,8 @@ def split_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspecs=None,
     return est, val, modelspecs_out
 
 
-def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
+def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', epoch_regex=None,
+                               modelspec=None,
                                njacks=10, allow_partial_epochs=False,
                                IsReload=False, **context):
     """
@@ -1375,9 +1585,13 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
     jackknife logic. returns lists est_out and val_out of corresponding
     jackknife subsamples. removed timepoints are replaced with nan
     """
-
+    if epoch_regex is None:
+        epochs_to_extract=[epoch_name]
+    else:
+        epochs_to_extract = ep.epoch_names_matching(rec.epochs, epoch_regex)
+    
     # logging.info("Generating {} jackknifes".format(njacks))
-    if rec.get_epoch_indices(epoch_name, allow_partial_epochs=allow_partial_epochs).shape[0]:
+    if rec.get_epoch_indices(epochs_to_extract, allow_partial_epochs=allow_partial_epochs).shape[0]:
         pass
     elif rec.get_epoch_indices('REFERENCE', allow_partial_epochs=allow_partial_epochs).shape[0]:
         log.info('Jackknifing by REFERENCE epochs')
@@ -1391,13 +1605,13 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', modelspec=None,
     else:
         raise ValueError('No epochs matching '+epoch_name)
 
-    est = rec.jackknife_masks_by_epoch(njacks, epoch_name, tiled=True,
+    est = rec.jackknife_masks_by_epoch(njacks, epochs_to_extract, tiled=True,
                                        allow_partial_epochs=allow_partial_epochs)
-    val = rec.jackknife_masks_by_epoch(njacks, epoch_name,
+    val = rec.jackknife_masks_by_epoch(njacks, epochs_to_extract,
                                        tiled=True, invert=True,
                                        allow_partial_epochs=allow_partial_epochs)
+    #import pdb;pdb.set_trace()
 
-    modelspec_out = []
     if (not IsReload) and (modelspec is not None):
         if modelspec.jack_count == 1:
             modelspec_out = modelspec.tile_jacks(njacks)

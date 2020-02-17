@@ -4,16 +4,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from nems.plots.utils import ax_remove_box
-
+from nems.gui.decorators import scrollable
 
 def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
-                     cmap=None, clim=None, extent=True, range=None, **options):
+                     cmap=None, clim=None, extent=True, time_range=None, **options):
+
 
     if not ax:
         ax = plt.gca()
 
-    if range is not None:
-        ax.imshow(array[:, np.arange(range[0],range[1])],
+    if time_range is not None:
+        if fs is not None:
+            time_range = np.round(np.array(time_range)*fs).astype(int)
+        print('bin range: {}-{}'.format(time_range[0],time_range[1]))
+        ax.imshow(array[:, np.arange(time_range[0],time_range[1])],
                   origin='lower', interpolation='none',
                   aspect='auto', cmap=cmap, clim=clim)
     elif extent:
@@ -23,6 +27,9 @@ def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
             times = np.arange(0, array.shape[1])/fs-time_offset
 
         extent = [times[0], times[-1], 1, array.shape[0]]
+        if extent[2]==extent[3]:
+            extent[3]=2
+
         ax.imshow(array, origin='lower', interpolation='none',
                   aspect='auto', extent=extent, cmap=cmap, clim=clim)
     else:
@@ -69,58 +76,62 @@ def spectrogram_from_epoch(signal, epoch, occurrence=0, ax=None, **options):
     plot_spectrogram(array, fs=signal.fs, ax=ax, **options)
 
 
-def spectrogram(rec, stim_name='stim', ax=None, title=None, range=None, **options):
+@scrollable
+def spectrogram(rec, sig_name='stim', ax=None, title=None, **options):
     """
     plot a spectrogram of an entire signal (typically stim), **options passed through
     :param rec:
-    :param stim_name:
+    :param sig_name:
     :param ax:
     :param title:
-    :param range: if not None, plot range[0]:range[1] of the signal timeseries
-    :param options: extra dict
+    :param time_range: if not None, plot time_range[0]:time_range[1] (seconds) of the signal
+    :param options: extra dict passed through to plot_spectrogram
     :return:
 
     TODO: How can the colorbar be scaled to match other signals?
     """
     if 'mask' in rec.signals.keys():
-        signal = rec.apply_mask()[stim_name]
+        signal = rec.apply_mask()[sig_name]
     else:
-        signal = rec[stim_name]
+        signal = rec[sig_name]
 
     array = signal.as_continuous()
 
-    if range is not None:
-        array = array[:, np.arange(range[0],range[1])]
+    #if time_range is not None:
+    #    array = array[:, np.arange(time_range[0],time_range[1])]
 
     ax = plot_spectrogram(array, fs=signal.fs, title=title, ax=ax, **options)
 
     return ax
 
 
-def pred_spectrogram(stim_name='pred', **options):
+@scrollable
+def pred_spectrogram(sig_name='pred', **options):
     """
     wrapper for spectrogram, forces stim_name to be pred. other **options passed through
-    :param stim_name:
+    :param sig_name:
     :param options: passed through to spectrogram
     :return:
     """
-    ax = spectrogram(stim_name=stim_name, **options)
+    ax = spectrogram(sig_name=sig_name, **options)
 
     return ax
 
 
-def resp_spectrogram(stim_name='resp', **options):
+@scrollable
+def resp_spectrogram(sig_name='resp', **options):
     """
     wrapper for spectrogram, forces stim_name to be resp. other **options passed through
-    :param stim_name:
+    :param sig_name:
     :param options: passed through to spectrogram
     :return:
     """
-    ax = spectrogram(stim_name=stim_name, **options)
+    ax = spectrogram(sig_name=sig_name, **options)
 
     return ax
 
 
+@scrollable
 def spectrogram_output(rec, modelspec, sig_name='pred', idx=0, ax=None, **options):
     '''
     Wrapper for spectrogram, displays signal output by set in modelspec.

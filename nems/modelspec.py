@@ -491,7 +491,7 @@ class ModelSpec:
                         'defaulting to first entry.')
             fn_path = fn_list[0]
 
-        log.info(f'Found plot fn "{fn_path}" for module "{module["fn"]}"')
+        log.debug(f'Found plot fn "{fn_path}" for module "{module["fn"]}"')
         return _lookup_fn_at(fn_path)
 
     def plot(self, mod_index=0, plot_fn_idx=None, fit_index=None, rec=None,
@@ -520,7 +520,9 @@ class ModelSpec:
 
     def quickplot(self, rec=None, epoch=None, occurrence=None, fit_index=None,
                   include_input=True, include_output=True, size_mult=(1.0, 3.0),
-                  figsize=None, fig=None, range=None):
+                  figsize=None, fig=None, time_range=None, sig_names=None,
+                  modidx_set=None):
+
         """Generate a summary plot of a subset of the data.
 
         :param rec: The recording from which to pull the data.
@@ -531,7 +533,9 @@ class ModelSpec:
         :param bool include_output: Whether to include default plot of the outputs.
         :param tuple size_mult: Scale factors for width and height of figure.
         :param tuple figsize: Size of figure (tuple of inches).
-        :param tuple range: If not None, plot only slice np.array(range) from timeseries
+        :param tuple time_range: If not None, plot signals from time_range[0]-time_range[1] sec
+        :param sig_names: list of signal name strings (default ['stim'])
+        :param modidx_set: list of mod indexes to plot (default all)
         :return: Matplotlib figure.
         """
         if rec is None:
@@ -540,17 +544,25 @@ class ModelSpec:
         if fit_index is not None:
             self.fit_index = fit_index
 
-        rec_resp = rec['resp']
-        rec_pred = rec['pred']
-        rec_stim = rec['stim']
+        if sig_names is None:
+            if include_input:
+                sig_names = ['stim']
+            else:
+                sig_names = []
+
+        # strip out any signals that aren't in the recording
+        sig_names = [s for s in sig_names if s in rec.signals.keys()]
+
+        if modidx_set is None:
+            modidx_set = range(len(self))
 
         # if there's no epoch, don't bother
-        if rec_resp.epochs is None:
+        if rec['resp'].epochs is None:
             pass
 
         else:
             # list of possible epochs
-            available_epochs = rec_resp.epochs.name.unique()
+            available_epochs = rec['resp'].epochs.name.unique()
 
             # if the epoch is correct, move on
             if (epoch is not None) and (epoch in available_epochs):
@@ -560,9 +572,9 @@ class ModelSpec:
             else:
                 # order of fallback epochs to search for
                 epoch_sequence = [
+                    'TRIAL',
                     'REFERENCE',
                     'TARGET',
-                    'TRIAL',
                     'SIGNAL',
                     'SEQUENCE1',
                     None  # leave None as the last in the sequence, to know when not found
@@ -580,28 +592,43 @@ class ModelSpec:
 
         # data to plot
         if epoch is not None:
-            extracted = rec_resp.extract_epoch(epoch)
-        else:
-            extracted = rec_resp.as_continuous()
+            try:
+                epoch_bounds = rec['resp'].get_epoch_bounds(epoch, mask=rec['mask'])
+            except:
+                log.warning(f'Quickplot: no valid epochs matching {epoch}. Will not subset data.')
+                epoch = None
+
+        if 'mask' in rec.signals.keys():
+            rec = rec.apply_mask()
+        rec_resp = rec['resp']
+        rec_pred = rec['pred']
+        rec_stim = rec['stim']
+
+        if (epoch is None) or (len(epoch_bounds)==0):
+            epoch_bounds = np.array([[0, rec['resp'].shape[1]/rec['resp'].fs]])
 
         # figure out which occurrence
-        not_empty = [np.any(np.isfinite(x)) for x in extracted]  # occurrences containing non inf/nan data
-        possible_occurrences, = np.where(not_empty)
-
+        #not_empty = [np.any(np.isfinite(x)) for x in extracted]  # occurrences containing non inf/nan data
+        #possible_occurrences, = np.where(not_empty)
+        possible_occurrences = np.arange(epoch_bounds.shape[1])
         # if there's no possible occurrences, then occurrence passed in doesn't matter
-        if possible_occurrences.size == 0:
+        if time_range is not None:
+            pass
+        elif len(possible_occurrences) == 0:
             # only warn if passed in occurrence
             if occurrence is not None:
                 log.warning('Quickplot: no possible occurrences, ignoring passed occurrence')
             occurrence = None
-        # otherwise, if the passed occurrence is not possible, then default to the first one
+            time_range = epoch_bounds[0]
         else:
+            # otherwise, if the passed occurrence is not possible, then default to the first one
             if occurrence not in possible_occurrences:
                 # only warn if had passed in occurrence
                 if occurrence is not None:
                     log.warning(f'Quickplot: Passed occurrence not possible, defaulting to first possible '
                                 f'(idx: {occurrence}).')
                 occurrence = possible_occurrences[0]
+            time_range = epoch_bounds[occurrence]
 
         # determine the plot functions
         plot_fn_modules = []
@@ -615,7 +642,8 @@ class ModelSpec:
             if self[mod_idx]['fn'] == 'nems.modules.nonlinearity.dlog':
                 continue
 
-            plot_fn_modules.append((mod_idx, self.get_plot_fn(mod_idx)))
+            if mod_idx in modidx_set:
+                plot_fn_modules.append((mod_idx, self.get_plot_fn(mod_idx)))
 
         # drop duplicates
         temp_plot_fn_set = []
@@ -626,38 +654,52 @@ class ModelSpec:
                 temp_plot_fn_set.append((mod_idx, plot_fn))
 
         plot_fn_modules = temp_plot_fn_set
-
+        
         # use partial so ax can be specified later
         # the format is (fn, col_span), where col_span is 1 for all of these, but will vary for the custom pre-post
         # below fn and col_span should be list, but for simplicity here they are just int and partial and converted
         # in the plotting loop below
+        if rec_stim is None:
+            opts = {}
+        else:
+            opts = {'chan_names': rec_stim.chans}
         plot_fns = [
             (partial(plot_fn,
                      rec=rec,
                      modelspec=self,
                      idx=mod_idx,
-                     channels=rec_stim.chans,
-                     range=range,
-                     ), 1)
+                     time_range=time_range,
+                     **opts), 1)
             for mod_idx, plot_fn in plot_fn_modules
         ]
 
-        if include_input:
-            plot_fn = _lookup_fn_at('nems.plots.api.spectrogram_from_epoch')
-            fn = partial(plot_fn,
-                         signal=rec_stim,
+        for s in sig_names:
+            if rec[s].shape[0]>1:
+                plot_fn = _lookup_fn_at('nems.plots.api.spectrogram')
+                title = s + ' spectrogram'
+            else:
+                plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_signals')
+                title = s + ' timeseries'
+
+            fn = partial(plot_fn, rec=rec,
+                         sig_name=s,
                          epoch=epoch,
                          occurrence=occurrence,
-                         title='Stimulus Spectrogram'
+                         time_range=time_range,
+                         title=title
                          )
             # add to front
             plot_fns = [(fn, 1)] + plot_fns
 
         if include_output:
-            plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_epoch')
+            if (time_range is not None) or (epoch is None):
+                plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_signals')
+            else:
+                plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_epoch')
             fn = partial(plot_fn,
                          signals=[rec_resp, rec_pred],
                          epoch=epoch,
+                         time_range=time_range,
                          occurrences=occurrence,
                          title=f'Prediction vs Response, {epoch} #{occurrence}'
                          )
@@ -719,6 +761,7 @@ class ModelSpec:
         # iterate through the plotting partials and plot them to the gridspec
         for row_idx, (plot_fn, col_spans) in enumerate(plot_fns):
             # plot_fn, col_spans should be list, so convert if necessary
+            log.debug('plotting row {}/{}'.format(row_idx, len(plot_fns)))
             if isinstance(col_spans, int) and not isinstance(plot_fn, list):
                 col_spans = [col_spans]
                 plot_fn = [plot_fn]
@@ -728,10 +771,17 @@ class ModelSpec:
 
             col_idx = 0
             for fn, col_span in zip(plot_fn, col_spans):
-                ax = plt.Subplot(fig, gs_cols[0, col_idx:col_idx + col_span])
-                fig.add_subplot(ax)
-                fn(ax=ax)
-                col_idx += col_span
+                try:
+                    ax = plt.Subplot(fig, gs_cols[0, col_idx:col_idx + col_span])
+                    fig.add_subplot(ax)
+                    fn(ax=ax)
+                    col_idx += col_span
+                except:
+                    print('FAILED')
+                    print(fn)
+                    import pdb;pdb.set_trace()
+
+        log.debug('done plotting')
 
         # suptitle needs to be after the gridspecs in order to work with constrained_layout
         fig.suptitle(fig_title)

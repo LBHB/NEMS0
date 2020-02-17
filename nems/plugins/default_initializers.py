@@ -23,7 +23,7 @@ def init(kw):
     tN : Set tolerance to 10**-N, where N is any positive integer.
     st : Remove state replication/merging before initializing.
     psth : Initialize by fitting to 'psth' intead of 'resp' (default)
-    nlN : Initialize nonlinearity with verion N
+    nlN : Initialize nonlinearity with version N
         For dexp, options are {1,2} (default is 2),
             pre 11/29/18 models were fit with v1
             1: amp = np.nanstd(resp) * 3
@@ -37,6 +37,24 @@ def init(kw):
           default N=10
     .rbN : initialize with N random phis drawn from priors (via init.rand_phi),
            and pick best mse_fit, default N=10
+    .iN : include module N. ie, fit phi for this module. if not specified,
+          defaults to 0:len(modelspec). can be repeated for multiple
+          modules
+    .inegN : include module len(modelspec)-N
+    .iiN : include modules 0:(N+1) -- including N! Note that .ii behavior
+           differs from .ff and .xx
+    .iinegN : include modules len(modelspec)-N:len(modelspec)
+    .fN : freeze module N. ie, keep module in model but keep phi fixed
+    .fnegN : freeze module len(modelspec)-N
+    .ffN : freeze modules N:len(modelspec). Note that .ii behavior
+           differs from .ff and .xx
+    .ffnegN : freeze modules len(modelspec)-N:len(modelspec)
+    .xN : exclude module N. ie, remove from model, assume that it won't break!
+    .xnegN : exclude module len(modelspec)-N
+    .xxN : exclude modules N:len(modelspec). Note that .ii behavior
+           differs from .ff and .xx
+    .xxnegN : exclude modules len(modelspec)-N:len(modelspec)
+
 
     TODO: Optimize more, make testbed to check how well future changes apply
     to disparate datasets.
@@ -53,6 +71,8 @@ def init(kw):
     keep_best = False
     fast_eval = ('f' in ops)
     tf = False
+    sel_options = {'include_idx': [], 'exclude_idx': [], 'freeze_idx': []}
+    metric_options = {'metric': 'nmse', 'alpha': 0}
     for op in ops:
         if op == 'st':
             st = True
@@ -68,6 +88,11 @@ def init(kw):
             num = op.replace('d', '.').replace('\\', '')
             tolpower = float(num[1:])*(-1)
             tolerance = 10**tolpower
+        elif op.startswith('pLV'):
+            # pupil dep. cost function
+            metric = 'pup_dep_LV'
+            alpha = float(op[3:].replace(',', '.'))
+            metric_options.update({'metric': metric, 'alpha': alpha})
         elif op == 'L2f':
             norm_fir = True
         elif op.startswith('rb'):
@@ -83,6 +108,39 @@ def init(kw):
                 rand_count = int(op[1:])
         elif op.startswith('b'):
             keep_best = True
+        elif op.startswith('iineg'):
+            sel_options['include_through'] = -int(op[5:])
+        elif op.startswith('ineg'):
+            sel_options['include_idx'].append(-int(op[4:]))
+        elif op.startswith('ii'):
+            sel_options['include_through'] = int(op[2:])
+        elif op.startswith('i'):
+            sel_options['include_idx'].append(int(op[1:]))
+        elif op.startswith('ffneg'):
+            sel_options['freeze_after'] = -int(op[5:])
+        elif op.startswith('fneg'):
+            sel_options['freeze_idx'].append(-int(op[4:]))
+        elif op.startswith('ff'):
+            sel_options['freeze_after'] = int(op[2:])
+        elif op.startswith('f'):
+            sel_options['freeze_idx'].append(int(op[1:]))
+        elif op.startswith('xxneg'):
+            sel_options['exclude_after'] = -int(op[5:])
+        elif op.startswith('xneg'):
+            sel_options['exclude_idx'].append(-int(op[4:]))
+        elif op.startswith('xx'):
+            sel_options['exclude_after'] = int(op[2:])
+        elif op.startswith('x'):
+            sel_options['exclude_idx'].append(int(op[1:]))
+    bsel = False
+    for key in list(sel_options.keys()):
+        value = sel_options[key]
+        if (type(value) is list) and (len(value)>0):
+            bsel=True
+        elif (type(value) is int):
+            bsel=True
+        else:
+            del sel_options[key]
 
     xfspec = []
     #if fast_eval:
@@ -90,19 +148,24 @@ def init(kw):
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
 
+    sel_options.update({'tolerance': tolerance, 'norm_fir': norm_fir,
+                        'nl_kw': nl_kw})
+
     if tf:
-        xfspec.append(['nems.xforms.fit_wrapper',
-                       {'tolerance': tolerance, 'norm_fir': norm_fir, 'nl_kw': nl_kw,
-                        'fit_function': 'nems.tf.cnnlink.fit_tf_init'}])
+        sel_options['fit_function'] = 'nems.tf.cnnlink.fit_tf_init'
     elif st:
-        xfspec.append(['nems.xforms.fit_wrapper',
-                       {'tolerance': tolerance, 'norm_fir': norm_fir,
-                        'nl_kw': nl_kw, 'fit_sig': fit_sig,
-                        'fit_function': 'nems.xforms.fit_state_init'}])
+        sel_options['fit_function'] = 'nems.xforms.fit_state_init'
+        sel_options['fit_sig'] = fit_sig
+    elif bsel:
+        sel_options['fit_function'] = 'nems.xforms.fit_basic_subset'
     else:
-        xfspec.append(['nems.xforms.fit_wrapper',
-                       {'tolerance': tolerance, 'norm_fir': norm_fir, 'nl_kw': nl_kw,
-                        'fit_function': 'nems.xforms.fit_basic_init'}])
+        sel_options['fit_function'] = 'nems.xforms.fit_basic_init'
+
+    # save cost function for use by fitter (default is nmse)
+    sel_options.update(metric_options)
+
+    xfspec.append(['nems.xforms.fit_wrapper', sel_options])
+
     if keep_best:
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
@@ -170,6 +233,12 @@ def sev(kw):
     return xfspec
 
 
+def aev(kw):
+    xfspec= [['nems.xforms.use_all_data_for_est_and_val', 
+                {}]]
+    return xfspec
+
+
 def sevst(kw):
     ops = kw.split('.')[1:]
     epoch_regex = '^STIM' if not ops else ops[0]
@@ -204,6 +273,8 @@ def jk(kw):
     for op in ops:
         if op.startswith('nf'):
             jk_kwargs['njacks'] = int(op[2:])
+        elif op == 'stim':
+            jk_kwargs['epoch_name'] = "^STIM_"
         elif op == 'm':
             do_split = True
         elif op == 'p':

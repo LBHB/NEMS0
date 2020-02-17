@@ -9,7 +9,7 @@ import nems.recording as recording
 #import nems.modules.stp as stp
 from nems.metrics.stp import stp_magnitude
 from nems.plots.utils import ax_remove_box
-
+from nems.gui.decorators import scrollable
 
 def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
                     linestyle='-', linewidth=1,
@@ -85,23 +85,24 @@ def timeseries_from_vectors(vectors, xlabel='Time', ylabel='Value', fs=None,
                     ax=ax, title=title, colors=colors)
     return ax
 
-
-def timeseries_from_signals(signals, channels=0, no_legend=False,
-                            range=None, **options):
+@scrollable
+def timeseries_from_signals(signals=None, channels=0, no_legend=False,
+                            time_range=None, rec=None, sig_name=None, **options):
     """
     Plot one or more timeseries extracted from a list of signals
 
         :param signals: List of signals to plot
         :param channels: List of channels, one per signal(??)
         :param no_legend: True/False guess what this means?
-        :param range: if not None, plot range[0]:range[1] of the signal timeseries
+        :param time_range: if not None, plot time_range[0]:time_range[1] (seconds) of the signal
         :return: Matplotlib axes containing the plot
     """
     if channels is None:
         channels = 0
+    if signals is None:
+        signals = [rec[sig_name]]
 
     channels = pad_to_signals(signals, channels)
-
     times = []
     values = []
     legend = []
@@ -111,6 +112,8 @@ def timeseries_from_signals(signals, channels=0, no_legend=False,
         else:
             chanset = channels
         for c in chanset:
+            if type(c) is str:
+                c=0
             # Get values from specified channel
             value_vector = s.as_continuous()[c]
             # Convert indices to absolute time based on sampling frequency
@@ -123,9 +126,10 @@ def timeseries_from_signals(signals, channels=0, no_legend=False,
     if no_legend:
         legend = None
 
-    if range is not None:
-        times = [t[np.arange(range[0],range[1])] for t in times]
-        values = [v[np.arange(range[0],range[1])] for v in values]
+    if time_range is not None:
+        time_range = np.round(np.array(time_range)*s.fs).astype(int)
+        times = [t[np.arange(time_range[0], time_range[1])] for t in times]
+        values = [v[np.arange(time_range[0], time_range[1])] for v in values]
 
     ax = plot_timeseries(times, values, legend=legend, **options)
 
@@ -136,7 +140,7 @@ def timeseries_from_epoch(signals, epoch, occurrences=0, channels=0,
                           xlabel='Time', ylabel='Value',
                           linestyle='-', linewidth=1,
                           ax=None, title=None, pre_dur=None, dur=None,
-                          PreStimSilence=None):
+                          PreStimSilence=None, **options):
     """TODO: doc"""
     if occurrences is None:
         return
@@ -258,6 +262,7 @@ def before_and_after_stp(modelspec=None, mod_index=None, tau=None, u=None, tau2=
                             title=title, colors=colors)
 
 
+@scrollable
 def before_and_after(rec, modelspec, sig_name, ax=None, title=None, idx=0,
                      channels=0, xlabel='Time', ylabel='Value', **options):
     '''
@@ -300,6 +305,7 @@ def before_and_after(rec, modelspec, sig_name, ax=None, title=None, idx=0,
                             xlabel=xlabel, ylabel=ylabel, ax=ax,
                             title=title, **options)
 
+@scrollable
 def mod_output(rec, modelspec, sig_name='pred', ax=None, title=None, idx=0,
                channels=0, xlabel='Time', ylabel='Value', **options):
     '''
@@ -337,6 +343,7 @@ def mod_output(rec, modelspec, sig_name='pred', ax=None, title=None, idx=0,
                                  title=title, **options)
     return ax
 
+@scrollable
 def mod_output_all(rec, modelspec, sig_name='pred', idx=0, **options):
     '''
     Plots a time series of specified signal output by step in the modelspec.
@@ -392,6 +399,7 @@ def before_and_after_signal(rec, modelspec, idx, sig_name='pred'):
     return before_sig, after_sig
 
 
+@scrollable
 def fir_output_all(rec, modelspec, sig_name='pred', idx=0, **options):
     """ plot output of fir filter channels separately"""
     # now evaluate next module step
@@ -414,7 +422,8 @@ def fir_output_all(rec, modelspec, sig_name='pred', idx=0, **options):
     return ax
 
 
-def pred_resp(rec, modelspec, ax=None, title=None,
+@scrollable
+def pred_resp(rec=None, modelspec=None, ax=None, title=None,
               channels=0, xlabel='Time', ylabel='Value',
               no_legend=False, **options):
     '''

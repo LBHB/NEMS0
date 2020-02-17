@@ -313,9 +313,10 @@ class SignalBase:
 
         Parameters
         ----------
-        epoch : {string, Nx2 array, pandas series}
+        epoch : {string, list of strings, Nx2 array, pandas series}
             If string, name of epoch (as stored in internal dataframe) to
             extract.
+            If list of strings, concatenate all epochs in list
             If Nx2 array, the first column indicates the start time (in
             seconds) and the second column indicates the end time (in seconds)
             to extract.
@@ -353,6 +354,18 @@ class SignalBase:
             _mask = self.epochs['name'] == epoch
             bounds = self.epochs.loc[_mask, ['start', 'end']].values
             bounds = np.round(bounds.astype(float) * self.fs) / self.fs
+        elif isinstance(epoch, list):
+            # list of strings
+            if self.epochs is None:
+                m = "Signal does not have any epochs defined"
+                raise ValueError(m)
+            bounds = np.zeros((0,2))
+            for e in epoch:
+                _mask = self.epochs['name'] == e
+                _bounds = self.epochs.loc[_mask, ['start', 'end']].values
+                _bounds = np.round(_bounds.astype(float) * self.fs) / self.fs
+                bounds = np.concatenate((bounds, _bounds), axis=0)
+
         elif isinstance(epoch, pd.core.series.Series):
             bounds = self.epochs.loc[epoch, ['start', 'end']].values
         else:
@@ -384,7 +397,7 @@ class SignalBase:
             overlap_bounds = self.get_epoch_bounds(overlapping_epoch)
             bounds = epoch_intersection(bounds, overlap_bounds)
 
-        bounds = np.sort(bounds, axis=0)
+        # bounds = np.sort(bounds, axis=0)
 
         if mask is not None:
             raise ValueError("mask not supported for get_epoch_bounds yet")
@@ -393,7 +406,7 @@ class SignalBase:
 
     def get_epoch_indices(self, epoch, boundary_mode='exclude',
                           fix_overlap=None, overlapping_epoch=None,
-                          mask=None):
+                          mask=None, allow_incomplete=False):
         '''
         Get boundaries of named epoch as index.
 
@@ -403,6 +416,7 @@ class SignalBase:
             passed through to get_epoch_bounds
             If string, name of epoch (as stored in internal dataframe) to
             extract.
+            If list of strings, concatenate all epochs in list
             If Nx2 array, the first column indicates the start time
             (in seconds) and the second column indicates the end time
             (in seconds) to extract.
@@ -423,6 +437,9 @@ class SignalBase:
             occurences of overlapping_epoch
         mask : {None or signal}
             only include epochs (fully?) spanned by the mask==True
+        allow_incomplete: {True, False}  (added CRH 2/4/2020)
+            if True, allow mask to not perfectly match epoch lb and ub. However, epoch ub and lb must
+            still span the mask.
 
             TODO: check how mask interacts with segments. Currently, masking is
             only tested before segmentation (ie, the application of the mask)
@@ -488,7 +505,6 @@ class SignalBase:
                     break
 
         indices = np.asarray(indices, dtype='i')
-
         if mask is not None:
             # remove instances of the epoch that do not fall in the mask
             m_data = mask.as_continuous()
@@ -497,6 +513,16 @@ class SignalBase:
                 #                samples = ub-lb
                 if np.all(m_data[0, lb:ub]):
                     keepidx.append(i)
+            
+                elif (np.sum(m_data[0, lb:ub]) > 0) & allow_incomplete:
+                    # define new indices
+                    idx = np.where(m_data[0, lb:ub])
+                    lb = lb + idx[0][0]
+                    ub = ub - (ub - idx[0][-1])
+                    # check to make sure all True in this new range (i.e. can't extract non-continuous chunks of an epoch)
+                    if np.all(m_data[0, lb:ub]):
+                        keepidx.append(i)
+
             if len(keepidx) > 0:
                 keepidx = np.array(keepidx)
                 indices = indices[keepidx]
@@ -628,7 +654,7 @@ class SignalBase:
         epoch_data = self.extract_epoch(epoch, mask=mask)
         return np.nanmean(epoch_data, axis=0)
 
-    def extract_epochs(self, epoch_names, overlapping_epoch=None, mask=None):
+    def extract_epochs(self, epoch_names, overlapping_epoch=None, mask=None, allow_incomplete=False):
         '''
         Returns a dictionary of the data matching each element in epoch_names.
 
@@ -669,7 +695,7 @@ class SignalBase:
         for name in epoch_names:
             v = self.extract_epoch(name, allow_empty=True,
                                    overlapping_epoch=overlapping_epoch,
-                                   mask=mask)
+                                   mask=mask, allow_incomplete=allow_incomplete)
             # only return matrices for epochs with non-empty data matrices
             # (deal with possibility that some stimuli are masked out)
             if len(v)>0:
@@ -779,6 +805,9 @@ class SignalBase:
         return RasterizedSignal(data=data, safety_checks=False, **attributes)
         # return self._modified_copy(data, chans=[epoch_name])
 
+    def to_epochs(self):
+        raise NotImplementedError
+
     @property
     def shape(self):
         return self.nchans, self.ntimes
@@ -803,16 +832,22 @@ class SignalBase:
         :param mask:
         :return:
         """
-        sig = self.copy()
-        e = sig.epochs['start'].copy()
-        for i, r in sig.epochs.iterrows():
-            d = mask._data[0,int(r['start']*mask.fs):int(r['end']*mask.fs)]
-            if np.sum(d)<d.size:
-                e[i] = False
-            else:
-                e[i] = True
-        sig.epochs = self.epochs.loc[e]
-        return sig
+        signal = self.copy()
+        fs = mask.fs
+
+        temp_epochs = signal.epochs.copy()
+        temp_epochs['start'] = (temp_epochs['start'] * fs).astype(int)
+        temp_epochs['end'] = (temp_epochs['end'] * fs).astype(int)
+
+        new_mask = np.full(len(temp_epochs), False)
+        mask_data = mask._data[0]
+
+        for idx, (start, end) in enumerate(temp_epochs[['start', 'end']].values):
+            if mask_data[start:end].all():
+                new_mask[idx] = True
+
+        signal.epochs = self.epochs.loc[new_mask]
+        return signal
 
     @staticmethod
     def load(basepath):
@@ -1099,7 +1134,7 @@ class RasterizedSignal(SignalBase):
 
     def extract_epoch(self, epoch, boundary_mode='exclude',
                       fix_overlap='first', allow_empty=False,
-                      overlapping_epoch=None, mask=None):
+                      overlapping_epoch=None, mask=None, allow_incomplete=False):
         '''
         Extracts all occurances of epoch from the signal.
 
@@ -1140,7 +1175,8 @@ class RasterizedSignal(SignalBase):
             epoch_indices = self.get_epoch_indices(epoch,
                                                    boundary_mode=boundary_mode,
                                                    fix_overlap=fix_overlap,
-                                                   mask=mask)
+                                                   mask=mask,
+                                                   allow_incomplete=allow_incomplete)
         else:
             epoch_indices = epoch
 
@@ -1486,6 +1522,85 @@ class RasterizedSignal(SignalBase):
             name = self.name
         return self._modified_copy(array[s], chans=chans, name=name)
 
+    # def extract_epochs(self, epoch_names, overlapping_epoch=None, mask=None):
+    #     '''
+    #     Returns a dictionary of the data matching each element in epoch_names.
+    #
+    #     Parameters
+    #     ----------
+    #     epoch_names : list OR string
+    #         if list, list of epoch names to extract. These will be keys in the
+    #         result dictionary.
+    #         if string, will find matches via nems.epoch.epoch_names_matching
+    #
+    #     chans : {None, iterable of strings}
+    #         Names of channels to return. If None, return the full set of
+    #         channels.  If an iterable of strings, return those channels (in the
+    #         order specified by the iterable).
+    #
+    #     overlapping_epoch: {None, string}
+    #         if not None, only extracts epochs that overlap with occurrences
+    #         of overlapping epoch
+    #
+    #     mask: {None, signal}
+    #         if provided, onlye extract epochs overlapping periods where
+    #         mask.as_continuous()==True in all time bins
+    #
+    #     Returns
+    #     -------
+    #     epoch_datasets : dict
+    #         Keys are the names of the epochs, values are 3D arrays created by
+    #         `extract_epoch`.
+    #     '''
+    #     # TODO: Update this to work with a mapping of key -> Nx2 epoch
+    #     # structure as well.
+    #
+    #     if type(epoch_names) is str:
+    #         epoch_regex = epoch_names
+    #         epoch_names = epoch_names_matching(self.epochs, epoch_regex)
+    #
+    #     epoch_data_lens = self.epochs['name'].value_counts()[epoch_names].values
+    #     # early out to avoid errors
+    #     if not len(epoch_data_lens):
+    #         return {}
+    #
+    #     # need to reorder epochs dataframe to ensure that the indices are returned in the
+    #     # same order as the epochs we pulled from the dict; return to original order when done
+    #     old_index = self.epochs.index.values
+    #     self.epochs = self.epochs.sort_values('name')
+    #
+    #     epoch_mask = self.epochs['name'].isin(epoch_names)
+    #     epoch_indices = self.get_epoch_indices(epoch_mask, mask=mask)
+    #
+    #     # return epochs df to old order
+    #     self.epochs = self.epochs.loc[old_index]
+    #
+    #     signal_data = self.as_continuous()
+    #
+    #     n_chans = signal_data.shape[0]
+    #     n_samples = np.diff(epoch_indices, axis=1).max()
+    #
+    #     data_dict = {}
+    #
+    #     start = 0
+    #     # iterate through the epochs
+    #     for idx, (epoch, epoch_data_len) in enumerate(zip(epoch_names, epoch_data_lens)):
+    #
+    #         # build the array to hold the incoming epoch data
+    #         if signal_data.dtype == bool:
+    #             epoch_data = np.full((epoch_data_len, n_chans, n_samples), False, dtype=bool)
+    #         else:
+    #             epoch_data = np.full((epoch_data_len, n_chans, n_samples), np.nan)
+    #
+    #         # populate the newly built array with the appropriate signal data
+    #         for bound_idx, (lb, ub) in enumerate(epoch_indices[start: start + epoch_data_len]):
+    #             epoch_data[bound_idx, :, :] = signal_data[:, lb:ub]
+    #
+    #         data_dict[epoch] = epoch_data
+    #         start += epoch_data_len
+    #
+    #     return data_dict
+
     def replace_epoch(self, epoch, epoch_data, preserve_nan=True, mask=None):
         '''
         Returns a new signal, created by replacing every occurrence of
@@ -1591,6 +1706,65 @@ class RasterizedSignal(SignalBase):
 
         return self._modified_copy(data)
 
+    # def replace_epochs(self, epoch_dict, preserve_nan=True, mask=None):
+    #     '''
+    #     Returns a new signal, created by replacing every occurrence of epochs
+    #     in this signal with whatever is found in the replacement_dict under
+    #     the same epoch_name key. Dict values are assumed to be 2D matrices
+    #     (same signal for each occurence) or 3D (different signal for each
+    #     occurence).
+    #
+    #     NOTE: segments of the signal outside of any matching epoch are
+    #     set to np.nan
+    #
+    #     If the replacement matrix shape is not the same as the original
+    #     epoch being replaced, it will be truncated.
+    #
+    #     If overlapping epochs are defined, then they will be replaced in
+    #     the order present in the epochs dataframe (i.e. sorting your
+    #     epochs dataframe may change the results you get!). For this reason,
+    #     we do not recommend replacing overlapping epochs in a single
+    #     operation because there is some ambiguity as to the result.
+    #     '''
+    #
+    #     data = self.as_continuous().copy()
+    #     if preserve_nan:
+    #         nan_bins = np.isnan(data[0, :])
+    #
+    #     epochs = sorted(list(epoch_dict.keys()))
+    #     # get the length of the epochs so that we can iterate through the aggregated epoch indices
+    #     epoch_data_lens = self.epochs['name'].value_counts()[epochs].values
+    #
+    #     # need to reorder epochs dataframe to ensure that the indices are returned in the
+    #     # same order as the epochs we pulled from the dict; return to original order when done
+    #     old_index = self.epochs.index.values
+    #     self.epochs = self.epochs.sort_values('name')
+    #
+    #     epoch_mask = self.epochs['name'].isin(epochs)
+    #     indices = self.get_epoch_indices(epoch_mask, mask=mask)
+    #
+    #     # return epochs df to old order
+    #     self.epochs = self.epochs.loc[old_index]
+    #
+    #     start = 0
+    #     for epoch, epoch_data_len in zip(epochs, epoch_data_lens):
+    #         epoch_data = epoch_dict[epoch]
+    #
+    #         if epoch_data.ndim == 2:
+    #             for lb, ub in indices[start: start + epoch_data_len]:
+    #                 data[:, lb:ub] = epoch_data[:, :(ub-lb)]
+    #
+    #         elif epoch_data.ndim == 3:
+    #             for idx, (lb, ub) in enumerate(indices[start: start + epoch_data_len]):
+    #                 data[:, lb:ub] = epoch_data[idx, :, :(ub-lb)]
+    #
+    #         start += epoch_data_len
+    #
+    #     if preserve_nan:
+    #         data[:, nan_bins] = np.nan
+    #
+    #     return self._modified_copy(data)
+
     def select_epoch(self, epoch):
         '''
         Returns a new signal, the same as this, with everything NaN'd
@@ -1613,10 +1787,12 @@ class RasterizedSignal(SignalBase):
         '''
         # TODO: Update this to work with a mapping of key -> Nx2 epoch
         # structure as well.
-        new_data = np.full(self.shape, np.nan, dtype = self._data.dtype)
-        for epoch_name in list_of_epoch_names:
-            for (lb, ub) in self.get_epoch_indices(epoch_name):
-                new_data[:, lb:ub] = self._data[:, lb:ub]
+        new_data = np.full(self.shape, np.nan, dtype=self._data.dtype)
+
+        mask = self.epochs['name'].isin(list_of_epoch_names)
+        for (lb, ub) in self.get_epoch_indices(mask):
+            new_data[:, lb:ub] = self._data[:, lb:ub]
+
         if np.all(np.isnan(new_data)):
             warnings.warn("No matched occurrences for epochs: \n{}\n"
                                  "Returned signal will be only NaN."
@@ -1654,6 +1830,28 @@ class RasterizedSignal(SignalBase):
             'end': ends,
             'name': 'trial'
         })
+
+    def to_epochs(self):
+        """
+        create list of epochs for when a signal is non-zero. intended 
+        for boolean-type signals that are sparsely True, but works
+        for any signal type
+        :return: epochs list for each segment where self._data > 0
+        """
+        s = np.array(self._data.shape)
+        s[-1] = 1
+        nz = np.concatenate((np.zeros(s, dtype=int),
+                             (np.abs(self._data) > 0).astype(int),
+                             np.zeros(s, dtype=int)),
+                            axis=self._data.ndim-1)
+        _, starts = np.where(np.diff(nz)>0)
+        _, ends = np.where(np.diff(nz)<0)
+        return pd.DataFrame({
+            'start': starts/self.fs,
+            'end': ends/self.fs,
+            'name': self.name
+        })
+
 
     def transform(self, fn, newname=None):
         '''
@@ -2083,7 +2281,7 @@ class PointProcess(SignalBase):
 
     def extract_epoch(self, epoch, boundary_mode='exclude',
                       fix_overlap='first', allow_empty=False,
-                      overlapping_epoch=None, mask=None):
+                      overlapping_epoch=None, mask=None, allow_incomplete=False):
         '''
         Extracts all occurances of epoch from the signal.
 
@@ -2118,7 +2316,8 @@ class PointProcess(SignalBase):
             epoch_bounds = self.get_epoch_bounds(epoch,
                                                   boundary_mode=boundary_mode,
                                                   fix_overlap=fix_overlap,
-                                                  mask=mask)
+                                                  mask=mask, 
+                                                  allow_incomplete=allow_incomplete)
         else:
             epoch_bounds = epoch
 

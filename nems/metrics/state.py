@@ -9,8 +9,11 @@ log = logging.getLogger(__name__)
 
 def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
                     state_sig='state_raw', state_chan='pupil', stat=np.nanmean):
-    if 'mask' in rec.signals.keys():
-        rec = rec.apply_mask(reset_epochs=True)
+    
+    #import pdb;pdb.set_trace()
+
+    #if 'mask' in rec.signals.keys():
+    #    rec = rec.apply_mask(reset_epochs=True)
 
     fs = rec[psth_name].fs
 
@@ -19,10 +22,10 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
     #c = rec[psth_name].chans[chanidx]
     #full_psth = rec[psth_name].loc[c]
     full_psth = rec[psth_name]
-    folded_psth = full_psth.extract_epoch(epoch)[:, [chanidx], :] * fs
+    folded_psth = full_psth.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True)[:, [chanidx], :] * fs
 
     full_var = rec[state_sig].loc[state_chan]
-    folded_var = np.squeeze(full_var.extract_epoch(epoch)) * fs
+    folded_var = np.squeeze(full_var.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True)) * fs
 
     # compute the mean state for each occurrence
     g = (np.sum(np.isfinite(folded_var), axis=1) > 0)
@@ -41,7 +44,7 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
             if (s.startswith('FILE') | s.startswith('ACTIVE') |
                 s.startswith('PASSIVE')) and s != state_chan:
                 full_var = rec[state_sig].loc[s]
-                folded_var = np.squeeze(full_var.extract_epoch(epoch))
+                folded_var = np.squeeze(full_var.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True))
                 g = (np.sum(np.isfinite(folded_var), axis=1) > 0)
                 m0[g] += np.nanmean(folded_var[g, :], axis=1)
         ltidx = np.logical_not(gtidx) & np.logical_not(m0) & g
@@ -49,6 +52,7 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
         ltidx = np.logical_not(gtidx) & g
 
     # low = response on epochs when state less than mean
+    #import pdb; pdb.set_trace()
     if (np.sum(ltidx) == 0):
         low = np.zeros_like(folded_psth[0, :, :].T) * np.nan
     else:
@@ -91,12 +95,17 @@ def state_mod_index(rec, epoch='REFERENCE', psth_name='pred', divisor=None,
     #except IndexError:
     #    log.info('no %s epochs found. Trying TARGET instead', epoch)
     #    epoch = 'TARGET'
-
+    log.info('state_mod_index for {}, {}, {}'.format(psth_name,state_sig,state_chan))
     low, high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
                                 state_sig=state_sig, state_chan=state_chan)
 
     # kludge to deal with variable length REFERENCES.
     kk = np.isfinite(low) & np.isfinite(high)
+
+    if sum(kk) == 0:
+        # no timepoints that are valid in both low and high, MI fails to 0
+        return 0
+
     low = low[kk]
     high = high[kk]
 

@@ -204,6 +204,18 @@ class KeywordRegistry():
                 # on, for example.
         return registry
 
+    def info(self, kw=None):
+        """
+        :param kw:
+        :return: dictionary with source info for keywords containing string kw
+                 or (if kw is None) all keywords
+        """
+        kw_list = list(self.keywords.keys())
+        s = {}
+        for k in kw_list:
+            if (kw is None) or kw in k:
+                s[k] = self.source(k)
+        return s
 
 class Keyword():
     '''
@@ -221,3 +233,41 @@ class Keyword():
         self.key = key
         self.parse = parse
         self.source_string = source_string
+
+
+def xforms_kw_info(kw_string, **xforms_kwargs):
+    from nems.plugins import (default_loaders,
+                              default_initializers, default_fitters)
+    from nems import get_setting
+
+    xforms_lib = KeywordRegistry(**xforms_kwargs)
+    xforms_lib.register_modules([default_loaders, default_fitters,
+                                default_initializers])
+    xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
+
+    return xforms_lib.info(kw_string)
+
+
+def test_xforms_kw(kw_string, **xforms_kwargs):
+    from nems.plugins import (default_loaders,
+                              default_initializers, default_fitters)
+    from nems import get_setting
+
+    xforms_lib = KeywordRegistry(**xforms_kwargs)
+    xforms_lib.register_modules([default_loaders, default_fitters,
+                                default_initializers])
+    xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
+
+    return xforms_lib[kw_string]
+
+
+def test_modelspec_kw(kw_string):
+    from nems.plugins import (default_keywords)
+    from nems import get_setting
+
+    kw_lib = KeywordRegistry()
+    kw_lib.register_modules([default_keywords])
+    kw_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
+
+    return kw_lib[kw_string]
+

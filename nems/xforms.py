@@ -629,12 +629,12 @@ def split_val_and_average_reps(rec, epoch_regex='^STIM_', **context):
 def use_all_data_for_est_and_val(rec, **context):
     est = rec.copy()
     val = rec.copy()
-    rec['resp'] = rec['resp'].rasterize()
-    rec['stim'] = rec['stim'].rasterize()
-    est['resp'] = est['resp'].rasterize()
-    est['stim'] = est['stim'].rasterize()
-    val['resp'] = val['resp'].rasterize()
-    val['stim'] = val['stim'].rasterize()
+    signals = ['resp', 'stim']
+    signals = [s for s in rec.signals.keys()]
+    for s in signals:
+        rec[s] = rec[s].rasterize()
+        est[s] = est[s].rasterize()
+        val[s] = val[s].rasterize()
 
     return {'rec': rec, 'est': est, 'val': val}
 
@@ -652,14 +652,17 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
         return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
 
-def mask_for_jackknife(rec, modelspec=None, epoch_name='REFERENCE',
+def mask_for_jackknife(rec, modelspec=None, epoch_name='REFERENCE', epoch_regex=None,
                        by_time=False, njacks=10, IsReload=False,
                        allow_partial_epochs=False, **context):
+
+    if epoch_regex is None:
+        epoch_regex=epoch_name
 
     if by_time != True:
         est_out, val_out, modelspec_out = \
             preproc.mask_est_val_for_jackknife(rec, modelspec=modelspec,
-                                               epoch_name=epoch_name,
+                                               epoch_name=epoch_name, epoch_regex=epoch_regex,
                                                njacks=njacks,
                                                allow_partial_epochs=allow_partial_epochs,
                                                IsReload=IsReload)
@@ -731,6 +734,30 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
             fitter=scipy_minimize, metric=metric_fn,
             tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
             nl_kw=nl_kw)
+    return {'modelspec': modelspec}
+
+def fit_basic_subset(modelspec, est, metric='nmse', output_name='resp',
+                     IsReload=False, **context):
+    '''
+    Initialize modelspecs in a way that avoids getting stuck in
+    local minima.
+
+    written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
+    optional modules in (parens)
+    '''
+    # only run if fitting
+    if IsReload:
+        return {}
+
+    if isinstance(metric, str):
+        if metric == 'pup_dep_LV':
+            metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name, **context)
+        else:
+            metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
+    else:
+        metric_fn = metric
+    modelspec = nems.initializers.prefit_subset(
+            est, modelspec, metric=metric_fn, **context)
     return {'modelspec': modelspec}
 
 """
@@ -957,8 +984,8 @@ def fit_wrapper(modelspec, est=None, fit_function='nems.analysis.api.fit_basic',
         raise ValueError("Inputs modelspec and est required")
 
     if modelspec.jack_count < est.view_count:
-        log.info('modelspec.jack_count does not match est.view_count. TILING.')
-        modelspec.tile_jacks(est.view_count)
+        raise Warning('modelspec.jack_count does not match est.view_count')
+        modelspec.tile_jacks(nfolds)
 
     # load function into path
     fn = lookup_fn_at(fit_function)
@@ -1053,13 +1080,16 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
     modelspec = corr_fn(est, val, modelspec=modelspec, rec=rec, use_mask=use_mask)
 
     if find_module('state', modelspec) is not None:
-        if 'state' not in val.signals.keys():
+        if ('state' not in val.signals.keys()):
             pass
         else:
+            log.info('Skipping jackknife MI calculations')
             s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='pred',
                                 state_sig='state_raw', state_chan=[])
-            j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='pred',
-                                state_sig='state_raw', state_chan=[], njacks=10)
+            #j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='pred',
+            #                    state_sig='state_raw', state_chan=[], njacks=10)
+            j_s = s
+            ee = np.zeros(j_s.shape)
             modelspec.meta['state_mod'] = s
             modelspec.meta['j_state_mod'] = j_s
             modelspec.meta['se_state_mod'] = ee
@@ -1070,21 +1100,26 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
             # try using resp
             s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='resp',
                                 state_sig='state_raw', state_chan=[])
-            j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='resp',
-                                state_sig='state_raw', state_chan=[], njacks=10)
+            #j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='resp',
+            #                    state_sig='state_raw', state_chan=[], njacks=10)
+            j_s = s
+            ee = np.zeros(j_s.shape)
             modelspec.meta['state_mod_r'] = s
             modelspec.meta['j_state_mod_r'] = j_s
             modelspec.meta['se_state_mod_r'] = ee
 
             # try using the "mod" signal (if it exists) which is calculated
-            if 'mod' in modelspec.meta['modelname']:
+            if ('mod' in modelspec.meta['modelname']) and ('mod' in val.signals.keys()):
                 s = metrics.state_mod_index(val, epoch='REFERENCE',
                                                 psth_name='mod', divisor='resp',
                                                 state_sig='state_raw', state_chan=[])
-                j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE',
-                                                psth_name='mod', divisor='resp',
-                                                state_sig='state_raw', state_chan=[],
-                                                njacks=10)
+                #j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE',
+                #                                psth_name='mod', divisor='resp',
+                #                                state_sig='state_raw', state_chan=[],
+                #                                njacks=10)
+                j_s = s
+                ee = np.zeros(j_s.shape)
+
                 modelspec.meta['state_mod_m'] = s
                 modelspec.meta['j_state_mod_m'] = j_s
                 modelspec.meta['se_state_mod_m'] = ee
@@ -1220,18 +1255,25 @@ def load_analysis(filepath, eval_model=True, only=None):
     :return: (xfspec, ctx) tuple
     """
     log.info('Loading xfspec and context from %s...', filepath)
+    def _path_join(*args):
+        if os.name == 'nt':
+            # deal with problems on Windows OS
+            path = "/".join(*args)
+        else:
+            path = os.path.join(*args)
+        return path
 
-    xfspec = load_xform(os.path.join(filepath, 'xfspec.json'))
+    xfspec = load_xform(_path_join(filepath, 'xfspec.json'))
     mspaths = []
     figures_to_load = []
     logstring = ''
     for file in os.listdir(filepath):
         if file.startswith("modelspec"):
-            mspaths.append(os.path.join(filepath, file))
+            mspaths.append(_path_join(filepath, file))
         elif file.startswith("figure"):
-            figures_to_load.append(os.path.join(filepath, file))
+            figures_to_load.append(_path_join(filepath, file))
         elif file.startswith("log"):
-            logpath = os.path.join(filepath, file)
+            logpath = _path_join(filepath, file)
             with open(logpath) as logfile:
                 logstring = logfile.read()
     ctx = load_modelspecs([], uris=mspaths, IsReload=False)

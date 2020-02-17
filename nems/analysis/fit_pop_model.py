@@ -48,8 +48,10 @@ def init_pop_pca(est, modelspec, flip_pcs=False, IsReload=False,
     modelspec = copy.deepcopy(modelspec)
 
     ifir = find_module('filter_bank', modelspec)
-
-    dim_count = modelspec[ifir]['fn_kwargs']['bank_count']
+    try:
+        dim_count = modelspec[ifir]['fn_kwargs'].get('bank_count', 1)
+    except:
+        dim_count = 1
 
     rec = est.copy()
     respcount = est['resp'].shape[0]
@@ -724,7 +726,7 @@ def fit_population_slice(rec, modelspec, slice=0, fit_set=None,
         m = copy.deepcopy(m)
         # need to have phi in place
         if not m.get('phi'):
-            log.info('Intializing phi for module %d (%s)', i, m['fn'])
+            log.info('Initializing phi for module %d (%s)', i, m['fn'])
             m = priors.set_mean_phi([m])[0]  # Inits phi
 
         if i in fit_idx:

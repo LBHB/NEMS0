@@ -44,9 +44,9 @@ cellid = "TAR010c-18-1"
 #modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
 modelspecname = 'dlog-wc.18x1.g-fir.1x15-lvl.1-dexp.1'
 #modelspecname = 'dlog-wc.18x1.g-stp.1-fir.1x15-lvl.1-dexp.1'
-modelspecname = 'dlog-wc.18x2.g-do.2x15-lvl.1-dexp.1'
-modelspecname = 'dlog.f-wc.18x1.g-stp.1.s-do.1x15-lvl.1'
-modelspecname = 'dlog.f-wc.18x1.g-stp2.1.s-do.1x15-lvl.1'
+#modelspecname = 'dlog-wc.18x2.g-do.2x15-lvl.1-dexp.1'
+#modelspecname = 'dlog.f-wc.18x1.g-stp.1.s-do.1x15-lvl.1'
+#modelspecname = 'dlog.f-wc.18x1.g-stp2.1.s-do.1x15-lvl.1'
 
 
 # generate modelspec

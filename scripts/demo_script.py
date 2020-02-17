@@ -28,31 +28,30 @@ datafile = signals_dir / 'TAR010c-18-1.pkl'
 # LOAD AND FORMAT RECORDING DATA
 
 with open(datafile, 'rb') as f:
-        cellid, recname, fs, X, Y, epochs = pickle.load(f)
+        cellid, recname, fs, X, Y, X_val, Y_val = pickle.load(f)
 
-
-# create the signal objects
-resp = RasterizedSignal(fs, Y, 'resp', recname, epochs=epochs, chans=[cellid])
-stim = RasterizedSignal(fs, X, 'stim', recname, epochs=epochs)
+# create NEMS-format recording objects from the raw data
+resp = RasterizedSignal(fs, Y, 'resp', recname, chans=[cellid])
+stim = RasterizedSignal(fs, X, 'stim', recname)
 
 # create the recording object from the signals
 signals = {'resp': resp, 'stim': stim}
-rec = recording.Recording(signals)
+est = recording.Recording(signals)
 
-# split the data into estimation and validation chunks
-est, val = rec.split_using_epoch_occurrence_counts(epoch_regex="^STIM_")
-est = preproc.average_away_epoch_occurrences(est, epoch_regex="^STIM_")
-val = preproc.average_away_epoch_occurrences(val, epoch_regex="^STIM_")
+val_signals = {
+        'resp': RasterizedSignal(fs, Y_val, 'resp', recname, chans=[cellid]),
+        'stim': RasterizedSignal(fs, X_val, 'stim', recname)}
+val = recording.Recording(val_signals)
+
 
 # INITIALIZE MODELSPEC
 
-# GOAL: Define the model that you wish to test
 log.info('Initializing modelspec...')
 
 # Method #1: create from "shorthand" keyword string
-modelspec_name = 'wc.18x1.g-fir.1x15-lvl.1'           # very simple linear model
-# modelspec_name = 'wc.18x2.g-fir.2x15-lvl.1'         # another simple model
-# modelspec_name = 'wc.18x2.g-fir.2x15-lvl.1-dexp.1'  # constrain spectral tuning to be gaussian, add static output NL
+#modelspec_name = 'wc.18x1.g-fir.1x15-lvl.1'           # very simple linear model
+#modelspec_name = 'wc.18x2.g-fir.2x15-lvl.1'         # another simple model
+modelspec_name = 'wc.18x2.g-fir.2x15-lvl.1-dexp.1'  # constrain spectral tuning to be gaussian, add static output NL
 
 # record some meta data for display and saving
 meta = {'cellid': cellid,
@@ -70,16 +69,10 @@ modelspec = nems.initializers.from_keywords(modelspec_name, meta=meta)
 
 log.info('Fitting modelspec...')
 
-# quick fit linear part first to avoid local minima
-modelspec = nems.initializers.prefit_to_target(
-        est,
-        modelspec,
-        nems.analysis.api.fit_basic,
-        target_module='levelshift',
-        fitter=scipy_minimize,
-        fit_kwargs={
-                'options': {'ftol': 1e-4, 'maxiter': 500}
-        })
+if 'nonlinearity' in modelspec[-1]['fn']:
+        # quick fit linear part first to avoid local minima
+        modelspec = nems.initializers.prefit_LN(
+                est, modelspec, tolerance=1e-4, max_iter=500)
 
 # then fit full nonlinear model
 modelspec = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
@@ -119,7 +112,8 @@ fig.show()
 # fname = nplt.save_figure(fig, modelspecs=modelspecs, save_dir=modelspecs_dir)
 
 # uncomment to browse the validation data
-# raw = browse_recording(val, signals=['stim', 'pred', 'resp'], cellid=cellid)
+#from nems.gui.editors import EditorWindow
+#ex = EditorWindow(modelspec=modelspec, rec=val)
 
 # TODO SHARE YOUR RESULTS
 

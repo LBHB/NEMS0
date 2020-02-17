@@ -38,10 +38,40 @@ Create a NEMS environment, then activate it and install NEMS:
 
 ::
 
-    conda create -n NEMS -f ./NEMS/environment.yml
+    conda env create -n NEMS -f ./NEMS/environment.yml
     conda activate NEMS
     pip install -e ./NEMS
 
+
+Extra dependencies
+------------------
+
+**NWB**: Support for reading datasets stored in Neurodata Without Borders (NWB) format. Pip install the allensdk packages as part of NEMS. You can run this either before or after the
+generic install described above:
+
+::
+
+    pip install -e ./NEMS/[nwb]
+
+**Tensorflow**: If you're using conda to manage packages, it's best to install Tensorflow via conda:
+
+::
+    # without GPU (run on CPU):
+    conda install tensorflow
+    # or with GPU support:
+    conda install tensorflow-gpu
+
+If you're using pip, install Tensorflow support with pip:
+
+::
+
+    pip install -e ./NEMS/[tensorflow]
+
+**Sphinx** (if you want to be able to edit and regenerate documentation):
+
+::
+
+    pip install -e ./NEMS/[docs]
 
 Notes
 -----

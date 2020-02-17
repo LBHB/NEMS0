@@ -8,7 +8,7 @@ import nems.modelspec as ms
 from nems.utils import get_channel_number, find_module
 from nems.metrics.state import state_mod_split
 from nems.plots.utils import ax_remove_box
-
+from nems.gui.decorators import scrollable 
 
 line_colors = {'actual_psth': (0,0,0),
                'predicted_psth': 'red',
@@ -49,6 +49,7 @@ fill_colors = {'actual_psth': (.8,.8,.8),
                'large': (69/255, 191/255, 89/255),
                'small': (215/255, 242/255, 199/255)}
 
+@scrollable
 def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
                           decimate_by=1, channel=None, **options):
 
@@ -268,6 +269,9 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
     if ax is not None:
         plt.sca(ax)
 
+    if epoch is None:
+        epoch="REFERENCE"
+
     newrec = rec.copy()
     fn = lambda x: x - newrec['pred']._data
     newrec['error'] = rec['resp'].transform(fn, 'error')
@@ -302,6 +306,8 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
         state_chan_list = [s for s in state_chan_list
                            if (s.startswith('FILE') | s.startswith('ACTIVE') |
                                s.startswith('PASSIVE')) ]
+    #import pdb; pdb.set_trace()
+
     for state_chan in state_chan_list:
 
         _low, _high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
