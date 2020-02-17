@@ -140,14 +140,14 @@ def _get_fir_coefficients(modelspec, idx=0, fs=None):
 
 
 def weight_channels_heatmap(modelspec, idx=None, ax=None, clim=None, title=None,
-                            channels=None, wc_idx=0, **options):
+                            chan_names=None, wc_idx=0, **options):
     """
     :param modelspec: modelspec object
     :param idx: index into modelspec
     :param ax:
     :param clim:
     :param title:
-    :param channels: labels for x axis
+    :param chan_names: labels for x axis
     :param wc_idx:
     :param options:
     :return:
@@ -170,12 +170,12 @@ def weight_channels_heatmap(modelspec, idx=None, ax=None, clim=None, title=None,
         ax = plot_heatmap(coefficients, xlabel='Channel In', ylabel='Channel Out',
                      ax=ax, clim=clim, title=title, cmap=get_setting('WEIGHTS_CMAP'))
 
-    if channels is None:
-        channels=[]
-    elif type(channels) is int:
-        channels = [channels]
+    if chan_names is None:
+        chan_names = []
+    elif type(chan_names) is int:
+        chan_names = [chan_names]
 
-    for i, c in enumerate(channels):
+    for i, c in enumerate(chan_names):
         plt.text(i, 0, c)
 
     return ax

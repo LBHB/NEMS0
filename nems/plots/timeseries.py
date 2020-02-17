@@ -103,7 +103,6 @@ def timeseries_from_signals(signals=None, channels=0, no_legend=False,
         signals = [rec[sig_name]]
 
     channels = pad_to_signals(signals, channels)
-
     times = []
     values = []
     legend = []
