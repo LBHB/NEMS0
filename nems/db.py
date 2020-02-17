@@ -1110,9 +1110,6 @@ def export_fits(batch, modelnames=None, cellids=None, dest=None):
 
     df = get_results_file(batch, modelnames=modelnames, cellids=cellids)
     for index, row in df.iterrows():
-<<<<<<< HEAD
-        print('copy {} to {}'.format(row['modelpath'],'/tmp/'))
-=======
         modelpath = row['modelpath']
         subdir = row['cellid'] + '_' + os.path.basename(modelpath)
         outpath = os.path.join(dest, subdir)
@@ -1121,7 +1118,6 @@ def export_fits(batch, modelnames=None, cellids=None, dest=None):
             shutil.copytree(modelpath,outpath)
         else:
             print('{} already exists, skipping'.format(subdir))
->>>>>>> 73d6134293a74760b3abe5f67815423bf1280976
 
     return dest
 

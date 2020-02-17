@@ -234,10 +234,6 @@ class Keyword():
         self.parse = parse
         self.source_string = source_string
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 73d6134293a74760b3abe5f67815423bf1280976
 def xforms_kw_info(kw_string, **xforms_kwargs):
     from nems.plugins import (default_loaders,
                               default_initializers, default_fitters)
@@ -250,10 +246,6 @@ def xforms_kw_info(kw_string, **xforms_kwargs):
 
     return xforms_lib.info(kw_string)
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 73d6134293a74760b3abe5f67815423bf1280976
 def test_xforms_kw(kw_string, **xforms_kwargs):
     from nems.plugins import (default_loaders,
                               default_initializers, default_fitters)
