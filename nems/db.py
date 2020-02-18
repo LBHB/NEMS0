@@ -1166,12 +1166,11 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
     if rawid is not None:
         sql += " AND rawid IN %s"
         if type(rawid) is not list:
-            rawid = [rawid]
+            rawid = list(rawid)
         rawid=tuple([str(i) for i in rawid])
         params = params+(rawid,)
-        print(sql)
-        print(params)
-
+        log.debug(sql)
+        log.debug(params)
         d = pd.read_sql(sql=sql, con=engine, params=params)
 
         cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)

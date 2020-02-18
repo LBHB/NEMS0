@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as st
 
+import nems
 import nems.uri
 import nems.utils
 from nems.fitters.mappers import simple_vector
@@ -608,8 +609,8 @@ class ModelSpec:
             epoch_bounds = np.array([[0, rec['resp'].shape[1]/rec['resp'].fs]])
 
         # figure out which occurrence
-        #not_empty = [np.any(np.isfinite(x)) for x in extracted]  # occurrences containing non inf/nan data
-        #possible_occurrences, = np.where(not_empty)
+        # not_empty = [np.any(np.isfinite(x)) for x in extracted]  # occurrences containing non inf/nan data
+        # possible_occurrences, = np.where(not_empty)
         possible_occurrences = np.arange(epoch_bounds.shape[1])
         # if there's no possible occurrences, then occurrence passed in doesn't matter
         if time_range is not None:
@@ -761,7 +762,7 @@ class ModelSpec:
         # iterate through the plotting partials and plot them to the gridspec
         for row_idx, (plot_fn, col_spans) in enumerate(plot_fns):
             # plot_fn, col_spans should be list, so convert if necessary
-            log.debug('plotting row {}/{}'.format(row_idx, len(plot_fns)))
+            log.info('plotting row {}/{}'.format(row_idx + 1, len(plot_fns)))
             if isinstance(col_spans, int) and not isinstance(plot_fn, list):
                 col_spans = [col_spans]
                 plot_fn = [plot_fn]
@@ -777,9 +778,8 @@ class ModelSpec:
                     fn(ax=ax)
                     col_idx += col_span
                 except:
-                    print('FAILED')
-                    print(fn)
-                    import pdb;pdb.set_trace()
+                    log.warning(f'Quickplot: failed plotting function: "{fn}", skipping.')
+                    #import pdb;pdb.set_trace()
 
         log.debug('done plotting')
 
@@ -920,6 +920,67 @@ class ModelSpec:
         guess = re.sub('[,]', '', guess)
 
         return guess
+
+    def modelspec2tf(self, tps_per_stim=550, feat_dims=1, data_dims=1, state_dims=0,
+                     fs=100, net_seed=1, weight_scale=0.1, use_modelspec_init=True,
+                     distr='norm',):
+        """Converts a modelspec object to Tensorflow layers.
+
+        Maps modelspec modules to Tensorflow layers. Adapted from code by Sam Norman-Haignere.
+        https://github.com/snormanhaignere/cnn/blob/master/cnn.py
+
+        :param tps_per_stim:
+        :param int feat_dims:
+        :param int data_dims:
+        :param int state_dims:
+        :param fs:
+        :param net_seed:
+        :param weight_scale:
+        :param bool use_modelspec_init:
+        """
+        import tensorflow as tf
+        # placeholders not compatible with eager execution, which is the default in tf 2
+        tf.compat.v1.disable_eager_execution()
+
+        # placeholders
+        shape = [None, tps_per_stim, feat_dims]
+        F = tf.compat.v1.placeholder('float32', shape=shape)
+        D = tf.compat.v1.placeholder('float32', shape=shape)
+        if state_dims > 0:
+            S = tf.compat.v1.placeholder('float32', shape=shape)
+
+        layers = []
+        for idx, m in enumerate(self):
+            fn = m['fn']
+            log.info(f'Modelspec2tf: {fn}')
+
+            layer = {}
+            # input to each layer is output of previous layer
+            if idx == 0:
+                layer['X'] = F
+                layer['D'] = D
+                if state_dims > 0:
+                    layer['S'] = S
+
+            else:
+                layer['X'] = layers[-1]['Y']
+                if 'L' in layers[-1]:
+                    layers['L'] = layers[-1]['L']
+
+            n_input_feats = np.int32(layer['X'].shape[2])
+            # default integration time is one bin
+            layer['time_win_smp'] = 1  # default
+
+            layer = nems.tf.cnnlink.map_layer(layer=layer, fn=fn, idx=idx, modelspec=m, n_input_feats=n_input_feats,
+                                              net_seed=net_seed, weight_scale=weight_scale,
+                                              use_modelspec_init=use_modelspec_init, distr=distr,)
+
+            # necessary?
+            layer['time_win_sec'] = layer['time_win_smp'] / fs
+
+            layers.append(layer)
+
+        return layers
 
 
 def get_modelspec_metadata(modelspec):

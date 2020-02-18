@@ -246,26 +246,31 @@ def prefit_LN(rec, modelspec, analysis_function=fit_basic,
     return modelspec
 
 
-def init_static_nl(rec, modelspec, **nl_kw):
+def init_static_nl(est=None, modelspec=None, **nl_kw):
 
     include_names = []
+    if (est is None) or (modelspec is None):
+        raise ValueError('est and modelspec paramters required')
 
     # pre-fit static NL if it exists
     for m in modelspec.modules:
         if 'double_exponential' in m['fn']:
-            modelspec = init_dexp(rec, modelspec, **nl_kw)
+            modelspec = init_dexp(est, modelspec, **nl_kw)
             include_names = ['double_exponential']
+            modelspec = prefit_subset(est, modelspec,
+                                      include_names=include_names,
+                                      tolerance=10**-4)
             break
 
         elif 'logistic_sigmoid' in m['fn']:
             log.info("initializing priors and bounds for logsig ...\n")
-            modelspec = init_logsig(rec, modelspec)
+            modelspec = init_logsig(est, modelspec)
             include_names = ['logistic_sigmoid']
             break
 
         elif 'saturated_rectifier' in m['fn']:
             log.info('initializing priors and bounds for relat ...\n')
-            modelspec = init_relsat(rec, modelspec)
+            modelspec = init_relsat(est, modelspec)
             include_names = ['saturated_rectifier']
             break
 

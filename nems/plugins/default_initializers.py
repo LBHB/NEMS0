@@ -54,7 +54,7 @@ def init(kw):
     .xxN : exclude modules N:len(modelspec). Note that .ii behavior
            differs from .ff and .xx
     .xxnegN : exclude modules len(modelspec)-N:len(modelspec)
-
+    .n
 
     TODO: Optimize more, make testbed to check how well future changes apply
     to disparate datasets.
@@ -73,6 +73,8 @@ def init(kw):
     tf = False
     sel_options = {'include_idx': [], 'exclude_idx': [], 'freeze_idx': []}
     metric_options = {'metric': 'nmse', 'alpha': 0}
+    initialize_nl = False
+    use_modelspec_init = False
     for op in ops:
         if op == 'st':
             st = True
@@ -108,6 +110,8 @@ def init(kw):
                 rand_count = int(op[1:])
         elif op.startswith('b'):
             keep_best = True
+        elif op == 'n':
+            use_modelspec_init = True
         elif op.startswith('iineg'):
             sel_options['include_through'] = -int(op[5:])
         elif op.startswith('ineg'):
@@ -153,6 +157,7 @@ def init(kw):
 
     if tf:
         sel_options['fit_function'] = 'nems.tf.cnnlink.fit_tf_init'
+        sel_options['use_modelspec_init'] = use_modelspec_init
     elif st:
         sel_options['fit_function'] = 'nems.xforms.fit_state_init'
         sel_options['fit_sig'] = fit_sig

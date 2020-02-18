@@ -153,35 +153,56 @@ def tf(fitkey):
     Parameters
     ----------
     fitkey : str
-        Expected format: tf.f<fitter>.i<max_iter>.s<start_conditions>
-        Example: tf.fAdam.i1000.s20
+        Expected format: tf.f<fitter>.i<max_iter>.s<start_conditions>.rb<count>.l<loss_function>
+        Example: tf.fAdam.i1000.s20.rb10.lse
         Example translation:
             Use Adam fitter, max 1000 iterations, starting from 20 random
-            initial condition
+            initial condition, picking the best of 10 random fits, with squared error loss function
 
     Options
     -------
-    f<fitter> : string specifying fitter, passed through to TF
+    f<fitter> : string specifying fitter, passed through to TF {'adam': 'Adam', 'gd': 'GradientDescent'}
     i<N> : Set maximum iterations to N, any positive integer.
     s<S> : Initialize with S random seeds, pick the best performer across
            the entire fit set.
-    n : use modelspec initialized by NEMS
+    rb<N>: Picks the best of multiple random fits
+    n    : Use modelspec initialized by NEMS
+    l<S> : Specify the loss function {'se': 'squared_error', 'p': 'poisson', 'nmse': 'nmse', 'nmses': 'nmse_shrinkage'}
+    e<N> : Specify the number of early stopping steps, i.e. the consecutive number of failed conditions before
+           early stopping.
+    et<N>: Specify the tolerance for early stopping. The value should be an integer, and the tolerance will be
+           10 to the power of said negative integer.
+    lr<N>e<N>: Specify the learning rate. The value should be two integers separated by the letter "e". The first
+               integer will be multiplied by 10 raised to the negative second integer. Ex: lr5e2 = 0.05
+    d<S> : String specifying the distribution with which to initialize the layers. Only used if .n not passed
     '''
 
     options = _extract_options(fitkey)
 
-    max_iter = 2000
-    fitter = 'Adam'
+    max_iter = 10000
+    fitter = 'GradientDescent'
     init_count = 1
     use_modelspec_init = False
     pick_best = False
     rand_count = 0
+    loss_type = 'squared_error'
+    early_stopping_steps = 5
+    early_stopping_tolerance = 1e-5
+    learning_rate = 0.01
+    distr = 'norm'
 
     for op in options:
         if op[:1] == 'i':
-            max_iter = int(op[1:])
+            if len(op[1:]) == 0:
+                max_iter = None
+            else:
+                max_iter = int(op[1:])
         elif op[:1] == 'f':
             fitter = op[1:]
+            if fitter in ['adam', 'a']:
+                fitter = 'Adam'
+            elif fitter == 'gd':
+                fitter = 'GradientDescent'
         elif op[:1] == 's':
             init_count = int(op[1:])
         elif op[:1] == 'n':
@@ -194,22 +215,56 @@ def tf(fitkey):
             else:
                 rand_count = int(op[2:])
             pick_best = True
+        elif op.startswith('lr'):
+            learning_rate = op[2:]
+            if 'e' in learning_rate:
+                base, exponent = learning_rate.split('e')
+                learning_rate = int(base) * 10 ** -int(exponent)
+            else:
+                learning_rate = int(learning_rate)
         elif op.startswith('r'):
             if len(op) == 1:
                 rand_count = 10
             else:
                 rand_count = int(op[1:])
+        elif op[:1] == 'l':
+            loss_type = op[1:]
+            if loss_type == 'se':
+                loss_type = 'squared_error'
+            if loss_type == 'p':
+                loss_type = 'poisson'
+            if loss_type == 'nmse':
+                loss_type = 'nmse'
+            if loss_type == 'nmses':
+                loss_type = 'nmse_shrinkage'
+        elif op.startswith('et'):
+            early_stopping_tolerance = 1 * 10 ** -int(op[2:])
+        elif op[:1] == 'e':
+            early_stopping_steps = int(op[1:])
+        elif op[:1] == 'd':
+            distr = op[1:]
+            if distr == 'gu':
+                distr = 'glorot_uniform'
+            elif distr == 'heu':
+                distr = 'he_uniform'
 
     xfspec = []
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
 
     xfspec.append(['nems.xforms.fit_wrapper',
-                   {'max_iter': max_iter,
-                    'use_modelspec_init': use_modelspec_init,
-                    'optimizer': fitter,
-                    'init_count': init_count,
-                    'fit_function': 'nems.tf.cnnlink.fit_tf'}])
+                   {
+                       'max_iter': max_iter,
+                       'use_modelspec_init': use_modelspec_init,
+                       'optimizer': fitter,
+                       'cost_function': loss_type,
+                       'init_count': init_count,
+                       'fit_function': 'nems.tf.cnnlink.fit_tf',
+                       'early_stopping_steps': early_stopping_steps,
+                       'early_stopping_tolerance': early_stopping_tolerance,
+                       'learning_rate': learning_rate,
+                       'distr': distr,
+                   }])
     
     if pick_best:
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])

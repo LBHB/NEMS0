@@ -392,7 +392,7 @@ class SignalBase:
         if overlapping_epoch is None:
             pass
         else:
-            # find occurences of overlapping epoch
+            # find occurrences of overlapping epoch
             # only keep bounds that fall inside those occurences
             overlap_bounds = self.get_epoch_bounds(overlapping_epoch)
             bounds = epoch_intersection(bounds, overlap_bounds)
@@ -400,6 +400,8 @@ class SignalBase:
         # bounds = np.sort(bounds, axis=0)
 
         if mask is not None:
+            # TODO : allow masking to work here. requires converting mask signal
+            # to times (or bound times to samples)
             raise ValueError("mask not supported for get_epoch_bounds yet")
 
         return bounds

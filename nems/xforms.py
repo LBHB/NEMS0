@@ -1205,7 +1205,7 @@ def tree_path(recording, modelspecs, xfspec):
 
 
 def save_analysis(destination, recording, modelspec, xfspec, figures,
-                  log, add_tree_path=False):
+                  log, add_tree_path=False, update_meta=True):
     '''Save an analysis file collection to a particular destination.'''
     if add_tree_path:
         treepath = tree_path(recording, [modelspec], xfspec)
@@ -1217,8 +1217,10 @@ def save_analysis(destination, recording, modelspec, xfspec, figures,
         destination = get_default_savepath(modelspec)
         base_uri = destination
 
-    modelspec.meta['modelpath'] = base_uri
-    modelspec.meta['figurefile'] = os.path.join(base_uri,'figure.0000.png')
+    if update_meta:
+        modelspec.meta['modelpath'] = base_uri
+        modelspec.meta['figurefile'] = os.path.join(base_uri,'figure.0000.png')
+
     base_uri = base_uri if base_uri[-1] == '/' else base_uri + '/'
     xfspec_uri = base_uri + 'xfspec.json'  # For attaching to modelspecs
 
