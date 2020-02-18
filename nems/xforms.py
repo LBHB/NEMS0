@@ -342,6 +342,16 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
             'meta': meta}
 
 
+def none(**context):
+    '''
+    Does nothing. Useful when xforms expects at least one keywords to exist
+    but nothing is needed. For example, if recordings are manually preprocessed
+    and added to the context instead of using a loader.
+
+    '''
+    return {}
+
+
 def normalize_stim(rec=None, sig='stim', norm_method='meanstd', **context):
     """
     Normalize each channel of rec[sig] according to norm_method
@@ -671,7 +681,7 @@ def mask_for_jackknife(rec, modelspec=None, epoch_name='REFERENCE', epoch_regex=
 
 def jack_subset(est, val, modelspec=None, IsReload=False,
                 keep_only=1, **context):
-    
+
     if keep_only == 1:
         est = est.views(view_range=0)[0]
         val = val.views(view_range=0)[0]
