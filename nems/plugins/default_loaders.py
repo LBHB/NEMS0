@@ -43,3 +43,10 @@ def ld(loadkey, recording_uri=None, cellid=None):
     xfspec = [['nems.xforms.load_recordings', d]]
 
     return xfspec
+
+
+def none(loadkey):
+    '''
+    Does nothing, but xforms expects at least one loader/preprocessor.
+    '''
+    return [['nems.xforms.none', {}]]
