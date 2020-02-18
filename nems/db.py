@@ -62,7 +62,7 @@ def Tables():
             'NarfUsers': Base.classes.NarfUsers,
             'NarfAnalysis': Base.classes.NarfAnalysis,
             'NarfBatches': Base.classes.NarfBatches,
-            'NarfResults': Base.classes.NarfResults,
+            'NarfResults': Base.classes.Results,
             'tQueue': Base.classes.tQueue,
             'tComputer': Base.classes.tComputer,
             }
