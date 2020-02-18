@@ -251,7 +251,7 @@ class Net:
             batch_size = len(train_indices)
 
         log.info(f'Training with batch_size={batch_size}, LR={learning_rate}, max_iter={max_iter}, '
-                 f'early_stopping_steps={early_stopping_steps}, early_stopping_tolerance={early_stopping_tolerance}.')
+                 f'early_stopping_steps={early_stopping_steps}, early_stopping_tolerance={early_stopping_tolerance}, optimizer={self.optimizer}.')
 
         with self.sess.as_default():
 

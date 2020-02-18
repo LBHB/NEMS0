@@ -179,7 +179,7 @@ def tf(fitkey):
 
     options = _extract_options(fitkey)
 
-    max_iter = 2000
+    max_iter = 10000
     fitter = 'GradientDescent'
     init_count = 1
     use_modelspec_init = False

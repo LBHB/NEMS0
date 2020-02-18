@@ -17,7 +17,7 @@ import nems
 import nems.modelspec as ms
 import nems.tf.cnn as cnn
 import nems.utils
-from nems.initializers import init_dexp, init_logsig, init_relsat
+from nems.initializers import init_static_nl
 from nems.tf import initializers
 
 log = logging.getLogger(__name__)
@@ -102,7 +102,7 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
     elif fn == 'nems.modules.nonlinearity.double_exponential':
         layer['type'] = 'dexp'
         layer['n_kern'] = phi['base'].size
-        s = (1, layer['n_kern'], 1)
+        s = (1, 1, layer['n_kern'])
 
         if use_modelspec_init:
             layer['base'] = tf.Variable(phi['base'].astype('float32').reshape(s))
@@ -397,10 +397,10 @@ def tf2modelspec(net, modelspec):
 
         elif m['fn'] in ['nems.modules.nonlinearity.double_exponential']:
             # base + amplitude * exp(  -exp(np.array(-exp(kappa)) * (x - shift))  )
-            m['phi']['base'] = net_layer_vals[i]['base'][:, :, 0].T
-            m['phi']['amplitude'] = net_layer_vals[i]['amplitude'][:, :, 0].T
-            m['phi']['kappa'] = net_layer_vals[i]['kappa'][:, :, 0].T
-            m['phi']['shift'] = net_layer_vals[i]['shift'][:, :, 0].T
+            m['phi']['base'] = net_layer_vals[i]['base'][:, 0, :].T
+            m['phi']['amplitude'] = net_layer_vals[i]['amplitude'][:, 0, :].T
+            m['phi']['kappa'] = net_layer_vals[i]['kappa'][:, 0, :].T
+            m['phi']['shift'] = net_layer_vals[i]['shift'][:, 0, :].T
 
         elif m['fn'] in ['nems.modules.fir.basic']:
             m['phi']['coefficients'] = np.fliplr(net_layer_vals[i]['W'][:, :, 0].T)
@@ -470,7 +470,7 @@ def _fit_net(F, D, modelspec, seed, fs, log_dir, optimizer='Adam',
         state_dims = S.shape[2]
     else:
         state_dims = 0
-
+    log.info(f'rand seed for intialization: {seed}')
     layers = modelspec.modelspec2tf(tps_per_stim=D.shape[1], feat_dims=n_feats,
                           data_dims=D.shape[2], state_dims=state_dims, fs=fs,
                           use_modelspec_init=use_modelspec_init, distr=distr, net_seed=seed)
@@ -492,7 +492,7 @@ def _fit_net(F, D, modelspec, seed, fs, log_dir, optimizer='Adam',
 
 
 def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
-                optimizer='Adam', max_iter=500, cost_function='squared_error', **context):
+                optimizer='Adam', max_iter=2000, cost_function='squared_error', **context):
     """
     pre-fit a model with the final output NL stripped. TF equivalent of
     nems.initializers.prefit_to_target()
@@ -543,11 +543,11 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
             # log.info(m['fn'])
             # log.info(m.get('phi'))
             if (fn in m['fn']):
-                if (m.get('phi') is None):
-                    m = priors.set_mean_phi([m])[0]  # Inits phi
-                    log.info('Mod %d (%s) fixing phi to prior mean', i, fn)
-                else:
-                    log.info('Mod %d (%s) fixing phi', i, fn)
+                #if (m.get('phi') is None):
+                #    m = priors.set_mean_phi([m])[0]  # Inits phi
+                #    log.info('Mod %d (%s) fixing phi to prior mean', i, fn)
+                #else:
+                #    log.info('Mod %d (%s) fixing phi', i, fn)
 
                 m['fn_kwargs'].update(m['phi'])
                 del m['phi']
@@ -576,27 +576,20 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
 
     # fit the subset of modules - this is instead of calling analysis_function in
     # nems.initializers.prefit_to_target
+    seed = 100 + modelspec.fit_index
     new_context = fit_tf(modelspec=tmodelspec, est=est, use_modelspec_init=use_modelspec_init,
                      optimizer=optimizer, max_iter=max_iter, cost_function=cost_function,
-                     **context)
+                     seed=seed, **context)
     tmodelspec = new_context['modelspec']
 
     for i in np.setdiff1d(np.arange(target_i), np.array(exclude_idx)).tolist():
         modelspec[int(i)] = tmodelspec[int(i)]
 
     # pre-fit static NL if it exists
-    for m in modelspec.modules:
-        if 'double_exponential' in m['fn']:
-            modelspec = init_dexp(est, modelspec)
-            break
-        elif 'logistic_sigmoid' in m['fn']:
-            log.info("initializing priors and bounds for logsig ...\n")
-            modelspec = init_logsig(est, modelspec)
-            break
-        elif 'saturated_rectifier' in m['fn']:
-            log.info('initializing priors and bounds for relat ...\n')
-            modelspec = init_relsat(est, modelspec)
-            break
+    _d = init_static_nl(est=est, modelspec=modelspec)
+    modelspec = _d['modelspec']
+    #include_names = _d['include_names']
+    # TODO : Initialize relu in some intelligent way?
 
     return {'modelspec': modelspec}
 
@@ -605,7 +598,7 @@ def fit_tf(modelspec=None, est=None,
            use_modelspec_init=True, init_count=1,
            optimizer='Adam', max_iter=1000, cost_function='squared_error',
            early_stopping_steps=5, early_stopping_tolerance=5e-4, learning_rate=0.01,
-           distr='norm', **context):
+           distr='norm', seed=50, **context):
     """
     :param est: A recording object
     :param modelspec: A modelspec object
@@ -621,7 +614,8 @@ def fit_tf(modelspec=None, est=None,
 
     start_time = time.time()
 
-    net1_seed = 50
+    _this_seed = seed + modelspec.fit_index
+    log.info(f'seed for this fit: {_this_seed}')
     sr_Hz = est['resp'].fs
     #time_win_sec = 0.1
 
@@ -650,8 +644,6 @@ def fit_tf(modelspec=None, est=None,
     log.info('feat_dims: %s', feat_dims)
     log.info('data_dims: %s', data_dims)
 
-    seed = net1_seed + modelspec.fit_index
-
     # check to see if we should log model weights elsewhere
     log_dir = modelspec.meta['modelpath']
 
@@ -669,7 +661,7 @@ def fit_tf(modelspec=None, est=None,
         pass
 
     modelspec_pre = modelspec.copy()
-    modelspec, net = _fit_net(F, D, modelspec, seed, new_est['resp'].fs, log_dir=str(log_dir),
+    modelspec, net = _fit_net(F, D, modelspec, _this_seed, new_est['resp'].fs, log_dir=str(log_dir),
                               optimizer=optimizer, max_iter=np.min([max_iter]), learning_rate=learning_rate,
                               use_modelspec_init=use_modelspec_init, S=S, loss_type=cost_function,
                               early_stopping_steps=early_stopping_steps,
@@ -798,7 +790,7 @@ def eval_tf(modelspec, est, log_dir):
 
     tf.compat.v1.reset_default_graph()
 
-    # initialize tf and evaluate
+    # initialize tf and evaluate -- VALIDAT THAT NEMS and TF match
     layers = modelspec.modelspec2tf(tps_per_stim=n_tps_per_stim, feat_dims=n_feats,
                           data_dims=n_resp, state_dims=n_states, fs=fs,
                           use_modelspec_init=True)
