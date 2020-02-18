@@ -688,7 +688,7 @@ def update_results_table(modelspec, preview=None,
             .first()
         )
         collist = ['%s' % (s) for s in NarfResults.__table__.columns]
-        attrs = [s.replace('NarfResults.', '') for s in collist]
+        attrs = [s.replace('Results.', '') for s in collist]
         removals = [
             'id', 'lastmod'
         ]
