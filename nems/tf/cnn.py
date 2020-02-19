@@ -140,7 +140,6 @@ class Net:
             log_dir = Path(r'/auto/data/tmp/cnn_scratch')
 
         self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(exist_ok=True, parents=True)
 
         if log_id is None:
             self.log_id = 'seed' + str(seed)
@@ -217,6 +216,9 @@ class Net:
 
     def save(self):
         """Saves a checkpoint of the model. Only keeps most recent, overwriting existing."""
+        if not self.log_dir.exists():
+            self.log_dir.mkdir(exist_ok=True, parents=True)
+
         filename = self.log_dir / (self.log_id + '-model.ckpt')
         self.saver.save(self.sess, str(filename))
 
