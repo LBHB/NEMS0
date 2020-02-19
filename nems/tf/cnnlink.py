@@ -509,6 +509,9 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
     # preserve input modelspec
     modelspec = modelspec.copy()
 
+    # TODO : get rid of target_module and just take off final module if it's a static NL.
+    # and add a lvl.R if one doesn't already exist in modelspec[-2]
+
     target_module = ['levelshift', 'relu']
     extra_exclude = ['stp', 'rdt_gain', 'state_dc_gain', 'state_gain']
 
