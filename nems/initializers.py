@@ -253,12 +253,21 @@ def init_static_nl(est=None, modelspec=None, **nl_kw):
         raise ValueError('est and modelspec paramters required')
 
     # pre-fit static NL if it exists
-    for m in modelspec.modules:
+    for m in modelspec.modules[-2:]:
         if 'double_exponential' in m['fn']:
             modelspec = init_dexp(est, modelspec, **nl_kw)
             include_names = ['double_exponential']
             modelspec = prefit_subset(est, modelspec,
                                       include_names=include_names,
+                                      tolerance=10**-4)
+            break
+
+        elif 'relu' in m['fn']:
+            m['phi']['offset'][:]=-0.1
+            include_names = ['relu']
+            log.info('pre-fitting relu from -0.1')
+            modelspec = prefit_subset(est, modelspec,
+                                      include_idx=[len(modelspec)-1],
                                       tolerance=10**-4)
             break
 

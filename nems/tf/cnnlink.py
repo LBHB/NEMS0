@@ -599,6 +599,7 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
     # pre-fit static NL if it exists
     _d = init_static_nl(est=est, modelspec=modelspec)
     modelspec = _d['modelspec']
+    log.info('finished fit_tf_init, fit_idx=%d',modelspec.fit_index)
     #include_names = _d['include_names']
     # TODO : Initialize relu in some intelligent way?
 
