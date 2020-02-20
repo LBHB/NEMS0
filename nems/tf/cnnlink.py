@@ -59,7 +59,8 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
         layer['type'] = 'relu'
         c = -phi['offset'].astype('float32').T
         layer['n_kern'] = c.shape[1]
-        log.info(f'Modelspec2tf: relu init {c}')
+        n = c.shape[1]
+        log.info(f'Modelspec2tf: relu init {n} {c}')
 
         if use_modelspec_init:
             layer['b'] = tf.Variable(c.reshape((1, c.shape[0], c.shape[1])))
@@ -525,6 +526,9 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
         if len(tlist):
             target_i = i + 1
             # don't break. use last occurrence of target module
+            if 'levelshift' in m['fn']:
+                # unless it's a levelshift, in which case, you might want to skip the last relu!
+                break
 
     if not target_i:
         log.info("target_module: {} not found in modelspec."
