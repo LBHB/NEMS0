@@ -12,8 +12,10 @@ if __name__ == '__main__':
     
     Batch files are saved in the user job_history directory in /lustre1/LBHB.
     """
-    # parse arguments in order to collect all args into list
+    # parse arguments in order to collect all args into list, except for QUEUEID
     parser = argparse.ArgumentParser(description='Run jobs on exacloud!')
+    parser.add_argument('--queueid', default=None, help='The tQueue QID.')
+
     parser.add_argument('arguments', nargs=argparse.REMAINDER)
 
     args = parser.parse_args()
@@ -52,6 +54,8 @@ if __name__ == '__main__':
         f.write(f'#SBATCH --job-name={job_name}\n')
         f.write(f'#SBATCH --comment="{job_comment}"\n')
         f.write(f'#SBATCH --output={str(job_log_loc)}%j_log.out\n')
+        if args.queueid is not None:  # to work with queuemaster need to add in queueid env
+            f.write(f'#SBATCH --export=ALL,QUEUEID={args.queueid}\n')
         f.write(' '.join(['srun'] + args.arguments))
         f.write('\n')
 
