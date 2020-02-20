@@ -392,7 +392,7 @@ def tf2modelspec(net, modelspec):
 
         if m['fn'] == 'nems.modules.nonlinearity.relu':
             m['phi']['offset'] = -net_layer_vals[i]['b'][0, :, :].T
-
+            log.info('relu size: {}'.format(m['phi']['offset'].shape))
         elif 'levelshift' in m['fn']:
             m['phi']['level'] = net_layer_vals[i]['b'][0, :, :].T
 
