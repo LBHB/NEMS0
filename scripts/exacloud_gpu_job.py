@@ -73,7 +73,8 @@ class ExacloudConnection:
         self.send_command(f'scancel -u {self.user} --state=pending')
 
 
-def enqueue_exacloud_job(*, user, cellid, batch, modelname, exec_path=None, script_path=None, password=None, ssh_key=None):
+def enqueue_exacloud_job(*, user, cellid='', batch='', modelname='', exec_path=None, script_path=None, password=None,
+                         ssh_key=None):
     """Queues a job on the exacloud cluster. All arguments must be named.
 
     One of either password or ssh_key is required. Defaults to ssh_key if both passed.
