@@ -607,7 +607,7 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
 
 
 def fit_tf(modelspec=None, est=None,
-           use_modelspec_init=True, init_count=1,
+           use_modelspec_init=True,
            optimizer='Adam', max_iter=1000, cost_function='squared_error',
            early_stopping_steps=5, early_stopping_tolerance=5e-4, learning_rate=0.01,
            distr='norm', seed=50, **context):
