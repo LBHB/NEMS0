@@ -529,7 +529,7 @@ class SignalBase:
                 keepidx = np.array(keepidx)
                 indices = indices[keepidx]
             else:
-                indices = np.array([])
+                indices = np.zeros((0,2), dtype='i')
 
         return indices
 

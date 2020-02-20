@@ -1353,7 +1353,7 @@ def stategain(kw):
                           's': state,
                           'g': g_mean},
             'plot_fns': plot_fns,
-            'plot_fn_idx': 4,
+            'plot_fn_idx': 5,
             'prior': {'d': ('Normal', {'mean': d_mean, 'sd': d_sd})}
         }
     elif gain_only:
@@ -1363,7 +1363,7 @@ def stategain(kw):
                           'o': 'pred',
                           's': state},
             'plot_fns': plot_fns,
-            'plot_fn_idx': 4,
+            'plot_fn_idx': 5,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd})}
             }
     elif include_spont:
@@ -1373,7 +1373,7 @@ def stategain(kw):
                           'o': 'pred',
                           's': state},
             'plot_fns': plot_fns,
-            'plot_fn_idx': 4,
+            'plot_fn_idx': 5,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
                       'd': ('Normal', {'mean': d_mean, 'sd': d_sd}),
                       'sp': ('Normal', {'mean': d_mean, 'sd': d_sd})}
@@ -1385,7 +1385,7 @@ def stategain(kw):
                           'o': 'pred',
                           's': state},
             'plot_fns': plot_fns,
-            'plot_fn_idx': 4,
+            'plot_fn_idx': 5,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
                       'd': ('Normal', {'mean': d_mean, 'sd': d_sd})}
             }

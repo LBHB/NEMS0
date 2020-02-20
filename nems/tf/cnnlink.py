@@ -59,7 +59,8 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
         layer['type'] = 'relu'
         c = -phi['offset'].astype('float32').T
         layer['n_kern'] = c.shape[1]
-        log.info(f'Modelspec2tf: relu init {c}')
+        n = c.shape[1]
+        log.info(f'Modelspec2tf: relu init {n} {c}')
 
         if use_modelspec_init:
             layer['b'] = tf.Variable(c.reshape((1, c.shape[0], c.shape[1])))
@@ -391,7 +392,7 @@ def tf2modelspec(net, modelspec):
 
         if m['fn'] == 'nems.modules.nonlinearity.relu':
             m['phi']['offset'] = -net_layer_vals[i]['b'][0, :, :].T
-
+            log.info('relu size: {}'.format(m['phi']['offset'].shape))
         elif 'levelshift' in m['fn']:
             m['phi']['level'] = net_layer_vals[i]['b'][0, :, :].T
 
@@ -478,7 +479,11 @@ def _fit_net(F, D, modelspec, seed, fs, log_dir, optimizer='Adam',
 
     net.train(F, D, max_iter=max_iter, learning_rate=learning_rate, state=S,
               early_stopping_steps=early_stopping_steps, early_stopping_tolerance=early_stopping_tolerance)
-
+    #for k in net.layers[-1].keys():
+    #    try:
+    #       log.info('size of final layer {}: {}'.format(k, net.layers[-1][k].shape))
+    #    except:
+    #       pass
     modelspec = tf2modelspec(net, modelspec)
 
     # record last iter in extra results
@@ -509,6 +514,9 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
     # preserve input modelspec
     modelspec = modelspec.copy()
 
+    # TODO : get rid of target_module and just take off final module if it's a static NL.
+    # and add a lvl.R if one doesn't already exist in modelspec[-2]
+
     target_module = ['levelshift', 'relu']
     extra_exclude = ['stp', 'rdt_gain', 'state_dc_gain', 'state_gain']
 
@@ -522,6 +530,9 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
         if len(tlist):
             target_i = i + 1
             # don't break. use last occurrence of target module
+            if 'levelshift' in m['fn']:
+                # unless it's a levelshift, in which case, you might want to skip the last relu!
+                break
 
     if not target_i:
         log.info("target_module: {} not found in modelspec."
@@ -588,6 +599,7 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
     # pre-fit static NL if it exists
     _d = init_static_nl(est=est, modelspec=modelspec)
     modelspec = _d['modelspec']
+    log.info('finished fit_tf_init, fit_idx=%d',modelspec.fit_index)
     #include_names = _d['include_names']
     # TODO : Initialize relu in some intelligent way?
 
@@ -595,7 +607,7 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
 
 
 def fit_tf(modelspec=None, est=None,
-           use_modelspec_init=True, init_count=1,
+           use_modelspec_init=True,
            optimizer='Adam', max_iter=1000, cost_function='squared_error',
            early_stopping_steps=5, early_stopping_tolerance=5e-4, learning_rate=0.01,
            distr='norm', seed=50, **context):
@@ -648,15 +660,17 @@ def fit_tf(modelspec=None, est=None,
     log_dir = modelspec.meta['modelpath']
 
     try:
-        job_id = os.environ['SLURM_JOBID']
-        # keep a record of the job id
-        modelspec.meta['slurm_jobid'] = job_id
-
-        log_dir_root = Path('/mnt/scratch')
-        assert log_dir_root.exists()
-        log_dir_sub = Path('SLURM_JOBID' + job_id) / str(modelspec.meta['batch'])\
-                      / modelspec.meta['cellid'] / modelspec.meta['modelname']
-        log_dir = log_dir_root / log_dir_sub
+        job_id = os.environ.get('SLURM_JOBID',None)
+        if job_id is not None:
+           # keep a record of the job id
+           modelspec.meta['slurm_jobid'] = job_id
+   
+           log_dir_root = Path('/mnt/scratch')
+           assert log_dir_root.exists()
+           log_dir_sub = Path('SLURM_JOBID' + job_id) / str(modelspec.meta['batch'])\
+                         / modelspec.meta.get('cellid', "NOCELL")\
+                         / modelspec.meta['modelname']
+           log_dir = log_dir_root / log_dir_sub
     except KeyError:
         pass
 

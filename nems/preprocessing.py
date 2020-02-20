@@ -304,7 +304,8 @@ def mask_all_but_correct_references(rec, balance_rep_count=False,
         epoch_regex = "^STIM_"
         epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
         p=resp.get_epoch_indices("PASSIVE_EXPERIMENT")
-        a=resp.get_epoch_indices("HIT_TRIAL")
+        a=np.concatenate((resp.get_epoch_indices("HIT_TRIAL"),
+                          resp.get_epoch_indices("CORRECT_REJECT_TRIAL2")), axis=0)
 
         epoch_list=[]
         for s in epochs_to_extract:
@@ -329,7 +330,7 @@ def mask_all_but_correct_references(rec, balance_rep_count=False,
         newrec = newrec.and_mask(['REFERENCE'])
 
     else:
-        newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
+        newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL'])
         newrec = newrec.and_mask(['REFERENCE'])
 
     # figure out if some actives should be masked out

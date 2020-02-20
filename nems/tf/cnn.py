@@ -285,11 +285,14 @@ class Net:
                     train_loss = self.loss.eval(feed_dict=train_dict)
                     self.train_loss.append(train_loss)
 
+                    if epoch_num == 0:
+                        self.best_loss = train_loss
+
                     if print_iter:
                         # vary significant digits based on tolerance
                         n_digits = math.ceil(abs(math.log(early_stopping_tolerance, 10))) + 2
                         log.info(f'{epoch_num:04d} loss={train_loss:.{n_digits}f}, '
-                                 f'delta={train_loss - self.best_loss:.{n_digits}f}')
+                                 f'delta={train_loss - self.best_loss:+.{n_digits}f}')
 
                     # early stopping / saving
                     if early_stopping_steps > 0:

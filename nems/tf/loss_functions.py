@@ -1,7 +1,11 @@
 """Various loss functions for tensorflow."""
 
+import logging
+
 import numpy as np
 import tensorflow as tf
+
+log = logging.getLogger(__name__)
 
 
 def poisson(response, prediction):
@@ -11,6 +15,7 @@ def poisson(response, prediction):
 
 def loss_se(response, prediction):
     """Squared error loss."""
+    # TODO : add percell option
     return tf.reduce_mean(tf.square(response - prediction)) / tf.reduce_mean(tf.square(response))
 
 
@@ -19,13 +24,16 @@ def loss_tf_nmse_shrinkage(response, prediction):
     return tf_nmse_shrinkage(response, prediction)
 
 
-def loss_tf_nmse(response, prediction):
+def loss_tf_nmse(response, prediction, per_cell=True):
     """Normalized means squared error loss."""
-    mE, sE = tf_nmse(response, prediction)
-    return mE
+    mE, sE = tf_nmse(response, prediction, per_cell=per_cell)
+    if per_cell:
+        return tf.reduce_mean(mE)
+    else:
+        return mE
 
 
-def tf_nmse_shrinkage(response, prediction, shrink_factor=0.5, per_cell=False, thresh=False):
+def tf_nmse_shrinkage(response, prediction, shrink_factor=0.5, per_cell=True, thresh=False):
     """Calculates the normalized mean squared error, with an adjustment for error.
 
     Averages across the batches, but optionally can return a per cell error.
@@ -63,7 +71,7 @@ def tf_nmse_shrinkage(response, prediction, shrink_factor=0.5, per_cell=False, t
     return mE
 
 
-def tf_nmse(response, prediction, per_cell=False):
+def tf_nmse(response, prediction, per_cell=True):
     """Calculates the normalized mean squared error across batches.
 
     Optionally can return an average per cell.
@@ -74,7 +82,7 @@ def tf_nmse(response, prediction, per_cell=False):
     :return: 2 tensors, one of the mean error, the other of the std of the error. If not per cell, then
      tensor is of shape (), else tensor if of shape (n_cells,) (i.e. last dimension of the resp/pred tensor)
     """
-    n_drop = list(response.shape)[-2] % 10
+    n_drop = response.get_shape().as_list()[-2] % 10
     if n_drop:
         # use slices to handle varying tensor shapes
         drop_slice = [slice(None) for i in range(len(response.shape))]
@@ -100,7 +108,8 @@ def tf_nmse(response, prediction, per_cell=False):
         _prediction = tf.reshape(_prediction, shape=(10, -1))
 
     squared_error = ((_response - _prediction) ** 2)
-    nmses = tf.math.reduce_mean(squared_error, axis=-1) ** 0.5 / tf.math.reduce_std(_response, axis=-1)
+    nmses = (tf.math.reduce_mean(squared_error, axis=-1) /
+             tf.math.reduce_mean(_response**2, axis=-1)) ** 0.5
 
     mE = tf.math.reduce_mean(nmses, axis=-1)
     sE = tf.math.reduce_std(nmses, axis=-1) / 10 ** 0.5
