@@ -42,7 +42,7 @@ def _double_exponential(x, base, amplitude, shift, kappa):
     return base + amplitude * exp(-exp(np.array(-exp(kappa)) * (x - shift)))
 
 
-def double_exponential(rec, i, o, base, amplitude, shift, kappa):
+def double_exponential(rec, i, o, base, amplitude, shift, kappa, **kwargs):
     '''
     A double exponential applied to all channels of a single signal.
        rec        Recording object
@@ -84,7 +84,7 @@ def _dlog(x, offset):
     return np.log((x + d) / d)
 
 
-def dlog(rec, i, o, offset):
+def dlog(rec, i, o, offset, **kwargs):
     """
     Log compression with variable offset
     :param rec: recording object with signals i and o.

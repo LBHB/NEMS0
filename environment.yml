@@ -15,3 +15,4 @@ dependencies:
     - pyqt
     - tensorflow
     - tensorboard
+    - tensorflow-probability

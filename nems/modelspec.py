@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import re
+import typing
 from functools import partial
 
 import matplotlib.gridspec as gridspec
@@ -595,18 +596,22 @@ class ModelSpec:
         if epoch is not None:
             try:
                 epoch_bounds = rec['resp'].get_epoch_bounds(epoch, mask=rec['mask'])
+            except ValueError:
+                # some signal types can't handle masks with epoch bounds
+                epoch_bounds = rec['resp'].get_epoch_bounds(epoch)
             except:
                 log.warning(f'Quickplot: no valid epochs matching {epoch}. Will not subset data.')
                 epoch = None
 
         if 'mask' in rec.signals.keys():
             rec = rec.apply_mask()
+
         rec_resp = rec['resp']
         rec_pred = rec['pred']
         rec_stim = rec['stim']
 
-        if (epoch is None) or (len(epoch_bounds)==0):
-            epoch_bounds = np.array([[0, min(5,rec['resp'].shape[1]/rec['resp'].fs)]])
+        if epoch is None or len(epoch_bounds) == 0:
+            epoch_bounds = np.array([[0, rec['resp'].shape[1] / rec['resp'].fs]])
 
         # figure out which occurrence
         # not_empty = [np.any(np.isfinite(x)) for x in extracted]  # occurrences containing non inf/nan data
@@ -675,7 +680,7 @@ class ModelSpec:
         ]
 
         for s in sig_names:
-            if rec[s].shape[0]>1:
+            if rec[s].shape[0] > 1:
                 plot_fn = _lookup_fn_at('nems.plots.api.spectrogram')
                 title = s + ' spectrogram'
             else:
@@ -772,10 +777,8 @@ class ModelSpec:
 
             col_idx = 0
             for fn, col_span in zip(plot_fn, col_spans):
-                #print(fn)
-
                 try:
-                    ax=fig.add_subplot(n_rows,n_cols,row_idx*n_cols+col_idx+1)
+                    ax = fig.add_subplot(n_rows, n_cols, row_idx * n_cols + col_idx + 1)
                     #ax = plt.Subplot(fig, gs_cols[0, col_span-1])
                     #ax = fig.add_subplot(gs_cols[0, col_idx:(col_idx+col_span)])
                     #ax = plt.Subplot(fig, gs_cols[0, col_idx:col_idx + col_span])
@@ -987,6 +990,24 @@ class ModelSpec:
             # necessary?
             layer['time_win_sec'] = layer['time_win_smp'] / fs
 
+            layers.append(layer)
+
+        return layers
+
+    def modelspec2tf2(self, seed=0, use_modelspec_init=True, fs=100):
+        """New version
+
+        TODO
+        """
+        layers = []
+
+        for m in self:
+            try:
+                tf_layer = nems.utils.lookup_fn_at(m['tf_layer'])
+            except KeyError:
+                raise NotImplementedError(f'Layer "{m["fn"]}" does not have a tf equivalent.')
+
+            layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, fs=fs)
             layers.append(layer)
 
         return layers
@@ -1220,39 +1241,37 @@ def fit_mode_off(modelspec):
 
 
 def eval_ms_layer(data: np.ndarray,
-                  layer_spec: str,
-                  state_data: np.ndarray = None,
+                  layer_spec: typing.Union[None, str] = None,
+                  stop: typing.Union[None, int] = None,
+                  modelspec: ModelSpec = None
                   ) -> np.ndarray:
     """Takes in a numpy array and applies a single ms layer to it.
 
     :param data: The input data. Shape of (reps, time, channels).
-    :param layer_spec: A layer spec for a single layer of a modelspec.
-    :param state_data: State gain data, optional. Same shape as data.
+    :param layer_spec: A layer spec for layers of a modelspec.
+    :param stop: What layer to eval to. Non inclusive. If not passed, will evaluate the whole layer spec.
+    :param modelspec: Optionally use an existing modelspec. Takes precedence over layer_spec.
 
     :return: The processed data.
     """
-    ms = nems.initializers.from_keywords(layer_spec)
+    if layer_spec is None and modelspec is None:
+        raise ValueError('Either of "layer_spec" or "modelspec" must be specified.')
+
+    if modelspec is not None:
+        ms = modelspec
+    else:
+        ms = nems.initializers.from_keywords(layer_spec)
 
     sig = nems.signal.RasterizedSignal.from_3darray(
         fs=100,
         array=np.swapaxes(data, 1, 2),
-        name='stim',
+        name='temp',
         recording='temp',
-        epoch_name='REFERENCE')
-    signal_dict = {'stim': sig}
+        epoch_name='REFERENCE'
+    )
 
-    if state_data is not None:
-        state_sig = nems.signal.RasterizedSignal.from_3darray(
-            fs=100,
-            array=np.swapaxes(data, 1, 2),
-            name='state',
-            recording='temp',
-            epoch_name='REFERENCE'
-        )
-        signal_dict['state'] = state_sig
-
-    rec = nems.recording.Recording(signal_dict)
-    rec = ms.evaluate(rec=rec)
+    rec = nems.recording.Recording({'stim': sig})
+    rec = ms.evaluate(rec=rec, stop=stop)
 
     pred = np.swapaxes(rec['pred'].extract_epoch('REFERENCE'), 1, 2)
     return pred

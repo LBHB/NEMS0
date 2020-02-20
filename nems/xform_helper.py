@@ -203,19 +203,28 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     else:
         cell_name = cellid
 
-    prefix = get_setting('NEMS_RESULTS_DIR')
-    destination = os.path.join(prefix, str(batch), cell_name, modelspec.get_longname())
+    if 'modelpath' not in modelspec.meta:
+        prefix = get_setting('NEMS_RESULTS_DIR')
+        destination = os.path.join(prefix, str(batch), cell_name, modelspec.get_longname())
+
+        log.info(f'Setting modelpath to "{destination}"')
+        modelspec.meta['modelpath'] = destination
+        modelspec.meta['figurefile'] = os.path.join(destination, 'figure.0000.png')
+    else:
+        destination = modelspec.meta['modelpath']
 
     # figure out URI for location to save results (either file or http, depending on USE_NEMS_BAPHY_API)
     if get_setting('USE_NEMS_BAPHY_API'):
-        prefix = 'http://'+get_setting('NEMS_BAPHY_API_HOST')+":"+str(get_setting('NEMS_BAPHY_API_PORT')) + '/results/'
-        save_destination = os.path.join(prefix, str(batch), cell_name, modelspec.get_longname())
+        prefix = 'http://' + get_setting('NEMS_BAPHY_API_HOST') + ":" + str(get_setting('NEMS_BAPHY_API_PORT')) + \
+                 '/results'
+        save_loc = str(batch) + '/' + cell_name + '/' + modelspec.get_longname()
+        save_destination = prefix + '/' + save_loc
+        # set the modelspec meta save locations to be the filesystem and not baphy
+        modelspec.meta['modelpath'] = get_setting('NEMS_RESULTS_DIR') + '/' + save_loc
+        modelspec.meta['figurefile'] = modelspec.meta['modelpath'] + '/' + 'figure.0000.png'
     else:
         save_destination = destination
 
-    log.info(f'Setting modelpath to "{destination}"')
-    modelspec.meta['modelpath'] = destination
-    modelspec.meta['figurefile'] = os.path.join(destination, 'figure.0000.png')
     modelspec.meta['runtime'] = int(time.time() - startime)
     modelspec.meta.update(meta)
 

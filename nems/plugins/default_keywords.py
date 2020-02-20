@@ -31,6 +31,8 @@ import logging
 
 import numpy as np
 
+from nems.tf import layers
+
 log = logging.getLogger(__name__)
 
 
@@ -87,7 +89,12 @@ def wc(kw):
 
     # This is the default for wc, but options might overwrite it.
     fn = 'nems.modules.weight_channels.basic'
-    fn_kwargs = {'i': 'pred', 'o': 'pred', 'normalize_coefs': False}
+    fn_kwargs = {'i': 'pred',
+                 'o': 'pred',
+                 'normalize_coefs': False,
+                 'chans': n_outputs,
+                 }
+    tf_layer = 'nems.tf.layers.WeightChannelsBasic'
     p_coefficients = {'mean': np.full((n_outputs, n_inputs), 0.01),
                       'sd': np.full((n_outputs, n_inputs), 0.2)}
     # add some variety across channels to help get the fitter started
@@ -131,8 +138,13 @@ def wc(kw):
 
             # Generate evenly-spaced filter centers for the starting points
             fn = 'nems.modules.weight_channels.gaussian'
-            fn_kwargs = {'i': 'pred', 'o': 'pred', 'n_chan_in': n_inputs,
-                         'normalize_coefs': False}
+            fn_kwargs = {'i': 'pred',
+                         'o': 'pred',
+                         'n_chan_in': n_inputs,
+                         'normalize_coefs': False,
+                         'chans': n_outputs,
+                         }
+            tf_layer = 'nems.tf.layers.WeightChannelsGaussian'
             coefs = 'nems.modules.weight_channels.gaussian_coefficients'
             mean = np.arange(n_outputs+1)/(n_outputs*2+2) + 0.25
             mean = mean[1:]
@@ -178,7 +190,8 @@ def wc(kw):
                      'nems.plots.api.spectrogram_output',
                      'nems.plots.api.weight_channels_heatmap'],
         'plot_fn_idx': 2,
-        'prior': prior
+        'prior': prior,
+        'tf_layer': tf_layer,
     }
     if bounds is not None:
         template['bounds'] = bounds
@@ -318,7 +331,8 @@ def fir(kw):
         template = {
             'fn': 'nems.modules.fir.basic',
             'fn_kwargs': {'i': 'pred', 'o': 'pred', 'non_causal': non_causal,
-                          'cross_channels': cross_channels},
+                          'cross_channels': cross_channels, 'chans': n_coefs},
+            'tf_layer': 'nems.tf.layers.FIR',
             'plot_fns': ['nems.plots.api.mod_output',
                          'nems.plots.api.spectrogram_output',
                          'nems.plots.api.strf_heatmap',
@@ -334,7 +348,8 @@ def fir(kw):
         template = {
             'fn': 'nems.modules.fir.filter_bank',
             'fn_kwargs': {'i': 'pred', 'o': 'pred', 'non_causal': non_causal,
-                          'bank_count': n_banks, 'cross_channels': cross_channels},
+                          'bank_count': n_banks, 'cross_channels': cross_channels,
+                          'chans': n_coefs},
             'plot_fns': ['nems.plots.api.mod_output',
                          'nems.plots.api.spectrogram_output',
                          'nems.plots.api.strf_heatmap',
@@ -693,13 +708,15 @@ def lvl(kw):
 
     template = {
         'fn': 'nems.modules.levelshift.levelshift',
-        'fn_kwargs': {'i': 'pred', 'o': 'pred'},
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'chans': n_shifts},
+        'tf_layer': 'nems.tf.layers.Levelshift',
         'plot_fns': ['nems.plots.api.mod_output',
                      'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp'],
         'plot_fn_idx': 2,
         'prior': {'level': ('Normal', {'mean': np.zeros([n_shifts, 1]),
                                        'sd': np.ones([n_shifts, 1])})}
+
         }
 
     return template
@@ -803,7 +820,8 @@ def stp(kw):
     template = {
         'fn': 'nems.modules.stp.short_term_plasticity',
         'fn_kwargs': {'i': 'pred', 'o': 'pred', 'crosstalk': crosstalk,
-                      'quick_eval': quick_eval, 'reset_signal': 'epoch_onsets'},
+                      'quick_eval': quick_eval, 'reset_signal': 'epoch_onsets',
+                      'chans': n_synapse},
         'plot_fns': ['nems.plots.api.mod_output',
                      'nems.plots.api.spectrogram_output',
                      'nems.plots.api.before_and_after',
@@ -822,6 +840,9 @@ def stp(kw):
     if threshold:
         template['prior']['x0'] = ('Normal', {'mean': x0_mean, 'sd': u_sd})
         template['bounds']['x0'] = (np.full_like(x0_mean, -np.inf), np.full_like(x0_mean, np.inf))
+
+    if quick_eval:
+        template['tf_layer'] = 'nems.tf.layers.STPQuick'
 
     return template
 
@@ -974,7 +995,9 @@ def dexp(kw):
     template = {
         'fn': 'nems.modules.nonlinearity.double_exponential',
         'fn_kwargs': {'i': inout_name,
-                      'o': inout_name},
+                      'o': inout_name,
+                      'chans': n_dims},
+        'tf_layer': 'nems.tf.layers.DoubleExponential',
         'plot_fns': ['nems.plots.api.mod_output',
                      'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp',
@@ -1173,7 +1196,9 @@ def dlog(kw):
     template = {
         'fn': 'nems.modules.nonlinearity.dlog',
         'fn_kwargs': {'i': 'pred',
-                      'o': 'pred'},
+                      'o': 'pred',
+                      'chans': chans,},
+        'tf_layer': 'nems.tf.layers.Dlog',
         'plot_fns': ['nems.plots.api.mod_output',
                      'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp',
@@ -1234,6 +1259,7 @@ def relu(kw):
         'fn': fname,
         'fn_kwargs': {'i': 'pred',
                       'o': 'pred'},
+        'tf_layer': 'nems.tf.layers.Relu',
         'plot_fns': ['nems.plots.api.mod_output',
                      'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp',

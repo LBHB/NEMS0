@@ -14,6 +14,7 @@ import numpy as np
 import tensorflow as tf
 
 import nems
+from nems import modelspec
 import nems.modelspec as ms
 import nems.tf.cnn as cnn
 import nems.utils
@@ -1052,6 +1053,7 @@ def eval_tf(modelspec, est, log_dir):
 def eval_tf_layer(data: np.ndarray,
                   layer_spec: str,
                   state_data: np.ndarray = None,
+                  modelspec: modelspec.ModelSpec = None
                   ) -> np.ndarray:
     """Takes in a numpy array and applies single a tf layer to it.
 
@@ -1061,13 +1063,21 @@ def eval_tf_layer(data: np.ndarray,
 
     :return: The processed data.
     """
+    if layer_spec is None and modelspec is None:
+        raise ValueError('Either of "layer_spec" or "modelspec" must be specified.')
+
+    if modelspec is not None:
+        ms = modelspec
+    else:
+        ms = nems.initializers.from_keywords(layer_spec)
+
     rep_dims, tps_per_stim, feat_dims = data.shape
     if state_data is not None:
         state_dims = state_data.shape[-1]
     else:
         state_dims = 0
 
-    tf_layers = nems.initializers.from_keywords(layer_spec).modelspec2tf(
+    tf_layers = ms.modelspec2tf(
         tps_per_stim=tps_per_stim,
         feat_dims=feat_dims,
         state_dims=state_dims)
@@ -1083,4 +1093,3 @@ def eval_tf_layer(data: np.ndarray,
         pred = net.layers[0]['Y'].eval(feed_dict)
 
     return pred
-
