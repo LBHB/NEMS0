@@ -393,6 +393,7 @@ def tf2modelspec(net, modelspec):
         if m['fn'] == 'nems.modules.nonlinearity.relu':
             m['phi']['offset'] = -net_layer_vals[i]['b'][0, :, :].T
             log.info('relu size: {}'.format(m['phi']['offset'].shape))
+
         elif 'levelshift' in m['fn']:
             m['phi']['level'] = net_layer_vals[i]['b'][0, :, :].T
 
@@ -514,7 +515,7 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
     # preserve input modelspec
     modelspec = modelspec.copy()
 
-    # TODO : get rid of target_module and just take off final module if it's a static NL.
+    # TODO: get rid of target_module and just take off final module if it's a static NL.
     # and add a lvl.R if one doesn't already exist in modelspec[-2]
 
     target_module = ['levelshift', 'relu']
@@ -614,7 +615,6 @@ def fit_tf(modelspec=None, est=None,
     :param est: A recording object
     :param modelspec: A modelspec object
     :param use_modelspec_init: [True] use input modelspec phi for initialization. Otherwise use random inits
-    :param init_count: number of random initializations (if use_modelspec_init==False)
     :param optimizer:
     :param max_iter: max number of training iterations
     :param cost_function: cost_function to use when fitting
@@ -658,20 +658,17 @@ def fit_tf(modelspec=None, est=None,
     # check to see if we should log model weights elsewhere
     log_dir = modelspec.meta['modelpath']
 
-    try:
-        job_id = os.environ.get('SLURM_JOBID',None)
-        if job_id is not None:
-           # keep a record of the job id
-           modelspec.meta['slurm_jobid'] = job_id
-   
-           log_dir_root = Path('/mnt/scratch')
-           assert log_dir_root.exists()
-           log_dir_sub = Path('SLURM_JOBID' + job_id) / str(modelspec.meta['batch'])\
-                         / modelspec.meta.get('cellid', "NOCELL")\
-                         / modelspec.meta['modelname']
-           log_dir = log_dir_root / log_dir_sub
-    except KeyError:
-        pass
+    job_id = os.environ.get('SLURM_JOBID', None)
+    if job_id is not None:
+       # keep a record of the job id
+       modelspec.meta['slurm_jobid'] = job_id
+
+       log_dir_root = Path('/mnt/scratch')
+       assert log_dir_root.exists()
+       log_dir_sub = Path('SLURM_JOBID' + job_id) / str(modelspec.meta['batch'])\
+                     / modelspec.meta.get('cellid', "NOCELL")\
+                     / modelspec.meta['modelname']
+       log_dir = log_dir_root / log_dir_sub
 
     modelspec_pre = modelspec.copy()
     modelspec, net = _fit_net(F, D, modelspec, _this_seed, new_est['resp'].fs, log_dir=str(log_dir),
@@ -683,7 +680,7 @@ def fit_tf(modelspec=None, est=None,
     new_est = eval_tf(modelspec, new_est, log_dir)
 
     # clear out tmp dir
-    if os.environ.get('SLURM_JOBID'):
+    if os.environ.get('SLURM_JOB_ID'):
         try:
             shutil.rmtree(log_dir)
             try:
