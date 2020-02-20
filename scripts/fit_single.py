@@ -50,6 +50,9 @@ if __name__ == '__main__':
         queueid = os.environ['QUEUEID']
         nems.utils.progress_fun = nd.update_job_tick
 
+        if 'SLURM_JOB_ID' in os.environ:
+            nd.update_job_pid(os.environ['SLURM_JOB_ID'])
+
     else:
         queueid = 0
 
