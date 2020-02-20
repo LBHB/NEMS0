@@ -44,7 +44,7 @@ if __name__ == '__main__':
     with open(job_file_loc, 'w') as f:
         f.write('#!/bin/bash\n')
         f.write('#SBATCH --account=lbhb\n')
-        f.write('#SBATCH --time=3:00:00\n')
+        f.write('#SBATCH --time=5:00:00\n')
         f.write('#SBATCH --partition=gpu\n')
         f.write('#SBATCH --cpus-per-task=1')
         f.write('#SBATCH --mem=4G\n')
