@@ -479,7 +479,11 @@ def _fit_net(F, D, modelspec, seed, fs, log_dir, optimizer='Adam',
 
     net.train(F, D, max_iter=max_iter, learning_rate=learning_rate, state=S,
               early_stopping_steps=early_stopping_steps, early_stopping_tolerance=early_stopping_tolerance)
-
+    #for k in net.layers[-1].keys():
+    #    try:
+    #       log.info('size of final layer {}: {}'.format(k, net.layers[-1][k].shape))
+    #    except:
+    #       pass
     modelspec = tf2modelspec(net, modelspec)
 
     # record last iter in extra results
@@ -655,15 +659,17 @@ def fit_tf(modelspec=None, est=None,
     log_dir = modelspec.meta['modelpath']
 
     try:
-        job_id = os.environ['SLURM_JOBID']
-        # keep a record of the job id
-        modelspec.meta['slurm_jobid'] = job_id
-
-        log_dir_root = Path('/mnt/scratch')
-        assert log_dir_root.exists()
-        log_dir_sub = Path('SLURM_JOBID' + job_id) / str(modelspec.meta['batch'])\
-                      / modelspec.meta['cellid'] / modelspec.meta['modelname']
-        log_dir = log_dir_root / log_dir_sub
+        job_id = os.environ.get('SLURM_JOBID',None)
+        if job_id is not None:
+           # keep a record of the job id
+           modelspec.meta['slurm_jobid'] = job_id
+   
+           log_dir_root = Path('/mnt/scratch')
+           assert log_dir_root.exists()
+           log_dir_sub = Path('SLURM_JOBID' + job_id) / str(modelspec.meta['batch'])\
+                         / modelspec.meta.get('cellid', "NOCELL")\
+                         / modelspec.meta['modelname']
+           log_dir = log_dir_root / log_dir_sub
     except KeyError:
         pass
 
