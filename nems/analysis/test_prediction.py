@@ -365,7 +365,8 @@ def basic_error(data, modelspec, cost_function=None,
     return error
 
 def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
-                  metric_fn='nems.metrics.mse.nmse', jackknifed_fit=False, IsReload=False, **context):
+                  metric_fn='nems.metrics.mse.nmse', jackknifed_fit=False, keep_n=1,
+                  IsReload=False, **context):
 
     """
     For models with multiple fits (eg, based on multiple initial conditions),
@@ -391,7 +392,7 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
     jack_count = modelspec.jack_count
     fit_count = modelspec.fit_count
     best_idx = np.zeros(jack_count,dtype=int)
-    new_raw = np.zeros((1, 1, jack_count), dtype='O')
+    new_raw = np.zeros((1, keep_n, jack_count), dtype='O')
     #import pdb; pdb.set_trace()
 
     # for each jackknife set, figure out best fit
@@ -412,11 +413,14 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
             x = []
             for e in this_est.views():
                 x.append(fn(e, **context))
-        best_idx[j] = int(np.argmin(x))
-        new_raw[0, 0, j] = modelspec.raw[0, best_idx[j], j]
+        tx = x.copy()
+        for n in range(keep_n):
+           best_idx[j] = int(np.argmin(tx))
+           new_raw[0, n, j] = modelspec.raw[0, best_idx[j], j]
 
-        log.info('jack %d: best phi (fit_idx=%d) has fit_metric=%.5f',
-                 j, best_idx[j], x[best_idx[j]])
+           log.info('jack %d: %d/%d best phi (fit_idx=%d) has fit_metric=%.5f',
+                    j, n+1, keep_n, best_idx[j], tx[best_idx[j]])
+           tx[best_idx[j]] = tx.max()
 
     new_raw[0,0,0][0]['meta'] = modelspec.meta.copy()
     new_modelspec = ms.ModelSpec(new_raw)
