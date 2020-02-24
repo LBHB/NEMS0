@@ -1328,6 +1328,11 @@ def stategain(kw):
     gain_only=('g' in options[2:])
     include_spont=('s' in options[2:]) # separate offset for spont than during evoked
     dc_only=('d' in options[2:])
+    fix_across_channels=0
+    if 'c1' in options[2:]:
+        fix_across_channels=1
+    elif 'c2' in options[2:]:
+        fix_across_channels=2
     state = 'state'
     if 'lv' in options[2:]:
         state = 'lv'
@@ -1389,6 +1394,8 @@ def stategain(kw):
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
                       'd': ('Normal', {'mean': d_mean, 'sd': d_sd})}
             }
+    if fix_across_channels:
+        template['fn_kwargs'].update({'fix_across_channels': fix_across_channels})
 
     return template
 

@@ -238,15 +238,15 @@ def prefit_LN(rec, modelspec, analysis_function=fit_basic,
     d = init_static_nl(rec, modelspec, **nl_kw)
     modelspec = d['modelspec']
     include_names = d['include_names']
-
-    modelspec = prefit_subset(
-        rec, modelspec, fit_basic, include_names=include_names,
-        fitter=scipy_minimize, metric=metric, tolerance=tolerance, max_iter=max_iter)
+    if len(include_names)>0:
+        modelspec = prefit_subset(
+            rec, modelspec, fit_basic, include_names=include_names,
+            fitter=scipy_minimize, metric=metric, tolerance=tolerance, max_iter=max_iter)
 
     return modelspec
 
 
-def init_static_nl(est=None, modelspec=None, **nl_kw):
+def init_static_nl(est=None, modelspec=None, tolerance=10**-4, **nl_kw):
 
     include_names = []
     if (est is None) or (modelspec is None):
@@ -259,7 +259,7 @@ def init_static_nl(est=None, modelspec=None, **nl_kw):
             include_names = ['double_exponential']
             modelspec = prefit_subset(est, modelspec,
                                       include_names=include_names,
-                                      tolerance=10**-4)
+                                      tolerance=tolerance)
             break
 
         elif 'relu' in m['fn']:
@@ -745,7 +745,7 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
 
     modelspec[target_i]['phi'] = {'amplitude': amp, 'base': base,
                                   'kappa': kappa, 'shift': shift}
-    log.info("Init dexp: %s", modelspec[target_i]['phi'])
+    #log.info("Init dexp: %s", modelspec[target_i]['phi'])
 
     return modelspec
 

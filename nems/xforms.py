@@ -518,8 +518,17 @@ def mask_all_but_targets(rec, **context):
     return {'rec': rec}
 
 
+def mask_incorrect(rec, **context):
+    '''
+    Create mask removing incorrect trials
+    '''
+    rec = preproc.mask_incorrect(rec)
+
+    return {'rec': rec}
+
+
 def generate_psth_from_resp(rec, epoch_regex='^STIM_', use_as_input=True,
-                            smooth_resp=False, **context):
+                            smooth_resp=False, channel_per_stim=False, **context):
     '''
     generate PSTH prediction from rec['resp'] (before est/val split). Could
     be considered "cheating" b/c predicted PSTH then is based on data in
@@ -530,7 +539,8 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', use_as_input=True,
     '''
 
     rec = preproc.generate_psth_from_resp(rec, epoch_regex=epoch_regex,
-                                          smooth_resp=smooth_resp)
+                                          smooth_resp=smooth_resp,
+                                          channel_per_stim=channel_per_stim)
     if use_as_input:
         return {'rec': rec, 'input_name': 'psth'}
     else:
@@ -652,7 +662,8 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
         return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
 
-def mask_for_jackknife(rec, modelspec=None, epoch_name='REFERENCE', epoch_regex=None,
+def mask_for_jackknife(rec, modelspec=None, epoch_name=None,
+                       epoch_regex='(REFERENCE|TARGET)',
                        by_time=False, njacks=10, IsReload=False,
                        allow_partial_epochs=False, **context):
 
