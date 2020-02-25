@@ -575,7 +575,7 @@ def _extract_options(fitkey):
 
 def _parse_basic(options):
     '''Options specific to basic.'''
-    max_iter = 1000
+    max_iter = 3000
     tolerance = 1e-7
     fitter = 'scipy_minimize'
     choose_best = False

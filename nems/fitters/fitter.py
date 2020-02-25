@@ -143,6 +143,8 @@ def scipy_minimize(sigma, cost_fn, tolerance=None, max_iter=None,
     elif max_iter is None and 'maxiter' not in options:
         options['maxiter'] = 1000
 
+    options['maxfun'] = options['maxiter']*10
+    log.info('options %s', options)
     start_err = cost_fn(sigma)
 
     if np.isnan(np.array(sigma)).any():

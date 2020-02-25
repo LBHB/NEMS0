@@ -721,7 +721,7 @@ def jack_subset(est, val, modelspec=None, IsReload=False,
 ###############################################################################
 
 
-def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
+def fit_basic_init(modelspec, est, tolerance=10**-5.5, max_iter=1500, metric='nmse',
                    IsReload=False, norm_fir=False, nl_kw={},
                    output_name='resp', **context):
     '''
@@ -743,7 +743,7 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
             est, modelspec,
             analysis_function=nems.analysis.api.fit_basic,
             fitter=scipy_minimize, metric=metric_fn,
-            tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+            tolerance=tolerance, max_iter=max_iter, norm_fir=norm_fir,
             nl_kw=nl_kw)
     return {'modelspec': modelspec}
 
@@ -818,7 +818,7 @@ def _set_zero(x):
     return y
 
 
-def fit_state_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
+def fit_state_init(modelspec, est, tolerance=10**-5.5, max_iter=1500, metric='nmse',
                    IsReload=False, norm_fir=False, nl_kw = {},
                    fit_sig='resp', output_name='resp', **context):
 
@@ -847,7 +847,7 @@ def fit_state_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
             dc, modelspec,
             analysis_function=nems.analysis.api.fit_basic,
             fitter=scipy_minimize, metric=metric_fn,
-            tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+            tolerance=tolerance, max_iter=max_iter, norm_fir=norm_fir,
             nl_kw=nl_kw)
     # fit a bit more to settle in STP variables and anything else
     # that might have been excluded
@@ -903,9 +903,9 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
             modelspec.jack_index = jack_idx
             modelspec.fit_index = fit_idx
             log.info("----------------------------------------------------")
-            log.info("Fitting: fit %d/%d, fold %d/%d",
+            log.info("Fitting: fit %d/%d, fold %d/%d (tol=%.2e, max_iter=%d)",
                      fit_idx + 1, modelspec.fit_count,
-                     jack_idx + 1, modelspec.jack_count)
+                     jack_idx + 1, modelspec.jack_count, tolerance, max_iter)
             modelspec = nems.analysis.api.fit_basic(
                     e, modelspec, fit_kwargs=fit_kwargs,
                     metric=metric_fn, fitter=fitter_fn)
