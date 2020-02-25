@@ -595,7 +595,7 @@ def update_startdate(queueid=None):
 
     engine = Engine()
     conn = engine.connect()
-    sql = ("UPDATE tQueue SET startdate=CURRENT_TIMESTAMP() WHERE id={}")
+    sql = ("UPDATE tQueue SET startdate=CURRENT_TIMESTAMP() WHERE id={}").format(queueid)
     r = conn.execute(sql)
     conn.close()
     return r
