@@ -52,6 +52,8 @@ if __name__ == '__main__':
 
         if 'SLURM_JOB_ID' in os.environ:
             nd.update_job_pid(os.environ['SLURM_JOB_ID'])
+            nd.update_startdate()
+
 
     else:
         queueid = 0

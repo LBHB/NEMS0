@@ -582,6 +582,25 @@ def update_job_pid(pid, queueid=None):
     return r
 
 
+def update_startdate(queueid=None):
+    """
+    in tQueue, update the PID
+    """
+    if queueid is None:
+        if 'QUEUEID' in os.environ:
+            queueid = os.environ['QUEUEID']
+        else:
+            log.warning("queueid not specified or found in os.environ")
+            return 0
+
+    engine = Engine()
+    conn = engine.connect()
+    sql = ("UPDATE tQueue SET startdate=CURRENT_TIMESTAMP() WHERE id={}")
+    r = conn.execute(sql)
+    conn.close()
+    return r
+
+
 def update_job_tick(queueid=None):
     """
     update current machine's load in the cluster db and tick off a step
