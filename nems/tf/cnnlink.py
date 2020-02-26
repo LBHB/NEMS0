@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 modelspecs_dir = nems.get_setting('NEMS_RESULTS_DIR')
 
 
-def map_layer(layer: dict, fn: str, idx: int, modelspec,
+def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
               n_input_feats, net_seed, weight_scale, use_modelspec_init: bool,
               distr: str='norm',) -> dict:
     """Maps a module to a tensorflow layer.
@@ -42,6 +42,7 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
         wg.g
 
     :param layer:
+    :param prev_layer:
     :param fn:
     :param idx:
     :param modelspec:
@@ -342,36 +343,36 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
         layer['W'] = layer['Wraw'] / tf.reduce_sum(layer['Wraw'], axis=1)
         layer['Y'] = tf.nn.conv1d(layer['X'], layer['W'], stride=1, padding='SAME')
 
-    # elif fn == 'nems.modules.state.state_dc_gain':
-    #     if phi is not None:
-    #         g = phi['g'].astype('float32').T
-    #         d = phi['d'].astype('float32').T
-    #         g = g.reshape((1, g.shape[0], g.shape[1]))
-    #         d = d.reshape((1, d.shape[0], d.shape[1]))
-    #
-    #         if use_modelspec_init:
-    #             layer['g'] = tf.Variable(g)
-    #             layer['d'] = tf.Variable(d)
-    #         else:
-    #             layer['g'] = tf.Variable(tf.random_normal(g.shape, stddev=weight_scale
-    #                                                       , seed=cnn.seed_to_randint(net_seed + idx)))
-    #             layer['d'] = tf.Variable(tf.random_normal(d.shape, stddev=weight_scale,
-    #                                                       seed=cnn.seed_to_randint(net_seed + 20 + idx)))
-    #
-    #     else:
-    #         # dc/gain values are fixed
-    #         g = fn_kwargs['g'].astype('float32').T
-    #         d = fn_kwargs['d'].astype('float32').T
-    #         g =g.reshape((1, g.shape[0], g.shape[1]))
-    #         d = d.reshape((1, d.shape[0], d.shape[1]))
-    #
-    #         layer['g'] = tf.constant(g)
-    #         layer['d'] = tf.constant(d)
-    #
-    #     layer['n_kern'] = g.shape[2]
-    #     layer['Sg'] = tf.nn.conv1d(layers[0]['S'], layer['g'], stride=1, padding='SAME')
-    #     layer['Sd'] = tf.nn.conv1d(layers[0]['S'], layer['d'], stride=1, padding='SAME')
-    #     layer['Y'] = layer['X'] * layer['Sg'] + layer['Sd']
+    elif fn == 'nems.modules.state.state_dc_gain':
+        if phi is not None:
+            g = phi['g'].astype('float32').T
+            d = phi['d'].astype('float32').T
+            g = g.reshape((1, g.shape[0], g.shape[1]))
+            d = d.reshape((1, d.shape[0], d.shape[1]))
+
+            if use_modelspec_init:
+                layer['g'] = tf.Variable(g)
+                layer['d'] = tf.Variable(d)
+            else:
+                layer['g'] = tf.Variable(tf.random.normal(g.shape, stddev=weight_scale,
+                                                          seed=cnn.seed_to_randint(net_seed + idx)))
+                layer['d'] = tf.Variable(tf.random.normal(d.shape, stddev=weight_scale,
+                                                          seed=cnn.seed_to_randint(net_seed + 20 + idx)))
+
+        else:
+            # dc/gain values are fixed
+            g = fn_kwargs['g'].astype('float32').T
+            d = fn_kwargs['d'].astype('float32').T
+            g =g.reshape((1, g.shape[0], g.shape[1]))
+            d = d.reshape((1, d.shape[0], d.shape[1]))
+
+            layer['g'] = tf.constant(g)
+            layer['d'] = tf.constant(d)
+
+        layer['n_kern'] = g.shape[2]
+        layer['Sg'] = tf.nn.conv1d(prev_layers[0]['S'], layer['g'], stride=1, padding='SAME')
+        layer['Sd'] = tf.nn.conv1d(prev_layers[0]['S'], layer['d'], stride=1, padding='SAME')
+        layer['Y'] = layer['X'] * layer['Sg'] + layer['Sd']
 
     else:
         raise ValueError(f'Module "{fn}" not supported for mapping to cnn layer.')

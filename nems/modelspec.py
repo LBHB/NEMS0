@@ -951,7 +951,8 @@ class ModelSpec:
         F = tf.compat.v1.placeholder('float32', shape=shape)
         D = tf.compat.v1.placeholder('float32', shape=shape)
         if state_dims > 0:
-            S = tf.compat.v1.placeholder('float32', shape=shape)
+            s_shape = [None, tps_per_stim, state_dims]
+            S = tf.compat.v1.placeholder('float32', shape=s_shape)
 
         layers = []
         for idx, m in enumerate(self):
@@ -962,7 +963,7 @@ class ModelSpec:
             # input to each layer is output of previous layer
             if idx == 0:
                 layer['X'] = F
-                layer['D'] = D
+                # layer['D'] = D
                 if state_dims > 0:
                     layer['S'] = S
 
@@ -975,8 +976,8 @@ class ModelSpec:
             # default integration time is one bin
             layer['time_win_smp'] = 1  # default
 
-            layer = nems.tf.cnnlink.map_layer(layer=layer, fn=fn, idx=idx, modelspec=m, n_input_feats=n_input_feats,
-                                              net_seed=net_seed, weight_scale=weight_scale,
+            layer = nems.tf.cnnlink.map_layer(layer=layer, prev_layers=layers, fn=fn, idx=idx, modelspec=m,
+                                              n_input_feats=n_input_feats, net_seed=net_seed, weight_scale=weight_scale,
                                               use_modelspec_init=use_modelspec_init, distr=distr,)
 
             # necessary?
