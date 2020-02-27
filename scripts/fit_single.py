@@ -88,7 +88,7 @@ if __name__ == '__main__':
             # need to copy the job log over to the queue log dir
             log_file_dir = Path.home() / 'job_history'
             log_file = list(log_file_dir.glob(f'*jobid{os.environ["SLURM_JOB_ID"]}_log.out'))
-            if len(log_file) == 0:
+            if len(log_file) == 1:
                 log.info(f'Found log file: "{str(log_file)}"')
                 log_file = log_file[0]
                 with open(log_file, 'r') as f:
