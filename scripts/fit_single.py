@@ -58,9 +58,10 @@ if __name__ == '__main__':
             jobid = os.environ['SLURM_JOB_ID']
             nd.update_job_pid(jobid)
             nd.update_startdate()
-            subprocess.run(f'sacctmgr -i modify job jobid={jobid} set Comment="{" ".join(sys.argv[1:])}"'.split(' '),
-                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            log.info(f'Set comment string to: "{" ".join(sys.argv[1:])}"')
+            comment = ' '.join(sys.argv[1:])
+            update_comment = ['sacctmgr', '-i', 'modify', 'job', f'jobid={jobid}', 'set', f'Comment="{comment}"']
+            subprocess.run(update_comment, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            log.info(f'Set comment string to: "{comment}"')
 
     else:
         queueid = 0
