@@ -349,6 +349,7 @@ def init(kw):
     early_stopping_tolerance = 1e-5
     learning_rate = 0.01
     distr = 'norm'
+    keep_n = 1
 
     for op in ops:
         if op == 'st':
@@ -379,6 +380,7 @@ def init(kw):
             else:
                 rand_count = int(op[2:])
             keep_best = True
+            keep_n = 1
         elif op.startswith('r'):
             if len(op) == 1:
                 rand_count = 10
@@ -386,6 +388,10 @@ def init(kw):
                 rand_count = int(op[1:])
         elif op.startswith('b'):
             keep_best = True
+            if len(op) == 1:
+                keep_n = 1
+            else:
+                keep_n = int(op[1:])
         elif op.startswith('iineg'):
             sel_options['include_through'] = -int(op[5:])
         elif op.startswith('ineg'):
@@ -494,7 +500,8 @@ def init(kw):
     xfspec.append(['nems.xforms.fit_wrapper', sel_options])
 
     if keep_best:
-        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
+        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', 
+            {'criterion': 'mse_fit', 'keep_n': keep_n}])
 
     return xfspec
 
@@ -568,7 +575,7 @@ def _extract_options(fitkey):
 
 def _parse_basic(options):
     '''Options specific to basic.'''
-    max_iter = 1000
+    max_iter = 3000
     tolerance = 1e-7
     fitter = 'scipy_minimize'
     choose_best = False

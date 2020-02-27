@@ -196,7 +196,7 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, rand_seed=1234, **context
 
 def prefit_LN(rec, modelspec, analysis_function=fit_basic,
               fitter=scipy_minimize, metric=None, norm_fir=False,
-              tolerance=10**-5.5, max_iter=700, nl_kw={}):
+              tolerance=10**-5.5, max_iter=1500, nl_kw={}):
     '''
     Initialize modelspecs in a way that avoids getting stuck in
     local minima.
@@ -235,18 +235,13 @@ def prefit_LN(rec, modelspec, analysis_function=fit_basic,
             break
 
     # pre-fit static NL if it exists
-    d = init_static_nl(rec, modelspec, **nl_kw)
+    d = init_static_nl(rec, modelspec, tolerance=tolerance, **nl_kw)
     modelspec = d['modelspec']
-    include_names = d['include_names']
-
-    modelspec = prefit_subset(
-        rec, modelspec, fit_basic, include_names=include_names,
-        fitter=scipy_minimize, metric=metric, tolerance=tolerance, max_iter=max_iter)
 
     return modelspec
 
 
-def init_static_nl(est=None, modelspec=None, **nl_kw):
+def init_static_nl(est=None, modelspec=None, tolerance=10**-4, **nl_kw):
 
     include_names = []
     if (est is None) or (modelspec is None):
@@ -259,13 +254,14 @@ def init_static_nl(est=None, modelspec=None, **nl_kw):
             include_names = ['double_exponential']
             modelspec = prefit_subset(est, modelspec,
                                       include_names=include_names,
-                                      tolerance=10**-4)
+                                      tolerance=tolerance)
             break
 
         elif 'relu' in m['fn']:
             m['phi']['offset'][:]=-0.1
             include_names = ['relu']
             log.info('pre-fitting relu from -0.1')
+            # in case there are other relus, just fit last module
             modelspec = prefit_subset(est, modelspec,
                                       include_idx=[len(modelspec)-1],
                                       tolerance=10**-4)
@@ -275,12 +271,18 @@ def init_static_nl(est=None, modelspec=None, **nl_kw):
             log.info("initializing priors and bounds for logsig ...\n")
             modelspec = init_logsig(est, modelspec)
             include_names = ['logistic_sigmoid']
+            modelspec = prefit_subset(est, modelspec,
+                                      include_names=include_names,
+                                      tolerance=tolerance)
             break
 
         elif 'saturated_rectifier' in m['fn']:
             log.info('initializing priors and bounds for relat ...\n')
             modelspec = init_relsat(est, modelspec)
             include_names = ['saturated_rectifier']
+            modelspec = prefit_subset(est, modelspec,
+                                      include_names=include_names,
+                                      tolerance=tolerance)
             break
 
     return {'modelspec': modelspec, 'include_names': include_names}
@@ -745,7 +747,7 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
 
     modelspec[target_i]['phi'] = {'amplitude': amp, 'base': base,
                                   'kappa': kappa, 'shift': shift}
-    log.info("Init dexp: %s", modelspec[target_i]['phi'])
+    #log.info("Init dexp: %s", modelspec[target_i]['phi'])
 
     return modelspec
 

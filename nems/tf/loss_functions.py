@@ -16,6 +16,15 @@ def poisson(response, prediction):
 def loss_se(response, prediction):
     """Squared error loss."""
     # TODO : add percell option
+
+    # SVD -- was trying to reduce nan outputs, but doesn't seem to make a different. more important to avoid
+    # having the fitter get there. Possibly useful in the future though?
+    #x = tf.square(response - prediction)
+    #y = tf.square(response)
+    #x = tf.reduce_mean(tf.boolean_mask(x, tf.is_finite(x))) + tf.reduce_mean(tf.dtypes.cast(tf.is_inf(x), tf.float32))
+    #y = tf.reduce_mean(tf.boolean_mask(y, tf.is_finite(y))) + tf.reduce_mean(tf.dtypes.cast(tf.is_inf(y), tf.float32))
+    #return x/y
+
     return tf.reduce_mean(tf.square(response - prediction)) / tf.reduce_mean(tf.square(response))
 
 

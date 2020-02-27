@@ -201,7 +201,7 @@ def nonparametric_strf(modelspec, idx, ax=None, clim=None, title=None, **kwargs)
 
 
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
-                 title=None, fs=None, chans=None, wc_idx=0, fir_idx=0,
+                 title='STRF', fs=None, chans=None, wc_idx=0, fir_idx=0,
                  interpolation='none', absolute_value=False, cmap='RdYlBu_r',
                  manual_extent=None, show_cbar=True, **options):
     """
@@ -305,9 +305,6 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
 
     if absolute_value:
         everything = np.abs(everything)
-
-    if title is None:
-        title = 'STRF'
 
     plot_heatmap(everything, xlabel='Lag (s)',
                  ylabel='Channel In', ax=ax, skip=skip, title=title, fs=fs,

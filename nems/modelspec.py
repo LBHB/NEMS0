@@ -828,8 +828,12 @@ class ModelSpec:
     def evaluate(self, rec=None, **kwargs):
         """Evaluate the Model on a recording. essentially a wrapper for `modelspec.evaluate`.
 
-        :param rec: The recording to evaluate.
-        :param kwargs: Optional keyword arguments, passed to `modelspec.evaluate`.
+        :param rec: Recording object (default is self.recording preset to val usually)
+        :param modelspec: Modelspec object.
+        :param start: Start evaluation at module start, assuming `rec['pred']` is in the appropriate
+            state to feed into modelspec[start].
+        :param stop: Stop at this module.
+        :return: `Recording` copy of input with `pred` updated with prediction.
         """
         if rec is None:
             rec = self.recording
