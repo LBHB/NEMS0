@@ -5,6 +5,7 @@
 import os
 import sys
 import logging
+from pathlib import Path
 log = logging.getLogger(__name__)
 
 force_SDB=True
@@ -19,6 +20,8 @@ if force_SDB:
 
 import nems.xform_helper as xhelp
 import nems.utils
+from nems.uri import save_resource
+from nems import get_setting
 
 if force_SDB:
     log.info('Setting OPENBLAS_CORETYPE to sandybridge')
@@ -54,7 +57,6 @@ if __name__ == '__main__':
             nd.update_job_pid(os.environ['SLURM_JOB_ID'])
             nd.update_startdate()
 
-
     else:
         queueid = 0
 
@@ -81,4 +83,15 @@ if __name__ == '__main__':
     if db_exists & bool(queueid):
         nd.update_job_complete(queueid)
 
+        if 'SLURM_JOB_ID' in os.environ:
+            # need to copy the job log over to the queue log dir
+            log_file_dir = Path.home() / 'job_history'
+            log_file = list(log_file_dir.glob(f'*jobid{os.environ["SLURM_JOB_ID"]}_log.out*'))
+            if len(log_file) == 0:
+                log_file = log_file[0]
+                with open(log_file, 'r') as f:
+                    log_data = f.read()
 
+                dst_prefix = 'http://' + get_setting('NEMS_BAPHY_API_HOST') + ":" + str(get_setting('NEMS_BAPHY_API_PORT'))
+                dst_loc = Path(dst_prefix) / 'queuelog' / str(queueid)
+                save_resource(str(dst_loc), data=log_data)
