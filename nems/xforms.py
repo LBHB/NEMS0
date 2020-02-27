@@ -849,12 +849,15 @@ def fit_state_init(modelspec, est, tolerance=10**-5.5, max_iter=1500, metric='nm
             fitter=scipy_minimize, metric=metric_fn,
             tolerance=tolerance, max_iter=max_iter, norm_fir=norm_fir,
             nl_kw=nl_kw)
+
     # fit a bit more to settle in STP variables and anything else
     # that might have been excluded
-    fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
-    modelspec = nems.analysis.api.fit_basic(
-            dc, modelspec, fit_kwargs=fit_kwargs, metric=metric_fn,
-            fitter=scipy_minimize)
+    # SVD disabling to speed up
+    #fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
+    #modelspec = nems.analysis.api.fit_basic(
+    #        dc, modelspec, fit_kwargs=fit_kwargs, metric=metric_fn,
+    #        fitter=scipy_minimize)
+
     rep_idx = find_module('replicate_channels', modelspec)
     mrg_idx = find_module('merge_channels', modelspec)
     if rep_idx is not None:

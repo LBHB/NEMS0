@@ -66,8 +66,8 @@ def state_gain(rec, i='pred', o='pred', s='state', include_lv=False,
         #import pdb; pdb.set_trace()
         # kludge-- force a subset of the terms to be constant across stim/resp channels
         # meant for models where there's a stim-specific gain
-        #g = g.copy()
-        g[:,:fix_across_channels] = g[0:1,:fix_across_channels]
+        g = g.copy()
+        g[:, :fix_across_channels] = g[0:1,:fix_across_channels]
 
     fn = lambda x: np.matmul(g, rec[s]._data) * x
 
