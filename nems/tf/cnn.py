@@ -10,6 +10,7 @@ import numpy as np
 import tensorflow as tf
 
 from nems.tf import initializers, loss_functions
+import nems.utils
 
 log = logging.getLogger(__name__)
 
@@ -140,7 +141,6 @@ class Net:
             log_dir = Path(r'/auto/data/tmp/cnn_scratch')
 
         self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(exist_ok=True, parents=True)
 
         if log_id is None:
             self.log_id = 'seed' + str(seed)
@@ -217,6 +217,9 @@ class Net:
 
     def save(self):
         """Saves a checkpoint of the model. Only keeps most recent, overwriting existing."""
+        if not self.log_dir.exists():
+            self.log_dir.mkdir(exist_ok=True, parents=True)
+
         filename = self.log_dir / (self.log_id + '-model.ckpt')
         self.saver.save(self.sess, str(filename))
 
@@ -281,6 +284,8 @@ class Net:
 
                 # evaluate loss
                 if np.mod(epoch_num, eval_interval) == 0:
+                    # tick the progress indicator
+                    nems.utils.progress_fun()
                     self.iteration.append(epoch_num)
                     train_loss = self.loss.eval(feed_dict=train_dict)
                     self.train_loss.append(train_loss)

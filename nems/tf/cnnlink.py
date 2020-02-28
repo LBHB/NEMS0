@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 modelspecs_dir = nems.get_setting('NEMS_RESULTS_DIR')
 
 
-def map_layer(layer: dict, fn: str, idx: int, modelspec,
+def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
               n_input_feats, net_seed, weight_scale, use_modelspec_init: bool,
               distr: str='norm',) -> dict:
     """Maps a module to a tensorflow layer.
@@ -42,6 +42,7 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
         wg.g
 
     :param layer:
+    :param prev_layer:
     :param fn:
     :param idx:
     :param modelspec:
@@ -342,36 +343,36 @@ def map_layer(layer: dict, fn: str, idx: int, modelspec,
         layer['W'] = layer['Wraw'] / tf.reduce_sum(layer['Wraw'], axis=1)
         layer['Y'] = tf.nn.conv1d(layer['X'], layer['W'], stride=1, padding='SAME')
 
-    # elif fn == 'nems.modules.state.state_dc_gain':
-    #     if phi is not None:
-    #         g = phi['g'].astype('float32').T
-    #         d = phi['d'].astype('float32').T
-    #         g = g.reshape((1, g.shape[0], g.shape[1]))
-    #         d = d.reshape((1, d.shape[0], d.shape[1]))
-    #
-    #         if use_modelspec_init:
-    #             layer['g'] = tf.Variable(g)
-    #             layer['d'] = tf.Variable(d)
-    #         else:
-    #             layer['g'] = tf.Variable(tf.random_normal(g.shape, stddev=weight_scale
-    #                                                       , seed=cnn.seed_to_randint(net_seed + idx)))
-    #             layer['d'] = tf.Variable(tf.random_normal(d.shape, stddev=weight_scale,
-    #                                                       seed=cnn.seed_to_randint(net_seed + 20 + idx)))
-    #
-    #     else:
-    #         # dc/gain values are fixed
-    #         g = fn_kwargs['g'].astype('float32').T
-    #         d = fn_kwargs['d'].astype('float32').T
-    #         g =g.reshape((1, g.shape[0], g.shape[1]))
-    #         d = d.reshape((1, d.shape[0], d.shape[1]))
-    #
-    #         layer['g'] = tf.constant(g)
-    #         layer['d'] = tf.constant(d)
-    #
-    #     layer['n_kern'] = g.shape[2]
-    #     layer['Sg'] = tf.nn.conv1d(layers[0]['S'], layer['g'], stride=1, padding='SAME')
-    #     layer['Sd'] = tf.nn.conv1d(layers[0]['S'], layer['d'], stride=1, padding='SAME')
-    #     layer['Y'] = layer['X'] * layer['Sg'] + layer['Sd']
+    elif fn == 'nems.modules.state.state_dc_gain':
+        if phi is not None:
+            g = phi['g'].astype('float32').T
+            d = phi['d'].astype('float32').T
+            g = g.reshape((1, g.shape[0], g.shape[1]))
+            d = d.reshape((1, d.shape[0], d.shape[1]))
+
+            if use_modelspec_init:
+                layer['g'] = tf.Variable(g)
+                layer['d'] = tf.Variable(d)
+            else:
+                layer['g'] = tf.Variable(tf.random.normal(g.shape, stddev=weight_scale,
+                                                          seed=cnn.seed_to_randint(net_seed + idx)))
+                layer['d'] = tf.Variable(tf.random.normal(d.shape, stddev=weight_scale,
+                                                          seed=cnn.seed_to_randint(net_seed + 20 + idx)))
+
+        else:
+            # dc/gain values are fixed
+            g = fn_kwargs['g'].astype('float32').T
+            d = fn_kwargs['d'].astype('float32').T
+            g =g.reshape((1, g.shape[0], g.shape[1]))
+            d = d.reshape((1, d.shape[0], d.shape[1]))
+
+            layer['g'] = tf.constant(g)
+            layer['d'] = tf.constant(d)
+
+        layer['n_kern'] = g.shape[2]
+        layer['Sg'] = tf.nn.conv1d(prev_layers[0]['S'], layer['g'], stride=1, padding='SAME')
+        layer['Sd'] = tf.nn.conv1d(prev_layers[0]['S'], layer['d'], stride=1, padding='SAME')
+        layer['Y'] = layer['X'] * layer['Sg'] + layer['Sd']
 
     else:
         raise ValueError(f'Module "{fn}" not supported for mapping to cnn layer.')
@@ -393,6 +394,7 @@ def tf2modelspec(net, modelspec):
         if m['fn'] == 'nems.modules.nonlinearity.relu':
             m['phi']['offset'] = -net_layer_vals[i]['b'][0, :, :].T
             log.info('relu size: {}'.format(m['phi']['offset'].shape))
+
         elif 'levelshift' in m['fn']:
             m['phi']['level'] = net_layer_vals[i]['b'][0, :, :].T
 
@@ -514,7 +516,7 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
     # preserve input modelspec
     modelspec = modelspec.copy()
 
-    # TODO : get rid of target_module and just take off final module if it's a static NL.
+    # TODO: get rid of target_module and just take off final module if it's a static NL.
     # and add a lvl.R if one doesn't already exist in modelspec[-2]
 
     target_module = ['levelshift', 'relu']
@@ -614,7 +616,6 @@ def fit_tf(modelspec=None, est=None,
     :param est: A recording object
     :param modelspec: A modelspec object
     :param use_modelspec_init: [True] use input modelspec phi for initialization. Otherwise use random inits
-    :param init_count: number of random initializations (if use_modelspec_init==False)
     :param optimizer:
     :param max_iter: max number of training iterations
     :param cost_function: cost_function to use when fitting
@@ -658,20 +659,17 @@ def fit_tf(modelspec=None, est=None,
     # check to see if we should log model weights elsewhere
     log_dir = modelspec.meta['modelpath']
 
-    try:
-        job_id = os.environ.get('SLURM_JOBID',None)
-        if job_id is not None:
-           # keep a record of the job id
-           modelspec.meta['slurm_jobid'] = job_id
-   
-           log_dir_root = Path('/mnt/scratch')
-           assert log_dir_root.exists()
-           log_dir_sub = Path('SLURM_JOBID' + job_id) / str(modelspec.meta['batch'])\
-                         / modelspec.meta.get('cellid', "NOCELL")\
-                         / modelspec.meta['modelname']
-           log_dir = log_dir_root / log_dir_sub
-    except KeyError:
-        pass
+    job_id = os.environ.get('SLURM_JOBID', None)
+    if job_id is not None:
+       # keep a record of the job id
+       modelspec.meta['slurm_jobid'] = job_id
+
+       log_dir_root = Path('/mnt/scratch')
+       assert log_dir_root.exists()
+       log_dir_sub = Path('SLURM_JOBID' + job_id) / str(modelspec.meta['batch'])\
+                     / modelspec.meta.get('cellid', "NOCELL")\
+                     / modelspec.meta['modelname']
+       log_dir = log_dir_root / log_dir_sub
 
     modelspec_pre = modelspec.copy()
     modelspec, net = _fit_net(F, D, modelspec, _this_seed, new_est['resp'].fs, log_dir=str(log_dir),
@@ -683,7 +681,7 @@ def fit_tf(modelspec=None, est=None,
     new_est = eval_tf(modelspec, new_est, log_dir)
 
     # clear out tmp dir
-    if os.environ.get('SLURM_JOBID'):
+    if os.environ.get('SLURM_JOB_ID'):
         try:
             shutil.rmtree(log_dir)
             try:

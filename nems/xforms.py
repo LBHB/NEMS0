@@ -667,21 +667,26 @@ def mask_for_jackknife(rec, modelspec=None, epoch_name=None,
                        by_time=False, njacks=10, IsReload=False,
                        allow_partial_epochs=False, **context):
 
+    _rec = rec.copy()
+    _rec['resp'] = _rec['resp'].rasterize()
+    if 'stim' in _rec.signals.keys():
+        _rec['stim'] = _rec['stim'].rasterize()
+
     if epoch_regex is None:
         epoch_regex=epoch_name
 
     if by_time != True:
         est_out, val_out, modelspec_out = \
-            preproc.mask_est_val_for_jackknife(rec, modelspec=modelspec,
+            preproc.mask_est_val_for_jackknife(_rec, modelspec=modelspec,
                                                epoch_name=epoch_name, epoch_regex=epoch_regex,
                                                njacks=njacks,
                                                allow_partial_epochs=allow_partial_epochs,
                                                IsReload=IsReload)
     else:
         est_out, val_out, modelspec_out = \
-            preproc.mask_est_val_for_jackknife_by_time(rec, modelspec=modelspec,
-                                               njacks=njacks,
-                                               IsReload=IsReload)
+            preproc.mask_est_val_for_jackknife_by_time(_rec, modelspec=modelspec,
+                                                       njacks=njacks,
+                                                       IsReload=IsReload)
 
     if IsReload:
         return {'est': est_out, 'val': val_out}
