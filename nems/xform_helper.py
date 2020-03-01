@@ -6,6 +6,7 @@ fitting process.
 """
 import logging
 import os
+import time
 
 import nems.xforms as xforms
 import nems.db as nd
@@ -150,7 +151,7 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
        if True return xfspec, ctx tuple
     :return: savepath = path to saved results or (xfspec, ctx) tuple
     """
-
+    startime = time.time()
     log.info('Initializing modelspec(s) for cell/batch %s/%d...',
              cellid, int(batch))
 
@@ -205,6 +206,7 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     log.info(f'Setting modelpath to "{destination}"')
     modelspec.meta['modelpath'] = destination
     modelspec.meta['figurefile'] = os.path.join(destination, 'figure.0000.png')
+    modelspec.meta['runtime'] = int(time.time() - startime)
     modelspec.meta.update(meta)
 
     if returnModel:

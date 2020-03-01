@@ -667,21 +667,26 @@ def mask_for_jackknife(rec, modelspec=None, epoch_name=None,
                        by_time=False, njacks=10, IsReload=False,
                        allow_partial_epochs=False, **context):
 
+    _rec = rec.copy()
+    _rec['resp'] = _rec['resp'].rasterize()
+    if 'stim' in _rec.signals.keys():
+        _rec['stim'] = _rec['stim'].rasterize()
+
     if epoch_regex is None:
         epoch_regex=epoch_name
 
     if by_time != True:
         est_out, val_out, modelspec_out = \
-            preproc.mask_est_val_for_jackknife(rec, modelspec=modelspec,
+            preproc.mask_est_val_for_jackknife(_rec, modelspec=modelspec,
                                                epoch_name=epoch_name, epoch_regex=epoch_regex,
                                                njacks=njacks,
                                                allow_partial_epochs=allow_partial_epochs,
                                                IsReload=IsReload)
     else:
         est_out, val_out, modelspec_out = \
-            preproc.mask_est_val_for_jackknife_by_time(rec, modelspec=modelspec,
-                                               njacks=njacks,
-                                               IsReload=IsReload)
+            preproc.mask_est_val_for_jackknife_by_time(_rec, modelspec=modelspec,
+                                                       njacks=njacks,
+                                                       IsReload=IsReload)
 
     if IsReload:
         return {'est': est_out, 'val': val_out}
@@ -849,12 +854,15 @@ def fit_state_init(modelspec, est, tolerance=10**-5.5, max_iter=1500, metric='nm
             fitter=scipy_minimize, metric=metric_fn,
             tolerance=tolerance, max_iter=max_iter, norm_fir=norm_fir,
             nl_kw=nl_kw)
+
     # fit a bit more to settle in STP variables and anything else
     # that might have been excluded
-    fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
-    modelspec = nems.analysis.api.fit_basic(
-            dc, modelspec, fit_kwargs=fit_kwargs, metric=metric_fn,
-            fitter=scipy_minimize)
+    # SVD disabling to speed up
+    #fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
+    #modelspec = nems.analysis.api.fit_basic(
+    #        dc, modelspec, fit_kwargs=fit_kwargs, metric=metric_fn,
+    #        fitter=scipy_minimize)
+
     rep_idx = find_module('replicate_channels', modelspec)
     mrg_idx = find_module('merge_channels', modelspec)
     if rep_idx is not None:
