@@ -268,13 +268,17 @@ def load_model_xform(cellid, batch=271,
 
     d = nd.get_results_file(batch, [modelname], [cellid])
     filepath = d['modelpath'][0]
-
+    if get_setting('USE_NEMS_BAPHY_API'):
+        prefix = '/auto/data/results' # get_setting('NEMS_RESULTS_DIR')
+        uri = filepath.replace(prefix,
+                               'http://' + get_setting('NEMS_BAPHY_API_HOST') + ":" + str(get_setting('NEMS_BAPHY_API_PORT')))
+    else:
+        uri = filepath.replace('/auto/data/nems_db/results', get_setting('NEMS_RESULTS_DIR'))
     if old:
         raise NotImplementedError("need to use oxf library.")
-        xfspec, ctx = oxf.load_analysis(filepath, eval_model=eval_model)
+        xfspec, ctx = oxf.load_analysis(uri, eval_model=eval_model)
     else:
-        xfspec, ctx = xforms.load_analysis(filepath, eval_model=eval_model,
-                                           only=only)
+        xfspec, ctx = xforms.load_analysis(uri, eval_model=eval_model, only=only)
     return xfspec, ctx
 
 
