@@ -1328,9 +1328,15 @@ def stategain(kw):
     gain_only=('g' in options[2:])
     include_spont=('s' in options[2:]) # separate offset for spont than during evoked
     dc_only=('d' in options[2:])
+    fix_across_channels = 0
+    if 'c1' in options[2:]:
+        fix_across_channels = 1
+    elif 'c2' in options[2:]:
+        fix_across_channels = 2
     state = 'state'
     if 'lv' in options[2:]:
         state = 'lv'
+
     zeros = np.zeros([n_chans, n_vars])
     ones = np.ones([n_chans, n_vars])
     g_mean = zeros.copy()
@@ -1348,32 +1354,29 @@ def stategain(kw):
     if dc_only:
         template = {
             'fn': 'nems.modules.state.state_dc_gain',
-            'fn_kwargs': {'i': 'pred',
-                          'o': 'pred',
-                          's': state,
-                          'g': g_mean},
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'g': g_mean},
             'plot_fns': plot_fns,
-            'plot_fn_idx': 4,
+            'plot_fn_idx': 5,
             'prior': {'d': ('Normal', {'mean': d_mean, 'sd': d_sd})}
         }
     elif gain_only:
+        bounds = {'g': (g_mean - 0.5, g_mean + 0.5)}
+        bounds['g'][0][1:, :fix_across_channels] = g_mean[1:, :fix_across_channels]
+        bounds['g'][1][1:, :fix_across_channels] = g_mean[1:, :fix_across_channels]
         template = {
             'fn': 'nems.modules.state.state_gain',
-            'fn_kwargs': {'i': 'pred',
-                          'o': 'pred',
-                          's': state},
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state},
             'plot_fns': plot_fns,
-            'plot_fn_idx': 4,
-            'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd})}
-            }
+            'plot_fn_idx': 5,
+            'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd})},
+            'bounds': bounds
+        }
     elif include_spont:
         template = {
            'fn': 'nems.modules.state.state_sp_dc_gain',
-            'fn_kwargs': {'i': 'pred',
-                          'o': 'pred',
-                          's': state},
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state},
             'plot_fns': plot_fns,
-            'plot_fn_idx': 4,
+            'plot_fn_idx': 5,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
                       'd': ('Normal', {'mean': d_mean, 'sd': d_sd}),
                       'sp': ('Normal', {'mean': d_mean, 'sd': d_sd})}
@@ -1381,14 +1384,14 @@ def stategain(kw):
     else:
         template = {
             'fn': 'nems.modules.state.state_dc_gain',
-            'fn_kwargs': {'i': 'pred',
-                          'o': 'pred',
-                          's': state},
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state},
             'plot_fns': plot_fns,
-            'plot_fn_idx': 4,
+            'plot_fn_idx': 5,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
                       'd': ('Normal', {'mean': d_mean, 'sd': d_sd})}
             }
+    if fix_across_channels:
+        template['fn_kwargs'].update({'fix_across_channels': fix_across_channels})
 
     return template
 

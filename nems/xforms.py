@@ -342,6 +342,16 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
             'meta': meta}
 
 
+def none(**context):
+    '''
+    Does nothing. Useful when xforms expects at least one keywords to exist
+    but nothing is needed. For example, if recordings are manually preprocessed
+    and added to the context instead of using a loader.
+
+    '''
+    return {}
+
+
 def normalize_stim(rec=None, sig='stim', norm_method='meanstd', **context):
     """
     Normalize each channel of rec[sig] according to norm_method
@@ -508,8 +518,17 @@ def mask_all_but_targets(rec, **context):
     return {'rec': rec}
 
 
+def mask_incorrect(rec, **context):
+    '''
+    Create mask removing incorrect trials
+    '''
+    rec = preproc.mask_incorrect(rec)
+
+    return {'rec': rec}
+
+
 def generate_psth_from_resp(rec, epoch_regex='^STIM_', use_as_input=True,
-                            smooth_resp=False, **context):
+                            smooth_resp=False, channel_per_stim=False, **context):
     '''
     generate PSTH prediction from rec['resp'] (before est/val split). Could
     be considered "cheating" b/c predicted PSTH then is based on data in
@@ -520,7 +539,8 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', use_as_input=True,
     '''
 
     rec = preproc.generate_psth_from_resp(rec, epoch_regex=epoch_regex,
-                                          smooth_resp=smooth_resp)
+                                          smooth_resp=smooth_resp,
+                                          channel_per_stim=channel_per_stim)
     if use_as_input:
         return {'rec': rec, 'input_name': 'psth'}
     else:
@@ -642,25 +662,31 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
         return {'est': est_out, 'val': val_out, 'modelspecs': modelspecs_out}
 
 
-def mask_for_jackknife(rec, modelspec=None, epoch_name='REFERENCE', epoch_regex=None,
+def mask_for_jackknife(rec, modelspec=None, epoch_name=None,
+                       epoch_regex='(REFERENCE|TARGET)',
                        by_time=False, njacks=10, IsReload=False,
                        allow_partial_epochs=False, **context):
+
+    _rec = rec.copy()
+    _rec['resp'] = _rec['resp'].rasterize()
+    if 'stim' in _rec.signals.keys():
+        _rec['stim'] = _rec['stim'].rasterize()
 
     if epoch_regex is None:
         epoch_regex=epoch_name
 
     if by_time != True:
         est_out, val_out, modelspec_out = \
-            preproc.mask_est_val_for_jackknife(rec, modelspec=modelspec,
+            preproc.mask_est_val_for_jackknife(_rec, modelspec=modelspec,
                                                epoch_name=epoch_name, epoch_regex=epoch_regex,
                                                njacks=njacks,
                                                allow_partial_epochs=allow_partial_epochs,
                                                IsReload=IsReload)
     else:
         est_out, val_out, modelspec_out = \
-            preproc.mask_est_val_for_jackknife_by_time(rec, modelspec=modelspec,
-                                               njacks=njacks,
-                                               IsReload=IsReload)
+            preproc.mask_est_val_for_jackknife_by_time(_rec, modelspec=modelspec,
+                                                       njacks=njacks,
+                                                       IsReload=IsReload)
 
     if IsReload:
         return {'est': est_out, 'val': val_out}
@@ -671,7 +697,7 @@ def mask_for_jackknife(rec, modelspec=None, epoch_name='REFERENCE', epoch_regex=
 
 def jack_subset(est, val, modelspec=None, IsReload=False,
                 keep_only=1, **context):
-    
+
     if keep_only == 1:
         est = est.views(view_range=0)[0]
         val = val.views(view_range=0)[0]
@@ -700,7 +726,7 @@ def jack_subset(est, val, modelspec=None, IsReload=False,
 ###############################################################################
 
 
-def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
+def fit_basic_init(modelspec, est, tolerance=10**-5.5, max_iter=1500, metric='nmse',
                    IsReload=False, norm_fir=False, nl_kw={},
                    output_name='resp', **context):
     '''
@@ -722,7 +748,7 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
             est, modelspec,
             analysis_function=nems.analysis.api.fit_basic,
             fitter=scipy_minimize, metric=metric_fn,
-            tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+            tolerance=tolerance, max_iter=max_iter, norm_fir=norm_fir,
             nl_kw=nl_kw)
     return {'modelspec': modelspec}
 
@@ -797,7 +823,7 @@ def _set_zero(x):
     return y
 
 
-def fit_state_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
+def fit_state_init(modelspec, est, tolerance=10**-5.5, max_iter=1500, metric='nmse',
                    IsReload=False, norm_fir=False, nl_kw = {},
                    fit_sig='resp', output_name='resp', **context):
 
@@ -826,14 +852,17 @@ def fit_state_init(modelspec, est, tolerance=10**-5.5, metric='nmse',
             dc, modelspec,
             analysis_function=nems.analysis.api.fit_basic,
             fitter=scipy_minimize, metric=metric_fn,
-            tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
+            tolerance=tolerance, max_iter=max_iter, norm_fir=norm_fir,
             nl_kw=nl_kw)
+
     # fit a bit more to settle in STP variables and anything else
     # that might have been excluded
-    fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
-    modelspec = nems.analysis.api.fit_basic(
-            dc, modelspec, fit_kwargs=fit_kwargs, metric=metric_fn,
-            fitter=scipy_minimize)
+    # SVD disabling to speed up
+    #fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
+    #modelspec = nems.analysis.api.fit_basic(
+    #        dc, modelspec, fit_kwargs=fit_kwargs, metric=metric_fn,
+    #        fitter=scipy_minimize)
+
     rep_idx = find_module('replicate_channels', modelspec)
     mrg_idx = find_module('merge_channels', modelspec)
     if rep_idx is not None:
@@ -882,9 +911,9 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
             modelspec.jack_index = jack_idx
             modelspec.fit_index = fit_idx
             log.info("----------------------------------------------------")
-            log.info("Fitting: fit %d/%d, fold %d/%d",
+            log.info("Fitting: fit %d/%d, fold %d/%d (tol=%.2e, max_iter=%d)",
                      fit_idx + 1, modelspec.fit_count,
-                     jack_idx + 1, modelspec.jack_count)
+                     jack_idx + 1, modelspec.jack_count, tolerance, max_iter)
             modelspec = nems.analysis.api.fit_basic(
                     e, modelspec, fit_kwargs=fit_kwargs,
                     metric=metric_fn, fitter=fitter_fn)
@@ -1205,7 +1234,7 @@ def tree_path(recording, modelspecs, xfspec):
 
 
 def save_analysis(destination, recording, modelspec, xfspec, figures,
-                  log, add_tree_path=False):
+                  log, add_tree_path=False, update_meta=True):
     '''Save an analysis file collection to a particular destination.'''
     if add_tree_path:
         treepath = tree_path(recording, [modelspec], xfspec)
@@ -1217,8 +1246,10 @@ def save_analysis(destination, recording, modelspec, xfspec, figures,
         destination = get_default_savepath(modelspec)
         base_uri = destination
 
-    modelspec.meta['modelpath'] = base_uri
-    modelspec.meta['figurefile'] = os.path.join(base_uri,'figure.0000.png')
+    if update_meta:
+        modelspec.meta['modelpath'] = base_uri
+        modelspec.meta['figurefile'] = os.path.join(base_uri,'figure.0000.png')
+
     base_uri = base_uri if base_uri[-1] == '/' else base_uri + '/'
     xfspec_uri = base_uri + 'xfspec.json'  # For attaching to modelspecs
 

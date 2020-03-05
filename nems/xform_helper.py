@@ -6,6 +6,7 @@ fitting process.
 """
 import logging
 import os
+import time
 
 import nems.xforms as xforms
 import nems.db as nd
@@ -150,7 +151,7 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
        if True return xfspec, ctx tuple
     :return: savepath = path to saved results or (xfspec, ctx) tuple
     """
-
+    startime = time.time()
     log.info('Initializing modelspec(s) for cell/batch %s/%d...',
              cellid, int(batch))
 
@@ -187,21 +188,25 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     # save some extra metadata
     modelspec = ctx['modelspec']
 
-    # figure out URI for location to save results (either file or http, depending on USE_NEMS_BAPHY_API)
-    if get_setting('USE_NEMS_BAPHY_API'):
-        prefix = 'http://'+get_setting('NEMS_BAPHY_API_HOST')+":"+str(get_setting('NEMS_BAPHY_API_PORT')) + '/results/'
-    else:
-        prefix = get_setting('NEMS_RESULTS_DIR')
-
     if type(cellid) is list:
         cell_name = cellid[0].split("-")[0]
     else:
         cell_name = cellid
 
+    prefix = get_setting('NEMS_RESULTS_DIR')
     destination = os.path.join(prefix, str(batch), cell_name, modelspec.get_longname())
 
+    # figure out URI for location to save results (either file or http, depending on USE_NEMS_BAPHY_API)
+    if get_setting('USE_NEMS_BAPHY_API'):
+        prefix = 'http://'+get_setting('NEMS_BAPHY_API_HOST')+":"+str(get_setting('NEMS_BAPHY_API_PORT')) + '/results/'
+        save_destination = os.path.join(prefix, str(batch), cell_name, modelspec.get_longname())
+    else:
+        save_destination = destination
+
+    log.info(f'Setting modelpath to "{destination}"')
     modelspec.meta['modelpath'] = destination
     modelspec.meta['figurefile'] = os.path.join(destination, 'figure.0000.png')
+    modelspec.meta['runtime'] = int(time.time() - startime)
     modelspec.meta.update(meta)
 
     if returnModel:
@@ -209,17 +214,18 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
         return xfspec, ctx
 
     # save results
-    log.info('Saving modelspec(s) to {0} ...'.format(destination))
+    log.info('Saving modelspec(s) to {0} ...'.format(save_destination))
     if 'figures' in ctx.keys():
         figs = ctx['figures']
     else:
         figs = []
-    save_data = xforms.save_analysis(destination,
+    save_data = xforms.save_analysis(save_destination,
                                      recording=ctx['rec'],
                                      modelspec=modelspec,
                                      xfspec=xfspec,
                                      figures=figs,
-                                     log=log_xf)
+                                     log=log_xf,
+                                     update_meta=False)
 
     # save in database as well
     if saveInDB:

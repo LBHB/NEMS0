@@ -306,7 +306,6 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
         state_chan_list = [s for s in state_chan_list
                            if (s.startswith('FILE') | s.startswith('ACTIVE') |
                                s.startswith('PASSIVE')) ]
-    #import pdb; pdb.set_trace()
 
     for state_chan in state_chan_list:
 

@@ -17,7 +17,8 @@ log = logging.getLogger(__name__)
 
 def plot_heatmap(array, xlabel='Time', ylabel='Channel',
                  ax=None, cmap=None, clim=None, skip=0, title=None, fs=None,
-                 interpolation='none', **options):
+                 interpolation='none', manual_extent=None, show_cbar=True,
+                 **options):
     '''
     A wrapper for matplotlib's plt.imshow() to ensure consistent formatting.
     '''
@@ -36,7 +37,9 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
         mmax = np.nanmax(np.abs(array.reshape(-1)))
         clim = [-mmax, mmax]
 
-    if fs is not None:
+    if manual_extent is not None:
+        extent = manual_extent
+    elif fs is not None:
         extent = [0.5/fs, (array.shape[1]+0.5)/fs, 0.5, array.shape[0]+0.5]
     else:
         extent = None
@@ -54,12 +57,13 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
 
+    if show_cbar:
     # Set the color bar
-    cbar = plt.colorbar()
-    cbar.ax.tick_params(labelsize=7)
-    cbar.ax.yaxis.set_major_locator(plt.MaxNLocator(3))
-    cbar.set_label('Gain')
-    cbar.outline.set_edgecolor('white')
+        cbar = plt.colorbar()
+        cbar.ax.tick_params(labelsize=7)
+        cbar.ax.yaxis.set_major_locator(plt.MaxNLocator(3))
+        cbar.set_label('Gain')
+        cbar.outline.set_edgecolor('white')
 
     if title is not None:
         plt.title(title)
@@ -197,8 +201,9 @@ def nonparametric_strf(modelspec, idx, ax=None, clim=None, title=None, **kwargs)
 
 
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
-                 title=None, fs=None, chans=None, wc_idx=0, fir_idx=0,
-                 interpolation='none', absolute_value=False, **options):
+                 title='STRF', fs=None, chans=None, wc_idx=0, fir_idx=0,
+                 interpolation='none', absolute_value=False, cmap='RdYlBu_r',
+                 manual_extent=None, show_cbar=True, **options):
     """
     chans: list
        if not None, label each row of the strf with the corresponding
@@ -301,13 +306,10 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
     if absolute_value:
         everything = np.abs(everything)
 
-    if title is None:
-        title = 'STRF'
-
     plot_heatmap(everything, xlabel='Lag (s)',
                  ylabel='Channel In', ax=ax, skip=skip, title=title, fs=fs,
-                 interpolation=interpolation, cmap=get_setting('FILTER_CMAP'))
-
+                 interpolation=interpolation, cmap=get_setting('FILTER_CMAP'),
+                 manual_extent=manual_extent, show_cbar=show_cbar)
     ax_remove_box(left=True, bottom=True, ticks=True)
 
     if chans is not None:

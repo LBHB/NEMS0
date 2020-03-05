@@ -62,7 +62,7 @@ def Tables():
             'NarfUsers': Base.classes.NarfUsers,
             'NarfAnalysis': Base.classes.NarfAnalysis,
             'NarfBatches': Base.classes.NarfBatches,
-            'NarfResults': Base.classes.NarfResults,
+            'NarfResults': Base.classes.Results,
             'tQueue': Base.classes.tQueue,
             'tComputer': Base.classes.tComputer,
             }
@@ -562,6 +562,45 @@ def update_job_start(queueid=None):
     return r
 
 
+def update_job_pid(pid, queueid=None):
+    """
+    in tQueue, update the PID
+    """
+    if queueid is None:
+        if 'QUEUEID' in os.environ:
+            queueid = os.environ['QUEUEID']
+        else:
+            log.warning("queueid not specified or found in os.environ")
+            return 0
+
+    engine = Engine()
+    conn = engine.connect()
+    sql = ("UPDATE tQueue SET pid={} WHERE id={}"
+           .format(pid, queueid))
+    r = conn.execute(sql)
+    conn.close()
+    return r
+
+
+def update_startdate(queueid=None):
+    """
+    in tQueue, update the PID
+    """
+    if queueid is None:
+        if 'QUEUEID' in os.environ:
+            queueid = os.environ['QUEUEID']
+        else:
+            log.warning("queueid not specified or found in os.environ")
+            return 0
+
+    engine = Engine()
+    conn = engine.connect()
+    sql = ("UPDATE tQueue SET startdate=CURRENT_TIMESTAMP() WHERE id={}").format(queueid)
+    r = conn.execute(sql)
+    conn.close()
+    return r
+
+
 def update_job_tick(queueid=None):
     """
     update current machine's load in the cluster db and tick off a step
@@ -688,7 +727,7 @@ def update_results_table(modelspec, preview=None,
             .first()
         )
         collist = ['%s' % (s) for s in NarfResults.__table__.columns]
-        attrs = [s.replace('NarfResults.', '') for s in collist]
+        attrs = [s.replace('Results.', '') for s in collist]
         removals = [
             'id', 'lastmod'
         ]
@@ -1169,9 +1208,8 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
             rawid = list(rawid)
         rawid=tuple([str(i) for i in rawid])
         params = params+(rawid,)
-        print(sql)
-        print(params)
-
+        log.debug(sql)
+        log.debug(params)
         d = pd.read_sql(sql=sql, con=engine, params=params)
 
         cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)

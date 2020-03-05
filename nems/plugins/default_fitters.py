@@ -113,12 +113,8 @@ def basic(fitkey):
     xfspec = []
 
     options = _extract_options(fitkey)
-    max_iter, tolerance, fitter, choose_best, fast_eval, rand_count = _parse_basic(options)
+    max_iter, tolerance, fitter, choose_best, rand_count = _parse_basic(options)
     xfspec = []
-    #if fast_eval:
-    #    xfspec = [['nems.xforms.fast_eval', {}]]
-    #else:
-    #    xfspec = []
     if rand_count>1:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
     xfspec.append(['nems.xforms.fit_basic',
@@ -153,37 +149,55 @@ def tf(fitkey):
     Parameters
     ----------
     fitkey : str
-        Expected format: tf.f<fitter>.i<max_iter>.s<start_conditions>
-        Example: tf.fAdam.i1000.s20
+        Expected format: tf.f<fitter>.i<max_iter>.s<start_conditions>.rb<count>.l<loss_function>
+        Example: tf.fAdam.i1000.s20.rb10.lse
         Example translation:
             Use Adam fitter, max 1000 iterations, starting from 20 random
-            initial condition
+            initial condition, picking the best of 10 random fits, with squared error loss function
 
     Options
     -------
-    f<fitter> : string specifying fitter, passed through to TF
+    f<fitter> : string specifying fitter, passed through to TF {'adam': 'Adam', 'gd': 'GradientDescent'}
     i<N> : Set maximum iterations to N, any positive integer.
     s<S> : Initialize with S random seeds, pick the best performer across
            the entire fit set.
-    n : use modelspec initialized by NEMS
+    rb<N>: Picks the best of multiple random fits
+    n    : Use modelspec initialized by NEMS
+    l<S> : Specify the loss function {'se': 'squared_error', 'p': 'poisson', 'nmse': 'nmse', 'nmses': 'nmse_shrinkage'}
+    e<N> : Specify the number of early stopping steps, i.e. the consecutive number of failed conditions before
+           early stopping.
+    et<N>: Specify the tolerance for early stopping. The value should be an integer, and the tolerance will be
+           10 to the power of said negative integer.
+    lr<N>e<N>: Specify the learning rate. The value should be two integers separated by the letter "e". The first
+               integer will be multiplied by 10 raised to the negative second integer. Ex: lr5e2 = 0.05
+    d<S> : String specifying the distribution with which to initialize the layers. Only used if .n not passed
     '''
 
     options = _extract_options(fitkey)
 
-    max_iter = 2000
-    fitter = 'Adam'
-    init_count = 1
+    max_iter = 10000
+    fitter = 'GradientDescent'
     use_modelspec_init = False
     pick_best = False
     rand_count = 0
+    loss_type = 'squared_error'
+    early_stopping_steps = 5
+    early_stopping_tolerance = 1e-5
+    learning_rate = 0.01
+    distr = 'norm'
 
     for op in options:
         if op[:1] == 'i':
-            max_iter = int(op[1:])
+            if len(op[1:]) == 0:
+                max_iter = None
+            else:
+                max_iter = int(op[1:])
         elif op[:1] == 'f':
             fitter = op[1:]
-        elif op[:1] == 's':
-            init_count = int(op[1:])
+            if fitter in ['adam', 'a']:
+                fitter = 'Adam'
+            elif fitter == 'gd':
+                fitter = 'GradientDescent'
         elif op[:1] == 'n':
             use_modelspec_init = True
         elif op == 'b':
@@ -194,25 +208,300 @@ def tf(fitkey):
             else:
                 rand_count = int(op[2:])
             pick_best = True
+        elif op.startswith('lr'):
+            learning_rate = op[2:]
+            if 'e' in learning_rate:
+                base, exponent = learning_rate.split('e')
+                learning_rate = int(base) * 10 ** -int(exponent)
+            else:
+                learning_rate = int(learning_rate)
         elif op.startswith('r'):
             if len(op) == 1:
                 rand_count = 10
             else:
                 rand_count = int(op[1:])
+        elif op[:1] == 'l':
+            loss_type = op[1:]
+            if loss_type == 'se':
+                loss_type = 'squared_error'
+            if loss_type == 'p':
+                loss_type = 'poisson'
+            if loss_type == 'nmse':
+                loss_type = 'nmse'
+            if loss_type == 'nmses':
+                loss_type = 'nmse_shrinkage'
+        elif op.startswith('et'):
+            early_stopping_tolerance = 1 * 10 ** -int(op[2:])
+        elif op[:1] == 'e':
+            early_stopping_steps = int(op[1:])
+        elif op[:1] == 'd':
+            distr = op[1:]
+            if distr == 'gu':
+                distr = 'glorot_uniform'
+            elif distr == 'heu':
+                distr = 'he_uniform'
 
     xfspec = []
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
 
     xfspec.append(['nems.xforms.fit_wrapper',
-                   {'max_iter': max_iter,
-                    'use_modelspec_init': use_modelspec_init,
-                    'optimizer': fitter,
-                    'init_count': init_count,
-                    'fit_function': 'nems.tf.cnnlink.fit_tf'}])
+                   {
+                       'max_iter': max_iter,
+                       'use_modelspec_init': use_modelspec_init,
+                       'optimizer': fitter,
+                       'cost_function': loss_type,
+                       'fit_function': 'nems.tf.cnnlink.fit_tf',
+                       'early_stopping_steps': early_stopping_steps,
+                       'early_stopping_tolerance': early_stopping_tolerance,
+                       'learning_rate': learning_rate,
+                       'distr': distr,
+                   }])
     
     if pick_best:
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
+
+    return xfspec
+
+
+def init(kw):
+    '''
+    Initialize modelspecs in an attempt to avoid getting stuck in
+    local minima.
+    Written/optimized to work for (dlog)-wc-(stp)-fir-(dexp) architectures
+    optional modules in (parens)
+
+    Parameter
+    ---------
+    kw : string
+        A string of the form: init.option1.option2...
+
+    Options
+    -------
+    tN : Set tolerance to 10**-N, where N is any positive integer.
+    st : Remove state replication/merging before initializing.
+    psth : Initialize by fitting to 'psth' intead of 'resp' (default)
+    nlN : Initialize nonlinearity with version N
+        For dexp, options are {1,2} (default is 2),
+            pre 11/29/18 models were fit with v1
+            1: amp = np.nanstd(resp) * 3
+               kappa = np.log(2 / (np.max(pred) - np.min(pred) + 1))
+            2:
+               amp = resp[pred>np.percentile(pred,90)].mean()
+               kappa = np.log(2 / (np.std(pred)*3))
+        For other nonlinearities, mode is not specified yet
+    L2f : normalize fir (default false)
+    .rN : initialize with N random phis drawn from priors (via init.rand_phi),
+          default N=10
+    .rbN : initialize with N random phis drawn from priors (via init.rand_phi),
+           and pick best mse_fit, default N=10
+    .iN : include module N. ie, fit phi for this module. if not specified,
+          defaults to 0:len(modelspec). can be repeated for multiple
+          modules
+    .inegN : include module len(modelspec)-N
+    .iiN : include modules 0:(N+1) -- including N! Note that .ii behavior
+           differs from .ff and .xx
+    .iinegN : include modules len(modelspec)-N:len(modelspec)
+    .fN : freeze module N. ie, keep module in model but keep phi fixed
+    .fnegN : freeze module len(modelspec)-N
+    .ffN : freeze modules N:len(modelspec). Note that .ii behavior
+           differs from .ff and .xx
+    .ffnegN : freeze modules len(modelspec)-N:len(modelspec)
+    .xN : exclude module N. ie, remove from model, assume that it won't break!
+    .xnegN : exclude module len(modelspec)-N
+    .xxN : exclude modules N:len(modelspec). Note that .ii behavior
+           differs from .ff and .xx
+    .xxnegN : exclude modules len(modelspec)-N:len(modelspec)
+    .n
+
+    TODO: Optimize more, make testbed to check how well future changes apply
+    to disparate datasets.
+
+    '''
+
+    ops = escaped_split(kw, '.')[1:]
+    st = False
+    tf = False
+
+    max_iter = 2000
+    tolerance = 10**-5.5
+    norm_fir = False
+    fit_sig = 'resp'
+    nl_kw = {}
+
+    rand_count = 0
+    keep_best = False
+
+    sel_options = {'include_idx': [], 'exclude_idx': [], 'freeze_idx': []}
+    metric_options = {'metric': 'nmse', 'alpha': 0}
+
+    # TODO add support?
+    initialize_nl = False
+
+    # TF- specific parameters
+    # TODO: integrate with others, share processing with regular basic/tf
+    # eg, early_stopping_tolerance =?= tolerance
+    # loss_type =?= metric
+    use_modelspec_init = False
+    fitter = 'Adam'
+    loss_type = 'squared_error'
+    early_stopping_steps = 5
+    early_stopping_tolerance = 1e-5
+    learning_rate = 0.01
+    distr = 'norm'
+    keep_n = 1
+
+    for op in ops:
+        if op == 'st':
+            st = True
+        elif op.startswith('tf'):
+            tf = True
+            max_iter = 10000
+        elif op=='psth':
+            fit_sig = 'psth'
+        elif op.startswith('nl'):
+            nl_kw = {'nl_mode': int(op[2:])}
+        elif op.startswith('t'):
+            # Should use \ to escape going forward, but keep d-sub in
+            # for backwards compatibility.
+            num = op.replace('d', '.').replace('\\', '')
+            tolpower = float(num[1:])*(-1)
+            tolerance = 10**tolpower
+        elif op.startswith('pLV'):
+            # pupil dep. cost function
+            metric = 'pup_dep_LV'
+            alpha = float(op[3:].replace(',', '.'))
+            metric_options.update({'metric': metric, 'alpha': alpha})
+        elif op == 'L2f':
+            norm_fir = True
+        elif op.startswith('rb'):
+            if len(op) == 2:
+                rand_count = 10
+            else:
+                rand_count = int(op[2:])
+            keep_best = True
+            keep_n = 1
+        elif op.startswith('r'):
+            if len(op) == 1:
+                rand_count = 10
+            else:
+                rand_count = int(op[1:])
+        elif op.startswith('b'):
+            keep_best = True
+            if len(op) == 1:
+                keep_n = 1
+            else:
+                keep_n = int(op[1:])
+        elif op.startswith('iineg'):
+            sel_options['include_through'] = -int(op[5:])
+        elif op.startswith('ineg'):
+            sel_options['include_idx'].append(-int(op[4:]))
+        elif op.startswith('ii'):
+            sel_options['include_through'] = int(op[2:])
+        elif op.startswith('i'):
+            sel_options['include_idx'].append(int(op[1:]))
+        elif op.startswith('ffneg'):
+            sel_options['freeze_after'] = -int(op[5:])
+        elif op.startswith('fneg'):
+            sel_options['freeze_idx'].append(-int(op[4:]))
+        elif op.startswith('ff'):
+            sel_options['freeze_after'] = int(op[2:])
+        elif op.startswith('f'):
+            sel_options['freeze_idx'].append(int(op[1:]))
+        elif op.startswith('xxneg'):
+            sel_options['exclude_after'] = -int(op[5:])
+        elif op.startswith('xneg'):
+            sel_options['exclude_idx'].append(-int(op[4:]))
+        elif op.startswith('xx'):
+            sel_options['exclude_after'] = int(op[2:])
+        elif op.startswith('x'):
+            sel_options['exclude_idx'].append(int(op[1:]))
+
+            # begin TF-specific options
+        elif op.startswith('it'):
+            if len(op[2:]) == 0:
+                max_iter = None
+            else:
+                max_iter = int(op[2:])
+        elif op == 'n':
+            use_modelspec_init = True
+        elif op.startswith('lr'):
+            learning_rate = op[2:]
+            if 'e' in learning_rate:
+                base, exponent = learning_rate.split('e')
+                learning_rate = int(base) * 10 ** -int(exponent)
+            else:
+                learning_rate = int(learning_rate)
+        elif op[:1] == 'f':
+            fitter = op[1:]
+            if fitter in ['adam', 'a']:
+                fitter = 'Adam'
+            elif fitter == 'gd':
+                fitter = 'GradientDescent'
+        elif op[:1] == 'l':
+            loss_type = op[1:]
+            if loss_type == 'se':
+                loss_type = 'squared_error'
+            if loss_type == 'p':
+                loss_type = 'poisson'
+            if loss_type == 'nmse':
+                loss_type = 'nmse'
+            if loss_type == 'nmses':
+                loss_type = 'nmse_shrinkage'
+        elif op.startswith('et'):
+            early_stopping_tolerance = 1 * 10 ** -int(op[2:])
+        elif op[:1] == 'e':
+            early_stopping_steps = int(op[1:])
+        elif op[:1] == 'd':
+            distr = op[1:]
+            if distr == 'gu':
+                distr = 'glorot_uniform'
+            elif distr == 'heu':
+                distr = 'he_uniform'
+
+    bsel = False
+    for key in list(sel_options.keys()):
+        value = sel_options[key]
+        if (type(value) is list) and (len(value)>0):
+            bsel=True
+        elif (type(value) is int):
+            bsel=True
+        else:
+            del sel_options[key]
+
+    xfspec = []
+    if rand_count > 0:
+        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
+
+    sel_options.update({'tolerance': tolerance, 'norm_fir': norm_fir,
+                        'nl_kw': nl_kw})
+    sel_options.update({'max_iter': max_iter,
+                       'use_modelspec_init': use_modelspec_init,
+                       'optimizer': fitter,
+                       'cost_function': loss_type,
+                       'early_stopping_steps': early_stopping_steps,
+                       'early_stopping_tolerance': early_stopping_tolerance,
+                       'learning_rate': learning_rate,
+                       'distr': distr})
+    if tf:
+        sel_options['fit_function'] = 'nems.tf.cnnlink.fit_tf_init'
+        sel_options['use_modelspec_init'] = use_modelspec_init
+    elif st:
+        sel_options['fit_function'] = 'nems.xforms.fit_state_init'
+        sel_options['fit_sig'] = fit_sig
+    elif bsel:
+        sel_options['fit_function'] = 'nems.xforms.fit_basic_subset'
+    else:
+        sel_options['fit_function'] = 'nems.xforms.fit_basic_init'
+
+    # save cost function for use by fitter (default is nmse)
+    sel_options.update(metric_options)
+
+    xfspec.append(['nems.xforms.fit_wrapper', sel_options])
+
+    if keep_best:
+        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', 
+            {'criterion': 'mse_fit', 'keep_n': keep_n}])
 
     return xfspec
 
@@ -254,7 +543,7 @@ def iter(fitkey):
     # TODO: Support nfold and state fits for fit_iteratively?
     #       And epoch to go with state.
     options = _extract_options(fitkey)
-    tolerances, module_sets, fit_iter, tol_iter, fitter, choose_best, fast_eval = \
+    tolerances, module_sets, fit_iter, tol_iter, fitter, choose_best = \
         _parse_iter(options)
 
     if 'pop' in options:
@@ -286,11 +575,10 @@ def _extract_options(fitkey):
 
 def _parse_basic(options):
     '''Options specific to basic.'''
-    max_iter = 1000
+    max_iter = 3000
     tolerance = 1e-7
     fitter = 'scipy_minimize'
     choose_best = False
-    fast_eval = False
     rand_count = 1
     for op in options:
         if op.startswith('mi'):
@@ -312,10 +600,8 @@ def _parse_basic(options):
             else:
                 rand_count = int(op[2:])
             choose_best = True
-        elif op == 'f':
-            fast_eval = True
 
-    return max_iter, tolerance, fitter, choose_best, fast_eval, rand_count
+    return max_iter, tolerance, fitter, choose_best, rand_count
 
 
 def _parse_iter(options):
@@ -326,7 +612,6 @@ def _parse_iter(options):
     tol_iter = 50
     fitter = 'scipy_minimize'
     choose_best = False
-    fast_eval = False
     for op in options:
         if op.startswith('ti'):
             tol_iter = int(op[2:])
@@ -345,12 +630,39 @@ def _parse_iter(options):
             fitter = 'coordinate_descent'
         elif op == 'b':
             choose_best = True
-        elif op == 'f':
-            fast_eval = True
 
     if not tolerances:
         tolerances = None
     if not module_sets:
         module_sets = None
 
-    return tolerances, module_sets, fit_iter, tol_iter, fitter, choose_best, fast_eval
+    return tolerances, module_sets, fit_iter, tol_iter, fitter, choose_best
+
+
+# need to make sure this is still useful. possibly remove? or integrate into init?
+def initpop(kw):
+    options = keyword_extract_options(kw)
+
+    rnd = False
+    flip_pcs = True
+    start_count = 1
+    usepcs = True
+    for op in options:
+        if op.startswith("rnd"):
+            rnd = True
+            if len(op)>3:
+                start_count=int(op[3:])
+        elif op=='nflip':
+            flip_pcs = False
+
+    if rnd:
+        xfspec = [['nems.xforms.fit_wrapper',
+                   {'pc_signal': 'rand_resp', 'start_count': start_count,
+                    'fit_function': 'nems.analysis.fit_pop_model.init_pop_rand'}]]
+    elif usepcs:
+        xfspec = [['nems.xforms.fit_wrapper',
+                   {'flip_pcs': flip_pcs,
+                    'fit_function': 'nems.analysis.fit_pop_model.init_pop_pca'}]]
+    return xfspec
+
+

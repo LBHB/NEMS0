@@ -304,7 +304,8 @@ def mask_all_but_correct_references(rec, balance_rep_count=False,
         epoch_regex = "^STIM_"
         epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
         p=resp.get_epoch_indices("PASSIVE_EXPERIMENT")
-        a=resp.get_epoch_indices("HIT_TRIAL")
+        a=np.concatenate((resp.get_epoch_indices("HIT_TRIAL"),
+                          resp.get_epoch_indices("CORRECT_REJECT_TRIAL2")), axis=0)
 
         epoch_list=[]
         for s in epochs_to_extract:
@@ -329,7 +330,7 @@ def mask_all_but_correct_references(rec, balance_rep_count=False,
         newrec = newrec.and_mask(['REFERENCE'])
 
     else:
-        newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
+        newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL'])
         newrec = newrec.and_mask(['REFERENCE'])
 
     # figure out if some actives should be masked out
@@ -435,6 +436,15 @@ def mask_all_but_targets(rec, include_incorrect=True):
         newrec[k].epochs.name = newrec[k].epochs.name.str.replace("TARGET", "REFERENCE")
     return newrec
 
+def mask_incorrect(rec):
+    """
+    Specialized function for removing incorrect trials from data
+    collected using baphy during behavior.
+    """
+    newrec = rec.copy()
+    newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL'])
+
+    return newrec
 
 def nan_invalid_segments(rec):
     """
@@ -673,7 +683,8 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
     return newrec
 
 
-def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_resp=False):
+def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_',
+                            smooth_resp=False, channel_per_stim=False):
     '''
     Estimates a PSTH from all responses to each regex match in a recording
 
@@ -797,6 +808,9 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_', smooth_r
 
     # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
     #   replacing all epochs in the signal with their average (psth)
+    if channel_per_stim:
+        raise ValueError('channel_per_stim not yet supported')
+
     respavg = resp.replace_epochs(per_stim_psth)
     respavg_with_spont = resp.replace_epochs(per_stim_psth_spont)
     respavg.name = 'psth'
@@ -1586,7 +1600,7 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', epoch_regex=None,
     jackknife subsamples. removed timepoints are replaced with nan
     """
     if epoch_regex is None:
-        epochs_to_extract=[epoch_name]
+        epochs_to_extract = [epoch_name]
     else:
         epochs_to_extract = ep.epoch_names_matching(rec.epochs, epoch_regex)
     
