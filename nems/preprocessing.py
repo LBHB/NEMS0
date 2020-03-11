@@ -116,17 +116,26 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=Tru
     d = int(np.ceil(np.log10(recording[list(recording.signals.keys())[0]].fs))+1)
 
     # build a series with an interval index, to lookup where epochs fall
-    s_name = pd.Series(epoch_stims['name'].values, pd.IntervalIndex.from_arrays(epoch_stims['start'], epoch_stims['end'], closed='both'))
-    s_cat = pd.Series(np.arange(len(epoch_stims['start']), dtype='int'), pd.IntervalIndex.from_arrays(epoch_stims['start'], epoch_stims['end'], closed='both'))
+    # need an end and start to close the bounds for cases where start and end bounds are identical
+    s_name_start = pd.Series(epoch_stims['name'].values,
+                             pd.IntervalIndex.from_arrays(epoch_stims['start'], epoch_stims['end'], closed='left'))
+    s_name_end = pd.Series(epoch_stims['name'].values,
+                           pd.IntervalIndex.from_arrays(epoch_stims['start'], epoch_stims['end'], closed='right'))
+
+    s_cat_start = pd.Series(np.arange(len(epoch_stims['start']), dtype='int'),
+                            pd.IntervalIndex.from_arrays(epoch_stims['start'], epoch_stims['end'], closed='left'))
+    s_cat_end = pd.Series(np.arange(len(epoch_stims['end']), dtype='int'),
+                          pd.IntervalIndex.from_arrays(epoch_stims['start'], epoch_stims['end'], closed='right'))
 
     # add helper columns using the interval index lookups
-    temp_epochs['cat'] = temp_epochs['start'].map(s_cat)
-    temp_epochs['cat_end'] = temp_epochs['end'].map(s_cat)
-    temp_epochs['stim'] = temp_epochs['start'].map(s_name)
+    temp_epochs['cat'] = temp_epochs['start'].map(s_cat_start)
+    temp_epochs['cat_end'] = temp_epochs['end'].map(s_cat_end)
+    temp_epochs['stim'] = temp_epochs['start'].map(s_name_start)
+    temp_epochs['stim_end'] = temp_epochs['end'].map(s_name_end)
 
     # only want epochs that fall within a stim epoch, so drop the ones that don't
-    drop_mask = temp_epochs['cat'] != temp_epochs['cat_end']
-    trial_mask = temp_epochs['name'] == 'TRIAL'  # also dorp this
+    drop_mask = (temp_epochs['cat'] != temp_epochs['cat_end']) | (temp_epochs['stim'] != temp_epochs['stim_end'])
+    trial_mask = temp_epochs['name'] == 'TRIAL'  # also drop this
     temp_epochs = temp_epochs.loc[~drop_mask & ~trial_mask, ['name', 'start', 'end', 'cat', 'stim']]
 
     temp_epochs['cat'] = temp_epochs['cat'].astype(int)  # cast back to int to make into index
