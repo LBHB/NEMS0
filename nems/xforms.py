@@ -319,6 +319,9 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
             #rec = preproc.concatenate_state_channel(rec, s, pop_var)
             if pop_var == 'state':
                 rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
+            elif pop_var == 'population':
+                meta['cellids'] = cellid
+                log.info("Fitting for a sub-population of all cellids at this site.")
             else:
                 raise ValueError('pop_var {} unknown'.format(pop_var))
         rec['resp'] = rec['resp'].extract_channels(cellid)
