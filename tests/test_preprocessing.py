@@ -21,9 +21,9 @@ def make_signal(signal_name='dummy_signal_1', recording_name='dummy_recording',
     data = c[..., np.newaxis] + t*nchans
 
     epochs = pd.DataFrame({
-        'start': [0,  50, 100, 250, 149],
-        'end':   [49, 99, 149, 299, 250],
-        'name': ['stim1', 'stim2', 'stim1', 'stim2', 'stim3']
+        'start': [0,  50, 100, 250],
+        'end':   [49, 99, 149, 299],
+        'name': ['stim1', 'stim2', 'stim1', 'stim2']
         })
     epochs['start'] /= fs
     epochs['end'] /= fs
@@ -69,16 +69,13 @@ def test_average_away_epoch_occurrences(recording):
     averaged_recording = average_away_epoch_occurrences(recording, '^stim')
     as1 = averaged_recording['stim'].extract_epoch('stim1')
     as2 = averaged_recording['stim'].extract_epoch('stim2')
-    as3 = averaged_recording['stim'].extract_epoch('stim3')
     s1 = recording['stim'].extract_epoch('stim1')
     s2 = recording['stim'].extract_epoch('stim2')
-    s3 = recording['stim'].extract_epoch('stim3')
 
     assert as1.shape == (1, 3, 49)
     assert s1.shape == (2, 3, 49)
     assert np.all(as1[0] == np.mean(s1, axis=0))
     assert np.all(as2[0] == np.mean(s2, axis=0))
-    assert np.all(as3[0] == np.mean(s3, axis=0))
 
     epochs = averaged_recording['stim'].epochs[['name', 'start', 'end']]
     assert epochs.iat[0, 0] == 'stim1'
