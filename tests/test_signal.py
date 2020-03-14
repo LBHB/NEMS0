@@ -103,23 +103,6 @@ def test_extract_epoch(signal):
     assert result.shape == (2, 3, 45)
 
 
-def test_replace_epoch(signal):
-    data = signal.extract_epoch('pupil_closed')[0]
-    result = signal.replace_epoch('pupil_closed', data)
-
-    assert result.shape == (3, 200)
-
-
-def test_replace_epochs(signal):
-    data1 = signal.extract_epoch('pupil_closed')
-    data2 = signal.extract_epoch('trial')
-    result = signal.replace_epochs({'pupil_closed': data1, 'trial': data2})
-
-    assert result.shape == (3, 200)
-    assert np.array_equal(result._data[:, 150], [450, 451, 452])
-
-
-
 # TODO: Why is this breaking now? Related to SignalBase
 #       changes?
 def test_as_trials(signal):
