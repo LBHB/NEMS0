@@ -1193,7 +1193,7 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
        params += (label,)
 
     if cellid is not None:
-        if len(cellid.split("-"))==1:
+        if type(cellid) is str:
             sql += "AND cellid like %s"
             params += ("%"+cellid+"%",)
         else:
