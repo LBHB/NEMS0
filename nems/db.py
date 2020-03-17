@@ -1229,7 +1229,7 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
 
         if (len(d.rawid.unique()) == 2) & (len(rawid) == 0):
             # keep rawid with the most cells if not equal
-            rawid = [d.groupby(by='rawid').count().idxmax()[0]]
+            rawid = [int(d.groupby(by='rawid').count().idxmax().values[0])]
 
 
         return cellids, rawid
