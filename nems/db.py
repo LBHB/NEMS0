@@ -937,7 +937,7 @@ def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None):
         sql += " AND NarfData.cellid like %s"
         params = params+(cellid+"%",)
 
-    if rawid is not None:
+    if (rawid is not None):
         sql += " AND NarfData.rawid IN %s"
         rawid = tuple([str(i) for i in list(rawid)])
         params = params+(rawid,)
@@ -1194,7 +1194,7 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
 
     if cellid is not None:
         if type(cellid) is str:
-            sql += "AND cellid like %s"
+            sql += " AND cellid like %s"
             params += ("%"+cellid+"%",)
         else:
             cellid = tuple([c for c in cellid])
@@ -1210,7 +1210,6 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
             rawid = (rawid,)
         sql += " AND rawid IN %s"
         params += (rawid,)
-
         d = pd.read_sql(sql=sql, con=engine, params=params)
         cellids = d.cellid.unique().tolist()
         rawid = d.rawid.unique().tolist()
@@ -1224,8 +1223,14 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
         d = pd.read_sql(sql=sql, con=engine, params=params)
         cellids = d.cellid.unique().tolist()
         rawid = d.rawid.unique().tolist()
+
         # get only rawid that exist for ALL the cells if no rawid specification was passed to the fn
         rawid = [rid for rid in rawid if d[d.rawid==rid].cellid.unique().tolist()==cellids]
+
+        if (len(d.rawid.unique()) == 2) & (len(rawid) == 0):
+            # keep rawid with the most cells if not equal
+            rawid = [d.groupby(by='rawid').count().idxmax()[0]]
+
 
         return cellids, rawid
 
