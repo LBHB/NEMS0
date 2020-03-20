@@ -426,8 +426,12 @@ def mask_all_but_targets(rec, include_incorrect=True):
         newrec['stim'] = newrec['stim'].rasterize()
 
     #newrec = newrec.or_mask(['TARGET'])
-    newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'TARGET'])
-    newrec = newrec.and_mask(['REFERENCE','TARGET'])
+    #newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'TARGET'])
+    #newrec = newrec.and_mask(['REFERENCE','TARGET'])
+    newrec = newrec.and_mask(['TARGET'])
+
+    if not include_incorrect:
+        newrec = mask_incorrect(newrec)
 
     # svd attempt to kludge this masking to work with a lot of code that assumes all relevant epochs are
     # called "REFERENCE"
@@ -722,7 +726,7 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_',
         spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
     else:
         spont_rate = np.nanmean(prestimsilence)
-
+    
     NEW_WAY = True
     if NEW_WAY:
         # already taken care of?
