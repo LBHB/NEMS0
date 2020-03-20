@@ -287,53 +287,27 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
         log.info('Normalizing stim')
         rec['stim'] = rec['stim'].rasterize().normalize('minmax')
 
-    # if cellid is provided, use it to select channel or subset of channels
-    # from resp signal.
-    if type(cellid) is str:
-        if cellid in rec['resp'].chans:
-            cellid = [cellid]
-        elif len(cellid.split('+')) > 1:
-            cellid = cellid.split('+')
+    log.info('Extracting cellid(s) {}'.format(cellid))
+    rec['resp'] = rec['resp'].extract_channels(cellid)
+    meta['cellids'] = rec['resp'].chans
+
+    excluded_cells = list(set(rec['resp'].chans) - set(cellid))
+
+    if (save_other_cells_to_state is not None) & (len(excluded_cells) > 0):
+
+        if type(save_other_cells_to_state) is str:
+            pop_var = save_other_cells_to_state
         else:
-            log.info('No cellid match, keeping all resp channels')
+            pop_var = 'state'
 
-    if (cellid is None) or (save_other_cells_to_state is not None and (save_other_cells_to_state == 'keep')):
-        # Special situation where the resp signal keeps all channels in the recording,
-        # eg, all the cells recorded at a single site--for population models
-        meta['cellids'] = rec['resp'].chans
-        log.info('Keeping all resp channels; labeling in meta[cellids]')
+        s = rec['resp'].extract_channels(excluded_cells, name=pop_var).rasterize()
+        rec.add_signal(s)
 
-    elif type(cellid) is list:
-        # select only cellids in the cellid list
-        log.info('Extracting channels %s', cellid)
-        excluded_cells = [cell for cell in rec['resp'].chans if cell not in cellid]
-
-        if save_other_cells_to_state is not None:
-            if type(save_other_cells_to_state) is str:
-                pop_var = save_other_cells_to_state
-            else:
-                pop_var = 'state'
-            s = rec['resp'].extract_channels(excluded_cells, name=pop_var).rasterize()
-            #s.name = pop_var
-            rec.add_signal(s)
-            #rec = preproc.concatenate_state_channel(rec, s, pop_var)
-            if pop_var == 'state':
-                rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
-            else:
-                raise ValueError('pop_var {} unknown'.format(pop_var))
-        rec['resp'] = rec['resp'].extract_channels(cellid)
-
-    else:
-        meta['cellids'] = rec['resp'].chans
-        log.info('No cellid match, keeping all resp channels')
-
-    # Quick fix - will take care of this on the baphy loading side in the future.
-    if 'pupil' in rec.signals.keys() and np.any(np.isnan(rec['pupil'].as_continuous())):
-                log.info('Padding {0} with the last non-nan value'.format('pupil'))
-                inds = ~np.isfinite(rec['pupil'].as_continuous())
-                arr = copy.deepcopy(rec['pupil'].as_continuous())
-                arr[inds] = arr[~inds][-1]
-                rec['pupil'] = rec['pupil']._modified_copy(arr)
+        if pop_var == 'state':
+            rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
+        else:
+            raise ValueError('pop_var {} unknown'.format(pop_var))
+        
 
     rec = preproc.generate_stim_from_epochs(rec, new_signal_name='epoch_onsets',
                                             epoch_regex='TRIAL', onsets_only=True)

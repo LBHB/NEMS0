@@ -937,7 +937,7 @@ def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None):
         sql += " AND NarfData.cellid like %s"
         params = params+(cellid+"%",)
 
-    if rawid is not None:
+    if (rawid is not None):
         sql += " AND NarfData.rawid IN %s"
         rawid = tuple([str(i) for i in list(rawid)])
         params = params+(rawid,)
@@ -1164,82 +1164,73 @@ def export_fits(batch, modelnames=None, cellids=None, dest=None):
 def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
                              label ='parm'):
     '''
-    Used to return only the information for units that were stable across all
-    rawids that match this batch and site/cellid.
+    New functionality as of 03/13/2020
+        Previous: returned set of cellids that was stable across all files 
+            e.g. if 20 cells were recorded across four files but only 15 of the cells
+            were isolated across all four files, this would return a list of only 
+            those 15 cells and the rawid for all four files.
+        
+        New behavior: Now, does the opposite of before and returns the 20 cellids
+            and only the three file rawids where all 20 cells were stable.
+    
+    If rawid is passed, this will only return the cells that were stable across those
+    rawids. So, in the example, if you passed all four rawids you'd only get the 15 
+    cellids back corresponding to the stable isolation units.
     '''
     if (batch is None) | (cellid is None):
         raise ValueError
 
-    # eg, sql="SELECT * from NarfData WHERE batch=301 and cellid="
     engine = Engine()
     params = ()
-    sql = "SELECT cellid FROM NarfData WHERE 1"
-
-    if type(cellid) is list:
-        sql_rawids = "SELECT rawid FROM NarfData WHERE 1"  # for rawids
-    else:
-        sql_rawids = "SELECT DISTINCT rawid FROM NarfData WHERE 1"  # for rawids
-
+    sql = "SELECT cellid, rawid FROM NarfData WHERE 1"
 
     if batch is not None:
         sql += " AND batch=%s"
-        sql_rawids += " AND batch=%s"
-        params = params+(batch,)
+        params += (batch,)
 
     if label is not None:
        sql += " AND label = %s"
-       sql_rawids += " AND label = %s"
-       params = params+(label,)
+       params += (label,)
 
     if cellid is not None:
-        if type(cellid) is list:
-            cellid = tuple(cellid)
-            sql += " AND cellid IN %s"
-            sql_rawids += " AND cellid IN %s"
-            params = params+(cellid,)
-        else:
+        if type(cellid) is str:
             sql += " AND cellid like %s"
-            sql_rawids += " AND cellid like %s"
-            params = params+(cellid+"%",)
-
+            params += ("%"+cellid+"%",)
+        else:
+            cellid = tuple([c for c in cellid])
+            sql += " AND cellid IN %s"
+            params += (cellid,)
+    
+    # check to see if rawid was specified, if not, just find the 
+    # superset of cells
     if rawid is not None:
+        try:
+            rawid = tuple([rid for rid in rawid])
+        except TypeError:
+            rawid = (rawid,)
         sql += " AND rawid IN %s"
-        if type(rawid) is not list:
-            rawid = list(rawid)
-        rawid=tuple([str(i) for i in rawid])
-        params = params+(rawid,)
-        log.debug(sql)
-        log.debug(params)
+        params += (rawid,)
         d = pd.read_sql(sql=sql, con=engine, params=params)
+        cellids = d.cellid.unique().tolist()
+        rawid = d.rawid.unique().tolist()
 
-        cellids = np.sort(d['cellid'].value_counts()[d['cellid'].value_counts()==len(rawid)].index.values)
+        # keep only cellids present for ALL rawids
+        cellids = [cid for cid in cellids if d[d.cellid==cid].rawid.unique().tolist()==rawid]
 
-        # Make sure cellids is a list
-        if type(cellids) is np.ndarray and type(cellids[0]) is np.ndarray:
-            cellids = list(cellids[0])
-        elif type(cellids) is np.ndarray:
-            cellids = list(cellids)
-        else:
-            pass
-
-        log.debug('Returning cellids: {0}, stable across rawids: {1}'.format(cellids, rawid))
-
-        return cellids, list(rawid)
-
+        return cellids, rawid
+    
     else:
-        rawid = pd.read_sql(sql=sql_rawids, con=engine, params=params)
-        if type(cellid) is tuple:
-            rawid = rawid['rawid'].value_counts()[rawid['rawid'].value_counts()==len(cellid)]
-            rawid = rawid.index.tolist()
-        else:
-            rawid = rawid['rawid'].tolist()
+        d = pd.read_sql(sql=sql, con=engine, params=params)
+        cellids = d.cellid.unique().tolist()
+        rawid = d.rawid.unique().tolist()
 
-        if type(cellid) is tuple:
-            siteid = cellid[0].split('-')[0]
-        else:
-            siteid = cellid.split('-')[0]
+        # get only rawid that exist for ALL the cells if no rawid specification was passed to the fn
+        rawid = [rid for rid in rawid if d[d.rawid==rid].cellid.unique().tolist()==cellids]
 
-        cellids, rawid = get_stable_batch_cells(batch, siteid, rawid)
+        if (len(d.rawid.unique()) == 2) & (len(rawid) == 0):
+            # keep rawid with the most cells if not equal
+            rawid = [int(d.groupby(by='rawid').count().idxmax().values[0])]
+            cellids = d[d.rawid.isin(rawid)].cellid.unique().tolist()
 
         return cellids, rawid
 

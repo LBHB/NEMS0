@@ -20,7 +20,6 @@ def state_dc_gain(rec, i='pred', o='pred', s='state', include_lv=False, c=None, 
     g - gain to scale s by
     d - dc to offset by
     '''
-
     if include_lv:
         def fn(x):
             st = np.concatenate((rec[s]._data, rec['lv']._data), axis=0)
