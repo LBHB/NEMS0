@@ -12,7 +12,7 @@ import nems.xforms as xforms
 import nems.db as nd
 from nems import get_setting
 from nems.utils import escaped_split, escaped_join
-from nems.registry import KeywordRegistry
+from nems.registry import KeywordRegistry, xforms_lib, keyword_lib
 from nems.plugins import (default_keywords, default_loaders, default_fitters,
                           default_initializers)
 
@@ -68,6 +68,9 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
     #       or something along those lines... since they aren't really
     #       just loaders and fitters
     load_keywords, model_keywords, fit_keywords = escaped_split(modelname, '_')
+
+    """
+    DEPRECATED, keyword libraries loaded in registry module now
     if recording_uri is not None:
         xforms_lib = KeywordRegistry(recording_uri=recording_uri, **xforms_kwargs)
     else:
@@ -80,6 +83,7 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
     keyword_lib = KeywordRegistry()
     keyword_lib.register_module(default_keywords)
     keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
+    """
 
     # Generate the xfspec, which defines the sequence of events
     # to run through (like a packaged-up script)
