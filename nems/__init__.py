@@ -1,6 +1,7 @@
 import logging
 import ast
 import os
+import importlib
 
 log = logging.getLogger(__name__)
 
@@ -65,8 +66,8 @@ def load_config():
     return config
 
 
-_config = load_config()
 
+_config = load_config()
 
 def get_settings():
     return {k: getattr(_config, k) for k in dir(_config) if k == k.upper()}
@@ -88,3 +89,9 @@ def get_setting(setting=None):
         # setting is just a string or empty list
         pass
     return s
+
+
+
+
+for libname in get_setting('LIB_PLUGINS'):
+   importlib.import_module(libname)

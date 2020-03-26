@@ -83,6 +83,9 @@ KEYWORD_PLUGINS = []
 # ex: XF_LOADER_PLUGINS = ['/path/to/my/plugins/loaders/', '/second/path/']
 XFORMS_PLUGINS = []
 
+# alternative keyword system where libraries are imported and pulled in as 
+# keywords according to decorators
+LIB_PLUGINS = []
 
 ################################################################################
 # Display tweaks

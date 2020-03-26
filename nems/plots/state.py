@@ -307,6 +307,10 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
                            if (s.startswith('FILE') | s.startswith('ACTIVE') |
                                s.startswith('PASSIVE')) ]
 
+    def nan_sem(x, axis=0):
+        y = np.nanstd(x, axis=axis) / np.sqrt(np.sum(np.isfinite(x), axis=axis))
+        return y
+
     for state_chan in state_chan_list:
 
         _low, _high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
@@ -314,7 +318,7 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
                                     state_chan=state_chan)
         _lowE, _highE = state_mod_split(newrec, epoch=epoch, psth_name='error',
                                     channel=channel, state_sig=state_sig,
-                                    state_chan=state_chan, stat=scipy.stats.sem)
+                                    state_chan=state_chan, stat=nan_sem)
         if psth_name2 is not None:
             _low2, _high2 = state_mod_split(rec, epoch=epoch, psth_name=psth_name2,
                                             channel=channel, state_sig=state_sig,
