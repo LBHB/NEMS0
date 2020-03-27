@@ -159,6 +159,7 @@ class KeywordRegistry():
             self.register_plugin(loc)
 
     def register_function(self, obj):
+        """ add function obj to registry """
         name = obj.__name__
         try:
             location = str(obj.__module__) + "." + name
@@ -299,4 +300,5 @@ def xform(func):
     xforms_lib.register_function(func)
 
 def xmodule(func):
+    log.info("importing keyword function: %s", func.__name__)
     keyword_lib.register_plugin(func)
