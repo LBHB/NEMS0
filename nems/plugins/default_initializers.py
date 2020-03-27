@@ -42,7 +42,7 @@ def sev(kw):
 
 
 def aev(kw):
-    xfspec= [['nems.xforms.use_all_data_for_est_and_val', 
+    xfspec= [['nems.xforms.use_all_data_for_est_and_val',
                 {}]]
     return xfspec
 
