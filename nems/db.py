@@ -1215,7 +1215,7 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
         rawid = d.rawid.unique().tolist()
 
         # keep only cellids present for ALL rawids
-        cellids = [cid for cid in cellids if d[d.cellid==cid].rawid.unique().tolist()==rawid]
+        cellids = [cid for cid in cellids if np.all(np.sort(d[d.cellid==cid].rawid.unique().tolist())==np.sort(rawid))]
 
         return cellids, rawid
     
@@ -1223,7 +1223,6 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
         d = pd.read_sql(sql=sql, con=engine, params=params)
         cellids = d.cellid.unique().tolist()
         rawid = d.rawid.unique().tolist()
-
         # get only rawid that exist for ALL the cells if no rawid specification was passed to the fn
         rawid = [rid for rid in rawid if d[d.rawid==rid].cellid.unique().tolist()==cellids]
 
