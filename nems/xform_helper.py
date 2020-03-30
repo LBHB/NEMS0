@@ -96,6 +96,11 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
          xforms_init_context['kw_kwargs'] = kw_kwargs
     xforms_init_context['keywordstring'] = model_keywords
     xforms_init_context['meta'] = meta
+    if recording_uri is not None:
+        if type(recording_uri) is list:
+            xforms_init_context['recording_uri_list'] = recording_uri
+        else:
+            xforms_init_context['recording_uri_list'] = [recording_uri]
     xfspec.append(['nems.xforms.init_context', xforms_init_context])
 
     # 1) Load the data
@@ -141,7 +146,7 @@ def fit_xfspec(xfspec):
 
 
 def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
-                    returnModel=False):
+                    returnModel=False, recording_uri=None):
     """
     Fit a single NEMS model using data stored in database. First generates an xforms
     script based on modelname parameter and then evaluates it.
@@ -153,6 +158,7 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     :param saveInDB: save results to Results table
     :param returnModel: boolean (default False). If False, return savepath
        if True return xfspec, ctx tuple
+    :param recording_uri
     :return: savepath = path to saved results or (xfspec, ctx) tuple
     """
     startime = time.time()
@@ -171,7 +177,6 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
             'username': 'nems', 'labgroup': 'lbhb', 'public': 1,
             'githash': os.environ.get('CODEHASH', ''),
             'recording': loadkey}
-
     if type(cellid) is list:
         meta['siteid'] = cellid[0][:7]
 
@@ -180,7 +185,7 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     xforms_init_context = {'cellid': cellid, 'batch': int(batch)}
 
     log.info("TODO: simplify generate_xforms_spec parameters")
-    xfspec = generate_xforms_spec(recording_uri=None, modelname=modelname,
+    xfspec = generate_xforms_spec(recording_uri=recording_uri, modelname=modelname,
                                   meta=meta,  xforms_kwargs=registry_args,
                                   xforms_init_context=xforms_init_context,
                                   autoPlot=autoPlot)
