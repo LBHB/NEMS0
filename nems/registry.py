@@ -294,6 +294,7 @@ xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
 keyword_lib = KeywordRegistry()
 keyword_lib.register_module(default_keywords)
 keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
+# TODO scan in plugins dir by default
 
 def xform(func):
     log.info("importing xforms function: %s", func.__name__)
