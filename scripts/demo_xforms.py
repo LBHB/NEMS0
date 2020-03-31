@@ -18,6 +18,7 @@ import nems.xforms as xforms
 import nems.xform_helper as xhelp
 import nems.db as nd
 import nems.recording as recording
+import nems.gui.editors as gui
 
 from nems.recording import Recording
 from nems.fitters.api import scipy_minimize
@@ -118,3 +119,9 @@ modelspec = ctx['modelspec']
 modelspec.meta['modelpath'] = destination
 modelspec.meta['figurefile'] = destination + 'figure.0000.png'
 nd.update_results_table(modelspec)
+
+
+#
+# Browse results
+#
+gui.browse_xform_fit(ctx, xfspec)
