@@ -1269,7 +1269,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
             permute_signals.remove('each_passive')
             permute_signals.extend(pset)
 
-    if ('each_file' in state_signals):
+    if ('each_file' in state_signals) or ('each_active' in state_signals):
         file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
         trial_indices = resp.get_epoch_indices('TRIAL')
         passive_indices = resp.get_epoch_indices('PASSIVE_EXPERIMENT')
@@ -1292,9 +1292,10 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
                     acount = 1 # reset acount for actives after first passive
                 else:
                     # use first passive part A as baseline - don't model
-                    pset.append(name1)
-                    newrec[name1] = resp.epoch_to_signal(name1, indices=f_indices)
-                    added_signal = True
+                    if ('each_file' in state_signals):
+                        pset.append(name1)
+                        newrec[name1] = resp.epoch_to_signal(name1, indices=f_indices)
+                        added_signal = True
             else:
                 name1 = "ACTIVE_{}".format(acount)
                 pset.append(name1)
@@ -1305,13 +1306,13 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
                 else:
                     acount += 1
             if ('p_x_f' in state_signals) and added_signal:
-                # normalize min-max
-                p = newrec["pupil"].as_continuous()
-                a = newrec[name1].as_continuous()
-                name1x = name1+'Xpup'
-                newrec[name1x] = newrec["pupil"]._modified_copy(p * a)
-                newrec[name1x].chans = [name1x]
-                psetx.append(name1x)
+                if name1.startswith('ACTIVE') | ('each_file' in state_signals):
+                    p = newrec["pupil"].as_continuous()
+                    a = newrec[name1].as_continuous()
+                    name1x = name1+'Xpup'
+                    newrec[name1x] = newrec["pupil"]._modified_copy(p * a)
+                    newrec[name1x].chans = [name1x]
+                    psetx.append(name1x)
 
             # test if passive expt
 #            epoch_indices = ep.epoch_intersection(
@@ -1323,10 +1324,18 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
 #            else:
 #                pset.append(f)
 #                newrec[f] = resp.epoch_to_signal(f)
-        state_signals.remove('each_file')
-        state_signals.extend(pset)
+
+        if 'each_file' in state_signals:
+            state_signals.remove('each_file')
+            state_signals.extend(pset)
+        if 'each_active' in state_signals:
+            state_signals.remove('each_active')
+            state_signals.extend(pset)
         if 'each_file' in permute_signals:
             permute_signals.remove('each_file')
+            permute_signals.extend(pset)
+        if 'each_active' in permute_signals:
+            permute_signals.remove('each_active')
             permute_signals.extend(pset)
 
         # add interactions to state list if specified
