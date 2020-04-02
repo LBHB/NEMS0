@@ -633,23 +633,35 @@ def fit_tf(modelspec=None, est=None,
 
     new_est = est.apply_mask()
     n_feats = new_est['stim'].shape[0]
+
     epoch_name = 'REFERENCE'
     e = est['stim'].get_epoch_indices(epoch_name, mask=est['mask'])
-    if 'state' in est.signals.keys():
-        n_states = est['state'].shape[0]
-    else:
-        n_states = 0
-        S = None
-    # length of each segment is length of a reference
-    de = e[:, 1] - e[:, 0]
-    n_tps_per_stim = de[0]
-    if np.sum(np.abs(de-n_tps_per_stim)) > 0:
-        epoch_name = 'TRIAL'
 
-    F = np.transpose(est['stim'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
-    D = np.transpose(est['resp'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
-    if n_states > 0:
-        S = np.transpose(est['state'].extract_epoch(epoch=epoch_name, mask=est['mask']),[0, 2, 1])
+    if not e.any():
+        # no extracted epochs, get len from data
+        n_tps_per_stim = est['stim'].shape[-1]
+        epoch_name = 'TrialStimulus'
+        # transpose and add dim
+        F = np.transpose(est['stim']._data)[np.newaxis, :, :]
+        D = np.transpose(est['resp']._data)[np.newaxis, :, :]
+        S = None
+    else:
+        # length of each segment is length of a reference
+        de = e[:, 1] - e[:, 0]
+        n_tps_per_stim = de[0]
+
+        if np.sum(np.abs(de-n_tps_per_stim)) > 0:
+            epoch_name = 'TRIAL'
+
+        if 'state' in est.signals.keys():
+            n_states = est['state'].shape[0]
+            if n_states > 0:
+                S = np.transpose(est['state'].extract_epoch(epoch=epoch_name, mask=est['mask']),[0, 2, 1])
+        else:
+            S = None
+
+        F = np.transpose(est['stim'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
+        D = np.transpose(est['resp'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
 
     feat_dims = F.shape
     data_dims = D.shape

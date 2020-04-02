@@ -28,8 +28,8 @@ datafile = signals_dir / 'TAR010c-18-1.pkl'
 # LOAD AND FORMAT RECORDING DATA
 
 with open(datafile, 'rb') as f:
-        cellid, recname, fs, X, Y, X_val, Y_val = pickle.load(f)
-
+        #cellid, recname, fs, X, Y, X_val, Y_val = pickle.load(f)
+        cellid, recname, fs, X, Y, epochs = pickle.load(f)
 # create NEMS-format recording objects from the raw data
 resp = RasterizedSignal(fs, Y, 'resp', recname, chans=[cellid])
 stim = RasterizedSignal(fs, X, 'stim', recname)

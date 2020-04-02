@@ -272,12 +272,13 @@ def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
     return {'rec': rec}
 
 
-def load_recordings(recording_uri_list, normalize=False, cellid=None,
+def load_recordings(recording_uri_list=None, normalize=False, cellid=None,
                     save_other_cells_to_state=None, input_name='stim',
                     output_name='resp', meta={}, **context):
     '''
     Load one or more recordings into memory given a list of URIs.
     '''
+
     rec = load_recording(recording_uri_list[0])
     other_recordings = [load_recording(uri) for uri in recording_uri_list[1:]]
     if other_recordings:
@@ -288,10 +289,13 @@ def load_recordings(recording_uri_list, normalize=False, cellid=None,
         rec['stim'] = rec['stim'].rasterize().normalize('minmax')
 
     log.info('Extracting cellid(s) {}'.format(cellid))
-    rec['resp'] = rec['resp'].extract_channels(cellid)
-    meta['cellids'] = rec['resp'].chans
+    if type(cellid) is str:
+        meta['cellids'] = [cellid]
+    else:
+        meta['cellids'] = cellid
 
-    excluded_cells = list(set(rec['resp'].chans) - set(cellid))
+    rec['resp'] = rec['resp'].extract_channels(meta['cellids'])
+    excluded_cells = list(set(rec['resp'].chans) - set(meta['cellids']))
 
     if (save_other_cells_to_state is not None) & (len(excluded_cells) > 0):
 

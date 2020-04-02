@@ -100,7 +100,7 @@ class KeywordRegistry():
         kw_head = self.kw_head(kw_string)
         if kw_head not in self.keywords:
             raise KeywordMissingError(kw_head)
-        
+
         return self.keywords[kw_head]
 
     def source(self, kw_string):
@@ -159,9 +159,10 @@ class KeywordRegistry():
             self.register_plugin(loc)
 
     def register_function(self, obj):
-        name=obj.__name__
+        """ add function obj to registry """
+        name = obj.__name__
         try:
-            location = str(obj.__location__)
+            location = str(obj.__module__) + "." + name
         except AttributeError:
             # Always default to the name of the module rather than the file
             # because this makes code more portable across platforms.
@@ -295,10 +296,9 @@ keyword_lib.register_module(default_keywords)
 keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
 def xform(func):
-    print("importing xforms function: ", func.__name__)
+    log.info("importing xforms function: %s", func.__name__)
     xforms_lib.register_function(func)
 
 def xmodule(func):
+    log.info("importing keyword function: %s", func.__name__)
     keyword_lib.register_plugin(func)
-
-

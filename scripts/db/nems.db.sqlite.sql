@@ -1,7 +1,7 @@
 PRAGMA synchronous = OFF;
 PRAGMA journal_mode = MEMORY;
 BEGIN TRANSACTION;
-CREATE TABLE `NarfResults` (
+CREATE TABLE `Results` (
   `id` integer  NOT NULL PRIMARY KEY AUTOINCREMENT
 ,  `cellid` varchar(255) DEFAULT NULL
 ,  `batch` integer DEFAULT NULL
@@ -34,7 +34,7 @@ CREATE TABLE `NarfResults` (
 ,  `se_test` double DEFAULT NULL
 ,  `se_fit` double DEFAULT NULL
 );
-CREATE TABLE `NarfBatches` (
+CREATE TABLE `Batches` (
   `id` integer  NOT NULL PRIMARY KEY AUTOINCREMENT
 ,  `cellid` varchar(255) DEFAULT NULL
 ,  `est_set` text
@@ -104,7 +104,7 @@ CREATE TABLE `tComputer` (
 ,  `nocheck` integer DEFAULT '0'
 ,  `maxGPU_jobs` integer DEFAULT '0'
 );
-CREATE TABLE `NarfAnalysis` (
+CREATE TABLE `Analysis` (
   `id` integer  NOT NULL PRIMARY KEY AUTOINCREMENT
 ,  `name` varchar(255) NOT NULL
 ,  `status` varchar(255) NOT NULL
@@ -119,7 +119,7 @@ CREATE TABLE `NarfAnalysis` (
 ,  `labgroup` varchar(50) DEFAULT NULL
 ,  `public` integer DEFAULT '0'
 );
-CREATE TABLE `NarfData` (
+CREATE TABLE `Data` (
   `dataid` integer NOT NULL PRIMARY KEY AUTOINCREMENT
 ,  `cellid` varchar(255) DEFAULT NULL
 ,  `batch` integer DEFAULT NULL
@@ -132,7 +132,7 @@ CREATE TABLE `NarfData` (
 ,  `public` integer DEFAULT '0'
 ,  `rawid` integer DEFAULT NULL
 );
-CREATE TABLE `NarfUsers` (
+CREATE TABLE `Users` (
   `id` integer NOT NULL PRIMARY KEY AUTOINCREMENT
 ,  `username` varchar(50) NOT NULL
 ,  `password` varchar(255) DEFAULT NULL
@@ -143,20 +143,20 @@ CREATE TABLE `NarfUsers` (
 ,  `labgroup` varchar(50) DEFAULT NULL
 ,  `selections` text
 );
-CREATE INDEX "idx_NarfData_useridx" ON "NarfData" (`username`);
-CREATE INDEX "idx_NarfData_groupidx" ON "NarfData" (`labgroup`);
-CREATE INDEX "idx_NarfData_cellbatchid" ON "NarfData" (`cellid`,`batch`);
+CREATE INDEX "idx_Data_useridx" ON "Data" (`username`);
+CREATE INDEX "idx_Data_groupidx" ON "Data" (`labgroup`);
+CREATE INDEX "idx_Data_cellbatchid" ON "Data" (`cellid`,`batch`);
 CREATE INDEX "idx_tQueue_noteidx" ON "tQueue" (`note`);
 CREATE INDEX "idx_tQueue_complete_idx" ON "tQueue" (`complete`);
 CREATE INDEX "idx_tComputer_nameidx" ON "tComputer" (`name`);
-CREATE INDEX "idx_NarfResults_modelnameidx" ON "NarfResults" (`modelname`);
-CREATE INDEX "idx_NarfResults_batchidx" ON "NarfResults" (`batch`);
-CREATE INDEX "idx_NarfResults_cellididx" ON "NarfResults" (`cellid`);
-CREATE INDEX "idx_NarfResults_batchcellmodelidx" ON "NarfResults" (`batch`,`cellid`,`modelname`);
-CREATE INDEX "idx_NarfResults_useridx" ON "NarfResults" (`username`);
-CREATE INDEX "idx_NarfResults_groupidx" ON "NarfResults" (`labgroup`);
-CREATE INDEX "idx_NarfBatches_cellidx" ON "NarfBatches" (`cellid`);
-CREATE INDEX "idx_NarfBatches_batchidx" ON "NarfBatches" (`batch`);
-CREATE INDEX "idx_NarfAnalysis_useridx" ON "NarfAnalysis" (`username`);
-CREATE INDEX "idx_NarfAnalysis_groupidx" ON "NarfAnalysis" (`labgroup`);
+CREATE INDEX "idx_Results_modelnameidx" ON "Results" (`modelname`);
+CREATE INDEX "idx_Results_batchidx" ON "Results" (`batch`);
+CREATE INDEX "idx_Results_cellididx" ON "Results" (`cellid`);
+CREATE INDEX "idx_Results_batchcellmodelidx" ON "Results" (`batch`,`cellid`,`modelname`);
+CREATE INDEX "idx_Results_useridx" ON "Results" (`username`);
+CREATE INDEX "idx_Results_groupidx" ON "Results" (`labgroup`);
+CREATE INDEX "idx_Batches_cellidx" ON "Batches" (`cellid`);
+CREATE INDEX "idx_Batches_batchidx" ON "Batches" (`batch`);
+CREATE INDEX "idx_Analysis_useridx" ON "Analysis" (`username`);
+CREATE INDEX "idx_Analysis_groupidx" ON "Analysis" (`labgroup`);
 END TRANSACTION;

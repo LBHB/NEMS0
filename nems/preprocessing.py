@@ -641,7 +641,7 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
            posmatch = np.round(posmatch, decimals=precision)
            #import pdb;pdb.set_trace()
            dur = np.round(np.diff(ematch, axis=1)-prematch-posmatch, decimals=precision)
-   
+
            # weird hack to deal with CC data dropping post-stimsilence
            if sum(posmatch>0)>0:
                udur = np.sort(np.unique(dur[posmatch>0]))
@@ -649,10 +649,10 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
                udur = np.sort(np.unique(dur))
            mindur = np.min(udur)
            dur[dur<mindur]=mindur
-   
+
            log.debug('epoch %s: n=%d dur range=%.4f-%.4f', ename,
                     len(ematch), mindur, np.max(dur))
-   
+
            #import pdb;pdb.set_trace()
            minpre = np.min(prematch)
            minpos = np.min(posmatch[posmatch>0])
@@ -668,7 +668,7 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
            elif (minpos<np.max(posmatch)):
                log.info('epoch %s pos varies, fixing to %.3f s', ename, minpos)
                ematch_new[:,1] = ematch_new[:,0]+minpos-posmatch.T
-   
+
            for e_old, e_new in zip(ematch, ematch_new):
                _mask = (np.round(epochs_new['start']-e_old[0], precision)==0) & \
                        (np.round(epochs_new['end']-e_old[1], precision)==0)
@@ -726,7 +726,7 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_',
         spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
     else:
         spont_rate = np.nanmean(prestimsilence)
-    
+
     NEW_WAY = True
     if NEW_WAY:
         # already taken care of?
@@ -1175,7 +1175,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     """
 
     newrec = rec.copy()
-    resp = newrec['resp'].rasterize()    
+    resp = newrec['resp'].rasterize()
 
     # normalize mean/std of pupil trace if being used
     if ('pupil' in state_signals) or ('pupil2' in state_signals) or \
@@ -1269,18 +1269,21 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
             permute_signals.remove('each_passive')
             permute_signals.extend(pset)
 
-    if ('each_file' in state_signals):
+    if ('each_file' in state_signals) or ('each_active' in state_signals):
         file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
         trial_indices = resp.get_epoch_indices('TRIAL')
         passive_indices = resp.get_epoch_indices('PASSIVE_EXPERIMENT')
         pset = []
+        psetx = []
         pcount = 0
         acount = 0
+        # pupil interactions
+
         for f in file_epochs:
             # test if passive expt
             f_indices = resp.get_epoch_indices(f)
             epoch_indices = ep.epoch_intersection(f_indices, passive_indices)
-
+            added_signal = False
             if epoch_indices.size:
                 # this is a passive file
                 name1 = "PASSIVE_{}".format(pcount)
@@ -1289,18 +1292,27 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
                     acount = 1 # reset acount for actives after first passive
                 else:
                     # use first passive part A as baseline - don't model
-                    pset.append(name1)
-                    newrec[name1] = resp.epoch_to_signal(name1, indices=f_indices)
-
+                    if ('each_file' in state_signals):
+                        pset.append(name1)
+                        newrec[name1] = resp.epoch_to_signal(name1, indices=f_indices)
+                        added_signal = True
             else:
                 name1 = "ACTIVE_{}".format(acount)
                 pset.append(name1)
                 newrec[name1] = resp.epoch_to_signal(name1, indices=f_indices)
-
+                added_signal = True
                 if pcount == 0:
                     acount -= 1
                 else:
                     acount += 1
+            if ('p_x_f' in state_signals) and added_signal:
+                if name1.startswith('ACTIVE') | ('each_file' in state_signals):
+                    p = newrec["pupil"].as_continuous()
+                    a = newrec[name1].as_continuous()
+                    name1x = name1+'Xpup'
+                    newrec[name1x] = newrec["pupil"]._modified_copy(p * a)
+                    newrec[name1x].chans = [name1x]
+                    psetx.append(name1x)
 
             # test if passive expt
 #            epoch_indices = ep.epoch_intersection(
@@ -1312,11 +1324,27 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
 #            else:
 #                pset.append(f)
 #                newrec[f] = resp.epoch_to_signal(f)
-        state_signals.remove('each_file')
-        state_signals.extend(pset)
+
+        if 'each_file' in state_signals:
+            state_signals.remove('each_file')
+            state_signals.extend(pset)
+        if 'each_active' in state_signals:
+            state_signals.remove('each_active')
+            state_signals.extend(pset)
         if 'each_file' in permute_signals:
             permute_signals.remove('each_file')
             permute_signals.extend(pset)
+        if 'each_active' in permute_signals:
+            permute_signals.remove('each_active')
+            permute_signals.extend(pset)
+
+        # add interactions to state list if specified
+        if ('p_x_f' in state_signals):
+            state_signals.remove('p_x_f')
+            state_signals.extend(psetx)
+            if 'p_x_f' in permute_signals:
+                permute_signals.remove('p_x_f')
+                permute_signals.extend(psetx)
 
     if ('each_half' in state_signals):
         file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
@@ -1607,7 +1635,7 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', epoch_regex=None,
         epochs_to_extract = [epoch_name]
     else:
         epochs_to_extract = ep.epoch_names_matching(rec.epochs, epoch_regex)
-    
+
     # logging.info("Generating {} jackknifes".format(njacks))
     if rec.get_epoch_indices(epochs_to_extract, allow_partial_epochs=allow_partial_epochs).shape[0]:
         pass
