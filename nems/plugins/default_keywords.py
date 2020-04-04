@@ -493,6 +493,7 @@ def do(kw):
     -------
     n_banks : default 1
     x : (False) if true cross each filter with each input (requires n_inputs==1?)
+    lN : mean delay=N time bins (default 1)
 
     '''
     options = kw.split('.')
@@ -520,6 +521,8 @@ def do(kw):
     for op in options[2:]:
         if op == 'x':
             cross_channels = True
+        elif op[:1] == 'l':
+            mean_delay=int(op[1:])
 
     p_f1s = {
         'sd': np.full((n_channels, 1), 1)
@@ -533,9 +536,8 @@ def do(kw):
             'sd': np.ones((n_channels, 1))*.4,
     }
     p_delays = {
-        'sd': np.full((n_channels, 1), 1)
+        'sd': np.full((n_channels, 1), mean_delay)
     }
-
     template = {
         'fn': 'nems.modules.fir.damped_oscillator',
         'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs,

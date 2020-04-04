@@ -58,14 +58,25 @@ def Tables():
     #'sCellFile': Base.classes.sCellFile,
     #'sBatch': Base.classes.sBatch,
     #'gCellMaster': Base.classes.gCellMaster,
-    tables = {
-            'NarfUsers': Base.classes.NarfUsers,
-            'NarfAnalysis': Base.classes.NarfAnalysis,
-            'NarfBatches': Base.classes.NarfBatches,
-            'NarfResults': Base.classes.Results,
+    try:
+        tables = {
+                'Users': Base.classes.Users,
+                'Analysis': Base.classes.Analysis,
+                'Batches': Base.classes.Batches,
+                'Results': Base.classes.Results,
+                'tQueue': Base.classes.tQueue,
+                'tComputer': Base.classes.tComputer,
+                }
+    except:
+        tables = {
+            'Users': Base.classes.NarfUsers,
+            'Analysis': Base.classes.NarfAnalysis,
+            'Batches': Base.classes.NarfBatches,
+            'Results': Base.classes.Results,
             'tQueue': Base.classes.tQueue,
             'tComputer': Base.classes.tComputer,
-            }
+        }
+
     sql_engine = get_setting('SQL_ENGINE')
     if sql_engine == 'mysql':
         tables['sBatch'] = Base.classes.sBatch
@@ -77,7 +88,7 @@ def sqlite_test():
     dbfilepath = os.path.join(get_setting('NEMS_RECORDINGS_DIR'), 'nems.db')
 
     conn = sqlite3.connect(dbfilepath)
-    sql = "SELECT name FROM sqlite_master WHERE type='table' and name like 'Narf%'"
+    sql = "SELECT name FROM sqlite_master WHERE type='table' and name like 'Results'"
     r = conn.execute(sql)
     d = r.fetchone()
 
@@ -85,7 +96,7 @@ def sqlite_test():
         print("Tables missing, need to reinitialize database?")
 
         print("Creating db")
-        scriptfilename = os.path.join(nems.NEMS_PATH, 'scripts', 'nems.db.sqlite.sql')
+        scriptfilename = os.path.join(nems.NEMS_PATH, 'scripts', 'db', 'nems.db.sqlite.sql')
         cursor = conn.cursor()
 
         print("Reading Script...")
@@ -649,14 +660,14 @@ def update_job_tick(queueid=None):
 
 def save_results(stack, preview_file, queueid=None):
     """
-    save performance data from modelspec to NarfResults
+    save performance data from modelspec to Results
     pull some information out of the queue table if queueid provided
     """
 
     session = Session()
     db_tables = Tables()
     tQueue = db_tables['tQueue']
-    NarfUsers = db_tables['NarfUsers']
+    Users = db_tables['Users']
     # Can't retrieve user info without queueid, so if none was passed
     # use the default blank user info
     if queueid:
@@ -667,8 +678,8 @@ def save_results(stack, preview_file, queueid=None):
         )
         username = job.user
         narf_user = (
-            session.query(NarfUsers)
-            .filter(NarfUsers.username == username)
+            session.query(Users)
+            .filter(Users.username == username)
             .first()
         )
         labgroup = narf_user.labgroup
@@ -695,8 +706,8 @@ def update_results_table(modelspec, preview=None,
     :return: results_id identifier for new/updated entry in Results table
     """
     db_tables = Tables()
-    NarfResults = db_tables['NarfResults']
-    NarfBatches = db_tables['NarfBatches']
+    Results = db_tables['Results']
+    Batches = db_tables['Batches']
     session = Session()
     results_id = None
 
@@ -706,27 +717,27 @@ def update_results_table(modelspec, preview=None,
         batch = modelspec.meta['batch']
         modelname = modelspec.meta['modelname']
         r = (
-            session.query(NarfBatches)
-            .filter(NarfBatches.cellid == cellid)
-            .filter(NarfBatches.batch == batch)
+            session.query(Batches)
+            .filter(Batches.cellid == cellid)
+            .filter(Batches.batch == batch)
             .first()
         )
         if not r:
-            # add cell/batch to NarfData
-            log.info("Adding (%s/%d) to NarfBatches", cellid, batch)
-            r = NarfBatches()
+            # add cell/batch to Data
+            log.info("Adding (%s/%d) to Batches", cellid, batch)
+            r = Batches()
             r.cellid = cellid
             r.batch = batch
             session.add(r)
 
         r = (
-            session.query(NarfResults)
-            .filter(NarfResults.cellid == cellid)
-            .filter(NarfResults.batch == batch)
-            .filter(NarfResults.modelname == modelname)
+            session.query(Results)
+            .filter(Results.cellid == cellid)
+            .filter(Results.batch == batch)
+            .filter(Results.modelname == modelname)
             .first()
         )
-        collist = ['%s' % (s) for s in NarfResults.__table__.columns]
+        collist = ['%s' % (s) for s in Results.__table__.columns]
         attrs = [s.replace('Results.', '') for s in collist]
         removals = [
             'id', 'lastmod'
@@ -735,7 +746,7 @@ def update_results_table(modelspec, preview=None,
             attrs.remove(col)
 
         if not r:
-            r = NarfResults()
+            r = Results()
             new_entry = True
         else:
             new_entry = False
@@ -768,7 +779,7 @@ def update_results_table(modelspec, preview=None,
 
 
 def fetch_meta_data(modelspec, r, attrs, cellid=None):
-    """Assign attributes from model fitter object to NarfResults object.
+    """Assign attributes from model fitter object to Results object.
 
     Arguments:
     ----------
@@ -776,8 +787,8 @@ def fetch_meta_data(modelspec, r, attrs, cellid=None):
         Stack containing meta data, modules, module names et cetera
         (see nems_modules).
     r : sqlalchemy ORM object instance
-        NarfResults object, either a blank one that was created before calling
-        this function or one that was retrieved via a query to NarfResults.
+        Results object, either a blank one that was created before calling
+        this function or one that was retrieved via a query to Results.
 
     Returns:
     --------
@@ -794,9 +805,9 @@ def fetch_meta_data(modelspec, r, attrs, cellid=None):
         else:
             default = 0.0
         # TODO: hard coded fix for now to match up stack.meta names with
-        # narfresults names.
+        # results names.
         # Either need to maintain hardcoded list of fields instead of pulling
-        # from NarfResults, or keep meta names in fitter matched to columns
+        # from Results, or keep meta names in fitter matched to columns
         # some other way if naming rules change.
         #if 'fit' in a:
         #    k = a.replace('fit', 'est')
@@ -846,7 +857,7 @@ def _fetch_attr_value(modelspec, k, default=0.0, cellid=None):
     return v
 
 def get_batch(name=None, batchid=None):
-    # eg, sql="SELECT * from NarfBatches WHERE batch=301"
+    # eg, sql="SELECT * from Batches WHERE batch=301"
     engine = Engine()
     params = ()
     sql = "SELECT * FROM sBatch WHERE 1"
@@ -864,7 +875,7 @@ def get_batch(name=None, batchid=None):
 
 def get_batch_cells(batch=None, cellid=None, rawid=None, as_list=False):
     '''
-    Retrieve a dataframe from NarfData containing all cellids in a batch.
+    Retrieve a dataframe from Data containing all cellids in a batch.
 
     Parameters:
     ----------
@@ -886,11 +897,11 @@ def get_batch_cells(batch=None, cellid=None, rawid=None, as_list=False):
         If as_list=True, d will instead be a list of cellids.
 
     '''
-    # eg, sql="SELECT * from NarfBatches WHERE batch=301"
+    # eg, sql="SELECT * from Batches WHERE batch=301"
     #engine = Engine()
     SQL_ENGINE = get_setting('SQL_ENGINE')
     params = ()
-    sql = "SELECT DISTINCT cellid,batch FROM NarfData WHERE 1"
+    sql = "SELECT DISTINCT cellid,batch FROM Data WHERE 1"
     if batch is not None:
         sql += " AND batch=%s"
         params = params+(batch,)
@@ -922,30 +933,30 @@ def get_batch_cells(batch=None, cellid=None, rawid=None, as_list=False):
 def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None):
 
     engine = Engine()
-    # eg, sql="SELECT * from NarfData WHERE batch=301 and cellid="
+    # eg, sql="SELECT * from Data WHERE batch=301 and cellid="
     params = ()
-    sql = ("SELECT DISTINCT NarfData.*,sCellFile.goodtrials" +
-           " FROM NarfData LEFT JOIN sCellFile " +
-           " ON (NarfData.rawid=sCellFile.rawid " +
-           " AND NarfData.cellid=sCellFile.cellid)" +
+    sql = ("SELECT DISTINCT Data.*,sCellFile.goodtrials" +
+           " FROM Data LEFT JOIN sCellFile " +
+           " ON (Data.rawid=sCellFile.rawid " +
+           " AND Data.cellid=sCellFile.cellid)" +
            " WHERE 1")
     if batch is not None:
-        sql += " AND NarfData.batch=%s"
+        sql += " AND Data.batch=%s"
         params = params+(batch,)
 
     if cellid is not None:
-        sql += " AND NarfData.cellid like %s"
+        sql += " AND Data.cellid like %s"
         params = params+(cellid+"%",)
 
     if (rawid is not None):
-        sql += " AND NarfData.rawid IN %s"
+        sql += " AND Data.rawid IN %s"
         rawid = tuple([str(i) for i in list(rawid)])
         params = params+(rawid,)
 
     if label is not None:
-        sql += " AND NarfData.label like %s"
+        sql += " AND Data.label like %s"
         params = params + (label,)
-    sql += " ORDER BY NarfData.filepath"
+    sql += " ORDER BY Data.filepath"
     print(sql)
     d = pd.read_sql(sql=sql, con=engine, params=params)
     if label == 'parm':
@@ -958,7 +969,7 @@ def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None):
 
 
 def get_batches(name=None):
-    # eg, sql="SELECT * from NarfBatches WHERE batch=301"
+    # eg, sql="SELECT * from Batches WHERE batch=301"
     engine = Engine()
     params = ()
     sql = "SELECT *,id as batch FROM sBatch WHERE 1"
@@ -1015,7 +1026,7 @@ def get_cell_files2(cellid=None, runclass=None, rawid=None):
 
 def get_isolation(cellid=None, batch=None):
     engine = Engine()
-    sql = ("SELECT min_isolation FROM NarfBatches WHERE cellid = {0}{1}{2} and batch = {3}".format("'",cellid,"'",batch))
+    sql = ("SELECT min_isolation FROM Batches WHERE cellid = {0}{1}{2} and batch = {3}".format("'",cellid,"'",batch))
 
     d = pd.read_sql(sql=sql, con=engine)
     return d
@@ -1068,7 +1079,7 @@ def get_data_parms(rawid=None, parmfile=None):
 
 
 def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test'):
-    NarfResults = Tables()['NarfResults']
+    Results = Tables()['Results']
     if modelnames is None:
         modelnames = ['parm100pt_wcg02_fir15_pupgainctl_fit01_nested5',
                       'parm100pt_wcg02_fir15_pupgain_fit01_nested5',
@@ -1078,11 +1089,11 @@ def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test'):
     session = Session()
     results=None
     for mn in modelnames:
-        q = (session.query(NarfResults)
-             .filter(NarfResults.batch == batch)
-             .filter(NarfResults.modelname == mn))
+        q = (session.query(Results)
+             .filter(Results.batch == batch)
+             .filter(Results.modelname == mn))
         if cellids is not None:
-            q = q.filter(NarfResults.cellid.in_(cellids))
+            q = q.filter(Results.cellid.in_(cellids))
         tr = psql.read_sql_query(q.statement, session.bind)
         tc = tr[['cellid',stat]]
         tc = tc.set_index('cellid')
@@ -1098,25 +1109,25 @@ def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test'):
 
 
 def get_results_file(batch, modelnames=None, cellids=None):
-    NarfResults = Tables()['NarfResults']
+    Results = Tables()['Results']
     session = Session()
     query = (
-        session.query(NarfResults)
-        .filter(NarfResults.batch == batch)
-        .order_by(desc(NarfResults.lastmod))
+        session.query(Results)
+        .filter(Results.batch == batch)
+        .order_by(desc(Results.lastmod))
         )
 
     if modelnames is not None:
         if not isinstance(modelnames, list):
             raise ValueError("Modelnames should be specified as a list, "
                              "got %s", str(type(modelnames)))
-        query = query.filter(NarfResults.modelname.in_(modelnames))
+        query = query.filter(Results.modelname.in_(modelnames))
 
     if cellids is not None:
         if not isinstance(cellids, list):
             raise ValueError("Cellids should be specified as a list, "
                              "got %s", str(type(cellids)))
-        query = query.filter(NarfResults.cellid.in_(cellids))
+        query = query.filter(Results.cellid.in_(cellids))
 
     results = psql.read_sql_query(query.statement, session.bind)
     session.close()
@@ -1182,7 +1193,7 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
 
     engine = Engine()
     params = ()
-    sql = "SELECT cellid, rawid FROM NarfData WHERE 1"
+    sql = "SELECT cellid, rawid FROM Data WHERE 1"
 
     if batch is not None:
         sql += " AND batch=%s"
@@ -1215,7 +1226,7 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
         rawid = d.rawid.unique().tolist()
 
         # keep only cellids present for ALL rawids
-        cellids = [cid for cid in cellids if d[d.cellid==cid].rawid.unique().tolist()==rawid]
+        cellids = [cid for cid in cellids if np.all(np.sort(d[d.cellid==cid].rawid.unique().tolist())==np.sort(rawid))]
 
         return cellids, rawid
     
@@ -1223,7 +1234,6 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
         d = pd.read_sql(sql=sql, con=engine, params=params)
         cellids = d.cellid.unique().tolist()
         rawid = d.rawid.unique().tolist()
-
         # get only rawid that exist for ALL the cells if no rawid specification was passed to the fn
         rawid = [rid for rid in rawid if d[d.rawid==rid].cellid.unique().tolist()==cellids]
 
@@ -1360,7 +1370,7 @@ def get_pen_location(cellid):
     return table_xy
 
 
-#### NarfData management
+#### Data management
 
 def save_recording_to_db(recfilepath, meta=None, user="nems", labgroup="",
                          public=True):
@@ -1386,7 +1396,7 @@ def save_recording_to_db(recfilepath, meta=None, user="nems", labgroup="",
     if file_hash != recfilepath:
         raise ValueError("meta does not produce hash matching recfilepath")
 
-    sql = "INSERT INTO NarfData (batch,hash,meta,filepath,label," + \
+    sql = "INSERT INTO Data (batch,hash,meta,filepath,label," + \
           "username,labgroup,public) VALUES" + \
           " ({},'{}','{}','{}','{}','{}','{}',{})"
     sql = sql.format(batch, hsh, meta_string, recfilepath, "recording",

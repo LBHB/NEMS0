@@ -15,6 +15,7 @@ import nems.analysis.api
 import nems.utils
 import nems.uri
 import nems.xforms as xforms
+import nems.xform_helper as xhelp
 import nems.db as nd
 import nems.recording as recording
 

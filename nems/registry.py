@@ -6,6 +6,10 @@ import os
 from pathlib import Path
 import sys
 
+from nems import get_setting
+from nems.plugins import (default_keywords, default_loaders, default_fitters,
+                          default_initializers)
+
 log = logging.getLogger(__name__)
 
 
@@ -96,7 +100,7 @@ class KeywordRegistry():
         kw_head = self.kw_head(kw_string)
         if kw_head not in self.keywords:
             raise KeywordMissingError(kw_head)
-        
+
         return self.keywords[kw_head]
 
     def source(self, kw_string):
@@ -153,6 +157,18 @@ class KeywordRegistry():
         '''Invokes self.register_plugin for each package listed in pkgs.'''
         for loc in locations:
             self.register_plugin(loc)
+
+    def register_function(self, obj):
+        """ add function obj to registry """
+        name = obj.__name__
+        try:
+            location = str(obj.__module__) + "." + name
+        except AttributeError:
+            # Always default to the name of the module rather than the file
+            # because this makes code more portable across platforms.
+            location = str(obj.__name__)
+
+        self.keywords[name] = Keyword(name, obj, location)
 
     def register_module(self, module):
         '''
@@ -269,3 +285,20 @@ def test_modelspec_kw(kw_string):
 
     return kw_lib[kw_string]
 
+# create registries in here so that they can be updated as new modules are imported
+xforms_lib = KeywordRegistry()
+xforms_lib.register_modules([default_loaders, default_fitters,
+                             default_initializers])
+xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
+
+keyword_lib = KeywordRegistry()
+keyword_lib.register_module(default_keywords)
+keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
+
+def xform(func):
+    log.info("importing xforms function: %s", func.__name__)
+    xforms_lib.register_function(func)
+
+def xmodule(func):
+    log.info("importing keyword function: %s", func.__name__)
+    keyword_lib.register_plugin(func)

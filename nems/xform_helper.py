@@ -12,7 +12,7 @@ import nems.xforms as xforms
 import nems.db as nd
 from nems import get_setting
 from nems.utils import escaped_split, escaped_join
-from nems.registry import KeywordRegistry
+from nems.registry import KeywordRegistry, xforms_lib, keyword_lib
 from nems.plugins import (default_keywords, default_loaders, default_fitters,
                           default_initializers)
 
@@ -68,6 +68,9 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
     #       or something along those lines... since they aren't really
     #       just loaders and fitters
     load_keywords, model_keywords, fit_keywords = escaped_split(modelname, '_')
+
+    """
+    DEPRECATED, keyword libraries loaded in registry module now
     if recording_uri is not None:
         xforms_lib = KeywordRegistry(recording_uri=recording_uri, **xforms_kwargs)
     else:
@@ -80,6 +83,7 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
     keyword_lib = KeywordRegistry()
     keyword_lib.register_module(default_keywords)
     keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
+    """
 
     # Generate the xfspec, which defines the sequence of events
     # to run through (like a packaged-up script)
@@ -92,6 +96,11 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
          xforms_init_context['kw_kwargs'] = kw_kwargs
     xforms_init_context['keywordstring'] = model_keywords
     xforms_init_context['meta'] = meta
+    if recording_uri is not None:
+        if type(recording_uri) is list:
+            xforms_init_context['recording_uri_list'] = recording_uri
+        else:
+            xforms_init_context['recording_uri_list'] = [recording_uri]
     xfspec.append(['nems.xforms.init_context', xforms_init_context])
 
     # 1) Load the data
@@ -137,7 +146,7 @@ def fit_xfspec(xfspec):
 
 
 def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
-                    returnModel=False):
+                    returnModel=False, recording_uri=None):
     """
     Fit a single NEMS model using data stored in database. First generates an xforms
     script based on modelname parameter and then evaluates it.
@@ -149,6 +158,7 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     :param saveInDB: save results to Results table
     :param returnModel: boolean (default False). If False, return savepath
        if True return xfspec, ctx tuple
+    :param recording_uri
     :return: savepath = path to saved results or (xfspec, ctx) tuple
     """
     startime = time.time()
@@ -167,7 +177,6 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
             'username': 'nems', 'labgroup': 'lbhb', 'public': 1,
             'githash': os.environ.get('CODEHASH', ''),
             'recording': loadkey}
-
     if type(cellid) is list:
         meta['siteid'] = cellid[0][:7]
 
@@ -176,7 +185,7 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     xforms_init_context = {'cellid': cellid, 'batch': int(batch)}
 
     log.info("TODO: simplify generate_xforms_spec parameters")
-    xfspec = generate_xforms_spec(recording_uri=None, modelname=modelname,
+    xfspec = generate_xforms_spec(recording_uri=recording_uri, modelname=modelname,
                                   meta=meta,  xforms_kwargs=registry_args,
                                   xforms_init_context=xforms_init_context,
                                   autoPlot=autoPlot)
@@ -270,13 +279,17 @@ def load_model_xform(cellid, batch=271,
 
     d = nd.get_results_file(batch, [modelname], [cellid])
     filepath = d['modelpath'][0]
-
+    if get_setting('USE_NEMS_BAPHY_API'):
+        prefix = '/auto/data/results' # get_setting('NEMS_RESULTS_DIR')
+        uri = filepath.replace(prefix,
+                               'http://' + get_setting('NEMS_BAPHY_API_HOST') + ":" + str(get_setting('NEMS_BAPHY_API_PORT')))
+    else:
+        uri = filepath.replace('/auto/data/nems_db/results', get_setting('NEMS_RESULTS_DIR'))
     if old:
         raise NotImplementedError("need to use oxf library.")
-        xfspec, ctx = oxf.load_analysis(filepath, eval_model=eval_model)
+        xfspec, ctx = oxf.load_analysis(uri, eval_model=eval_model)
     else:
-        xfspec, ctx = xforms.load_analysis(filepath, eval_model=eval_model,
-                                           only=only)
+        xfspec, ctx = xforms.load_analysis(uri, eval_model=eval_model, only=only)
     return xfspec, ctx
 
 
