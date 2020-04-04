@@ -1092,6 +1092,17 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
             modelspec.meta['se_state_mod'] = ee
             modelspec.meta['state_chans'] = val['state'].chans
 
+            # adding gain / DC mod_indexes (if the corresponding signals exist -- new sdexp models)
+            if 'gain' in val.signals.keys():
+                log.info('Saving gain/DC MI')
+                g = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='gain',
+                                state_sig='state_raw', state_chan=[])
+                dc = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='dc',
+                                state_sig='state_raw', state_chan=[])
+                modelspec.meta['state_mod_gain'] = g
+                modelspec.meta['state_mod_dc'] = dc
+
+
             # Charlie testing diff ways to calculate mod index
 
             # try using resp
