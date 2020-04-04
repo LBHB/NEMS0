@@ -752,8 +752,7 @@ class ModelSpec:
         if figsize is None:
             figsize = (10 * size_mult[0], n_rows * size_mult[1])
         if fig is None:
-            #fig = plt.figure(figsize=figsize, constrained_layout=True)
-            fig = plt.figure(constrained_layout=True)
+            fig = plt.figure(figsize=figsize, constrained_layout=True)
         else:
             fig.set_size_inches(figsize[0], figsize[1], forward=True)
 
