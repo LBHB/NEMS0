@@ -13,6 +13,11 @@ def poisson(response, prediction):
     return tf.reduce_mean(prediction - response * tf.log(prediction + 1e-5), name='poisson')
 
 
+def drop_nan(response, prediction):
+    mask = tf.math.is_finite(response)
+    return tf.boolean_mask(response, mask), tf.boolean_mask(prediction, mask)
+
+
 def loss_se(response, prediction):
     """Squared error loss."""
     # TODO : add percell option
@@ -24,7 +29,8 @@ def loss_se(response, prediction):
     #x = tf.reduce_mean(tf.boolean_mask(x, tf.is_finite(x))) + tf.reduce_mean(tf.dtypes.cast(tf.is_inf(x), tf.float32))
     #y = tf.reduce_mean(tf.boolean_mask(y, tf.is_finite(y))) + tf.reduce_mean(tf.dtypes.cast(tf.is_inf(y), tf.float32))
     #return x/y
-
+    
+    response, prediction = drop_nan(response, prediction)
     return tf.reduce_mean(tf.square(response - prediction)) / tf.reduce_mean(tf.square(response))
 
 
