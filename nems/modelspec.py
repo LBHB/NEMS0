@@ -606,7 +606,7 @@ class ModelSpec:
         rec_stim = rec['stim']
 
         if (epoch is None) or (len(epoch_bounds)==0):
-            epoch_bounds = np.array([[0, rec['resp'].shape[1]/rec['resp'].fs]])
+            epoch_bounds = np.array([[0, min(5,rec['resp'].shape[1]/rec['resp'].fs)]])
 
         # figure out which occurrence
         # not_empty = [np.any(np.isfinite(x)) for x in extracted]  # occurrences containing non inf/nan data
@@ -772,16 +772,18 @@ class ModelSpec:
 
             col_idx = 0
             for fn, col_span in zip(plot_fn, col_spans):
+                #print(fn)
+
                 try:
-                    ax = plt.Subplot(fig, gs_cols[0, col_idx:col_idx + col_span])
-                    fig.add_subplot(ax)
+                    ax=fig.add_subplot(n_rows,n_cols,row_idx*n_cols+col_idx+1)
+                    #ax = plt.Subplot(fig, gs_cols[0, col_span-1])
+                    #ax = fig.add_subplot(gs_cols[0, col_idx:(col_idx+col_span)])
+                    #ax = plt.Subplot(fig, gs_cols[0, col_idx:col_idx + col_span])
+
                     fn(ax=ax)
                     col_idx += col_span
                 except:
                     log.warning(f'Quickplot: failed plotting function: "{fn}", skipping.')
-                    #import pdb;pdb.set_trace()
-
-        log.debug('done plotting')
 
         # suptitle needs to be after the gridspecs in order to work with constrained_layout
         fig.suptitle(fig_title)
