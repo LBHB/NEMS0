@@ -690,7 +690,7 @@ def lvl(kw):
                          "keyword given: %s" % kw)
 
     template = {
-        'fn': 'nems.modules.levelshift.levelshift',
+        'fn': 'nems.modules.levelshift.levelshift_old',
         'fn_kwargs': {'i': 'pred', 'o': 'pred'},
         'plot_fns': ['nems.plots.api.mod_output',
                      'nems.plots.api.spectrogram_output',
