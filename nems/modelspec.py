@@ -7,6 +7,7 @@ import logging
 import os
 import re
 from functools import partial
+import inspect
 
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
@@ -62,7 +63,13 @@ class ModelSpec:
             # TODO default is to make single list into jack_counts!
             r = np.full((1, 1, len(raw)), None)
             for i, _r in enumerate(raw):
-                r[0, 0, i] = _r
+                r[0, 0, i] = []
+                for __r in _r:
+                    _f = _lookup_fn_at(__r['fn'])
+                    if inspect.isclass(_f):
+                        r[0, 0, i].append(_f(**__r))
+                    else:
+                        r[0, 0, i].append(__r)
             raw = r
 
         # otherwise, assume raw is a properly formatted 3D array (cell X fit X jack)
@@ -655,7 +662,7 @@ class ModelSpec:
                 temp_plot_fn_set.append((mod_idx, plot_fn))
 
         plot_fn_modules = temp_plot_fn_set
-        
+
         # use partial so ax can be specified later
         # the format is (fn, col_span), where col_span is 1 for all of these, but will vary for the custom pre-post
         # below fn and col_span should be list, but for simplicity here they are just int and partial and converted
@@ -1244,7 +1251,10 @@ def evaluate(rec, modelspec, start=None, stop=None):
         d = rec.copy()
 
     for m in modelspec[start:stop]:
-        fn = _lookup_fn_at(m['fn'])
+        if type(m) is dict:
+            fn = _lookup_fn_at(m['fn'])
+        else:
+            fn = m.eval
         fn_kwargs = m.get('fn_kwargs', {})
         phi = m.get('phi', {})
         kwargs = {**fn_kwargs, **phi}  # Merges both dicts

@@ -158,11 +158,13 @@ class KeywordRegistry():
         for loc in locations:
             self.register_plugin(loc)
 
-    def register_function(self, obj):
+    def register_function(self, obj, name=None):
         """ add function obj to registry """
-        name = obj.__name__
+        if name is None:
+            name = obj.__name__
+        log.info("Registering function: %s", name)
         try:
-            location = str(obj.__module__) + "." + name
+            location = str(obj.__module__) + "." + obj.__name__
         except AttributeError:
             # Always default to the name of the module rather than the file
             # because this makes code more portable across platforms.
@@ -296,10 +298,14 @@ keyword_lib.register_module(default_keywords)
 keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
 # TODO scan in plugins dir by default
 
-def xform(func):
-    log.info("importing xforms function: %s", func.__name__)
-    xforms_lib.register_function(func)
+def xform(name=None):
+    def decorator(func):
+        xforms_lib.register_function(func, name=name)
+        return func
+    return decorator
 
-def xmodule(func):
-    log.info("importing keyword function: %s", func.__name__)
-    keyword_lib.register_plugin(func)
+def xmodule(name=None):
+    def decorator(func):
+        keyword_lib.register_function(func, name=name)
+        return func
+    return decorator

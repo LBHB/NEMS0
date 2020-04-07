@@ -1,3 +1,10 @@
+"""
+nems.uri
+
+Where the filesystem organization of nems directories are decided,
+and generic methods for saving and loading resources over HTTP or
+to local files.
+"""
 import re
 import io
 import os
@@ -9,14 +16,10 @@ import base64
 
 from requests.exceptions import ConnectionError
 from nems.distributions.distribution import Distribution
+from nems.modules import NemsModule
 from nems.registry import KeywordRegistry
 
-
 log = logging.getLogger(__name__)
-
-# Where the filesystem organization of nems directories are decided,
-# and generic methods for saving and loading resources over HTTP or
-# to local files.
 
 
 class NumpyAwareJSONEncoder(jsonlib.JSONEncoder):
@@ -28,6 +31,8 @@ class NumpyAwareJSONEncoder(jsonlib.JSONEncoder):
     def default(self, obj):
         if issubclass(type(obj), Distribution):
             return obj.tolist()
+        if issubclass(type(obj), NemsModule):
+            return obj.data_dict
         if isinstance(obj, np.ndarray):  # and obj.ndim == 1:
             return obj.tolist()
         return jsonlib.JSONEncoder.default(self, obj)
@@ -47,6 +52,9 @@ class NumpyEncoder(jsonlib.JSONEncoder):
         """
         if issubclass(type(obj), Distribution):
             return obj.tolist()
+
+        if issubclass(type(obj), NemsModule):
+            return obj.data_dict
 
         if isinstance(obj, np.ndarray):
             # currently disabling b64 encoding because it doesn't work and
