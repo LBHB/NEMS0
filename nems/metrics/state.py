@@ -109,7 +109,10 @@ def state_mod_index(rec, epoch='REFERENCE', psth_name='pred', divisor=None,
     low = low[kk]
     high = high[kk]
 
-    if divisor is not None:
+    if divisor == 1:
+        mod = np.mean(high - low)
+
+    elif divisor is not None:
         low_denom, high_denom = state_mod_split(rec, epoch=epoch,
                                                 psth_name=divisor,
                                                 state_sig=state_sig,
