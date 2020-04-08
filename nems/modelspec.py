@@ -980,7 +980,7 @@ class ModelSpec:
 
             layer = nems.tf.cnnlink.map_layer(layer=layer, prev_layers=layers, fn=fn, idx=idx, modelspec=m,
                                               n_input_feats=n_input_feats, net_seed=net_seed, weight_scale=weight_scale,
-                                              use_modelspec_init=use_modelspec_init, distr=distr,)
+                                              use_modelspec_init=use_modelspec_init, fs=fs, distr=distr)
 
             # necessary?
             layer['time_win_sec'] = layer['time_win_smp'] / fs

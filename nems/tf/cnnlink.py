@@ -19,6 +19,7 @@ import nems.tf.cnn as cnn
 import nems.utils
 from nems.initializers import init_static_nl
 from nems.tf import initializers
+from tensorflow.python.eager.context import eager_mode, graph_mode
 
 log = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ modelspecs_dir = nems.get_setting('NEMS_RESULTS_DIR')
 
 def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
               n_input_feats, net_seed, weight_scale, use_modelspec_init: bool,
-              distr: str='norm',) -> dict:
+              fs: int, distr: str='norm') -> dict:
     """Maps a module to a tensorflow layer.
 
     Available conversions:
@@ -50,6 +51,7 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
     :param net_seed:
     :param weight_scale:
     :param use_modelspec_init:
+    :param fs:
     :param distr: The type of distribution to init layers with. Only applicable if use_modelspec_init
                        is False.
     """
@@ -363,7 +365,7 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
             # dc/gain values are fixed
             g = fn_kwargs['g'].astype('float32').T
             d = fn_kwargs['d'].astype('float32').T
-            g =g.reshape((1, g.shape[0], g.shape[1]))
+            g = g.reshape((1, g.shape[0], g.shape[1]))
             d = d.reshape((1, d.shape[0], d.shape[1]))
 
             layer['g'] = tf.constant(g)
@@ -373,6 +375,153 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
         layer['Sg'] = tf.nn.conv1d(prev_layers[0]['S'], layer['g'], stride=1, padding='SAME')
         layer['Sd'] = tf.nn.conv1d(prev_layers[0]['S'], layer['d'], stride=1, padding='SAME')
         layer['Y'] = layer['X'] * layer['Sg'] + layer['Sd']
+
+    elif fn == 'nems.modules.stp.short_term_plasticity':
+        # Credit Menoua Keshisian for some stp code.
+        quick_eval = fn_kwargs['quick_eval']
+        reset_signal = fn_kwargs['reset_signal']
+        crosstalk = fn_kwargs['crosstalk']
+
+        if phi is not None:
+            # reshape the appropriately
+            u = phi['u'].astype('float32').T
+            tau = phi['tau'].astype('float32').T
+            if 'x0' in phi:
+                x0 = phi['x0'].astype('float32').T
+            else:
+                x0 = None
+
+            if use_modelspec_init:
+                layer['u'] = tf.Variable(u)
+                layer['tau'] = tf.Variable(tau)
+                if x0 is not None:
+                    layer['x0'] = tf.Variable(x0)
+            else:
+                layer['u'] = tf.Variable(tf.random.normal(u.shape, stddev=weight_scale,
+                                                          seed=cnn.seed_to_randint(net_seed + idx)))
+                layer['tau'] = tf.Variable(tf.random.normal(u.shape, stddev=weight_scale,
+                                                            seed=cnn.seed_to_randint(net_seed + 20 + idx)))
+                if x0 is not None:
+                    layer['x0'] = tf.Variable(tf.random.normal(u.shape, stddev=weight_scale,
+                                                               seed=cnn.seed_to_randint(net_seed + 30 + idx)))
+
+        else:
+            # u/tau/x0 values are fixed
+            u = fn_kwargs['u'].astype('float32').T
+            tau = fn_kwargs['tau'].astype('float32').T
+            # don't need to reshape since we expand dims later
+            # u = u.reshape((1, u.shape[0], u.shape[1]))
+            # tau = tau.reshape((1, tau.shape[0], tau.shape[1]))
+
+            layer['u'] = tf.constant(u)
+            layer['tau'] = tf.constant(tau)
+
+            if 'x0' in fn_kwargs:
+                x0 = fn_kwargs['x0'].astype('float32').T
+                x0 = x0.reshape((1, x0.shape[0], x0.shape[1]))
+            else:
+                x0 = None
+
+        s = layer['X'].shape
+        X = layer['X']
+        u = layer['u']
+        tau = layer['tau']
+        tstim = tf.where(tf.math.is_nan(X), 0.0, X)
+        if x0 is not None:  # x0 should be tf variable to avoid retraces
+            # TODO: is this expanding along the right dim? tstim dims: (None, time, chans)
+            tstim = tstim - tf.expand_dims(x0, axis=1)
+
+        tstim = tf.where(tstim < 0.0, 0.0, tstim)
+
+        # for quick eval, assume input range is approx -1 to +1
+        if quick_eval:
+            ui = tf.math.abs(u)
+        else:
+            ui = u
+
+        # convert tau units from sec to bins
+        taui = tf.math.abs(tau) * fs
+        taui = tf.where(taui < 2.0, 2.0, taui)
+
+        # avoid ringing if combination of strong depression and rapid recovery is too large
+        rat = ui**2 / taui
+        ui = tf.where(rat > 0.1, tf.math.sqrt(0.1 * taui), ui)
+
+        if crosstalk:
+            # assumes dim of u is 1 !
+            tstim = tf.math.reduce_mean(tstim, axis=0, keepdims=True)
+
+        ui = tf.expand_dims(ui, axis=0)
+        taui = tf.expand_dims(taui, axis=0)
+
+        a = 1.0 / taui
+
+        if quick_eval and reset_signal is not None:
+
+            @tf.function
+            def _cumtrapz(x):
+                x = (x[:, :-1] + x[:, 1:]) / 2.0
+                x = tf.pad(x, ((0, 0), (1, 0)))
+                return tf.cumsum(x, axis=1)
+
+            x = ui * tstim / fs
+
+            if reset_signal is None:
+                reset_times = tf.constant([0, s[1]])
+            else:
+                reset_times = tf.where(reset_signal[0, :])[:, 0]
+                reset_times = tf.pad(reset_times, ((0, 1),), constant_values=s[1])
+
+            mu = tf.zeros_like(x)
+            imu = tf.zeros_like(x)
+
+            for j in tf.range(len(reset_times) - 1):
+                si = slice(reset_times[j], reset_times[j + 1])
+
+                ix = _cumtrapz(a + x[:, si])
+                new_mu = tf.exp(ix)
+
+                mu = tf.concat((mu[:, :si.start], new_mu, mu[:, si.stop:]), axis=1)
+                mu.set_shape(s)
+
+                imu = tf.concat((imu[:, :si.start], _cumtrapz(new_mu * x[:, si]), imu[:, si.stop:]), axis=1)
+                imu.set_shape(s)
+
+            td = tf.where(tf.logical_and(mu > 0.0, imu > 0.0),
+                          1 - tf.exp(tf.math.log(imu) - tf.math.log(mu)), tf.ones(s))
+
+            layer['Y'] = tf.where(tf.math.is_nan(X), np.nan, tstim * td)
+
+        else:
+            ustim = 1.0 / taui + ui * tstim
+
+            td = tf.ones_like(tstim)  # initialize dep state vector
+
+            @tf.function
+            def stp_op(td, s, ustim, a, ui):
+                for tt in tf.range(1, s[-1]):
+                    new_td = a + td[:, None, tt - 1] * (1.0 - ustim[:, None, tt - 1])
+                    new_td = tf.where(tf.math.logical_and(ui > 0.0, new_td < 0.0), 0.0, new_td)
+                    new_td = tf.where(tf.math.logical_and(ui < 0.0, new_td > 5.0), 5.0, new_td)
+
+                    td = tf.concat((td[:, :tt, :], new_td, tf.zeros_like(td)[:, :s[1] - tt - 1]), axis=1)
+                    td.set_shape(s)
+                return td
+
+            td = tf.cond(tf.math.reduce_any(ui != 0.0),
+                         true_fn=lambda: stp_op(td, (s[0], s[1], s[2]), ustim, a, ui),
+                         false_fn=lambda: td)
+
+            # if tf.math.reduce_any(ui != 0.0):
+            #     for tt in tf.range(1, s[1]):
+            #         new_td = a + td[:, tt - 1, None] * (1.0 - ustim[:, tt - 1, None])
+            #         new_td = tf.where(tf.math.logical_and(ui > 0.0, new_td < 0.0), 0.0, new_td)
+            #         new_td = tf.where(tf.math.logical_and(ui < 0.0, new_td > 5.0), 5.0, new_td)
+            #
+            #         td = tf.concat((td[:, :tt], new_td, tf.zeros((s[0], s[1] - tt - 1))), axis=1)
+            #         td.set_shape(s)
+
+            layer['Y'] = tf.where(tf.math.is_nan(X), np.nan, tstim * td)
 
     else:
         raise ValueError(f'Module "{fn}" not supported for mapping to cnn layer.')
@@ -452,6 +601,13 @@ def tf2modelspec(net, modelspec):
             if 'phi' in m.keys():
                 m['phi']['g'] = net_layer_vals[i]['g'][0, :, :].T
                 m['phi']['d'] = net_layer_vals[i]['d'][0, :, :].T
+
+        elif m['fn'] in ['nems.modules.stp.short_term_plasticity']:
+            if 'phi' in m.keys():
+                m['phi']['tau'] = net_layer_vals[i]['tau'].T
+                m['phi']['u'] = net_layer_vals[i]['u'].T
+                if 'x0' in m['phi']:
+                    m['phi']['x0'] = net_layer_vals[i]['x0'].T
 
         else:
             raise ValueError("NEMS module fn=%s not supported", m['fn'])
