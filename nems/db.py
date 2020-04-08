@@ -884,7 +884,7 @@ def add_batch_data(cellid, batch, recording_uri_list):
     :param recording_uri_list:
     :return:
     """
-    if type(recording_uri_list) is string:
+    if type(recording_uri_list) is str:
         recording_uri_list = [recording_uri_list]
 
     db_tables = Tables()
@@ -894,11 +894,16 @@ def add_batch_data(cellid, batch, recording_uri_list):
     session = Session()
     results_id = None
 
+    session = Session()
+    db_tables = Tables()
+    Batches = db_tables['Batches']
+    Data = db_tables['Data']
+
     r = (session.query(Batches)
-            .filter(Batches.cellid == cellid)
-            .filter(Batches.batch == batch)
-            .first()
-        )
+         .filter(Batches.cellid == cellid)
+         .filter(Batches.batch == batch)
+         .first()
+         )
     if r is None:
         # add cell/batch to Data
         log.info("Adding (%s/%d) to Batches", cellid, batch)
@@ -909,9 +914,9 @@ def add_batch_data(cellid, batch, recording_uri_list):
         session.commit()
 
     r = (session.query(Data)
-            .filter(Data.cellid == cellid)
-            .filter(Data.batch == batch)
-        )
+         .filter(Data.cellid == cellid)
+         .filter(Data.batch == batch)
+         )
     if r.count():
         log.info("Deleting existing (%s/%d) entries in Data", cellid, batch)
         for row in r:
@@ -919,17 +924,21 @@ def add_batch_data(cellid, batch, recording_uri_list):
         r.delete()
         session.commit()
 
-    for groupid,uri in enumerate(recording_uri_list):
+    for groupid, uri in enumerate(recording_uri_list):
         r = Data()
         r.cellid = cellid
         r.batch = batch
-        r.groupid = groupid+1
+        r.groupid = groupid + 1
         r.filepath = uri
+        r.val_snr = 0
+        r.est_snr = 0
+        r.min_isolation = 0
+        r.min_snr_index = 0
         session.add(r)
 
     session.commit()
 
-    return results_id
+    return True
 
 
 def get_batch_cells(batch=None, cellid=None, rawid=None, as_list=False):

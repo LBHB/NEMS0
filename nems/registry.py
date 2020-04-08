@@ -65,9 +65,10 @@ class KeywordRegistry():
     directories or modules of keyword definitions.
     '''
 
-    def __init__(self, **kwargs):
+    def __init__(self, name='registry', **kwargs):
         self.keywords = {}
         self.kwargs = kwargs
+        self.name = name
 
     def __getitem__(self, kw_string):
         kw = self.lookup(kw_string)
@@ -162,7 +163,7 @@ class KeywordRegistry():
         """ add function obj to registry """
         if name is None:
             name = obj.__name__
-        log.info("Registering function: %s", name)
+        log.info("%s lib registering function: %s", self.name, name)
         try:
             location = str(obj.__module__) + "." + obj.__name__
         except AttributeError:
@@ -288,12 +289,12 @@ def test_modelspec_kw(kw_string):
     return kw_lib[kw_string]
 
 # create registries in here so that they can be updated as new modules are imported
-xforms_lib = KeywordRegistry()
+xforms_lib = KeywordRegistry(name="xforms")
 xforms_lib.register_modules([default_loaders, default_fitters,
                              default_initializers])
 xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
 
-keyword_lib = KeywordRegistry()
+keyword_lib = KeywordRegistry(name="modules")
 keyword_lib.register_module(default_keywords)
 keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
 # TODO scan in plugins dir by default
