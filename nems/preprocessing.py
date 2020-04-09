@@ -290,6 +290,8 @@ def mask_all_but_correct_references(rec, balance_rep_count=False,
     TODO: Migrate to nems_lbhb and/or make a more generic version
     """
     newrec = rec.copy()
+    if 'mask' in newrec.signals.keys():
+        log.debug('valid bins coming in: %d',np.sum(newrec['mask'].as_continuous()))
 
     newrec = normalize_epoch_lengths(newrec, resp_sig='resp', epoch_regex='^STIM_',
                                      include_incorrect=include_incorrect)
@@ -406,6 +408,47 @@ def mask_keep_passive(rec):
         newrec['stim'] = newrec['stim'].rasterize()
 
     newrec = newrec.and_mask(['PASSIVE_EXPERIMENT'])
+
+    return newrec
+
+
+def mask_late_passives(rec):
+    """
+    Mask out all times aren't in active or first passive
+
+    TODO: Migrate to nems_lbhb and/or make a more generic version
+    """
+
+    newrec = rec.copy()
+
+    resp = newrec['resp']
+    file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
+    passive_indices = resp.get_epoch_indices('PASSIVE_EXPERIMENT')
+
+    if 'mask' in newrec.signals.keys():
+        del newrec.signals['mask']
+
+    pcount = 0
+    for f in file_epochs:
+
+        # test if passive expt
+        f_indices = resp.get_epoch_indices(f)
+        epoch_indices = ep.epoch_intersection(f_indices, passive_indices)
+
+        add_file = True
+        if epoch_indices.size:
+            # this is a passive file
+            pcount += 1
+            if pcount > 1:
+                add_file = False
+
+        if add_file:
+            newrec = newrec.or_mask(f_indices)
+            log.info("Including %s", f)
+        else:
+            log.info("Skipping %s", f)
+
+    log.debug('valid bins after removing late passives: %d',np.sum(newrec['mask'].as_continuous()))
 
     return newrec
 
@@ -594,7 +637,7 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
         newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
         newrec = newrec.and_mask(['REFERENCE'])
 
-    mask=newrec['mask']
+    mask = newrec['mask']
     del newrec.signals['mask']
     mask.epochs = mask.to_epochs()
     mask_bounds = mask.get_epoch_bounds('mask')
@@ -639,7 +682,6 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
                    posmatch[i] = np.diff(x)
            prematch = np.round(prematch, decimals=precision)
            posmatch = np.round(posmatch, decimals=precision)
-           #import pdb;pdb.set_trace()
            dur = np.round(np.diff(ematch, axis=1)-prematch-posmatch, decimals=precision)
 
            # weird hack to deal with CC data dropping post-stimsilence
@@ -648,7 +690,7 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
            else:
                udur = np.sort(np.unique(dur))
            mindur = np.min(udur)
-           dur[dur<mindur]=mindur
+           dur[dur < mindur] = mindur
 
            log.debug('epoch %s: n=%d dur range=%.4f-%.4f', ename,
                     len(ematch), mindur, np.max(dur))
@@ -679,6 +721,9 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
                            (np.round(epochs_new['end'] - e_old[1], precision) == 0)
                    epochs_new.loc[_mask, 'start'] = e_new[1]
                    epochs_new.loc[_mask, 'end'] = e_new[1]
+
+    if 'mask' in rec.signals.keys():
+        newrec.signals['mask'] = rec['mask'].copy()
 
     # save revised epochs back to all signals in the recording
     for k in newrec.signals.keys():
@@ -1281,15 +1326,18 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
 
         for f in file_epochs:
             # test if passive expt
-            f_indices = resp.get_epoch_indices(f)
+            f_indices = resp.get_epoch_indices(f, mask=newrec['mask'])
+
             epoch_indices = ep.epoch_intersection(f_indices, passive_indices)
             added_signal = False
-            if epoch_indices.size:
+            if not f_indices.size:
+                log.info("Skipping file %s because empty after masking", f)
+            elif epoch_indices.size:
                 # this is a passive file
                 name1 = "PASSIVE_{}".format(pcount)
                 pcount += 1
                 if pcount == 1:
-                    acount = 1 # reset acount for actives after first passive
+                    acount = 1  # reset acount for actives after first passive
                 else:
                     # use first passive part A as baseline - don't model
                     if ('each_file' in state_signals):
