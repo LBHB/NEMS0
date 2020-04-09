@@ -290,7 +290,8 @@ def mask_all_but_correct_references(rec, balance_rep_count=False,
     TODO: Migrate to nems_lbhb and/or make a more generic version
     """
     newrec = rec.copy()
-    log.debug('valid bins coming in: %d',np.sum(newrec['mask'].as_continuous()))
+    if 'mask' in newrec.signals.keys():
+        log.debug('valid bins coming in: %d',np.sum(newrec['mask'].as_continuous()))
 
     newrec = normalize_epoch_lengths(newrec, resp_sig='resp', epoch_regex='^STIM_',
                                      include_incorrect=include_incorrect)
