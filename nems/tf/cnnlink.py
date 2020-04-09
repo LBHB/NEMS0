@@ -512,15 +512,6 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
                          true_fn=lambda: stp_op(td, (s[0], s[1], s[2]), ustim, a, ui),
                          false_fn=lambda: td)
 
-            # if tf.math.reduce_any(ui != 0.0):
-            #     for tt in tf.range(1, s[1]):
-            #         new_td = a + td[:, tt - 1, None] * (1.0 - ustim[:, tt - 1, None])
-            #         new_td = tf.where(tf.math.logical_and(ui > 0.0, new_td < 0.0), 0.0, new_td)
-            #         new_td = tf.where(tf.math.logical_and(ui < 0.0, new_td > 5.0), 5.0, new_td)
-            #
-            #         td = tf.concat((td[:, :tt], new_td, tf.zeros((s[0], s[1] - tt - 1))), axis=1)
-            #         td.set_shape(s)
-
             layer['Y'] = tf.where(tf.math.is_nan(X), np.nan, tstim * td)
 
     else:
