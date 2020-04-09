@@ -357,6 +357,11 @@ def init(kw):
         elif op.startswith('tf'):
             tf = True
             max_iter = 10000
+        elif op.startswith('it'):
+            if len(op[2:]) == 0:
+                max_iter = None
+            else:
+                max_iter = int(op[2:])
         elif op=='psth':
             fit_sig = 'psth'
         elif op.startswith('nl'):
@@ -418,11 +423,6 @@ def init(kw):
             sel_options['exclude_idx'].append(int(op[1:]))
 
             # begin TF-specific options
-        elif op.startswith('it'):
-            if len(op[2:]) == 0:
-                max_iter = None
-            else:
-                max_iter = int(op[2:])
         elif op == 'n':
             use_modelspec_init = True
         elif op.startswith('lr'):

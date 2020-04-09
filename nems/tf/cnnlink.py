@@ -384,10 +384,10 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
 
         if phi is not None:
             # reshape the appropriately
-            u = phi['u'].astype('float32').T
-            tau = phi['tau'].astype('float32').T
+            u = np.reshape(phi['u'].astype('float32'), (1,len(phi['u'])))
+            tau = np.reshape(phi['tau'].astype('float32'), (1,len(phi['tau'])))
             if 'x0' in phi:
-                x0 = phi['x0'].astype('float32').T
+                x0 = np.reshape(phi['x0'].astype('float32'), (1,len(phi['x0'])))
             else:
                 x0 = None
 
@@ -407,8 +407,8 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
 
         else:
             # u/tau/x0 values are fixed
-            u = fn_kwargs['u'].astype('float32').T
-            tau = fn_kwargs['tau'].astype('float32').T
+            u = np.reshape(fn_kwargs['u'].astype('float32'), (1,len(fn_kwargs['u'])))
+            tau = np.reshape(fn_kwargs['tau'].astype('float32'), (1,len(fn_kwargs['tau'])))
             # don't need to reshape since we expand dims later
             # u = u.reshape((1, u.shape[0], u.shape[1]))
             # tau = tau.reshape((1, tau.shape[0], tau.shape[1]))
@@ -417,11 +417,11 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
             layer['tau'] = tf.constant(tau)
 
             if 'x0' in fn_kwargs:
-                x0 = fn_kwargs['x0'].astype('float32').T
-                x0 = x0.reshape((1, x0.shape[0], x0.shape[1]))
+                x0 = np.reshape(fn_kwargs['x0'].astype('float32'), (1,1,len(fn_kwargs['x0'])))
             else:
                 x0 = None
 
+        layer['n_kern'] = len(u)
         s = layer['X'].shape
         X = layer['X']
         u = layer['u']
@@ -499,20 +499,45 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
 
             @tf.function
             def stp_op(td, s, ustim, a, ui):
-                for tt in tf.range(1, s[-1]):
-                    new_td = a + td[:, None, tt - 1] * (1.0 - ustim[:, None, tt - 1])
+                for tt in tf.range(1, s[1]):
+                    new_td = a + td[:, (tt - 1):tt, :] * (1.0 - ustim[:, (tt - 1):tt, :])
                     new_td = tf.where(tf.math.logical_and(ui > 0.0, new_td < 0.0), 0.0, new_td)
                     new_td = tf.where(tf.math.logical_and(ui < 0.0, new_td > 5.0), 5.0, new_td)
-
-                    td = tf.concat((td[:, :tt, :], new_td, tf.zeros_like(td)[:, :s[1] - tt - 1]), axis=1)
+                    td = tf.concat((td[:, :tt, :], new_td, td[:, (tt+1):s[1], :]), axis=1)
                     td.set_shape(s)
                 return td
 
-            td = tf.cond(tf.math.reduce_any(ui != 0.0),
-                         true_fn=lambda: stp_op(td, (s[0], s[1], s[2]), ustim, a, ui),
-                         false_fn=lambda: td)
+            log.info('s: %s', s)
+            log.info('td shape %s', td.get_shape())
+            log.info('ustim shape %s', ustim.get_shape())
+            log.info('a shape %s', a.get_shape())
+            log.info('ui shape %s', ui.get_shape())
+
+            td = stp_op(td, (s[0], s[1], s[2]), ustim, a, ui)
+
+            #td = tf.cond(tf.math.reduce_any(ui != 0.0),
+            #             true_fn=lambda: stp_op(td, (s[0], s[1], s[2]), ustim, a, ui),
+            #             false_fn=lambda: td)
 
             layer['Y'] = tf.where(tf.math.is_nan(X), np.nan, tstim * td)
+            #layer['Y'] = tf.where(tf.math.is_nan(X), np.nan, ustim)
+
+            # @tf.function
+            # def stp_op(td, s, ustim, a, ui):
+            #     for tt in tf.range(1, s[-1]):
+            #         new_td = a + td[:, None, tt - 1] * (1.0 - ustim[:, None, tt - 1])
+            #         new_td = tf.where(tf.math.logical_and(ui > 0.0, new_td < 0.0), 0.0, new_td)
+            #         new_td = tf.where(tf.math.logical_and(ui < 0.0, new_td > 5.0), 5.0, new_td)
+            #
+            #         td = tf.concat((td[:, :tt, :], new_td, tf.zeros_like(td)[:, :s[1] - tt - 1]), axis=1)
+            #         td.set_shape(s)
+            #     return td
+            #
+            # td = tf.cond(tf.math.reduce_any(ui != 0.0),
+            #              true_fn=lambda: stp_op(td, (s[0], s[1], s[2]), ustim, a, ui),
+            #              false_fn=lambda: td)
+            #
+            # layer['Y'] = tf.where(tf.math.is_nan(X), np.nan, tstim * td)
 
     else:
         raise ValueError(f'Module "{fn}" not supported for mapping to cnn layer.')
@@ -903,6 +928,7 @@ def fit_tf(modelspec=None, est=None,
         #from nems.modules.weight_channels import gaussian_coefficients
         #log.info(gaussian_coefficients(modelspec.phi[1]['mean'], modelspec.phi[1]['sd'],
         #                      modelspec[1]['fn_kwargs']['n_chan_in']))
+        #raise ValueError('not matched preds')
         import pdb
         pdb.set_trace()
 
