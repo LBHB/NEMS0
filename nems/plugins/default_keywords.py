@@ -516,6 +516,7 @@ def do(kw):
 
     n_channels = n_inputs * n_banks
     cross_channels = False
+    mean_delay = 1
 
     # additional options
     for op in options[2:]:

@@ -978,7 +978,7 @@ class ModelSpec:
             # default integration time is one bin
             layer['time_win_smp'] = 1  # default
 
-            layer = nems.tf.cnnlink.map_layer(layer=layer, prev_layers=layers, fn=fn, idx=idx, modelspec=m,
+            layer = nems.tf.cnnlink.map_layer(layer=layer, prev_layers=layers, idx=idx, modelspec=m,
                                               n_input_feats=n_input_feats, net_seed=net_seed, weight_scale=weight_scale,
                                               use_modelspec_init=use_modelspec_init, fs=fs, distr=distr)
 
@@ -1215,6 +1215,33 @@ def fit_mode_off(modelspec):
             m['norm']['recalc'] = 0
     """
     modelspec.fast_eval_off()
+
+
+def eval_ms_layer(data: np.ndarray,
+                  layer_spec: str
+                  ) -> np.ndarray:
+    """Takes in a numpy array and applies a single ms layer to it.
+
+    :param data: The input data. Shape of (reps, time, channels).
+    :param ms_fn: A layer spec for a single layer of a modelspec.
+
+    :return: The processed data.
+    """
+    ms = nems.initializers.from_keywords(layer_spec)
+
+    sig = nems.signal.RasterizedSignal.from_3darray(
+        fs=100,
+        array=np.swapaxes(data, 1, 2),
+        name='temp',
+        recording='temp',
+        epoch_name='REFERENCE'
+    )
+
+    rec = nems.recording.Recording({'stim': sig})
+    rec = ms.evaluate(rec=rec)
+
+    pred = np.swapaxes(rec['pred'].extract_epoch('REFERENCE'), 1, 2)
+    return pred
 
 
 def evaluate(rec, modelspec, start=None, stop=None):

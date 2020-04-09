@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 modelspecs_dir = nems.get_setting('NEMS_RESULTS_DIR')
 
 
-def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
+def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
               n_input_feats, net_seed, weight_scale, use_modelspec_init: bool,
               fs: int, distr: str='norm') -> dict:
     """Maps a module to a tensorflow layer.
@@ -44,7 +44,6 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
 
     :param layer:
     :param prev_layer:
-    :param fn:
     :param idx:
     :param modelspec:
     :param n_input_feats:
@@ -57,6 +56,7 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
     """
     phi = modelspec.get('phi', None)
     fn_kwargs = modelspec['fn_kwargs']
+    fn = modelspec['fn']
 
     if fn == 'nems.modules.nonlinearity.relu':
         layer['type'] = 'relu'
@@ -88,7 +88,7 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
 
     elif fn == 'nems.modules.nonlinearity.dlog':
         layer['type'] = 'dlog'
-        c = phi['offset'].astype('float32')
+        c = phi['offset'].astype('float32').T
         layer['n_kern'] = c.shape[1]
 
         if use_modelspec_init:
@@ -233,7 +233,7 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
             # insert placeholder dim on axis=1
             X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 1)
             layer['tY'] = tf.nn.depthwise_conv2d(X_pad, layer['W'], strides=[1, 1, 1, 1],
-                                                 padding='VALID', rate=[1, layer['rate']])
+                                                 padding='VALID', dilations=[1, layer['rate']])
             s = tf.shape(layer['tY'])
             layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'],
                                                   [s[0], layer['tY'].shape[2], tf.compat.v1.Dimension(chan_count),
@@ -383,11 +383,11 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
         crosstalk = fn_kwargs['crosstalk']
 
         if phi is not None:
-            # reshape the appropriately
-            u = np.reshape(phi['u'].astype('float32'), (1,len(phi['u'])))
-            tau = np.reshape(phi['tau'].astype('float32'), (1,len(phi['tau'])))
+            # reshape appropriately
+            u = np.reshape(phi['u'].astype('float32'), (1, len(phi['u'])))
+            tau = np.reshape(phi['tau'].astype('float32'), (1, len(phi['tau'])))
             if 'x0' in phi:
-                x0 = np.reshape(phi['x0'].astype('float32'), (1,len(phi['x0'])))
+                x0 = np.reshape(phi['x0'].astype('float32'), (1, len(phi['x0'])))
             else:
                 x0 = None
 
@@ -407,11 +407,8 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
 
         else:
             # u/tau/x0 values are fixed
-            u = np.reshape(fn_kwargs['u'].astype('float32'), (1,len(fn_kwargs['u'])))
-            tau = np.reshape(fn_kwargs['tau'].astype('float32'), (1,len(fn_kwargs['tau'])))
-            # don't need to reshape since we expand dims later
-            # u = u.reshape((1, u.shape[0], u.shape[1]))
-            # tau = tau.reshape((1, tau.shape[0], tau.shape[1]))
+            u = np.reshape(fn_kwargs['u'].astype('float32'), (1, len(fn_kwargs['u'])))
+            tau = np.reshape(fn_kwargs['tau'].astype('float32'), (1, len(fn_kwargs['tau'])))
 
             layer['u'] = tf.constant(u)
             layer['tau'] = tf.constant(tau)
@@ -421,7 +418,7 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
             else:
                 x0 = None
 
-        layer['n_kern'] = len(u)
+        layer['n_kern'] = u.shape[-1]
         s = layer['X'].shape
         X = layer['X']
         u = layer['u']
@@ -540,38 +537,21 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
                     td = tf.concat((td[:, :tt, :], new_td, td[:, (tt+1):s[1], :]), axis=1)
                     td.set_shape(s)
                 return td
-                
+
             td = stp_op(td, (s[0], s[1], s[2]), ustim, a, ui)
 
-            log.info('s: %s', s)
-            log.info('ustim shape %s', ustim.get_shape())
-            log.info('a shape %s', a.get_shape())
-            log.info('ui shape %s', ui.get_shape())
-            log.info('td shape %s', td.get_shape())
-
-            #td = tf.cond(tf.math.reduce_any(ui != 0.0),
-            #             true_fn=lambda: stp_op(td, (s[0], s[1], s[2]), ustim, a, ui),
-            #             false_fn=lambda: td)
+            log.debug('s: %s', s)
+            log.debug('ustim shape %s', ustim.get_shape())
+            log.debug('a shape %s', a.get_shape())
+            log.debug('ui shape %s', ui.get_shape())
+            log.debug('td shape %s', td.get_shape())
 
             layer['Y'] = tf.where(tf.math.is_nan(X), np.nan, tstim * td)
-            log.info('Y shape %s', layer['Y'].get_shape())
+            log.debug('Y shape %s', layer['Y'].get_shape())
 
-            # @tf.function
-            # def stp_op(td, s, ustim, a, ui):
-            #     for tt in tf.range(1, s[-1]):
-            #         new_td = a + td[:, None, tt - 1] * (1.0 - ustim[:, None, tt - 1])
-            #         new_td = tf.where(tf.math.logical_and(ui > 0.0, new_td < 0.0), 0.0, new_td)
-            #         new_td = tf.where(tf.math.logical_and(ui < 0.0, new_td > 5.0), 5.0, new_td)
-            #
-            #         td = tf.concat((td[:, :tt, :], new_td, tf.zeros_like(td)[:, :s[1] - tt - 1]), axis=1)
-            #         td.set_shape(s)
-            #     return td
-            #
             # td = tf.cond(tf.math.reduce_any(ui != 0.0),
             #              true_fn=lambda: stp_op(td, (s[0], s[1], s[2]), ustim, a, ui),
             #              false_fn=lambda: td)
-            #
-            # layer['Y'] = tf.where(tf.math.is_nan(X), np.nan, tstim * td)
 
     else:
         raise ValueError(f'Module "{fn}" not supported for mapping to cnn layer.')
@@ -1041,3 +1021,33 @@ def eval_tf(modelspec, est, log_dir):
     #E = np.nanstd(new_est['pred'].as_continuous()-new_est['pred_nems'].as_continuous())
 
     return new_est
+
+
+def eval_tf_layer(data: np.ndarray,
+                  layer_spec: str
+                  ) -> np.ndarray:
+    """Takes in a numpy array and applies single a tf layer to it.
+
+    :param data: The input data. Shape of (reps, time, channels).
+    :param ms_fn: A layer spec for a single layer of a modelspec.
+
+    :return: The processed data.
+    """
+    rep_dims, tps_per_stim, feat_dims = data.shape
+
+    tf_layers = nems.initializers.from_keywords(layer_spec).modelspec2tf(
+        tps_per_stim=tps_per_stim,
+        feat_dims=feat_dims)
+    net = cnn.Net(
+        data_dims=(rep_dims, tps_per_stim, tf_layers[-1]['n_kern']),
+        n_feats=feat_dims,
+        sr_Hz=100,  # arbitrary, unused
+        layers=tf_layers
+    )
+
+    feed_dict = net.feed_dict(stim=data, indices=np.arange(rep_dims))
+    with net.sess.as_default():
+        pred = net.layers[0]['Y'].eval(feed_dict)
+
+    return pred
+
