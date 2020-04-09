@@ -461,20 +461,20 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
             @tf.function
             def _cumtrapz(x):
                 x = (x[:, :-1] + x[:, 1:]) / 2.0
-                x = tf.pad(x, ((0, 0), (1, 0)))
+                x = tf.pad(x, ((0, 0), (1, 0), (0, 0)))
                 return tf.cumsum(x, axis=1)
 
             x = ui * tstim / fs
 
             if reset_signal is None:
-                reset_times = tf.constant([0, s[1]])
+                # reset_times = tf.constant([0, s[1]])
+                reset_times = tf.pad(tf.range(0, min(60_000, s[1]), 100), [(0, 1)], constant_values=min(60_000, s[1]))
             else:
                 reset_times = tf.where(reset_signal[0, :])[:, 0]
                 reset_times = tf.pad(reset_times, ((0, 1),), constant_values=s[1])
 
             mu = tf.zeros_like(x)
             imu = tf.zeros_like(x)
-
             for j in tf.range(len(reset_times) - 1):
                 si = slice(reset_times[j], reset_times[j + 1])
 
@@ -487,15 +487,49 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
                 imu = tf.concat((imu[:, :si.start], _cumtrapz(new_mu * x[:, si]), imu[:, si.stop:]), axis=1)
                 imu.set_shape(s)
 
-            td = tf.where(tf.logical_and(mu > 0.0, imu > 0.0),
-                          1 - tf.exp(tf.math.log(imu) - tf.math.log(mu)), tf.ones(s))
+            valid = tf.logical_and(mu > 0.0, imu > 0.0)
+            mu = tf.where(valid, mu, 1.0)
+            imu = tf.where(valid, imu, 1.0)
+            td = 1 - tf.exp(tf.math.log(imu) - tf.math.log(mu))
+            td = tf.where(valid, td, 1.0)
 
             layer['Y'] = tf.where(tf.math.is_nan(X), np.nan, tstim * td)
 
         else:
             ustim = 1.0 / taui + ui * tstim
 
-            td = tf.ones_like(tstim)  # initialize dep state vector
+            """
+            tensor = tf.zeros(1, T)
+            indices = tf.range(T)
+            
+            for (start, end) in slices:
+            slice = tf.logical_and(indices > start, indices < end)
+             
+            xi = tf.where(slice, x, 0.0)
+            newval = some_function(xi)
+            
+            tensor = tf.where(slice, newval, tensor)
+            """
+            """
+            @tf.function
+            def stp_op(s, ustim, a, ui):
+                new_td = tf.ones_like(ustim[:, 0:1, :])
+                new_td.set_shape((s[0], 1, s[2]))
+                td_list = [tf.squeeze(new_td)]
+                for tt in range(1, s[1]):
+                    new_td = a + new_td * (1.0 - ustim[:, (tt-1):tt, :])
+                    new_td = tf.where(tf.math.logical_and(ui > 0.0, new_td < 0.0), 0.0, new_td)
+                    new_td = tf.where(tf.math.logical_and(ui < 0.0, new_td > 5.0), 5.0, new_td)
+                    td_list.append(tf.squeeze(new_td))
+                    #td = tf.concat((td[:, :tt, :], new_td, td[:, (tt+1):s[1], :]), axis=1)
+                    td_list[tt].set_shape((s[0], s[2]))
+                td = tf.stack(td_list, axis=1)
+                return td
+            td = stp_op((s[0], s[1], s[2]), ustim, a, ui)
+
+            """
+            # initialize dep state vector
+            td = tf.ones_like(tstim)
 
             @tf.function
             def stp_op(td, s, ustim, a, ui):
@@ -506,21 +540,21 @@ def map_layer(layer: dict, prev_layers: list, fn: str, idx: int, modelspec,
                     td = tf.concat((td[:, :tt, :], new_td, td[:, (tt+1):s[1], :]), axis=1)
                     td.set_shape(s)
                 return td
+                
+            td = stp_op(td, (s[0], s[1], s[2]), ustim, a, ui)
 
             log.info('s: %s', s)
-            log.info('td shape %s', td.get_shape())
             log.info('ustim shape %s', ustim.get_shape())
             log.info('a shape %s', a.get_shape())
             log.info('ui shape %s', ui.get_shape())
-
-            td = stp_op(td, (s[0], s[1], s[2]), ustim, a, ui)
+            log.info('td shape %s', td.get_shape())
 
             #td = tf.cond(tf.math.reduce_any(ui != 0.0),
             #             true_fn=lambda: stp_op(td, (s[0], s[1], s[2]), ustim, a, ui),
             #             false_fn=lambda: td)
 
             layer['Y'] = tf.where(tf.math.is_nan(X), np.nan, tstim * td)
-            #layer['Y'] = tf.where(tf.math.is_nan(X), np.nan, ustim)
+            log.info('Y shape %s', layer['Y'].get_shape())
 
             # @tf.function
             # def stp_op(td, s, ustim, a, ui):
