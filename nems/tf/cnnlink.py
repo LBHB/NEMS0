@@ -379,8 +379,12 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
     elif fn == 'nems.modules.stp.short_term_plasticity':
         # Credit Menoua Keshisian for some stp code.
         quick_eval = fn_kwargs['quick_eval']
-        reset_signal = fn_kwargs['reset_signal']
         crosstalk = fn_kwargs['crosstalk']
+        #reset_signal = fn_kwargs['reset_signal']
+        reset_signal = None
+        chunksize = 5
+        _zero = tf.constant(0.0, dtype='float64')
+        _nan = tf.constant(np.nan, dtype='float64')
 
         if phi is not None:
             # reshape appropriately
@@ -392,15 +396,17 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
                 x0 = None
 
             if use_modelspec_init:
-                layer['u'] = tf.Variable(u)
-                layer['tau'] = tf.Variable(tau)
+                layer['u'] = tf.Variable(u, constraint=lambda u: tf.abs(u))
+                layer['tau'] = tf.Variable(tau, constraint=lambda tau: tf.maximum(tf.abs(tau), 2.001/fs))
                 if x0 is not None:
                     layer['x0'] = tf.Variable(x0)
             else:
-                layer['u'] = tf.Variable(tf.random.normal(u.shape, stddev=weight_scale,
-                                                          seed=cnn.seed_to_randint(net_seed + idx)))
-                layer['tau'] = tf.Variable(tf.random.normal(u.shape, stddev=weight_scale,
-                                                            seed=cnn.seed_to_randint(net_seed + 20 + idx)))
+                layer['u'] = tf.Variable(tf.abs(tf.random.normal(u.shape, stddev=weight_scale,
+                                                          seed=cnn.seed_to_randint(net_seed + idx))),
+                                         constraint=lambda u: tf.abs(u))
+                layer['tau'] = tf.Variable(tf.abs(tf.random.normal(u.shape, stddev=weight_scale,
+                                                            seed=cnn.seed_to_randint(net_seed + 20 + idx)))+5.0/fs,
+                                           constraint=lambda tau: tf.maximum(tf.abs(tau), 2.001/fs))
                 if x0 is not None:
                     layer['x0'] = tf.Variable(tf.random.normal(u.shape, stddev=weight_scale,
                                                                seed=cnn.seed_to_randint(net_seed + 30 + idx)))
@@ -420,15 +426,16 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
 
         layer['n_kern'] = u.shape[-1]
         s = layer['X'].shape
-        X = layer['X']
-        u = layer['u']
-        tau = layer['tau']
-        tstim = tf.where(tf.math.is_nan(X), 0.0, X)
+        #X = layer['X']
+        X = tf.cast(layer['X'], 'float64')
+        u = tf.cast(layer['u'], 'float64')
+        tau = tf.cast(layer['tau'], 'float64')
+        tstim = tf.where(tf.math.is_nan(X), _zero, X)
         if x0 is not None:  # x0 should be tf variable to avoid retraces
             # TODO: is this expanding along the right dim? tstim dims: (None, time, chans)
             tstim = tstim - tf.expand_dims(x0, axis=1)
 
-        tstim = tf.where(tstim < 0.0, 0.0, tstim)
+        tstim = tf.where(tstim < 0.0, _zero, tstim)
 
         # for quick eval, assume input range is approx -1 to +1
         if quick_eval:
@@ -436,13 +443,23 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
         else:
             ui = u
 
-        # convert tau units from sec to bins
-        taui = tf.math.abs(tau) * fs
-        taui = tf.where(taui < 2.0, 2.0, taui)
+        # ui[ui > 1] = 1
+        # ui[ui < -0.4] = -0.4
+
+        taui = tf.math.abs(tau)
+        # taui = tf.where(taui < 2.0/fs, 2.0/fs, taui) # Avoid hard thresholds, non differentiable, set update constraint on variable
 
         # avoid ringing if combination of strong depression and rapid recovery is too large
-        rat = ui**2 / taui
-        ui = tf.where(rat > 0.1, tf.math.sqrt(0.1 * taui), ui)
+        #rat = ui ** 2 / taui
+        # ui = tf.where(rat > 0.1, tf.math.sqrt(0.1 * taui), ui)
+        # taui = tf.where(rat > 0.08, ui**2 / 0.08, taui)
+
+        # convert a & tau units from sec to bins
+        taui = taui * fs
+        ui = ui / fs
+
+        # convert chunksize from sec to bins
+        chunksize = int(chunksize * fs)
 
         if crosstalk:
             # assumes dim of u is 1 !
@@ -451,49 +468,49 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
         ui = tf.expand_dims(ui, axis=0)
         taui = tf.expand_dims(taui, axis=0)
 
-        a = 1.0 / taui
-
-        if quick_eval and reset_signal is not None:
+        if quick_eval:
 
             @tf.function
-            def _cumtrapz(x):
+            def _cumtrapz(x, dx=1., initial=0.):
                 x = (x[:, :-1] + x[:, 1:]) / 2.0
-                x = tf.pad(x, ((0, 0), (1, 0), (0, 0)))
-                return tf.cumsum(x, axis=1)
+                x = tf.pad(x, ((0, 0), (1, 0), (0, 0)), constant_values=initial)
+                return tf.cumsum(x, axis=1) * dx
 
-            x = ui * tstim / fs
+            a = 1.0 / taui
+            x = ui * tstim
 
             if reset_signal is None:
-                # reset_times = tf.constant([0, s[1]])
-                reset_times = tf.pad(tf.range(0, min(60_000, s[1]), 100), [(0, 1)], constant_values=min(60_000, s[1]))
+                reset_times = tf.range(0, s[1]+chunksize-1, chunksize)
             else:
                 reset_times = tf.where(reset_signal[0, :])[:, 0]
                 reset_times = tf.pad(reset_times, ((0, 1),), constant_values=s[1])
 
-            mu = tf.zeros_like(x)
-            imu = tf.zeros_like(x)
-            for j in tf.range(len(reset_times) - 1):
-                si = slice(reset_times[j], reset_times[j + 1])
+            td = []
+            x0, imu0 = 0.0, 0.0
+            for j in range(reset_times.shape[0]-1):
+                xi = x[:, reset_times[j]:reset_times[j+1], :]
+                ix = _cumtrapz(a + xi, dx=1, initial=0) + a + (x0 + xi[:, :1])/2.0
 
-                ix = _cumtrapz(a + x[:, si])
-                new_mu = tf.exp(ix)
+                mu = tf.exp(ix)
+                imu = _cumtrapz(mu*xi, dx=1, initial=0) + (x0 + mu[:, :1]*xi[:, :1])/2.0 + imu0
 
-                mu = tf.concat((mu[:, :si.start], new_mu, mu[:, si.stop:]), axis=1)
-                mu.set_shape(s)
+                valid = tf.logical_and(mu > 0.0, imu > 0.0)
+                mu = tf.where(valid, mu, 1.0)
+                imu = tf.where(valid, imu, 1.0)
+                _td = 1 - tf.exp(tf.math.log(imu) - tf.math.log(mu))
+                _td = tf.where(valid, _td, 1.0)
 
-                imu = tf.concat((imu[:, :si.start], _cumtrapz(new_mu * x[:, si]), imu[:, si.stop:]), axis=1)
-                imu.set_shape(s)
+                x0 = xi[:, -1:]
+                imu0 = imu[:, -1:] / mu[:, -1:]
+                td.append(_td)
+            td = tf.concat(td, axis=1)
 
-            valid = tf.logical_and(mu > 0.0, imu > 0.0)
-            mu = tf.where(valid, mu, 1.0)
-            imu = tf.where(valid, imu, 1.0)
-            td = 1 - tf.exp(tf.math.log(imu) - tf.math.log(mu))
-            td = tf.where(valid, td, 1.0)
-
-            layer['Y'] = tf.where(tf.math.is_nan(X), np.nan, tstim * td)
+            layer['Y'] = tf.where(tf.math.is_nan(X), _nan, tstim * td)
+            layer['Y'] = tf.cast(layer['Y'], 'float32')
 
         else:
             ustim = 1.0 / taui + ui * tstim
+            a = 1.0 / taui
 
             """
             tensor = tf.zeros(1, T)
@@ -525,18 +542,17 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
             td = stp_op((s[0], s[1], s[2]), ustim, a, ui)
 
             """
-            # initialize dep state vector
-            td = tf.ones_like(tstim)
 
             @tf.function
             def stp_op(td, s, ustim, a, ui):
+                td = []
                 for tt in tf.range(1, s[1]):
-                    new_td = a + td[:, (tt - 1):tt, :] * (1.0 - ustim[:, (tt - 1):tt, :])
-                    new_td = tf.where(tf.math.logical_and(ui > 0.0, new_td < 0.0), 0.0, new_td)
-                    new_td = tf.where(tf.math.logical_and(ui < 0.0, new_td > 5.0), 5.0, new_td)
-                    td = tf.concat((td[:, :tt, :], new_td, td[:, (tt+1):s[1], :]), axis=1)
-                    td.set_shape(s)
-                return td
+                    _td = a + td[:, (tt - 1):tt, :] * (1.0 - ustim[:, (tt - 1):tt, :])
+                    _td = tf.where(tf.math.logical_and(ui > 0.0, _td < 0.0), 0.0, _td)
+                    _td = tf.where(tf.math.logical_and(ui < 0.0, _td > 5.0), 5.0, _td)
+                    #td = tf.concat((td[:, :tt, :], new_td, td[:, (tt+1):s[1], :]), axis=1)
+                    td.append(_td)
+                return tf.concat(td, axis=1)
 
             td = stp_op(td, (s[0], s[1], s[2]), ustim, a, ui)
 
@@ -547,6 +563,7 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
             log.debug('td shape %s', td.get_shape())
 
             layer['Y'] = tf.where(tf.math.is_nan(X), np.nan, tstim * td)
+            layer['Y'] = tf.cast(layer['Y'], 'float32')
             log.debug('Y shape %s', layer['Y'].get_shape())
 
             # td = tf.cond(tf.math.reduce_any(ui != 0.0),
