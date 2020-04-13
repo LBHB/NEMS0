@@ -19,7 +19,6 @@ import nems.tf.cnn as cnn
 import nems.utils
 from nems.initializers import init_static_nl
 from nems.tf import initializers
-from tensorflow.python.eager.context import eager_mode, graph_mode
 
 log = logging.getLogger(__name__)
 
@@ -57,6 +56,9 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
     phi = modelspec.get('phi', None)
     fn_kwargs = modelspec['fn_kwargs']
     fn = modelspec['fn']
+    # if stategain is first layer, then no previous layers
+    if len(prev_layers) == 0:
+        prev_layers = [layer]
 
     if fn == 'nems.modules.nonlinearity.relu':
         layer['type'] = 'relu'
@@ -371,7 +373,7 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
             layer['g'] = tf.constant(g)
             layer['d'] = tf.constant(d)
 
-        layer['n_kern'] = g.shape[2]
+        layer['n_kern'] = g.shape[1]
         layer['Sg'] = tf.nn.conv1d(prev_layers[0]['S'], layer['g'], stride=1, padding='SAME')
         layer['Sd'] = tf.nn.conv1d(prev_layers[0]['S'], layer['d'], stride=1, padding='SAME')
         layer['Y'] = layer['X'] * layer['Sg'] + layer['Sd']
@@ -1047,20 +1049,27 @@ def eval_tf(modelspec, est, log_dir):
 
 
 def eval_tf_layer(data: np.ndarray,
-                  layer_spec: str
+                  layer_spec: str,
+                  state_data: np.ndarray = None,
                   ) -> np.ndarray:
     """Takes in a numpy array and applies single a tf layer to it.
 
     :param data: The input data. Shape of (reps, time, channels).
-    :param ms_fn: A layer spec for a single layer of a modelspec.
+    :param layer_spec: A layer spec for a single layer of a modelspec.
+    :param state_data: State gain data, optional. Same shape as data.
 
     :return: The processed data.
     """
     rep_dims, tps_per_stim, feat_dims = data.shape
+    if state_data is not None:
+        state_dims = state_data.shape[-1]
+    else:
+        state_dims = 0
 
     tf_layers = nems.initializers.from_keywords(layer_spec).modelspec2tf(
         tps_per_stim=tps_per_stim,
-        feat_dims=feat_dims)
+        feat_dims=feat_dims,
+        state_dims=state_dims)
     net = cnn.Net(
         data_dims=(rep_dims, tps_per_stim, tf_layers[-1]['n_kern']),
         n_feats=feat_dims,
@@ -1068,7 +1077,7 @@ def eval_tf_layer(data: np.ndarray,
         layers=tf_layers
     )
 
-    feed_dict = net.feed_dict(stim=data, indices=np.arange(rep_dims))
+    feed_dict = net.feed_dict(stim=data, state=state_data, indices=np.arange(rep_dims))
     with net.sess.as_default():
         pred = net.layers[0]['Y'].eval(feed_dict)
 

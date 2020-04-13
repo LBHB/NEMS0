@@ -532,8 +532,9 @@ def do(kw):
         'sd': np.full((n_channels, 1), 0.2)
     }
     g0 = np.array([[0.5, -0.25, 0.5, -0.25, 0.5, -0.25, 0.5, -0.25]]).T
+    g0 = np.tile(g0, (int(np.ceil(n_channels / len(g0))), 1))[:n_channels, :]
     p_gains = {
-            'mean': np.tile(g0[:n_inputs, :], (n_banks, 1)),
+            'mean': np.tile(g0[:n_inputs, :], (n_banks, 1)),  # TODO: tile
             'sd': np.ones((n_channels, 1))*.4,
     }
     p_delays = {

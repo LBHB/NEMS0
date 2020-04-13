@@ -996,7 +996,7 @@ class RasterizedSignal(SignalBase):
         if safety_checks and self.ntimes < self.nchans:
             m = 'Incorrect matrix dimensions?: (C, T) is {}. ' \
                 'We expect a long time series, but T < C'
-            warnings.warn(m.format((C, T)))
+            warnings.warn(m.format((self.nchans, self.ntimes)))
 
         if safety_checks:
             self._run_safety_checks()
