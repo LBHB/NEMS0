@@ -45,7 +45,7 @@ def short_term_plasticity2(rec, i, o, u, u2, tau, tau2, urat=0.5, x0=None, cross
 
 
 def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None, quick_eval=False, dep_only=False,
-         chunksize=100):
+         chunksize=5):
     """
     STP core function
     """
