@@ -832,7 +832,7 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_',
                                               mask=newrec['mask'])
     else:
         folded_matrices = resp.extract_epochs(epochs_to_extract)
-    log.info('generating PSTHs for epochs: %s', folded_matrices.keys())
+    log.info('generating PSTHs for %d epochs', len(folded_matrices.keys()))
 
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()

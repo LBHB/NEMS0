@@ -554,7 +554,7 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
                     td.append(_td)
                 return tf.concat(td, axis=1)
 
-            td = stp_op(td, (s[0], s[1], s[2]), ustim, a, ui)
+            td = stp_op([], (s[0], s[1], s[2]), ustim, a, ui)
 
             log.debug('s: %s', s)
             log.debug('ustim shape %s', ustim.get_shape())
@@ -983,8 +983,9 @@ def eval_tf(modelspec, est, log_dir):
     :param est:
     :return:
     """
-
+    log.info('starting eval_tf. evaluate nems model')
     new_est = modelspec.evaluate(est)
+    log.info('saving nems pred')
     new_est['pred_nems'] = new_est['pred'].copy()
     
     # extract stim. does it need to be reshaped to be multiple batches? probably not.
@@ -999,6 +1000,7 @@ def eval_tf(modelspec, est, log_dir):
     data_dims = [n_stim, n_tps_per_stim, n_resp]
 
     # extract stimulus matrix
+    log.info('generating TF input matrix')
     F = np.reshape(new_est['stim'].as_continuous().copy().T, feat_dims)
     #D = np.reshape(new_est['resp'].as_continuous().copy().T, data_dims)
 
@@ -1017,7 +1019,7 @@ def eval_tf(modelspec, est, log_dir):
 
     tf.compat.v1.reset_default_graph()
 
-    # initialize tf and evaluate -- VALIDAT THAT NEMS and TF match
+    # initialize tf and evaluate -- VALIDATE THAT NEMS and TF match
     layers = modelspec.modelspec2tf(tps_per_stim=n_tps_per_stim, feat_dims=n_feats,
                           data_dims=n_resp, state_dims=n_states, fs=fs,
                           use_modelspec_init=True)
