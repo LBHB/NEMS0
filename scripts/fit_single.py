@@ -69,7 +69,7 @@ if __name__ == '__main__':
     if queueid:
         log.info("Starting QUEUEID={}".format(queueid))
         nd.update_job_start(queueid)
-        log.info("HOSTNAME={}".format(os.environ['HOSTNAME']))
+        log.info("HOSTNAME={}".format(os.environ.get('HOSTNAME','unknown')))
 
     if len(sys.argv) < 4:
         print('syntax: fit_single cellid batch modelname')

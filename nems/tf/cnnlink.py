@@ -383,8 +383,8 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
         #reset_signal = fn_kwargs['reset_signal']
         reset_signal = None
         chunksize = 5
-        _zero = tf.constant(0.0, dtype='float64')
-        _nan = tf.constant(np.nan, dtype='float64')
+        _zero = tf.constant(0.0, dtype='float32')
+        _nan = tf.constant(0.0, dtype='float32')
 
         if phi is not None:
             # reshape appropriately
@@ -427,15 +427,18 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
         layer['n_kern'] = u.shape[-1]
         s = layer['X'].shape
         #X = layer['X']
-        X = tf.cast(layer['X'], 'float64')
-        u = tf.cast(layer['u'], 'float64')
-        tau = tf.cast(layer['tau'], 'float64')
-        tstim = tf.where(tf.math.is_nan(X), _zero, X)
+        tstim = tf.where(tf.math.is_nan(layer['X']), _zero, layer['X'])
         if x0 is not None:  # x0 should be tf variable to avoid retraces
             # TODO: is this expanding along the right dim? tstim dims: (None, time, chans)
             tstim = tstim - tf.expand_dims(x0, axis=1)
 
         tstim = tf.where(tstim < 0.0, _zero, tstim)
+
+        #tstim = tf.cast(tstim, 'float64')
+        #u = tf.cast(layer['u'], 'float64')
+        #tau = tf.cast(layer['tau'], 'float64')
+        u = layer['u']
+        tau = layer['tau']
 
         # for quick eval, assume input range is approx -1 to +1
         if quick_eval:
@@ -476,8 +479,8 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
                 x = tf.pad(x, ((0, 0), (1, 0), (0, 0)), constant_values=initial)
                 return tf.cumsum(x, axis=1) * dx
 
-            a = 1.0 / taui
-            x = ui * tstim
+            a = tf.cast(1.0 / taui, 'float64')
+            x = tf.cast(ui * tstim, 'float64')
 
             if reset_signal is None:
                 reset_times = tf.range(0, s[1]+chunksize-1, chunksize)
@@ -505,8 +508,8 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
                 td.append(_td)
             td = tf.concat(td, axis=1)
 
-            layer['Y'] = tf.where(tf.math.is_nan(X), _nan, tstim * td)
-            layer['Y'] = tf.cast(layer['Y'], 'float32')
+            layer['Y'] = tstim * tf.cast(td, 'float32')
+            layer['Y'] = tf.where(tf.math.is_nan(layer['X']), _nan, layer['Y'])
 
         else:
             ustim = 1.0 / taui + ui * tstim
@@ -562,8 +565,9 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
             log.debug('ui shape %s', ui.get_shape())
             log.debug('td shape %s', td.get_shape())
 
-            layer['Y'] = tf.where(tf.math.is_nan(X), np.nan, tstim * td)
-            layer['Y'] = tf.cast(layer['Y'], 'float32')
+            layer['Y'] = tstim * td
+            layer['Y'] = tf.where(tf.math.is_nan(X), np.nan, layer['Y'])
+
             log.debug('Y shape %s', layer['Y'].get_shape())
 
             # td = tf.cond(tf.math.reduce_any(ui != 0.0),
