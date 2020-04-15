@@ -480,7 +480,7 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
                 return tf.cumsum(x, axis=1) * dx
 
             a = tf.cast(1.0 / taui, 'float64')
-            x = tf.cast(ui * tstim, 'float64')
+            x = ui * tstim
 
             if reset_signal is None:
                 reset_times = tf.range(0, s[1]+chunksize-1, chunksize)
@@ -491,7 +491,7 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
             td = []
             x0, imu0 = 0.0, 0.0
             for j in range(reset_times.shape[0]-1):
-                xi = x[:, reset_times[j]:reset_times[j+1], :]
+                xi = tf.cast(x[:, reset_times[j]:reset_times[j+1], :], 'float64')
                 ix = _cumtrapz(a + xi, dx=1, initial=0) + a + (x0 + xi[:, :1])/2.0
 
                 mu = tf.exp(ix)
@@ -505,10 +505,10 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
 
                 x0 = xi[:, -1:]
                 imu0 = imu[:, -1:] / mu[:, -1:]
-                td.append(_td)
+                td.append(tf.cast(_td, 'float32'))
             td = tf.concat(td, axis=1)
 
-            layer['Y'] = tstim * tf.cast(td, 'float32')
+            layer['Y'] = tstim * td
             layer['Y'] = tf.where(tf.math.is_nan(layer['X']), _nan, layer['Y'])
 
         else:
