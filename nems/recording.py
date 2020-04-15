@@ -1341,7 +1341,7 @@ def load_recording_from_targz_stream(tgz_stream):
 
     return rec
 
-def load_recording(uri, resp_chans=None):
+def load_recording(uri):
     '''
     Loads from a local .tgz file, a local directory, from s3,
     or from an HTTP URL containing a .tgz file. Examples:
@@ -1374,9 +1374,6 @@ def load_recording(uri, resp_chans=None):
     else:
         raise ValueError('Invalid URI: {}'.format(uri))
     rec.uri = uri
-
-    if resp_chans is not None:
-        rec.meta['cells_to_extract'] = resp_chans
 
     return rec
 
