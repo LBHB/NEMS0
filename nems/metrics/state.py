@@ -22,10 +22,10 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
     #c = rec[psth_name].chans[chanidx]
     #full_psth = rec[psth_name].loc[c]
     full_psth = rec[psth_name]
-    folded_psth = full_psth.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True)[:, [chanidx], :] * fs
+    folded_psth = full_psth.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True)[:, [chanidx], :] #* fs
 
     full_var = rec[state_sig].loc[state_chan]
-    folded_var = np.squeeze(full_var.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True)) * fs
+    folded_var = np.squeeze(full_var.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True)) #* fs
 
     # compute the mean state for each occurrence
     g = (np.sum(np.isfinite(folded_var), axis=1) > 0)
@@ -52,7 +52,6 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
         ltidx = np.logical_not(gtidx) & g
 
     # low = response on epochs when state less than mean
-    #import pdb; pdb.set_trace()
     if (np.sum(ltidx) == 0):
         low = np.zeros_like(folded_psth[0, :, :].T) * np.nan
     else:
@@ -109,7 +108,10 @@ def state_mod_index(rec, epoch='REFERENCE', psth_name='pred', divisor=None,
     low = low[kk]
     high = high[kk]
 
-    if divisor is not None:
+    if divisor == 1:
+        mod = np.mean(high - low)
+
+    elif divisor is not None:
         low_denom, high_denom = state_mod_split(rec, epoch=epoch,
                                                 psth_name=divisor,
                                                 state_sig=state_sig,

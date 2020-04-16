@@ -441,7 +441,9 @@ class SignalBase:
             only include epochs (fully?) spanned by the mask==True
         allow_incomplete: {True, False}  (added CRH 2/4/2020)
             if True, allow mask to not perfectly match epoch lb and ub. However, epoch ub and lb must
-            still span the mask.
+            still span the mask. Right now, the mask MUST be identical across repetions of the epoch though!
+            One example use case would be to take out PreStimSilence on each rep of an epoch using a mask.
+            If the mask is variable between repetitions, this will throw an error.
 
             TODO: check how mask interacts with segments. Currently, masking is
             only tested before segmentation (ie, the application of the mask)
@@ -506,10 +508,14 @@ class SignalBase:
                 if e >= n_epochs:
                     break
 
-        indices = np.asarray(indices, dtype='i')
+        indices = np.asarray(indices, dtype='i')    
         if mask is not None:
             # remove instances of the epoch that do not fall in the mask
             m_data = mask.as_continuous()
+
+            # get a "reference epoch mask" for safety checking below
+            standard_mask = m_data[0, indices[0, 0]:indices[0, 1]]
+
             keepidx = []
             for i, (lb, ub) in enumerate(indices):
                 #                samples = ub-lb
@@ -517,13 +523,21 @@ class SignalBase:
                     keepidx.append(i)
             
                 elif (np.sum(m_data[0, lb:ub]) > 0) & allow_incomplete:
+                    
+                    # "safety" checks
+                    if (m_data[0, lb:ub].shape!=standard_mask.shape):
+                        raise ValueError("For allow_incomplete=True, epochs must all be the same size")
+                    if  ~np.all(m_data[0, lb:ub] == standard_mask):
+                        raise ValueError("Mask must be identical on each epoch when using allow_incomplete=True")
+
                     # define new indices
                     idx = np.where(m_data[0, lb:ub])
-                    lb = lb + idx[0][0]
-                    ub = ub - (ub - idx[0][-1])
+                    lb_partial = lb + idx[0][0]
+                    ub_partial = lb + idx[0][-1] + 1
                     # check to make sure all True in this new range (i.e. can't extract non-continuous chunks of an epoch)
-                    if np.all(m_data[0, lb:ub]):
+                    if np.all(m_data[0, lb_partial:ub_partial]):
                         keepidx.append(i)
+                        indices[i, :] = [lb_partial, ub_partial]
 
             if len(keepidx) > 0:
                 keepidx = np.array(keepidx)
@@ -982,7 +996,7 @@ class RasterizedSignal(SignalBase):
         if safety_checks and self.ntimes < self.nchans:
             m = 'Incorrect matrix dimensions?: (C, T) is {}. ' \
                 'We expect a long time series, but T < C'
-            warnings.warn(m.format((C, T)))
+            warnings.warn(m.format((self.nchans, self.ntimes)))
 
         if safety_checks:
             self._run_safety_checks()

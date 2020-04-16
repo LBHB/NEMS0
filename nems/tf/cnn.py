@@ -381,6 +381,7 @@ class Net:
             'gain',
             'f1',
             'delay',
+            'u',
             'tau',
             'base',
             'amplitude',
