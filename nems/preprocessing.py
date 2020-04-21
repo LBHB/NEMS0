@@ -395,7 +395,7 @@ def mask_all_but_correct_references(rec, balance_rep_count=False,
     return newrec
 
 
-def mask_keep_passive(rec):
+def mask_keep_passive(rec, max_passive_blocks=2):
     """
     Mask out all times that don't fall in PASSIVE_EXPERIMENT epochs.
 
@@ -407,7 +407,9 @@ def mask_keep_passive(rec):
     if 'stim' in newrec.signals.keys():
         newrec['stim'] = newrec['stim'].rasterize()
 
-    newrec = newrec.and_mask(['PASSIVE_EXPERIMENT'])
+    passive_epochs = newrec['resp'].get_epoch_indices("PASSIVE_EXPERIMENT")
+    passive_epochs = passive_epochs[:max_passive_blocks]
+    newrec = newrec.and_mask(passive_epochs)
 
     return newrec
 
