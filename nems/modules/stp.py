@@ -137,7 +137,7 @@ def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None, quick_eval=Fa
                 x0 = xi[:, -1:]
                 imu0 = imu[:, -1:] / mu[:, -1:]
 
-            stim_out = tstim * td
+            stim_out = tstim * np.pad(td[:, :-1], ((0,0), (1,0)), 'constant', constant_values=(1, 1))
 
             """
             a = 1 / taui[i]
