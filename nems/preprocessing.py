@@ -711,7 +711,7 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
                remove_post_stim = True
            elif (minpos<np.max(posmatch)):
                log.info('epoch %s pos varies, fixing to %.3f s', ename, minpos)
-               ematch_new[:,1] = ematch_new[:,0]+minpos-posmatch.T
+               ematch_new[:,1] = ematch_new[:,0]+dur.T+minpos
 
            for e_old, e_new in zip(ematch, ematch_new):
                _mask = (np.round(epochs_new['start']-e_old[0], precision)==0) & \
@@ -830,8 +830,8 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_',
         newrec['resp'].epochs = resp.epochs.copy()
 
     if 'mask' in newrec.signals.keys():
-        folded_matrices = resp.extract_epochs(epochs_to_extract,
-                                              mask=newrec['mask'])
+        folded_matrices = resp.extract_epochs(epochs_to_extract, mask=newrec['mask'])
+
     else:
         folded_matrices = resp.extract_epochs(epochs_to_extract)
     log.info('generating PSTHs for %d epochs', len(folded_matrices.keys()))

@@ -1216,15 +1216,17 @@ class RasterizedSignal(SignalBase):
         # print(epoch)
 
         for i, (lb, ub) in enumerate(epoch_indices):
-            if ub>data.shape[-1]:
-                ub=data.shape[-1]
+            if ub > data.shape[-1]:
+                ub = data.shape[-1]
             samples = ub-lb
             #print(samples)
             #print([lb, ub])
             #print(data[..., lb:ub].shape)
             #print(epoch_data[i, ..., :samples].shape)
-            epoch_data[i, ..., :samples] = data[..., lb:ub]
-
+            try:
+                epoch_data[i, ..., :samples] = data[..., lb:ub]
+            except:
+                raise ValueError('Trying to extract invalid range from signal for epoch (out of bounds or negative duration?).')
         return epoch_data
 
     def normalize(self, normalization='minmax'):
