@@ -1,4 +1,4 @@
-def levelshift_old(rec, i, o, level):
+def levelshift(rec, i, o, level):
     '''
     Parameters
     ----------
@@ -13,7 +13,7 @@ import re
 from nems.modules import NemsModule
 from nems.registry import xmodule
 
-class levelshift(NemsModule):
+class levelshift_new(NemsModule):
     """
     Add a constant to a NEMS signal
     """

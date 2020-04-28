@@ -17,7 +17,7 @@ import base64
 from requests.exceptions import ConnectionError
 from nems.distributions.distribution import Distribution
 from nems.modules import NemsModule
-from nems.registry import KeywordRegistry
+#from nems.registry import KeywordRegistry
 
 log = logging.getLogger(__name__)
 
@@ -78,7 +78,8 @@ class NumpyEncoder(jsonlib.JSONEncoder):
                         shape=obj.shape,
                         encoding='list')
 
-        if isinstance(obj, KeywordRegistry):
+        to_json_exists = getattr(obj, "to_json", None)
+        if callable(to_json_exists):
             return obj.to_json()
 
         # Let the base class default method raise the TypeError
@@ -109,9 +110,7 @@ def json_numpy_obj_hook(dct):
                 dct[k] = np.asarray(dct[k])
 
     if '_KWR_ARGS' in dct:
-        return KeywordRegistry.from_json(dct)
-
-    if '_KWR_ARGS' in dct:
+        from nems.registry import KeywordRegistry
         return KeywordRegistry.from_json(dct)
 
     return dct
