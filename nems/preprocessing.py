@@ -395,7 +395,7 @@ def mask_all_but_correct_references(rec, balance_rep_count=False,
     return newrec
 
 
-def mask_keep_passive(rec):
+def mask_keep_passive(rec, max_passive_blocks=2):
     """
     Mask out all times that don't fall in PASSIVE_EXPERIMENT epochs.
 
@@ -407,7 +407,9 @@ def mask_keep_passive(rec):
     if 'stim' in newrec.signals.keys():
         newrec['stim'] = newrec['stim'].rasterize()
 
-    newrec = newrec.and_mask(['PASSIVE_EXPERIMENT'])
+    passive_epochs = newrec['resp'].get_epoch_indices("PASSIVE_EXPERIMENT")
+    passive_epochs = passive_epochs[:max_passive_blocks]
+    newrec = newrec.and_mask(passive_epochs)
 
     return newrec
 
@@ -709,7 +711,7 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
                remove_post_stim = True
            elif (minpos<np.max(posmatch)):
                log.info('epoch %s pos varies, fixing to %.3f s', ename, minpos)
-               ematch_new[:,1] = ematch_new[:,0]+minpos-posmatch.T
+               ematch_new[:,1] = ematch_new[:,0]+dur.T+minpos
 
            for e_old, e_new in zip(ematch, ematch_new):
                _mask = (np.round(epochs_new['start']-e_old[0], precision)==0) & \
@@ -828,11 +830,11 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_',
         newrec['resp'].epochs = resp.epochs.copy()
 
     if 'mask' in newrec.signals.keys():
-        folded_matrices = resp.extract_epochs(epochs_to_extract,
-                                              mask=newrec['mask'])
+        folded_matrices = resp.extract_epochs(epochs_to_extract, mask=newrec['mask'])
+
     else:
         folded_matrices = resp.extract_epochs(epochs_to_extract)
-    log.info('generating PSTHs for epochs: %s', folded_matrices.keys())
+    log.info('generating PSTHs for %d epochs', len(folded_matrices.keys()))
 
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()

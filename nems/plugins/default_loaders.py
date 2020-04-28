@@ -21,8 +21,8 @@ def ld(loadkey, recording_uri=None, cellid=None):
     if recording_uri is not None:
         d['recording_uri_list'] = [recording_uri]
     d['normalize'] = False
-    if cellid is not None:
-        d['cellid'] = cellid
+    #if cellid is not None:
+    #    d['cellid'] = cellid
 
     for op in options:
         if op.startswith('pop'):

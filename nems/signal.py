@@ -996,7 +996,7 @@ class RasterizedSignal(SignalBase):
         if safety_checks and self.ntimes < self.nchans:
             m = 'Incorrect matrix dimensions?: (C, T) is {}. ' \
                 'We expect a long time series, but T < C'
-            warnings.warn(m.format((C, T)))
+            warnings.warn(m.format((self.nchans, self.ntimes)))
 
         if safety_checks:
             self._run_safety_checks()
@@ -1216,15 +1216,17 @@ class RasterizedSignal(SignalBase):
         # print(epoch)
 
         for i, (lb, ub) in enumerate(epoch_indices):
-            if ub>data.shape[-1]:
-                ub=data.shape[-1]
+            if ub > data.shape[-1]:
+                ub = data.shape[-1]
             samples = ub-lb
             #print(samples)
             #print([lb, ub])
             #print(data[..., lb:ub].shape)
             #print(epoch_data[i, ..., :samples].shape)
-            epoch_data[i, ..., :samples] = data[..., lb:ub]
-
+            try:
+                epoch_data[i, ..., :samples] = data[..., lb:ub]
+            except:
+                raise ValueError('Trying to extract invalid range from signal for epoch (out of bounds or negative duration?).')
         return epoch_data
 
     def normalize(self, normalization='minmax'):

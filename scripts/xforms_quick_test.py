@@ -2,7 +2,9 @@ import numpy as np
 import os
 import io
 import logging
-import matplotlib.pyplot as plt
+import matplotlib
+
+matplotlib.use('Qt5Agg')
 
 import nems.modelspec as ms
 import nems.xforms as xforms
@@ -26,7 +28,16 @@ recording_uri = '/Users/svd/python/nems_test/recordings/TAR010c_6ae9286b2aafa709
 # MODEL SPEC
 modelname = 'ld-sev_dlog-wc.18x1.g-fir.1x15-lvl.1-dexp.1_init-basic'
 
+# run and return
 xfspec, ctx = fit_model_xform(cellid, batch, modelname, recording_uri=recording_uri, returnModel=True)
+ex = gui.browse_xform_fit(ctx, xfspec)
+
+# run and save to database
+#saveuri = fit_model_xform(cellid, batch, modelname, recording_uri=recording_uri, saveInDB=True)
 
 
+
+# load previously saved
+#xfspec, ctx = load_model_xform(cellid, batch, modelname)
+#ex = gui.browse_xform_fit(ctx, xfspec)
 

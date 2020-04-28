@@ -166,8 +166,9 @@ def pd_query(sql=None, params=None):
         # print(sql)
         # print(params)
         if params is not None:
+            params = tuple(["'" + p + "'" if type(p) is str else p for p in params])
             sql = sql % params
-        print(sql)
+
         d = pd.read_sql_query(sql=sql, con=engine)
     else:
         d = pd.read_sql_query(sql=sql, con=engine, params=params)

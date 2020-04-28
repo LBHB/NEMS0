@@ -84,7 +84,7 @@ def epoch_union(a, b):
     return merge_epoch(epoch)
 
 
-@check_result
+## SVD commented out: @check_result
 def epoch_difference(a, b):
     '''
     Compute the difference of the epochs. All regions in a which overlap with b
@@ -216,7 +216,7 @@ def epoch_intersection_full(a, b):
     return result
 
 
-@check_result
+## SVD commented out: @check_result
 def epoch_intersection(a, b, precision=6):
     '''
     Compute the intersection of the epochs. Only regions in a which overlap with
