@@ -568,6 +568,12 @@ def generate_stim_from_epochs(rec, new_signal_name='stim',
                 s.chans[0] = "{}{:+d}".format(s.chans[0], epoch2_shift)
             sigs.append(s)
 
+    if 'facemap' in rec.signals.keys():
+        # assume that we want to shift by same number of bins as lick signal
+
+        new_data = np.roll(rec['facemap']._data.copy(), epoch2_shift, axis=1)
+        sigs.append(rec['facemap']._modified_copy(data=new_data))
+
     stim = sigs[0].concatenate_channels(sigs)
     stim.name = new_signal_name
 
