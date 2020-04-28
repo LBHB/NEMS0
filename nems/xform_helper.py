@@ -20,8 +20,8 @@ log = logging.getLogger(__name__)
 
 
 def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
-                         xforms_kwargs={}, xforms_init_context=None,
-                         kw_kwargs={}, autoPred=True, autoStats=True,
+                         xforms_kwargs=None, xforms_init_context=None,
+                         kw_kwargs=None, autoPred=True, autoStats=True,
                          autoPlot=True):
     """
     Generate an xforms spec based on a modelname, which can then be evaluated
@@ -101,8 +101,8 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
             xforms_init_context['recording_uri_list'] = recording_uri
         else:
             xforms_init_context['recording_uri_list'] = [recording_uri]
-    xfspec.append(['nems.xforms.init_context', xforms_init_context])
     xforms_lib.kwargs = xforms_init_context.copy()
+    xfspec.append(['nems.xforms.init_context', xforms_init_context])
 
     # 1) Load the data
     xfspec.extend(_parse_kw_string(load_keywords, xforms_lib))

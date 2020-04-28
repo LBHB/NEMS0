@@ -107,10 +107,14 @@ def evaluate_step(xfa, context={}):
             if k in context_in:
                 m = 'xf arg {} overlaps with context: {}'.format(k, xf)
                 raise ValueError(m)
+
     # Merge args into context, and make a deepcopy so that mutation
-    # inside xforms will not be propogated unless the arg is returned.
-    merged_args = {**xfargs, **context_in}
-    args = copy.deepcopy(merged_args)
+    # inside xforms will not be propagated unless the arg is returned.
+    args = copy.deepcopy(context_in)
+    args.update(**xfargs)
+    #merged_args = {**xfargs, **context_in}
+    #args = copy.deepcopy(merged_args)
+
     # Run the xf
     log.info('Evaluating: {}'.format(xf))
     new_context = fn(**args)
