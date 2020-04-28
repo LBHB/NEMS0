@@ -102,6 +102,7 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
         else:
             xforms_init_context['recording_uri_list'] = [recording_uri]
     xfspec.append(['nems.xforms.init_context', xforms_init_context])
+    xforms_lib.kwargs = xforms_init_context.copy()
 
     # 1) Load the data
     xfspec.extend(_parse_kw_string(load_keywords, xforms_lib))
