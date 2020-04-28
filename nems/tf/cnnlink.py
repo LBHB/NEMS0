@@ -510,7 +510,9 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
                 td.append(tf.cast(_td, 'float32'))
             td = tf.concat(td, axis=1)
 
-            layer['Y'] = tstim * td
+            # shift td forward in time by one to allow STP to kick in after the stimulus changes (??)
+            #layer['Y'] = tstim * td
+            layer['Y'] = tstim * tf.pad(td[:, :-1, :], ((0, 0), (1, 0), (0, 0)), constant_values=1.0)
             layer['Y'] = tf.where(tf.math.is_nan(layer['X']), _nan, layer['Y'])
 
         else:

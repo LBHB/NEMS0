@@ -715,6 +715,12 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
             predrange = 2 / (np.max(pred) - np.min(pred) + 1)
             shift[i, 0] = np.mean(pred)
             kappa[i, 0] = np.log(predrange)
+        elif (nl_mode == 2) & (np.std(pred)==0):
+            log.warning('Init dexp: channel %d prediction has zero std, reverting to nl_mode==1', i)
+            amp[i, 0] = stdr * 3
+            predrange = 2 / (np.max(pred) - np.min(pred) + 1)
+            shift[i, 0] = np.mean(pred)
+            kappa[i, 0] = np.log(predrange)
         elif nl_mode == 2:
             mask = np.zeros_like(pred, dtype=bool)
             pct = 91

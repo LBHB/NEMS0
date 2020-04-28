@@ -299,6 +299,7 @@ keyword_lib.register_module(default_keywords)
 keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
 # TODO scan in plugins dir by default
 
+
 def xform(name=None):
     def decorator(func):
         xforms_lib.register_function(func, name=name)

@@ -759,7 +759,7 @@ def stp(kw):
     t : Threshold inputs to synapse
     q : quick version of STP, fits differently for some reason? so not default
     '''
-    pattern = re.compile(r'^stp\.?(\d{1,})\.?([zbnstxq.\.]*)$')
+    pattern = re.compile(r'^stp\.?(\d{1,})\.?([zbnstxqw.\.]*)$')
     parsed = re.match(pattern, kw)
     try:
         n_synapse = int(parsed.group(1))
@@ -786,6 +786,8 @@ def stp(kw):
             tau_mean = [0.01] * n_synapse
         elif op == 's':
             u_mean = [0.1] * n_synapse
+        elif op == 'w':
+            u_mean = [0.001] * n_synapse
         elif op == 'x':
             crosstalk = 1
 

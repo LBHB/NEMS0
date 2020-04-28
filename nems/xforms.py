@@ -101,10 +101,12 @@ def evaluate_step(xfa, context={}):
     fn = lookup_fn_at(xf)
 
     # Check for collisions; more to avoid confusion than for correctness:
-    for k in xfargs:
-        if k in context_in:
-            m = 'xf arg {} overlaps with context: {}'.format(k, xf)
-            raise ValueError(m)
+    # (except for init_context, which can update)
+    if not 'init_context' in xf:
+        for k in xfargs:
+            if k in context_in:
+                m = 'xf arg {} overlaps with context: {}'.format(k, xf)
+                raise ValueError(m)
     # Merge args into context, and make a deepcopy so that mutation
     # inside xforms will not be propogated unless the arg is returned.
     merged_args = {**xfargs, **context_in}
