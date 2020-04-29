@@ -31,6 +31,8 @@ def avgep(kw):
              {'epoch_regex': epoch_regex}]]
 
 
+#moved to xforms.py
+"""
 def sev(kw):
     ops = kw.split('.')[1:]
     epoch_regex = '^STIM' if not ops else ops[0]
@@ -39,7 +41,7 @@ def sev(kw):
         ['nems.xforms.average_away_stim_occurrences',
          {'epoch_regex': epoch_regex}]]
     return xfspec
-
+"""
 
 def aev(kw):
     xfspec= [['nems.xforms.use_all_data_for_est_and_val',
@@ -54,7 +56,8 @@ def sevst(kw):
                {'epoch_regex': epoch_regex}]]
     return xfspec
 
-
+"""moved to xforms.py"""
+"""
 def tev(kw):
     ops = kw.split('.')[1:]
 
@@ -68,7 +71,7 @@ def tev(kw):
     xfspec = [['nems.xforms.split_at_time', {'valfrac': valfrac}]]
 
     return xfspec
-
+"""
 
 def jk(kw):
     ops = kw.split('.')[1:]

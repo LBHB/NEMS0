@@ -25,7 +25,7 @@ import nems.plots.api as nplt
 import nems.preprocessing as preproc
 import nems.priors as priors
 from nems import get_setting
-from nems.registry import xforms_lib, keyword_lib
+from nems.registry import xforms_lib, keyword_lib, xform, xmodule
 from nems.plugins import (default_keywords, default_loaders, default_fitters,
                           default_initializers)
 from nems.signal import RasterizedSignal
@@ -63,23 +63,6 @@ def defxf(keyword, xformspec):
         raise ValueError("Keyword already defined! Choose another name.")
     xforms[keyword] = xformspec
 
-
-def load_xform(uri):
-    """
-    Loads and returns xform saved as a JSON.
-    """
-    xform = load_resource(uri)
-    return xform
-
-
-def xfspec_shortname(xformspec):
-    """
-    Given an xformspec, makes a shortname for it.
-    """
-    n = len('nems.xforms.')
-    fn_names = [xf[n:] for xf, xfa in xformspec]
-    name = ".".join(fn_names)
-    return name
 
 
 def evaluate_step(xfa, context={}):
@@ -588,11 +571,36 @@ def make_mod_signal(rec, signal='resp'):
 
     return new_rec
 
+@xform()
+def sev(kw):
+    ops = kw.split('.')[1:]
+    epoch_regex = '^STIM' if not ops else ops[0]
+    xfspec = [['nems.xforms.split_by_occurrence_counts',
+               {'epoch_regex': epoch_regex}],
+        ['nems.xforms.average_away_stim_occurrences',
+         {'epoch_regex': epoch_regex}]]
+    return xfspec
 
 def split_by_occurrence_counts(rec, epoch_regex='^STIM_', **context):
     est, val = rec.split_using_epoch_occurrence_counts(epoch_regex=epoch_regex)
 
     return {'est': est, 'val': val}
+
+
+@xform()
+def tev(kw):
+    ops = kw.split('.')[1:]
+
+    valfrac = 0.1
+    for op in ops:
+        if op.startswith("vv"):
+            valfrac=int(op[2:]) / 1000
+        elif op.startswith("v"):
+            valfrac=int(op[1:]) / 100
+
+    xfspec = [['nems.xforms.split_at_time', {'valfrac': valfrac}]]
+
+    return xfspec
 
 
 def split_at_time(rec, valfrac=0.1, **context):
@@ -1223,6 +1231,24 @@ def random_sample_fit(ntimes=10, subset=None, IsReload=False, **context):
 ###############################################################################
 ##################        XFORMS UTILITIES             ########################
 ###############################################################################
+
+
+def load_xform(uri):
+    """
+    Loads and returns xform saved as a JSON.
+    """
+    xform = load_resource(uri)
+    return xform
+
+
+def xfspec_shortname(xformspec):
+    """
+    Given an xformspec, makes a shortname for it.
+    """
+    n = len('nems.xforms.')
+    fn_names = [xf[n:] for xf, xfa in xformspec]
+    name = ".".join(fn_names)
+    return name
 
 
 def tree_path(recording, modelspecs, xfspec):
