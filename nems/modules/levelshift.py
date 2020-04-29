@@ -1,3 +1,9 @@
+import numpy as np
+import re
+
+from nems.modules import NemsModule
+from nems.registry import xmodule
+
 def levelshift(rec, i, o, level):
     '''
     Parameters
@@ -7,12 +13,6 @@ def levelshift(rec, i, o, level):
     fn = lambda x: x + level
     return [rec[i].transform(fn, o)]
 
-import numpy as np
-import re
-
-from nems.modules import NemsModule
-from nems.registry import xmodule
-
 class levelshift_new(NemsModule):
     """
     Add a constant to a NEMS signal
@@ -21,7 +21,7 @@ class levelshift_new(NemsModule):
         """
         set options to defaults if not supplied. pass to super() to add to data_dict
         """
-        options['fn'] = options.get('fn', str(self.__module__) + '.levelshift')
+        options['fn'] = options.get('fn', str(self.__module__) + '.levelshift_new')
         options['fn_kwargs'] = options.get('fn_kwargs', {'i': 'pred', 'o': 'pred'})
         options['plot_fns'] = options.get('plot_fns',
                                              ['nems.plots.api.mod_output',
@@ -31,7 +31,6 @@ class levelshift_new(NemsModule):
         options['prior'] = options.get('prior', {'level': ('Normal', {'mean': np.zeros([1, 1]),
                                            'sd': np.ones([1, 1])})})
         options['bounds'] = options.get('bounds', {})
-        print(options)
         super().__init__(**options)
 
     def description(self):
@@ -66,7 +65,7 @@ class levelshift_new(NemsModule):
                              "lvl.{n_shifts}.\n"
                              "keyword given: %s" % kw)
 
-        return levelshift(prior = {'level': ('Normal', {'mean': np.zeros([n_shifts, 1]),
+        return levelshift_new(prior = {'level': ('Normal', {'mean': np.zeros([n_shifts, 1]),
                                            'sd': np.ones([n_shifts, 1])})})
 
     def eval(self, rec, i, o, level):

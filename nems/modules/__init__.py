@@ -1,8 +1,11 @@
 from os.path import dirname, basename, isfile, join
 import glob
 import importlib
+import logging
 
 from nems.registry import xform, xmodule
+
+log = logging.getLogger(__name__)
 
 class NemsModule(object):
     """
@@ -45,6 +48,8 @@ class NemsModule(object):
         options['prior'] = options.get('prior', {})
         options['bounds'] = options.get('bounds', {})
         options['phi'] = options.get('phi', None)
+
+        log.info(options)
 
         self.data_dict = options.copy()
 

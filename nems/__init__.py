@@ -90,5 +90,5 @@ def get_setting(setting=None):
         pass
     return s
 
-for libname in get_setting('LIB_PLUGINS'):
-   importlib.import_module(libname)
+#for libname in get_setting('LIB_PLUGINS'):
+#   importlib.import_module(libname)

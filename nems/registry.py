@@ -7,7 +7,9 @@ from pathlib import Path
 import sys
 
 from nems import get_setting
-from nems.plugins import (default_keywords, default_loaders, default_fitters,
+#from nems.plugins import (default_keywords, default_loaders, default_fitters,
+#                          default_initializers)
+from nems.plugins import (default_loaders, default_fitters,
                           default_initializers)
 
 log = logging.getLogger(__name__)
@@ -290,14 +292,14 @@ def test_modelspec_kw(kw_string):
 
 # create registries in here so that they can be updated as new modules are imported
 xforms_lib = KeywordRegistry(name="xforms")
-xforms_lib.register_modules([default_loaders, default_fitters,
-                             default_initializers])
-xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
+#xforms_lib.register_modules([default_loaders, default_fitters,
+#                             default_initializers])
+#xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
 
 keyword_lib = KeywordRegistry(name="modules")
-keyword_lib.register_module(default_keywords)
-keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
-# TODO scan in plugins dir by default
+#keyword_lib.register_module(default_keywords)
+#keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
+
 
 
 def xform(name=None):

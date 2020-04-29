@@ -9,6 +9,7 @@ import os
 import copy
 import socket
 import logging
+import importlib
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,7 +25,7 @@ import nems.plots.api as nplt
 import nems.preprocessing as preproc
 import nems.priors as priors
 from nems import get_setting
-from nems.registry import KeywordRegistry
+from nems.registry import xforms_lib, keyword_lib
 from nems.plugins import (default_keywords, default_loaders, default_fitters,
                           default_initializers)
 from nems.signal import RasterizedSignal
@@ -35,8 +36,21 @@ from nems.fitters.api import scipy_minimize
 from nems.recording import load_recording, Recording
 
 log = logging.getLogger(__name__)
-xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
 
+# populate the registry as specified in config settings
+
+# TODO scan in plugins dir by default
+
+for libname in get_setting('LIB_PLUGINS'):
+   importlib.import_module(libname)
+
+# TODO - migrate to import and decorators
+xforms_lib.register_modules([default_loaders, default_fitters, default_initializers])
+xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
+
+
+# DEPRECATED?
+xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
 
 def defxf(keyword, xformspec):
     """
@@ -44,6 +58,7 @@ def defxf(keyword, xformspec):
     A helper function so not every keyword mapping has to be in a single
     file and part of a very large single multiline dict.
     """
+    raise DeprecationWarning('Deprecated?')
     if keyword in xforms:
         raise ValueError("Keyword already defined! Choose another name.")
     xforms[keyword] = xformspec
@@ -102,11 +117,15 @@ def evaluate_step(xfa, context={}):
 
     # Check for collisions; more to avoid confusion than for correctness:
     # (except for init_context, which can update)
-    if not 'init_context' in xf:
-        for k in xfargs:
-            if k in context_in:
-                m = 'xf arg {} overlaps with context: {}'.format(k, xf)
-                raise ValueError(m)
+    #if not 'init_context' in xf:
+    #    for k in xfargs:
+    #        if k in context_in:
+    #            m = 'xf arg {} overlaps with context: {}'.format(k, xf)
+    #            raise ValueError(m)
+    for k in xfargs:
+        if k in context_in:
+            log.info('xf argument %s overlaps with existing context key: %s', k, xf)
+
     # Merge args into context, and make a deepcopy so that mutation
     # inside xforms will not be propogated unless the arg is returned.
     merged_args = {**xfargs, **context_in}
