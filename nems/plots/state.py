@@ -263,7 +263,7 @@ def state_var_psth_from_epoch(rec, epoch="REFERENCE", psth_name='resp', psth_nam
 def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pred',
                         state_sig='state_raw', ax=None,
                         colors=None, channel=None, decimate_by=1,
-                        files_only=False, modelspec=None, **options):
+                        files_only=False, modelspec=None, max_states=100, **options):
 
     # TODO: Does using epochs make sense for these?
     if ax is not None:
@@ -311,7 +311,7 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
         y = np.nanstd(x, axis=axis) / np.sqrt(np.sum(np.isfinite(x), axis=axis))
         return y
 
-    for state_chan in state_chan_list:
+    for state_chan in state_chan_list[:max_states]:
 
         _low, _high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
                                     channel=channel, state_sig=state_sig,
