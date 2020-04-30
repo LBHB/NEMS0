@@ -18,7 +18,8 @@ GENERAL_REQUIRES = ['numpy', 'scipy', 'matplotlib', 'pandas', 'requests',
 EXTRAS_REQUIRES = {
     'docs': ['sphinx', 'sphinx_rtd_theme', 'pygments-enaml'],
     'nwb': ['allensdk'],
-    'tensorflow': ['tensorflow', 'tensorboard', 'tensorflow-probability']
+    'tensorflow': ['tensorflow', 'tensorboard', 'tensorflow-probability'],
+    'tests': ['pytest', 'pytest-benchmark']
 }
 
 setup(

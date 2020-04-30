@@ -1242,6 +1242,7 @@ def fit_mode_off(modelspec):
 
 def eval_ms_layer(data: np.ndarray,
                   layer_spec: typing.Union[None, str] = None,
+                  state_data: np.ndarray = None,
                   stop: typing.Union[None, int] = None,
                   modelspec: ModelSpec = None
                   ) -> np.ndarray:
@@ -1249,6 +1250,7 @@ def eval_ms_layer(data: np.ndarray,
 
     :param data: The input data. Shape of (reps, time, channels).
     :param layer_spec: A layer spec for layers of a modelspec.
+    :param state_data: State gain data, optional. Same shape as data.
     :param stop: What layer to eval to. Non inclusive. If not passed, will evaluate the whole layer spec.
     :param modelspec: Optionally use an existing modelspec. Takes precedence over layer_spec.
 
@@ -1269,8 +1271,19 @@ def eval_ms_layer(data: np.ndarray,
         recording='temp',
         epoch_name='REFERENCE'
     )
+    signal_dict = {'stim': sig}
 
-    rec = nems.recording.Recording({'stim': sig})
+    if state_data is not None:
+        state_sig = nems.signal.RasterizedSignal.from_3darray(
+            fs=100,
+            array=np.swapaxes(data, 1, 2),
+            name='state',
+            recording='temp',
+            epoch_name='REFERENCE'
+        )
+        signal_dict['state'] = state_sig
+
+    rec = nems.recording.Recording(signal_dict)
     rec = ms.evaluate(rec=rec, stop=stop)
 
     pred = np.swapaxes(rec['pred'].extract_epoch('REFERENCE'), 1, 2)
