@@ -280,12 +280,16 @@ def load_model_xform(cellid, batch=271,
 
     d = nd.get_results_file(batch, [modelname], [cellid])
     filepath = d['modelpath'][0]
-    if get_setting('USE_NEMS_BAPHY_API'):
-        prefix = '/auto/data/results' # get_setting('NEMS_RESULTS_DIR')
-        uri = filepath.replace(prefix,
-                               'http://' + get_setting('NEMS_BAPHY_API_HOST') + ":" + str(get_setting('NEMS_BAPHY_API_PORT')))
-    else:
-        uri = filepath.replace('/auto/data/nems_db/results', get_setting('NEMS_RESULTS_DIR'))
+    # TODO add BAPHY_API support . Not implemented on nems_baphy yet?
+    #if get_setting('USE_NEMS_BAPHY_API'):
+    #    prefix = '/auto/data/nems_db' # get_setting('NEMS_RESULTS_DIR')
+    #    uri = filepath.replace(prefix,
+    #                           'http://' + get_setting('NEMS_BAPHY_API_HOST') + ":" + str(get_setting('NEMS_BAPHY_API_PORT')))
+    #else:
+    #    uri = filepath.replace('/auto/data/nems_db/results', get_setting('NEMS_RESULTS_DIR'))
+
+    # hack: hard-coded assumption that server will use this data root
+    uri = filepath.replace('/auto/data/nems_db/results', get_setting('NEMS_RESULTS_DIR'))
     if old:
         raise NotImplementedError("need to use oxf library.")
         xfspec, ctx = oxf.load_analysis(uri, eval_model=eval_model)
