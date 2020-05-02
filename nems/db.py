@@ -978,7 +978,7 @@ def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None):
         sql += " AND Data.label like %s"
         params = params + (label,)
     sql += " ORDER BY Data.filepath"
-    print(sql)
+    #print(sql)
     d = pd.read_sql(sql=sql, con=engine, params=params)
     if label == 'parm':
         d['parm'] = d['filepath']
@@ -1184,17 +1184,16 @@ def export_fits(batch, modelnames=None, cellids=None, dest=None):
         modelpath = row['modelpath']
         subdir = row['cellid'] + '_' + os.path.basename(modelpath)
         outpath = os.path.join(dest, subdir)
-        print('copy {} to {}'.format(modelpath,outpath))
+        log.info('copy {} to {}'.format(modelpath, outpath))
         if not os.path.exists(outpath):
-            shutil.copytree(modelpath,outpath)
+            shutil.copytree(modelpath, outpath)
         else:
-            print('{} already exists, skipping'.format(subdir))
+            log.info('{} already exists, skipping'.format(subdir))
 
     return dest
 
 
-def get_stable_batch_cells(batch=None, cellid=None, rawid=None,
-                             label ='parm'):
+def get_stable_batch_cells(batch=None, cellid=None, rawid=None, label ='parm'):
     '''
     New functionality as of 03/13/2020
         Previous: returned set of cellids that was stable across all files 
@@ -1276,7 +1275,7 @@ def get_wft(cellid=None):
 
     d = pd.read_sql(sql=sql, con=engine, params=params)
     if d.values[0][0] is None:
-        print('no meta_data information for {0}'.format(cellid))
+        log.info('no meta_data information for {0}'.format(cellid))
         return -1
 
     wft = json.loads(d.values[0][0])
