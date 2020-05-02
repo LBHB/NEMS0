@@ -311,7 +311,7 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
         y = np.nanstd(x, axis=axis) / np.sqrt(np.sum(np.isfinite(x), axis=axis))
         return y
 
-    for state_chan in state_chan_list[:max_states]:
+    for state_chan in state_chan_list[:(max_states-1)]:
 
         _low, _high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
                                     channel=channel, state_sig=state_sig,
