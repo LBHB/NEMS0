@@ -42,6 +42,8 @@ class BaseLayer(tf.keras.layers.Layer):
             kwargs['bounds'] = ms_layer['bounds']
         if 'chans' in ms_layer['fn_kwargs']:
             kwargs['units'] = ms_layer['fn_kwargs']['chans']
+        if 'bank_count' in ms_layer['fn_kwargs']:
+            kwargs['banks'] = ms_layer['fn_kwargs']['bank_count']
         if 'crosstalk' in ms_layer['fn_kwargs']:
             kwargs['crosstalk'] = ms_layer['fn_kwargs']['crosstalk']
         if 'reset_signal' in ms_layer['fn_kwargs']:
@@ -383,6 +385,7 @@ class FIR(BaseLayer):
     """Basic weight channels."""
     def __init__(self,
                  units=None,
+                 banks=1,
                  name='fir',
                  initializer=None,
                  seed=0,
@@ -399,27 +402,37 @@ class FIR(BaseLayer):
         else:
             self.units = units
 
+        self.banks = banks
+
         self.initializer = {'coefficients': tf.random_normal_initializer(mean=0, stddev=1, seed=seed)}
         if initializer is not None:
             self.initializer.update(initializer)
 
     def build(self, input_shape):
         self.coefficients = self.add_weight(name='coefficients',
-                                            shape=(input_shape[-1], self.units),
+                                            # shape=(input_shape[-1], self.units),
+                                            shape=(self.banks, input_shape[-1], self.units),
                                             dtype='float32',
                                             initializer=self.initializer['coefficients'],
                                             trainable=True,
                                             )
 
     def call(self, inputs, training=True):
+        # og filter
+        # [filter_width, in_channels, out_channels]
+        # conv2d filter
+        # [1, filter_width, in_channels, out_channels]
+
         # need to pad the front of the inputs
         pad_size = self.units - 1
         padded_input = tf.pad(inputs, [[0, 0], [pad_size, 0], [0, 0]])
         transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
-        return tf.nn.conv1d(padded_input, tf.expand_dims(transposed, -1), stride=1, padding='VALID')
+        # return tf.nn.conv1d(padded_input, tf.expand_dims(transposed, -1), stride=1, padding='VALID')
+        return tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
 
     def weights_to_phi(self):
         layer_values = self.layer_values
+        layer_values['coefficients'] = layer_values['coefficients'].reshape((-1, self.units))
         # don't need to do any reshaping
         log.info(f'Converted {self.name} to modelspec phis.')
         return layer_values

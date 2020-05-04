@@ -331,7 +331,8 @@ def fir(kw):
         template = {
             'fn': 'nems.modules.fir.basic',
             'fn_kwargs': {'i': 'pred', 'o': 'pred', 'non_causal': non_causal,
-                          'cross_channels': cross_channels, 'chans': n_coefs},
+                          'cross_channels': cross_channels, 'chans': n_coefs,
+                          'n_banks': n_banks},
             'tf_layer': 'nems.tf.layers.FIR',
             'plot_fns': ['nems.plots.api.mod_output',
                          'nems.plots.api.spectrogram_output',
@@ -350,6 +351,7 @@ def fir(kw):
             'fn_kwargs': {'i': 'pred', 'o': 'pred', 'non_causal': non_causal,
                           'bank_count': n_banks, 'cross_channels': cross_channels,
                           'chans': n_coefs},
+            'tf_layer': 'nems.tf.layers.FIR',
             'plot_fns': ['nems.plots.api.mod_output',
                          'nems.plots.api.spectrogram_output',
                          'nems.plots.api.strf_heatmap',

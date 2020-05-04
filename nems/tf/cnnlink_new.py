@@ -169,6 +169,7 @@ def fit_tf(
                                                     save_freq=100 * stim_train.shape[0],
                                                     monitor='loss',
                                                     verbose=1)
+    sparse_logger = callbacks.SparseProgbarLogger(n_iters=10)
     nan_terminate = tf.keras.callbacks.TerminateOnNaN()
 
     # freeze layers
@@ -182,10 +183,11 @@ def fit_tf(
         stim_train,
         resp_train,
         # validation_split=0.2,
-        verbose=2,
+        verbose=0,
         epochs=max_iter,
         batch_size=stim_train.shape[0] if batch_size == 0 else batch_size,
         callbacks=[
+            sparse_logger,
             nan_terminate,
             early_stopping,
             checkpoint,

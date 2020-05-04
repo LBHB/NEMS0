@@ -54,6 +54,12 @@ def test_fir(data, kern_size):
     assert compare_ms_tf(layer_spec, data)
 
 
+def test_fir_bank(data, kern_size):
+    in_size = data.shape[-1]
+    layer_spec = f'fir.{in_size}x{kern_size}x3'
+    assert compare_ms_tf(layer_spec, data)
+
+
 def test_do(data, kern_size):
     in_size = data.shape[-1]
     layer_spec = f'do.{in_size}x{kern_size}'
