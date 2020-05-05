@@ -483,7 +483,7 @@ def fir_dexp(rec, i='pred', o='pred', phi=None, n_coefs=10, rate=1):
 
 
 def filter_bank(rec, i='pred', o='pred', non_causal=False, coefficients=[],
-                bank_count=1, rate=1, cross_channels=False):
+                bank_count=1, rate=1, cross_channels=False, **kwargs):
     """
     apply multiple basic fir filters of the same size in parallel, producing
     one output channel per filter.
