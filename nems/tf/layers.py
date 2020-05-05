@@ -10,6 +10,7 @@ class BaseLayer(tf.keras.layers.Layer):
     def __init__(self, *args, **kwargs):
         """Catch args/kwargs that aren't allowed kwargs of keras.layers.Layers"""
         self.fs = kwargs.pop('fs', None)
+        self.ms_name = kwargs.pop('ms_name', None)
 
         super(BaseLayer, self).__init__(*args, **kwargs)
 
@@ -28,7 +29,7 @@ class BaseLayer(tf.keras.layers.Layer):
         log.info(f'Building tf layer for "{ms_layer["fn"]}".')
 
         kwargs = {
-            'name': ms_layer['fn'],
+            'ms_name': ms_layer['fn'],
             'fs': fs,
         }
 
@@ -44,6 +45,8 @@ class BaseLayer(tf.keras.layers.Layer):
             kwargs['units'] = ms_layer['fn_kwargs']['chans']
         if 'bank_count' in ms_layer['fn_kwargs']:
             kwargs['banks'] = ms_layer['fn_kwargs']['bank_count']
+        if 'n_inputs' in ms_layer['fn_kwargs']:
+            kwargs['n_inputs'] = ms_layer['fn_kwargs']['n_inputs']
         if 'crosstalk' in ms_layer['fn_kwargs']:
             kwargs['crosstalk'] = ms_layer['fn_kwargs']['crosstalk']
         if 'reset_signal' in ms_layer['fn_kwargs']:
@@ -74,13 +77,12 @@ class Dlog(BaseLayer):
     """Simple dlog nonlinearity."""
     def __init__(self,
                  units=None,
-                 name='dlog',
                  initializer=None,
                  seed=0,
                  *args,
                  **kwargs,
                  ):
-        super(Dlog, self).__init__(name=name, *args, **kwargs)
+        super(Dlog, self).__init__(*args, **kwargs)
 
         # try to infer the number of units if not specified
         if units is None and initializer is None:
@@ -118,13 +120,12 @@ class Levelshift(BaseLayer):
     """Simple levelshift nonlinearity."""
     def __init__(self,
                  units=None,
-                 name='levelshift',
                  initializer=None,
                  seed=0,
                  *args,
                  **kwargs,
                  ):
-        super(Levelshift, self).__init__(name=name, *args, **kwargs)
+        super(Levelshift, self).__init__(*args, **kwargs)
 
         # try to infer the number of units if not specified
         if units is None and initializer is None:
@@ -159,13 +160,12 @@ class Levelshift(BaseLayer):
 class Relu(BaseLayer):
     """Simple relu nonlinearity."""
     def __init__(self,
-                 name='relu',
                  initializer=None,
                  seed=0,
                  *args,
                  **kwargs,
                  ):
-        super(Relu, self).__init__(name=name, *args, **kwargs)
+        super(Relu, self).__init__(*args, **kwargs)
 
         self.initializer = {'offset': tf.random_normal_initializer(mean=0, stddev=1, seed=seed)}
         if initializer is not None:
@@ -193,13 +193,12 @@ class DoubleExponential(BaseLayer):
     """Basic double exponential nonlinearity."""
     def __init__(self,
                  units=None,
-                 name='dexp',
                  initializer=None,
                  seed=0,
                  *args,
                  **kwargs,
                  ):
-        super(DoubleExponential, self).__init__(name=name, *args, **kwargs)
+        super(DoubleExponential, self).__init__(*args, **kwargs)
 
         # try to infer the number of units if not specified
         if units is None and initializer is None:
@@ -272,13 +271,12 @@ class WeightChannelsBasic(BaseLayer):
     def __init__(self,
                  # kind='basic',
                  units=None,
-                 name='weight_channels_basic',
                  initializer=None,
                  seed=0,
                  *args,
                  **kwargs,
                  ):
-        super(WeightChannelsBasic, self).__init__(name=name, *args, **kwargs)
+        super(WeightChannelsBasic, self).__init__(*args, **kwargs)
 
         # try to infer the number of units if not specified
         if units is None and initializer is None:
@@ -318,13 +316,12 @@ class WeightChannelsGaussian(BaseLayer):
                  # kind='gaussian',
                  bounds,
                  units=None,
-                 name='weight_channels_gaussian',
                  initializer=None,
                  seed=0,
                  *args,
                  **kwargs,
                  ):
-        super(WeightChannelsGaussian, self).__init__(name=name, *args, **kwargs)
+        super(WeightChannelsGaussian, self).__init__(*args, **kwargs)
 
         # try to infer the number of units if not specified
         if units is None and initializer is None:
@@ -383,16 +380,17 @@ class WeightChannelsGaussian(BaseLayer):
 
 class FIR(BaseLayer):
     """Basic weight channels."""
+    # TODO: organize params
     def __init__(self,
                  units=None,
                  banks=1,
-                 name='fir',
+                 n_inputs=1,
                  initializer=None,
                  seed=0,
                  *args,
                  **kwargs,
                  ):
-        super(FIR, self).__init__(name=name, *args, **kwargs)
+        super(FIR, self).__init__(*args, **kwargs)
 
         # try to infer the number of units if not specified
         if units is None and initializer is None:
@@ -403,32 +401,45 @@ class FIR(BaseLayer):
             self.units = units
 
         self.banks = banks
+        self.n_inputs = n_inputs
 
         self.initializer = {'coefficients': tf.random_normal_initializer(mean=0, stddev=1, seed=seed)}
         if initializer is not None:
             self.initializer.update(initializer)
 
     def build(self, input_shape):
+        """Adds some logic to handle depthwise convolution shapes."""
+        if self.banks == 1 or input_shape[-1] != self.banks * self.n_inputs:
+            shape = (self.banks, input_shape[-1], self.units)
+
+        else:
+            shape = (self.banks, self.n_inputs, self.units)
+
         self.coefficients = self.add_weight(name='coefficients',
-                                            # shape=(input_shape[-1], self.units),
-                                            shape=(self.banks, input_shape[-1], self.units),
+                                            shape=shape,
                                             dtype='float32',
                                             initializer=self.initializer['coefficients'],
                                             trainable=True,
                                             )
 
     def call(self, inputs, training=True):
-        # og filter
-        # [filter_width, in_channels, out_channels]
-        # conv2d filter
-        # [1, filter_width, in_channels, out_channels]
+        # if self.banks == 1 or inputs.shape[-1] != self.banks * self.units:
+        return self.fir(inputs, training=training)
 
-        # need to pad the front of the inputs
+        # else:
+        #     return self.depthwise_fir(inputs, training=training)
+
+    def fir(self, inputs, training=True):
+        """Normal call."""
         pad_size = self.units - 1
         padded_input = tf.pad(inputs, [[0, 0], [pad_size, 0], [0, 0]])
         transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
         # return tf.nn.conv1d(padded_input, tf.expand_dims(transposed, -1), stride=1, padding='VALID')
         return tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
+
+    def depthwise_fir(self, inputs, training=True):
+        """Depthwise convolution."""
+        raise NotImplementedError
 
     def weights_to_phi(self):
         layer_values = self.layer_values
@@ -445,13 +456,12 @@ class STPQuick(BaseLayer):
                  crosstalk=False,
                  reset_signal=None,
                  units=None,
-                 name='dexp',
                  initializer=None,
                  seed=0,
                  *args,
                  **kwargs,
                  ):
-        super(STPQuick, self).__init__(name=name, *args, **kwargs)
+        super(STPQuick, self).__init__(*args, **kwargs)
 
         self.crosstalk = crosstalk
         self.reset_signal = reset_signal

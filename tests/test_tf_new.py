@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from nems.modelspec import eval_ms_layer
-from nems.tf.cnnlink import eval_tf_layer
+from nems.tf.cnnlink_new import eval_tf_layer
 
 
 @pytest.fixture()
@@ -60,12 +60,31 @@ def test_fir_bank(data, kern_size):
     assert compare_ms_tf(layer_spec, data)
 
 
+def test_fir_bank2(data, kern_size):
+    in_size = data.shape[-1]
+    layer_spec = f'fir.{in_size}x3x{kern_size}'
+    assert compare_ms_tf(layer_spec, data)
+
+
+def test_fir_bank3(data, kern_size):
+    in_size = data.shape[-1]
+    layer_spec = f'fir.2x3x{in_size // 2}'
+    assert compare_ms_tf(layer_spec, data)
+
+
+def test_fir_bank4(data, kern_size):
+    in_size = data.shape[-1]
+    layer_spec = f'fir.2x4x{in_size // 2}'
+    assert compare_ms_tf(layer_spec, data)
+
+
 def test_fir_bank_single(data, kern_size):
     in_size = data.shape[-1]
     layer_spec = f'fir.1x{kern_size}x{in_size}'
     assert compare_ms_tf(layer_spec, data)
 
 
+@pytest.mark.xfail
 def test_do(data, kern_size):
     in_size = data.shape[-1]
     layer_spec = f'do.{in_size}x{kern_size}'
