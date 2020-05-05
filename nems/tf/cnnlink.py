@@ -277,7 +277,8 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
             # "outer product" convolve each channel with each filter
             # insert placeholder dim on axis=3
             X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 3)
-            layer['tY'] = tf.nn.conv2d(X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID')
+            layer['tY'] = tf.nn.conv2d\
+                (X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID')
             layer['Y'] = tf.reshape(layer['tY'],
                                     [-1, layer['tY'].shape[1], layer['tY'].shape[2] * layer['tY'].shape[3]])
         elif in_chan_count == bank_count * chan_count:
@@ -287,14 +288,15 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
             layer['tY'] = tf.compat.v1.nn.depthwise_conv2d(
                 X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID', rate=[1, layer['rate']])
             s = tf.shape(layer['tY'])
-            layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'], [s[0], layer['tY'].shape[2], tf.compat.v1.Dimension(bank_count),
-                                                                tf.compat.v1.Dimension(chan_count)]), axis=3)
+            layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'],
+                                                  [s[0], layer['tY'].shape[2], tf.compat.v1.Dimension(bank_count),
+                                                  tf.compat.v1.Dimension(chan_count)]), axis=3)
         else:
             # apply each fir bank to same input channels
             # insert placeholder dim on axis=1
             X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 1)
-            layer['tY'] = tf.compat.v1.nn.depthwise_conv2d(X_pad, layer['W'], strides=[1, 1, 1, 1],
-                                                 padding='VALID', rate=[1, layer['rate']])
+            layer['tY'] = tf.compat.v1.nn.depthwise_conv2d(
+                X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID', rate=[1, layer['rate']])
             s = tf.shape(layer['tY'])
             layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'],
                                                   [s[0], layer['tY'].shape[2], tf.compat.v1.Dimension(chan_count),

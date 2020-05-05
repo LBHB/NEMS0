@@ -53,10 +53,10 @@ class ModelBuilder:
         """
         if idx is None:
             self.model_layers.append(layer)
-            log.debug(f'Added "{layer.name}" to end of model.')
+            log.debug(f'Added "{layer.ms_name}" to end of model.')
         else:
             self.model_layers.insert(idx, layer)
-            log.debug(f'Inserted "{layer.name}" to idx "{idx}".')
+            log.debug(f'Inserted "{layer.ms_name}" to idx "{idx}".')
 
     def build_model(self, input_shape):
         """Creates a tf.keras.Model instance. Simple single headed model.

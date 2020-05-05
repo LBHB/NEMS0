@@ -31,18 +31,18 @@ def tf2modelspec(model, modelspec):
     for idx, layer in enumerate(model.layers[1:]):
         ms = modelspec[idx]
 
-        if layer.name != ms['fn']:
+        if layer.ms_name != ms['fn']:
             raise AssertionError('Model layers and modelspec layers do not match up!')
 
         phis = layer.weights_to_phi()
         # check that phis/weights match up in both names and shapes
         if phis.keys() != ms['phi'].keys():
-            raise AssertionError(f'Model layer "{layer.name}" weights and modelspec phis do not have matching names!')
+            raise AssertionError(f'Model layer "{layer.ms_name}" weights and modelspec phis do not have matching names!')
         for model_weights, ms_phis in zip(phis.values(), ms['phi'].values()):
             if model_weights.shape != ms_phis.shape:
-                if layer.name == 'nems.modules.nonlinearity.double_exponential':
+                if layer.ms_name == 'nems.modules.nonlinearity.double_exponential':
                     continue  # dexp has weird weight shapes due to basic init
-                raise AssertionError(f'Model layer "{layer.name}" weights and modelspec phis do not have matching '
+                raise AssertionError(f'Model layer "{layer.ms_name}" weights and modelspec phis do not have matching '
                                      f'shapes!')
 
         ms['phi'] = phis
@@ -168,7 +168,8 @@ def fit_tf(
                                                     save_weights_only=True,
                                                     save_freq=100 * stim_train.shape[0],
                                                     monitor='loss',
-                                                    verbose=1)
+                                                    verbose=0)
+    sparse_logger = callbacks.SparseProgbarLogger(n_iters=10)
     nan_terminate = tf.keras.callbacks.TerminateOnNaN()
 
     # freeze layers
@@ -182,10 +183,11 @@ def fit_tf(
         stim_train,
         resp_train,
         # validation_split=0.2,
-        verbose=2,
+        verbose=0,
         epochs=max_iter,
         batch_size=stim_train.shape[0] if batch_size == 0 else batch_size,
         callbacks=[
+            sparse_logger,
             nan_terminate,
             early_stopping,
             checkpoint,
@@ -257,7 +259,8 @@ def fit_tf_init(
 def eval_tf_layer(data: np.ndarray,
                   layer_spec: typing.Union[None, str] = None,
                   stop: typing.Union[None, int] = None,
-                  modelspec: modelspec.ModelSpec = None
+                  modelspec: modelspec.ModelSpec = None,
+                  **kwargs,  # temporary until state data is implemented
                   ) -> np.ndarray:
     """Takes in a numpy array and applies a single tf layer to it.
 
