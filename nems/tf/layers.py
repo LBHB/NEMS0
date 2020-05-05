@@ -423,23 +423,11 @@ class FIR(BaseLayer):
                                             )
 
     def call(self, inputs, training=True):
-        # if self.banks == 1 or inputs.shape[-1] != self.banks * self.units:
-        return self.fir(inputs, training=training)
-
-        # else:
-        #     return self.depthwise_fir(inputs, training=training)
-
-    def fir(self, inputs, training=True):
         """Normal call."""
         pad_size = self.units - 1
         padded_input = tf.pad(inputs, [[0, 0], [pad_size, 0], [0, 0]])
         transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
-        # return tf.nn.conv1d(padded_input, tf.expand_dims(transposed, -1), stride=1, padding='VALID')
         return tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
-
-    def depthwise_fir(self, inputs, training=True):
-        """Depthwise convolution."""
-        raise NotImplementedError
 
     def weights_to_phi(self):
         layer_values = self.layer_values
