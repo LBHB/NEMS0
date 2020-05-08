@@ -18,13 +18,15 @@ class BaseLayer(tf.keras.layers.Layer):
     def from_ms_layer(cls,
                       ms_layer,
                       use_modelspec_init: bool = True,
-                      fs: int = 100
+                      fs: int = 100,
+                      initializer: str = 'random_normal'
                       ):
         """Parses modelspec layer to generate layer class.
 
         :param ms_layer: A layer of a modelspec.
         :param use_modelspec_init: Whether to use the modelspec's initialization or use a tf builtin.
         :param fs: The sampling rate of the data.
+        :param initializer: What initializer to use. Only used if use_modelspec_init is False.
         """
         log.info(f'Building tf layer for "{ms_layer["fn"]}".')
 
@@ -37,6 +39,10 @@ class BaseLayer(tf.keras.layers.Layer):
             # convert the phis to tf constants
             kwargs['initializer'] = {k: tf.constant_initializer(v)
                                      for k, v in ms_layer['phi'].items()}
+        else:
+            # if want custom inits for each layer, remove this and change the inits in each layer
+            # kwargs['initializer'] = {k: 'truncated_normal' for k in ms_layer['phi'].keys()}
+            kwargs['initializer'] = {k: initializer for k in ms_layer['phi'].keys()}
 
         # TODO: clean this up, maybe separate kwargs/fn_kwargs, or method to split out valid tf kwargs from rest
         if 'bounds' in ms_layer:
@@ -92,7 +98,7 @@ class Dlog(BaseLayer):
         else:
             self.units = units
 
-        self.initializer = {'offset': tf.random_normal_initializer(mean=0, stddev=0.5, seed=seed)}
+        self.initializer = {'offset': tf.random_normal_initializer(seed=seed)}
         if initializer is not None:
             self.initializer.update(initializer)
 
@@ -135,7 +141,7 @@ class Levelshift(BaseLayer):
         else:
             self.units = units
 
-        self.initializer = {'level': tf.random_normal_initializer(mean=0, stddev=1, seed=seed)}
+        self.initializer = {'level': tf.random_normal_initializer(seed=seed)}
         if initializer is not None:
             self.initializer.update(initializer)
 
@@ -167,7 +173,7 @@ class Relu(BaseLayer):
                  ):
         super(Relu, self).__init__(*args, **kwargs)
 
-        self.initializer = {'offset': tf.random_normal_initializer(mean=0, stddev=1, seed=seed)}
+        self.initializer = {'offset': tf.random_normal_initializer(seed=None)}
         if initializer is not None:
             self.initializer.update(initializer)
 
@@ -180,7 +186,7 @@ class Relu(BaseLayer):
                                       )
 
     def call(self, inputs, training=True):
-        return tf.nn.relu(inputs + self.offset)
+        return tf.nn.relu(inputs - self.offset)
 
     def weights_to_phi(self):
         layer_values = self.layer_values
@@ -209,10 +215,10 @@ class DoubleExponential(BaseLayer):
             self.units = units
 
         self.initializer = {
-                'base': tf.random_normal_initializer(mean=0, stddev=1, seed=seed),
-                'amplitude': tf.random_normal_initializer(mean=1, stddev=0.5, seed=seed + 1),
-                'shift': tf.random_normal_initializer(mean=0, stddev=1, seed=seed + 2),
-                'kappa': tf.random_normal_initializer(mean=1, stddev=0.5, seed=seed + 3),
+                'base': tf.random_normal_initializer(seed=seed),
+                'amplitude': tf.random_normal_initializer(seed=seed + 1),
+                'shift': tf.random_normal_initializer(seed=seed + 2),
+                'kappa': tf.random_normal_initializer(seed=seed + 3),
             }
 
         if initializer is not None:
@@ -286,7 +292,7 @@ class WeightChannelsBasic(BaseLayer):
         else:
             self.units = units
 
-        self.initializer = {'coefficients': tf.random_normal_initializer(mean=0.01, stddev=0.2, seed=seed)}
+        self.initializer = {'coefficients': tf.random_normal_initializer(seed=seed)}
         if initializer is not None:
             self.initializer.update(initializer)
 
@@ -332,8 +338,8 @@ class WeightChannelsGaussian(BaseLayer):
             self.units = units
 
         self.initializer = {
-                'mean': tf.random_normal_initializer(mean=0.5, stddev=0.4, seed=seed),
-                'sd': tf.random_normal_initializer(mean=0, stddev=.4, seed=seed + 1),  # this is halfnorm in NEMS
+                'mean': tf.random_normal_initializer(seed=seed),
+                'sd': tf.random_normal_initializer(seed=seed + 1),  # this is halfnorm in NEMS
             }
 
         if initializer is not None:
@@ -403,7 +409,7 @@ class FIR(BaseLayer):
         self.banks = banks
         self.n_inputs = n_inputs
 
-        self.initializer = {'coefficients': tf.random_normal_initializer(mean=0, stddev=1, seed=seed)}
+        self.initializer = {'coefficients': tf.random_normal_initializer(seed=seed)}
         if initializer is not None:
             self.initializer.update(initializer)
 
@@ -423,23 +429,11 @@ class FIR(BaseLayer):
                                             )
 
     def call(self, inputs, training=True):
-        # if self.banks == 1 or inputs.shape[-1] != self.banks * self.units:
-        return self.fir(inputs, training=training)
-
-        # else:
-        #     return self.depthwise_fir(inputs, training=training)
-
-    def fir(self, inputs, training=True):
         """Normal call."""
         pad_size = self.units - 1
         padded_input = tf.pad(inputs, [[0, 0], [pad_size, 0], [0, 0]])
         transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
-        # return tf.nn.conv1d(padded_input, tf.expand_dims(transposed, -1), stride=1, padding='VALID')
         return tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
-
-    def depthwise_fir(self, inputs, training=True):
-        """Depthwise convolution."""
-        raise NotImplementedError
 
     def weights_to_phi(self):
         layer_values = self.layer_values
@@ -475,8 +469,8 @@ class STPQuick(BaseLayer):
             self.units = units
 
         self.initializer = {
-                'u': tf.random_normal_initializer(mean=0.01, stddev=0.05, seed=seed),
-                'tau': tf.random_normal_initializer(mean=0.05, stddev=0.01, seed=seed + 1),
+                'u': tf.random_normal_initializer(seed=seed),
+                'tau': tf.random_normal_initializer(seed=seed + 1),
                 'x0': None
             }
 

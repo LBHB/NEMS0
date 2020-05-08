@@ -156,6 +156,7 @@ def newtf(fitkey):
     learning_rate = 1e-4
     batch_size = None
     # seed = 0
+    initializer = 'random_normal'
 
     rand_count = 0
     pick_best = False
@@ -194,6 +195,16 @@ def newtf(fitkey):
             early_stopping_tolerance = 1 * 10 ** -int(op[2:])
         elif op.startswith('bs'):
             batch_size = int(op[2:])
+        elif op[:1] == 'd':
+            initializer = op[1:]
+            if initializer == 'gu':
+                initializer = 'glorot_uniform'
+            elif initializer == 'heu':
+                initializer = 'he_uniform'
+            elif initializer == 'tn':
+                initializer = 'truncated_normal'
+            elif initializer == 'ln':
+                initializer = 'lecun_normal'
 
     xfspec = []
     if rand_count > 0:
@@ -210,6 +221,7 @@ def newtf(fitkey):
                        'early_stopping_tolerance': early_stopping_tolerance,
                        'learning_rate': learning_rate,
                        'batch_size': batch_size,
+                       'initializer': initializer,
                    }])
 
     if pick_best:

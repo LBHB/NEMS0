@@ -17,7 +17,6 @@ import nems.utils
 log = logging.getLogger(__name__)
 
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-# tf.keras.backend.set_floatx('float64')
 
 
 def tf2modelspec(model, modelspec):
@@ -59,10 +58,10 @@ def compare_ms_tf(ms, model, rec_ms, stim_tf):
     """Compares the evaluation between a modelspec and a keras model.
 
     For the modelspec, uses a recording object. For the tf model, uses the formatted data from fit_tf."""
-    pred_ms = ms.evaluate(rec_ms)['pred']._data.flatten()
-    pred_tf = model.predict(stim_tf).flatten()
+    pred_tf = model.predict(stim_tf)
+    pred_ms = np.swapaxes(ms.evaluate(rec_ms)['pred']._data, 0, 1).reshape(pred_tf.shape)
 
-    return np.nanstd(pred_ms - pred_tf)
+    return np.nanstd(pred_ms.flatten() - pred_tf.flatten())
 
 
 def fit_tf(
@@ -77,6 +76,7 @@ def fit_tf(
         learning_rate: float = 1e-4,
         batch_size: typing.Union[None, int] = None,
         seed: int = 0,
+        initializer: str = 'random_normal',
         filepath: typing.Union[str, Path] = None,
         freeze_layers: typing.Union[None, list] = None,
         **context
@@ -147,7 +147,7 @@ def fit_tf(
 
     # get the layers and build the model
     cost_fn = loss_functions.get_loss_fn(cost_function)
-    model_layers = modelspec.modelspec2tf2(use_modelspec_init=use_modelspec_init, seed=seed, fs=fs)
+    model_layers = modelspec.modelspec2tf2(use_modelspec_init=use_modelspec_init, seed=seed, fs=fs, initializer=initializer)
     model = modelbuilder.ModelBuilder(
         name='Test-model',
         layers=model_layers,
@@ -207,7 +207,10 @@ def fit_tf(
     modelspec = tf2modelspec(model, modelspec)
     # compare the predictions from the model and modelspec
     error = compare_ms_tf(modelspec, model, est, stim_train)
-    log.info(f'Mean difference between NEMS and TF model prediction: {error}')
+    if error > 1e-5:
+        log.warning(f'Mean difference between NEMS and TF model prediction: {error}')
+    else:
+        log.info(f'Mean difference between NEMS and TF model prediction: {error}')
 
     # add in some relevant meta information
     modelspec.meta['n_parms'] = len(modelspec.phi_vector)
@@ -242,18 +245,38 @@ def fit_tf_init(
     ]
 
     frozen_idxes = []
+
     for idx, ms in enumerate(modelspec):
         for layer_to_freeze in layers_to_freeze:
             if layer_to_freeze in ms['fn']:
                 frozen_idxes.append(idx)
                 break  # break out of inner loop
 
-    return fit_tf(
-        modelspec,
-        est,
-        freeze_layers=frozen_idxes,
-        **kwargs,
-    )
+    modelspec = fit_tf(modelspec, est, freeze_layers=frozen_idxes, **kwargs)['modelspec']
+
+    init_static_nl_layers = [
+        'double_exponential',
+        'relu',
+        'logistic_sigmoid',
+        'saturated_rectifier',
+    ]
+
+    init_static_idxes = []
+
+    mlen = len(modelspec)
+    for idx, ms in enumerate(modelspec[-2:], mlen - 2):
+        found = False
+        for init_static_nl_layer in init_static_nl_layers:
+            if init_static_nl_layer in ms:
+                found = True
+                break
+
+        if not found:
+            init_static_idxes.append(idx)
+
+    init_static_idxes = list(range(mlen-2)) + init_static_idxes
+    kwargs['use_modelspec_init'] = True  # don't overwrite the new  phis
+    return fit_tf(modelspec, est, freeze_layers=init_static_idxes, **kwargs)
 
 
 def eval_tf_layer(data: np.ndarray,

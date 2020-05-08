@@ -994,7 +994,7 @@ class ModelSpec:
 
         return layers
 
-    def modelspec2tf2(self, seed=0, use_modelspec_init=True, fs=100):
+    def modelspec2tf2(self, seed=0, use_modelspec_init=True, fs=100, initializer='random_normal'):
         """New version
 
         TODO
@@ -1007,7 +1007,7 @@ class ModelSpec:
             except KeyError:
                 raise NotImplementedError(f'Layer "{m["fn"]}" does not have a tf equivalent.')
 
-            layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, fs=fs)
+            layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, fs=fs, initializer=initializer)
             layers.append(layer)
 
         return layers
