@@ -1,5 +1,6 @@
 """Helpers to build a Tensorflow Keras model from a modelspec."""
 
+import copy
 import logging
 import os
 import typing
@@ -8,11 +9,11 @@ from pathlib import Path
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
-from matplotlib import pyplot as plt
 
-from nems import recording, get_setting, initializers, modelspec
-from nems.tf import callbacks, loss_functions, modelbuilder
 import nems.utils
+from nems import initializers, recording
+from nems import modelspec as mslib
+from nems.tf import callbacks, loss_functions, modelbuilder
 
 log = logging.getLogger(__name__)
 
@@ -176,7 +177,7 @@ def fit_tf(
     if freeze_layers is not None:
         for freeze_index in freeze_layers:
             model.layers[freeze_index + 1].trainable = False
-            log.info(f'Freezing layer "{model.layers[freeze_index + 1].name}".')
+            log.info(f'Freezing layer #{freeze_index}: "{model.layers[freeze_index + 1].name}".')
 
     log.info('Fitting model...')
     history = model.fit(
@@ -234,55 +235,97 @@ def fit_tf_init(
         est: recording.Recording,
         **kwargs
         ) -> dict:
-    """TODO"""
-    layers_to_freeze = [
-        'levelshift',
-        'relu',
-        'stp',
-        'state_dc_gain',
-        'state_gain',
-        'rdt_gain',
-    ]
+    """Inits a model using tf.
 
-    frozen_idxes = []
+    Makes a new model up to the last relu or first levelshift, in the process setting levelshift to the mean of the
+    resp. Excludes in the new model stp, rdt_gain, state_dc_gain, state_gain. Fits this. Then runs init_static_nl ,
+    which looks at the last 2 layers of the original model, and if any of dexp, relu, log_sig, sat_rect are in those
+    last two, only fits the first it encounters (freezes all other layers).
+    """
+    def first_substring_index(strings, substring):
+        try:
+            return next(i for i, string in enumerate(strings) if substring in string)
+        except StopIteration:
+            return None
 
-    for idx, ms in enumerate(modelspec):
-        for layer_to_freeze in layers_to_freeze:
-            if layer_to_freeze in ms['fn']:
-                frozen_idxes.append(idx)
-                break  # break out of inner loop
+    # find the first 'lvl' or last 'relu'
+    ms_modules = [ms['fn'] for ms in modelspec]
+    up_to_idx = first_substring_index(ms_modules, 'levelshift')
+    if up_to_idx is None:
+        up_to_idx = first_substring_index(reversed(ms_modules), 'relu')
+        # because reversed, need to mirror the idx
+        if up_to_idx is not None:
+            up_to_idx = len(modelspec) - 1 - up_to_idx
+        else:
+            up_to_idx = len(modelspec) - 1
 
-    modelspec = fit_tf(modelspec, est, freeze_layers=frozen_idxes, **kwargs)['modelspec']
+    # do the +1 here to avoid adding to None
+    up_to_idx += 1
 
-    init_static_nl_layers = [
-        'double_exponential',
-        'relu',
-        'logistic_sigmoid',
-        'saturated_rectifier',
-    ]
+    # exclude the following from the init
+    exclude = ['stp', 'rdt_gain', 'state_dc_gain', 'state_gain']
+    # more complex version of first_substring_index: checks for not membership in init_static_nl_layers
+    init_idxes = [idx for idx, ms in enumerate(ms_modules[:up_to_idx]) if not any(sub in ms for sub in exclude)]
 
-    init_static_idxes = []
+    # make a temp modelspec
+    temp_ms = mslib.ModelSpec()
+    log.info('Creating temporary model for init with:')
+    for idx in init_idxes:
+        # TODO: handle 'merge_channels'
+        ms = copy.deepcopy(modelspec[idx])
+        log.info(f'{ms["fn"]}')
 
-    mlen = len(modelspec)
-    for idx, ms in enumerate(modelspec[-2:], mlen - 2):
-        found = False
-        for init_static_nl_layer in init_static_nl_layers:
-            if init_static_nl_layer in ms:
-                found = True
-                break
+        # fix levelshift if present (will always be the last module)
+        if idx == init_idxes[-1] and 'levelshift' in ms['fn']:
+            output_name = modelspec.meta.get('output_name', 'resp')
+            try:
+                mean_resp = np.nanmean(est[output_name].as_continuous(), axis=1, keepdims=True)
+            except NotImplementedError:
+                # as_continuous only available for RasterizedSignal
+                mean_resp = np.nanmean(est[output_name].rasterize().as_continuous(), axis=1, keepdims=True)
+            log.info(f'Fixing "{ms["fn"]}" to: {mean_resp.flatten()[0]:.3f}')
+            ms['phi']['level'][:] = mean_resp
 
-        if not found:
-            init_static_idxes.append(idx)
+        temp_ms.append(ms)
 
-    init_static_idxes = list(range(mlen-2)) + init_static_idxes
-    kwargs['use_modelspec_init'] = True  # don't overwrite the new  phis
-    return fit_tf(modelspec, est, freeze_layers=init_static_idxes, **kwargs)
+    temp_ms = fit_tf(temp_ms, est, **kwargs)['modelspec']
+
+    # put back into original modelspec
+    for ms_idx, temp_ms_module in zip(init_idxes, temp_ms):
+        modelspec[ms_idx] = temp_ms_module
+
+    # init the static nl
+    init_static_nl_mapping = {
+        'double_exponential': initializers.init_dexp,
+        'relu': None,
+        'logistic_sigmoid': initializers.init_logsig,
+        'saturated_rectifier': initializers.init_relsat,
+    }
+    # first find the first occurrence of a static nl in last two layers
+    # if present, remove it from the idxes of the modules to freeze, init the nl and fit, and return the modelspec
+    for idx, ms in enumerate(modelspec[-2:], len(modelspec)-2):
+        for init_static_layer, init_fn in init_static_nl_mapping.items():
+            if init_static_layer in ms['fn']:
+                log.info(f'Initializing static nl "{ms["fn"]}" at layer #{idx}')
+                # relu has a custom init
+                if init_static_layer == 'relu':
+                    ms['phi']['offset'][:] = -0.1
+                else:
+                    modelspec = init_fn(est, modelspec)
+
+                static_nl_idx_not = list(set(range(len(modelspec))) - set([idx]))
+                # don't overwrite the phis in the modelspec
+                del kwargs['use_modelspec_init']
+                return fit_tf(modelspec, est, use_modelspec_init=True, freeze_layers=static_nl_idx_not, **kwargs)
+
+    # no static nl to init
+    return {'modelspec': modelspec}
 
 
 def eval_tf_layer(data: np.ndarray,
                   layer_spec: typing.Union[None, str] = None,
                   stop: typing.Union[None, int] = None,
-                  modelspec: modelspec.ModelSpec = None,
+                  modelspec: mslib.ModelSpec = None,
                   **kwargs,  # temporary until state data is implemented
                   ) -> np.ndarray:
     """Takes in a numpy array and applies a single tf layer to it.
