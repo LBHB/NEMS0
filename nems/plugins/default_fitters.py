@@ -192,7 +192,8 @@ def newtf(fitkey):
             else:
                 learning_rate = int(learning_rate)
         elif op.startswith('et'):
-            early_stopping_tolerance = 1 * 10 ** -int(op[2:])
+            exp = op[2:].replace('d', '.')
+            early_stopping_tolerance = 10 ** -float(exp)
         elif op.startswith('bs'):
             batch_size = int(op[2:])
         elif op[:1] == 'd':
