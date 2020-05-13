@@ -60,7 +60,7 @@ def compare_ms_tf(ms, model, rec_ms, stim_tf):
 
     For the modelspec, uses a recording object. For the tf model, uses the formatted data from fit_tf."""
     pred_tf = model.predict(stim_tf)
-    pred_ms = np.swapaxes(ms.evaluate(rec_ms)['pred']._data, 0, 1).reshape(pred_tf.shape)
+    pred_ms = np.swapaxes(ms.evaluate(rec_ms.apply_mask())['pred']._data, 0, 1).reshape(pred_tf.shape)
 
     return np.nanstd(pred_ms.flatten() - pred_tf.flatten())
 
