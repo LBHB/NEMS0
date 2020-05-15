@@ -1,6 +1,7 @@
 """Custom tensorflow training callbacks."""
 import sys
 import time
+from pathlib import Path
 
 import numpy as np
 import tensorflow as tf
@@ -118,3 +119,60 @@ class CleanProgbar(tf.keras.utils.Progbar):
             sys.stdout.flush()
 
         self._last_update = now
+
+
+class GradientLogger(tf.keras.callbacks.Callback):
+    """Logs gradients."""
+    def __init__(self, train_input, filepath, model, **kwargs):
+        super(GradientLogger, self).__init__(**kwargs)
+
+        self.train_input = tf.convert_to_tensor(train_input, dtype=tf.float32)
+
+        # dict of dicts: in order to have lines on the same fig, need a writer for each trace
+        # top level is weight names, nested is flattened idx with value of file writer
+        self.writers = {}
+
+        # pull out the layer names to create all the necessary file writers
+        for layer_num, layer in enumerate(model.layers):
+            for weight in layer.weights:
+                # add in layer num so we can organize the ordering in tensorboard
+                self.writers[weight.name] = {'layer_num': layer_num}
+
+                shape = weight.shape
+                for idx in range(weight.numpy().size):
+                    str_ind = str(np.unravel_index(idx, shape)).replace(', ', '-').strip(')').strip('(')
+                    writer_path = Path(filepath) / weight.name.replace(':', '-') / str_ind
+                    writer = tf.summary.create_file_writer(str(writer_path))#, name=writer_name)
+                    self.writers[weight.name][idx] = writer
+
+    def get_gradients(self):
+        """Creates gradient tape."""
+        with tf.GradientTape() as tape:
+            loss = self.model(self.train_input)
+
+        return tape.gradient(loss, self.model.weights)
+
+    def write_gradient_weight(self, weight, gradient, epoch):
+        """Writes the values of a single gradient."""
+        name = weight.name
+
+        if name not in self.writers:
+            raise KeyError(f'Weight name "{name}" not found in list of writers.')
+
+        tb_name = str(self.writers[name]['layer_num']) + '-' + name.split(':')[0]
+
+        for idx, (gradient_value, weight_value) in enumerate(zip(
+                gradient.numpy().flatten(),
+                weight.numpy().flatten())):
+            writer = self.writers[name][idx]
+
+            with writer.as_default():
+                tf.summary.scalar(tb_name + '/gradient', gradient_value, step=epoch)
+                tf.summary.scalar(tb_name + '/weight', weight_value, step=epoch)
+
+    def on_epoch_end(self, epoch, logs=None):
+        """Writes a histogram for each gradient."""
+        gradients = self.get_gradients()
+
+        for gradient, weight in zip(gradients, self.model.weights):
+            self.write_gradient_weight(weight, gradient, epoch)

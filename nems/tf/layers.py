@@ -345,6 +345,7 @@ class WeightChannelsGaussian(BaseLayer):
         if initializer is not None:
             self.initializer.update(initializer)
 
+        # constraints assumes bounds built with np.full
         self.mean_constraint = tf.keras.constraints.MinMaxNorm(
             min_value=bounds['mean'][0][0],
             max_value=bounds['mean'][1][0])

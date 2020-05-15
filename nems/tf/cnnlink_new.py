@@ -27,7 +27,7 @@ def tf2modelspec(model, modelspec):
     """
     log.info('Populating modelspec with model weights.')
 
-    # first layer is the input shahpe, so skip it
+    # first layer is the input shape, so skip it
     for idx, layer in enumerate(model.layers[1:]):
         ms = modelspec[idx]
 
@@ -35,15 +35,25 @@ def tf2modelspec(model, modelspec):
             raise AssertionError('Model layers and modelspec layers do not match up!')
 
         phis = layer.weights_to_phi()
-        # check that phis/weights match up in both names and shapes
+
+        # check that phis/weights match up in name
         if phis.keys() != ms['phi'].keys():
             raise AssertionError(f'Model layer "{layer.ms_name}" weights and modelspec phis do not have matching names!')
+
+        # check that phis/weights match up in shape
         for model_weights, ms_phis in zip(phis.values(), ms['phi'].values()):
             if model_weights.shape != ms_phis.shape:
                 if layer.ms_name == 'nems.modules.nonlinearity.double_exponential':
                     continue  # dexp has weird weight shapes due to basic init
                 raise AssertionError(f'Model layer "{layer.ms_name}" weights and modelspec phis do not have matching '
                                      f'shapes!')
+
+        # for non trainable layers, check that values didn't change (within tolerance of gpu computation)
+        # TODO: for non trainable layers, should we just not update the modelspec weights?
+        if not layer.trainable:
+            for model_weights, ms_phis in zip(phis.values(), ms['phi'].values()):
+                if not np.allclose(model_weights, ms_phis, rtol=5e-2, atol=5e-2):
+                    raise AssertionError(f'Model layer "{layer.ms_name}" weights changed despite being frozen!')
 
         ms['phi'] = phis
 
@@ -126,7 +136,9 @@ def fit_tf(
     if not filepath.exists():
         filepath.mkdir(exist_ok=True, parents=True)
 
-    filepath = filepath / 'checkpoints'
+    checkpoint_filepath = filepath / 'training'
+    tensorboard_filepath = filepath / 'logs'
+    gradient_filepath = filepath / 'gradients'
 
     # update seed based on fit index
     seed += modelspec.fit_index
@@ -164,7 +176,7 @@ def fit_tf(
                                               min_delta=early_stopping_tolerance,
                                               verbose=1,
                                               restore_best_weights=False)
-    checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath=str(filepath),
+    checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath=str(checkpoint_filepath),
                                                     save_best_only=False,
                                                     save_weights_only=True,
                                                     save_freq=100 * stim_train.shape[0],
@@ -172,6 +184,14 @@ def fit_tf(
                                                     verbose=0)
     sparse_logger = callbacks.SparseProgbarLogger(n_iters=10)
     nan_terminate = tf.keras.callbacks.TerminateOnNaN()
+    tensorboard = tf.keras.callbacks.TensorBoard(log_dir=str(tensorboard_filepath),  # TODO: generic tensorboard dir?
+                                                 histogram_freq=0,  # record the distribution of the weights
+                                                 write_graph=False,
+                                                 update_freq='epoch',
+                                                 profile_batch=0)
+    # gradient_logger = callbacks.GradientLogger(filepath=str(gradient_filepath),
+    #                                            train_input=stim_train,
+    #                                            model=model)
 
     # freeze layers
     if freeze_layers is not None:
@@ -192,7 +212,8 @@ def fit_tf(
             nan_terminate,
             early_stopping,
             checkpoint,
-            # TODO: tensorboard
+            tensorboard,
+            # gradient_logger,
         ]
     )
 
@@ -200,9 +221,11 @@ def fit_tf(
     if np.all(np.isnan(model.predict(stim_train))):
         log.warning('Model terminated on nan, restoring saved weights.')
         try:
-            # this can fail if it nans out before a single checkpoint gets saved
+            # this can fail if it nans out before a single checkpoint gets saved, either because no saved weights
+            # exist, or it tries to load a in different model from the init
             model.load_weights(str(filepath))
-        except tf.errors.NotFoundError:
+            log.warning('Reloaded previous saved weights after nan loss.')
+        except (tf.errors.NotFoundError, ValueError):
             pass
 
     modelspec = tf2modelspec(model, modelspec)
@@ -288,7 +311,9 @@ def fit_tf_init(
 
         temp_ms.append(ms)
 
-    temp_ms = fit_tf(temp_ms, est, **kwargs)['modelspec']
+    log.info('Running first init fit: model up to first lvl/relu without stp/gain.')
+    filepath = Path(modelspec.meta['modelpath']) / 'init_part1'
+    temp_ms = fit_tf(temp_ms, est, filepath=filepath, **kwargs)['modelspec']
 
     # put back into original modelspec
     for ms_idx, temp_ms_module in zip(init_idxes, temp_ms):
@@ -316,7 +341,11 @@ def fit_tf_init(
                 static_nl_idx_not = list(set(range(len(modelspec))) - set([idx]))
                 # don't overwrite the phis in the modelspec
                 del kwargs['use_modelspec_init']
-                return fit_tf(modelspec, est, use_modelspec_init=True, freeze_layers=static_nl_idx_not, **kwargs)
+                log.info('Running second init fit: all frozen but static nl.')
+
+                filepath = Path(modelspec.meta['modelpath']) / 'init_part2'
+                return fit_tf(modelspec, est, use_modelspec_init=True, freeze_layers=static_nl_idx_not,
+                              filepath=filepath, **kwargs)
 
     # no static nl to init
     return {'modelspec': modelspec}
