@@ -444,6 +444,104 @@ class FIR(BaseLayer):
         return layer_values
 
 
+class DampedOscillator(BaseLayer):
+    """Basic weight channels."""
+    # TODO: organize params
+    def __init__(self,
+                 bounds,
+                 units=None,
+                 banks=1,
+                 n_inputs=1,
+                 initializer=None,
+                 seed=0,
+                 *args,
+                 **kwargs,
+                 ):
+        super(FIR, self).__init__(*args, **kwargs)
+
+        # try to infer the number of units if not specified
+        if units is None and initializer is None:
+            self.units = 1
+        elif units is None:
+            self.units = initializer['f1'].value.shape[1]
+        else:
+            self.units = units
+
+        self.banks = banks
+        self.n_inputs = n_inputs
+
+        self.initializer = {
+                'f1': tf.random_normal_initializer(seed=seed),
+                'tau': tf.random_normal_initializer(seed=seed + 1),
+                'delay': tf.random_normal_initializer(seed=seed + 2),
+                'gain': tf.random_normal_initializer(seed=seed + 3),
+            }
+
+        if initializer is not None:
+            self.initializer.update(initializer)
+
+        # constraints assumes bounds build with np.full
+        self.f1_constraint = tf.keras.constraints.MinMaxNorm(
+            min_value=bounds['f1s'][0][0],
+            max_value=bounds['f1s'][1][0])
+        self.tau_constraint = tf.keras.constraints.MinMaxNorm(
+            min_value=bounds['taus'][0][0],
+            max_value=bounds['taus'][1][0])
+        self.delay_constraint = tf.keras.constraints.MinMaxNorm(
+            min_value=bounds['delays'][0][0],
+            max_value=bounds['delays'][1][0])
+        self.gain_constraint = tf.keras.constraints.MinMaxNorm(
+            min_value=bounds['gains'][0][0],
+            max_value=bounds['gains'][1][0])
+
+    def build(self, input_shape):
+        """Adds some logic to handle depthwise convolution shapes."""
+        if self.banks == 1 or input_shape[-1] != self.banks * self.n_inputs:
+            shape = (self.banks, input_shape[-1], self.units)
+
+        else:
+            shape = (self.banks, self.n_inputs, self.units)
+
+        self.f1 = self.add_weight(name='f1',
+                                  shape=shape,
+                                  dtype='float32',
+                                  initializer=self.initializer['f1'],
+                                  trainable=True,
+                                  )
+        self.tau = self.add_weight(name='tau',
+                                   shape=shape,
+                                   dtype='float32',
+                                   initializer=self.initializer['tau'],
+                                   trainable=True,
+                                   )
+        self.delay = self.add_weight(name='delay',
+                                     shape=shape,
+                                     dtype='float32',
+                                     initializer=self.initializer['delay'],
+                                     trainable=True,
+                                     )
+        self.gain = self.add_weight(name='gain',
+                                    shape=shape,
+                                    dtype='float32',
+                                    initializer=self.initializer['gain'],
+                                    trainable=True,
+                                    )
+
+    def call(self, inputs, training=True):
+        """Normal call."""
+        pad_size = self.units - 1
+        padded_input = tf.pad(inputs, [[0, 0], [pad_size, 0], [0, 0]])
+        transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
+        return tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
+
+    def weights_to_phi(self):
+        layer_values = self.layer_values
+        layer_values['coefficients'] = layer_values['coefficients'].reshape((-1, self.units))
+        # don't need to do any reshaping
+        log.info(f'Converted {self.name} to modelspec phis.')
+        return layer_values
+
+
 class STPQuick(BaseLayer):
     """Quick version of STP."""
     def __init__(self,

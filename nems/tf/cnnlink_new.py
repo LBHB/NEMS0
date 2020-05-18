@@ -72,6 +72,34 @@ def compare_ms_tf(ms, model, rec_ms, stim_tf):
     pred_tf = model.predict(stim_tf)
     pred_ms = np.swapaxes(ms.evaluate(rec_ms.apply_mask())['pred']._data, 0, 1).reshape(pred_tf.shape)
 
+    # for idx, layer in enumerate(model.layers[1:]):
+    #     for weight in layer.weights:
+    #         if np.any(np.isnan(weight.numpy())):
+    #             print(idx, layer.name, weight.name)
+
+    allclose = np.allclose(pred_ms, pred_tf, rtol=1e-5, atol=1e-5)
+    # if not allclose and not np.isnan(allclose):
+    #     import matplotlib.pyplot as plt
+    #     d = np.abs(pred_ms - pred_tf)
+    #     ind = np.unravel_index(np.argmax(d, axis=None), d.shape)
+    #     ind = np.s_[ind[0], :, ind[2]]
+    #
+    #     fig, axes = plt.subplots(figsize=(20, 8), nrows=2)
+    #
+    #     upto = 200
+    #
+    #     disp_ms = pred_ms[ind]
+    #     disp_tf = pred_tf[ind]
+    #
+    #     axes[0].plot(disp_ms[:upto], alpha=0.5, label='ms')
+    #     axes[0].plot(disp_tf[:upto], alpha=0.5, label='tf')
+    #     _ = axes[0].legend()
+    #
+    #     diff = (disp_ms - disp_tf)[:upto]
+    #     axes[1].plot(np.abs(diff), label='diff')
+    #     _ = axes[1].legend()
+    #     plt.show()
+
     return np.nanstd(pred_ms.flatten() - pred_tf.flatten())
 
 
@@ -131,6 +159,12 @@ def fit_tf(
                      / modelspec.meta.get('cellid', "NOCELL")\
                      / modelspec.meta['modelname']
        filepath = log_dir_root / log_dir_sub
+
+    #######################
+    if os.environ.get('SYSTEM', None) == 'Alex-PC':
+        filepath = Path(nems.get_setting('NEMS_RESULTS_DIR')) / Path(filepath).relative_to(
+            r'http:\\hyrax.ohsu.edu:3003/results')
+    #######################
 
     filepath = Path(filepath)
     if not filepath.exists():

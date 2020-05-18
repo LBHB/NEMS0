@@ -559,8 +559,8 @@ def do(kw):
     }
     template = {
         'fn': 'nems.modules.fir.damped_oscillator',
-        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs,
-                      'bank_count': n_banks, 'cross_channels': cross_channels},
+        'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs, 'chans': n_coefs,
+                      'bank_count': n_banks, 'cross_channels': cross_channels, 'n_inputs': n_inputs},
         'fn_coefficients': 'nems.modules.fir.do_coefficients',
         'plot_fns': ['nems.plots.api.mod_output',
                      'nems.plots.api.spectrogram_output',
@@ -569,6 +569,7 @@ def do(kw):
                      'nems.plots.api.strf_timeseries',
                      'nems.plots.api.fir_output_all'],
         'plot_fn_idx': 2,
+        'tf_layer': 'nems.tf.layers.DampedOscillator',
         'prior': {
             'f1s': ('HalfNormal', p_f1s),
             'taus': ('HalfNormal', p_taus),
