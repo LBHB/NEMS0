@@ -521,7 +521,7 @@ class STPQuick(BaseLayer):
             tstim = tstim - tf.expand_dims(self.x0, axis=1)
 
         # convert a & tau units from sec to bins
-        ui = tf.math.abs(tf.reshape(self.u, (1, -1))) / self.fs
+        ui = tf.math.abs(tf.reshape(self.u, (1, -1))) / self.fs * 100
         taui = tf.math.abs(tf.reshape(self.tau, (1, -1))) * self.fs
 
         # convert chunksize from sec to bins

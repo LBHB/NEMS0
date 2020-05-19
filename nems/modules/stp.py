@@ -92,7 +92,7 @@ def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None, quick_eval=Fa
 
     # convert u & tau units from sec to bins
     taui = taui * fs
-    ui = ui / fs
+    ui = ui / fs * 100
 
     # convert chunksize from sec to bins
     chunksize = int(chunksize * fs)

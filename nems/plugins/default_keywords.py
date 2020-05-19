@@ -778,7 +778,7 @@ def stp(kw):
     t : Threshold inputs to synapse
     q : quick version of STP, fits differently for some reason? so not default
     '''
-    pattern = re.compile(r'^stp\.?(\d{1,})\.?([zbnstxqw.\.]*)$')
+    pattern = re.compile(r'^stp\.?(\d{1,})\.?([zbnstxqwv.\.]*)$')
     parsed = re.match(pattern, kw)
     try:
         n_synapse = int(parsed.group(1))
@@ -803,6 +803,8 @@ def stp(kw):
     for op in options:
         if op == 'z':
             tau_mean = [0.01] * n_synapse
+        elif op == 'v':
+            u_mean = [1.0] * n_synapse
         elif op == 's':
             u_mean = [0.1] * n_synapse
         elif op == 'w':
@@ -1276,7 +1278,7 @@ def relu(kw):
         template['fn_kwargs']['offset'] = np.array([[0]])
     else:
         template['prior'] = {'offset': ('Normal', {
-                'mean': np.zeros((chans, 1)),
+                'mean': np.zeros((chans, 1))-0.1,
                 'sd': np.ones((chans, 1))/np.sqrt(chans)})}
     if baseline:
         template['prior']['baseline'] = ('Normal', {
