@@ -176,3 +176,14 @@ class GradientLogger(tf.keras.callbacks.Callback):
 
         for gradient, weight in zip(gradients, self.model.weights):
             self.write_gradient_weight(weight, gradient, epoch)
+
+
+class TerminateOnNaNWeights(tf.keras.callbacks.Callback):
+    """Termiantes on NaN weights, or inf. Modelled on tf.keras.callbacks.TerminateOnNan."""
+    def on_epoch_end(self, epoch, logs=None):
+        """Goes through weights looking for any NaNs."""
+        for weight in self.model.weights:
+            if tf.math.reduce_any(tf.math.is_nan(weight)) or tf.math.reduce_any(tf.math.is_inf(weight)):
+                print('Epoch %d: Invalid weights, terminating training' % (epoch))
+                self.model.early_terminated = True
+                self.model.stop_training = True

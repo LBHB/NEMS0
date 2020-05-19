@@ -11,7 +11,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 
 import nems.utils
-from nems import initializers, recording
+from nems import initializers, recording, get_setting
 from nems import modelspec as mslib
 from nems.tf import callbacks, loss_functions, modelbuilder
 
@@ -53,7 +53,8 @@ def tf2modelspec(model, modelspec):
         if not layer.trainable:
             for model_weights, ms_phis in zip(phis.values(), ms['phi'].values()):
                 if not np.allclose(model_weights, ms_phis, rtol=5e-2, atol=5e-2):
-                    raise AssertionError(f'Model layer "{layer.ms_name}" weights changed despite being frozen!')
+                    log.warning(f'Frozen layer weights changed:\n{ms_phis}\n{model_weights}')
+                    log.warning(f'Model layer "{layer.ms_name}" weights changed significantly despite being frozen!')
 
         ms['phi'] = phis
 
@@ -161,7 +162,7 @@ def fit_tf(
        filepath = log_dir_root / log_dir_sub
 
     #######################
-    if os.environ.get('SYSTEM', None) == 'Alex-PC':
+    if os.environ.get('SYSTEM', None) == 'Alex-PC' and get_setting('USE_NEMS_BAPHY_API'):
         filepath = Path(nems.get_setting('NEMS_RESULTS_DIR')) / Path(filepath).relative_to(
             r'http:\\hyrax.ohsu.edu:3003/results')
     #######################
@@ -204,6 +205,9 @@ def fit_tf(
         metrics=[pearson],
     ).build_model(input_shape=stim_train.shape)
 
+    # tracking early termination
+    model.early_terminated = False
+
     # create the callbacks
     early_stopping = callbacks.DelayedStopper(monitor='loss',
                                               patience=30 * early_stopping_steps,
@@ -218,6 +222,7 @@ def fit_tf(
                                                     verbose=0)
     sparse_logger = callbacks.SparseProgbarLogger(n_iters=10)
     nan_terminate = tf.keras.callbacks.TerminateOnNaN()
+    nan_weight_terminate = callbacks.TerminateOnNaNWeights()
     tensorboard = tf.keras.callbacks.TensorBoard(log_dir=str(tensorboard_filepath),  # TODO: generic tensorboard dir?
                                                  histogram_freq=0,  # record the distribution of the weights
                                                  write_graph=False,
@@ -244,6 +249,7 @@ def fit_tf(
         callbacks=[
             sparse_logger,
             nan_terminate,
+            nan_weight_terminate,
             early_stopping,
             checkpoint,
             tensorboard,
@@ -251,9 +257,9 @@ def fit_tf(
         ]
     )
 
-    # did we terminate on a nan? Load checkpoint if so
-    if np.all(np.isnan(model.predict(stim_train))):
-        log.warning('Model terminated on nan, restoring saved weights.')
+    # did we terminate on a nan loss or weights? Load checkpoint if so
+    if np.all(np.isnan(model.predict(stim_train))) or model.early_terminated:  # TODO: should this be np.any()?
+        log.warning('Model terminated on nan loss or weights, restoring saved weights.')
         try:
             # this can fail if it nans out before a single checkpoint gets saved, either because no saved weights
             # exist, or it tries to load a in different model from the init
