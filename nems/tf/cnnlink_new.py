@@ -171,7 +171,7 @@ def fit_tf(
     if not filepath.exists():
         filepath.mkdir(exist_ok=True, parents=True)
 
-    checkpoint_filepath = filepath / 'training'
+    checkpoint_filepath = filepath / 'weights.hdf5'
     tensorboard_filepath = filepath / 'logs'
     gradient_filepath = filepath / 'gradients'
 
@@ -238,6 +238,9 @@ def fit_tf(
             model.layers[freeze_index + 1].trainable = False
             log.info(f'Freezing layer #{freeze_index}: "{model.layers[freeze_index + 1].name}".')
 
+    # save an initial set of weights before freezing, in case of termination before any checkpoints
+    model.save_weights(str(checkpoint_filepath), overwrite=True)
+
     log.info('Fitting model...')
     history = model.fit(
         stim_train,
@@ -263,7 +266,7 @@ def fit_tf(
         try:
             # this can fail if it nans out before a single checkpoint gets saved, either because no saved weights
             # exist, or it tries to load a in different model from the init
-            model.load_weights(str(filepath))
+            model.load_weights(str(checkpoint_filepath))
             log.warning('Reloaded previous saved weights after nan loss.')
         except (tf.errors.NotFoundError, ValueError):
             pass
