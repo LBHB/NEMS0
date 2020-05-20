@@ -1,27 +1,12 @@
 # A Template NEMS Script that demonstrates use of xforms for generating
 # models that are easy to reload
 
-import os
 import logging
-import sys
+import os
 
-import nems
-import nems.initializers
-import nems.priors
-import nems.preprocessing as preproc
-import nems.modelspec as ms
-import nems.plots.api as nplt
-import nems.analysis.api
-import nems.utils
+import nems.db as nd
 import nems.uri
 import nems.xforms as xforms
-import nems.db as nd
-import nems.recording as recording
-from nems.fitters.api import scipy_minimize, coordinate_descent
-from nems.gui.editors import browse_xform_fit
-
-from nems.recording import Recording
-from nems.fitters.api import scipy_minimize
 
 # ----------------------------------------------------------------------------
 # CONFIGURATION
@@ -36,7 +21,8 @@ signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
 # DATA LOADING & PRE-PROCESSING
 #recording.get_demo_recordings(name="TAR010c_272b438ce3a5643e3e474206861096ce3ffdc000.tgz")
 
-datafile = os.path.join(signals_dir, "TAR010c_272b438ce3a5643e3e474206861096ce3ffdc000.tgz")
+datafile = os.path.join(signals_dir, "TAR010c_afb264b3db970ec890e04c727e612c1cbfaced62.tgz")
+datafile = os.path.join(signals_dir, "TAR010c.NAT.fs100.tgz")
 load_command = 'nems.demo.loaders.demo_loader'
 exptid = "TAR010c"
 batch = 271

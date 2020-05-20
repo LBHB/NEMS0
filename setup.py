@@ -16,7 +16,7 @@ GENERAL_REQUIRES = ['numpy', 'scipy', 'matplotlib', 'pandas', 'requests',
 # GUI requires pyqt
 
 EXTRAS_REQUIRES = {
-    'docs': ['sphinx', 'sphinx_rtd_theme', 'pygments-enaml'],
+    'docs': ['sphinx', 'sphinx_rtd_theme', 'pygments-enaml', 'nbsphinx', 'pandoc', 'IPython', 'sphinx_copybutton'],
     'nwb': ['allensdk'],
     'tensorflow': ['tensorflow', 'tensorboard', 'tensorflow-probability'],
     'tests': ['pytest', 'pytest-benchmark']
