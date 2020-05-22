@@ -514,6 +514,7 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
             td = tf.concat(td, axis=1)
 
             #layer['Y'] = tstim * td
+            # offset depression by one to allow transients
             layer['Y'] = tstim * tf.pad(td[:, :-1, :], ((0, 0), (1, 0), (0, 0)), constant_values=1.0)
             layer['Y'] = tf.where(tf.math.is_nan(layer['X']), _nan, layer['Y'])
 

@@ -668,6 +668,8 @@ class STPQuick(BaseLayer):
             td.append(tf.cast(_td, 'float32'))
         td = tf.concat(td, axis=1)
 
+        #ret = tstim * td
+        # offset depression by one to allow transients
         ret = tstim * tf.pad(td[:, :-1, :], ((0, 0), (1, 0), (0, 0)), constant_values=1.0)
         ret = tf.where(tf.math.is_nan(inputs), _nan, ret)
 

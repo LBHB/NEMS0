@@ -46,6 +46,13 @@ def short_term_plasticity2(rec, i, o, u, u2, tau, tau2, urat=0.5, x0=None, cross
     return [rec[i].transform(fn, o)]
 
 
+def _cumtrapz(x, dx=1., initial=0., axis=1):
+    x = (x[:, :-1] + x[:, 1:]) / 2.0
+    x = np.pad(x, ((0, 0), (1, 0)), 'constant', constant_values=(initial,initial))
+    #x = tf.pad(x, ((0, 0), (1, 0), (0, 0)), constant_values=initial)
+    return np.cumsum(x, axis=axis) * dx
+
+
 def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None, quick_eval=False, dep_only=False,
          chunksize=5):
     """
@@ -126,10 +133,10 @@ def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None, quick_eval=Fa
                 si = slice(reset_times[j], reset_times[j + 1])
                 xi = x[:, si]
 
-                ix = cumtrapz(a + xi, dx=1, initial=0, axis=1) + a + (x0 + xi[:, :1]) / 2
+                ix = _cumtrapz(a + xi, dx=1, initial=0, axis=1) + a + (x0 + xi[:, :1]) / 2
 
                 mu = np.exp(ix)
-                imu = cumtrapz(mu * xi, dx=1, initial=0, axis=1) + (x0 + mu[:, :1] * xi[:, :1]) / 2 + imu0
+                imu = _cumtrapz(mu * xi, dx=1, initial=0, axis=1) + (x0 + mu[:, :1] * xi[:, :1]) / 2 + imu0
 
                 ff = np.bitwise_and(mu > 0, imu > 0)
                 _td = np.ones_like(mu)
@@ -139,9 +146,11 @@ def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None, quick_eval=Fa
                 x0 = xi[:, -1:]
                 imu0 = imu[:, -1:] / mu[:, -1:]
 
+            #stim_out = tstim * td
+            # offset depression by one to allow transients
             stim_out = tstim * np.pad(td[:, :-1], ((0,0), (1,0)), 'constant', constant_values=(1, 1))
 
-            """
+            """ 
             a = 1 / taui[i]
             x = ui[i] * tstim[i, :]  # / fs
 
