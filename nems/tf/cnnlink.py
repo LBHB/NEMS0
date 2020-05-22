@@ -464,7 +464,7 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
 
         # convert a & tau units from sec to bins
         taui = taui * fs
-        ui = ui / fs
+        ui = ui / fs * 100
 
         # convert chunksize from sec to bins
         chunksize = int(chunksize * fs)
