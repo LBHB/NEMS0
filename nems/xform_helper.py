@@ -148,7 +148,7 @@ def fit_xfspec(xfspec):
 
 
 def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
-                    returnModel=False, recording_uri=None):
+                    returnModel=False, recording_uri=None, initial_context=None):
     """
     Fit a single NEMS model using data stored in database. First generates an xforms
     script based on modelname parameter and then evaluates it.
@@ -194,7 +194,9 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     log.info(xfspec)
 
     # actually do the loading, preprocessing, fit
-    ctx, log_xf = xforms.evaluate(xfspec)
+    if initial_context is None:
+        initial_context = {}
+    ctx, log_xf = xforms.evaluate(xfspec, context=initial_context)
 
     # save some extra metadata
     modelspec = ctx['modelspec']
