@@ -1,4 +1,4 @@
-def levelshift(rec, i, o, level):
+def levelshift(rec, i, o, level, **kwargs):
     '''
     Parameters
     ----------

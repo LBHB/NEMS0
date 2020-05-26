@@ -307,7 +307,7 @@ class Net:
 
                         # early stopping for > 5 non improving iterations
                         # though partly redundant with tolerance early stopping, catches nans
-                        if self.best_loss_index < len(self.train_loss) - early_stopping_steps:
+                        if self.best_loss_index <= len(self.train_loss) - early_stopping_steps:
                             log.info(f'Best epoch > {early_stopping_steps} iterations ago, stopping early!')
                             break
 

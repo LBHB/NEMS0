@@ -416,7 +416,7 @@ def da_coefficients(**kwargs):
     return do_coefficients(**kwargs)
 
 def damped_oscillator(rec, i='pred', o='pred', f1s=1, taus=0.5, delays=1,
-                      gains=1, n_coefs=10, bank_count=1, cross_channels=False):
+                      gains=1, n_coefs=10, bank_count=1, cross_channels=False, **kwargs):
     """
     apply damped oscillator-defined filter
     generate impulse response and then call as if basic fir filter
@@ -483,7 +483,7 @@ def fir_dexp(rec, i='pred', o='pred', phi=None, n_coefs=10, rate=1):
 
 
 def filter_bank(rec, i='pred', o='pred', non_causal=False, coefficients=[],
-                bank_count=1, rate=1, cross_channels=False):
+                bank_count=1, rate=1, cross_channels=False, **kwargs):
     """
     apply multiple basic fir filters of the same size in parallel, producing
     one output channel per filter.

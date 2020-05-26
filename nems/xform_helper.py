@@ -101,6 +101,7 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
             xforms_init_context['recording_uri_list'] = recording_uri
         else:
             xforms_init_context['recording_uri_list'] = [recording_uri]
+    xforms_init_context.update(xforms_kwargs)
     xforms_lib.kwargs = xforms_init_context.copy()
     xfspec.append(['nems.xforms.init_context', xforms_init_context])
 
@@ -147,7 +148,7 @@ def fit_xfspec(xfspec):
 
 
 def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
-                    returnModel=False, recording_uri=None):
+                    returnModel=False, recording_uri=None, initial_context=None):
     """
     Fit a single NEMS model using data stored in database. First generates an xforms
     script based on modelname parameter and then evaluates it.
@@ -193,7 +194,9 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     log.info(xfspec)
 
     # actually do the loading, preprocessing, fit
-    ctx, log_xf = xforms.evaluate(xfspec)
+    if initial_context is None:
+        initial_context = {}
+    ctx, log_xf = xforms.evaluate(xfspec, context=initial_context)
 
     # save some extra metadata
     modelspec = ctx['modelspec']
@@ -203,19 +206,28 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     else:
         cell_name = cellid
 
-    prefix = get_setting('NEMS_RESULTS_DIR')
-    destination = os.path.join(prefix, str(batch), cell_name, modelspec.get_longname())
+    if 'modelpath' not in modelspec.meta:
+        prefix = get_setting('NEMS_RESULTS_DIR')
+        destination = os.path.join(prefix, str(batch), cell_name, modelspec.get_longname())
+
+        log.info(f'Setting modelpath to "{destination}"')
+        modelspec.meta['modelpath'] = destination
+        modelspec.meta['figurefile'] = os.path.join(destination, 'figure.0000.png')
+    else:
+        destination = modelspec.meta['modelpath']
 
     # figure out URI for location to save results (either file or http, depending on USE_NEMS_BAPHY_API)
     if get_setting('USE_NEMS_BAPHY_API'):
-        prefix = 'http://'+get_setting('NEMS_BAPHY_API_HOST')+":"+str(get_setting('NEMS_BAPHY_API_PORT')) + '/results/'
-        save_destination = os.path.join(prefix, str(batch), cell_name, modelspec.get_longname())
+        prefix = 'http://' + get_setting('NEMS_BAPHY_API_HOST') + ":" + str(get_setting('NEMS_BAPHY_API_PORT')) + \
+                 '/results'
+        save_loc = str(batch) + '/' + cell_name + '/' + modelspec.get_longname()
+        save_destination = prefix + '/' + save_loc
+        # set the modelspec meta save locations to be the filesystem and not baphy
+        modelspec.meta['modelpath'] = get_setting('NEMS_RESULTS_DIR') + '/' + save_loc
+        modelspec.meta['figurefile'] = modelspec.meta['modelpath'] + '/' + 'figure.0000.png'
     else:
         save_destination = destination
 
-    log.info(f'Setting modelpath to "{destination}"')
-    modelspec.meta['modelpath'] = destination
-    modelspec.meta['figurefile'] = os.path.join(destination, 'figure.0000.png')
     modelspec.meta['runtime'] = int(time.time() - startime)
     modelspec.meta.update(meta)
 
