@@ -101,7 +101,8 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
             xforms_init_context['recording_uri_list'] = recording_uri
         else:
             xforms_init_context['recording_uri_list'] = [recording_uri]
-    xforms_init_context.update(xforms_kwargs)
+    if xforms_kwargs is not None:
+        xforms_init_context.update(xforms_kwargs)
     xforms_lib.kwargs = xforms_init_context.copy()
     xfspec.append(['nems.xforms.init_context', xforms_init_context])
 
