@@ -24,11 +24,12 @@ before_install:
   - ./miniconda.sh -b -p $HOME/miniconda
   - export PATH=$HOME/miniconda/bin:$PATH
   - conda update --yes -n base conda
-  - conda create -n condaenv --yes numpy scipy matplotlib pandas requests h5py tensorflow tensorflow-probability pytest
+  - conda create -n condaenv --yes numpy scipy matplotlib pandas requests h5py pytest
   - . $HOME/miniconda/etc/profile.d/conda.sh
   - conda activate condaenv
-  - pip install pytest-benchmark
+  - pip -q install pytest-benchmark tensorflow==2.2 tensorflow-probability
   - python --version
+  - conda list
 
 install:
   - python setup.py develop

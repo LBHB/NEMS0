@@ -1,5 +1,9 @@
+from functools import wraps
+
 import numpy as np
 import pytest
+
+from tensorflow import config
 
 from nems.modelspec import eval_ms_layer
 from nems.tf.cnnlink_new import eval_tf_layer
@@ -26,6 +30,17 @@ def state_data(shape=(20, 100, 18)):
 @pytest.fixture()
 def kern_size():
     return 4
+
+
+def requires_gpu(f):
+    @wraps(f)
+    def wrapper(*args, **kwds):
+        if config.list_physical_devices('GPU'):
+            return f(*args, **kwds)
+        else:
+            print(f'No GPUs detected, skipping "{f.__name__}".')
+            return True
+    return wrapper
 
 
 def compare_ms_tf(layer_spec, test_data, test_state_data=None):
@@ -66,18 +81,21 @@ def test_fir_bank2(data, kern_size):
     assert compare_ms_tf(layer_spec, data)
 
 
+@requires_gpu
 def test_fir_bank3(data, kern_size):
     in_size = data.shape[-1]
     layer_spec = f'fir.2x3x{in_size // 2}'
     assert compare_ms_tf(layer_spec, data)
 
 
+@requires_gpu
 def test_fir_bank4(data, kern_size):
     in_size = data.shape[-1]
     layer_spec = f'fir.2x4x{in_size // 2}'
     assert compare_ms_tf(layer_spec, data)
 
 
+@requires_gpu
 def test_fir_bank_single(data, kern_size):
     in_size = data.shape[-1]
     layer_spec = f'fir.1x{kern_size}x{in_size}'
