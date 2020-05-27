@@ -110,9 +110,12 @@ def evaluate_step(xfa, context={}):
             log.info('xf argument %s overlaps with existing context key: %s', k, xf)
 
     # Merge args into context, and make a deepcopy so that mutation
-    # inside xforms will not be propogated unless the arg is returned.
-    merged_args = {**xfargs, **context_in}
-    args = copy.deepcopy(merged_args)
+    # inside xforms will not be propagated unless the arg is returned.
+    args = copy.deepcopy(context_in)
+    args.update(**xfargs)
+    #merged_args = {**xfargs, **context_in}
+    #args = copy.deepcopy(merged_args)
+
     # Run the xf
     log.info('Evaluating: {}'.format(xf))
     new_context = fn(**args)
@@ -1270,7 +1273,7 @@ def tree_path(recording, modelspecs, xfspec):
 
 
 def save_analysis(destination, recording, modelspec, xfspec, figures,
-                  log, add_tree_path=False, update_meta=True):
+                  log, add_tree_path=False, update_meta=True, save_rec=False):
     '''Save an analysis file collection to a particular destination.'''
     if add_tree_path:
         treepath = tree_path(recording, [modelspec], xfspec)
@@ -1298,6 +1301,12 @@ def save_analysis(destination, recording, modelspec, xfspec, figures,
         save_resource(base_uri + 'figure.{:04d}.png'.format(number), data=figure)
     save_resource(base_uri + 'log.txt', data=log)
     save_resource(xfspec_uri, json=xfspec)
+
+    if save_rec:
+        # TODO: copy actual recording file
+        rec_uri = base_uri + 'recording.tgz'
+        recording.save(rec_uri)
+
     return {'savepath': base_uri}
 
 
@@ -1315,7 +1324,7 @@ def load_analysis(filepath, eval_model=True, only=None):
     def _path_join(*args):
         if os.name == 'nt':
             # deal with problems on Windows OS
-            path = "/".join(*args)
+            path = "/".join(args)
         else:
             path = os.path.join(*args)
         return path
@@ -1337,6 +1346,10 @@ def load_analysis(filepath, eval_model=True, only=None):
     ctx['IsReload'] = True
     ctx['figures_to_load'] = figures_to_load
     ctx['log'] = logstring
+
+    if 'recording.tgz' in os.listdir(filepath):
+        # TODO: change rec path in modelspec
+        pass
 
     if eval_model:
         ctx, log_xf = evaluate(xfspec, ctx)

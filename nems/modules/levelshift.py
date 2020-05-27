@@ -4,7 +4,8 @@ import re
 from nems.modules import NemsModule
 from nems.registry import xmodule
 
-def levelshift(rec, i, o, level):
+
+def levelshift(rec, i, o, level, **kwargs):
     '''
     Parameters
     ----------

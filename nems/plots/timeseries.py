@@ -443,7 +443,7 @@ def pred_resp(rec=None, modelspec=None, ax=None, title=None,
     --------
     ax : axis containing plot
     '''
-    sig_list = ['pred', 'resp']
+    sig_list = ['resp', 'pred']
     sigs = [rec[s] for s in sig_list]
     ax = timeseries_from_signals(sigs, channels=channels,
                                  xlabel=xlabel, ylabel=ylabel, ax=ax,

@@ -1,10 +1,13 @@
-import scipy.signal as sps
-import scipy as scp
-import numpy as np
+import logging
+
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-from nems.plots.utils import ax_remove_box
+import numpy as np
+
 from nems.gui.decorators import scrollable
+from nems.plots.utils import ax_remove_box
+
+log = logging.getLogger(__name__)
+
 
 def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
                      cmap=None, clim=None, extent=True, time_range=None, **options):
@@ -16,7 +19,7 @@ def plot_spectrogram(array, fs=None, ax=None, title=None, time_offset=0,
     if time_range is not None:
         if fs is not None:
             time_range = np.round(np.array(time_range)*fs).astype(int)
-        print('bin range: {}-{}'.format(time_range[0],time_range[1]))
+        log.debug('bin range: {}-{}'.format(time_range[0],time_range[1]))
         ax.imshow(array[:, np.arange(time_range[0],time_range[1])],
                   origin='lower', interpolation='none',
                   aspect='auto', cmap=cmap, clim=clim)

@@ -14,6 +14,7 @@ import numpy as np
 import tensorflow as tf
 
 import nems
+from nems import modelspec
 import nems.modelspec as ms
 import nems.tf.cnn as cnn
 import nems.utils
@@ -276,7 +277,8 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
             # "outer product" convolve each channel with each filter
             # insert placeholder dim on axis=3
             X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 3)
-            layer['tY'] = tf.nn.conv2d(X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID')
+            layer['tY'] = tf.nn.conv2d\
+                (X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID')
             layer['Y'] = tf.reshape(layer['tY'],
                                     [-1, layer['tY'].shape[1], layer['tY'].shape[2] * layer['tY'].shape[3]])
         elif in_chan_count == bank_count * chan_count:
@@ -286,14 +288,15 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
             layer['tY'] = tf.compat.v1.nn.depthwise_conv2d(
                 X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID', rate=[1, layer['rate']])
             s = tf.shape(layer['tY'])
-            layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'], [s[0], layer['tY'].shape[2], tf.compat.v1.Dimension(bank_count),
-                                                                tf.compat.v1.Dimension(chan_count)]), axis=3)
+            layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'],
+                                                  [s[0], layer['tY'].shape[2], tf.compat.v1.Dimension(bank_count),
+                                                  tf.compat.v1.Dimension(chan_count)]), axis=3)
         else:
             # apply each fir bank to same input channels
             # insert placeholder dim on axis=1
             X_pad = tf.expand_dims(tf.pad(layer['X'], [[0, 0], [pad_size, 0], [0, 0]]), 1)
-            layer['tY'] = tf.compat.v1.nn.depthwise_conv2d(X_pad, layer['W'], strides=[1, 1, 1, 1],
-                                                 padding='VALID', rate=[1, layer['rate']])
+            layer['tY'] = tf.compat.v1.nn.depthwise_conv2d(
+                X_pad, layer['W'], strides=[1, 1, 1, 1], padding='VALID', rate=[1, layer['rate']])
             s = tf.shape(layer['tY'])
             layer['Y'] = tf.reduce_sum(tf.reshape(layer['tY'],
                                                   [s[0], layer['tY'].shape[2], tf.compat.v1.Dimension(chan_count),
@@ -461,7 +464,7 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
 
         # convert a & tau units from sec to bins
         taui = taui * fs
-        ui = ui / fs
+        ui = ui / fs * 100
 
         # convert chunksize from sec to bins
         chunksize = int(chunksize * fs)
@@ -512,6 +515,7 @@ def map_layer(layer: dict, prev_layers: list, idx: int, modelspec,
 
             # shift td forward in time by one to allow STP to kick in after the stimulus changes (??)
             #layer['Y'] = tstim * td
+            # offset depression by one to allow transients
             layer['Y'] = tstim * tf.pad(td[:, :-1, :], ((0, 0), (1, 0), (0, 0)), constant_values=1.0)
             layer['Y'] = tf.where(tf.math.is_nan(layer['X']), _nan, layer['Y'])
 
@@ -894,6 +898,12 @@ def fit_tf(modelspec=None, est=None,
                      / modelspec.meta['modelname']
        log_dir = log_dir_root / log_dir_sub
 
+    #######################
+    if os.environ.get('SYSTEM', None) == 'Alex-PC':
+        log_dir = Path(nems.get_setting('NEMS_RESULTS_DIR')) / Path(log_dir).relative_to(
+            r'http:\\hyrax.ohsu.edu:3003/results')
+    #######################
+
     modelspec_pre = modelspec.copy()
     modelspec, net = _fit_net(F, D, modelspec, _this_seed, new_est['resp'].fs, log_dir=str(log_dir),
                               optimizer=optimizer, max_iter=np.min([max_iter]), learning_rate=learning_rate,
@@ -1053,6 +1063,7 @@ def eval_tf(modelspec, est, log_dir):
 def eval_tf_layer(data: np.ndarray,
                   layer_spec: str,
                   state_data: np.ndarray = None,
+                  modelspec: modelspec.ModelSpec = None
                   ) -> np.ndarray:
     """Takes in a numpy array and applies single a tf layer to it.
 
@@ -1062,13 +1073,21 @@ def eval_tf_layer(data: np.ndarray,
 
     :return: The processed data.
     """
+    if layer_spec is None and modelspec is None:
+        raise ValueError('Either of "layer_spec" or "modelspec" must be specified.')
+
+    if modelspec is not None:
+        ms = modelspec
+    else:
+        ms = nems.initializers.from_keywords(layer_spec)
+
     rep_dims, tps_per_stim, feat_dims = data.shape
     if state_data is not None:
         state_dims = state_data.shape[-1]
     else:
         state_dims = 0
 
-    tf_layers = nems.initializers.from_keywords(layer_spec).modelspec2tf(
+    tf_layers = ms.modelspec2tf(
         tps_per_stim=tps_per_stim,
         feat_dims=feat_dims,
         state_dims=state_dims)
@@ -1084,4 +1103,3 @@ def eval_tf_layer(data: np.ndarray,
         pred = net.layers[0]['Y'].eval(feed_dict)
 
     return pred
-
