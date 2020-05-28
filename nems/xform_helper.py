@@ -186,6 +186,8 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     # registry_args = {'cellid': cellid, 'batch': int(batch)}
     registry_args = {}
     xforms_init_context = {'cellid': cellid, 'batch': int(batch)}
+    if initial_context is not None:
+        xforms_init_context.update(initial_context)
 
     log.info("TODO: simplify generate_xforms_spec parameters")
     xfspec = generate_xforms_spec(recording_uri=recording_uri, modelname=modelname,
@@ -197,7 +199,7 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     # actually do the loading, preprocessing, fit
     if initial_context is None:
         initial_context = {}
-    ctx, log_xf = xforms.evaluate(xfspec, context=initial_context)
+    ctx, log_xf = xforms.evaluate(xfspec)#, context=initial_context)
 
     # save some extra metadata
     modelspec = ctx['modelspec']
