@@ -843,7 +843,10 @@ class ModelSpec:
         if rec is None:
             rec = self.recording
 
-        rec = evaluate(rec, self, **kwargs)
+        if np.any(['tf_only' in fn for fn in self.fn()]):
+            rec = evaluate_tf(rec, self, **kwargs)
+        else:
+            rec = evaluate(rec, self, **kwargs)
 
         return rec
 
@@ -1354,6 +1357,35 @@ def evaluate(rec, modelspec, start=None, stop=None):
         d.signal_views[d.view_idx] = d.signals
 
     return d
+
+
+def evaluate_tf(rec, modelspec, epoch_name='REFERENCE', **kwargs):
+    input_name = modelspec[0]['fn_kwargs']['i']
+    output_name = modelspec[-1]['fn_kwargs']['o']
+    # convert ms to TF model
+    if 'mask' in rec.signals:
+        mask = rec['mask']
+    else:
+        mask = nems.signal.RasterizedSignal(np.ones((1, rec['resp'].shape[-1])))  # select all
+
+    # [..., np.newaxis] assumes conv2d model -- currently the only kind that uses this eval, but if that changes
+    # later on may need to check for model architecture somehow.
+    stim_train = np.transpose(rec[input_name].extract_epoch(epoch=epoch_name, mask=mask), [0, 2, 1])[..., np.newaxis]
+    model_layers = modelspec.modelspec2tf2(fs=rec['resp'].fs)
+    pred_stacked = stim_train
+    for layer in model_layers:  # looping over layers avoids needing to re-compile entire model
+        pred_stacked = layer(pred_stacked)  # stims x time x cells
+    output_count = rec['resp'].shape[0]
+    pred = pred_stacked.numpy().T.swapaxes(1, 2).reshape(output_count, -1)  # output cells x time
+
+    # need to put back into shape of original unmasked signal, otherwise some nems functions break
+    padded_pred = np.full((pred.shape[0], mask.shape[-1]), np.nan, dtype=np.float32)
+    padded_pred[:, mask.as_continuous().flatten() == 1] = pred
+    pred_sig = rec['resp']._modified_copy(padded_pred)
+    pred_sig.name = output_name
+    rec.add_signal(pred_sig)
+
+    return rec
 
 
 def summary_stats(modelspecs, mod_key='fn', meta_include=[], stats_keys=[]):
