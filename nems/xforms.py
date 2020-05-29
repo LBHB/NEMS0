@@ -298,9 +298,29 @@ def load_recordings(recording_uri_list=None, normalize=False, cellid=None,
         rec['stim'] = rec['stim'].rasterize().normalize('minmax')
 
     log.info('Extracting cellid(s) {}'.format(cellid))
-    if type(cellid) is str:
-        meta['cellids'] = [cellid]
+    if cellid is None:
+        # No cellid specified, use all channels
+        channels = rec[output_name].chans
+        if len(channels) == 0:
+            # no channels were specified for recording, so use default indices
+            cellids = [str(i) for i in range(rec[output_name].shape[0])]
+        else:
+            # Channel names should already be strings, but just incase
+            cellids = [str(c) for c in channels]
+        meta['cellids'] = cellids
+
+    elif type(cellid) is str:
+        if len(cellid.split('-')) == 1:
+            # siteid given instead of cellid or list of cellids
+            siteid = cellid
+            cellids = [c for c in rec[output_name].chans if siteid in c]
+            meta['cellids'] = cellids
+            meta['siteid'] = siteid
+        else:
+            meta['cellids'] = [cellid]
+
     else:
+        # Assume a list of cellids was given
         meta['cellids'] = cellid
 
     rec['resp'] = rec['resp'].extract_channels(meta['cellids'])
@@ -1267,6 +1287,28 @@ def save_analysis(destination, recording, modelspec, xfspec, figures,
         recording.save(rec_uri)
 
     return {'savepath': base_uri}
+
+
+def save_from_context(destination, xfspec, context):
+    '''As save_analysis, but accepts uses xforms context in place of modelspec, recording, figures and log.'''
+
+    modelspec = context['modelspec']
+    log = context['log']
+    figures = context['figures']
+    xfspec_uri = os.path.join(destination, 'xfspec.json')
+    log_uri = os.path.join(destination, 'log.txt')
+
+    for number in range(modelspec.jack_count):
+        m = modelspec.copy()
+        m.jack_index = number
+        set_modelspec_metadata(m, 'xfspec', xfspec_uri)
+        save_resource(os.path.join(destination, 'modelspec.{:04d}.json'.format(number)), json=m[:])
+    for number, figure in enumerate(figures):
+        save_resource(os.path.join(destination, 'figure.{:04d}.png'.format(number)), data=figure)
+    save_resource(log_uri, data=log)
+    save_resource(xfspec_uri, json=xfspec)
+
+    return {'savepath': destination}
 
 
 def load_analysis(filepath, eval_model=True, only=None):
