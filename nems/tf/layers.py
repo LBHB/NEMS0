@@ -1,17 +1,23 @@
 import logging
 
+import numpy as np
 import tensorflow as tf
+from tensorflow.keras.layers import Conv2D, Dense
 
 log = logging.getLogger(__name__)
 
 
 class BaseLayer(tf.keras.layers.Layer):
     """Base layer with parent methods for converting from modelspec layer to tf layers and back."""
+
+    _TF_ONLY = False  # set true in subclasses for which there is no mapping to NEMS modules
+
     def __init__(self, *args, **kwargs):
         """Catch args/kwargs that aren't allowed kwargs of keras.layers.Layers"""
         self.fs = kwargs.pop('fs', None)
         self.ms_name = kwargs.pop('ms_name', None)
-
+        # Overwrite in other layers' __init__ to change which fn_kwargs get copied
+        # (see self.copy_valid_fn_kwargs)
         super(BaseLayer, self).__init__(*args, **kwargs)
 
     @classmethod
@@ -35,15 +41,6 @@ class BaseLayer(tf.keras.layers.Layer):
             'fs': fs,
         }
 
-        if use_modelspec_init:
-            # convert the phis to tf constants
-            kwargs['initializer'] = {k: tf.constant_initializer(v)
-                                     for k, v in ms_layer['phi'].items()}
-        else:
-            # if want custom inits for each layer, remove this and change the inits in each layer
-            # kwargs['initializer'] = {k: 'truncated_normal' for k in ms_layer['phi'].keys()}
-            kwargs['initializer'] = {k: initializer for k in ms_layer['phi'].keys()}
-
         # TODO: clean this up, maybe separate kwargs/fn_kwargs, or method to split out valid tf kwargs from rest
         if 'bounds' in ms_layer:
             kwargs['bounds'] = ms_layer['bounds']
@@ -51,15 +48,37 @@ class BaseLayer(tf.keras.layers.Layer):
             kwargs['units'] = ms_layer['fn_kwargs']['chans']
         if 'bank_count' in ms_layer['fn_kwargs']:
             kwargs['banks'] = ms_layer['fn_kwargs']['bank_count']
-        if 'n_inputs' in ms_layer['fn_kwargs']:
-            kwargs['n_inputs'] = ms_layer['fn_kwargs']['n_inputs']
-        if 'crosstalk' in ms_layer['fn_kwargs']:
-            kwargs['crosstalk'] = ms_layer['fn_kwargs']['crosstalk']
         if 'reset_signal' in ms_layer['fn_kwargs']:
             # kwargs['reset_signal'] = ms_layer['fn_kwargs']['reset_signal']
             kwargs['reset_signal'] = None
 
-        return cls(**kwargs)
+        pass_through_keys = ['n_inputs', 'crosstalk', 'filters', 'kernel_size',
+                             'activation', 'units', 'padding']
+        pass_throughs = {k: v for k, v in ms_layer['fn_kwargs'].items() if k in pass_through_keys}
+        kwargs.update(pass_throughs)
+
+        if not cls._TF_ONLY:  # TODO: implement proper phi formatting for TF_ONLY layers so that this isn't necessary
+            if use_modelspec_init:
+                # convert the phis to tf constants
+                kwargs['initializer'] = {k: tf.constant_initializer(v)
+                                         for k, v in ms_layer['phi'].items()}
+            else:
+                # if want custom inits for each layer, remove this and change the inits in each layer
+                # kwargs['initializer'] = {k: 'truncated_normal' for k in ms_layer['phi'].keys()}
+                kwargs['initializer'] = {k: initializer for k in ms_layer['phi'].keys()}
+            instance = cls(**kwargs)
+
+        else:
+            # skip init step, not currently implemented.
+            # Instead, directly copy
+            if len(ms_layer['phi']) > 0:
+                # Phi empty until model has been fit
+                weights = [v for k, v in ms_layer['phi'].items()]
+                instance = cls(weights=weights, **kwargs)
+            else:
+                instance = cls(**kwargs)
+
+        return instance
 
     @property
     def layer_values(self):
@@ -607,7 +626,7 @@ class STPQuick(BaseLayer):
                                       trainable=True,
                                       )
 
-    def call(self, inputs, trainig=True):
+    def call(self, inputs, training=True):
         _zero = tf.constant(0.0, dtype='float32')
         _nan = tf.constant(0.0, dtype='float32')
 
@@ -681,3 +700,53 @@ class STPQuick(BaseLayer):
         log.info(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
+
+class Conv2D_NEMS(BaseLayer, Conv2D):
+    _TF_ONLY = True
+    def __init__(self, initializer=None, *args, **kwargs):
+        '''Identical to the stock keras Conv2D but with NEMS compatibility added on, but without a matching module.'''
+        super(Conv2D_NEMS, self).__init__(*args, **kwargs)
+
+    def weights_to_phi(self):
+        phi = {'kernels': self.weights[0].numpy(), 'activations': self.weights[1].numpy()}
+        log.info(f'Converted {self.name} to modelspec phis.')
+        return phi
+
+
+class Dense_NEMS(BaseLayer, Dense):
+    _TF_ONLY = True
+    def __init__(self, initializer=None, *args, **kwargs):
+        '''Identical to the stock keras Dense but with NEMS compatibility added on, but without a matching module.'''
+        super(Dense_NEMS, self).__init__(*args, **kwargs)
+
+    def weights_to_phi(self):
+        phi = {'kernels': self.weights[0].numpy(), 'activations': self.weights[1].numpy()}
+        log.info(f'Converted {self.name} to modelspec phis.')
+        return phi
+
+
+class WeightChannelsNew(BaseLayer):
+    _TF_ONLY = True
+    def __init__(self, units=None, initializer=None, *args, **kwargs):
+        '''Similar to WeightChannelsBasic but implemented as a weighted sum, and does not map to a NEMS module.'''
+        super(WeightChannelsNew, self).__init__(*args, **kwargs)
+        self.units = units
+
+    def build(self, input_shape):
+        self.coefficients = self.add_weight(name='coefficients',
+                                            shape=(1, input_shape[-2], self.units),
+                                            dtype='float32',
+                                            initializer=tf.random_normal_initializer,
+                                            constraint=tf.keras.constraints.NonNeg(),
+                                            trainable=True,
+                                            )
+
+    def call(self, inputs):
+        # Weighted sum along frequency dimension
+        # Assumes input formated as time x frequency x num_inputs
+        return tf.reduce_sum(inputs * self.coefficients, axis=-2)
+
+    def weights_to_phi(self):
+        phi = {'coefficients': self.coefficients.numpy()}
+        log.info(f'Converted {self.name} to modelspec phis.')
+        return phi

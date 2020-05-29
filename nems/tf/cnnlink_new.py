@@ -14,6 +14,7 @@ import nems.utils
 from nems import initializers, recording, get_setting
 from nems import modelspec as mslib
 from nems.tf import callbacks, loss_functions, modelbuilder
+from nems.tf.layers import Conv2D_NEMS
 
 log = logging.getLogger(__name__)
 
@@ -35,26 +36,30 @@ def tf2modelspec(model, modelspec):
             raise AssertionError('Model layers and modelspec layers do not match up!')
 
         phis = layer.weights_to_phi()
+        if np.any(['tf_only' in fn for fn in modelspec.fn()]):
+            # These TF layers don't have corresponding phi pre-set, so there's nothing to check against.
+            # TODO: format phi properly for this model version
+            pass
+        else:
+            # check that phis/weights match up in name
+            if phis.keys() != ms['phi'].keys():
+                raise AssertionError(f'Model layer "{layer.ms_name}" weights and modelspec phis do not have matching names!')
 
-        # check that phis/weights match up in name
-        if phis.keys() != ms['phi'].keys():
-            raise AssertionError(f'Model layer "{layer.ms_name}" weights and modelspec phis do not have matching names!')
-
-        # check that phis/weights match up in shape
-        for model_weights, ms_phis in zip(phis.values(), ms['phi'].values()):
-            if model_weights.shape != ms_phis.shape:
-                if layer.ms_name == 'nems.modules.nonlinearity.double_exponential':
-                    continue  # dexp has weird weight shapes due to basic init
-                raise AssertionError(f'Model layer "{layer.ms_name}" weights and modelspec phis do not have matching '
-                                     f'shapes!')
-
-        # for non trainable layers, check that values didn't change (within tolerance of gpu computation)
-        # TODO: for non trainable layers, should we just not update the modelspec weights?
-        if not layer.trainable:
+            # check that phis/weights match up in shape
             for model_weights, ms_phis in zip(phis.values(), ms['phi'].values()):
-                if not np.allclose(model_weights, ms_phis, rtol=5e-2, atol=5e-2):
-                    log.warning(f'Frozen layer weights changed:\n{ms_phis}\n{model_weights}')
-                    log.warning(f'Model layer "{layer.ms_name}" weights changed significantly despite being frozen!')
+                if model_weights.shape != ms_phis.shape:
+                    if layer.ms_name == 'nems.modules.nonlinearity.double_exponential':
+                        continue  # dexp has weird weight shapes due to basic init
+                    raise AssertionError(f'Model layer "{layer.ms_name}" weights and modelspec phis do not have matching '
+                                         f'shapes!')
+
+            # for non trainable layers, check that values didn't change (within tolerance of gpu computation)
+            # TODO: for non trainable layers, should we just not update the modelspec weights?
+            if not layer.trainable:
+                for model_weights, ms_phis in zip(phis.values(), ms['phi'].values()):
+                    if not np.allclose(model_weights, ms_phis, rtol=5e-2, atol=5e-2):
+                        log.warning(f'Frozen layer weights changed:\n{ms_phis}\n{model_weights}')
+                        log.warning(f'Model layer "{layer.ms_name}" weights changed significantly despite being frozen!')
 
         ms['phi'] = phis
 
@@ -196,6 +201,12 @@ def fit_tf(
     # get the layers and build the model
     cost_fn = loss_functions.get_loss_fn(cost_function)
     model_layers = modelspec.modelspec2tf2(use_modelspec_init=use_modelspec_init, seed=seed, fs=fs, initializer=initializer)
+    if np.any([isinstance(layer, Conv2D_NEMS) for layer in model_layers]):
+        # need a "channel" dimension for Conv2D (like rgb channels, not frequency). Only 1 channel for our data.
+        stim_train = stim_train[..., np.newaxis]
+        conv2d_model = True
+    else:
+        conv2d_model = False
     model = modelbuilder.ModelBuilder(
         name='Test-model',
         layers=model_layers,
@@ -224,10 +235,10 @@ def fit_tf(
     nan_terminate = tf.keras.callbacks.TerminateOnNaN()
     nan_weight_terminate = callbacks.TerminateOnNaNWeights()
     tensorboard = tf.keras.callbacks.TensorBoard(log_dir=str(tensorboard_filepath),  # TODO: generic tensorboard dir?
-                                                 histogram_freq=0,  # record the distribution of the weights
-                                                 write_graph=False,
-                                                 update_freq='epoch',
-                                                 profile_batch=0)
+                                                histogram_freq=0,  # record the distribution of the weights
+                                                write_graph=False,
+                                                update_freq='epoch',
+                                                profile_batch=0)
     # gradient_logger = callbacks.GradientLogger(filepath=str(gradient_filepath),
     #                                            train_input=stim_train,
     #                                            model=model)
@@ -255,7 +266,7 @@ def fit_tf(
             nan_weight_terminate,
             early_stopping,
             checkpoint,
-            tensorboard,
+            #tensorboard,
             # gradient_logger,
         ]
     )
@@ -272,12 +283,16 @@ def fit_tf(
             pass
 
     modelspec = tf2modelspec(model, modelspec)
-    # compare the predictions from the model and modelspec
-    error = compare_ms_tf(modelspec, model, est, stim_train)
-    if error > 1e-5:
-        log.warning(f'Mean difference between NEMS and TF model prediction: {error}')
+    if not conv2d_model:
+        # compare the predictions from the model and modelspec
+        error = compare_ms_tf(modelspec, model, est, stim_train)
+        if error > 1e-5:
+            log.warning(f'Mean difference between NEMS and TF model prediction: {error}')
+        else:
+            log.info(f'Mean difference between NEMS and TF model prediction: {error}')
     else:
-        log.info(f'Mean difference between NEMS and TF model prediction: {error}')
+        # nothing to compare, ms evaluation is not implemented for this type of model
+        pass
 
     # add in some relevant meta information
     modelspec.meta['n_parms'] = len(modelspec.phi_vector)

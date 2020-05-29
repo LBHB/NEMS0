@@ -1608,3 +1608,70 @@ def mrg(kw):
         'phi': {}
         }
     return template
+
+
+def conv2d(kw):
+    # TODO: choose how to initialize weights
+    ops = kw.split('.')
+    filters = int(ops[1])  # first option hard-coded as number of filters
+    kernel_size = [int(dim) for dim in ops[2].split('x')]  # second op hard-coded as kernel shape
+    activation = None
+    for op in ops[3:]:
+        if op.startswith('actX'):
+            activation = op[4:]
+
+    template = {
+        'fn': 'nems.tf_only.Conv2D_NEMS',   # not a real path, flag for ms.evaluate to use evaluate_tf()
+        'tf_layer': 'nems.tf.layers.Conv2D_NEMS',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'activation': activation,
+                      'filters': filters,
+                      'kernel_size': kernel_size,
+                      'padding': 'same'},
+        'phi': {}
+        }
+
+    return template
+
+
+def dense(kw):
+    # TODO: choose how to initialize weights
+    ops = kw.split('.')
+    units = int(ops[1])  # first option hard-coded as number of units
+    activation = None
+    for op in ops[2:]:
+        if op.startswith('actX'):
+            activation = op[4:]
+
+    template = {
+        'fn': 'nems.tf_only.Dense_NEMS',    # not a real path
+        'tf_layer': 'nems.tf.layers.Dense_NEMS',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'activation': activation,
+                      'units': units},
+        'phi': {}
+        }
+
+    return template
+
+
+def wcn(kw):
+    # TODO: choose how to initialize weights
+    ops = kw.split('.')
+    units = int(ops[1]) # first option hard-coded as number of units
+    for op in ops[2:]:  # just a reminder to skip the first two if options are added later
+        pass
+
+    template = {
+        'fn': 'nems.tf_only.WeightChannelsNew',    # not a real path
+        'tf_layer': 'nems.tf.layers.WeightChannelsNew',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'units': units,
+                      'initializer': 'random_normal'},
+        'phi': {}
+        }
+
+    return template
