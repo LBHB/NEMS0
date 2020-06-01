@@ -6,6 +6,7 @@ NEMS Demos
 
     demo_nems
     demo_xforms
+    demo_basic_xform
     demo_xforms_compact
     demo_xforms_tf
     demo_pop
