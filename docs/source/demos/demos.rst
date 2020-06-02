@@ -4,22 +4,18 @@ NEMS Demos
 How to Run Demos
 ----------------
 
-Demos run in Jupyter notebooks. To install, activate your NEMS
-environment then install with conda:
+These demos are formatted as Jupyter notebooks. There are two ways to run them.
+One is to launch your preferred Python environment with NEMS installed. Then
+cut/paste code from the pages below into your Python console.
 
-::
-
-   conda install -c conda-forge jupyterlab
-
-Then run Jupyter in the directory containing the demo notebooks.
-
-::
-
-   jupyter lab
-
-This should launch the notebook in your web browser.
+An alternative is to copy the notebooks from nems/docs/source/demos/ to
+a working directory and open them using Jupyter Notebooks/Jupyter Lab. More
+information on using Jupyter here:
+https://jupyter.org/
 
 
+Demo Notebooks
+--------------
 
 .. toctree::
     :maxdepth: 1
