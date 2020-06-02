@@ -1,3 +1,21 @@
+How to Run Demos
+----------------
+
+Demos run in Jupyter notebooks. To install, activate your NEMS
+environment then install with conda:
+
+::
+
+   conda install -c conda-forge jupyterlab
+
+Then run Jupyter in the directory containing the demo notebooks.
+
+::
+
+   jupyter lab
+
+This should launch the notebook in your web browser.
+
 NEMS Demos
 ----------
 

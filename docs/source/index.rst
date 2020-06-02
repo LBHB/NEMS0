@@ -14,6 +14,7 @@ work with many different types of timeseries data.
 
     installation
     quickstart
+    demos/demos
     background
 
 
@@ -39,12 +40,6 @@ work with many different types of timeseries data.
     fitters
     priors
     xforms
-
-.. toctree::
-    :maxdepth: 1
-    :caption: Demos
-
-    demos/demos
 
 .. toctree::
     :maxdepth: 1
