@@ -1,3 +1,6 @@
+NEMS Demos
+==========
+
 How to Run Demos
 ----------------
 
@@ -16,8 +19,7 @@ Then run Jupyter in the directory containing the demo notebooks.
 
 This should launch the notebook in your web browser.
 
-NEMS Demos
-----------
+
 
 .. toctree::
     :maxdepth: 1

@@ -14,9 +14,13 @@ work with many different types of timeseries data.
 
     installation
     quickstart
-    demos/demos
     background
 
+.. toctree::
+    :maxdepth: 1
+    :caption: Demos
+
+    demos/demos
 
 .. toctree::
     :maxdepth: 1
