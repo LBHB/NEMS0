@@ -56,7 +56,7 @@ In contrast, label-based indexing allows you to select by channel name
 and/or time. To select the named channels up to (and including) 'chan5'
 and the timepoints from 1.5 to 2 seconds:
 
-::
+.. code-block:: python
 
     # Get all channels up to, and including chan5, include only timepoints from 1.5 to 2 seconds.
     trimmed = signal.loc[:'chan5', 1.5:2]

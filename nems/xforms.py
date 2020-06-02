@@ -338,9 +338,10 @@ def load_recordings(recording_uri_list=None, normalize=False, cellid=None,
 
         if pop_var == 'state':
             rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
-        else:
-            raise ValueError('pop_var {} unknown'.format(pop_var))
-        
+        # else:
+        #     raise ValueError('pop_var {} unknown'.format(pop_var))
+
+    rec['resp'] = rec['resp'].extract_channels(meta['cellids'])
 
     rec = preproc.generate_stim_from_epochs(rec, new_signal_name='epoch_onsets',
                                             epoch_regex='TRIAL', onsets_only=True)

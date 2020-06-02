@@ -42,6 +42,12 @@ work with many different types of timeseries data.
 
 .. toctree::
     :maxdepth: 1
+    :caption: Demos
+
+    demos/demos
+
+.. toctree::
+    :maxdepth: 1
     :caption: Contributing
 
     discussions

@@ -33,11 +33,11 @@ recording_uri = signals_dir + "/TAR010c-18-1.tgz"
 recordings = [recording_uri]
 modelkeywords = 'dlog-wc.18x2.g-fir.2x15-lvl.1-dexp.1'
 #modelkeywords = 'dlog-wc.18x2.g-stp.2-fir.2x15-dexp.1'
-meta = {'cellid': 'TAR010c-18-1', 'batch': 271, 'modelname': modelkeywords}
+meta = {'cellids': ['TAR010c-18-1'], 'batch': 271, 'modelname': modelkeywords}
 
-xfspec = [['load_recordings', {'recording_uri_list': recordings}],
+xfspec = [['load_recordings', {'recording_uri_list': recordings, 'meta': meta}],
           ['split_val_and_average_reps', {'epoch_regex': '^STIM_'}],
-          ['init_from_keywords', {'keywordstring': modelkeywords, 'meta': meta}],
+          ['init_from_keywords', {'keywordstring': modelkeywords}],
           ['fit_basic_init', {}],
           ['fit_basic', {}],
           ['predict', {}],
