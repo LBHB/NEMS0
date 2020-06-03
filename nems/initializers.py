@@ -99,12 +99,15 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
         if registry.kw_head(kw) not in registry:
             raise ValueError("unknown keyword: {}".format(kw))
 
-        d = copy.deepcopy(registry[kw])
-        d['id'] = kw
-        if init_phi_to_mean_prior:
-            d = priors.set_mean_phi([d])[0]  # Inits phi for 1 module
+        templates = copy.deepcopy(registry[kw])
+        if not isinstance(templates, list):
+            templates = [templates]
+        for d in templates:
+            d['id'] = kw
+            if init_phi_to_mean_prior:
+                d = priors.set_mean_phi([d])[0]  # Inits phi for 1 module
 
-        modelspec.append(d)
+            modelspec.append(d)
 
     # first module that takes input='pred' should take ctx['input_name']
     # instead. can't hard-code in keywords, since we don't know which

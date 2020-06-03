@@ -1613,12 +1613,17 @@ def mrg(kw):
 def conv2d(kw):
     # TODO: choose how to initialize weights
     ops = kw.split('.')
-    filters = int(ops[1])  # first option hard-coded as number of filters
+    filters = int(ops[1])
     kernel_size = [int(dim) for dim in ops[2].split('x')]  # second op hard-coded as kernel shape
-    activation = None
+    activation = 'relu'
+    layer_count = 1
     for op in ops[3:]:
         if op.startswith('actX'):
             activation = op[4:]
+            if activation == 'none':
+                activation = None
+        elif op.startswith('rep'):
+            layer_count = int(op[3:])
 
     template = {
         'fn': 'nems.tf_only.Conv2D_NEMS',   # not a real path, flag for ms.evaluate to use evaluate_tf()
@@ -1632,29 +1637,34 @@ def conv2d(kw):
         'phi': {}
         }
 
-    return template
+    return [template]*layer_count
 
 
 def dense(kw):
     # TODO: choose how to initialize weights
     ops = kw.split('.')
-    units = int(ops[1])  # first option hard-coded as number of units
-    activation = None
+    units = ops[1].split('x')  # first option hard-coded as number of units in each layer
+    activation = 'relu'
     for op in ops[2:]:
         if op.startswith('actX'):
             activation = op[4:]
+            if activation == 'none':
+                activation = None
 
-    template = {
-        'fn': 'nems.tf_only.Dense_NEMS',    # not a real path
-        'tf_layer': 'nems.tf.layers.Dense_NEMS',
-        'fn_kwargs': {'i': 'pred',
-                      'o': 'pred',
-                      'activation': activation,
-                      'units': units},
-        'phi': {}
-        }
+    templates = []
+    for u in units:
+        template = {
+            'fn': 'nems.tf_only.Dense_NEMS',    # not a real path
+            'tf_layer': 'nems.tf.layers.Dense_NEMS',
+            'fn_kwargs': {'i': 'pred',
+                          'o': 'pred',
+                          'activation': activation,
+                          'units': int(u)},
+            'phi': {}
+            }
+        templates.append(template)
 
-    return template
+    return templates
 
 
 def wcn(kw):
