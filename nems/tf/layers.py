@@ -62,9 +62,6 @@ class BaseLayer(tf.keras.layers.Layer):
                 # convert the phis to tf constants
                 kwargs['initializer'] = {k: tf.constant_initializer(v)
                                          for k, v in ms_layer['phi'].items()}
-                if 'WeightChannelsGaussian' in ms_layer['tf_layer']:
-                    # Per SVD: kludge to get TF optimizer to play nice with sd parameter,
-                    kwargs['initializer']['sd'] = tf.constant_initializer(ms_layer['phi']['sd'] * 10)
             else:
                 # if want custom inits for each layer, remove this and change the inits in each layer
                 # kwargs['initializer'] = {k: 'truncated_normal' for k in ms_layer['phi'].keys()}
@@ -402,7 +399,6 @@ class WeightChannelsGaussian(BaseLayer):
 
     def weights_to_phi(self):
         layer_values = self.layer_values
-        layer_values['sd'] = layer_values['sd']/10  # reverses *10 kludge in initialization
         # don't need to do any reshaping
         log.info(f'Converted {self.name} to modelspec phis.')
         return layer_values
