@@ -1421,7 +1421,8 @@ def stategain(kw):
     else:
         template = {
             'fn': 'nems.modules.state.state_dc_gain',
-            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state},
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars},
+            'tf_layer': 'nems.tf.layers.StateDCGain',
             'plot_fns': plot_fns,
             'plot_fn_idx': 5,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),

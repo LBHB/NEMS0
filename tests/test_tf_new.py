@@ -109,7 +109,6 @@ def test_do(data, kern_size):
     assert compare_ms_tf(layer_spec, data)
 
 
-@pytest.mark.xfail
 def test_stategain(data, state_data, kern_size):
     in_size = data.shape[-1]
     layer_spec = f'stategain.{in_size}'
@@ -135,6 +134,8 @@ def test_dexp(data, kern_size):
 
 
 @pytest.mark.xfail
+# failing because of some new changes made to stpq in tf
+# but not also made in nems
 def test_stp_q(data, kern_size):
     in_size = data.shape[-1]
     layer_spec = f'stp.{in_size}.q'
@@ -144,5 +145,5 @@ def test_stp_q(data, kern_size):
 @pytest.mark.xfail
 def test_stp(data, kern_size):
     in_size = data.shape[-1]
-    layer_spec  =f'stp.{in_size}'
+    layer_spec = f'stp.{in_size}'
     assert compare_ms_tf(layer_spec, data)

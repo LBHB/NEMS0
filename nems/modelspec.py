@@ -1010,7 +1010,8 @@ class ModelSpec:
             except KeyError:
                 raise NotImplementedError(f'Layer "{m["fn"]}" does not have a tf equivalent.')
 
-            layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, fs=fs, initializer=initializer)
+            layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
+                                           initializer=initializer)
             layers.append(layer)
 
         return layers
