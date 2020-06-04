@@ -147,6 +147,10 @@ def fit_tf(
 
     :return:
     """
+    tf.random.set_seed(seed)
+    np.random.seed(seed)
+    #os.environ['TF_DETERMINISTIC_OPS'] = '1'   # makes output deterministic, but reduces prediction accuracy
+
     log.info('Building tensorflow keras model from modelspec.')
     nems.utils.progress_fun()
 
