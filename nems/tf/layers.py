@@ -62,6 +62,9 @@ class BaseLayer(tf.keras.layers.Layer):
                 # convert the phis to tf constants
                 kwargs['initializer'] = {k: tf.constant_initializer(v)
                                          for k, v in ms_layer['phi'].items()}
+                if 'WeightChannelsGaussian' in ms_layer['tf_layer']:
+                    # Per SVD: kludge to get TF optimizer to play nice with sd parameter,
+                    kwargs['initializer']['sd'] = tf.constant_initializer(ms_layer['phi']['sd'] * 10)
             else:
                 # if want custom inits for each layer, remove this and change the inits in each layer
                 # kwargs['initializer'] = {k: 'truncated_normal' for k in ms_layer['phi'].keys()}
@@ -370,7 +373,7 @@ class WeightChannelsGaussian(BaseLayer):
             max_value=bounds['mean'][1][0])
         self.sd_constraint = tf.keras.constraints.MinMaxNorm(
             min_value=bounds['sd'][0][0],
-            max_value=bounds['sd'][1][0])
+            max_value=bounds['sd'][1][0]*10)
 
     def build(self, input_shape):
         self.mean = self.add_weight(name='mean',
@@ -391,7 +394,7 @@ class WeightChannelsGaussian(BaseLayer):
     def call(self, inputs, training=True):
         input_features = tf.cast(tf.shape(inputs)[-1], dtype='float32')
         temp = tf.range(input_features) / input_features
-        temp = (tf.reshape(temp, [1, input_features, 1]) - self.mean) / self.sd
+        temp = (tf.reshape(temp, [1, input_features, 1]) - self.mean) / (self.sd/10)
         temp = tf.math.exp(-0.5 * tf.math.square(temp))
         kernel = temp / tf.math.reduce_sum(temp, axis=1)
 
@@ -399,6 +402,7 @@ class WeightChannelsGaussian(BaseLayer):
 
     def weights_to_phi(self):
         layer_values = self.layer_values
+        layer_values['sd'] = layer_values['sd'] / 10  # reverses *10 kludge in initialization
         # don't need to do any reshaping
         log.info(f'Converted {self.name} to modelspec phis.')
         return layer_values
