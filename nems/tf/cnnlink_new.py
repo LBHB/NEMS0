@@ -15,6 +15,7 @@ from nems import initializers, recording, get_setting
 from nems import modelspec as mslib
 from nems.tf import callbacks, loss_functions, modelbuilder
 from nems.tf.layers import Conv2D_NEMS
+from nems.initializers import init_static_nl
 
 log = logging.getLogger(__name__)
 
@@ -252,7 +253,7 @@ def fit_tf(
     # save an initial set of weights before freezing, in case of termination before any checkpoints
     model.save_weights(str(checkpoint_filepath), overwrite=True)
 
-    log.info('Fitting model...')
+    log.info(f'Fitting model (batch_size={batch_size}...')
     history = model.fit(
         stim_train,
         resp_train,
@@ -314,6 +315,7 @@ def fit_tf(
 def fit_tf_init(
         modelspec,
         est: recording.Recording,
+        nl_init="tf",
         **kwargs
         ) -> dict:
     """Inits a model using tf.
@@ -377,33 +379,42 @@ def fit_tf_init(
     for ms_idx, temp_ms_module in zip(init_idxes, temp_ms):
         modelspec[ms_idx] = temp_ms_module
 
-    # init the static nl
-    init_static_nl_mapping = {
-        'double_exponential': initializers.init_dexp,
-        'relu': None,
-        'logistic_sigmoid': initializers.init_logsig,
-        'saturated_rectifier': initializers.init_relsat,
-    }
-    # first find the first occurrence of a static nl in last two layers
-    # if present, remove it from the idxes of the modules to freeze, init the nl and fit, and return the modelspec
-    for idx, ms in enumerate(modelspec[-2:], len(modelspec)-2):
-        for init_static_layer, init_fn in init_static_nl_mapping.items():
-            if init_static_layer in ms['fn']:
-                log.info(f'Initializing static nl "{ms["fn"]}" at layer #{idx}')
-                # relu has a custom init
-                if init_static_layer == 'relu':
-                    ms['phi']['offset'][:] = -0.1
-                else:
-                    modelspec = init_fn(est, modelspec)
+    if nl_init == "scipy":
+        # pre-fit static NL if it exists
+        _d = init_static_nl(est=est, modelspec=modelspec)
+        modelspec = _d['modelspec']
+        # TODO : Initialize relu in some intelligent way?
 
-                static_nl_idx_not = list(set(range(len(modelspec))) - set([idx]))
-                # don't overwrite the phis in the modelspec
-                del kwargs['use_modelspec_init']
-                log.info('Running second init fit: all frozen but static nl.')
+        log.info('finished fit_tf_init, fit_idx=%d/%d', modelspec.fit_index + 1, modelspec.fit_count)
+        return {'modelspec': modelspec}
+    else:
+        # init the static nl
+        init_static_nl_mapping = {
+            'double_exponential': initializers.init_dexp,
+            'relu': None,
+            'logistic_sigmoid': initializers.init_logsig,
+            'saturated_rectifier': initializers.init_relsat,
+        }
+        # first find the first occurrence of a static nl in last two layers
+        # if present, remove it from the idxes of the modules to freeze, init the nl and fit, and return the modelspec
+        for idx, ms in enumerate(modelspec[-2:], len(modelspec)-2):
+            for init_static_layer, init_fn in init_static_nl_mapping.items():
+                if init_static_layer in ms['fn']:
+                    log.info(f'Initializing static nl "{ms["fn"]}" at layer #{idx}')
+                    # relu has a custom init
+                    if init_static_layer == 'relu':
+                        ms['phi']['offset'][:] = -0.1
+                    else:
+                        modelspec = init_fn(est, modelspec)
 
-                filepath = Path(modelspec.meta['modelpath']) / 'init_part2'
-                return fit_tf(modelspec, est, use_modelspec_init=True, freeze_layers=static_nl_idx_not,
-                              filepath=filepath, **kwargs)
+                    static_nl_idx_not = list(set(range(len(modelspec))) - set([idx]))
+                    # don't overwrite the phis in the modelspec
+                    del kwargs['use_modelspec_init']
+                    log.info('Running second init fit: all frozen but static nl.')
+
+                    filepath = Path(modelspec.meta['modelpath']) / 'init_part2'
+                    return fit_tf(modelspec, est, use_modelspec_init=True, freeze_layers=static_nl_idx_not,
+                                  filepath=filepath, **kwargs)
 
     # no static nl to init
     return {'modelspec': modelspec}
