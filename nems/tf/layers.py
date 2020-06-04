@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.layers import Conv2D, Dense
+from tensorflow.keras.constraints import Constraint
 
 log = logging.getLogger(__name__)
 
@@ -337,6 +338,23 @@ class WeightChannelsBasic(BaseLayer):
         return layer_values
 
 
+# TODO: move this some where else? just put here for now b/c need to test with WeightChannelsGaussian
+class ClipByValue(Constraint):
+    '''Enforces hard bounds on the raw value of a trainable weight via tf.clip_by_value.'''
+    def __init__(self, min_value=0.0, max_value=1.0):
+        self.min_value = min_value
+        self.max_value = max_value
+
+    def __call__(self, w):
+        return tf.clip_by_value(w, self.min_value, self.max_value)
+
+    def get_config(self):
+        return {
+            'min_value': self.min_value,
+            'max_value': self.max_value,
+        }
+
+
 class WeightChannelsGaussian(BaseLayer):
     """Basic weight channels."""
     # TODO: convert per https://stackoverflow.com/a/52012658/1510542 in order to handle banks
@@ -368,10 +386,10 @@ class WeightChannelsGaussian(BaseLayer):
             self.initializer.update(initializer)
 
         # constraints assumes bounds built with np.full
-        self.mean_constraint = tf.keras.constraints.MinMaxNorm(
+        self.mean_constraint = ClipByValue(
             min_value=bounds['mean'][0][0],
             max_value=bounds['mean'][1][0])
-        self.sd_constraint = tf.keras.constraints.MinMaxNorm(
+        self.sd_constraint = ClipByValue(
             min_value=bounds['sd'][0][0],
             max_value=bounds['sd'][1][0]*10)
 
