@@ -684,7 +684,8 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
             fit_portion[i] = m
 
     # generate prediction from module preceeding dexp
-    rec = ms.evaluate(rec, ms.ModelSpec(fit_portion))
+    #rec = ms.evaluate(rec, ms.ModelSpec(fit_portion))
+    rec = ms.ModelSpec(fit_portion).evaluate(rec)
 
     in_signal = modelspec[target_i]['fn_kwargs']['i']
     pchans = rec[in_signal].shape[0]
@@ -780,7 +781,8 @@ def init_logsig(rec, modelspec):
         fit_portion = modelspec.modules[:target_i]
 
     # generate prediction from module preceeding dexp
-    rec = ms.evaluate(rec, ms.ModelSpec(fit_portion))
+    #rec = ms.evaluate(rec, ms.ModelSpec(fit_portion))
+    rec = ms.ModelSpec(fit_portion).evaluate(rec)
 
     pred = rec['pred'].as_continuous()
     resp = rec['resp'].as_continuous()
@@ -845,7 +847,8 @@ def init_relsat(rec, modelspec):
         fit_portion = modelspec.modules[:target_i]
 
     # generate prediction from module preceeding dexp
-    rec = ms.evaluate(rec, ms.ModelSpec(fit_portion)).apply_mask()
+    #rec = ms.evaluate(rec, ms.ModelSpec(fit_portion)).apply_mask()
+    rec = ms.ModelSpec(fit_portion).evaluate(rec).apply_mask()
 
     pred = rec['pred'].as_continuous().flatten()
     resp = rec['resp'].as_continuous().flatten()
