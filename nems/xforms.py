@@ -1253,8 +1253,8 @@ def tree_path(recording, modelspecs, xfspec):
     return path
 
 
-def save_analysis(destination, recording, modelspec, xfspec, figures,
-                  log, add_tree_path=False, update_meta=True, save_rec=False):
+def save_analysis(destination, recording, modelspec, xfspec=[], figures=[],
+                  log="", add_tree_path=False, update_meta=True, save_rec=False):
     '''Save an analysis file collection to a particular destination.'''
     if add_tree_path:
         treepath = tree_path(recording, [modelspec], xfspec)
@@ -1328,7 +1328,7 @@ def save_context(destination, xfspec, ctx):
 
     save_analysis(destination, recording=ctx['rec'],
                   modelspec=ctx['modelspec'], xfspec=xfspec,
-                  figures=ctx['figures'], log=log_xf)
+                  figures=ctx['figures'], log=ctx['log'])
 
     _ctx=ctx.copy()
     del _ctx['modelspec']
