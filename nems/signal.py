@@ -1061,7 +1061,7 @@ class RasterizedSignal(SignalBase):
 
         return files
 
-    def save(self, dirpath, fmt='%.18e'):
+    def save(self, dirpath, fmt='%.18e', prefix=''):
         '''
         Save this signal to a CSV file + JSON sidecar. If desired,
         you may use optional parameter fmt (for example, fmt='%1.3e')
@@ -1070,7 +1070,7 @@ class RasterizedSignal(SignalBase):
 
         jsonfilepath,epochfilepath=self._save_metadata_to_dirpath(dirpath)
 
-        filebase = self.recording + '.' + self.name
+        filebase = prefix + self.recording + '.' + self.name
         basepath = os.path.join(dirpath, filebase)
         csvfilepath = basepath + '.csv'
 
