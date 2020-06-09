@@ -1317,12 +1317,12 @@ def save_from_context(destination, xfspec, ctx, log_xf):
     return {'savepath': destination}
 
 
-def save_context(destination, xfspec, ctx):
+def save_context(destination, ctx, xfspec=[]):
     '''
     Save entire context
     :param destination:
-    :param xfspec:
-    :param context:
+    :param ctx: NEMS context dictionary
+    :param xfspec: options xfspec list (default [])
     :return:
     '''
 
