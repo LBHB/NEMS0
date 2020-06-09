@@ -1317,7 +1317,7 @@ def save_from_context(destination, xfspec, ctx, log_xf):
     return {'savepath': destination}
 
 
-def save_context(destination, xfspec, context):
+def save_context(destination, xfspec, ctx):
     '''
     Save entire context
     :param destination:
