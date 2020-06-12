@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.layers import Conv2D, Dense
 from tensorflow.keras.constraints import Constraint
+from tensorflow.python.ops import array_ops
 
 log = logging.getLogger(__name__)
 
@@ -772,3 +773,17 @@ class WeightChannelsNew(BaseLayer):
         phi = {'coefficients': self.coefficients.numpy()}
         log.info(f'Converted {self.name} to modelspec phis.')
         return phi
+
+
+class FlattenChannels(BaseLayer):
+
+    def __init__(self, initializer=None, *args, **kwargs):
+        # no weights or initializer to deal with
+        super(FlattenChannels, self).__init__(*args, **kwargs)
+
+    def call(self, inputs):
+        batch, time, channels, units = tuple(inputs.shape)
+        return array_ops.reshape(inputs, (array_ops.shape(inputs)[0],) + (time, channels*units))
+
+    def weights_to_phi(self):
+        return {}  # no trainable weights

@@ -1617,6 +1617,7 @@ def conv2d(kw):
     kernel_size = [int(dim) for dim in ops[2].split('x')]  # second op hard-coded as kernel shape
     activation = 'relu'
     layer_count = 1
+    flatten = False
     for op in ops[3:]:
         if op.startswith('actX'):
             activation = op[4:]
@@ -1624,6 +1625,8 @@ def conv2d(kw):
                 activation = None
         elif op.startswith('rep'):
             layer_count = int(op[3:])
+        elif op == 'flat':
+            flatten = True
 
     template = {
         'fn': 'nems.tf_only.Conv2D_NEMS',   # not a real path, flag for ms.evaluate to use evaluate_tf()
@@ -1635,9 +1638,19 @@ def conv2d(kw):
                       'kernel_size': kernel_size,
                       'padding': 'same'},
         'phi': {}
+    }
+    templates = [template]*layer_count
+    if flatten:
+        flatten_template = {
+            'fn': 'nems.tf_only.FlattenChannels',
+            'tf_layer': 'nems.tf.layers.FlattenChannels',
+            'fn_kwargs': {'i': 'pred',
+                          'o': 'pred'},
+            'phi': {}
         }
+        templates.append(flatten_template)
 
-    return [template]*layer_count
+    return templates
 
 
 def dense(kw):
