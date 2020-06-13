@@ -20,7 +20,7 @@ def gaussian_coefficients(mean, sd, n_chan_in, **kwargs):
     # mean[mean < 0] = 0
     # mean[mean > 1] = 1
     sd = np.asanyarray(sd)[..., np.newaxis]
-    sd[sd < 0.00001] = 0.00001
+    # sd[sd < 0.00001] = 0.00001
     #coefficients = 1/(sd*(2*np.pi)**0.5) * np.exp(-0.5*((x-mean)/sd)**2)
     coefficients = np.exp(-0.5*((x-mean)/sd)**2)
     csum = np.sum(coefficients, axis=1, keepdims=True)
@@ -32,7 +32,7 @@ def gaussian_coefficients(mean, sd, n_chan_in, **kwargs):
 #-------------------------------------------------------------------------------
 # Module functions
 #-------------------------------------------------------------------------------
-def basic(rec, i, o, coefficients, normalize_coefs=False):
+def basic(rec, i, o, coefficients, normalize_coefs=False, **kwargs):
     '''
     Parameters
     ----------

@@ -217,6 +217,7 @@ def before_and_after_stp(modelspec=None, mod_index=None, tau=None, u=None, tau2=
         tau2 = m['phi'].get('tau2', None)
         u2 = m['phi'].get('u2', None)
         urat = m['phi'].get('urat', 0.5)
+        quick_eval=m['fn_kwargs'].get('quick_eval',False)
 
     if type(u) in [float, int]:
         u=np.array([u])
@@ -226,7 +227,8 @@ def before_and_after_stp(modelspec=None, mod_index=None, tau=None, u=None, tau2=
         u2=np.array([u2])
     if type(tau2) in [float, int]:
         tau2=np.array([tau2])
-    stp_mag, pred, pred_out = stp_magnitude(tau=tau, u=u, fs=fs, tau2=tau2, u2=u2, urat=urat)
+    stp_mag, pred, pred_out = stp_magnitude(tau=tau, u=u, fs=fs, tau2=tau2, u2=u2, urat=urat,
+                                            quick_eval=quick_eval)
     c = len(tau)
     pred.name = 'before'
     pred_out.name = 'after'
@@ -441,7 +443,7 @@ def pred_resp(rec=None, modelspec=None, ax=None, title=None,
     --------
     ax : axis containing plot
     '''
-    sig_list = ['pred', 'resp']
+    sig_list = ['resp', 'pred']
     sigs = [rec[s] for s in sig_list]
     ax = timeseries_from_signals(sigs, channels=channels,
                                  xlabel=xlabel, ylabel=ylabel, ax=ax,

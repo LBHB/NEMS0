@@ -391,12 +391,16 @@ def get_default_savepath(modelspec):
     exptid = modelspec.meta.get('exptid', 'DATA')
     siteid = modelspec.meta.get('siteid', exptid)
     cellid = modelspec.meta.get('cellid', siteid)
-    if type(cellid) is list:
+    cellids = modelspec.meta.get('cellids', siteid)
+
+    if (siteid == 'DATA') and (type(cellids) is list):
+        siteid = cellids[0].split("-")[0]
         destination = os.path.join(results_dir, str(batch), siteid,
                                    modelspec.get_longname())
     else:
         destination = os.path.join(results_dir, str(batch), cellid,
                                    modelspec.get_longname())
+    log.info('model save destination: %s', destination)
     return destination
 
 lookup_table = {}  # TODO: Replace with real memoization/joblib later

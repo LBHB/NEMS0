@@ -20,7 +20,7 @@
 # -- Project information -----------------------------------------------------
 
 project = 'NEMS'
-copyright = '2019, NEMS development team'
+copyright = '2020, NEMS development team'
 author = 'NEMS development team'
 
 # The short X.Y version
@@ -49,6 +49,8 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
     'sphinx.ext.napoleon',
+    'nbsphinx',
+    'sphinx_copybutton',
 ]
 
 autodoc_default_options = {
@@ -86,6 +88,12 @@ exclude_patterns = []
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
 
+# -- Options for nbsphinx ----------------------------------------------------
+
+# Default language for syntax highlighting in reST and Markdown cells:
+highlight_language = 'none'
+html_sourcelink_suffix = ''
+nbsphinx_prompt_width = 0
 
 # -- Options for HTML output -------------------------------------------------
 

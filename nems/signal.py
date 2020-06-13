@@ -998,7 +998,7 @@ class RasterizedSignal(SignalBase):
         if safety_checks and self.ntimes < self.nchans:
             m = 'Incorrect matrix dimensions?: (C, T) is {}. ' \
                 'We expect a long time series, but T < C'
-            warnings.warn(m.format((C, T)))
+            warnings.warn(m.format((self.nchans, self.ntimes)))
 
         if safety_checks:
             self._run_safety_checks()
@@ -1063,7 +1063,7 @@ class RasterizedSignal(SignalBase):
 
         return files
 
-    def save(self, dirpath, fmt='%.18e'):
+    def save(self, dirpath, fmt='%.18e', prefix=''):
         '''
         Save this signal to a CSV file + JSON sidecar. If desired,
         you may use optional parameter fmt (for example, fmt='%1.3e')
@@ -1072,7 +1072,7 @@ class RasterizedSignal(SignalBase):
 
         jsonfilepath,epochfilepath=self._save_metadata_to_dirpath(dirpath)
 
-        filebase = self.recording + '.' + self.name
+        filebase = prefix + self.recording + '.' + self.name
         basepath = os.path.join(dirpath, filebase)
         csvfilepath = basepath + '.csv'
 
@@ -1218,15 +1218,17 @@ class RasterizedSignal(SignalBase):
         # print(epoch)
 
         for i, (lb, ub) in enumerate(epoch_indices):
-            if ub>data.shape[-1]:
-                ub=data.shape[-1]
+            if ub > data.shape[-1]:
+                ub = data.shape[-1]
             samples = ub-lb
             #print(samples)
             #print([lb, ub])
             #print(data[..., lb:ub].shape)
             #print(epoch_data[i, ..., :samples].shape)
-            epoch_data[i, ..., :samples] = data[..., lb:ub]
-
+            try:
+                epoch_data[i, ..., :samples] = data[..., lb:ub]
+            except:
+                raise ValueError('Trying to extract invalid range from signal for epoch (out of bounds or negative duration?).')
         return epoch_data
 
     def normalize(self, normalization='minmax'):

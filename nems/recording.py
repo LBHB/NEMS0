@@ -26,12 +26,16 @@ log = logging.getLogger(__name__)
 
 class Recording:
 
-    def __init__(self, signals, meta=None, name=None):
+    def __init__(self, signals, meta=None, name=None, signal_views=None):
         '''
         Signals argument should be a dictionary of signal objects.
         '''
-        self.signals = signals
-        self.signal_views = [signals]
+        if signal_views is not None:
+            self.signal_views = signal_views
+            self.signals = signal_views[0]
+        else:
+            self.signals = signals
+            self.signal_views = [signals]
         self.view_idx = 0
 
         # Verify that all signals are from the same recording
@@ -41,7 +45,10 @@ class Recording:
         if not len(set(recordings)) == 1:
             raise ValueError('Not all signals are from the same recording.')
         if name is None:
-            self.name = recordings[0]
+            if len(recordings):
+                self.name = recordings[0]
+            else:
+                self.name = 'recording'
         else:
             self.name = name
 
@@ -511,8 +518,15 @@ class Recording:
             os.mkdir(directory)
         if not os.path.isdir(directory):
             os.makedirs(directory, exist_ok=True)
-        for s in self.signals.values():
-            s.save(directory)
+        for i, v in enumerate(self.signal_views):
+            for k, s in v.items():
+                if i == 0:
+                    print(i, k)
+                    s.save(directory)
+                else:
+                    if s is not self.signal_views[i-1][k]:
+                        print(i, k)
+                        s.save(directory, prefix=f"{i:02d}.")
 
         # Save meta dictionary to json file. Works?
         metafilepath = directory + os.sep + self.name + '.meta.json'
@@ -566,19 +580,31 @@ class Recording:
         info.size = stream.getbuffer().nbytes
         tar.addfile(info, stream)
 
-        for s in self.signals.values():
-            d = s.as_file_streams()  # Dict mapping filenames to streams
-            for filename, stringstream in d.items():
-                if type(stringstream) is io.BytesIO:
-                    stream = stringstream
+        for i, v in enumerate(self.signal_views):
+            for k, s in v.items():
+                _save_this = False
+                if i == 0:
+                    print(i, k)
+                    _save_this = True
+                    prefix = ''
                 else:
-                    stream = io.BytesIO(stringstream.getvalue().encode())
-                info = tarfile.TarInfo(os.path.join(self.name, filename))
-                info.uname = 'nems'  # User name
-                info.gname = 'users'  # Group name
-                info.mtime = time.time()
-                info.size = stream.getbuffer().nbytes
-                tar.addfile(info, stream)
+                    if s is not self.signal_views[i - 1][k]:
+                        print(i, k)
+                        prefix = f"{i:02d}."
+                        _save_this = True
+                if _save_this:
+                    d = s.as_file_streams()  # Dict mapping filenames to streams
+                    for filename, stringstream in d.items():
+                        if type(stringstream) is io.BytesIO:
+                            stream = stringstream
+                        else:
+                            stream = io.BytesIO(stringstream.getvalue().encode())
+                        info = tarfile.TarInfo(os.path.join(self.name, prefix+filename))
+                        info.uname = 'nems'  # User name
+                        info.gname = 'users'  # Group name
+                        info.mtime = time.time()
+                        info.size = stream.getbuffer().nbytes
+                        tar.addfile(info, stream)
 
         tar.close()
         f.seek(0)
@@ -1283,14 +1309,25 @@ def load_recording_from_targz_stream(tgz_stream):
     '''
     tpath=None
     meta = {}
-    streams = {}  # For holding file streams as we unpack
+    streams = [{}]  # For holding file streams as we unpack
     with tarfile.open(fileobj=tgz_stream, mode='r:gz') as t:
         for member in t.getmembers():
             if member.size == 0:  # Skip empty files
                 continue
             basename = os.path.basename(member.name)
+
             # Now put it in a subdict so we can find it again
-            signame = str(basename.split('.')[0:2])
+            _pieces = basename.split('.')[:-1]
+            if _pieces[-1]=='epoch':
+                _pieces = _pieces[:-1]
+            if len(_pieces) == 2:
+                v = 0
+                signame = str(_pieces)
+            else:
+                v = int(_pieces[0])
+                signame = str(_pieces[1:])
+            #signame = str(basename.split('.')[0:2])
+
             if basename.endswith('meta.json'):
                 f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
                 meta = json.load(f)
@@ -1311,7 +1348,7 @@ def load_recording_from_targz_stream(tgz_stream):
                 if not tpath:
                     tpath=tempfile.mktemp()
                 t.extract(member,tpath)
-                f=tpath+'/'+member.name
+                f = tpath+'/'+member.name
 
             elif basename.endswith('.json'):
                 keyname = 'json_stream'
@@ -1323,21 +1360,31 @@ def load_recording_from_targz_stream(tgz_stream):
 
             if f is not None:
                 # Ensure that we can doubly nest the streams dict
-                if signame not in streams:
-                    streams[signame] = {}
+                if len(streams) < (v+1):
+                    streams.append({})
+                if signame not in streams[v]:
+                    streams[v][signame] = {}
                 # Read out a stringIO object for each file now while it's open
                 #f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
-                streams[signame][keyname] = f
+                streams[v][signame][keyname] = f
 
     # Now that the streams are organized, convert them into signals
     # log.debug({k: streams[k].keys() for k in streams})
-    signals = [load_signal_from_streams(**sg) for sg in streams.values()]
-    signals_dict = {s.name: s for s in signals}
+    signal_views = []
+    previous_dict = {}
+    for stream in streams:
+        _sigs = [load_signal_from_streams(**sg) for sg in stream.values()]
+        signals_dict = {s.name: s for s in _sigs}
 
-    rec = Recording(signals=signals_dict, meta=meta)
+        signal_views.append(previous_dict.copy())
+        signal_views[-1].update(signals_dict)
+
+        previous_dict = signal_views[-1]
+
+    rec = Recording(signals={}, meta=meta, signal_views=signal_views)
 
     if tpath:
-        shutil.rmtree(tpath) # clean up if tpath is not None
+        shutil.rmtree(tpath)  # clean up if tpath is not None
 
     return rec
 

@@ -1,28 +1,12 @@
 # A Template NEMS Script that demonstrates use of xforms for generating
 # models that are easy to reload
 
-import os
 import logging
-import sys
+import os
 
-import nems
-import nems.initializers
-import nems.priors
-import nems.preprocessing as preproc
-import nems.modelspec as ms
-import nems.plots.api as nplt
-import nems.analysis.api
-import nems.utils
+import nems.db as nd
 import nems.uri
 import nems.xforms as xforms
-import nems.db as nd
-import nems.recording as recording
-from nems.fitters.api import scipy_minimize, coordinate_descent
-from nems.gui.editors import browse_xform_fit
-import nems_lbhb.xform_wrappers as nw
-
-from nems.recording import Recording
-from nems.fitters.api import scipy_minimize
 
 # ----------------------------------------------------------------------------
 # CONFIGURATION
@@ -36,13 +20,10 @@ signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
 # ----------------------------------------------------------------------------
 # DATA LOADING & PRE-PROCESSING
 
-#recording.get_demo_recordings(signals_dir, "TAR010c_caebcef47a71d0e6d6379789f9b4f5a39c9376fb.tgz")
-
-#datafile=nw.generate_recording_uri(cellid='TAR010c-06-1', batch=307, loadkey='psth.fs20.pup')
-datafile = os.path.join(signals_dir, "TAR010c_caebcef47a71d0e6d6379789f9b4f5a39c9376fb.tgz")
+datafile = os.path.join(signals_dir, "TAR010c.NAT.fs100.tgz")
 exptid = "TAR010c"
 batch = 307
-cellid = "TAR010c-06-1"
+cellid = "TAR010c-18-2"
 
 # MODEL SPEC
 modelspecname = 'stategain.SxN'

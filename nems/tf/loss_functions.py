@@ -8,9 +8,26 @@ import tensorflow as tf
 log = logging.getLogger(__name__)
 
 
+def get_loss_fn(loss_fn_str: str):
+    """Utility to get a function from a string name."""
+    mapping = {
+        'squared_error': loss_se,
+        # 'squared_error': loss_se_safe,
+        'poisson': poisson,
+        'nmse': loss_tf_nmse,
+        'nmse_shrinkage': loss_tf_nmse_shrinkage,
+    }
+
+    try:
+        return mapping[loss_fn_str]
+    except KeyError:
+        raise KeyError(f'Loss must be "squared_error", "poisson", "nmse",'
+                       f' or "nmse_shrinkage", not {loss_fn_str}')
+
+
 def poisson(response, prediction):
     """Poisson loss."""
-    return tf.reduce_mean(prediction - response * tf.log(prediction + 1e-5), name='poisson')
+    return tf.math.reduce_mean(prediction - response * tf.math.log(prediction + 1e-5), name='poisson')
 
 
 def drop_nan(response, prediction):
@@ -20,18 +37,13 @@ def drop_nan(response, prediction):
 
 def loss_se(response, prediction):
     """Squared error loss."""
-    # TODO : add percell option
+    return tf.math.reduce_mean(tf.math.square(response - prediction)) / tf.math.reduce_mean(tf.math.square(response))
 
-    # SVD -- was trying to reduce nan outputs, but doesn't seem to make a different. more important to avoid
-    # having the fitter get there. Possibly useful in the future though?
-    #x = tf.square(response - prediction)
-    #y = tf.square(response)
-    #x = tf.reduce_mean(tf.boolean_mask(x, tf.is_finite(x))) + tf.reduce_mean(tf.dtypes.cast(tf.is_inf(x), tf.float32))
-    #y = tf.reduce_mean(tf.boolean_mask(y, tf.is_finite(y))) + tf.reduce_mean(tf.dtypes.cast(tf.is_inf(y), tf.float32))
-    #return x/y
-    
-    response, prediction = drop_nan(response, prediction)
-    return tf.reduce_mean(tf.square(response - prediction)) / tf.reduce_mean(tf.square(response))
+
+def loss_se_safe(response, prediction):
+    """Squared error loss, with checking for NaNs."""
+    tf.debugging.check_numerics(prediction, message='Nan values in prediction.')
+    return tf.math.reduce_mean(tf.math.square(response - prediction)) / tf.math.reduce_mean(tf.math.square(response))
 
 
 def loss_tf_nmse_shrinkage(response, prediction):
@@ -43,7 +55,7 @@ def loss_tf_nmse(response, prediction, per_cell=True):
     """Normalized means squared error loss."""
     mE, sE = tf_nmse(response, prediction, per_cell=per_cell)
     if per_cell:
-        return tf.reduce_mean(mE)
+        return tf.math.reduce_mean(mE)
     else:
         return mE
 

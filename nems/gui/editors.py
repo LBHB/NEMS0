@@ -1547,9 +1547,13 @@ def run(modelspec, xfspec, rec, ctx):
     sys.exit(app.exec_())
 
 def browse_xform_fit(ctx, xfspec, recname='val', control_widget=None):
+    app = qw.QApplication.instance()
+    if app is None:
+        # if it does not exist then a QApplication is created
+        app = qw.QApplication(sys.argv)
 
-    modelspec=ctx['modelspec']
-    rec=ctx[recname]
+    modelspec = ctx['modelspec']
+    rec = ctx[recname]
     ex = EditorWindow(modelspec=modelspec, xfspec=xfspec, rec=rec,
                       ctx=ctx, control_widget=control_widget)
 

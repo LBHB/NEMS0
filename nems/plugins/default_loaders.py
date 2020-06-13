@@ -1,4 +1,4 @@
-def ld(loadkey, recording_uri=None, cellid=None):
+def ld(loadkey, recording_uri=None, recording_uri_list=None, cellid=None):
     '''
     Default loader xfspec. Loads the recording and (optionally) specifies
     input_name and output_name context variables that tell, respectively, the
@@ -18,11 +18,18 @@ def ld(loadkey, recording_uri=None, cellid=None):
     options = loadkey.split('.')[1:]
 
     d = {}
+
+    # TODO: really should only have one argument or the other, but currently some code uses the first
+    # version while other code uses the second version. So until that gets resolved, need to accept
+    # both versions as kwargs, otherwise the information will not be passed from the registry.
     if recording_uri is not None:
         d['recording_uri_list'] = [recording_uri]
+    elif recording_uri_list is not None:
+        d['recording_uri_list'] = recording_uri_list
+
     d['normalize'] = False
-    if cellid is not None:
-        d['cellid'] = cellid
+    #if cellid is not None:
+    #    d['cellid'] = cellid
 
     for op in options:
         if op.startswith('pop'):

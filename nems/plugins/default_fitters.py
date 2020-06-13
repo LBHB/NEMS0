@@ -142,6 +142,107 @@ def nrc(fitkey):
     return xfspec
 
 
+def newtf(fitkey):
+    """New tf fitter.
+
+    TODO
+    """
+    use_modelspec_init = False
+    optimizer = 'adam'
+    max_iter = 10_000
+    cost_function = 'squared_error'
+    early_stopping_steps = 5
+    early_stopping_tolerance = 5e-4
+    learning_rate = 1e-4
+    batch_size = None
+    # seed = 0
+    initializer = 'random_normal'
+
+    rand_count = 0
+    pick_best = False
+
+    options = _extract_options(fitkey)
+
+    for op in options:
+        if op[:1] == 'i':
+            if len(op[1:]) == 0:
+                max_iter = int(1e10)  # just a really large number
+            else:
+                max_iter = int(op[1:])
+        elif op[:1] == 'n':
+            use_modelspec_init = True
+        if op == 'b':
+            pick_best = True
+        elif op.startswith('rb'):
+            pick_best = True
+            if len(op) == 2:
+                rand_count = 10
+            else:
+                rand_count = int(op[2:])
+        elif op.startswith('r'):
+            if len(op) == 1:
+                rand_count = 10
+            else:
+                rand_count = int(op[1:])
+        elif op.startswith('lr'):
+            learning_rate = op[2:]
+            if 'e' in learning_rate:
+                base, exponent = learning_rate.split('e')
+                learning_rate = int(base) * 10 ** -int(exponent)
+            else:
+                learning_rate = int(learning_rate)
+        elif op.startswith('et'):
+            exp = op[2:].replace('d', '.')
+            early_stopping_tolerance = 10 ** -float(exp)
+        elif op.startswith('bs'):
+            batch_size = int(op[2:])
+        elif op[:1] == 'd':
+            initializer = op[1:]
+            if initializer == 'gu':
+                initializer = 'glorot_uniform'
+            elif initializer == 'heu':
+                initializer = 'he_uniform'
+            elif initializer == 'tn':
+                initializer = 'truncated_normal'
+            elif initializer == 'ln':
+                initializer = 'lecun_normal'
+
+    xfspec = []
+    if rand_count > 0:
+        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
+
+    xfspec.append(['nems.xforms.fit_wrapper',
+                   {
+                       'max_iter': max_iter,
+                       'use_modelspec_init': use_modelspec_init,
+                       'optimizer': optimizer,
+                       'cost_function': cost_function,
+                       'fit_function': 'nems.tf.cnnlink_new.fit_tf',
+                       'early_stopping_steps': early_stopping_steps,
+                       'early_stopping_tolerance': early_stopping_tolerance,
+                       'learning_rate': learning_rate,
+                       'batch_size': batch_size,
+                       'initializer': initializer,
+                   }])
+
+    if pick_best:
+        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
+
+    return xfspec
+
+
+def tfinit(fitkey):
+    """New tf init.
+
+    TODO
+    """
+    xfspec = newtf(fitkey)
+    idx = [xf[0] for xf in xfspec].index('nems.xforms.fit_wrapper')
+    xfspec[idx][1]['fit_function'] = 'nems.tf.cnnlink_new.fit_tf_init'
+
+    return xfspec
+
+
 def tf(fitkey):
     '''
     Perform a Tensorflow fit, using Sam Norman-Haignere's CNN library
@@ -357,6 +458,11 @@ def init(kw):
         elif op.startswith('tf'):
             tf = True
             max_iter = 10000
+        elif op.startswith('it'):
+            if len(op[2:]) == 0:
+                max_iter = None
+            else:
+                max_iter = int(op[2:])
         elif op=='psth':
             fit_sig = 'psth'
         elif op.startswith('nl'):
@@ -399,7 +505,13 @@ def init(kw):
         elif op.startswith('ii'):
             sel_options['include_through'] = int(op[2:])
         elif op.startswith('i'):
-            sel_options['include_idx'].append(int(op[1:]))
+            if not tf:
+                sel_options['include_idx'].append(int(op[1:]))
+            else:
+                if len(op[1:]) == 0:
+                    max_iter = None
+                else:
+                    max_iter = int(op[1:])
         elif op.startswith('ffneg'):
             sel_options['freeze_after'] = -int(op[5:])
         elif op.startswith('fneg'):
@@ -418,11 +530,6 @@ def init(kw):
             sel_options['exclude_idx'].append(int(op[1:]))
 
             # begin TF-specific options
-        elif op.startswith('it'):
-            if len(op[2:]) == 0:
-                max_iter = None
-            else:
-                max_iter = int(op[2:])
         elif op == 'n':
             use_modelspec_init = True
         elif op.startswith('lr'):

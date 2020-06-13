@@ -25,7 +25,6 @@ import nems.epoch as ep
 from nems.utils import find_common
 import pandas as pd
 import scipy.ndimage.filters as sf
-import nems_lbhb.plots as lplt
 import nems.gui.recording_browser as browser
 import nems.gui.editors as editor
 import nems.gui.model_comparison as comparison
@@ -155,7 +154,7 @@ class PandasModel(qc.QAbstractTableModel):
 class model_browser(qw.QWidget):
     """
     For a given batch, list all cellids and modelnames matching in
-    NarfResults. Clicking view will call view_model_recording for the
+    Results. Clicking view will call view_model_recording for the
     currently selected model.
 
     """
@@ -318,20 +317,20 @@ class model_browser(qw.QWidget):
 
         #self.d_cells = nd.get_batch_cells(self.batch, cellid=cellmask)
 
-        self.d_cells = nd.pd_query("SELECT DISTINCT cellid FROM NarfResults" +
+        self.d_cells = nd.pd_query("SELECT DISTINCT cellid FROM Results" +
                                " WHERE batch=%s AND cellid like %s" +
                                " ORDER BY cellid",
                                (self.batch, cellmask))
 
         modelquery = ("SELECT modelname, count(*) as n, max(lastmod) as "
-                      "last_mod FROM NarfResults WHERE batch=%s AND ")
+                      "last_mod FROM Results WHERE batch=%s AND ")
         for i, m in enumerate(modelmask):
             modelquery += 'modelname like %s OR '
         modelquery = modelquery[:-3]  # drop the trailing OR
         modelquery += 'GROUP BY modelname ORDER BY modelname'
         self.d_models = nd.pd_query(modelquery, (self.batch, *modelmask))
 
-#        self.d_models = nd.pd_query("SELECT modelname, count(*) as n, max(lastmod) as last_mod FROM NarfResults" +
+#        self.d_models = nd.pd_query("SELECT modelname, count(*) as n, max(lastmod) as last_mod FROM Results" +
 #                               " WHERE batch=%s AND modelname like %s" +
 #                               " GROUP BY modelname ORDER BY modelname",
 #                               (self.batch, modelmask))
