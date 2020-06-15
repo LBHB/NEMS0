@@ -58,6 +58,8 @@ class BaseLayer(tf.keras.layers.Layer):
         if 'reset_signal' in ms_layer['fn_kwargs']:
             # kwargs['reset_signal'] = ms_layer['fn_kwargs']['reset_signal']
             kwargs['reset_signal'] = None
+        if 'non_causal' in ms_layer['fn_kwargs']:
+            kwargs['non_causal'] = ms_layer['fn_kwargs']['non_causal']
 
         return cls(**kwargs)
 
@@ -394,6 +396,7 @@ class FIR(BaseLayer):
                  n_inputs=1,
                  initializer=None,
                  seed=0,
+                 non_causal=0,
                  *args,
                  **kwargs,
                  ):
@@ -409,6 +412,9 @@ class FIR(BaseLayer):
 
         self.banks = banks
         self.n_inputs = n_inputs
+        self.non_causal = non_causal
+        if non_causal >= units:
+            raise ValueError("FIR: non_causal bin count must be < filter length (units)")
 
         self.initializer = {'coefficients': tf.random_normal_initializer(seed=seed)}
         if initializer is not None:
@@ -431,8 +437,9 @@ class FIR(BaseLayer):
 
     def call(self, inputs, training=True):
         """Normal call."""
-        pad_size = self.units - 1
-        padded_input = tf.pad(inputs, [[0, 0], [pad_size, 0], [0, 0]])
+        pad_size0 = self.units - 1 - self.non_causal
+        pad_size1 = self.non_causal
+        padded_input = tf.pad(inputs, [[0, 0], [pad_size0, pad_size1], [0, 0]])
         transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
         return tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
 
