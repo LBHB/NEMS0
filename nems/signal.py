@@ -523,12 +523,13 @@ class SignalBase:
                     keepidx.append(i)
             
                 elif (np.sum(m_data[0, lb:ub]) > 0) & allow_incomplete:
-                    
                     # "safety" checks
-                    if (m_data[0, lb:ub].shape!=standard_mask.shape):
-                        raise ValueError("For allow_incomplete=True, epochs must all be the same size")
-                    if  ~np.all(m_data[0, lb:ub] == standard_mask):
-                        raise ValueError("Mask must be identical on each epoch when using allow_incomplete=True")
+                    if (m_data[0, lb:ub].sum()!=standard_mask.sum()):
+                        raise ValueError("For allow_incomplete=True, masks must all be the same size on each epoch")
+                    #if (m_data[0, lb:ub].shape!=standard_mask.shape):
+                    #    raise ValueError("For allow_incomplete=True, epochs must all be the same size")
+                    #if  ~np.all(m_data[0, lb:ub] == standard_mask):
+                    #    raise ValueError("Mask must be identical on each epoch when using allow_incomplete=True")
 
                     # define new indices
                     idx = np.where(m_data[0, lb:ub])
