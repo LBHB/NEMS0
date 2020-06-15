@@ -519,7 +519,7 @@ class SignalBase:
             keepidx = []
             for i, (lb, ub) in enumerate(indices):
                 #                samples = ub-lb
-                if np.all(m_data[0, lb:ub]):
+                if (m_data[0, lb:ub].size != 0) & np.all(m_data[0, lb:ub]):
                     keepidx.append(i)
             
                 elif (np.sum(m_data[0, lb:ub]) > 0) & allow_incomplete:
