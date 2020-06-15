@@ -507,8 +507,12 @@ class SignalBase:
                     break
                 if e >= n_epochs:
                     break
+        
+        indices = np.asarray(indices, dtype='i')  
+        # exclude segments without data
+        zero_data_mask = (indices[:, 0] - indices[:, 1])!=0
+        indices = indices[zero_data_mask, :]
 
-        indices = np.asarray(indices, dtype='i')    
         if mask is not None:
             # remove instances of the epoch that do not fall in the mask
             m_data = mask.as_continuous()
