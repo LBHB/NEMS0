@@ -416,6 +416,7 @@ class StateDCGain(BaseLayer):
 
     def __init__(self,
                  units=None,
+                 n_inputs=1,
                  initializer=None,
                  seed=0,
                  *args,
@@ -431,6 +432,8 @@ class StateDCGain(BaseLayer):
         else:
             self.units = units
 
+        self.n_inputs = n_inputs
+
         self.initializer = {
                 'g': tf.random_normal_initializer(seed=seed),
                 'd': tf.random_normal_initializer(seed=seed + 1),  # this is halfnorm in NEMS
@@ -442,14 +445,14 @@ class StateDCGain(BaseLayer):
         input_shape, state_shape = input_shape
 
         self.g = self.add_weight(name='g',
-                                 shape=(input_shape[-1], self.units),
+                                 shape=(self.n_inputs, self.units),
                                  # shape=(self.units, input_shape[-1]),
                                  dtype='float32',
                                  initializer=self.initializer['g'],
                                  trainable=True,
                                  )
         self.d = self.add_weight(name='d',
-                                 shape=(input_shape[-1], self.units),
+                                 shape=(self.n_inputs, self.units),
                                  # shape=(self.units, input_shape[-1]),
                                  dtype='float32',
                                  initializer=self.initializer['d'],
@@ -464,9 +467,6 @@ class StateDCGain(BaseLayer):
 
         g_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(g_transposed, 0), stride=1, padding='SAME')
         d_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(d_transposed, 0), stride=1, padding='SAME')
-
-        # g_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(self.g, 0), stride=1, padding='SAME')
-        # d_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(self.d, 0), stride=1, padding='SAME')
 
         return inputs * g_conv + d_conv
 
