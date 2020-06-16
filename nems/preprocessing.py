@@ -1125,7 +1125,7 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
     :return: copy of rec with PCs
     """
     rec0 = rec.copy()
-    if type(pc_idx) is not list:
+    if type(pc_idx) is int:
         pc_idx = [pc_idx]
     resp = rec0[resp_sig]
 
@@ -1193,7 +1193,8 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
     if compute_power == 'single_trial':
         X = convolve2d(np.abs(X), np.ones((3,1)) / 3, 'same')
 
-    rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
+    pc_chans = [f'PC{i}' for i in range(pc_count)]
+    rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T[np.arange(pc_count),:], chans=pc_chans)
 
 #    r = rec0[pc_sig].extract_epoch('REFERENCE')
 #    mr=np.mean(r,axis=0)
