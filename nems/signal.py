@@ -518,7 +518,7 @@ class SignalBase:
             m_data = mask.as_continuous()
 
             # get a "reference epoch mask" for safety checking below
-            standard_mask = m_data[0, indices[0, 0]:indices[0, 1]]
+            standard_mask = None 
 
             keepidx = []
             for i, (lb, ub) in enumerate(indices):
@@ -528,6 +528,8 @@ class SignalBase:
             
                 elif (np.sum(m_data[0, lb:ub]) > 0) & allow_incomplete:
                     # "safety" checks
+                    if standard_mask is None:
+                        standard_mask = m_data[0, lb:ub]
                     if (m_data[0, lb:ub].sum()!=standard_mask.sum()):
                         raise ValueError("For allow_incomplete=True, masks must all be the same size on each epoch")
                     #if (m_data[0, lb:ub].shape!=standard_mask.shape):
