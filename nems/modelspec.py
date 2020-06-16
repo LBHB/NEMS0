@@ -1280,7 +1280,7 @@ def eval_ms_layer(data: np.ndarray,
     if state_data is not None:
         state_sig = nems.signal.RasterizedSignal.from_3darray(
             fs=100,
-            array=np.swapaxes(data, 1, 2),
+            array=np.swapaxes(state_data, 1, 2),
             name='state',
             recording='temp',
             epoch_name='REFERENCE'

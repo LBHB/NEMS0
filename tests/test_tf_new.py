@@ -19,7 +19,7 @@ def data(shape=(20, 100, 18)):
 
 
 @pytest.fixture()
-def state_data(shape=(20, 100, 18)):
+def state_data(shape=(20, 100, 3)):
     state_data = np.random.random(shape).astype('float32')
     state_data[:, :10, :] = 0
     state_data[:, -10:, :] = 0
@@ -109,9 +109,8 @@ def test_do(data, kern_size):
     assert compare_ms_tf(layer_spec, data)
 
 
-@pytest.mark.xfail  # matches tf old, but not ms
 def test_stategain(data, state_data, kern_size):
-    in_size = data.shape[-1]
+    in_size = state_data.shape[-1]
     layer_spec = f'stategain.{in_size}'
     assert compare_ms_tf(layer_spec, data, state_data)
 
