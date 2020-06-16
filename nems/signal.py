@@ -152,6 +152,7 @@ class SignalBase:
         Parameters
         ----------
         ... TODO
+        chans : list of labels for each channel (string required?)
         epochs : {None, DataFrame}
             Epochs are periods of time that are tagged with a name
             When defined, the DataFrame should have these first three columns:
