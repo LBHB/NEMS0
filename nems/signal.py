@@ -511,8 +511,9 @@ class SignalBase:
         
         indices = np.asarray(indices, dtype='i')  
         # exclude segments without data
-        zero_data_mask = (indices[:, 0] - indices[:, 1])!=0
-        indices = indices[zero_data_mask, :]
+        if indices.size != 0:
+            zero_data_mask = (indices[:, 0] - indices[:, 1])!=0
+            indices = indices[zero_data_mask, :]
 
         if mask is not None:
             # remove instances of the epoch that do not fall in the mask
