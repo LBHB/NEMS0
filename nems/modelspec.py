@@ -17,6 +17,7 @@ import scipy.stats as st
 import nems
 import nems.uri
 import nems.utils
+import nems.recording
 from nems.fitters.mappers import simple_vector
 
 log = logging.getLogger(__name__)
@@ -1015,6 +1016,67 @@ class ModelSpec:
             layers.append(layer)
 
         return layers
+
+    def get_dstrf(self,
+                  rec: nems.recording.Recording,
+                  index: int,
+                  width: int = 30,
+                  ) -> np.array:
+        """Creates a tf model from the modelspec and generates the dstrf.
+
+        :param rec: The input recording, of shape [channels, time].
+        :param index: The index at which the dstrf is calculated. Must be within the data.
+        :param width: The width of the returned dstrf (i.e. time lag from the index). If 0, returns the whole dstrf.
+        Zero padded if out of bounds.
+
+        :return: np array of size [channels, width]
+        """
+        if 'stim' not in rec.signals:
+            raise ValueError('No "stim" signal found in recording.')
+        data = rec['stim']._data.T
+
+        # a few safety checks
+        if data.ndim != 2:
+            raise ValueError('Data must be a recording of shape [channels, time].')
+        if not 0 <= index < width + data.shape[-2]:
+            raise ValueError(f'Index must be within the bounds of the time channel plus width.')
+
+        # need to import some tf stuff here so we don't clutter and unnecessarily import tf (which is slow) when it's
+        # not needed
+        # TODO: is this best practice? Better way to do this?
+        import tensorflow as tf
+        from nems.tf import modelbuilder
+
+        # generate the model
+        model_layers = self.modelspec2tf2(use_modelspec_init=True)
+
+        model = modelbuilder.ModelBuilder(
+            name='Test-model',
+            layers=model_layers,
+        ).build_model(input_shape=data[np.newaxis].shape)
+
+        # need to convert the data to a tensor
+        tensor = tf.convert_to_tensor(data[np.newaxis])
+
+        # this needs to be a tf.function for a huge speed increase
+        @tf.function
+        def get_jacobian(tensor, index):
+            """Gets the jacobian at the given index."""
+            with tf.GradientTape(persistent=True) as g:
+                g.watch(tensor)
+                z = model(tensor)[0, index, 0]
+
+            w = g.jacobian(z, tensor)
+            return w
+
+        w = get_jacobian(tensor, index).numpy()[0]
+
+        if width == 0:
+            return w.T
+        else:
+            # pad only the time axis if necessary
+            padded = np.pad(w, ((width, width), (0, 0)))
+            return padded[index:index + width, :].T
 
 
 def get_modelspec_metadata(modelspec):
