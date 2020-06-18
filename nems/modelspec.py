@@ -86,6 +86,9 @@ class ModelSpec:
         self.fast_eval_start = 0
         self.freeze_rec = None
 
+        # cache the tf model if it exists
+        self.tf_model = None
+
     def __getitem__(self, key):
         """Get the given item from the modelspec.
 
@@ -1021,12 +1024,14 @@ class ModelSpec:
                   rec: nems.recording.Recording,
                   index: int,
                   width: int = 30,
+                  rebuild_model: bool = False
                   ) -> np.array:
         """Creates a tf model from the modelspec and generates the dstrf.
 
         :param rec: The input recording, of shape [channels, time].
         :param index: The index at which the dstrf is calculated. Must be within the data.
         :param width: The width of the returned dstrf (i.e. time lag from the index). If 0, returns the whole dstrf.
+        :rebuild_model: Rebuild the model to avoid using the cached one.
         Zero padded if out of bounds.
 
         :return: np array of size [channels, width]
@@ -1045,31 +1050,23 @@ class ModelSpec:
         # not needed
         # TODO: is this best practice? Better way to do this?
         import tensorflow as tf
-        from nems.tf import modelbuilder
+        from nems.tf.cnnlink_new import get_jacobian
 
-        # generate the model
-        model_layers = self.modelspec2tf2(use_modelspec_init=True)
+        if self.tf_model is None or rebuild_model:
+            from nems.tf import modelbuilder
 
-        model = modelbuilder.ModelBuilder(
-            name='Test-model',
-            layers=model_layers,
-        ).build_model(input_shape=data[np.newaxis].shape)
+            # generate the model
+            model_layers = self.modelspec2tf2(use_modelspec_init=True)
+
+            self.tf_model = modelbuilder.ModelBuilder(
+                name='Test-model',
+                layers=model_layers,
+            ).build_model(input_shape=data[np.newaxis].shape)
 
         # need to convert the data to a tensor
         tensor = tf.convert_to_tensor(data[np.newaxis])
 
-        # this needs to be a tf.function for a huge speed increase
-        @tf.function
-        def get_jacobian(tensor, index):
-            """Gets the jacobian at the given index."""
-            with tf.GradientTape(persistent=True) as g:
-                g.watch(tensor)
-                z = model(tensor)[0, index, 0]
-
-            w = g.jacobian(z, tensor)
-            return w
-
-        w = get_jacobian(tensor, index).numpy()[0]
+        w = get_jacobian(self.tf_model, tensor, index).numpy()[0]
 
         if width == 0:
             return w.T

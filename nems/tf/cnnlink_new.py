@@ -481,3 +481,20 @@ def eval_tf_layer(data: np.ndarray,
 
     pred = model.predict(data)
     return pred
+
+
+# TODO: move this into tf.utils and whatever else needs to go there too
+@tf.function
+def get_jacobian(model: tf.keras.Model,
+                 tensor: tf.Tensor,
+                 index: int,
+                 ) -> np.array:
+    """Gets the jacobian at the given index.
+
+    This needs to be a tf.function for a huge speed increase."""
+    with tf.GradientTape(persistent=True) as g:
+        g.watch(tensor)
+        z = model(tensor)[0, index, 0]
+
+    w = g.jacobian(z, tensor)
+    return w
