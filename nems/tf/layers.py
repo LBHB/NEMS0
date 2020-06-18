@@ -409,6 +409,65 @@ class WeightChannelsGaussian(BaseLayer):
         return layer_values
 
 
+class FIR(BaseLayer):
+    """Basic weight channels."""
+    # TODO: organize params
+    def __init__(self,
+                 units=None,
+                 banks=1,
+                 n_inputs=1,
+                 initializer=None,
+                 seed=0,
+                 *args,
+                 **kwargs,
+                 ):
+        super(FIR, self).__init__(*args, **kwargs)
+
+        # try to infer the number of units if not specified
+        if units is None and initializer is None:
+            self.units = 1
+        elif units is None:
+            self.units = initializer['coefficients'].value.shape[1]
+        else:
+            self.units = units
+
+        self.banks = banks
+        self.n_inputs = n_inputs
+
+        self.initializer = {'coefficients': tf.random_normal_initializer(seed=seed)}
+        if initializer is not None:
+            self.initializer.update(initializer)
+
+    def build(self, input_shape):
+        """Adds some logic to handle depthwise convolution shapes."""
+        if self.banks == 1 or input_shape[-1] != self.banks * self.n_inputs:
+            shape = (self.banks, input_shape[-1], self.units)
+
+        else:
+            shape = (self.banks, self.n_inputs, self.units)
+
+        self.coefficients = self.add_weight(name='coefficients',
+                                            shape=shape,
+                                            dtype='float32',
+                                            initializer=self.initializer['coefficients'],
+                                            trainable=True,
+                                            )
+
+    def call(self, inputs, training=True):
+        """Normal call."""
+        pad_size = self.units - 1
+        padded_input = tf.pad(inputs, [[0, 0], [pad_size, 0], [0, 0]])
+        transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
+        return tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
+
+    def weights_to_phi(self):
+        layer_values = self.layer_values
+        layer_values['coefficients'] = layer_values['coefficients'].reshape((-1, self.units))
+        # don't need to do any reshaping
+        log.info(f'Converted {self.name} to modelspec phis.')
+        return layer_values
+
+
 class StateDCGain(BaseLayer):
     """Simple dc stategain."""
 
@@ -472,65 +531,6 @@ class StateDCGain(BaseLayer):
 
     def weights_to_phi(self):
         layer_values = self.layer_values
-        log.info(f'Converted {self.name} to modelspec phis.')
-        return layer_values
-
-
-class FIR(BaseLayer):
-    """Basic weight channels."""
-    # TODO: organize params
-    def __init__(self,
-                 units=None,
-                 banks=1,
-                 n_inputs=1,
-                 initializer=None,
-                 seed=0,
-                 *args,
-                 **kwargs,
-                 ):
-        super(FIR, self).__init__(*args, **kwargs)
-
-        # try to infer the number of units if not specified
-        if units is None and initializer is None:
-            self.units = 1
-        elif units is None:
-            self.units = initializer['coefficients'].value.shape[1]
-        else:
-            self.units = units
-
-        self.banks = banks
-        self.n_inputs = n_inputs
-
-        self.initializer = {'coefficients': tf.random_normal_initializer(seed=seed)}
-        if initializer is not None:
-            self.initializer.update(initializer)
-
-    def build(self, input_shape):
-        """Adds some logic to handle depthwise convolution shapes."""
-        if self.banks == 1 or input_shape[-1] != self.banks * self.n_inputs:
-            shape = (self.banks, input_shape[-1], self.units)
-
-        else:
-            shape = (self.banks, self.n_inputs, self.units)
-
-        self.coefficients = self.add_weight(name='coefficients',
-                                            shape=shape,
-                                            dtype='float32',
-                                            initializer=self.initializer['coefficients'],
-                                            trainable=True,
-                                            )
-
-    def call(self, inputs, training=True):
-        """Normal call."""
-        pad_size = self.units - 1
-        padded_input = tf.pad(inputs, [[0, 0], [pad_size, 0], [0, 0]])
-        transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
-        return tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
-
-    def weights_to_phi(self):
-        layer_values = self.layer_values
-        layer_values['coefficients'] = layer_values['coefficients'].reshape((-1, self.units))
-        # don't need to do any reshaping
         log.info(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
