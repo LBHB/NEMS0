@@ -155,7 +155,7 @@ def newtf(fitkey):
     early_stopping_tolerance = 5e-4
     learning_rate = 1e-4
     batch_size = None
-    # seed = 0
+    seed = 0
     initializer = 'random_normal'
     nl_init = 'tf'
     rand_count = 0
@@ -226,6 +226,7 @@ def newtf(fitkey):
                        'learning_rate': learning_rate,
                        'batch_size': batch_size,
                        'initializer': initializer,
+                       'seed': seed,
                    }])
 
     if pick_best:

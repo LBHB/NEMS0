@@ -29,9 +29,17 @@ def tf2modelspec(model, modelspec):
     """
     log.info('Populating modelspec with model weights.')
 
+    # need to keep track of difference between tf layer indices and ms indices because of additional input layers
+    idx_offset = 0
+
     # first layer is the input shape, so skip it
-    for idx, layer in enumerate(model.layers[1:]):
-        ms = modelspec[idx]
+    for idx, layer in enumerate(model.layers):
+        # skip input layers (input layers can be midway if using state inputs
+        if isinstance(layer, tf.keras.layers.InputLayer):
+            idx_offset += 1
+            continue
+
+        ms = modelspec[idx - idx_offset]
 
         if layer.ms_name != ms['fn']:
             raise AssertionError('Model layers and modelspec layers do not match up!')
@@ -72,11 +80,12 @@ def eval_tf(model: tf.keras.Model, stim: np.ndarray) -> np.ndarray:
     return model.predict(stim)
 
 
-def compare_ms_tf(ms, model, rec_ms, stim_tf):
+def compare_ms_tf(ms, model, rec_ms, train_data):
     """Compares the evaluation between a modelspec and a keras model.
 
-    For the modelspec, uses a recording object. For the tf model, uses the formatted data from fit_tf."""
-    pred_tf = model.predict(stim_tf)
+    For the modelspec, uses a recording object. For the tf model, uses the formatted data from fit_tf,
+    which may include state data."""
+    pred_tf = model.predict(train_data)
     pred_ms = np.swapaxes(ms.evaluate(rec_ms.apply_mask())['pred']._data, 0, 1).reshape(pred_tf.shape)
 
     # for idx, layer in enumerate(model.layers[1:]):
@@ -171,12 +180,6 @@ def fit_tf(
                      / modelspec.meta['modelname']
        filepath = log_dir_root / log_dir_sub
 
-    #######################
-    if os.environ.get('SYSTEM', None) == 'Alex-PC' and get_setting('USE_NEMS_BAPHY_API'):
-        filepath = Path(nems.get_setting('NEMS_RESULTS_DIR')) / Path(filepath).relative_to(
-            r'http:\\hyrax.ohsu.edu:3003/results')
-    #######################
-
     filepath = Path(filepath)
     if not filepath.exists():
         filepath.mkdir(exist_ok=True, parents=True)
@@ -198,6 +201,16 @@ def fit_tf(
     resp_train = np.transpose(est['resp'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
     log.info(f'Feature dimensions: {stim_train.shape}; Data dimensions: {resp_train.shape}.')
 
+    # get state if present, and setup training data
+    if 'state' in est.signals:
+        state_train = np.transpose(est['state'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
+        state_shape = state_train.shape
+        log.info(f'State dimensions: {state_shape}')
+        train_data = [stim_train, state_train]
+    else:
+        state_train, state_shape = None, None
+        train_data = stim_train
+
     # correlation for monitoring
     # TODO: tf.utils?
     def pearson(y_true, y_pred):
@@ -212,6 +225,10 @@ def fit_tf(
         conv2d_model = True
     else:
         conv2d_model = False
+
+    # do some batch sizing logic
+    batch_size = stim_train.shape[0] if batch_size == 0 else batch_size
+
     model = modelbuilder.ModelBuilder(
         name='Test-model',
         layers=model_layers,
@@ -219,7 +236,7 @@ def fit_tf(
         loss_fn=cost_fn,
         optimizer=optimizer,
         metrics=[pearson],
-    ).build_model(input_shape=stim_train.shape)
+    ).build_model(input_shape=stim_train.shape, state_shape=state_shape, batch_size=batch_size)
 
     # tracking early termination
     model.early_terminated = False
@@ -259,25 +276,28 @@ def fit_tf(
 
     log.info(f'Fitting model (batch_size={batch_size}...')
     history = model.fit(
-        stim_train,
+        train_data,
         resp_train,
         # validation_split=0.2,
         verbose=0,
         epochs=max_iter,
-        batch_size=stim_train.shape[0] if batch_size == 0 else batch_size,
+        batch_size=batch_size,
         callbacks=[
             sparse_logger,
             nan_terminate,
             nan_weight_terminate,
             early_stopping,
             checkpoint,
-            #tensorboard,
+            # enable the below to log tracked parameters to tensorboard
+            # tensorboard,
+            # enable the below to record gradients to visualize in tensorboard; this is very slow,
+            # and loading all this into tensorboard can use A LOT of memory
             # gradient_logger,
         ]
     )
 
     # did we terminate on a nan loss or weights? Load checkpoint if so
-    if np.all(np.isnan(model.predict(stim_train))) or model.early_terminated:  # TODO: should this be np.any()?
+    if np.all(np.isnan(model.predict(train_data))) or model.early_terminated:  # TODO: should this be np.any()?
         log.warning('Model terminated on nan loss or weights, restoring saved weights.')
         try:
             # this can fail if it nans out before a single checkpoint gets saved, either because no saved weights
@@ -290,7 +310,7 @@ def fit_tf(
     modelspec = tf2modelspec(model, modelspec)
     if not conv2d_model:
         # compare the predictions from the model and modelspec
-        error = compare_ms_tf(modelspec, model, est, stim_train)
+        error = compare_ms_tf(modelspec, model, est, train_data)
         if error > 1e-5:
             log.warning(f'Mean difference between NEMS and TF model prediction: {error}')
         else:
@@ -319,7 +339,7 @@ def fit_tf(
 def fit_tf_init(
         modelspec,
         est: recording.Recording,
-        nl_init="tf",
+        nl_init: str = 'tf',
         **kwargs
         ) -> dict:
     """Inits a model using tf.
@@ -383,7 +403,7 @@ def fit_tf_init(
     for ms_idx, temp_ms_module in zip(init_idxes, temp_ms):
         modelspec[ms_idx] = temp_ms_module
 
-    if nl_init == "scipy":
+    if nl_init == 'scipy':
         # pre-fit static NL if it exists
         _d = init_static_nl(est=est, modelspec=modelspec)
         modelspec = _d['modelspec']
@@ -426,6 +446,7 @@ def fit_tf_init(
 
 def eval_tf_layer(data: np.ndarray,
                   layer_spec: typing.Union[None, str] = None,
+                  state_data: np.ndarray = None,
                   stop: typing.Union[None, int] = None,
                   modelspec: mslib.ModelSpec = None,
                   **kwargs,  # temporary until state data is implemented
@@ -434,6 +455,7 @@ def eval_tf_layer(data: np.ndarray,
 
     :param data: The input data. Shape of (reps, time, channels).
     :param layer_spec: A layer spec for layers of a modelspec.
+    :param state_data: The input state data. Shape of (reps, time, channels).
     :param stop: What layer to eval to. Non inclusive. If not passed, will evaluate the whole layer spec.
     :param modelspec: Optionally use an existing modelspec. Takes precedence over layer_spec.
 
@@ -448,7 +470,31 @@ def eval_tf_layer(data: np.ndarray,
         ms = initializers.from_keywords(layer_spec)
 
     layers = ms.modelspec2tf2(use_modelspec_init=True)[:stop]
-    model = modelbuilder.ModelBuilder(layers=layers).build_model(input_shape=data.shape)
+
+    data_shape = data.shape
+    state_shape = None
+    if state_data is not None:
+        state_shape = state_data.shape
+        data = [data, state_data]
+
+    model = modelbuilder.ModelBuilder(layers=layers).build_model(input_shape=data_shape, state_shape=state_shape)
 
     pred = model.predict(data)
     return pred
+
+
+# TODO: move this into tf.utils and whatever else needs to go there too
+@tf.function
+def get_jacobian(model: tf.keras.Model,
+                 tensor: tf.Tensor,
+                 index: int,
+                 ) -> np.array:
+    """Gets the jacobian at the given index.
+
+    This needs to be a tf.function for a huge speed increase."""
+    with tf.GradientTape(persistent=True) as g:
+        g.watch(tensor)
+        z = model(tensor)[0, index, 0]
+
+    w = g.jacobian(z, tensor)
+    return w
