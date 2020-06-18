@@ -914,7 +914,7 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
 
     if modelspec.jack_count < est.view_count:
         raise Warning('modelspec.jack_count does not match est.view_count')
-        modelspec.tile_jacks(nfolds)
+        # modelspec.tile_jacks(nfolds)
     for fit_idx in range(modelspec.fit_count):
         for jack_idx, e in enumerate(est.views()):
             modelspec.jack_index = jack_idx
@@ -1328,7 +1328,7 @@ def save_context(destination, ctx, xfspec=[]):
 
     save_analysis(destination, recording=ctx['rec'],
                   modelspec=ctx['modelspec'], xfspec=xfspec,
-                  figures=ctx['figures'], log=ctx['log'])
+                  figures=ctx.get('figures'), log=ctx.get('log'))
 
     _ctx=ctx.copy()
     del _ctx['modelspec']
