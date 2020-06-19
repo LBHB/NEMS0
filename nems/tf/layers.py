@@ -409,73 +409,6 @@ class WeightChannelsGaussian(BaseLayer):
         return layer_values
 
 
-class StateDCGain(BaseLayer):
-    """Simple dc stategain."""
-
-    _STATE_LAYER = True
-
-    def __init__(self,
-                 units=None,
-                 n_inputs=1,
-                 initializer=None,
-                 seed=0,
-                 *args,
-                 **kwargs,
-                 ):
-        super(StateDCGain, self).__init__(*args, **kwargs)
-
-        # try to infer the number of units if not specified
-        if units is None and initializer is None:
-            self.units = 1
-        elif units is None:
-            self.units = initializer['g'].value.shape[1]
-        else:
-            self.units = units
-
-        self.n_inputs = n_inputs
-
-        self.initializer = {
-                'g': tf.random_normal_initializer(seed=seed),
-                'd': tf.random_normal_initializer(seed=seed + 1),  # this is halfnorm in NEMS
-            }
-        if initializer is not None:
-            self.initializer.update(initializer)
-
-    def build(self, input_shape):
-        input_shape, state_shape = input_shape
-
-        self.g = self.add_weight(name='g',
-                                 shape=(self.n_inputs, self.units),
-                                 # shape=(self.units, input_shape[-1]),
-                                 dtype='float32',
-                                 initializer=self.initializer['g'],
-                                 trainable=True,
-                                 )
-        self.d = self.add_weight(name='d',
-                                 shape=(self.n_inputs, self.units),
-                                 # shape=(self.units, input_shape[-1]),
-                                 dtype='float32',
-                                 initializer=self.initializer['d'],
-                                 trainable=True,
-                                 )
-
-    def call(self, inputs, training=True):
-        inputs, state_inputs = inputs
-
-        g_transposed = tf.transpose(self.g)
-        d_transposed = tf.transpose(self.d)
-
-        g_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(g_transposed, 0), stride=1, padding='SAME')
-        d_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(d_transposed, 0), stride=1, padding='SAME')
-
-        return inputs * g_conv + d_conv
-
-    def weights_to_phi(self):
-        layer_values = self.layer_values
-        log.info(f'Converted {self.name} to modelspec phis.')
-        return layer_values
-
-
 class FIR(BaseLayer):
     """Basic weight channels."""
     # TODO: organize params
@@ -769,6 +702,73 @@ class STPQuick(BaseLayer):
     def weights_to_phi(self):
         layer_values = self.layer_values
         # don't need to do any reshaping
+        log.info(f'Converted {self.name} to modelspec phis.')
+        return layer_values
+
+
+class StateDCGain(BaseLayer):
+    """Simple dc stategain."""
+
+    _STATE_LAYER = True
+
+    def __init__(self,
+                 units=None,
+                 n_inputs=1,
+                 initializer=None,
+                 seed=0,
+                 *args,
+                 **kwargs,
+                 ):
+        super(StateDCGain, self).__init__(*args, **kwargs)
+
+        # try to infer the number of units if not specified
+        if units is None and initializer is None:
+            self.units = 1
+        elif units is None:
+            self.units = initializer['g'].value.shape[1]
+        else:
+            self.units = units
+
+        self.n_inputs = n_inputs
+
+        self.initializer = {
+                'g': tf.random_normal_initializer(seed=seed),
+                'd': tf.random_normal_initializer(seed=seed + 1),  # this is halfnorm in NEMS
+            }
+        if initializer is not None:
+            self.initializer.update(initializer)
+
+    def build(self, input_shape):
+        input_shape, state_shape = input_shape
+
+        self.g = self.add_weight(name='g',
+                                 shape=(self.n_inputs, self.units),
+                                 # shape=(self.units, input_shape[-1]),
+                                 dtype='float32',
+                                 initializer=self.initializer['g'],
+                                 trainable=True,
+                                 )
+        self.d = self.add_weight(name='d',
+                                 shape=(self.n_inputs, self.units),
+                                 # shape=(self.units, input_shape[-1]),
+                                 dtype='float32',
+                                 initializer=self.initializer['d'],
+                                 trainable=True,
+                                 )
+
+    def call(self, inputs, training=True):
+        inputs, state_inputs = inputs
+
+        g_transposed = tf.transpose(self.g)
+        d_transposed = tf.transpose(self.d)
+
+        g_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(g_transposed, 0), stride=1, padding='SAME')
+        d_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(d_transposed, 0), stride=1, padding='SAME')
+
+        return inputs * g_conv + d_conv
+
+    def weights_to_phi(self):
+        layer_values = self.layer_values
         log.info(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
