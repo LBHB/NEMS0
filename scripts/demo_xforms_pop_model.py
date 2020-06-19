@@ -57,18 +57,24 @@ xfspec.append(['nems.xforms.init_from_keywords', {}])
 
 #xfspec.append(['nems.xforms.fit_basic_init', {}])
 #xfspec.append(['nems.xforms.fit_basic', {}])
-xfspec.append(['nems.analysis.fit_pop_model.init_pop_pca', {'flip_pcs': True}])
+#xfspec.append(['nems.analysis.fit_pop_model.init_pop_pca', {'flip_pcs': True}])
+#xfspec.append(['nems.analysis.fit_pop_model.fit_population_iteratively',
+#               {'fitter': 'scipy_minimize', 'tolerances': [1e-4, 3e-5],
+#                'tol_iter': 50, 'fit_iter': 10}])
+xfspec.append(['nems.tf.cnnlink.fit_tf_init', {'early_stopping_tolerance': 5e-4}])
+xfspec.append(['nems.tf.cnnlink.fit_tf', {'early_stopping_tolerance': 1e-5}])
+#xfspec.append(['nems.analysis.fit_pop_model.fit_population_iteratively',
+#               {'fitter': 'scipy_minimize', 'tolerances': [1e-4, 3e-5],
+#                'tol_iter': 50, 'fit_iter': 10}])
 
-xfspec.append(['nems.analysis.fit_pop_model.fit_population_iteratively',
-               {'fitter': 'scipy_minimize', 'tolerances': [1e-4, 3e-5],
-                'tol_iter': 50, 'fit_iter': 10}])
+
 # xfspec.append(['nems.xforms.fit_basic_shrink', {}])
 #xfspec.append(['nems.xforms.fit_basic_cd', {}])
 # xfspec.append(['nems.xforms.fit_iteratively', {}])
 xfspec.append(['nems.xforms.predict', {}])
-# xfspec.append(['nems.xforms.add_summary_statistics',    {}])
-xfspec.append(['nems.analysis.api.standard_correlation', {},
-               ['est', 'val', 'modelspec', 'rec'], ['modelspec']])
+xfspec.append(['nems.xforms.add_summary_statistics',    {}])
+#xfspec.append(['nems.analysis.api.standard_correlation', {},
+#               ['est', 'val', 'modelspec', 'rec'], ['modelspec']])
 
 # GENERATE PLOTS
 xfspec.append(['nems.xforms.plot_summary', {}])
