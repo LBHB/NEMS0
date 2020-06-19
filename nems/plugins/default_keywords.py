@@ -1426,7 +1426,9 @@ def stategain(kw):
     else:
         template = {
             'fn': 'nems.modules.state.state_dc_gain',
-            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state},
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars, 'n_inputs': n_chans},
+            # chans/vars backwards for compat with tf layer
+            'tf_layer': 'nems.tf.layers.StateDCGain',
             'plot_fns': plot_fns,
             'plot_fn_idx': 5,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
@@ -1612,4 +1614,94 @@ def mrg(kw):
                       's': 'state'},
         'phi': {}
         }
+    return template
+
+
+def conv2d(kw):
+    # TODO: choose how to initialize weights
+    ops = kw.split('.')
+    filters = int(ops[1])
+    kernel_size = [int(dim) for dim in ops[2].split('x')]  # second op hard-coded as kernel shape
+    activation = 'relu'
+    layer_count = 1
+    flatten = False
+    for op in ops[3:]:
+        if op.startswith('actX'):
+            activation = op[4:]
+            if activation == 'none':
+                activation = None
+        elif op.startswith('rep'):
+            layer_count = int(op[3:])
+        elif op == 'flat':
+            flatten = True
+
+    template = {
+        'fn': 'nems.tf_only.Conv2D_NEMS',   # not a real path, flag for ms.evaluate to use evaluate_tf()
+        'tf_layer': 'nems.tf.layers.Conv2D_NEMS',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'activation': activation,
+                      'filters': filters,
+                      'kernel_size': kernel_size,
+                      'padding': 'same'},
+        'phi': {}
+    }
+    templates = [template]*layer_count
+    if flatten:
+        flatten_template = {
+            'fn': 'nems.tf_only.FlattenChannels',
+            'tf_layer': 'nems.tf.layers.FlattenChannels',
+            'fn_kwargs': {'i': 'pred',
+                          'o': 'pred'},
+            'phi': {}
+        }
+        templates.append(flatten_template)
+
+    return templates
+
+
+def dense(kw):
+    # TODO: choose how to initialize weights
+    ops = kw.split('.')
+    units = ops[1].split('x')  # first option hard-coded as number of units in each layer
+    activation = 'relu'
+    for op in ops[2:]:
+        if op.startswith('actX'):
+            activation = op[4:]
+            if activation == 'none':
+                activation = None
+
+    templates = []
+    for u in units:
+        template = {
+            'fn': 'nems.tf_only.Dense_NEMS',    # not a real path
+            'tf_layer': 'nems.tf.layers.Dense_NEMS',
+            'fn_kwargs': {'i': 'pred',
+                          'o': 'pred',
+                          'activation': activation,
+                          'units': int(u)},
+            'phi': {}
+            }
+        templates.append(template)
+
+    return templates
+
+
+def wcn(kw):
+    # TODO: choose how to initialize weights
+    ops = kw.split('.')
+    units = int(ops[1]) # first option hard-coded as number of units
+    for op in ops[2:]:  # just a reminder to skip the first two if options are added later
+        pass
+
+    template = {
+        'fn': 'nems.tf_only.WeightChannelsNew',    # not a real path
+        'tf_layer': 'nems.tf.layers.WeightChannelsNew',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'units': units,
+                      'initializer': 'random_normal'},
+        'phi': {}
+        }
+
     return template

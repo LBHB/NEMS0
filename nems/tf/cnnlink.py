@@ -897,12 +897,6 @@ def fit_tf(modelspec=None, est=None,
                      / modelspec.meta['modelname']
        log_dir = log_dir_root / log_dir_sub
 
-    #######################
-    if os.environ.get('SYSTEM', None) == 'Alex-PC':
-        log_dir = Path(nems.get_setting('NEMS_RESULTS_DIR')) / Path(log_dir).relative_to(
-            r'http:\\hyrax.ohsu.edu:3003/results')
-    #######################
-
     modelspec_pre = modelspec.copy()
     modelspec, net = _fit_net(F, D, modelspec, _this_seed, new_est['resp'].fs, log_dir=str(log_dir),
                               optimizer=optimizer, max_iter=np.min([max_iter]), learning_rate=learning_rate,

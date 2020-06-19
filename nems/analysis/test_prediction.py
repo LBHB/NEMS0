@@ -58,8 +58,8 @@ def generate_prediction(est, val, modelspec, jackknifed_fit=False, **context):
             new_val.view_idx = jack_idx
 
             # update each view with prediction from corresponding modelspec
-            new_est = ms.evaluate(new_est, modelspec)
-            new_val = ms.evaluate(new_val, modelspec)
+            new_est = modelspec.evaluate(new_est)
+            new_val = modelspec.evaluate(new_val)
 
             # this seems kludgy. but where should mask be handled?
             if 'mask' in new_val.signals.keys():

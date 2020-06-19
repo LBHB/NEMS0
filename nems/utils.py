@@ -393,7 +393,7 @@ def get_default_savepath(modelspec):
     cellid = modelspec.meta.get('cellid', siteid)
     cellids = modelspec.meta.get('cellids', siteid)
 
-    if (siteid == 'DATA') and (type(cellids) is list):
+    if (siteid == 'DATA') and (type(cellids) is list) and len(cellids) > 1:
         siteid = cellids[0].split("-")[0]
         destination = os.path.join(results_dir, str(batch), siteid,
                                    modelspec.get_longname())
