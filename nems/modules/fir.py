@@ -30,7 +30,7 @@ def _insert_zeros(coefficients, rate=1):
     return new_c
 
 
-def per_channel(x, coefficients, bank_count=1, non_causal=False, rate=1,
+def per_channel(x, coefficients, bank_count=1, non_causal=0, rate=1,
                 cross_channels=False):
     '''Private function used by fir_filter().
 
@@ -108,7 +108,7 @@ def per_channel(x, coefficients, bank_count=1, non_causal=False, rate=1,
             c = next(c_iter)
             if non_causal:
                 # reverse model (using future values of input to predict)
-                x_ = np.roll(x_, -(len(c) - 1))
+                x_ = np.roll(x_, -non_causal)
 
             # It is slightly more "correct" to use lfilter than convolve at
             # edges, but but also about 25% slower (Measured on Intel Python
@@ -118,7 +118,7 @@ def per_channel(x, coefficients, bank_count=1, non_causal=False, rate=1,
             out[i_out] += r
     return out
 
-def fir_conv2(x, coefficients, bank_count=1, non_causal=False, rate=1):
+def fir_conv2(x, coefficients, bank_count=1, non_causal=0, rate=1):
     '''
     Parameters
     ----------
@@ -194,7 +194,8 @@ def fir_conv2(x, coefficients, bank_count=1, non_causal=False, rate=1):
             c = next(c_iter)
             if non_causal:
                 # reverse model (using future values of input to predict)
-                x_ = np.roll(x_, -(len(c) - 1))
+                #x_ = np.roll(x_, -(len(c) - 1))
+                x_ = np.roll(x_, -non_causal)
 
             # It is slightly more "correct" to use lfilter than convolve at
             # edges, but but also about 25% slower (Measured on Intel Python
@@ -205,7 +206,7 @@ def fir_conv2(x, coefficients, bank_count=1, non_causal=False, rate=1):
     return out
 
 
-def basic(rec, i='pred', o='pred', non_causal=False, coefficients=[], rate=1,
+def basic(rec, i='pred', o='pred', non_causal=0, coefficients=[], rate=1,
           offsets=0, **kwargs):
     """
     apply fir filters of the same size in parallel. convolve in time, then
@@ -482,7 +483,7 @@ def fir_dexp(rec, i='pred', o='pred', phi=None, n_coefs=10, rate=1):
     return [rec[i].transform(fn, o)]
 
 
-def filter_bank(rec, i='pred', o='pred', non_causal=False, coefficients=[],
+def filter_bank(rec, i='pred', o='pred', non_causal=0, coefficients=[],
                 bank_count=1, rate=1, cross_channels=False, **kwargs):
     """
     apply multiple basic fir filters of the same size in parallel, producing

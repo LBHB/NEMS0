@@ -295,37 +295,42 @@ def fir(kw):
     else:
         n_banks = int(n_banks)
 
+    rate = 1
+    non_causal = 0
+    include_offset = False
+    cross_channels = False
+    for op in ops:
+        if op == 'x':
+            cross_channels = True
+        elif op.startswith('r'):
+            rate = int(op[1:])
+        elif op.startswith('nc'):
+            # noncausal fir implementation (for reverse model or neg motor offsets)
+            if len(op) == 2:
+                # default is to make all bins negative or 0
+                non_causal = n_coefs-1
+            else:
+                non_causal = int(op[2:])
+
+        elif op == 'off':
+            # add variable offset parameter
+            include_offset = True
+
     p_coefficients = {
         'mean': np.zeros((n_inputs * n_banks, n_coefs)),
         'sd': np.ones((n_inputs * n_banks, n_coefs)),
     }
 
-    if n_coefs > 2:
-        p_coefficients['mean'][:, 1] = 0.1
-        p_coefficients['mean'][:, 2] = -0.05
-        pass
+    if 'fl' in ops:
+        p_coefficients['mean'][:] = 1 / (n_inputs * n_coefs)
+    elif 'z' in ops:
+        p_coefficients['mean'][:] = 0
+    elif n_coefs > 2:
+        p_coefficients['mean'][:, 1+non_causal] = 0.1
+        p_coefficients['mean'][:, 2+non_causal] = -0.05
     else:
         p_coefficients['mean'][:, 0] = 1
 
-    rate = 1
-    non_causal = False
-    include_offset = False
-    cross_channels = False
-    for op in ops:
-        if op == 'fl':
-            p_coefficients['mean'][:] = 1/(n_inputs*n_coefs)
-        elif op == 'x':
-            cross_channels = True
-        elif op == 'z':
-            p_coefficients['mean'][:] = 0
-        elif op.startswith('r'):
-            rate = int(op[1:])
-        elif op == 'nc':
-            # noncausal fir implementation (for reverse model)
-            non_causal = True
-        elif op == 'off':
-            # add variable offset parameter
-            include_offset = True
 
     if (n_banks == 1) and (not cross_channels):
         template = {

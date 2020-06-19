@@ -1,27 +1,15 @@
 # A Template NEMS Script that demonstrates use of xforms for generating
 # models that are easy to reload
 
-import os
 import logging
-import sys
+import os
 
-import nems
-import nems.initializers
-import nems.priors
-import nems.preprocessing as preproc
+import nems.db as nd
+import nems.gui.editors as gui
 import nems.modelspec as ms
-import nems.plots.api as nplt
-import nems.analysis.api
-import nems.utils
+import nems.recording as recording
 import nems.uri
 import nems.xforms as xforms
-import nems.xform_helper as xhelp
-import nems.db as nd
-import nems.recording as recording
-import nems.gui.editors as gui
-
-from nems.recording import Recording
-from nems.fitters.api import scipy_minimize
 
 # ----------------------------------------------------------------------------
 # CONFIGURATION

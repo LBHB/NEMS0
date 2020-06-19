@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 def plot_heatmap(array, xlabel='Time', ylabel='Channel',
                  ax=None, cmap=None, clim=None, skip=0, title=None, fs=None,
                  interpolation='none', manual_extent=None, show_cbar=True,
-                 **options):
+                 fontsize=7, **options):
     '''
     A wrapper for matplotlib's plt.imshow() to ensure consistent formatting.
     '''
@@ -60,9 +60,9 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
     if show_cbar:
     # Set the color bar
         cbar = plt.colorbar()
-        cbar.ax.tick_params(labelsize=7)
+        cbar.ax.tick_params(labelsize=fontsize)
         cbar.ax.yaxis.set_major_locator(plt.MaxNLocator(3))
-        cbar.set_label('Gain')
+        cbar.set_label('Gain', fontsize=fontsize)
         cbar.outline.set_edgecolor('white')
 
     if title is not None:

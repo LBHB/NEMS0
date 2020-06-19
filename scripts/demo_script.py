@@ -7,7 +7,6 @@ from pathlib import Path
 
 import nems.analysis.api
 import nems.initializers
-import nems.preprocessing as preproc
 import nems.recording as recording
 import nems.uri
 from nems.fitters.api import scipy_minimize

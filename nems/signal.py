@@ -152,6 +152,7 @@ class SignalBase:
         Parameters
         ----------
         ... TODO
+        chans : list of labels for each channel (string required?)
         epochs : {None, DataFrame}
             Epochs are periods of time that are tagged with a name
             When defined, the DataFrame should have these first three columns:
@@ -507,14 +508,19 @@ class SignalBase:
                     break
                 if e >= n_epochs:
                     break
+        
+        indices = np.asarray(indices, dtype='i')  
+        # exclude segments without data
+        if indices.size != 0:
+            zero_data_mask = (indices[:, 0] - indices[:, 1])!=0
+            indices = indices[zero_data_mask, :]
 
-        indices = np.asarray(indices, dtype='i')    
         if mask is not None:
             # remove instances of the epoch that do not fall in the mask
             m_data = mask.as_continuous()
 
             # get a "reference epoch mask" for safety checking below
-            standard_mask = m_data[0, indices[0, 0]:indices[0, 1]]
+            standard_mask = None 
 
             keepidx = []
             for i, (lb, ub) in enumerate(indices):
@@ -523,12 +529,15 @@ class SignalBase:
                     keepidx.append(i)
             
                 elif (np.sum(m_data[0, lb:ub]) > 0) & allow_incomplete:
-                    
                     # "safety" checks
-                    if (m_data[0, lb:ub].shape!=standard_mask.shape):
-                        raise ValueError("For allow_incomplete=True, epochs must all be the same size")
-                    if  ~np.all(m_data[0, lb:ub] == standard_mask):
-                        raise ValueError("Mask must be identical on each epoch when using allow_incomplete=True")
+                    if standard_mask is None:
+                        standard_mask = m_data[0, lb:ub]
+                    if (m_data[0, lb:ub].sum()!=standard_mask.sum()):
+                        raise ValueError("For allow_incomplete=True, masks must all be the same size on each epoch")
+                    #if (m_data[0, lb:ub].shape!=standard_mask.shape):
+                    #    raise ValueError("For allow_incomplete=True, epochs must all be the same size")
+                    #if  ~np.all(m_data[0, lb:ub] == standard_mask):
+                    #    raise ValueError("Mask must be identical on each epoch when using allow_incomplete=True")
 
                     # define new indices
                     idx = np.where(m_data[0, lb:ub])
@@ -1061,7 +1070,7 @@ class RasterizedSignal(SignalBase):
 
         return files
 
-    def save(self, dirpath, fmt='%.18e'):
+    def save(self, dirpath, fmt='%.18e', prefix=''):
         '''
         Save this signal to a CSV file + JSON sidecar. If desired,
         you may use optional parameter fmt (for example, fmt='%1.3e')
@@ -1070,7 +1079,7 @@ class RasterizedSignal(SignalBase):
 
         jsonfilepath,epochfilepath=self._save_metadata_to_dirpath(dirpath)
 
-        filebase = self.recording + '.' + self.name
+        filebase = prefix + self.recording + '.' + self.name
         basepath = os.path.join(dirpath, filebase)
         csvfilepath = basepath + '.csv'
 

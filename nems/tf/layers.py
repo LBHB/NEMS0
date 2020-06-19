@@ -57,6 +57,8 @@ class BaseLayer(tf.keras.layers.Layer):
         if 'reset_signal' in ms_layer['fn_kwargs']:
             # kwargs['reset_signal'] = ms_layer['fn_kwargs']['reset_signal']
             kwargs['reset_signal'] = None
+        if 'non_causal' in ms_layer['fn_kwargs']:
+            kwargs['non_causal'] = ms_layer['fn_kwargs']['non_causal']
 
         pass_through_keys = ['n_inputs', 'crosstalk', 'filters', 'kernel_size',
                              'activation', 'units', 'padding']
@@ -418,6 +420,7 @@ class FIR(BaseLayer):
                  n_inputs=1,
                  initializer=None,
                  seed=0,
+                 non_causal=0,
                  *args,
                  **kwargs,
                  ):
@@ -433,6 +436,10 @@ class FIR(BaseLayer):
 
         self.banks = banks
         self.n_inputs = n_inputs
+
+        self.non_causal = non_causal
+        if non_causal >= units:
+            raise ValueError("FIR: non_causal bin count must be < filter length (units)")
 
         self.initializer = {'coefficients': tf.random_normal_initializer(seed=seed)}
         if initializer is not None:
@@ -455,8 +462,9 @@ class FIR(BaseLayer):
 
     def call(self, inputs, training=True):
         """Normal call."""
-        pad_size = self.units - 1
-        padded_input = tf.pad(inputs, [[0, 0], [pad_size, 0], [0, 0]])
+        pad_size0 = self.units - 1 - self.non_causal
+        pad_size1 = self.non_causal
+        padded_input = tf.pad(inputs, [[0, 0], [pad_size0, pad_size1], [0, 0]])
         transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
         return tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
 
@@ -769,6 +777,73 @@ class STPQuick(BaseLayer):
     def weights_to_phi(self):
         layer_values = self.layer_values
         # don't need to do any reshaping
+        log.info(f'Converted {self.name} to modelspec phis.')
+        return layer_values
+
+
+class StateDCGain(BaseLayer):
+    """Simple dc stategain."""
+
+    _STATE_LAYER = True
+
+    def __init__(self,
+                 units=None,
+                 n_inputs=1,
+                 initializer=None,
+                 seed=0,
+                 *args,
+                 **kwargs,
+                 ):
+        super(StateDCGain, self).__init__(*args, **kwargs)
+
+        # try to infer the number of units if not specified
+        if units is None and initializer is None:
+            self.units = 1
+        elif units is None:
+            self.units = initializer['g'].value.shape[1]
+        else:
+            self.units = units
+
+        self.n_inputs = n_inputs
+
+        self.initializer = {
+                'g': tf.random_normal_initializer(seed=seed),
+                'd': tf.random_normal_initializer(seed=seed + 1),  # this is halfnorm in NEMS
+            }
+        if initializer is not None:
+            self.initializer.update(initializer)
+
+    def build(self, input_shape):
+        input_shape, state_shape = input_shape
+
+        self.g = self.add_weight(name='g',
+                                 shape=(self.n_inputs, self.units),
+                                 # shape=(self.units, input_shape[-1]),
+                                 dtype='float32',
+                                 initializer=self.initializer['g'],
+                                 trainable=True,
+                                 )
+        self.d = self.add_weight(name='d',
+                                 shape=(self.n_inputs, self.units),
+                                 # shape=(self.units, input_shape[-1]),
+                                 dtype='float32',
+                                 initializer=self.initializer['d'],
+                                 trainable=True,
+                                 )
+
+    def call(self, inputs, training=True):
+        inputs, state_inputs = inputs
+
+        g_transposed = tf.transpose(self.g)
+        d_transposed = tf.transpose(self.d)
+
+        g_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(g_transposed, 0), stride=1, padding='SAME')
+        d_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(d_transposed, 0), stride=1, padding='SAME')
+
+        return inputs * g_conv + d_conv
+
+    def weights_to_phi(self):
+        layer_values = self.layer_values
         log.info(f'Converted {self.name} to modelspec phis.')
         return layer_values
 

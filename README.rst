@@ -25,7 +25,8 @@ Docs
 
 Full documentation can be found `here <https://nems.readthedocs.io>`__.
 
-We also have a `Gitter chat <https://gitter.im/lbhb/nems>`__ where you can get help from other users.
+Direct link to the some `demos <https://nems.readthedocs.io/en/latest/demos/demos.html>`__. We also have
+a `Gitter chat <https://gitter.im/lbhb/nems>`__ where you can get help from other users.
 
 Installation
 ------------
