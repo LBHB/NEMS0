@@ -134,6 +134,7 @@ def fit_tf(
         initializer: str = 'random_normal',
         filepath: typing.Union[str, Path] = None,
         freeze_layers: typing.Union[None, list] = None,
+        IsReload: bool = False,
         **context
         ) -> dict:
     """TODO
@@ -156,6 +157,10 @@ def fit_tf(
 
     :return:
     """
+
+    if IsReload:
+        return {}
+
     tf.random.set_seed(seed)
     np.random.seed(seed)
     #os.environ['TF_DETERMINISTIC_OPS'] = '1'   # makes output deterministic, but reduces prediction accuracy
@@ -279,11 +284,11 @@ def fit_tf(
         train_data,
         resp_train,
         # validation_split=0.2,
-        verbose=0,
+        verbose=2,
         epochs=max_iter,
         batch_size=batch_size,
         callbacks=[
-            sparse_logger,
+            #sparse_logger,
             nan_terminate,
             nan_weight_terminate,
             early_stopping,
@@ -340,6 +345,7 @@ def fit_tf_init(
         modelspec,
         est: recording.Recording,
         nl_init: str = 'tf',
+        IsReload: bool = False,
         **kwargs
         ) -> dict:
     """Inits a model using tf.
@@ -349,6 +355,9 @@ def fit_tf_init(
     which looks at the last 2 layers of the original model, and if any of dexp, relu, log_sig, sat_rect are in those
     last two, only fits the first it encounters (freezes all other layers).
     """
+    if IsReload:
+        return {}
+
     def first_substring_index(strings, substring):
         try:
             return next(i for i, string in enumerate(strings) if substring in string)
