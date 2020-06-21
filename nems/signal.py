@@ -510,7 +510,7 @@ class SignalBase:
                     break
         
         indices = np.asarray(indices, dtype='i')  
-        import pdb; pdb.set_trace()
+        
         # exclude segments without data
         if (indices.size != 0) & allow_incomplete:
             zero_data_mask = (indices[:, 0] - indices[:, 1])!=0
