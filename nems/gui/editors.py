@@ -532,6 +532,7 @@ class ModuleCanvas(qw.QFrame):
         self.layout.addWidget(self.canvas)
         self.layout.setAlignment(qc.Qt.AlignTop)
         self.setLayout(self.layout)
+        self.axes = None
 
     def new_plot(self):
         '''Remove plot from layout and replace it with a new one.'''
@@ -558,14 +559,18 @@ class ModuleCanvas(qw.QFrame):
     def plot_on_axes(self):
         '''Draw plot on current canvas axes.'''
         gc = self.parent.parent.global_controls
-        ax = self.canvas.figure.add_subplot(111)
+        #if self.axes is None:
+        self.axes = self.canvas.figure.add_subplot(111)
+        ax = self.axes
+        #ax.clear()
         rec = self.parent.modelspec.recording
         self.parent.modelspec[self.mod_index]['plot_fn_idx']=self.plot_fn_idx
         self.parent.modelspec.plot(mod_index=self.mod_index, rec=rec, ax=ax,
                                    plot_fn_idx=self.plot_fn_idx, fit_index=self.fit_index,
                                    sig_name=self.sig_name, no_legend=True,
                                    channels=self.plot_channel,
-                                   cursor_time=gc.cursor_time)
+                                   cursor_time=gc.cursor_time,
+                                   linewidth=1, fontsize=8)
         if self.scrollable:
             cid = self.canvas.mpl_connect('button_press_event', self.onclick)
 
@@ -764,6 +769,7 @@ class EpochsWrapper(qw.QFrame):
         '''Create a layout and add an EpochCanvas.'''
         self.layout = qw.QVBoxLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
+        print('creating EpochCanvas')
         self.epochs = EpochCanvas(recording=self.recording,
                                   parent=self.epoch_parent)
         self.layout.addWidget(self.epochs)
@@ -939,6 +945,7 @@ class ModuleControls(qw.QFrame):
         self.layout.addWidget(self.save_phi_btn)
 
         self.layout.setAlignment(qc.Qt.AlignTop)
+        self.layout.setSpacing(2)
         self.setLayout(self.layout)
 
     def change_plot(self, index):

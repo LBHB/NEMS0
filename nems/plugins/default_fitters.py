@@ -155,9 +155,9 @@ def newtf(fitkey):
     early_stopping_tolerance = 5e-4
     learning_rate = 1e-4
     batch_size = None
-    # seed = 0
+    seed = 0
     initializer = 'random_normal'
-
+    nl_init = 'tf'
     rand_count = 0
     pick_best = False
 
@@ -169,6 +169,8 @@ def newtf(fitkey):
                 max_iter = int(1e10)  # just a really large number
             else:
                 max_iter = int(op[1:])
+        elif op == 'nlis':
+            nl_init = "scipy"
         elif op[:1] == 'n':
             use_modelspec_init = True
         if op == 'b':
@@ -215,6 +217,7 @@ def newtf(fitkey):
                    {
                        'max_iter': max_iter,
                        'use_modelspec_init': use_modelspec_init,
+                       'nl_init': nl_init,
                        'optimizer': optimizer,
                        'cost_function': cost_function,
                        'fit_function': 'nems.tf.cnnlink_new.fit_tf',
@@ -223,6 +226,7 @@ def newtf(fitkey):
                        'learning_rate': learning_rate,
                        'batch_size': batch_size,
                        'initializer': initializer,
+                       'seed': seed,
                    }])
 
     if pick_best:

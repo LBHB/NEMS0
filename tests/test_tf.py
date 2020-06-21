@@ -72,7 +72,6 @@ def test_do(data, kern_size):
     assert compare_ms_tf(layer_spec, data)
 
 
-@pytest.mark.xfail
 def test_stategain(data, state_data, kern_size):
     in_size = data.shape[-1]
     layer_spec = f'stategain.{in_size}'

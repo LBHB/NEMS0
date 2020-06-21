@@ -35,9 +35,9 @@ nems_dir = os.path.abspath(os.path.dirname(recording.__file__) + '/..')
 signals_dir = nems_dir + '/recordings'
 modelspecs_dir = nems_dir + '/modelspecs'
 
-#cellid = "TAR010c-06-1"
-#recording_uri = os.path.join(signals_dir, cellid + ".tgz")
-cellid = '951762773' #allen
+cellid = "TAR010c-06-1"
+recording_uri = os.path.join(signals_dir, cellid + ".tgz")
+#cellid = '951762773' #allen
 # ----------------------------------------------------------------------------
 # DATA LOADING
 
@@ -46,10 +46,10 @@ logging.info('Loading data...')
 
 # Method #1: Load the data from a local directory
 # download demo data if necessary:
-#recording.get_demo_recordings(signals_dir)
-#rec = recording.load_recording(recording_uri)
-rec=from_nwb_pupil(nwb_filepath,'neuropixel',with_pupil=True,fs=20)
-rec = rec[cellid] #try out allen data
+recording.get_demo_recordings(signals_dir)
+rec = recording.load_recording(recording_uri)
+#rec=from_nwb_pupil(nwb_filepath,'neuropixel',with_pupil=True,fs=20)
+#rec = rec[cellid] #try out allen data
 
 # ----------------------------------------------------------------------------
 # PREPROCESSING
@@ -67,17 +67,17 @@ rec = preproc.make_state_signal(rec, state_signals=['pupil'],
 #rec = preproc.mask_all_but_correct_references(rec)#not for allen?
 
 # calculate a PSTH response for each stimulus, save to a new signal 'psth'
-#epoch_regex="^STIM_"
-epoch_regex="^natural_scene" #only natural scene stimulus
-#rec = preproc.generate_psth_from_resp(rec, epoch_regex=epoch_regex, smooth_resp=False)
-rec=nwb_resp_psth(rec,epoch_regex) #should return similar results as above for allen data
+epoch_regex="^STIM_"
+#epoch_regex="^natural_scene" #only natural scene stimulus
+rec = preproc.generate_psth_from_resp(rec, epoch_regex=epoch_regex, smooth_resp=False)
+#rec=nwb_resp_psth(rec,epoch_regex) #should return similar results as above for allen data
 
 # ----------------------------------------------------------------------------
 # INSPECT THE DATA
 
 resp = rec['resp'].rasterize()
 epochs = resp.epochs
-#epoch_regex="^STIM_"
+epoch_regex="^STIM_"
 #epoch_regex="^natural_scene" #only natural scene stimulus
 epoch_list = ep.epoch_names_matching(epochs, epoch_regex)
 
@@ -200,8 +200,6 @@ occurrence = possible_occurrences[0]
 time_range = epoch_bounds[occurrence]
 nems.plots.timeseries.timeseries_from_signals(signals=[val['resp'], val['pred']], channels=0, no_legend=False, 
                                               time_range=time_range, rec=val, sig_name=None)
-fig=plt.figure()
-fig.add_subplot(ax)
 
 if USE_GUI:
     # interactive gui

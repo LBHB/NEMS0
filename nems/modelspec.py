@@ -17,6 +17,7 @@ import scipy.stats as st
 import nems
 import nems.uri
 import nems.utils
+import nems.recording
 from nems.fitters.mappers import simple_vector
 
 log = logging.getLogger(__name__)
@@ -84,6 +85,9 @@ class ModelSpec:
         self.fast_eval = False
         self.fast_eval_start = 0
         self.freeze_rec = None
+
+        # cache the tf model if it exists
+        self.tf_model = None
 
     def __getitem__(self, key):
         """Get the given item from the modelspec.
@@ -843,7 +847,10 @@ class ModelSpec:
         if rec is None:
             rec = self.recording
 
-        rec = evaluate(rec, self, **kwargs)
+        if np.any(['tf_only' in fn for fn in self.fn()]):
+            rec = evaluate_tf(rec, self, **kwargs)
+        else:
+            rec = evaluate(rec, self, **kwargs)
 
         return rec
 
@@ -1007,10 +1014,66 @@ class ModelSpec:
             except KeyError:
                 raise NotImplementedError(f'Layer "{m["fn"]}" does not have a tf equivalent.')
 
-            layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, fs=fs, initializer=initializer)
+            layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
+                                           initializer=initializer)
             layers.append(layer)
 
         return layers
+
+    def get_dstrf(self,
+                  rec: nems.recording.Recording,
+                  index: int,
+                  width: int = 30,
+                  rebuild_model: bool = False
+                  ) -> np.array:
+        """Creates a tf model from the modelspec and generates the dstrf.
+
+        :param rec: The input recording, of shape [channels, time].
+        :param index: The index at which the dstrf is calculated. Must be within the data.
+        :param width: The width of the returned dstrf (i.e. time lag from the index). If 0, returns the whole dstrf.
+        :rebuild_model: Rebuild the model to avoid using the cached one.
+        Zero padded if out of bounds.
+
+        :return: np array of size [channels, width]
+        """
+        if 'stim' not in rec.signals:
+            raise ValueError('No "stim" signal found in recording.')
+        data = rec['stim']._data.T
+
+        # a few safety checks
+        if data.ndim != 2:
+            raise ValueError('Data must be a recording of shape [channels, time].')
+        if not 0 <= index < width + data.shape[-2]:
+            raise ValueError(f'Index must be within the bounds of the time channel plus width.')
+
+        # need to import some tf stuff here so we don't clutter and unnecessarily import tf (which is slow) when it's
+        # not needed
+        # TODO: is this best practice? Better way to do this?
+        import tensorflow as tf
+        from nems.tf.cnnlink_new import get_jacobian
+
+        if self.tf_model is None or rebuild_model:
+            from nems.tf import modelbuilder
+
+            # generate the model
+            model_layers = self.modelspec2tf2(use_modelspec_init=True)
+
+            self.tf_model = modelbuilder.ModelBuilder(
+                name='Test-model',
+                layers=model_layers,
+            ).build_model(input_shape=data[np.newaxis].shape)
+
+        # need to convert the data to a tensor
+        tensor = tf.convert_to_tensor(data[np.newaxis])
+
+        w = get_jacobian(self.tf_model, tensor, index).numpy()[0]
+
+        if width == 0:
+            return w.T
+        else:
+            # pad only the time axis if necessary
+            padded = np.pad(w, ((width, width), (0, 0)))
+            return padded[index:index + width, :].T
 
 
 def get_modelspec_metadata(modelspec):
@@ -1276,7 +1339,7 @@ def eval_ms_layer(data: np.ndarray,
     if state_data is not None:
         state_sig = nems.signal.RasterizedSignal.from_3darray(
             fs=100,
-            array=np.swapaxes(data, 1, 2),
+            array=np.swapaxes(state_data, 1, 2),
             name='state',
             recording='temp',
             epoch_name='REFERENCE'
@@ -1354,6 +1417,35 @@ def evaluate(rec, modelspec, start=None, stop=None):
         d.signal_views[d.view_idx] = d.signals
 
     return d
+
+
+def evaluate_tf(rec, modelspec, epoch_name='REFERENCE', **kwargs):
+    input_name = modelspec[0]['fn_kwargs']['i']
+    output_name = modelspec[-1]['fn_kwargs']['o']
+    # convert ms to TF model
+    if 'mask' in rec.signals:
+        mask = rec['mask']
+    else:
+        mask = nems.signal.RasterizedSignal(np.ones((1, rec['resp'].shape[-1])))  # select all
+
+    # [..., np.newaxis] assumes conv2d model -- currently the only kind that uses this eval, but if that changes
+    # later on may need to check for model architecture somehow.
+    stim_train = np.transpose(rec[input_name].extract_epoch(epoch=epoch_name, mask=mask), [0, 2, 1])[..., np.newaxis]
+    model_layers = modelspec.modelspec2tf2(fs=rec['resp'].fs)
+    pred_stacked = stim_train
+    for layer in model_layers:  # looping over layers avoids needing to re-compile entire model
+        pred_stacked = layer(pred_stacked)  # stims x time x cells
+    output_count = rec['resp'].shape[0]
+    pred = pred_stacked.numpy().T.swapaxes(1, 2).reshape(output_count, -1)  # output cells x time
+
+    # need to put back into shape of original unmasked signal, otherwise some nems functions break
+    padded_pred = np.full((pred.shape[0], mask.shape[-1]), np.nan, dtype=np.float32)
+    padded_pred[:, mask.as_continuous().flatten() == 1] = pred
+    pred_sig = rec['resp']._modified_copy(padded_pred)
+    pred_sig.name = output_name
+    rec.add_signal(pred_sig)
+
+    return rec
 
 
 def summary_stats(modelspecs, mod_key='fn', meta_include=[], stats_keys=[]):

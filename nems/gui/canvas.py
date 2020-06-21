@@ -61,7 +61,7 @@ class MplWindow(qw.QWidget):
 
 class NemsCanvas(FigureCanvas):
 
-    def __init__(self, parent=None, width=5, height=4, dpi=100, hide_axes=True):
+    def __init__(self, parent=None, width=8, height=2, dpi=72, hide_axes=True):
         '''QWidget for displaying a matplotlib axes.'''
         plt.ioff()
         fig = plt.figure(figsize=(width, height), dpi=dpi)
@@ -73,6 +73,7 @@ class NemsCanvas(FigureCanvas):
         super(FigureCanvas, self).__init__(fig)
         self._bbox_queue = []
         self.setParent(parent)
+        self.setMinimumHeight(50)
         FigureCanvas.setSizePolicy(self, qw.QSizePolicy.Expanding,
                                    qw.QSizePolicy.Expanding)
         FigureCanvas.updateGeometry(self)
@@ -116,7 +117,6 @@ class EpochCanvas(NemsCanvas):
         p = self.parent
         valid_epochs = epochs[(epochs['start'] >= p.start_time) &
                               (epochs['end'] < p.stop_time)]
-
         if valid_epochs.size == 0:
             print('no valid epochs')
             # valid_epochs = valid_epochs.append([{'name': 'EXPT', 'start': p.start_time, 'end': p.stop_time}])
@@ -133,7 +133,7 @@ class EpochCanvas(NemsCanvas):
             if len(n) < 5:
                 prefix = 'X'
             if prefix in ['prestimsilence', 'poststimsilence',
-                          'reference', 'target', 'stim']:
+                          'reference', 'target']:
                 # skip
                 pass
             elif prefix in self.epoch_groups:
@@ -179,11 +179,10 @@ class EpochCanvas(NemsCanvas):
 
                 x = np.array([s, e])
                 y = np.array([i, i])
-
                 self.axes.plot(x, y, '-', color=colors[i % len(colors)])
-                if len(self.epoch_groups[g]) < 5:
-                    self.axes.text(s, i, n, va='bottom', fontsize='small',
-                                   color=colors[i % len(colors)])
+                #if len(self.epoch_groups[g]) < 5:
+                self.axes.text(s, i, n, va='bottom', fontsize='small',
+                               color=colors[i % len(colors)])
 
         self.axes.set_xlim([p.start_time, p.stop_time])
         self.axes.set_ylim([-0.5, i+0.5])

@@ -713,7 +713,9 @@ def _fit_net(F, D, modelspec, seed, fs, log_dir, optimizer='Adam',
 
 
 def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
-                optimizer='Adam', max_iter=2000, cost_function='squared_error', **context):
+                optimizer='Adam', max_iter=2000,
+                cost_function='squared_error', IsReload=False,
+                **context):
     """
     pre-fit a model with the final output NL stripped. TF equivalent of
     nems.initializers.prefit_to_target()
@@ -726,6 +728,9 @@ def fit_tf_init(modelspec=None, est=None, use_modelspec_init=True,
     :param context: extra stuff from xforms context
     :return: dictionary with modelspec, compatible with xforms
     """
+
+    if IsReload:
+        return {}
 
     # preserve input modelspec
     modelspec = modelspec.copy()
@@ -825,7 +830,7 @@ def fit_tf(modelspec=None, est=None,
            use_modelspec_init=True,
            optimizer='Adam', max_iter=1000, cost_function='squared_error',
            early_stopping_steps=5, early_stopping_tolerance=5e-4, learning_rate=0.01,
-           distr='norm', seed=50, **context):
+           distr='norm', seed=50, IsReload=False, **context):
     """
     :param est: A recording object
     :param modelspec: A modelspec object
@@ -837,6 +842,9 @@ def fit_tf(modelspec=None, est=None,
     :param context:
     :return: dictionary with modelspec, compatible with xforms
     """
+
+    if IsReload:
+        return {}
 
     start_time = time.time()
 
@@ -896,12 +904,6 @@ def fit_tf(modelspec=None, est=None,
                      / modelspec.meta.get('cellid', "NOCELL")\
                      / modelspec.meta['modelname']
        log_dir = log_dir_root / log_dir_sub
-
-    #######################
-    if os.environ.get('SYSTEM', None) == 'Alex-PC':
-        log_dir = Path(nems.get_setting('NEMS_RESULTS_DIR')) / Path(log_dir).relative_to(
-            r'http:\\hyrax.ohsu.edu:3003/results')
-    #######################
 
     modelspec_pre = modelspec.copy()
     modelspec, net = _fit_net(F, D, modelspec, _this_seed, new_est['resp'].fs, log_dir=str(log_dir),
