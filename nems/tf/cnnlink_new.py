@@ -441,12 +441,12 @@ def fit_tf_init(
                         modelspec = init_fn(est, modelspec)
 
                     static_nl_idx_not = list(set(range(len(modelspec))) - set([idx]))
-                    # don't overwrite the phis in the modelspec
-                    del kwargs['use_modelspec_init']
                     log.info('Running second init fit: all frozen but static nl.')
 
+                    # don't overwrite the phis in the modelspec
+                    kwargs['use_modelspec_init'] = True
                     filepath = Path(modelspec.meta['modelpath']) / 'init_part2'
-                    return fit_tf(modelspec, est, use_modelspec_init=True, freeze_layers=static_nl_idx_not,
+                    return fit_tf(modelspec, est, freeze_layers=static_nl_idx_not,
                                   filepath=filepath, **kwargs)
 
     # no static nl to init

@@ -61,9 +61,12 @@ xfspec.append(['nems.xforms.init_from_keywords',
                {'keywordstring': modelspecname, 'meta': meta}])
 
 #xfspec.append(['nems.initializers.rand_phi', {'rand_count': 5}])
-xfspec.append(['nems.xforms.fit_basic_init', {}])
-
-xfspec.append(['nems.xforms.fit_basic', {'tolerance': 1e-6}])
+#xfspec.append(['nems.xforms.fit_basic_init', {}])
+#xfspec.append(['nems.xforms.fit_basic', {'tolerance': 1e-6}])
+xfspec.append(['nems.tf.cnnlink_new.fit_tf_init',
+               {'max_iter': 1000, 'early_stopping_tolerance': 5e-4, 'use_modelspec_init': True}])
+xfspec.append(['nems.tf.cnnlink_new.fit_tf',
+               {'max_iter': 1000, 'early_stopping_tolerance': 1e-4, 'use_modelspec_init': True}])
 
 # xfspec.append(['nems.xforms.fit_basic_shrink', {}])
 #xfspec.append(['nems.xforms.fit_basic_cd', {}])
