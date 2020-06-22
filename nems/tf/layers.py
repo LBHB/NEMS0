@@ -782,7 +782,7 @@ class StateDCGain(BaseLayer):
 
 class Conv2D_NEMS(BaseLayer, Conv2D):
     _TF_ONLY = True
-    def __init__(self, initializer=None, *args, **kwargs):
+    def __init__(self, initializer=None, seed=0, *args, **kwargs):
         '''Identical to the stock keras Conv2D but with NEMS compatibility added on, but without a matching module.'''
         super(Conv2D_NEMS, self).__init__(*args, **kwargs)
 
@@ -794,7 +794,7 @@ class Conv2D_NEMS(BaseLayer, Conv2D):
 
 class Dense_NEMS(BaseLayer, Dense):
     _TF_ONLY = True
-    def __init__(self, initializer=None, *args, **kwargs):
+    def __init__(self, initializer=None, seed=0, *args, **kwargs):
         '''Identical to the stock keras Dense but with NEMS compatibility added on, but without a matching module.'''
         super(Dense_NEMS, self).__init__(*args, **kwargs)
 
@@ -806,7 +806,7 @@ class Dense_NEMS(BaseLayer, Dense):
 
 class WeightChannelsNew(BaseLayer):
     _TF_ONLY = True
-    def __init__(self, units=None, initializer=None, *args, **kwargs):
+    def __init__(self, units=None, initializer=None, seed=0, *args, **kwargs):
         '''Similar to WeightChannelsBasic but implemented as a weighted sum, and does not map to a NEMS module.'''
         super(WeightChannelsNew, self).__init__(*args, **kwargs)
         self.units = units
@@ -833,7 +833,7 @@ class WeightChannelsNew(BaseLayer):
 
 class FlattenChannels(BaseLayer):
 
-    def __init__(self, initializer=None, *args, **kwargs):
+    def __init__(self, initializer=None, seed=0, *args, **kwargs):
         # no weights or initializer to deal with
         super(FlattenChannels, self).__init__(*args, **kwargs)
 
