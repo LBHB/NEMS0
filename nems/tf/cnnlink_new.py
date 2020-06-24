@@ -497,13 +497,14 @@ def eval_tf_layer(data: np.ndarray,
 def get_jacobian(model: tf.keras.Model,
                  tensor: tf.Tensor,
                  index: int,
+                 out_channel: int = 0,
                  ) -> np.array:
     """Gets the jacobian at the given index.
 
     This needs to be a tf.function for a huge speed increase."""
     with tf.GradientTape(persistent=True) as g:
         g.watch(tensor)
-        z = model(tensor)[0, index, 0]
+        z = model(tensor)[0, index, out_channel]
 
     w = g.jacobian(z, tensor)
     return w

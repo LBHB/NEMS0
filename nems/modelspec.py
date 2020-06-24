@@ -1024,7 +1024,8 @@ class ModelSpec:
                   rec: nems.recording.Recording,
                   index: int,
                   width: int = 30,
-                  rebuild_model: bool = False
+                  rebuild_model: bool = False,
+                  out_channel: int = 0
                   ) -> np.array:
         """Creates a tf model from the modelspec and generates the dstrf.
 
@@ -1066,7 +1067,7 @@ class ModelSpec:
         # need to convert the data to a tensor
         tensor = tf.convert_to_tensor(data[np.newaxis])
 
-        w = get_jacobian(self.tf_model, tensor, index).numpy()[0]
+        w = get_jacobian(self.tf_model, tensor, index, out_channel).numpy()[0]
 
         if width == 0:
             return w.T
