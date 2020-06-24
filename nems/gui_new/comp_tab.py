@@ -17,12 +17,33 @@ log = logging.getLogger(__name__)
 qt_creator_file = Path(r'ui\tab_comp.ui')
 Ui_Widget, QtBaseClass = uic.loadUiType(qt_creator_file)
 
+
 class CompTab(QtBaseClass, Ui_Widget):
 
     def __init__(self, parent=None):
         super(CompTab, self).__init__(parent)
         self.setupUi(self)
-        self.parent = parent
+
+        self.tab_name = 'comp_tab'
+
+    def init_models(self):
+        """Initialize the models."""
+        # setup the data and models
+        # self.batchModel = ListViewModel(table_name='Results', column_name='batch')
+        self.batchModel = self.parent.batchModel
+        self.comboBoxBatches.setModel(self.batchModel)
+
+        # make the status bar available locally
+        self.statusbar = self.parent.statusbar
+
+    def get_selections(self):
+        return {}
+
+    def update_selections(self):
+        pass
+
+    def load_settings(self, group_name=None):
+        return {}
 
 
 if __name__ == '__main__':

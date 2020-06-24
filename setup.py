@@ -13,7 +13,7 @@ GENERAL_REQUIRES = ['numpy', 'scipy', 'matplotlib', 'pandas', 'requests',
                     'h5py', 'sqlalchemy', 'configparser']
 # pycharm also requires: tornado
 # TF modules require tensorflow
-# GUI requires pyqt
+# GUI requires pyqt, pyqtgraph
 
 EXTRAS_REQUIRES = {
     'docs': ['sphinx', 'sphinx_rtd_theme', 'pygments-enaml', 'nbsphinx', 'pandoc', 'IPython', 'sphinx_copybutton'],

@@ -1,14 +1,14 @@
-from pathlib import Path
 import logging
 import sys
 from configparser import ConfigParser, DuplicateSectionError
+from pathlib import Path
 
 from PyQt5 import uic
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
-from nems import xforms, get_setting
+from nems import get_setting, xforms
 from nems.gui import editors
 from nems.gui_new.ui_promoted import ListViewModel
 
@@ -24,10 +24,14 @@ class BrowserTab(QtBaseClass, Ui_Widget):
     def __init__(self, parent=None):
         super(BrowserTab, self).__init__(parent)
         self.setupUi(self)
-        self.parent = parent
 
+        self.tab_name = 'browser_tab'
+
+    def init_models(self):
+        """Initialize the models."""
         # setup the data and models
-        self.batchModel = ListViewModel(table_name='Results', column_name='batch')
+        # self.batchModel = ListViewModel(table_name='Results', column_name='batch')
+        self.batchModel = self.parent.batchModel
         self.comboBoxBatches.setModel(self.batchModel)
 
         current_batch = self.batchModel.data[self.comboBoxBatches.currentIndex()][0]
@@ -49,7 +53,7 @@ class BrowserTab(QtBaseClass, Ui_Widget):
         self.modelname = self.modelnameModel.index(0).data()
 
         # keep track of the all the models with db connections
-        self.conns = [self.batchModel, self.cellsModel, self.modelnameModel]
+        self.parent.db_conns.extend([self.cellsModel, self.modelnameModel])
 
         # setup the callbacks for viewers
         self.comboBoxBatches.currentIndexChanged.connect(self.on_batch_changed)
@@ -59,16 +63,12 @@ class BrowserTab(QtBaseClass, Ui_Widget):
         # setup the callbacks for the buttons
         self.pushButtonViewModel.clicked.connect(self.on_view_model)
 
+        # make some parent stuff available locally for ease
+        self.statusbar = self.parent.statusbar
+        self.config = self.parent.config
+
         # update inputs
         self.update_selections(*self.load_settings())
-
-    def closeEvent(self, event):
-        """Catch close event in order to close db connections and save selections."""
-        for model in self.conns:
-            model.close_db()
-
-        self.save_settings()
-        event.accept()
 
     def update_selections(self, batch=None, cellid=None, modelname=None):
         """Sets the inputs of batch, cellid, and modelname appropriately.
@@ -100,55 +100,30 @@ class BrowserTab(QtBaseClass, Ui_Widget):
                 self.listViewModelnames.selectionModel().setCurrentIndex(self.modelnameModel.index(modelname_index),
                                                                          QItemSelectionModel.SelectCurrent)
 
-    def get_setting_sections(self):
-        """Gets a list of the sections in the settings."""
-        config_file = Path(get_setting('SAVED_SETTINGS_PATH')) / 'gui.ini'
-        config = ConfigParser()
-        config.read(config_file)
-
-        return [section.lstrip('db_browser:') for section in config.sections() if section.startswith('db_browser:')]
-
     def load_settings(self, group_name=None):
-        """Loads saved selections of batch, cellid, modelname."""
-        config_file = Path(get_setting('SAVED_SETTINGS_PATH')) / 'gui.ini'
-        config = ConfigParser()
-        config.read(config_file)
-
-        config_group = 'db_browser'
+        """Get the tabs saved selections of batch, cellid, modelname."""
+        config_group = self.parent.config_group
         if group_name is not None:
             config_group = config_group + ':' + group_name
 
-        if config_group not in config:
+        if config_group not in self.config:
             return None, None, None
 
-        batch = int(config[config_group]['batch'])
-        cellid = config[config_group]['cellid']
-        modelname = config[config_group]['modelname']
+        batch = self.config[config_group].get(f'{self.tab_name}:batch', None)
+        batch = batch if batch is None else int(batch)
+        cellid = self.config[config_group].get(f'{self.tab_name}:cellid', None)
+        modelname = self.config[config_group].get(f'{self.tab_name}:modelname', None)
 
         return batch, cellid, modelname
 
-    def save_settings(self, group_name=None):
-        """Saves the current selections."""
-        config_file = Path(get_setting('SAVED_SETTINGS_PATH')) / 'gui.ini'
-        config = ConfigParser()
-        config.read(config_file)
+    def get_selections(self):
+        """Passes the tabs selections up to the parent for saving."""
 
-        config_group = 'db_browser'
-        if group_name is not None:
-            config_group = config_group + ':' + group_name
-
-        # add section if not present
-        try:
-            config.add_section(config_group)
-        except DuplicateSectionError:
-            pass
-
-        config.set(config_group, 'batch', str(self.batch))
-        config.set(config_group, 'cellid', self.cellid)
-        config.set(config_group, 'modelname', self.modelname)
-
-        with open(config_file, 'w') as cf:
-            config.write(cf)
+        return {
+            f'{self.tab_name}:batch': str(self.batch),
+            f'{self.tab_name}:cellid': self.cellid,
+            f'{self.tab_name}:modelname': self.modelname,
+        }
 
     def on_action_open(self):
         """Event handler for action open."""
@@ -168,39 +143,6 @@ class BrowserTab(QtBaseClass, Ui_Widget):
         xfspec, ctx = self.load_xfrom_from_folder(directory, eval_model=True)
         self.statusbar.clearMessage()
         self.launch_model_browser(ctx, xfspec)
-
-    def on_action_save_selections(self, *args, text=''):
-        """Event handler for saving selections."""
-        input_text, accepted = QInputDialog.getText(self, 'Selection name', 'Enter selection name:', text=text)
-        if not accepted or not input_text:
-            return
-
-        existing = self.get_setting_sections()
-        if input_text in existing:
-            ret = QMessageBox.warning(self, 'Save', 'Name exists, overwrite?',
-                                      QMessageBox.Save | QMessageBox.Cancel)
-            if ret == QMessageBox.Cancel:
-                self.on_action_save_selections(text=input_text)
-        else:
-            self.save_settings(group_name=input_text)
-
-        status_text = f'Saved selections as: "{input_text}".'
-        log.info(status_text)
-        self.statusbar.showMessage(status_text, 1000)
-
-    def on_action_load_selections(self):
-        """Event handler for loading selections."""
-        existing = self.get_setting_sections()
-        group_name, accepted = QInputDialog.getItem(self, 'Selection name', 'Select settings to load:', existing,
-                                                    editable=False)
-        if not accepted:
-            return
-
-        self.update_selections(*self.load_settings(group_name=group_name))
-
-        status_text = f'Loaded saved selections: "{group_name}".'
-        log.info(status_text)
-        self.statusbar.showMessage(status_text, 1000)
 
     def on_batch_changed(self, index, update_selection=True):
         """Event handler for batch selection.
