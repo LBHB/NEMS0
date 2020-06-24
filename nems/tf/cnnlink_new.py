@@ -134,6 +134,7 @@ def fit_tf(
         initializer: str = 'random_normal',
         filepath: typing.Union[str, Path] = None,
         freeze_layers: typing.Union[None, list] = None,
+        IsReload: bool = False,
         **context
         ) -> dict:
     """TODO
@@ -156,6 +157,10 @@ def fit_tf(
 
     :return:
     """
+
+    if IsReload:
+        return {}
+
     tf.random.set_seed(seed)
     np.random.seed(seed)
     #os.environ['TF_DETERMINISTIC_OPS'] = '1'   # makes output deterministic, but reduces prediction accuracy
@@ -340,6 +345,7 @@ def fit_tf_init(
         modelspec,
         est: recording.Recording,
         nl_init: str = 'tf',
+        IsReload: bool = False,
         **kwargs
         ) -> dict:
     """Inits a model using tf.
@@ -349,6 +355,9 @@ def fit_tf_init(
     which looks at the last 2 layers of the original model, and if any of dexp, relu, log_sig, sat_rect are in those
     last two, only fits the first it encounters (freezes all other layers).
     """
+    if IsReload:
+        return {}
+
     def first_substring_index(strings, substring):
         try:
             return next(i for i, string in enumerate(strings) if substring in string)
@@ -432,12 +441,12 @@ def fit_tf_init(
                         modelspec = init_fn(est, modelspec)
 
                     static_nl_idx_not = list(set(range(len(modelspec))) - set([idx]))
-                    # don't overwrite the phis in the modelspec
-                    del kwargs['use_modelspec_init']
                     log.info('Running second init fit: all frozen but static nl.')
 
+                    # don't overwrite the phis in the modelspec
+                    kwargs['use_modelspec_init'] = True
                     filepath = Path(modelspec.meta['modelpath']) / 'init_part2'
-                    return fit_tf(modelspec, est, use_modelspec_init=True, freeze_layers=static_nl_idx_not,
+                    return fit_tf(modelspec, est, freeze_layers=static_nl_idx_not,
                                   filepath=filepath, **kwargs)
 
     # no static nl to init
@@ -488,13 +497,14 @@ def eval_tf_layer(data: np.ndarray,
 def get_jacobian(model: tf.keras.Model,
                  tensor: tf.Tensor,
                  index: int,
+                 out_channel: int = 0,
                  ) -> np.array:
     """Gets the jacobian at the given index.
 
     This needs to be a tf.function for a huge speed increase."""
     with tf.GradientTape(persistent=True) as g:
         g.watch(tensor)
-        z = model(tensor)[0, index, 0]
+        z = model(tensor)[0, index, out_channel]
 
     w = g.jacobian(z, tensor)
     return w

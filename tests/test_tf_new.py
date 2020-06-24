@@ -81,7 +81,7 @@ def test_fir_bank2(data, kern_size):
     assert compare_ms_tf(layer_spec, data)
 
 
-@requires_gpu
+#@requires_gpu
 def test_fir_bank3(data, kern_size):
     in_size = data.shape[-1]
     layer_spec = f'fir.2x3x{in_size // 2}'

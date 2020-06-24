@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 import tensorflow as tf
+from tensorflow import config
 from tensorflow.keras.layers import Conv2D, Dense
 from tensorflow.keras.constraints import Constraint
 from tensorflow.python.ops import array_ops
@@ -464,8 +465,46 @@ class FIR(BaseLayer):
         pad_size0 = self.units - 1 - self.non_causal
         pad_size1 = self.non_causal
         padded_input = tf.pad(inputs, [[0, 0], [pad_size0, pad_size1], [0, 0]])
+
+        # SVD inserting
+        DEBUG = False
+        if DEBUG:
+            print("Banks:", self.banks)
+            print("Units:", self.units)
+            print("N_inputs: ", self.n_inputs)
+        if config.list_physical_devices('GPU') or \
+                (self.n_inputs == padded_input.shape[-1]):
+            # this implementation does not evaluate on a CPU if mapping subsets of
+            # the input into the different FIR filters.
+            transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
+            if DEBUG:
+                print("padded input: ", padded_input.shape)
+                print("transposed kernel: ", transposed.shape)
+                print("Y: ", Y.shape)
+            Y = tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
+            return Y
+
+        # alternative, kludgy implementation, evaluate each filter separately on the
+        # corresponding subset of inputs, concatenate outputs when done
         transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
-        return tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
+        if DEBUG:
+            print("padded input: ", padded_input.shape)
+            print("transposed kernel: ", transposed.shape)
+
+        L = []
+        for i in range(transposed.shape[2]):
+            W = transposed.shape[1]
+            A = padded_input[:, :, (i*W):((i+1)*W)]
+            B = transposed[:, :, i:(i+1)]
+            L.append(tf.nn.conv1d(A, B, stride=1, padding='VALID'))
+        Y = tf.concat(L, axis=2)
+        if DEBUG:
+            print("L[0]: ", L[0].shape)
+            print("Y: ", Y.shape)
+
+        return Y
+        # SVD stopped inserting
+        #return tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
 
     def weights_to_phi(self):
         layer_values = self.layer_values

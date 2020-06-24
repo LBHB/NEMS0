@@ -23,6 +23,7 @@ signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
 
 datafile = os.path.join(signals_dir, "TAR010c_afb264b3db970ec890e04c727e612c1cbfaced62.tgz")
 datafile = os.path.join(signals_dir, "TAR010c.NAT.fs100.tgz")
+datafile = os.path.join(signals_dir, "TAR010c_272b438ce3a5643e3e474206861096ce3ffdc000.tgz")
 load_command = 'nems.demo.loaders.demo_loader'
 exptid = "TAR010c"
 batch = 271
@@ -31,7 +32,7 @@ siteid = "TAR010c"
 # MODEL SPEC
 #modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
 modelspecname = 'dlog-wc.18x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
-#modelspecname = 'dlog-wc.18x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
+#modelspecname = 'dlog-wc.18x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R-dexp.R'
 
 meta = {'siteid': siteid, 'batch': batch, 'modelname': modelspecname,
         'recording': exptid}
@@ -61,8 +62,10 @@ xfspec.append(['nems.xforms.init_from_keywords', {}])
 #xfspec.append(['nems.analysis.fit_pop_model.fit_population_iteratively',
 #               {'fitter': 'scipy_minimize', 'tolerances': [1e-4, 3e-5],
 #                'tol_iter': 50, 'fit_iter': 10}])
-xfspec.append(['nems.tf.cnnlink.fit_tf_init', {'early_stopping_tolerance': 5e-4}])
-xfspec.append(['nems.tf.cnnlink.fit_tf', {'early_stopping_tolerance': 1e-5}])
+#xfspec.append(['nems.tf.cnnlink.fit_tf_init', {'early_stopping_tolerance': 5e-4}])
+#xfspec.append(['nems.tf.cnnlink.fit_tf', {'early_stopping_tolerance': 1e-5}])
+xfspec.append(['nems.tf.cnnlink_new.fit_tf_init', {'max_iter': 1000, 'early_stopping_tolerance': 5e-4}])
+xfspec.append(['nems.tf.cnnlink_new.fit_tf', {'max_iter': 1000, 'early_stopping_tolerance': 1e-4}])
 #xfspec.append(['nems.analysis.fit_pop_model.fit_population_iteratively',
 #               {'fitter': 'scipy_minimize', 'tolerances': [1e-4, 3e-5],
 #                'tol_iter': 50, 'fit_iter': 10}])

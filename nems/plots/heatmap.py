@@ -331,7 +331,8 @@ def strf_local_lin(rec, modelspec, cursor_time=20, channels=0,
     use_dstrf = True
     if use_dstrf:
         index = int(cursor_time * rec['resp'].fs)
-        strf = modelspec.get_dstrf(rec, index=index, width=20)
+        strf = modelspec.get_dstrf(rec, index=index, width=20,
+                                   out_channel=channels)
     else:
         resp_chan = channels
         d = rec['stim']._data.copy()
