@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 import tensorflow as tf
+from tensorflow import config
 from tensorflow.keras.layers import Conv2D, Dense
 from tensorflow.keras.constraints import Constraint
 from tensorflow.python.ops import array_ops
@@ -469,7 +470,8 @@ class FIR(BaseLayer):
         print("Banks:", self.banks)
         print("Units:", self.units)
         print("N_inputs: ", self.n_inputs)
-        if self.n_inputs == padded_input.shape[-1]:
+        if config.list_physical_devices('GPU') or \
+                (self.n_inputs == padded_input.shape[-1]):
             transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
             print("padded input: ", padded_input.shape)
             print("transposed kernel: ", transposed.shape)

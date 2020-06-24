@@ -387,7 +387,8 @@ class ModelspecEditor(qw.QWidget):
         '''
         super(qw.QWidget, self).__init__()
         self.modelspec = modelspec
-        self.original_modelspec = copy.deepcopy(modelspec)
+        #self.original_modelspec = copy.deepcopy(modelspec)
+        self.original_phi = copy.deepcopy(modelspec.phi)
         self.rec = rec
         self.parent = parent
         self.modules = []
