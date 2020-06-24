@@ -284,11 +284,11 @@ def fit_tf(
         train_data,
         resp_train,
         # validation_split=0.2,
-        verbose=2,
+        verbose=0,
         epochs=max_iter,
         batch_size=batch_size,
         callbacks=[
-            #sparse_logger,
+            sparse_logger,
             nan_terminate,
             nan_weight_terminate,
             early_stopping,

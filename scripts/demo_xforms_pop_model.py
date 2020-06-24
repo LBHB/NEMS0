@@ -32,7 +32,7 @@ siteid = "TAR010c"
 # MODEL SPEC
 #modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
 modelspecname = 'dlog-wc.18x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
-#modelspecname = 'dlog-wc.18x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
+#modelspecname = 'dlog-wc.18x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R-dexp.R'
 
 meta = {'siteid': siteid, 'batch': batch, 'modelname': modelspecname,
         'recording': exptid}

@@ -467,48 +467,41 @@ class FIR(BaseLayer):
         padded_input = tf.pad(inputs, [[0, 0], [pad_size0, pad_size1], [0, 0]])
 
         # SVD inserting
-        print("Banks:", self.banks)
-        print("Units:", self.units)
-        print("N_inputs: ", self.n_inputs)
+        DEBUG = False
+        if DEBUG:
+            print("Banks:", self.banks)
+            print("Units:", self.units)
+            print("N_inputs: ", self.n_inputs)
         if config.list_physical_devices('GPU') or \
                 (self.n_inputs == padded_input.shape[-1]):
+            # this implementation does not evaluate on a CPU if mapping subsets of
+            # the input into the different FIR filters.
             transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
-            print("padded input: ", padded_input.shape)
-            print("transposed kernel: ", transposed.shape)
+            if DEBUG:
+                print("padded input: ", padded_input.shape)
+                print("transposed kernel: ", transposed.shape)
+                print("Y: ", Y.shape)
             Y = tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
-            print("Y: ", Y.shape)
             return Y
 
+        # alternative, kludgy implementation, evaluate each filter separately on the
+        # corresponding subset of inputs, concatenate outputs when done
         transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
-        print("padded input: ", padded_input.shape)
-        print("transposed kernel: ", transposed.shape)
+        if DEBUG:
+            print("padded input: ", padded_input.shape)
+            print("transposed kernel: ", transposed.shape)
 
         L = []
         for i in range(transposed.shape[2]):
             W = transposed.shape[1]
             A = padded_input[:, :, (i*W):((i+1)*W)]
             B = transposed[:, :, i:(i+1)]
-            #print("A: ", A.shape)
-            #print("B: ", B.shape)
             L.append(tf.nn.conv1d(A, B, stride=1, padding='VALID'))
-        print("L[0]: ", L[0].shape)
         Y = tf.concat(L, axis=2)
-        print("Y: ", Y.shape)
+        if DEBUG:
+            print("L[0]: ", L[0].shape)
+            print("Y: ", Y.shape)
 
-        #X_pad = tf.expand_dims(padded_input, axis=1)
-        #transposed = tf.expand_dims(tf.transpose(tf.reverse(self.coefficients, axis=[-1])),0)
-        #print("padded input: ", X_pad.shape)
-        #print("transposed kernel: ", transposed.shape)
-        ##rate = [1 stepsize]
-        #tY= tf.compat.v1.nn.depthwise_conv2d(
-        #    X_pad, transposed, strides=[1, 1, 1, 1], padding='VALID', rate=[1, 1])
-        #s = tf.shape(tY)
-        #print(s)
-
-        #Y = tf.reduce_sum(tf.reshape(tY,
-        #                            [s[0], tY.shape[2], tf.compat.v1.Dimension(self.banks),
-        #                                       tf.compat.v1.Dimension(self.n_inputs)]), axis=3)
-        print(Y.shape)
         return Y
         # SVD stopped inserting
         #return tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
