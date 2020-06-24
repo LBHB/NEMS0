@@ -11,25 +11,13 @@ from PyQt5.QtWidgets import *
 from nems import db, xforms, get_setting
 from nems.gui import editors
 
-# TEMP ERROR CATCHER
-# Back up the reference to the exceptionhook
-sys._excepthook = sys.excepthook
-
-def my_exception_hook(exctype, value, traceback):
-    # Print the error and traceback
-    print(exctype, value, traceback)
-    # Call the normal Exception hook after
-    sys._excepthook(exctype, value, traceback)
-    sys.exit(1)
-
-# Set the exception hook to our wrapping function
-sys.excepthook = my_exception_hook
+from nems.gui_new.list_test import ListViewModel
 
 log = logging.getLogger(__name__)
 
 # read and parse the UI file to generate the GUI
-qt_creator_file = Path(r'ui/test_listview.ui')
-Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
+qt_creator_file = Path(r'ui\tab_browser.ui')
+Ui_Widget, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 
 class ListViewModel(QAbstractListModel):
@@ -96,10 +84,10 @@ class ListViewModel(QAbstractListModel):
             return -1
 
 
-class MainWindow(QMainWindow, Ui_MainWindow):
+class BrowserTab(QtBaseClass, Ui_Widget):
 
     def __init__(self, parent=None):
-        super(MainWindow, self).__init__(parent)
+        super(BrowserTab, self).__init__(parent)
         self.setupUi(self)
 
         # load settings
@@ -137,11 +125,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # setup the callbacks for the buttons
         self.pushButtonViewModel.clicked.connect(self.on_view_model)
-
-        # setup the callbacks for the menu items
-        self.actionOpen.triggered.connect(self.on_action_open)
-        self.actionSave_selections.triggered.connect(self.on_action_save_selections)
-        self.actionLoad_selections.triggered.connect(self.on_action_load_selections)
 
         # update inputs
         self.update_selections(*self.load_settings())
@@ -366,6 +349,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    window = MainWindow()
+    window = BrowserTab()
     window .show()
     app.exec_()
