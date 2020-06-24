@@ -28,7 +28,7 @@ sys.excepthook = my_exception_hook
 log = logging.getLogger(__name__)
 
 # read and parse the UI file to generate the GUI
-qt_creator_file = Path(r'ui\container.ui')
+qt_creator_file = Path(r'ui') / 'container.ui'
 Ui_MainWindow, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 

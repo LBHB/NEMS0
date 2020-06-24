@@ -15,7 +15,7 @@ from nems.gui_new.ui_promoted import ListViewModel
 log = logging.getLogger(__name__)
 
 # read and parse the UI file to generate the GUI
-qt_creator_file = Path(r'ui\tab_browser.ui')
+qt_creator_file = Path(r'ui') / 'tab_browser.ui'
 Ui_Widget, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 
