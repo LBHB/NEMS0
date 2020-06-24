@@ -387,8 +387,7 @@ class ModelspecEditor(qw.QWidget):
         '''
         super(qw.QWidget, self).__init__()
         self.modelspec = modelspec
-        #self.original_modelspec = copy.deepcopy(modelspec)
-        self.original_phi = copy.deepcopy(modelspec.phi)
+        self.original_modelspec = copy.deepcopy(modelspec)
         self.rec = rec
         self.parent = parent
         self.modules = []
@@ -1413,8 +1412,20 @@ class GlobalControls(qw.QFrame):
             ed.modelspec_editor.evaluate_model()
 
     def update_cell_index(self):
-        i = int(self.cell_index_line.text())
-        for ed in self.editors:
+        try:
+            i = int(self.cell_index_line.text())
+            for ed in self.editors:
+                for j, mc in enumerate(ed.modelspec_editor.controllers):
+                    _plot_fn = mc.module.plot_list[mc.module.plot_fn_idx]
+                    if _plot_fn.split(".")[-1] in ['pred_resp', 'strf_local_lin',
+                                                   'perf_per_cell']:
+                        log.info(f'{j}: {_plot_fn} updating')
+                        mc.channel_entry.setText(str(i))
+                    else:
+                        log.info(f'{j}: {_plot_fn} not updating')
+        except:
+            log.info("Invalid cell index entry")
+            """
             j = ed.modelspec_editor.modelspec.cell_index
 
             if i == j:
@@ -1427,6 +1438,7 @@ class GlobalControls(qw.QFrame):
 
             ed.modelspec_editor.modelspec.cell_index = i
             ed.modelspec_editor.evaluate_model()
+            """
 
     def update_cursor_time(self, t=None):
         if t is None:
