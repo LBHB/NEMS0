@@ -9,7 +9,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
 from nems import xforms, get_setting
-from nems.gui_new.ui_promoted import ListViewListModel
+from nems.gui_new.ui_promoted import ListViewListModel, CompModel
 
 log = logging.getLogger(__name__)
 
@@ -47,15 +47,34 @@ class CompTab(QtBaseClass, Ui_Widget):
         self.modelname1 = self.modelnameModel.index(self.comboBoxModel1.currentIndex()).data()
         self.modelname2 = self.modelnameModel.index(self.comboBoxModel2.currentIndex()).data()
 
-        self.cellsModel = ListViewListModel(table_name='Results', column_name='cellid', filter=batch_filter)
+        self.cellsModel = CompModel(
+            filter1=self.modelname1,
+            filter2=self.modelname2,
+            table_name='Results',
+            merge_on='cellid',
+            comp_val='r_test',  # TODO: make this based off user input (will also need to update model.refresh_data)
+            filter_on='modelname',
+            filters={'batch': self.batch}
+        )
+        # self.cellsModel = ListViewListModel(table_name='Results', column_name='cellid', filter=batch_filter)
         self.listViewCells.setModel(self.cellsModel)
+        self.listViewCells.setModelColumn(0)  # defaults to zero anyways, but here for clarity
         # select first entry
-        self.listViewCells.selectionModel().setCurrentIndex(self.cellsModel.index(0),
+        self.listViewCells.selectionModel().setCurrentIndex(self.cellsModel.index(0, 0),
                                                                  QItemSelectionModel.SelectCurrent)
-        self.cellids = [self.cellsModel.index(i.row()).data() for i in self.listViewCells.selectedIndexes()]
+        self.cellids = [self.cellsModel.index(i.row(), 0).data() for i in self.listViewCells.selectedIndexes()]
 
         # keep track of the all the models with db connections
         self.parent.db_conns.extend([self.modelnameModel, self.cellsModel])
+
+        # setup the plot area
+        self.widgetPlot.setAspectLocked(True)
+        self.widgetPlot.setLabel('left', self.modelname1, units='R_test')
+        self.widgetPlot.setLabel('bottom', self.modelname2, units='R_test')
+        self.widgetPlot.setXRange(0, 1)
+        self.widgetPlot.setYRange(0, 1)
+
+        self.scatter = self.widgetPlot.plot(pen=None, symbolSize=5, symbolBrush=(255,0,0), symbolPen='w')
 
         # setup the callbacks for the viewers
         self.comboBoxBatches.currentIndexChanged.connect(self.on_batch_changed)
@@ -67,14 +86,66 @@ class CompTab(QtBaseClass, Ui_Widget):
         self.statusbar = self.parent.statusbar
         self.config = self.parent.config
 
-    def get_selections(self):
-        return {}
+        # update inputs
+        self.update_selections(*self.load_settings())
 
-    def update_selections(self):
-        pass
+    def update_selections(self, batch=None, modelname1=None, modelname2=None):
+        """Sets the inputs of batch, model1, and model2 appropriately.
+
+        We want to avoid triggering events for all of these updates, so go through and disconnect and
+        don't update the selection cascade to avoid triggering those updates until we can disable those callbacks."""
+        if batch is not None:
+            batch_index = self.comboBoxBatches.findText(str(batch), Qt.MatchFixedString)
+            if batch_index >= 0:
+                self.batch = batch
+                self.comboBoxBatches.disconnect()
+                self.comboBoxBatches.setCurrentIndex(batch_index)
+                self.on_batch_changed(batch_index, update_selection=True if modelname1 is None else False)
+                self.comboBoxBatches.currentIndexChanged.connect(self.on_batch_changed)
+
+        if modelname1 is not None:
+            modelname1_index = self.comboBoxModel1.findText(modelname1, Qt.MatchFixedString)
+            if modelname1_index >= 0:
+                self.modelname1 = modelname1
+                self.comboBoxModel1.disconnect()
+                self.comboBoxModel1.setCurrentIndex(modelname1_index)
+                if modelname2 is None:
+                    self.on_modelname_changed(None, update_selection=True)
+                self.comboBoxModel1.currentIndexChanged.connect(self.on_modelname_changed)
+
+        if modelname2 is not None:
+            modelname2_index = self.comboBoxModel2.findText(modelname2, Qt.MatchFixedString)
+            if modelname2_index >= 0:
+                self.modelname2 = modelname2
+                self.comboBoxModel2.disconnect()
+                self.comboBoxModel2.setCurrentIndex(modelname2_index)
+                self.on_modelname_changed(None, update_selection=True)
+                self.comboBoxModel2.currentIndexChanged.connect(self.on_modelname_changed)
 
     def load_settings(self, group_name=None):
-        return {}
+        """Get the tabs saved selections of batch, model1, and model2."""
+        config_group = self.parent.config_group
+        if group_name is not None:
+            config_group = config_group + ':' + group_name
+
+        if config_group not in self.config:
+            return None, None, None
+
+        batch = self.config[config_group].get(f'{self.tab_name}:batch', None)
+        batch = batch if batch is None else int(batch)
+        modelname1 = self.config[config_group].get(f'{self.tab_name}:modelname1', None)
+        modelname2 = self.config[config_group].get(f'{self.tab_name}:modelname2', None)
+
+        return batch, modelname1, modelname2
+
+    def get_selections(self):
+        """Passes the tabs selections up to the parent for saving."""
+
+        return {
+            f'{self.tab_name}:batch': str(self.batch),
+            f'{self.tab_name}:modelname1': self.modelname1,
+            f'{self.tab_name}:modelname2': self.modelname2,
+        }
 
     def on_batch_changed(self, index, update_selection=True):
         """Event handler for batch selection.
@@ -97,8 +168,8 @@ class CompTab(QtBaseClass, Ui_Widget):
         self.comboBoxModel1.setCurrentIndex(-1)
         self.comboBoxModel2.setCurrentIndex(-1)
         # however, only reconnect one of them now, and the other after the later signal so that we don't trigger
-        # two events
-        self.comboBoxModel1.currentIndexChanged.connect(self.on_modelname_changed)
+        # two events (and reconnect the second so that both get updated)
+        self.comboBoxModel2.currentIndexChanged.connect(self.on_modelname_changed)
 
         self.cellsModel.layoutChanged.emit()
 
@@ -116,7 +187,7 @@ class CompTab(QtBaseClass, Ui_Widget):
         # do a manual redraw since slow to update sometimes, not sure why
         self.comboBoxModel1.update()
         self.comboBoxModel2.update()
-        self.comboBoxModel2.currentIndexChanged.connect(self.on_modelname_changed)
+        self.comboBoxModel1.currentIndexChanged.connect(self.on_modelname_changed)
 
     def on_modelname_changed(self, index, update_selection=True):
         """Event handler for model change."""
@@ -127,22 +198,23 @@ class CompTab(QtBaseClass, Ui_Widget):
         # here we don't keep track of the old cellids because since it's extended selection, it would be expensive
         # to try to search for all the matching cellids
         filter = {'batch': self.batch}
-        self.cellsModel.refresh_data(filter)
-
-        # for qlistview, no issues with out of bounds, but we still want to disconnect and
-        # reconnect so that we can ensure we emit a signal even if the index stays the same
-        self.listViewCells.selectionModel().disconnect()
-        model_index = self.cellsModel.index(0)
-        self.listViewCells.selectionModel().setCurrentIndex(model_index, QItemSelectionModel.SelectCurrent)
-        self.listViewCells.scrollTo(model_index)
-        self.listViewCells.selectionModel().selectionChanged.connect(self.on_cells_changed)
+        self.cellsModel.refresh_data(
+            filter1=self.modelname1,
+            filter2=self.modelname2,
+            filters=filter)
 
         self.cellsModel.layoutChanged.emit()
+        self.on_cells_changed(None, None)
 
-    def on_cells_changed(self, *args, **kwargs):
+    def on_cells_changed(self, selected, deselected):
         """Event handler for model change."""
-        self.cellids = [self.cellsModel.index(i.row()).data() for i in self.listViewCells.selectedIndexes()]
-        print(self.cellids)
+        self.cellids = [self.cellsModel.index(i.row(), 0).data() for i in self.listViewCells.selectedIndexes()]
+
+        rows = [i.row() for i in self.listViewCells.selectedIndexes()]
+        if self.cellsModel.np_data is None:
+            self.scatter.setData(x=[], y=[])
+        else:
+            self.scatter.setData(x=self.cellsModel.np_data[0][rows], y=self.cellsModel.np_data[1][rows])
 
 
 if __name__ == '__main__':

@@ -5,6 +5,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
 from sqlalchemy.orm import aliased
+import numpy as np
 
 from nems import db
 
@@ -157,6 +158,7 @@ class CompModel(QAbstractTableModel):
                  merge_on='cellid',
                  comp_val='r_test',
                  filter_on='modelname',
+                 filters=None,
                  **kwargs):
         super(CompModel, self).__init__(*args, **kwargs)
 
@@ -167,7 +169,15 @@ class CompModel(QAbstractTableModel):
         self.alias_a = aliased(self.table)
         self.alias_b = aliased(self.table)
 
-        self.refresh_data(merge_on, comp_val, filter_on, filter1, filter2)
+        self.merge_on = merge_on
+        self.comp_val = comp_val
+        self.filter_on = filter_on
+
+        self.data = None
+        self.np_data = None
+        self.np_labels = None
+
+        self.refresh_data(filter1, filter2, filters)
 
     def data(self, index, role):
         if role == Qt.DisplayRole:
@@ -178,6 +188,8 @@ class CompModel(QAbstractTableModel):
         return len(self.data)
 
     def columnCount(self, index):
+        if len(self.data) == 0:
+            return 0
         return len(self.data[0])
 
     def init_db(self):
@@ -189,32 +201,45 @@ class CompModel(QAbstractTableModel):
         self.session.close()
         self.engine.dispose()
 
-    def refresh_data(self, merge_on, comp_val, filter_on, filter1, filter2):
-        merge_on_a = getattr(self.alias_a, merge_on)
-        merge_on_b = getattr(self.alias_b, merge_on)
+    def refresh_data(self, filter1, filter2, filters=None):
+        merge_on_a = getattr(self.alias_a, self.merge_on)
+        merge_on_b = getattr(self.alias_b, self.merge_on)
 
-        comp_a = getattr(self.alias_a, comp_val)
-        comp_b = getattr(self.alias_b, comp_val)
+        comp_a = getattr(self.alias_a, self.comp_val)
+        comp_b = getattr(self.alias_b, self.comp_val)
 
-        filter_a = getattr(self.alias_a, filter_on)
-        filter_b = getattr(self.alias_b, filter_on)
+        filter_a = getattr(self.alias_a, self.filter_on)
+        filter_b = getattr(self.alias_b, self.filter_on)
+
+        if filters is None:
+            filters = {}
 
         query = (self.session
                  .query(
-                     merge_on_a.label(merge_on),
-                     comp_a.label(comp_val + '_one'),
-                     comp_b.label(comp_val + '_two'))
+                     merge_on_a.label(self.merge_on),
+                     comp_a.label(self.comp_val + '_one'),
+                     comp_b.label(self.comp_val + '_two'))
                  .filter(
                      filter_a == filter1,
                      filter_b == filter2,
                      filter_a != filter_b,
                      merge_on_a == merge_on_b)
+                 .filter_by(
+                     **filters)
                  .order_by(
                      merge_on_a)
                  )
 
         data = query.all()
         self.data = data
+
+        if data:
+            self.np_data = np.asarray(data).T
+            self.np_labels = self.np_data[0]
+            self.np_data = self.np_data[1:].astype('float')
+        else:
+            self.np_labels = None
+            self.np_data = None
 
 
 class ExtendedComboBox(QComboBox):

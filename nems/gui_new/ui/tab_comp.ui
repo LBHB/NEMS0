@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>626</width>
-    <height>563</height>
+    <width>844</width>
+    <height>673</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -166,7 +166,7 @@
       </layout>
      </item>
      <item>
-      <widget class="PlotWidget" name="widget" native="true">
+      <widget class="PlotWidget" name="widgetPlot" native="true">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
          <horstretch>1</horstretch>
