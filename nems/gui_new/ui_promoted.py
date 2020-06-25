@@ -4,10 +4,16 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
+import pyqtgraph as pg
+
 from sqlalchemy.orm import aliased
 import numpy as np
 
 from nems import db
+
+
+pg.setConfigOption('background', '#EAEAF2')
+pg.setConfigOption('foreground', 'k')
 
 
 class ListViewListModel(QAbstractListModel):
@@ -240,6 +246,49 @@ class CompModel(QAbstractTableModel):
         else:
             self.np_labels = None
             self.np_data = None
+
+
+class CompPlotWidget(pg.PlotWidget):
+
+    # seaborn color palette as hex
+    BLUE = '#4c72b0'
+    GREEN = '#55a868'
+    RED = '#c44e52'
+
+    def __init__(self, *args, **kwargs):
+        super(CompPlotWidget, self).__init__(*args, **kwargs)
+
+        self.setAspectLocked(True)
+        self.units = None
+
+        unity = pg.InfiniteLine((0, 0), angle=45, pen='k')
+        self.addItem(unity)
+
+        self.scatter = self.plot(pen=None, symbolSize=5, symbolPen='w')
+        self.getPlotItem().getAxis('left').enableAutoSIPrefix(False)
+        self.getPlotItem().getAxis('bottom').enableAutoSIPrefix(False)
+
+    def set_labels(self, label_left, label_bottom, units=None):
+        """Helper to simplify setting labels."""
+        if self.units is None and units is not None:
+            self.units = units
+        self.setLabel('left', label_left, units=self.units)
+        self.setLabel('bottom', label_bottom, units=self.units)
+        # need to trigger resize events to get label to recenter
+        self.getPlotItem().getAxis('left').resizeEvent()
+        self.getPlotItem().getAxis('bottom').resizeEvent()
+
+    def clear_data(self):
+        """Sets the scatter data to nothing."""
+        self.scatter.setData(x=[], y=[], symbolBrush=[])
+
+    def update_data(self, x, y, labels=None, size=6):
+        """Handles the logic for plotting, such as colors."""
+        colors = np.full_like(x, self.BLUE, dtype='object')
+        colors[x > y] = self.RED
+        colors[y > x] = self.GREEN
+        colors = [pg.mkColor(c) for c in colors]
+        self.scatter.setData(x=x, y=y, symbolSize=size, symbolBrush=colors)
 
 
 class ExtendedComboBox(QComboBox):

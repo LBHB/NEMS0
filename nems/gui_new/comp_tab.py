@@ -8,6 +8,8 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
+import pyqtgraph as pg
+
 from nems import xforms, get_setting
 from nems.gui_new.ui_promoted import ListViewListModel, CompModel
 
@@ -59,22 +61,14 @@ class CompTab(QtBaseClass, Ui_Widget):
         # self.cellsModel = ListViewListModel(table_name='Results', column_name='cellid', filter=batch_filter)
         self.listViewCells.setModel(self.cellsModel)
         self.listViewCells.setModelColumn(0)  # defaults to zero anyways, but here for clarity
-        # select first entry
-        self.listViewCells.selectionModel().setCurrentIndex(self.cellsModel.index(0, 0),
-                                                                 QItemSelectionModel.SelectCurrent)
+        self.listViewCells.selectAll()
         self.cellids = [self.cellsModel.index(i.row(), 0).data() for i in self.listViewCells.selectedIndexes()]
 
         # keep track of the all the models with db connections
         self.parent.db_conns.extend([self.modelnameModel, self.cellsModel])
 
         # setup the plot area
-        self.widgetPlot.setAspectLocked(True)
-        self.widgetPlot.setLabel('left', self.modelname1, units='R_test')
-        self.widgetPlot.setLabel('bottom', self.modelname2, units='R_test')
-        self.widgetPlot.setXRange(0, 1)
-        self.widgetPlot.setYRange(0, 1)
-
-        self.scatter = self.widgetPlot.plot(pen=None, symbolSize=5, symbolBrush=(255,0,0), symbolPen='w')
+        self.widgetPlot.set_labels(self.modelname1, self.modelname2, units='r_test')  # capital 'R' to see prefixes
 
         # setup the callbacks for the viewers
         self.comboBoxBatches.currentIndexChanged.connect(self.on_batch_changed)
@@ -204,7 +198,10 @@ class CompTab(QtBaseClass, Ui_Widget):
             filters=filter)
 
         self.cellsModel.layoutChanged.emit()
+        self.listViewCells.selectAll()
+        self.widgetPlot.set_labels(self.modelname1, self.modelname2)
         self.on_cells_changed(None, None)
+        self.update_cell_count_label()
 
     def on_cells_changed(self, selected, deselected):
         """Event handler for model change."""
@@ -212,9 +209,12 @@ class CompTab(QtBaseClass, Ui_Widget):
 
         rows = [i.row() for i in self.listViewCells.selectedIndexes()]
         if self.cellsModel.np_data is None:
-            self.scatter.setData(x=[], y=[])
+            self.widgetPlot.clear_data()
         else:
-            self.scatter.setData(x=self.cellsModel.np_data[0][rows], y=self.cellsModel.np_data[1][rows])
+            self.widgetPlot.update_data(x=self.cellsModel.np_data[0][rows], y=self.cellsModel.np_data[1][rows])
+
+    def update_cell_count_label(self):
+        self.labelCellCount.setText(f'Cell IDs (n={len(self.cellids)}):')
 
 
 if __name__ == '__main__':
