@@ -66,8 +66,8 @@ class levelshift_new(NemsModule):
                              "lvl.{n_shifts}.\n"
                              "keyword given: %s" % kw)
 
-        return levelshift_new(prior = {'level': ('Normal', {'mean': np.zeros([n_shifts, 1]),
-                                           'sd': np.ones([n_shifts, 1])})})
+        return levelshift_new(prior={'level': ('Normal', {'mean': np.zeros([n_shifts, 1]),
+                                                          'sd': np.ones([n_shifts, 1])})})
 
     def eval(self, rec, i, o, level):
         '''

@@ -27,8 +27,8 @@ import nems.preprocessing as preproc
 import nems.priors as priors
 from nems import get_setting
 from nems.registry import xforms_lib, keyword_lib, xform, xmodule
-from nems.plugins import (default_keywords, default_loaders, default_fitters,
-                          default_initializers)
+#from nems.plugins import (default_keywords, default_loaders, default_fitters,
+#                          default_initializers)
 from nems.signal import RasterizedSignal
 from nems.uri import save_resource, load_resource
 from nems.utils import (iso8601_datestring, find_module,
@@ -40,17 +40,16 @@ log = logging.getLogger(__name__)
 
 # populate the registry as specified in config settings
 
-# TODO scan in plugins dir by default
-
+# DONE scan in plugins dir by default
 plugin_list = glob.glob(os.path.join(get_setting('NEMS_DIR'),'nems','plugins','*.py'))
 for f in plugin_list:
     libname = os.path.splitext(os.path.basename(f))[0]
     importlib.import_module('nems.plugins.'+libname)
 
 for libname in get_setting('LIB_PLUGINS') + get_setting('KEYWORD_PLUGINS') + get_setting('XFORMS_PLUGINS'):
-   importlib.import_module(libname)
+    importlib.import_module(libname)
 
-# TODO - migrate to import and decorators
+# DONE - migrate to import and decorators
 #xforms_lib.register_modules([default_loaders, default_fitters, default_initializers])
 #xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
 

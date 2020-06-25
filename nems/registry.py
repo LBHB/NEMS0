@@ -9,8 +9,8 @@ import sys
 from nems import get_setting
 #from nems.plugins import (default_keywords, default_loaders, default_fitters,
 #                          default_initializers)
-from nems.plugins import (default_loaders, default_fitters,
-                          default_initializers)
+#from nems.plugins import (default_loaders, default_fitters,
+#                          default_initializers)
 
 log = logging.getLogger(__name__)
 
@@ -166,6 +166,7 @@ class KeywordRegistry():
         if name is None:
             name = obj.__name__
         log.info("%s lib registering function: %s", self.name, name)
+
         try:
             location = str(obj.__module__) + "." + obj.__name__
         except AttributeError:

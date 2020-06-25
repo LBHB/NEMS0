@@ -2,13 +2,14 @@ import logging
 import re
 
 from nems.utils import escaped_split, keyword_extract_options
+from nems.registry import xform, xmodule
 
 log = logging.getLogger(__name__)
 
 # TODO: Create and expand documentation.
 # TODO: set up alias'ing function similar to one for loaders.
 
-
+@xform()
 def mt(fitkey):
     '''
     Set fitting metric to nmse_shrinkage for keywords that come after.
@@ -26,6 +27,7 @@ def mt(fitkey):
     return [['nems.xforms.use_metric', {'metric': metric}]]
 
 
+@xform()
 def pred(fitkey):
     '''
     Evaluate model prediction. Added by default in xform_helper.
@@ -33,6 +35,7 @@ def pred(fitkey):
     return [['nems.xforms.predict', {}]]
 
 
+@xform()
 def stats(fitkey):
     '''
     Add summary statistics to modelspec(s). Added by default in xform_helper.
@@ -46,6 +49,7 @@ def stats(fitkey):
     return [['nems.xforms.add_summary_statistics', {'fn': fn}]]
 
 
+@xform()
 def best(fitkey):
     '''
     Collapse modelspecs to singleton list with only the "best" modelspec.
@@ -67,6 +71,7 @@ def best(fitkey):
                                                  'comparison': comparison}]]
 
 
+@xform()
 def sort(fitkey):
     '''
     Sorts modelspecs by specified meta entry in either descending or
@@ -88,7 +93,7 @@ def sort(fitkey):
     return [['nems.xforms.sort_modelspecs', {'metakey': metakey,
                                              'order': order}]]
 
-
+@xform()
 def basic(fitkey):
     '''
     Perform a fit_basic analysis on a model.
@@ -126,6 +131,7 @@ def basic(fitkey):
     return xfspec
 
 
+@xform()
 def nrc(fitkey):
     '''
     Use normalized reverse correlation to fit phi. Right now, pretty dumb.
@@ -142,6 +148,7 @@ def nrc(fitkey):
     return xfspec
 
 
+@xform()
 def newtf(fitkey):
     """New tf fitter.
 
@@ -235,6 +242,7 @@ def newtf(fitkey):
     return xfspec
 
 
+@xform()
 def tfinit(fitkey):
     """New tf init.
 
@@ -247,6 +255,7 @@ def tfinit(fitkey):
     return xfspec
 
 
+@xform()
 def tf(fitkey):
     '''
     Perform a Tensorflow fit, using Sam Norman-Haignere's CNN library
@@ -369,6 +378,7 @@ def tf(fitkey):
     return xfspec
 
 
+@xform()
 def init(kw):
     '''
     Initialize modelspecs in an attempt to avoid getting stuck in
@@ -617,6 +627,7 @@ def init(kw):
     return xfspec
 
 
+@xform()
 def iter(fitkey):
     '''
     Perform a fit_iteratively analysis on a model.
@@ -751,6 +762,7 @@ def _parse_iter(options):
 
 
 # need to make sure this is still useful. possibly remove? or integrate into init?
+@xform()
 def initpop(kw):
     options = keyword_extract_options(kw)
 

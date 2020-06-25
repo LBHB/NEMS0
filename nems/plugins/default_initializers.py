@@ -2,6 +2,7 @@ import logging
 import re
 
 from nems.utils import escaped_split, keyword_extract_options
+from nems.registry import xform, xmodule
 
 log = logging.getLogger(__name__)
 
@@ -11,11 +12,13 @@ log = logging.getLogger(__name__)
 # move to same place as sev? -- SVD
 # TODO: Maybe can keep splitep and avgep as one thing?
 #       Would they ever be done separately?
+@xform()
 def timesplit(kw):
     frac = int(kw.split('.')[1][1:])*0.1
     return [['nems.xforms.split_at_time', {'fraction': frac}]]
 
 
+@xform()
 def splitep(kw):
     ops = kw.split('.')[1:]
     epoch_regex = '^STIM' if not ops else ops[0]
@@ -24,6 +27,7 @@ def splitep(kw):
     return xfspec
 
 
+@xform()
 def avgep(kw):
     ops = kw.split('.')[1:]
     epoch_regex = '^STIM' if not ops else ops[0]
@@ -43,12 +47,14 @@ def sev(kw):
     return xfspec
 """
 
+@xform()
 def aev(kw):
     xfspec= [['nems.xforms.use_all_data_for_est_and_val',
                 {}]]
     return xfspec
 
 
+@xform()
 def sevst(kw):
     ops = kw.split('.')[1:]
     epoch_regex = '^STIM' if not ops else ops[0]
@@ -73,6 +79,7 @@ def tev(kw):
     return xfspec
 """
 
+@xform()
 def jk(kw):
     ops = kw.split('.')[1:]
     jk_kwargs = {}
@@ -117,6 +124,7 @@ def jk(kw):
     return xfspec
 
 
+@xform()
 def rand(kw):
     ops = kw.split('.')[1:]
     nt_kwargs = {}
@@ -130,6 +138,7 @@ def rand(kw):
     return [['nems.xforms.random_sample_fit', nt_kwargs]]
 
 
+@xform()
 def norm(kw):
     """
     Normalize stim and response before splitting/fitting to support
