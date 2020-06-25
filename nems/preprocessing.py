@@ -544,35 +544,39 @@ def generate_stim_from_epochs(rec, new_signal_name='stim',
     resp = rec['resp'].rasterize()
 
     epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
-    sigs = []
-    for e in epochs_to_extract:
-        log.info('Adding to %s: %s with shift = %d',
-                 new_signal_name, e, epoch_shift)
-        s = resp.epoch_to_signal(e, onsets_only=onsets_only, shift=epoch_shift)
-        if epoch_shift:
-            s.chans[0] = "{}{:+d}".format(s.chans[0], epoch_shift)
-        sigs.append(s)
+    if not epochs_to_extract:
+        log.info("generate_stim_from_epochs: no epochs matching regex: %s, skipping ..." % epoch_regex)
 
-    if epoch2_regex is not None:
-        epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch2_regex)
+    else:
+        sigs = []
         for e in epochs_to_extract:
             log.info('Adding to %s: %s with shift = %d',
-                     new_signal_name, e, epoch2_shift)
-            s = resp.epoch_to_signal(e, onsets_only=onsets_only,
-                                     shift=epoch2_shift)
-            if epoch2_shuffle:
-                log.info('Shuffling %s', e)
-                s = s.shuffle_time()
-                s.chans[0] = "{}_shf".format(s.chans[0])
+                     new_signal_name, e, epoch_shift)
+            s = resp.epoch_to_signal(e, onsets_only=onsets_only, shift=epoch_shift)
             if epoch_shift:
-                s.chans[0] = "{}{:+d}".format(s.chans[0], epoch2_shift)
+                s.chans[0] = "{}{:+d}".format(s.chans[0], epoch_shift)
             sigs.append(s)
 
-    stim = sigs[0].concatenate_channels(sigs)
-    stim.name = new_signal_name
+        if epoch2_regex is not None:
+            epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch2_regex)
+            for e in epochs_to_extract:
+                log.info('Adding to %s: %s with shift = %d',
+                         new_signal_name, e, epoch2_shift)
+                s = resp.epoch_to_signal(e, onsets_only=onsets_only,
+                                         shift=epoch2_shift)
+                if epoch2_shuffle:
+                    log.info('Shuffling %s', e)
+                    s = s.shuffle_time()
+                    s.chans[0] = "{}_shf".format(s.chans[0])
+                if epoch_shift:
+                    s.chans[0] = "{}{:+d}".format(s.chans[0], epoch2_shift)
+                sigs.append(s)
 
-    # add_signal operates in place
-    rec.add_signal(stim)
+        stim = sigs[0].concatenate_channels(sigs)
+        stim.name = new_signal_name
+
+        # add_signal operates in place
+        rec.add_signal(stim)
 
     return rec
 
@@ -1121,7 +1125,7 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
     :return: copy of rec with PCs
     """
     rec0 = rec.copy()
-    if type(pc_idx) is not list:
+    if type(pc_idx) is int:
         pc_idx = [pc_idx]
     resp = rec0[resp_sig]
 
@@ -1189,7 +1193,8 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
     if compute_power == 'single_trial':
         X = convolve2d(np.abs(X), np.ones((3,1)) / 3, 'same')
 
-    rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
+    pc_chans = [f'PC{i}' for i in range(pc_count)]
+    rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T[np.arange(pc_count),:], chans=pc_chans)
 
 #    r = rec0[pc_sig].extract_epoch('REFERENCE')
 #    mr=np.mean(r,axis=0)

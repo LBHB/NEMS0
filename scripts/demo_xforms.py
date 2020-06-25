@@ -1,27 +1,15 @@
 # A Template NEMS Script that demonstrates use of xforms for generating
 # models that are easy to reload
 
-import os
 import logging
-import sys
+import os
 
-import nems
-import nems.initializers
-import nems.priors
-import nems.preprocessing as preproc
+import nems.db as nd
+import nems.gui.editors as gui
 import nems.modelspec as ms
-import nems.plots.api as nplt
-import nems.analysis.api
-import nems.utils
+import nems.recording as recording
 import nems.uri
 import nems.xforms as xforms
-import nems.xform_helper as xhelp
-import nems.db as nd
-import nems.recording as recording
-import nems.gui.editors as gui
-
-from nems.recording import Recording
-from nems.fitters.api import scipy_minimize
 
 # ----------------------------------------------------------------------------
 # CONFIGURATION
@@ -45,7 +33,7 @@ cellid = "TAR010c-18-1"
 # MODEL SPEC
 #modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
 modelspecname = 'dlog-wc.18x1.g-fir.1x15-lvl.1-dexp.1'
-#modelspecname = 'dlog-wc.18x1.g-stp.1-fir.1x15-lvl.1-dexp.1'
+#modelspecname = 'dlog-wc.18x1.g-stp.1.q.s-fir.1x15-lvl.1-dexp.1'
 #modelspecname = 'dlog-wc.18x2.g-do.2x15-lvl.1-dexp.1'
 #modelspecname = 'dlog.f-wc.18x1.g-stp.1.s-do.1x15-lvl.1'
 #modelspecname = 'dlog.f-wc.18x1.g-stp2.1.s-do.1x15-lvl.1'
@@ -73,9 +61,12 @@ xfspec.append(['nems.xforms.init_from_keywords',
                {'keywordstring': modelspecname, 'meta': meta}])
 
 #xfspec.append(['nems.initializers.rand_phi', {'rand_count': 5}])
-xfspec.append(['nems.xforms.fit_basic_init', {}])
-
-xfspec.append(['nems.xforms.fit_basic', {'tolerance': 1e-6}])
+#xfspec.append(['nems.xforms.fit_basic_init', {}])
+#xfspec.append(['nems.xforms.fit_basic', {'tolerance': 1e-6}])
+xfspec.append(['nems.tf.cnnlink_new.fit_tf_init',
+               {'max_iter': 1000, 'early_stopping_tolerance': 5e-4, 'use_modelspec_init': True}])
+xfspec.append(['nems.tf.cnnlink_new.fit_tf',
+               {'max_iter': 1000, 'early_stopping_tolerance': 1e-4, 'use_modelspec_init': True}])
 
 # xfspec.append(['nems.xforms.fit_basic_shrink', {}])
 #xfspec.append(['nems.xforms.fit_basic_cd', {}])

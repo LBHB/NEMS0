@@ -101,7 +101,8 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
             xforms_init_context['recording_uri_list'] = recording_uri
         else:
             xforms_init_context['recording_uri_list'] = [recording_uri]
-    xforms_init_context.update(xforms_kwargs)
+    if xforms_kwargs is not None:
+        xforms_init_context.update(xforms_kwargs)
     xforms_lib.kwargs = xforms_init_context.copy()
     xfspec.append(['nems.xforms.init_context', xforms_init_context])
 
@@ -185,6 +186,8 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     # registry_args = {'cellid': cellid, 'batch': int(batch)}
     registry_args = {}
     xforms_init_context = {'cellid': cellid, 'batch': int(batch)}
+    if initial_context is not None:
+        xforms_init_context.update(initial_context)
 
     log.info("TODO: simplify generate_xforms_spec parameters")
     xfspec = generate_xforms_spec(recording_uri=recording_uri, modelname=modelname,
@@ -196,7 +199,7 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     # actually do the loading, preprocessing, fit
     if initial_context is None:
         initial_context = {}
-    ctx, log_xf = xforms.evaluate(xfspec, context=initial_context)
+    ctx, log_xf = xforms.evaluate(xfspec)#, context=initial_context)
 
     # save some extra metadata
     modelspec = ctx['modelspec']

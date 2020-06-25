@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 def plot_heatmap(array, xlabel='Time', ylabel='Channel',
                  ax=None, cmap=None, clim=None, skip=0, title=None, fs=None,
                  interpolation='none', manual_extent=None, show_cbar=True,
-                 **options):
+                 fontsize=7, **options):
     '''
     A wrapper for matplotlib's plt.imshow() to ensure consistent formatting.
     '''
@@ -60,9 +60,9 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
     if show_cbar:
     # Set the color bar
         cbar = plt.colorbar()
-        cbar.ax.tick_params(labelsize=7)
+        cbar.ax.tick_params(labelsize=fontsize)
         cbar.ax.yaxis.set_major_locator(plt.MaxNLocator(3))
-        cbar.set_label('Gain')
+        cbar.set_label('Gain', fontsize=fontsize)
         cbar.outline.set_edgecolor('white')
 
     if title is not None:
@@ -328,23 +328,29 @@ def strf_local_lin(rec, modelspec, cursor_time=20, channels=0,
     firmod = find_module('fir', modelspec)
     tbin_count = modelspec.phi[firmod]['coefficients'].shape[1]+2
 
-    resp_chan = channels
-    d = rec['stim']._data.copy()
-    strf = np.zeros((chan_count, tbin_count))
-    _p1 = rec['pred']._data[resp_chan, tbin]
-    eps = np.nanstd(d) / 100
-    eps = 0.01
-    #print('eps: {}'.format(eps))
-    for c in range(chan_count):
-        #eps = np.std(d[c, :])/100
-        for t in range(tbin_count):
+    use_dstrf = True
+    if use_dstrf:
+        index = int(cursor_time * rec['resp'].fs)
+        strf = modelspec.get_dstrf(rec, index=index, width=20,
+                                   out_channel=channels)
+    else:
+        resp_chan = channels
+        d = rec['stim']._data.copy()
+        strf = np.zeros((chan_count, tbin_count))
+        _p1 = rec['pred']._data[resp_chan, tbin]
+        eps = np.nanstd(d) / 100
+        eps = 0.01
+        #print('eps: {}'.format(eps))
+        for c in range(chan_count):
+            #eps = np.std(d[c, :])/100
+            for t in range(tbin_count):
 
-            _d = d.copy()
-            _d[c, tbin - t] *= 1+eps
-            rec['stim'] = rec['stim']._modified_copy(data=_d)
-            rec = modelspec.evaluate(rec)
-            _p2 = rec['pred']._data[resp_chan, tbin]
-            strf[c, t] = (_p2 - _p1) / eps
+                _d = d.copy()
+                _d[c, tbin - t] *= 1+eps
+                rec['stim'] = rec['stim']._modified_copy(data=_d)
+                rec = modelspec.evaluate(rec)
+                _p2 = rec['pred']._data[resp_chan, tbin]
+                strf[c, t] = (_p2 - _p1) / eps
     print('strf min: {} max: {}'.format(np.min(strf), np.max(strf)))
     options['clim'] = np.array([-np.max(np.abs(strf)), np.max(np.abs(strf))])
     plot_heatmap(strf, cmap=get_setting('FILTER_CMAP'), **options)

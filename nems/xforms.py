@@ -10,6 +10,7 @@ import copy
 import socket
 import logging
 import importlib
+import glob
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -41,12 +42,17 @@ log = logging.getLogger(__name__)
 
 # TODO scan in plugins dir by default
 
-for libname in get_setting('LIB_PLUGINS'):
+plugin_list = glob.glob(os.path.join(get_setting('NEMS_DIR'),'nems','plugins','*.py'))
+for f in plugin_list:
+    libname = os.path.splitext(os.path.basename(f))[0]
+    importlib.import_module('nems.plugins.'+libname)
+
+for libname in get_setting('LIB_PLUGINS') + get_setting('KEYWORD_PLUGINS') + get_setting('XFORMS_PLUGINS'):
    importlib.import_module(libname)
 
 # TODO - migrate to import and decorators
-xforms_lib.register_modules([default_loaders, default_fitters, default_initializers])
-xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
+#xforms_lib.register_modules([default_loaders, default_fitters, default_initializers])
+#xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
 
 
 # DEPRECATED?
@@ -296,9 +302,29 @@ def load_recordings(recording_uri_list=None, normalize=False, cellid=None,
         rec['stim'] = rec['stim'].rasterize().normalize('minmax')
 
     log.info('Extracting cellid(s) {}'.format(cellid))
-    if type(cellid) is str:
-        meta['cellids'] = [cellid]
+    if cellid is None:
+        # No cellid specified, use all channels
+        channels = rec[output_name].chans
+        if len(channels) == 0:
+            # no channels were specified for recording, so use default indices
+            cellids = [str(i) for i in range(rec[output_name].shape[0])]
+        else:
+            # Channel names should already be strings, but just incase
+            cellids = [str(c) for c in channels]
+        meta['cellids'] = cellids
+
+    elif type(cellid) is str:
+        if len(cellid.split('-')) == 1:
+            # siteid given instead of cellid or list of cellids
+            siteid = cellid
+            cellids = [c for c in rec[output_name].chans if siteid in c]
+            meta['cellids'] = cellids
+            meta['siteid'] = siteid
+        else:
+            meta['cellids'] = [cellid]
+
     else:
+        # Assume a list of cellids was given
         meta['cellids'] = cellid
 
     rec['resp'] = rec['resp'].extract_channels(meta['cellids'])
@@ -316,9 +342,10 @@ def load_recordings(recording_uri_list=None, normalize=False, cellid=None,
 
         if pop_var == 'state':
             rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
-        else:
-            raise ValueError('pop_var {} unknown'.format(pop_var))
-        
+        # else:
+        #     raise ValueError('pop_var {} unknown'.format(pop_var))
+
+    rec['resp'] = rec['resp'].extract_channels(meta['cellids'])
 
     rec = preproc.generate_stim_from_epochs(rec, new_signal_name='epoch_onsets',
                                             epoch_regex='TRIAL', onsets_only=True)
@@ -915,7 +942,7 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
 
     if modelspec.jack_count < est.view_count:
         raise Warning('modelspec.jack_count does not match est.view_count')
-        modelspec.tile_jacks(nfolds)
+        # modelspec.tile_jacks(nfolds)
     for fit_idx in range(modelspec.fit_count):
         for jack_idx, e in enumerate(est.views()):
             modelspec.jack_index = jack_idx
@@ -1272,8 +1299,8 @@ def tree_path(recording, modelspecs, xfspec):
     return path
 
 
-def save_analysis(destination, recording, modelspec, xfspec, figures,
-                  log, add_tree_path=False, update_meta=True, save_rec=False):
+def save_analysis(destination, recording, modelspec, xfspec=[], figures=[],
+                  log="", add_tree_path=False, update_meta=True, save_rec=False):
     '''Save an analysis file collection to a particular destination.'''
     if add_tree_path:
         treepath = tree_path(recording, [modelspec], xfspec)
@@ -1310,6 +1337,84 @@ def save_analysis(destination, recording, modelspec, xfspec, figures,
     return {'savepath': base_uri}
 
 
+def save_from_context(destination, xfspec, ctx, log_xf):
+    '''
+    As save_analysis, but accepts uses xforms context in place of
+    modelspec, recording, figures and log.
+    IS THIS EVER USED?
+    '''
+
+    modelspec = context['modelspec']
+    log = context['log']
+    figures = context['figures']
+    xfspec_uri = os.path.join(destination, 'xfspec.json')
+    log_uri = os.path.join(destination, 'log.txt')
+
+    for number in range(modelspec.jack_count):
+        m = modelspec.copy()
+        m.jack_index = number
+        set_modelspec_metadata(m, 'xfspec', xfspec_uri)
+        save_resource(os.path.join(destination, 'modelspec.{:04d}.json'.format(number)), json=m[:])
+    for number, figure in enumerate(figures):
+        save_resource(os.path.join(destination, 'figure.{:04d}.png'.format(number)), data=figure)
+    save_resource(log_uri, data=log)
+    save_resource(xfspec_uri, json=xfspec)
+
+    return {'savepath': destination}
+
+
+def save_context(destination, ctx, xfspec=[]):
+    '''
+    Save entire context
+    :param destination:
+    :param ctx: NEMS context dictionary
+    :param xfspec: options xfspec list (default [])
+    :return:
+    '''
+
+    save_analysis(destination, recording=ctx['rec'],
+                  modelspec=ctx['modelspec'], xfspec=xfspec,
+                  figures=ctx.get('figures'), log=ctx.get('log'))
+
+    _ctx=ctx.copy()
+    del _ctx['modelspec']
+    del _ctx['figures']
+    klist = list(_ctx.keys())
+    for k in klist:
+        v=_ctx[k]
+        if type(v) is Recording:
+            print(k, "RECORDING")
+            v.save(os.path.join(destination, k + '.tgz'))
+            del _ctx[k]
+
+    ctx_uri = os.path.join(destination, 'ctx.json')
+    save_resource(ctx_uri, json=_ctx)
+
+    return {'savepath': destination}
+
+
+def load_context(filepath):
+    """
+    recreate saved context without any model eval, no xforms required
+    :param filepath:
+    :return:
+    """
+    ctx_uri = os.path.join(filepath, 'ctx.json')
+    ctx = load_resource(ctx_uri)
+
+    xfspec, _ctx = load_analysis(filepath, eval_model=False)
+    ctx.update(_ctx)
+
+    for tgz in glob.glob(os.path.join(filepath, '*.tgz')):
+        k, ext = os.path.splitext((os.path.basename(tgz)))
+        ctx[k] = load_recording(tgz)
+
+    # hard-coded. Could this be implemented less kludgily?
+    ctx['modelspec'].recording = ctx['val']
+
+    return xfspec, ctx
+
+
 def load_analysis(filepath, eval_model=True, only=None):
     """
     load xforms spec and context dictionary for a model fit
@@ -1320,7 +1425,7 @@ def load_analysis(filepath, eval_model=True, only=None):
     object, which gives more flexibility over what steps of the original xfspecs to run again.
     :return: (xfspec, ctx) tuple
     """
-    log.info('Loading xfspec and context from %s...', filepath)
+    log.info('Loading xfspec and context from %s ...', filepath)
     def _path_join(*args):
         if os.name == 'nt':
             # deal with problems on Windows OS

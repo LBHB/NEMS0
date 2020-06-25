@@ -150,7 +150,7 @@ def save_resource(uri, data=None, json=None):
     problem saving.
     '''
     err = None
-    if json:
+    if json is not None:
         if http_uri(uri):
             # Serialize and unserialize to make numpy arrays safe
             s = jsonlib.dumps(json, cls=NumpyEncoder)
@@ -181,7 +181,7 @@ def save_resource(uri, data=None, json=None):
                     pass
         else:
             raise ValueError('URI type unknown')
-    elif data:
+    elif data is not None:
         if http_uri(uri):
             try:
                 r = requests.put(uri, data=data)

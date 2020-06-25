@@ -1,27 +1,12 @@
 # A Template NEMS Script that demonstrates use of xforms for generating
 # models that are easy to reload
 
-import os
 import logging
-import sys
+import os
 
-import nems
-import nems.initializers
-import nems.priors
-import nems.preprocessing as preproc
-import nems.modelspec as ms
-import nems.plots.api as nplt
-import nems.analysis.api
-import nems.utils
+import nems.db as nd
 import nems.uri
 import nems.xforms as xforms
-import nems.db as nd
-import nems.recording as recording
-from nems.fitters.api import scipy_minimize, coordinate_descent
-from nems.gui.editors import browse_xform_fit
-
-from nems.recording import Recording
-from nems.fitters.api import scipy_minimize
 
 # ----------------------------------------------------------------------------
 # CONFIGURATION
@@ -36,6 +21,8 @@ signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
 # DATA LOADING & PRE-PROCESSING
 #recording.get_demo_recordings(name="TAR010c_272b438ce3a5643e3e474206861096ce3ffdc000.tgz")
 
+datafile = os.path.join(signals_dir, "TAR010c_afb264b3db970ec890e04c727e612c1cbfaced62.tgz")
+datafile = os.path.join(signals_dir, "TAR010c.NAT.fs100.tgz")
 datafile = os.path.join(signals_dir, "TAR010c_272b438ce3a5643e3e474206861096ce3ffdc000.tgz")
 load_command = 'nems.demo.loaders.demo_loader'
 exptid = "TAR010c"
@@ -45,7 +32,7 @@ siteid = "TAR010c"
 # MODEL SPEC
 #modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
 modelspecname = 'dlog-wc.18x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
-#modelspecname = 'dlog-wc.18x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
+#modelspecname = 'dlog-wc.18x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R-dexp.R'
 
 meta = {'siteid': siteid, 'batch': batch, 'modelname': modelspecname,
         'recording': exptid}
@@ -71,18 +58,26 @@ xfspec.append(['nems.xforms.init_from_keywords', {}])
 
 #xfspec.append(['nems.xforms.fit_basic_init', {}])
 #xfspec.append(['nems.xforms.fit_basic', {}])
-xfspec.append(['nems.analysis.fit_pop_model.init_pop_pca', {'flip_pcs': True}])
+#xfspec.append(['nems.analysis.fit_pop_model.init_pop_pca', {'flip_pcs': True}])
+#xfspec.append(['nems.analysis.fit_pop_model.fit_population_iteratively',
+#               {'fitter': 'scipy_minimize', 'tolerances': [1e-4, 3e-5],
+#                'tol_iter': 50, 'fit_iter': 10}])
+#xfspec.append(['nems.tf.cnnlink.fit_tf_init', {'early_stopping_tolerance': 5e-4}])
+#xfspec.append(['nems.tf.cnnlink.fit_tf', {'early_stopping_tolerance': 1e-5}])
+xfspec.append(['nems.tf.cnnlink_new.fit_tf_init', {'max_iter': 1000, 'early_stopping_tolerance': 5e-4}])
+xfspec.append(['nems.tf.cnnlink_new.fit_tf', {'max_iter': 1000, 'early_stopping_tolerance': 1e-4}])
+#xfspec.append(['nems.analysis.fit_pop_model.fit_population_iteratively',
+#               {'fitter': 'scipy_minimize', 'tolerances': [1e-4, 3e-5],
+#                'tol_iter': 50, 'fit_iter': 10}])
 
-xfspec.append(['nems.analysis.fit_pop_model.fit_population_iteratively',
-               {'fitter': 'scipy_minimize', 'tolerances': [1e-4, 3e-5],
-                'tol_iter': 50, 'fit_iter': 10}])
+
 # xfspec.append(['nems.xforms.fit_basic_shrink', {}])
 #xfspec.append(['nems.xforms.fit_basic_cd', {}])
 # xfspec.append(['nems.xforms.fit_iteratively', {}])
 xfspec.append(['nems.xforms.predict', {}])
-# xfspec.append(['nems.xforms.add_summary_statistics',    {}])
-xfspec.append(['nems.analysis.api.standard_correlation', {},
-               ['est', 'val', 'modelspec', 'rec'], ['modelspec']])
+xfspec.append(['nems.xforms.add_summary_statistics',    {}])
+#xfspec.append(['nems.analysis.api.standard_correlation', {},
+#               ['est', 'val', 'modelspec', 'rec'], ['modelspec']])
 
 # GENERATE PLOTS
 xfspec.append(['nems.xforms.plot_summary', {}])

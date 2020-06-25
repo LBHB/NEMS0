@@ -99,13 +99,14 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
         if registry.kw_head(kw) not in registry:
             raise ValueError("unknown keyword: {}".format(kw))
 
-        d = copy.deepcopy(registry[kw])
-        d['id'] = kw
-        log.info(d['prior'])
-        if init_phi_to_mean_prior:
-            d = priors.set_mean_phi([d])[0]  # Inits phi for 1 module
-
-        modelspec.append(d)
+        templates = copy.deepcopy(registry[kw])
+        if not isinstance(templates, list):
+            templates = [templates]
+        for d in templates:
+            d['id'] = kw
+            if init_phi_to_mean_prior:
+                d = priors.set_mean_phi([d])[0]  # Inits phi for 1 module
+            modelspec.append(d)
 
     # first module that takes input='pred' should take ctx['input_name']
     # instead. can't hard-code in keywords, since we don't know which
@@ -682,7 +683,8 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
             fit_portion[i] = m
 
     # generate prediction from module preceeding dexp
-    rec = ms.evaluate(rec, ms.ModelSpec(fit_portion))
+    #rec = ms.evaluate(rec, ms.ModelSpec(fit_portion))
+    rec = ms.ModelSpec(fit_portion).evaluate(rec)
 
     in_signal = modelspec[target_i]['fn_kwargs']['i']
     pchans = rec[in_signal].shape[0]
@@ -778,7 +780,8 @@ def init_logsig(rec, modelspec):
         fit_portion = modelspec.modules[:target_i]
 
     # generate prediction from module preceeding dexp
-    rec = ms.evaluate(rec, ms.ModelSpec(fit_portion))
+    #rec = ms.evaluate(rec, ms.ModelSpec(fit_portion))
+    rec = ms.ModelSpec(fit_portion).evaluate(rec)
 
     pred = rec['pred'].as_continuous()
     resp = rec['resp'].as_continuous()
@@ -843,7 +846,8 @@ def init_relsat(rec, modelspec):
         fit_portion = modelspec.modules[:target_i]
 
     # generate prediction from module preceeding dexp
-    rec = ms.evaluate(rec, ms.ModelSpec(fit_portion)).apply_mask()
+    #rec = ms.evaluate(rec, ms.ModelSpec(fit_portion)).apply_mask()
+    rec = ms.ModelSpec(fit_portion).evaluate(rec).apply_mask()
 
     pred = rec['pred'].as_continuous().flatten()
     resp = rec['resp'].as_continuous().flatten()

@@ -1,23 +1,34 @@
 import logging
 
+import numpy as np
 import tensorflow as tf
+from tensorflow import config
+from tensorflow.keras.layers import Conv2D, Dense
+from tensorflow.keras.constraints import Constraint
+from tensorflow.python.ops import array_ops
 
 log = logging.getLogger(__name__)
 
 
 class BaseLayer(tf.keras.layers.Layer):
     """Base layer with parent methods for converting from modelspec layer to tf layers and back."""
+
+    _TF_ONLY = False  # set true in subclasses for which there is no mapping to NEMS modules
+    _STATE_LAYER = False  # set true in subclasses that need to also accept state layer
+
     def __init__(self, *args, **kwargs):
         """Catch args/kwargs that aren't allowed kwargs of keras.layers.Layers"""
         self.fs = kwargs.pop('fs', None)
         self.ms_name = kwargs.pop('ms_name', None)
-
+        # Overwrite in other layers' __init__ to change which fn_kwargs get copied
+        # (see self.copy_valid_fn_kwargs)
         super(BaseLayer, self).__init__(*args, **kwargs)
 
     @classmethod
     def from_ms_layer(cls,
                       ms_layer,
                       use_modelspec_init: bool = True,
+                      seed: int = 0,
                       fs: int = 100,
                       initializer: str = 'random_normal'
                       ):
@@ -25,6 +36,7 @@ class BaseLayer(tf.keras.layers.Layer):
 
         :param ms_layer: A layer of a modelspec.
         :param use_modelspec_init: Whether to use the modelspec's initialization or use a tf builtin.
+        :param fs: The seed for the inits if not using modelspec init.
         :param fs: The sampling rate of the data.
         :param initializer: What initializer to use. Only used if use_modelspec_init is False.
         """
@@ -33,16 +45,8 @@ class BaseLayer(tf.keras.layers.Layer):
         kwargs = {
             'ms_name': ms_layer['fn'],
             'fs': fs,
+            'seed': seed,
         }
-
-        if use_modelspec_init:
-            # convert the phis to tf constants
-            kwargs['initializer'] = {k: tf.constant_initializer(v)
-                                     for k, v in ms_layer['phi'].items()}
-        else:
-            # if want custom inits for each layer, remove this and change the inits in each layer
-            # kwargs['initializer'] = {k: 'truncated_normal' for k in ms_layer['phi'].keys()}
-            kwargs['initializer'] = {k: initializer for k in ms_layer['phi'].keys()}
 
         # TODO: clean this up, maybe separate kwargs/fn_kwargs, or method to split out valid tf kwargs from rest
         if 'bounds' in ms_layer:
@@ -51,15 +55,42 @@ class BaseLayer(tf.keras.layers.Layer):
             kwargs['units'] = ms_layer['fn_kwargs']['chans']
         if 'bank_count' in ms_layer['fn_kwargs']:
             kwargs['banks'] = ms_layer['fn_kwargs']['bank_count']
-        if 'n_inputs' in ms_layer['fn_kwargs']:
-            kwargs['n_inputs'] = ms_layer['fn_kwargs']['n_inputs']
-        if 'crosstalk' in ms_layer['fn_kwargs']:
-            kwargs['crosstalk'] = ms_layer['fn_kwargs']['crosstalk']
         if 'reset_signal' in ms_layer['fn_kwargs']:
             # kwargs['reset_signal'] = ms_layer['fn_kwargs']['reset_signal']
             kwargs['reset_signal'] = None
+        if 'non_causal' in ms_layer['fn_kwargs']:
+            kwargs['non_causal'] = ms_layer['fn_kwargs']['non_causal']
 
-        return cls(**kwargs)
+        pass_through_keys = ['n_inputs', 'crosstalk', 'filters', 'kernel_size',
+                             'activation', 'units', 'padding']
+        pass_throughs = {k: v for k, v in ms_layer['fn_kwargs'].items() if k in pass_through_keys}
+        kwargs.update(pass_throughs)
+
+        if not cls._TF_ONLY:  # TODO: implement proper phi formatting for TF_ONLY layers so that this isn't necessary
+            if use_modelspec_init:
+                # convert the phis to tf constants
+                kwargs['initializer'] = {k: tf.constant_initializer(v)
+                                         for k, v in ms_layer['phi'].items()}
+                if 'WeightChannelsGaussian' in ms_layer['tf_layer']:
+                    # Per SVD: kludge to get TF optimizer to play nice with sd parameter,
+                    kwargs['initializer']['sd'] = tf.constant_initializer(ms_layer['phi']['sd'] * 10)
+            else:
+                # if want custom inits for each layer, remove this and change the inits in each layer
+                # kwargs['initializer'] = {k: 'truncated_normal' for k in ms_layer['phi'].keys()}
+                kwargs['initializer'] = {k: initializer for k in ms_layer['phi'].keys()}
+            instance = cls(**kwargs)
+
+        else:
+            # skip init step, not currently implemented.
+            # Instead, directly copy
+            if len(ms_layer['phi']) > 0:
+                # Phi empty until model has been fit
+                weights = [v for k, v in ms_layer['phi'].items()]
+                instance = cls(weights=weights, **kwargs)
+            else:
+                instance = cls(**kwargs)
+
+        return instance
 
     @property
     def layer_values(self):
@@ -305,12 +336,11 @@ class WeightChannelsBasic(BaseLayer):
                                             )
 
     def call(self, inputs, training=True):
-        tranposed = tf.transpose(self.coefficients)
-        return tf.nn.conv1d(inputs, tf.expand_dims(tranposed, 0), stride=1, padding='SAME')
+        transposed = tf.transpose(self.coefficients)
+        return tf.nn.conv1d(inputs, tf.expand_dims(transposed, 0), stride=1, padding='SAME')
 
     def weights_to_phi(self):
         layer_values = self.layer_values
-        layer_values['coefficients'] = layer_values['coefficients']
         log.info(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
@@ -346,12 +376,8 @@ class WeightChannelsGaussian(BaseLayer):
             self.initializer.update(initializer)
 
         # constraints assumes bounds built with np.full
-        self.mean_constraint = tf.keras.constraints.MinMaxNorm(
-            min_value=bounds['mean'][0][0],
-            max_value=bounds['mean'][1][0])
-        self.sd_constraint = tf.keras.constraints.MinMaxNorm(
-            min_value=bounds['sd'][0][0],
-            max_value=bounds['sd'][1][0])
+        self.mean_constraint = lambda t: tf.clip_by_value(t, bounds['mean'][0][0], bounds['mean'][1][0])
+        self.sd_constraint = lambda t: tf.clip_by_value(t, bounds['sd'][0][0], bounds['sd'][1][0] * 10)
 
     def build(self, input_shape):
         self.mean = self.add_weight(name='mean',
@@ -372,7 +398,7 @@ class WeightChannelsGaussian(BaseLayer):
     def call(self, inputs, training=True):
         input_features = tf.cast(tf.shape(inputs)[-1], dtype='float32')
         temp = tf.range(input_features) / input_features
-        temp = (tf.reshape(temp, [1, input_features, 1]) - self.mean) / self.sd
+        temp = (tf.reshape(temp, [1, input_features, 1]) - self.mean) / (self.sd/10)
         temp = tf.math.exp(-0.5 * tf.math.square(temp))
         kernel = temp / tf.math.reduce_sum(temp, axis=1)
 
@@ -380,6 +406,7 @@ class WeightChannelsGaussian(BaseLayer):
 
     def weights_to_phi(self):
         layer_values = self.layer_values
+        layer_values['sd'] = layer_values['sd'] / 10  # reverses *10 kludge in initialization
         # don't need to do any reshaping
         log.info(f'Converted {self.name} to modelspec phis.')
         return layer_values
@@ -394,6 +421,7 @@ class FIR(BaseLayer):
                  n_inputs=1,
                  initializer=None,
                  seed=0,
+                 non_causal=0,
                  *args,
                  **kwargs,
                  ):
@@ -409,6 +437,9 @@ class FIR(BaseLayer):
 
         self.banks = banks
         self.n_inputs = n_inputs
+        self.non_causal = non_causal
+        if non_causal >= units:
+            raise ValueError("FIR: non_causal bin count must be < filter length (units)")
 
         self.initializer = {'coefficients': tf.random_normal_initializer(seed=seed)}
         if initializer is not None:
@@ -431,10 +462,49 @@ class FIR(BaseLayer):
 
     def call(self, inputs, training=True):
         """Normal call."""
-        pad_size = self.units - 1
-        padded_input = tf.pad(inputs, [[0, 0], [pad_size, 0], [0, 0]])
+        pad_size0 = self.units - 1 - self.non_causal
+        pad_size1 = self.non_causal
+        padded_input = tf.pad(inputs, [[0, 0], [pad_size0, pad_size1], [0, 0]])
+
+        # SVD inserting
+        DEBUG = False
+        if DEBUG:
+            print("Banks:", self.banks)
+            print("Units:", self.units)
+            print("N_inputs: ", self.n_inputs)
+        if config.list_physical_devices('GPU') or \
+                (self.n_inputs == padded_input.shape[-1]):
+            # this implementation does not evaluate on a CPU if mapping subsets of
+            # the input into the different FIR filters.
+            transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
+            if DEBUG:
+                print("padded input: ", padded_input.shape)
+                print("transposed kernel: ", transposed.shape)
+                print("Y: ", Y.shape)
+            Y = tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
+            return Y
+
+        # alternative, kludgy implementation, evaluate each filter separately on the
+        # corresponding subset of inputs, concatenate outputs when done
         transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
-        return tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
+        if DEBUG:
+            print("padded input: ", padded_input.shape)
+            print("transposed kernel: ", transposed.shape)
+
+        L = []
+        for i in range(transposed.shape[2]):
+            W = transposed.shape[1]
+            A = padded_input[:, :, (i*W):((i+1)*W)]
+            B = transposed[:, :, i:(i+1)]
+            L.append(tf.nn.conv1d(A, B, stride=1, padding='VALID'))
+        Y = tf.concat(L, axis=2)
+        if DEBUG:
+            print("L[0]: ", L[0].shape)
+            print("Y: ", Y.shape)
+
+        return Y
+        # SVD stopped inserting
+        #return tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
 
     def weights_to_phi(self):
         layer_values = self.layer_values
@@ -444,102 +514,102 @@ class FIR(BaseLayer):
         return layer_values
 
 
-class DampedOscillator(BaseLayer):
-    """Basic weight channels."""
-    # TODO: organize params
-    def __init__(self,
-                 bounds,
-                 units=None,
-                 banks=1,
-                 n_inputs=1,
-                 initializer=None,
-                 seed=0,
-                 *args,
-                 **kwargs,
-                 ):
-        super(FIR, self).__init__(*args, **kwargs)
-
-        # try to infer the number of units if not specified
-        if units is None and initializer is None:
-            self.units = 1
-        elif units is None:
-            self.units = initializer['f1'].value.shape[1]
-        else:
-            self.units = units
-
-        self.banks = banks
-        self.n_inputs = n_inputs
-
-        self.initializer = {
-                'f1': tf.random_normal_initializer(seed=seed),
-                'tau': tf.random_normal_initializer(seed=seed + 1),
-                'delay': tf.random_normal_initializer(seed=seed + 2),
-                'gain': tf.random_normal_initializer(seed=seed + 3),
-            }
-
-        if initializer is not None:
-            self.initializer.update(initializer)
-
-        # constraints assumes bounds build with np.full
-        self.f1_constraint = tf.keras.constraints.MinMaxNorm(
-            min_value=bounds['f1s'][0][0],
-            max_value=bounds['f1s'][1][0])
-        self.tau_constraint = tf.keras.constraints.MinMaxNorm(
-            min_value=bounds['taus'][0][0],
-            max_value=bounds['taus'][1][0])
-        self.delay_constraint = tf.keras.constraints.MinMaxNorm(
-            min_value=bounds['delays'][0][0],
-            max_value=bounds['delays'][1][0])
-        self.gain_constraint = tf.keras.constraints.MinMaxNorm(
-            min_value=bounds['gains'][0][0],
-            max_value=bounds['gains'][1][0])
-
-    def build(self, input_shape):
-        """Adds some logic to handle depthwise convolution shapes."""
-        if self.banks == 1 or input_shape[-1] != self.banks * self.n_inputs:
-            shape = (self.banks, input_shape[-1], self.units)
-
-        else:
-            shape = (self.banks, self.n_inputs, self.units)
-
-        self.f1 = self.add_weight(name='f1',
-                                  shape=shape,
-                                  dtype='float32',
-                                  initializer=self.initializer['f1'],
-                                  trainable=True,
-                                  )
-        self.tau = self.add_weight(name='tau',
-                                   shape=shape,
-                                   dtype='float32',
-                                   initializer=self.initializer['tau'],
-                                   trainable=True,
-                                   )
-        self.delay = self.add_weight(name='delay',
-                                     shape=shape,
-                                     dtype='float32',
-                                     initializer=self.initializer['delay'],
-                                     trainable=True,
-                                     )
-        self.gain = self.add_weight(name='gain',
-                                    shape=shape,
-                                    dtype='float32',
-                                    initializer=self.initializer['gain'],
-                                    trainable=True,
-                                    )
-
-    def call(self, inputs, training=True):
-        """Normal call."""
-        pad_size = self.units - 1
-        padded_input = tf.pad(inputs, [[0, 0], [pad_size, 0], [0, 0]])
-        transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
-        return tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
-
-    def weights_to_phi(self):
-        layer_values = self.layer_values
-        layer_values['coefficients'] = layer_values['coefficients'].reshape((-1, self.units))
-        # don't need to do any reshaping
-        log.info(f'Converted {self.name} to modelspec phis.')
-        return layer_values
+# class DampedOscillator(BaseLayer):
+#     """Basic weight channels."""
+#     # TODO: organize params
+#     def __init__(self,
+#                  bounds,
+#                  units=None,
+#                  banks=1,
+#                  n_inputs=1,
+#                  initializer=None,
+#                  seed=0,
+#                  *args,
+#                  **kwargs,
+#                  ):
+#         super(FIR, self).__init__(*args, **kwargs)
+#
+#         # try to infer the number of units if not specified
+#         if units is None and initializer is None:
+#             self.units = 1
+#         elif units is None:
+#             self.units = initializer['f1'].value.shape[1]
+#         else:
+#             self.units = units
+#
+#         self.banks = banks
+#         self.n_inputs = n_inputs
+#
+#         self.initializer = {
+#                 'f1': tf.random_normal_initializer(seed=seed),
+#                 'tau': tf.random_normal_initializer(seed=seed + 1),
+#                 'delay': tf.random_normal_initializer(seed=seed + 2),
+#                 'gain': tf.random_normal_initializer(seed=seed + 3),
+#             }
+#
+#         if initializer is not None:
+#             self.initializer.update(initializer)
+#
+#         # constraints assumes bounds build with np.full
+#         self.f1_constraint = tf.keras.constraints.MinMaxNorm(
+#             min_value=bounds['f1s'][0][0],
+#             max_value=bounds['f1s'][1][0])
+#         self.tau_constraint = tf.keras.constraints.MinMaxNorm(
+#             min_value=bounds['taus'][0][0],
+#             max_value=bounds['taus'][1][0])
+#         self.delay_constraint = tf.keras.constraints.MinMaxNorm(
+#             min_value=bounds['delays'][0][0],
+#             max_value=bounds['delays'][1][0])
+#         self.gain_constraint = tf.keras.constraints.MinMaxNorm(
+#             min_value=bounds['gains'][0][0],
+#             max_value=bounds['gains'][1][0])
+#
+#     def build(self, input_shape):
+#         """Adds some logic to handle depthwise convolution shapes."""
+#         if self.banks == 1 or input_shape[-1] != self.banks * self.n_inputs:
+#             shape = (self.banks, input_shape[-1], self.units)
+#
+#         else:
+#             shape = (self.banks, self.n_inputs, self.units)
+#
+#         self.f1 = self.add_weight(name='f1',
+#                                   shape=shape,
+#                                   dtype='float32',
+#                                   initializer=self.initializer['f1'],
+#                                   trainable=True,
+#                                   )
+#         self.tau = self.add_weight(name='tau',
+#                                    shape=shape,
+#                                    dtype='float32',
+#                                    initializer=self.initializer['tau'],
+#                                    trainable=True,
+#                                    )
+#         self.delay = self.add_weight(name='delay',
+#                                      shape=shape,
+#                                      dtype='float32',
+#                                      initializer=self.initializer['delay'],
+#                                      trainable=True,
+#                                      )
+#         self.gain = self.add_weight(name='gain',
+#                                     shape=shape,
+#                                     dtype='float32',
+#                                     initializer=self.initializer['gain'],
+#                                     trainable=True,
+#                                     )
+#
+#     def call(self, inputs, training=True):
+#         """Normal call."""
+#         pad_size = self.units - 1
+#         padded_input = tf.pad(inputs, [[0, 0], [pad_size, 0], [0, 0]])
+#         transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
+#         return tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
+#
+#     def weights_to_phi(self):
+#         layer_values = self.layer_values
+#         layer_values['coefficients'] = layer_values['coefficients'].reshape((-1, self.units))
+#         # don't need to do any reshaping
+#         log.info(f'Converted {self.name} to modelspec phis.')
+#         return layer_values
 
 
 class STPQuick(BaseLayer):
@@ -607,7 +677,7 @@ class STPQuick(BaseLayer):
                                       trainable=True,
                                       )
 
-    def call(self, inputs, trainig=True):
+    def call(self, inputs, training=True):
         _zero = tf.constant(0.0, dtype='float32')
         _nan = tf.constant(0.0, dtype='float32')
 
@@ -681,3 +751,134 @@ class STPQuick(BaseLayer):
         log.info(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
+
+class StateDCGain(BaseLayer):
+    """Simple dc stategain."""
+
+    _STATE_LAYER = True
+
+    def __init__(self,
+                 units=None,
+                 n_inputs=1,
+                 initializer=None,
+                 seed=0,
+                 *args,
+                 **kwargs,
+                 ):
+        super(StateDCGain, self).__init__(*args, **kwargs)
+
+        # try to infer the number of units if not specified
+        if units is None and initializer is None:
+            self.units = 1
+        elif units is None:
+            self.units = initializer['g'].value.shape[1]
+        else:
+            self.units = units
+
+        self.n_inputs = n_inputs
+
+        self.initializer = {
+                'g': tf.random_normal_initializer(seed=seed),
+                'd': tf.random_normal_initializer(seed=seed + 1),  # this is halfnorm in NEMS
+            }
+        if initializer is not None:
+            self.initializer.update(initializer)
+
+    def build(self, input_shape):
+        input_shape, state_shape = input_shape
+
+        self.g = self.add_weight(name='g',
+                                 shape=(self.n_inputs, self.units),
+                                 # shape=(self.units, input_shape[-1]),
+                                 dtype='float32',
+                                 initializer=self.initializer['g'],
+                                 trainable=True,
+                                 )
+        self.d = self.add_weight(name='d',
+                                 shape=(self.n_inputs, self.units),
+                                 # shape=(self.units, input_shape[-1]),
+                                 dtype='float32',
+                                 initializer=self.initializer['d'],
+                                 trainable=True,
+                                 )
+
+    def call(self, inputs, training=True):
+        inputs, state_inputs = inputs
+
+        g_transposed = tf.transpose(self.g)
+        d_transposed = tf.transpose(self.d)
+
+        g_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(g_transposed, 0), stride=1, padding='SAME')
+        d_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(d_transposed, 0), stride=1, padding='SAME')
+
+        return inputs * g_conv + d_conv
+
+    def weights_to_phi(self):
+        layer_values = self.layer_values
+        log.info(f'Converted {self.name} to modelspec phis.')
+        return layer_values
+
+
+class Conv2D_NEMS(BaseLayer, Conv2D):
+    _TF_ONLY = True
+    def __init__(self, initializer=None, *args, **kwargs):
+        '''Identical to the stock keras Conv2D but with NEMS compatibility added on, but without a matching module.'''
+        super(Conv2D_NEMS, self).__init__(*args, **kwargs)
+
+    def weights_to_phi(self):
+        phi = {'kernels': self.weights[0].numpy(), 'activations': self.weights[1].numpy()}
+        log.info(f'Converted {self.name} to modelspec phis.')
+        return phi
+
+
+class Dense_NEMS(BaseLayer, Dense):
+    _TF_ONLY = True
+    def __init__(self, initializer=None, *args, **kwargs):
+        '''Identical to the stock keras Dense but with NEMS compatibility added on, but without a matching module.'''
+        super(Dense_NEMS, self).__init__(*args, **kwargs)
+
+    def weights_to_phi(self):
+        phi = {'kernels': self.weights[0].numpy(), 'activations': self.weights[1].numpy()}
+        log.info(f'Converted {self.name} to modelspec phis.')
+        return phi
+
+
+class WeightChannelsNew(BaseLayer):
+    _TF_ONLY = True
+    def __init__(self, units=None, initializer=None, *args, **kwargs):
+        '''Similar to WeightChannelsBasic but implemented as a weighted sum, and does not map to a NEMS module.'''
+        super(WeightChannelsNew, self).__init__(*args, **kwargs)
+        self.units = units
+
+    def build(self, input_shape):
+        self.coefficients = self.add_weight(name='coefficients',
+                                            shape=(1, input_shape[-2], self.units),
+                                            dtype='float32',
+                                            initializer=tf.random_normal_initializer,
+                                            constraint=tf.keras.constraints.NonNeg(),
+                                            trainable=True,
+                                            )
+
+    def call(self, inputs):
+        # Weighted sum along frequency dimension
+        # Assumes input formated as time x frequency x num_inputs
+        return tf.reduce_sum(inputs * self.coefficients, axis=-2)
+
+    def weights_to_phi(self):
+        phi = {'coefficients': self.coefficients.numpy()}
+        log.info(f'Converted {self.name} to modelspec phis.')
+        return phi
+
+
+class FlattenChannels(BaseLayer):
+
+    def __init__(self, initializer=None, *args, **kwargs):
+        # no weights or initializer to deal with
+        super(FlattenChannels, self).__init__(*args, **kwargs)
+
+    def call(self, inputs):
+        batch, time, channels, units = tuple(inputs.shape)
+        return array_ops.reshape(inputs, (array_ops.shape(inputs)[0],) + (time, channels*units))
+
+    def weights_to_phi(self):
+        return {}  # no trainable weights

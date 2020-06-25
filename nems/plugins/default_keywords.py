@@ -299,37 +299,42 @@ def fir(kw):
     else:
         n_banks = int(n_banks)
 
+    rate = 1
+    non_causal = 0
+    include_offset = False
+    cross_channels = False
+    for op in ops:
+        if op == 'x':
+            cross_channels = True
+        elif op.startswith('r'):
+            rate = int(op[1:])
+        elif op.startswith('nc'):
+            # noncausal fir implementation (for reverse model or neg motor offsets)
+            if len(op) == 2:
+                # default is to make all bins negative or 0
+                non_causal = n_coefs-1
+            else:
+                non_causal = int(op[2:])
+
+        elif op == 'off':
+            # add variable offset parameter
+            include_offset = True
+
     p_coefficients = {
         'mean': np.zeros((n_inputs * n_banks, n_coefs)),
         'sd': np.ones((n_inputs * n_banks, n_coefs)),
     }
 
-    if n_coefs > 2:
-        p_coefficients['mean'][:, 1] = 0.1
-        p_coefficients['mean'][:, 2] = -0.05
-        pass
+    if 'fl' in ops:
+        p_coefficients['mean'][:] = 1 / (n_inputs * n_coefs)
+    elif 'z' in ops:
+        p_coefficients['mean'][:] = 0
+    elif n_coefs > 2:
+        p_coefficients['mean'][:, 1+non_causal] = 0.1
+        p_coefficients['mean'][:, 2+non_causal] = -0.05
     else:
         p_coefficients['mean'][:, 0] = 1
 
-    rate = 1
-    non_causal = False
-    include_offset = False
-    cross_channels = False
-    for op in ops:
-        if op == 'fl':
-            p_coefficients['mean'][:] = 1/(n_inputs*n_coefs)
-        elif op == 'x':
-            cross_channels = True
-        elif op == 'z':
-            p_coefficients['mean'][:] = 0
-        elif op.startswith('r'):
-            rate = int(op[1:])
-        elif op == 'nc':
-            # noncausal fir implementation (for reverse model)
-            non_causal = True
-        elif op == 'off':
-            # add variable offset parameter
-            include_offset = True
 
     if (n_banks == 1) and (not cross_channels):
         template = {
@@ -1443,7 +1448,9 @@ def stategain(kw):
     else:
         template = {
             'fn': 'nems.modules.state.state_dc_gain',
-            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state},
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars, 'n_inputs': n_chans},
+            # chans/vars backwards for compat with tf layer
+            'tf_layer': 'nems.tf.layers.StateDCGain',
             'plot_fns': plot_fns,
             'plot_fn_idx': 5,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
@@ -1633,4 +1640,94 @@ def mrg(kw):
                       's': 'state'},
         'phi': {}
         }
+    return template
+
+
+def conv2d(kw):
+    # TODO: choose how to initialize weights
+    ops = kw.split('.')
+    filters = int(ops[1])
+    kernel_size = [int(dim) for dim in ops[2].split('x')]  # second op hard-coded as kernel shape
+    activation = 'relu'
+    layer_count = 1
+    flatten = False
+    for op in ops[3:]:
+        if op.startswith('actX'):
+            activation = op[4:]
+            if activation == 'none':
+                activation = None
+        elif op.startswith('rep'):
+            layer_count = int(op[3:])
+        elif op == 'flat':
+            flatten = True
+
+    template = {
+        'fn': 'nems.tf_only.Conv2D_NEMS',   # not a real path, flag for ms.evaluate to use evaluate_tf()
+        'tf_layer': 'nems.tf.layers.Conv2D_NEMS',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'activation': activation,
+                      'filters': filters,
+                      'kernel_size': kernel_size,
+                      'padding': 'same'},
+        'phi': {}
+    }
+    templates = [template]*layer_count
+    if flatten:
+        flatten_template = {
+            'fn': 'nems.tf_only.FlattenChannels',
+            'tf_layer': 'nems.tf.layers.FlattenChannels',
+            'fn_kwargs': {'i': 'pred',
+                          'o': 'pred'},
+            'phi': {}
+        }
+        templates.append(flatten_template)
+
+    return templates
+
+
+def dense(kw):
+    # TODO: choose how to initialize weights
+    ops = kw.split('.')
+    units = ops[1].split('x')  # first option hard-coded as number of units in each layer
+    activation = 'relu'
+    for op in ops[2:]:
+        if op.startswith('actX'):
+            activation = op[4:]
+            if activation == 'none':
+                activation = None
+
+    templates = []
+    for u in units:
+        template = {
+            'fn': 'nems.tf_only.Dense_NEMS',    # not a real path
+            'tf_layer': 'nems.tf.layers.Dense_NEMS',
+            'fn_kwargs': {'i': 'pred',
+                          'o': 'pred',
+                          'activation': activation,
+                          'units': int(u)},
+            'phi': {}
+            }
+        templates.append(template)
+
+    return templates
+
+
+def wcn(kw):
+    # TODO: choose how to initialize weights
+    ops = kw.split('.')
+    units = int(ops[1]) # first option hard-coded as number of units
+    for op in ops[2:]:  # just a reminder to skip the first two if options are added later
+        pass
+
+    template = {
+        'fn': 'nems.tf_only.WeightChannelsNew',    # not a real path
+        'tf_layer': 'nems.tf.layers.WeightChannelsNew',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'units': units,
+                      'initializer': 'random_normal'},
+        'phi': {}
+        }
+
     return template
