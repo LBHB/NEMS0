@@ -1,11 +1,16 @@
+from typing import List, Union
+
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
+from sqlalchemy.orm import aliased
+
 from nems import db
 
 
-class ListViewModel(QAbstractListModel):
+class ListViewListModel(QAbstractListModel):
+
     def __init__(self,
                  table_name: str,
                  column_name: str,
@@ -13,7 +18,7 @@ class ListViewModel(QAbstractListModel):
                  *args,
                  **kwargs
                  ):
-        super(ListViewModel, self).__init__(*args, **kwargs)
+        super(ListViewListModel, self).__init__(*args, **kwargs)
 
         self.table_name = table_name
         self.column_name = column_name
@@ -69,7 +74,151 @@ class ListViewModel(QAbstractListModel):
             return -1
 
 
+class ListViewTableModel(QAbstractTableModel):
+
+    def __init__(self,
+                 table_name: str,
+                 column_names: List[str],
+                 filter=None,
+                 *args,
+                 **kwargs
+                 ):
+        super(ListViewListModel, self).__init__(*args, **kwargs)
+
+        self.table_name = table_name
+        self.column_names = column_names
+
+        self.data = None
+
+        self.init_db()
+        self.refresh_data(filters=filter)
+
+    def data(self, index, role):
+        if role == Qt.DisplayRole:
+            text = self.data[index.row()][index.column()]
+            return text
+
+    def rowCount(self, index):
+        return len(self.data)
+
+    def columnCount(self, index):
+        return len(self.data[0])
+
+    def init_db(self):
+        self.engine = db.Engine()
+        table = db.Tables()[self.table_name]
+        self.columns = [getattr(table, column_name) for column_name in self.column_names]
+        self.session = db.sessionmaker(bind=self.engine)()
+
+    def close_db(self):
+        self.session.close()
+        self.engine.dispose()
+
+    def refresh_data(self, filters: dict = None, order_by: Union[List[str], None] = None):
+        """Reads the data from the database, optionally filtering.
+
+        :param filters: Dict of {column: filter}.
+        :param order_by: List of columns to order by.
+        """
+        query = (self.session
+                 .query(*self.columns)
+                 # .distinct()
+                 )
+
+        if filters is not None:
+            query = query.filter_by(**filters)
+
+        if order_by is None:
+            order_by = []
+
+        if order_by:
+            for ob in order_by:
+                query = query.order_by(ob)
+        data = query.all()
+
+        self.data = data
+
+    def get_index(self, value) -> int:
+        """Searches for a value in the data, returns the index"""
+        flat = [i[0] for i in self.data]
+        try:
+            return flat.index(value)
+        except ValueError:
+            return -1
+
+
+class CompModel(QAbstractTableModel):
+    """Reimplements refresh_data() for some custom joins to do the equivalent of pd.unstack()."""
+    def __init__(self,
+                 filter1,
+                 filter2,
+                 table_name: str,
+                 *args,
+                 merge_on='cellid',
+                 comp_val='r_test',
+                 filter_on='modelname',
+                 **kwargs):
+        super(CompModel, self).__init__(*args, **kwargs)
+
+        self.table_name = table_name
+        self.init_db()
+
+        # need to alias the table
+        self.alias_a = aliased(self.table)
+        self.alias_b = aliased(self.table)
+
+        self.refresh_data(merge_on, comp_val, filter_on, filter1, filter2)
+
+    def data(self, index, role):
+        if role == Qt.DisplayRole:
+            text = self.data[index.row()][index.column()]
+            return text
+
+    def rowCount(self, index):
+        return len(self.data)
+
+    def columnCount(self, index):
+        return len(self.data[0])
+
+    def init_db(self):
+        self.engine = db.Engine()
+        self.table = db.Tables()[self.table_name]
+        self.session = db.sessionmaker(bind=self.engine)()
+
+    def close_db(self):
+        self.session.close()
+        self.engine.dispose()
+
+    def refresh_data(self, merge_on, comp_val, filter_on, filter1, filter2):
+        merge_on_a = getattr(self.alias_a, merge_on)
+        merge_on_b = getattr(self.alias_b, merge_on)
+
+        comp_a = getattr(self.alias_a, comp_val)
+        comp_b = getattr(self.alias_b, comp_val)
+
+        filter_a = getattr(self.alias_a, filter_on)
+        filter_b = getattr(self.alias_b, filter_on)
+
+        query = (self.session
+                 .query(
+                     merge_on_a.label(merge_on),
+                     comp_a.label(comp_val + '_one'),
+                     comp_b.label(comp_val + '_two'))
+                 .filter(
+                     filter_a == filter1,
+                     filter_b == filter2,
+                     filter_a != filter_b,
+                     merge_on_a == merge_on_b)
+                 .order_by(
+                     merge_on_a)
+                 )
+
+        data = query.all()
+        self.data = data
+
+
 class ExtendedComboBox(QComboBox):
+
     def __init__(self, parent=None):
         super(ExtendedComboBox, self).__init__(parent)
 

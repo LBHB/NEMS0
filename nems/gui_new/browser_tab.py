@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import *
 
 from nems import get_setting, xforms
 from nems.gui import editors
-from nems.gui_new.ui_promoted import ListViewModel
+from nems.gui_new.ui_promoted import ListViewListModel
 
 log = logging.getLogger(__name__)
 
@@ -30,18 +30,19 @@ class BrowserTab(QtBaseClass, Ui_Widget):
     def init_models(self):
         """Initialize the models."""
         # setup the data and models
-        # self.batchModel = ListViewModel(table_name='Results', column_name='batch')
         self.batchModel = self.parent.batchModel
         self.comboBoxBatches.setModel(self.batchModel)
 
-        current_batch = self.batchModel.data[self.comboBoxBatches.currentIndex()][0]
+        # current_batch = self.batchModel.data[self.comboBoxBatches.currentIndex()][0]
+        current_batch = self.batchModel.index(self.comboBoxBatches.currentIndex()).data()
         cell_filter = {'batch': current_batch}
-        self.cellsModel = ListViewModel(table_name='Results', column_name='cellid', filter=cell_filter)
+        self.cellsModel = ListViewListModel(table_name='Results', column_name='cellid', filter=cell_filter)
         self.comboBoxCells.setModel(self.cellsModel)
 
-        current_cell = self.cellsModel.data[self.comboBoxCells.currentIndex()][0]
+        # current_cell = self.cellsModel.data[self.comboBoxCells.currentIndex()][0]
+        current_cell = self.cellsModel.index(self.comboBoxCells.currentIndex()).data()
         model_filter = {'batch': current_batch, 'cellid': current_cell}
-        self.modelnameModel = ListViewModel(table_name='Results', column_name='modelname', filter=model_filter)
+        self.modelnameModel = ListViewListModel(table_name='Results', column_name='modelname', filter=model_filter)
         self.listViewModelnames.setModel(self.modelnameModel)
         # select first entry
         self.listViewModelnames.selectionModel().setCurrentIndex(self.modelnameModel.index(0),
@@ -97,8 +98,9 @@ class BrowserTab(QtBaseClass, Ui_Widget):
             modelname_index = self.modelnameModel.get_index(modelname)
             if modelname_index >= 0:
                 self.modelname = modelname
-                self.listViewModelnames.selectionModel().setCurrentIndex(self.modelnameModel.index(modelname_index),
-                                                                         QItemSelectionModel.SelectCurrent)
+                model_index = self.modelnameModel.index(modelname_index)
+                self.listViewModelnames.selectionModel().setCurrentIndex(model_index, QItemSelectionModel.SelectCurrent)
+                self.listViewModelnames.scrollTo(model_index)
 
     def load_settings(self, group_name=None):
         """Get the tabs saved selections of batch, cellid, modelname."""
@@ -150,11 +152,11 @@ class BrowserTab(QtBaseClass, Ui_Widget):
         Starts cascade of updating the proper UI elements. Looks to see if current cell exists
         in new batch and if so sets it, otherwise resets index to 0.
         """
-        self.batch = self.batchModel.data[index][0]
+        self.batch = self.batchModel.index(index).data()
         log.info(f'Batch changed to "{self.batch}", loading cellids.')
-        filter = {'batch': self.batch}
 
         old_cellid = self.comboBoxCells.currentText()
+        filter = {'batch': self.batch}
         self.cellsModel.refresh_data(filter)
 
         # need to ensure the current index is in bounds before updating the combobox
@@ -172,9 +174,13 @@ class BrowserTab(QtBaseClass, Ui_Widget):
                 index = 0
             self.comboBoxCells.setCurrentIndex(index)
 
+        # do a manual redraw since slow to update sometimes, not sure why
+        self.comboBoxCells.update()
+
     def on_cell_changed(self, index, update_selection=True):
         """Event handler for cellid change."""
-        self.cellid = self.cellsModel.data[index][0]
+        # self.cellid = self.cellsModel.data[index][0]
+        self.cellid = self.cellsModel.index(index).data()
         log.info(f'Cellid changed to "{self.cellid}", loading modelnames.')
 
         # qcombobox and qlistview work a bit different in terms of accessing data

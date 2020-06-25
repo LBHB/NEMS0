@@ -7,7 +7,7 @@ from PyQt5 import uic
 from PyQt5.QtWidgets import *
 
 from nems import get_setting
-from nems.gui_new.ui_promoted import ListViewModel
+from nems.gui_new.ui_promoted import ListViewListModel
 
 # TEMP ERROR CATCHER
 # Back up the reference to the exceptionhook
@@ -69,7 +69,7 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
 
     def init_models(self):
         """Init models shared among the tabs."""
-        self.batchModel = ListViewModel(table_name='Results', column_name='batch')
+        self.batchModel = ListViewListModel(table_name='Results', column_name='batch')
         self.db_conns.append(self.batchModel)
 
     def load_saved_settings(self):
