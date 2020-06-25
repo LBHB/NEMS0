@@ -180,7 +180,7 @@ class CompModel(QAbstractTableModel):
         self.filter_on = filter_on
 
         self.data = None
-        self.np_data = None
+        self.np_points = None
         self.np_labels = None
 
         self.refresh_data(filter1, filter2, filters)
@@ -237,15 +237,15 @@ class CompModel(QAbstractTableModel):
                  )
 
         data = query.all()
-        self.data = data
+        self.data = np.asarray(data)
 
-        if data:
-            self.np_data = np.asarray(data).T
-            self.np_labels = self.np_data[0]
-            self.np_data = self.np_data[1:].astype('float')
+        if self.data.size:
+            self.np_points = np.asarray(self.data).T
+            self.np_labels = self.np_points[0]
+            self.np_points = self.np_points[1:].astype('float')
         else:
             self.np_labels = None
-            self.np_data = None
+            self.np_points = None
 
 
 class CompPlotWidget(pg.PlotWidget):

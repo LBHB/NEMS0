@@ -212,6 +212,7 @@ class BrowserTab(QtBaseClass, Ui_Widget):
     def on_modelname_changed(self, current, previous):
         """Event handler for model change."""
         self.modelname = current.data()
+        self.listViewModelnames.update()
         log.info(f'Modelname changed to "{self.modelname}".')
 
     def on_view_model(self):

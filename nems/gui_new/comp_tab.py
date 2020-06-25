@@ -58,11 +58,20 @@ class CompTab(QtBaseClass, Ui_Widget):
             filter_on='modelname',
             filters={'batch': self.batch}
         )
-        # self.cellsModel = ListViewListModel(table_name='Results', column_name='cellid', filter=batch_filter)
-        self.listViewCells.setModel(self.cellsModel)
+
+        # setup the proxy filter model
+        self.cellsProxyModel = QSortFilterProxyModel(self)
+        self.cellsProxyModel.setSourceModel(self.cellsModel)
+        self.cellsProxyModel.setFilterKeyColumn(0)
+        self.cellsProxyModel.setDynamicSortFilter(True)
+        self.cellsProxyModel.setFilterCaseSensitivity(Qt.CaseInsensitive)
+
+        # self.listViewCells.setModel(self.cellsModel)
+        self.listViewCells.setModel(self.cellsProxyModel)
+
         self.listViewCells.setModelColumn(0)  # defaults to zero anyways, but here for clarity
         self.listViewCells.selectAll()
-        self.cellids = [self.cellsModel.index(i.row(), 0).data() for i in self.listViewCells.selectedIndexes()]
+        self.cellids = [self.cellsProxyModel.index(i.row(), 0).data() for i in self.listViewCells.selectedIndexes()]
 
         # keep track of the all the models with db connections
         self.parent.db_conns.extend([self.modelnameModel, self.cellsModel])
@@ -75,6 +84,9 @@ class CompTab(QtBaseClass, Ui_Widget):
         self.comboBoxModel1.currentIndexChanged.connect(self.on_modelname_changed)
         self.comboBoxModel2.currentIndexChanged.connect(self.on_modelname_changed)
         self.listViewCells.selectionModel().selectionChanged.connect(self.on_cells_changed)
+        # connect the filter, and the filter selector
+        self.lineEditCellFilter.textChanged.connect(self.cellsProxyModel.setFilterFixedString)
+        self.lineEditCellFilter.textChanged.connect(self.on_filter_string_changed)
 
         # make some parent stuff available locally for ease
         self.statusbar = self.parent.statusbar
@@ -165,7 +177,8 @@ class CompTab(QtBaseClass, Ui_Widget):
         # two events (and reconnect the second so that both get updated)
         self.comboBoxModel2.currentIndexChanged.connect(self.on_modelname_changed)
 
-        self.cellsModel.layoutChanged.emit()
+        # self.cellsModel.layoutChanged.emit()
+        self.cellsProxyModel.layoutChanged.emit()
 
         # look for old cell in new list of cells
         if update_selection:
@@ -197,7 +210,13 @@ class CompTab(QtBaseClass, Ui_Widget):
             filter2=self.modelname2,
             filters=filter)
 
+        # clear the selection to avoid some crashing from pointer/index errors
+        # (I think, not having this just causes Qt to crash without raising any errors - AT)
+        self.listViewCells.clearSelection()
+
+        self.cellsProxyModel.layoutChanged.emit()
         self.cellsModel.layoutChanged.emit()
+
         self.listViewCells.selectAll()
         self.widgetPlot.set_labels(self.modelname1, self.modelname2)
         self.on_cells_changed(None, None)
@@ -205,16 +224,21 @@ class CompTab(QtBaseClass, Ui_Widget):
 
     def on_cells_changed(self, selected, deselected):
         """Event handler for model change."""
-        self.cellids = [self.cellsModel.index(i.row(), 0).data() for i in self.listViewCells.selectedIndexes()]
+        self.cellids = [self.cellsProxyModel.index(i.row(), 0).data() for i in self.listViewCells.selectedIndexes()]
 
         rows = [i.row() for i in self.listViewCells.selectedIndexes()]
-        if self.cellsModel.np_data is None:
+        if self.cellsModel.np_points is None:
             self.widgetPlot.clear_data()
         else:
-            self.widgetPlot.update_data(x=self.cellsModel.np_data[0][rows], y=self.cellsModel.np_data[1][rows])
+            self.widgetPlot.update_data(x=self.cellsModel.np_points[0][rows], y=self.cellsModel.np_points[1][rows])
 
     def update_cell_count_label(self):
         self.labelCellCount.setText(f'Cell IDs (n={len(self.cellids)}):')
+
+    def on_filter_string_changed(self, text):
+        """Reselects all after a filter change."""
+        self.listViewCells.selectAll()
+        self.update_cell_count_label()
 
 
 if __name__ == '__main__':
