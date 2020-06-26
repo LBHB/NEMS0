@@ -93,9 +93,9 @@ def recording(signal1, signal2):
 
 def test_load_recording():
 
-    get_demo_recordings(name='TAR010c.NAT.fs50.tgz')
+    get_demo_recordings(name='TAR010c.NAT.fs100.ch18.tgz')
 
-    targz = join(RECORDING_DIR, 'TAR010c.NAT.fs50.tgz')
+    targz = join(RECORDING_DIR, 'TAR010c.NAT.fs100.ch18.tgz')
 
     rec = load_recording(targz)
 
@@ -120,7 +120,7 @@ def test_recording_loading():
     Test the loading and saving of files to various HTTP/S3/File routes.
     '''
     # NOTE: FOR THIS TEST TO SUCCEED, /auto/data/tmp/recordings/ must not have
-    # blah.tar.gz or TAR010c-18-1.tar.gz in it.
+    # blah.tar.gz or TAR010c.NAT.fs100.ch18.tgz in it.
 
     # Local filesystem
     # rec0 = Recording.load("/home/ivar/git/nems/signals/TAR010c-18-1.tar.gz")
