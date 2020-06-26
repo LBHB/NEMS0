@@ -93,9 +93,9 @@ def recording(signal1, signal2):
 
 def test_load_recording():
 
-    get_demo_recordings(name='TAR010c-18-1.tgz')
+    get_demo_recordings(name='TAR010c.NAT.fs50.tgz')
 
-    targz = join(RECORDING_DIR, 'TAR010c-18-1.tgz')
+    targz = join(RECORDING_DIR, 'TAR010c.NAT.fs50.tgz')
 
     rec = load_recording(targz)
 

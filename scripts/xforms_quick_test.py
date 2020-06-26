@@ -2,13 +2,13 @@ import numpy as np
 import os
 import io
 import logging
-import matplotlib
+#import matplotlib
 
 #matplotlib.use('Qt5Agg')
 
+import nems.gui.editors as gui
 from nems.xform_helper import fit_model_xform, load_model_xform
 from nems import recording, get_setting
-import nems.gui.editors as gui
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ recording_uri = os.path.join(get_setting('NEMS_RECORDINGS_DIR'),
 # run and return
 xfspec, ctx = fit_model_xform(cellid, batch, modelname, recording_uri=recording_uri, returnModel=True)
 
-#ex = gui.browse_xform_fit(ctx, xfspec)
+ex = gui.browse_xform_fit(ctx, xfspec)
 
 # run and save to database
 #saveuri = fit_model_xform(cellid, batch, modelname, recording_uri=recording_uri, saveInDB=True)
