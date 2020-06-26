@@ -26,7 +26,7 @@ import nems.plots.api as nplt
 import nems.preprocessing as preproc
 import nems.priors as priors
 from nems import get_setting
-from nems.registry import xforms_lib, keyword_lib, xform, xmodule
+from nems.registry import xforms_lib, keyword_lib, xform, xmodule, scan_for_kw_defs
 #from nems.plugins import (default_keywords, default_loaders, default_fitters,
 #                          default_initializers)
 from nems.signal import RasterizedSignal
@@ -38,24 +38,21 @@ from nems.recording import load_recording, Recording
 
 log = logging.getLogger(__name__)
 
+# REGISTRY SETUP
+# scan in plugins dir by default
+scan_for_kw_defs(os.path.join(get_setting('NEMS_DIR'),'nems','plugins'))
+
 # populate the registry as specified in config settings
+scan_for_kw_defs(get_setting('LIB_PLUGINS'))
+scan_for_kw_defs(get_setting('KEYWORD_PLUGINS'))
+scan_for_kw_defs(get_setting('XFORMS_PLUGINS'))
 
-# DONE scan in plugins dir by default
-plugin_list = glob.glob(os.path.join(get_setting('NEMS_DIR'),'nems','plugins','*.py'))
-for f in plugin_list:
-    libname = os.path.splitext(os.path.basename(f))[0]
-    importlib.import_module('nems.plugins.'+libname)
-
-for libname in get_setting('LIB_PLUGINS') + get_setting('KEYWORD_PLUGINS') + get_setting('XFORMS_PLUGINS'):
-    importlib.import_module(libname)
-
-# DONE - migrate to import and decorators
+# DEPRECATED - migrates to import and decorators
 #xforms_lib.register_modules([default_loaders, default_fitters, default_initializers])
 #xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
 
-
 # DEPRECATED?
-xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
+#xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
 
 def defxf(keyword, xformspec):
     """

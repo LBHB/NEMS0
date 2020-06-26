@@ -32,8 +32,6 @@ import logging
 import numpy as np
 from nems.registry import xmodule
 
-from nems.tf import layers
-
 log = logging.getLogger(__name__)
 
 

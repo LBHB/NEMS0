@@ -15,9 +15,6 @@ import numpy as np
 import base64
 
 from requests.exceptions import ConnectionError
-from nems.distributions.distribution import Distribution
-from nems.modules import NemsModule
-#from nems.registry import KeywordRegistry
 
 log = logging.getLogger(__name__)
 
@@ -44,12 +41,16 @@ class NumpyEncoder(jsonlib.JSONEncoder):
     https://stackoverflow.com/questions/3488934/simplejson-and-numpy-array
     saving as byte64 doesn't work, but using lists instead seems ok.
     '''
+
     def default(self, obj):
         """
         If input object is an ndarray it will be converted into a dict
         holding dtype, shape and the data. data is encoded as a list,
         which makes it text-readable.
         """
+        from nems.distributions.distribution import Distribution
+        from nems.modules import NemsModule
+
         if issubclass(type(obj), Distribution):
             return obj.tolist()
 

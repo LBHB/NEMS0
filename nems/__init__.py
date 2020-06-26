@@ -1,10 +1,8 @@
 import logging
 import ast
 import os
-import importlib
 
 log = logging.getLogger(__name__)
-
 NEMS_PATH = os.path.abspath(os.path.dirname(__file__) + '/..')
 
 
@@ -89,6 +87,3 @@ def get_setting(setting=None):
         # setting is just a string or empty list
         pass
     return s
-
-#for libname in get_setting('LIB_PLUGINS'):
-#   importlib.import_module(libname)
