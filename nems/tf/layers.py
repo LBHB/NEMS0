@@ -3,8 +3,9 @@ import logging
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.layers import Conv2D, Dense
+from tensorflow.python.keras.layers.convolutional import Conv
 from tensorflow.keras.constraints import Constraint
-from tensorflow.python.ops import array_ops
+from tensorflow.python.ops import array_ops, nn_ops, nn
 
 log = logging.getLogger(__name__)
 
@@ -832,7 +833,7 @@ class WeightChannelsNew(BaseLayer):
 
 
 class FlattenChannels(BaseLayer):
-
+    _TF_ONLY = True
     def __init__(self, initializer=None, seed=0, *args, **kwargs):
         # no weights or initializer to deal with
         super(FlattenChannels, self).__init__(*args, **kwargs)
