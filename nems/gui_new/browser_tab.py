@@ -43,15 +43,23 @@ class BrowserTab(QtBaseClass, Ui_Widget):
         current_cell = self.cellsModel.index(self.comboBoxCells.currentIndex()).data()
         model_filter = {'batch': current_batch, 'cellid': current_cell}
         self.modelnameModel = ListViewListModel(table_name='Results', column_name='modelname', filter=model_filter)
-        self.listViewModelnames.setModel(self.modelnameModel)
+
+        # setup the proxy filty model
+        self.modelnamesProxyModel = QSortFilterProxyModel(self)
+        self.modelnamesProxyModel.setSourceModel(self.modelnameModel)
+        # self.modelnamesProxyModel.setFilterKeyColumn(0)
+        self.modelnamesProxyModel.setDynamicSortFilter(True)
+        self.modelnamesProxyModel.setFilterCaseSensitivity(Qt.CaseInsensitive)
+
+        self.listViewModelnames.setModel(self.modelnamesProxyModel)
         # select first entry
-        self.listViewModelnames.selectionModel().setCurrentIndex(self.modelnameModel.index(0),
+        self.listViewModelnames.selectionModel().setCurrentIndex(self.modelnamesProxyModel.index(0, 0),
                                                                  QItemSelectionModel.SelectCurrent)
 
         # keep some references
         self.batch = current_batch
         self.cellid = current_cell
-        self.modelname = self.modelnameModel.index(0).data()
+        self.modelname = self.modelnamesProxyModel.index(0, 0).data()
 
         # keep track of the all the models with db connections
         self.parent.db_conns.extend([self.cellsModel, self.modelnameModel])
@@ -60,6 +68,9 @@ class BrowserTab(QtBaseClass, Ui_Widget):
         self.comboBoxBatches.currentIndexChanged.connect(self.on_batch_changed)
         self.comboBoxCells.currentIndexChanged.connect(self.on_cell_changed)
         self.listViewModelnames.selectionModel().currentChanged.connect(self.on_modelname_changed)
+        # connect the filter, and the filter selector
+        self.lineEditModelFilter.textChanged.connect(self.modelnamesProxyModel.setFilterFixedString)
+        self.lineEditModelFilter.textChanged.connect(self.on_filter_string_changed)
 
         # setup the callbacks for the buttons
         self.pushButtonViewModel.clicked.connect(self.on_view_model)
@@ -95,12 +106,12 @@ class BrowserTab(QtBaseClass, Ui_Widget):
                 self.comboBoxCells.currentIndexChanged.connect(self.on_cell_changed)
 
         if modelname is not None:
-            modelname_index = self.modelnameModel.get_index(modelname)
-            if modelname_index >= 0:
+            modelname_index = self.modelnameModel.index(self.modelnameModel.get_index(modelname))
+            proxy_index = self.modelnamesProxyModel.mapFromSource(modelname_index)
+            if proxy_index.row() >= 0:
                 self.modelname = modelname
-                model_index = self.modelnameModel.index(modelname_index)
-                self.listViewModelnames.selectionModel().setCurrentIndex(model_index, QItemSelectionModel.SelectCurrent)
-                self.listViewModelnames.scrollTo(model_index)
+                self.listViewModelnames.selectionModel().setCurrentIndex(proxy_index, QItemSelectionModel.SelectCurrent)
+                self.listViewModelnames.scrollTo(proxy_index)
 
     def load_settings(self, group_name=None):
         """Get the tabs saved selections of batch, cellid, modelname."""
@@ -120,12 +131,17 @@ class BrowserTab(QtBaseClass, Ui_Widget):
 
     def get_selections(self):
         """Passes the tabs selections up to the parent for saving."""
-
-        return {
+        # sometimes during filtering, the modelname can be None
+        selections = {
             f'{self.tab_name}:batch': str(self.batch),
             f'{self.tab_name}:cellid': self.cellid,
-            f'{self.tab_name}:modelname': self.modelname,
         }
+
+        # sometimes during filtering the modelname can be None
+        if self.modelname is not None:
+            selections[f'{self.tab_name}:modelname'] = self.modelname
+
+        return selections
 
     def on_action_open(self):
         """Event handler for action open."""
@@ -184,36 +200,46 @@ class BrowserTab(QtBaseClass, Ui_Widget):
         log.info(f'Cellid changed to "{self.cellid}", loading modelnames.')
 
         # qcombobox and qlistview work a bit different in terms of accessing data
-        old_modelname = self.listViewModelnames.selectedIndexes()[0].data()
+        old_modelname = self.modelname or ''
         filter = {'batch': self.batch, 'cellid': self.cellid}
         self.modelnameModel.refresh_data(filter)
 
         # for qlistview, no issues with out of bounds, but we still want to disconnect and
         # reconnect so that we can ensure we emit a signal even if the index stays the same
         self.listViewModelnames.selectionModel().disconnect()
-        model_index = self.modelnameModel.index(-1)
+
+        # clear the selection to avoid some crashing from pointer/index errors
+        # (I think, not having this just causes Qt to crash without raising any errors - AT)
+        self.listViewModelnames.clearSelection()
+        self.modelnamesProxyModel.layoutChanged.emit()
+        self.modelnameModel.layoutChanged.emit()
+
+        model_index = self.modelnamesProxyModel.index(-1, -1)
         self.listViewModelnames.selectionModel().setCurrentIndex(model_index,
                                                                  QItemSelectionModel.SelectCurrent)
         self.listViewModelnames.scrollTo(model_index)
         self.listViewModelnames.selectionModel().currentChanged.connect(self.on_modelname_changed)
 
-        self.modelnameModel.layoutChanged.emit()
-
         # look for old modelname in new list of modelnames
         if update_selection:
-            index = self.modelnameModel.get_index(old_modelname)
-            if index == -1:
-                index = 0
-            model_index = self.modelnameModel.index(index)
-            self.listViewModelnames.selectionModel().setCurrentIndex(model_index,
+            index = self.modelnameModel.index(self.modelnameModel.get_index(old_modelname))
+            proxy_index = self.modelnamesProxyModel.mapFromSource(index)
+            if proxy_index.row() == -1:
+                proxy_index = self.modelnamesProxyModel.index(0, 0)
+            # model_index = self.modelnameModel.index(index)
+            self.listViewModelnames.selectionModel().setCurrentIndex(proxy_index,
                                                                      QItemSelectionModel.SelectCurrent)
             self.listViewModelnames.scrollTo(model_index)
 
     def on_modelname_changed(self, current, previous):
         """Event handler for model change."""
         self.modelname = current.data()
-        self.listViewModelnames.update()
-        log.info(f'Modelname changed to "{self.modelname}".')
+        # TODO: redraw this listview to unhighligh deselected (BUG)
+        if self.modelname is not None:
+            log.info(f'Modelname changed to "{self.modelname}".')
+        else:
+            log.info(f'No modelname selected.')
+
 
     def on_view_model(self):
         """Event handler for view model button."""
@@ -227,6 +253,15 @@ class BrowserTab(QtBaseClass, Ui_Widget):
     def launch_model_browser(self, ctx, xfspec):
         """Launches the model browser and keeps a reference so it's not garbage collected."""
         self.model_browser = editors.browse_xform_fit(ctx, xfspec)
+
+    def on_filter_string_changed(self, text):
+        """Reselects first after a filter change if coming from None."""
+        if self.modelnamesProxyModel.rowCount() and self.modelname is None:
+            proxy_index = self.modelnamesProxyModel.index(0, 0)
+            self.listViewModelnames.selectionModel().setCurrentIndex(proxy_index,
+                                                                     QItemSelectionModel.SelectCurrent)
+            self.listViewModelnames.scrollTo(proxy_index)
+
 
 
 if __name__ == '__main__':

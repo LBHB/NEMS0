@@ -18,7 +18,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="BrowserTab" name="tabBrowser">
        <attribute name="title">
@@ -56,8 +56,15 @@
     <addaction name="actionSave_selections"/>
     <addaction name="actionLoad_selections"/>
    </widget>
+   <widget class="QMenu" name="menuRun">
+    <property name="title">
+     <string>Run</string>
+    </property>
+    <addaction name="actionCuston_function"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
+   <addaction name="menuRun"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionOpen">
@@ -78,10 +85,27 @@
    <property name="text">
     <string>Save selections</string>
    </property>
+   <property name="statusTip">
+    <string>Save current input selections</string>
+   </property>
   </action>
   <action name="actionLoad_selections">
    <property name="text">
     <string>Load selections</string>
+   </property>
+   <property name="statusTip">
+    <string>Load saved input selections</string>
+   </property>
+  </action>
+  <action name="actionCuston_function">
+   <property name="text">
+    <string>Custon function</string>
+   </property>
+   <property name="statusTip">
+    <string>Define and run a custom a function</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+R</string>
    </property>
   </action>
  </widget>

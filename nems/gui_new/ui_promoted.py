@@ -56,6 +56,8 @@ class ListViewListModel(QAbstractListModel):
     def refresh_data(self, filters: dict = None):
         """Reads the data from the database, optionally filtering.
 
+        # TODO: if app is idle too long, db connection drops. Need a try catch for this and reinit the db on loss.
+
         :param filters: Dict of column: filter.
         :return:
         """
@@ -267,6 +269,8 @@ class CompPlotWidget(pg.PlotWidget):
         self.scatter = self.plot(pen=None, symbolSize=5, symbolPen='w')
         self.getPlotItem().getAxis('left').enableAutoSIPrefix(False)
         self.getPlotItem().getAxis('bottom').enableAutoSIPrefix(False)
+
+        self.showGrid(x=True, y=True, alpha=0.3)
 
     def set_labels(self, label_left, label_bottom, units=None):
         """Helper to simplify setting labels."""

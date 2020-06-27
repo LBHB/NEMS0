@@ -59,6 +59,9 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
         self.actionSave_selections.triggered.connect(self.on_action_save_selections)
         self.actionLoad_selections.triggered.connect(self.on_action_load_selections)
 
+        # set the filter to be in focus
+        self.tabBrowser.lineEditModelFilter.setFocus()
+
     def closeEvent(self, event):
         """Catch close event in order to close db connections and save selections."""
         for db_conn in self.db_conns:

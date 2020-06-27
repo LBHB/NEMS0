@@ -66,7 +66,6 @@ class CompTab(QtBaseClass, Ui_Widget):
         self.cellsProxyModel.setDynamicSortFilter(True)
         self.cellsProxyModel.setFilterCaseSensitivity(Qt.CaseInsensitive)
 
-        # self.listViewCells.setModel(self.cellsModel)
         self.listViewCells.setModel(self.cellsProxyModel)
 
         self.listViewCells.setModelColumn(0)  # defaults to zero anyways, but here for clarity
@@ -146,12 +145,13 @@ class CompTab(QtBaseClass, Ui_Widget):
 
     def get_selections(self):
         """Passes the tabs selections up to the parent for saving."""
-
-        return {
+        selections = {
             f'{self.tab_name}:batch': str(self.batch),
             f'{self.tab_name}:modelname1': self.modelname1,
             f'{self.tab_name}:modelname2': self.modelname2,
         }
+
+        return selections
 
     def on_batch_changed(self, index, update_selection=True):
         """Event handler for batch selection.
@@ -188,8 +188,12 @@ class CompTab(QtBaseClass, Ui_Widget):
                 index1 = 0
             if index2 == -1:
                 index2 = 1
-            self.comboBoxModel1.setCurrentIndex(index1)
-            self.comboBoxModel2.setCurrentIndex(index2)
+        else:
+            index1 = 0
+            index2 = 1
+
+        self.comboBoxModel1.setCurrentIndex(index1)
+        self.comboBoxModel2.setCurrentIndex(index2)
 
         # do a manual redraw since slow to update sometimes, not sure why
         self.comboBoxModel1.update()
@@ -233,7 +237,7 @@ class CompTab(QtBaseClass, Ui_Widget):
             self.widgetPlot.update_data(x=self.cellsModel.np_points[0][rows], y=self.cellsModel.np_points[1][rows])
 
     def update_cell_count_label(self):
-        self.labelCellCount.setText(f'Cell IDs (n={len(self.cellids)}):')
+        self.labelCellCount.setText(f'Cell IDs (n={self.cellsProxyModel.rowCount()}):')
 
     def on_filter_string_changed(self, text):
         """Reselects all after a filter change."""
