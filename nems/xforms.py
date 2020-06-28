@@ -299,7 +299,7 @@ def load_recordings(recording_uri_list=None, normalize=False, cellid=None,
         rec['stim'] = rec['stim'].rasterize().normalize('minmax')
 
     log.info('Extracting cellid(s) {}'.format(cellid))
-    if cellid is None:
+    if (cellid is None) or (cellid == 'none'):
         # No cellid specified, use all channels
         channels = rec[output_name].chans
         if len(channels) == 0:

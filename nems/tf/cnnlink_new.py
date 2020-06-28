@@ -227,9 +227,7 @@ def fit_tf(
     if np.any([isinstance(layer, Conv2D_NEMS) for layer in model_layers]):
         # need a "channel" dimension for Conv2D (like rgb channels, not frequency). Only 1 channel for our data.
         stim_train = stim_train[..., np.newaxis]
-        conv2d_model = True
-    else:
-        conv2d_model = False
+        train_data = train_data[..., np.newaxis]
 
     # do some batch sizing logic
     batch_size = stim_train.shape[0] if batch_size == 0 else batch_size
@@ -313,7 +311,9 @@ def fit_tf(
             pass
 
     modelspec = tf2modelspec(model, modelspec)
-    if not conv2d_model:
+
+    contains_tf_only_layers = np.any(['tf_only' in m['fn'] for m in modelspec.modules])
+    if not contains_tf_only_layers:
         # compare the predictions from the model and modelspec
         error = compare_ms_tf(modelspec, model, est, train_data)
         if error > 1e-5:
