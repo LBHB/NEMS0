@@ -1439,9 +1439,9 @@ def evaluate_tf(rec, modelspec, epoch_name='REFERENCE', **kwargs):
     else:
         mask = nems.signal.RasterizedSignal(np.ones((1, rec['resp'].shape[-1])))  # select all
 
-    # [..., np.newaxis] assumes conv2d model -- currently the only kind that uses this eval, but if that changes
-    # later on may need to check for model architecture somehow.
-    stim_train = np.transpose(rec[input_name].extract_epoch(epoch=epoch_name, mask=mask), [0, 2, 1])[..., np.newaxis]
+    stim_train = np.transpose(rec[input_name].extract_epoch(epoch=epoch_name, mask=mask), [0, 2, 1])
+    if np.any(['Conv2D' in m['fn'] for m in modelspec.modules]):
+        stim_train = stim_train[..., np.newaxis]
     model_layers = modelspec.modelspec2tf2(fs=rec['resp'].fs)
     pred_stacked = stim_train
     for layer in model_layers:  # looping over layers avoids needing to re-compile entire model
