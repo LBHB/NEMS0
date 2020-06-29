@@ -30,7 +30,11 @@
       </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="comboBoxBatches"/>
+      <widget class="ExtendedComboBox" name="comboBoxBatches">
+       <property name="editable">
+        <bool>true</bool>
+       </property>
+      </widget>
      </item>
      <item>
       <spacer name="horizontalSpacer">
@@ -63,12 +67,18 @@
       </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="comboBoxModel1">
+      <widget class="ExtendedComboBox" name="comboBoxModel1">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
          <horstretch>1</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="statusTip">
+        <string>y-axis model</string>
+       </property>
+       <property name="editable">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
@@ -90,12 +100,18 @@
       </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="comboBoxModel2">
+      <widget class="ExtendedComboBox" name="comboBoxModel2">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
          <horstretch>1</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="statusTip">
+        <string>x-axis model</string>
+       </property>
+       <property name="editable">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
@@ -149,9 +165,9 @@
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout_5">
          <item>
-          <widget class="QPushButton" name="pushButtonToggle">
+          <widget class="QPushButton" name="pushButtonSelectAll">
            <property name="enabled">
-            <bool>false</bool>
+            <bool>true</bool>
            </property>
            <property name="text">
             <string>Select All</string>
@@ -211,6 +227,11 @@
    <extends>QWidget</extends>
    <header>ui_promoted</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ExtendedComboBox</class>
+   <extends>QComboBox</extends>
+   <header>ui_promoted</header>
   </customwidget>
  </customwidgets>
  <resources/>

@@ -39,6 +39,11 @@ class BrowserTab(QtBaseClass, Ui_Widget):
         self.cellsModel = ListViewListModel(table_name='Results', column_name='cellid', filter=cell_filter)
         self.comboBoxCells.setModel(self.cellsModel)
 
+        # # make combobox completable
+        # self.comboBoxCells.completer().setCompletionMode(QCompleter.PopupCompletion)
+        # self.comboBoxCells.completer().setFilterMode(Qt.MatchContains)
+        # self.comboBoxCells.completer().setCompletionRole(Qt.DisplayRole)
+
         # current_cell = self.cellsModel.data[self.comboBoxCells.currentIndex()][0]
         current_cell = self.cellsModel.index(self.comboBoxCells.currentIndex()).data()
         model_filter = {'batch': current_batch, 'cellid': current_cell}

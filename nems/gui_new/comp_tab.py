@@ -86,6 +86,8 @@ class CompTab(QtBaseClass, Ui_Widget):
         # connect the filter, and the filter selector
         self.lineEditCellFilter.textChanged.connect(self.cellsProxyModel.setFilterFixedString)
         self.lineEditCellFilter.textChanged.connect(self.on_filter_string_changed)
+        # connect the buttons
+        self.pushButtonSelectAll.pressed.connect(self.on_button_select_all)
 
         # make some parent stuff available locally for ease
         self.statusbar = self.parent.statusbar
@@ -243,6 +245,10 @@ class CompTab(QtBaseClass, Ui_Widget):
         """Reselects all after a filter change."""
         self.listViewCells.selectAll()
         self.update_cell_count_label()
+
+    def on_button_select_all(self):
+        """Event handler for hitting 'Select All'."""
+        self.listViewCells.selectAll()
 
 
 if __name__ == '__main__':
