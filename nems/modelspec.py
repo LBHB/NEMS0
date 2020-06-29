@@ -67,10 +67,12 @@ class ModelSpec:
             for i, _r in enumerate(raw):
                 r[0, 0, i] = []
                 for __r in _r:
+                    # check if this is a new NemsModule object
                     _f = _lookup_fn_at(__r['fn'])
                     if inspect.isclass(_f):
                         r[0, 0, i].append(_f(**__r))
                     else:
+                        # if not, just save dict to module
                         r[0, 0, i].append(__r)
             raw = r
 
@@ -1046,16 +1048,19 @@ class ModelSpec:
         """
         if 'stim' not in rec.signals:
             raise ValueError('No "stim" signal found in recording.')
-        data = rec['stim']._data.T
+        D = 100
+        data = rec['stim']._data[:,(index-D):(index+1)].T
 
         # a few safety checks
         if data.ndim != 2:
             raise ValueError('Data must be a recording of shape [channels, time].')
-        if not 0 <= index < width + data.shape[-2]:
+        #if not 0 <= index < width + data.shape[-2]:
+        if D+1 > data.shape[-2]:
             raise ValueError(f'Index must be within the bounds of the time channel plus width.')
 
-        # need to import some tf stuff here so we don't clutter and unnecessarily import tf (which is slow) when it's
-        # not needed
+        print(f'index: {index} shape: {data.shape}')
+        # need to import some tf stuff here so we don't clutter and unnecessarily import tf 
+        # (which is slow) when it's not needed
         # TODO: is this best practice? Better way to do this?
         import tensorflow as tf
         from nems.tf.cnnlink_new import get_jacobian
@@ -1074,14 +1079,16 @@ class ModelSpec:
         # need to convert the data to a tensor
         tensor = tf.convert_to_tensor(data[np.newaxis])
 
-        w = get_jacobian(self.tf_model, tensor, index, out_channel).numpy()[0]
+        #import pdb;
+        #pdb.set_trace()
+        w = get_jacobian(self.tf_model, tensor, D, out_channel).numpy()[0]
 
         if width == 0:
             return w.T
         else:
             # pad only the time axis if necessary
             padded = np.pad(w, ((width, width), (0, 0)))
-            return padded[index:index + width, :].T
+            return padded[D:D + width, :].T
 
 
 def get_modelspec_metadata(modelspec):
@@ -1266,12 +1273,17 @@ def _lookup_fn_at(fn_path, ignore_table=False):
     else:
         api, fn_name = nems.utils.split_to_api_and_fn(fn_path)
         api = api.replace('nems_db.xform', 'nems_lbhb.xform')
-        api_obj = importlib.import_module(api)
-        if ignore_table:
-            importlib.reload(api_obj)  # force overwrite old imports
-        fn = getattr(api_obj, fn_name)
-        if not ignore_table:
-            lookup_table[fn_path] = fn
+        try:
+            api_obj = importlib.import_module(api)
+        
+            if ignore_table:
+                importlib.reload(api_obj)  # force overwrite old imports
+            fn = getattr(api_obj, fn_name)
+            if not ignore_table:
+                lookup_table[fn_path] = fn
+        except:
+            log.info(f'failed to import module: {api}')
+            fn = None
     return fn
 
 
