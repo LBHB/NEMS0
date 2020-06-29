@@ -260,11 +260,26 @@ class CompPlotWidget(pg.PlotWidget):
     GREEN = '#55a868'
     RED = '#c44e52'
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self,
+                 left_label=None,
+                 bottom_label=None,
+                 x_data=None,
+                 y_data=None,
+                 labels=None,
+                 units=None,
+                 *args,
+                 **kwargs):
         super(CompPlotWidget, self).__init__(*args, **kwargs)
 
         self.setAspectLocked(True)
+
+        self.left_label = None
+        self.bottom_label = None
         self.units = None
+        self.x_data = None
+        self.y_data = None
+        self.labels = None
+        self.colors = None
 
         unity = pg.InfiniteLine((0, 0), angle=45, pen='k')
         self.addItem(unity)
@@ -275,8 +290,17 @@ class CompPlotWidget(pg.PlotWidget):
 
         self.showGrid(x=True, y=True, alpha=0.3)
 
+        if left_label is not None and bottom_label is not None:
+            self.set_labels(left_label, bottom_label, labels)
+
+        if x_data is not None and y_data is not None:
+            self.update_data(x_data, y_data, labels)
+
     def set_labels(self, label_left, label_bottom, units=None):
         """Helper to simplify setting labels."""
+        self.left_label = label_left
+        self.bottom_label = label_bottom
+
         if self.units is None and units is not None:
             self.units = units
         self.setLabel('left', label_left, units=self.units)
@@ -287,15 +311,36 @@ class CompPlotWidget(pg.PlotWidget):
 
     def clear_data(self):
         """Sets the scatter data to nothing."""
+        self.x_data = []
+        self.y_data = []
+
         self.scatter.setData(x=[], y=[], symbolBrush=[])
 
     def update_data(self, x, y, labels=None, size=6):
         """Handles the logic for plotting, such as colors."""
+        self.x_data = x
+        self.y_data = y
+        self.labels = labels
+
         colors = np.full_like(x, self.BLUE, dtype='object')
         colors[x > y] = self.RED
         colors[y > x] = self.GREEN
         colors = [pg.mkColor(c) for c in colors]
+        self.colors = colors
+
         self.scatter.setData(x=x, y=y, symbolSize=size, symbolBrush=colors)
+
+    def get_copy(self):
+        widget = CompPlotWidget(
+            left_label=self.left_label,
+            bottom_label=self.bottom_label,
+            x_data=self.x_data,
+            y_data=self.y_data,
+            labels=self.labels,
+            units=self.units,
+        )
+
+        return widget
 
 
 class ExtendedComboBox(QComboBox):

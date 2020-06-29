@@ -177,7 +177,7 @@
          <item>
           <widget class="QPushButton" name="pushButtonPopOut">
            <property name="enabled">
-            <bool>false</bool>
+            <bool>true</bool>
            </property>
            <property name="text">
             <string>Pop Out</string>

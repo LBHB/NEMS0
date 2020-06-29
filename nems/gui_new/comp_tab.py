@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import *
 import pyqtgraph as pg
 
 from nems import xforms, get_setting
-from nems.gui_new.ui_promoted import ListViewListModel, CompModel
+from nems.gui_new.ui_promoted import ListViewListModel, CompModel, CompPlotWidget
 
 log = logging.getLogger(__name__)
 
@@ -88,6 +88,7 @@ class CompTab(QtBaseClass, Ui_Widget):
         self.lineEditCellFilter.textChanged.connect(self.on_filter_string_changed)
         # connect the buttons
         self.pushButtonSelectAll.pressed.connect(self.on_button_select_all)
+        self.pushButtonPopOut.pressed.connect(self.on_button_popout)
 
         # make some parent stuff available locally for ease
         self.statusbar = self.parent.statusbar
@@ -249,6 +250,17 @@ class CompTab(QtBaseClass, Ui_Widget):
     def on_button_select_all(self):
         """Event handler for hitting 'Select All'."""
         self.listViewCells.selectAll()
+
+    def on_button_popout(self):
+        """Event handler for hitting 'Select All'."""
+        # make a dialog and embed the new plot widget
+        dialog = QDialog(self)
+        dialog.setAttribute(Qt.WA_DeleteOnClose)  # this ensure that the popup will close when the main app exits
+        # dialog.setGeometry(100, 100, 520, 500)
+
+        plot_wdiget = self.widgetPlot.get_copy()
+        plot_wdiget.setParent(dialog)
+        dialog.show()
 
 
 if __name__ == '__main__':
