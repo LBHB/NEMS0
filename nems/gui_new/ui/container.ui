@@ -60,7 +60,7 @@
     <property name="title">
      <string>Run</string>
     </property>
-    <addaction name="actionCuston_function"/>
+    <addaction name="actionCustom_function"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
@@ -97,7 +97,7 @@
     <string>Load saved input selections</string>
    </property>
   </action>
-  <action name="actionCuston_function">
+  <action name="actionCustom_function">
    <property name="text">
     <string>Custon function</string>
    </property>

@@ -56,6 +56,8 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
 
         # setup the callbacks for the menu items
         self.actionOpen.triggered.connect(self.tabBrowser.on_action_open)
+        self.actionCustom_function.triggered.connect(self.tabBrowser.on_action_custom_function)
+
         self.actionSave_selections.triggered.connect(self.on_action_save_selections)
         self.actionLoad_selections.triggered.connect(self.on_action_load_selections)
 

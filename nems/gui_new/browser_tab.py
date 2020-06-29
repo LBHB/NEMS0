@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import *
 from nems import get_setting, xforms
 from nems.gui import editors
 from nems.gui_new.ui_promoted import ListViewListModel
+from nems.utils import lookup_fn_at
 
 log = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ class BrowserTab(QtBaseClass, Ui_Widget):
         self.batch = current_batch
         self.cellid = current_cell
         self.modelname = self.modelnamesProxyModel.index(0, 0).data()
+        self.custom_fn = None
 
         # keep track of the all the models with db connections
         self.parent.db_conns.extend([self.cellsModel, self.modelnameModel])
@@ -87,7 +89,7 @@ class BrowserTab(QtBaseClass, Ui_Widget):
         # update inputs
         self.update_selections(*self.load_settings())
 
-    def update_selections(self, batch=None, cellid=None, modelname=None):
+    def update_selections(self, batch=None, cellid=None, modelname=None, custom_fn=None):
         """Sets the inputs of batch, cellid, and modelname appropriately.
 
         We want to avoid triggering events for all of these updates, so go through and disconnect and
@@ -118,6 +120,9 @@ class BrowserTab(QtBaseClass, Ui_Widget):
                 self.listViewModelnames.selectionModel().setCurrentIndex(proxy_index, QItemSelectionModel.SelectCurrent)
                 self.listViewModelnames.scrollTo(proxy_index)
 
+        if custom_fn is not None:
+            self.custom_fn = custom_fn
+
     def load_settings(self, group_name=None):
         """Get the tabs saved selections of batch, cellid, modelname."""
         config_group = self.parent.config_group
@@ -131,8 +136,9 @@ class BrowserTab(QtBaseClass, Ui_Widget):
         batch = batch if batch is None else int(batch)
         cellid = self.config[config_group].get(f'{self.tab_name}:cellid', None)
         modelname = self.config[config_group].get(f'{self.tab_name}:modelname', None)
+        custom_fn = self.config[config_group].get(f'{self.tab_name}:custom_fn', None)
 
-        return batch, cellid, modelname
+        return batch, cellid, modelname, custom_fn
 
     def get_selections(self):
         """Passes the tabs selections up to the parent for saving."""
@@ -145,6 +151,10 @@ class BrowserTab(QtBaseClass, Ui_Widget):
         # sometimes during filtering the modelname can be None
         if self.modelname is not None:
             selections[f'{self.tab_name}:modelname'] = self.modelname
+
+        # sometimes custom_fn can be None as well
+        if self.custom_fn is not None:
+            selections[f'{self.tab_name}:custom_fn'] = self.custom_fn
 
         return selections
 
@@ -245,7 +255,6 @@ class BrowserTab(QtBaseClass, Ui_Widget):
         else:
             log.info(f'No modelname selected.')
 
-
     def on_view_model(self):
         """Event handler for view model button."""
         self.statusbar.showMessage('Loading model...', 5000)
@@ -267,6 +276,22 @@ class BrowserTab(QtBaseClass, Ui_Widget):
                                                                      QItemSelectionModel.SelectCurrent)
             self.listViewModelnames.scrollTo(proxy_index)
 
+    def on_action_custom_function(self):
+        """Event handler for running custom function."""
+        input_text, accepted = QInputDialog.getText(self, 'Custom function', 'Enter spec to custom function:',
+                                                    text=self.custom_fn)
+        if not accepted or not input_text:
+            return
+
+        custom_fn = lookup_fn_at(input_text)
+
+        status_text = f'Running custom function: "{input_text}".'
+        log.info(status_text)
+        self.statusbar.showMessage(status_text, 2000)
+
+        self.custom_fn = input_text
+        # custom functions must implement this spec
+        custom_fn(cellid=self.cellid, batch=self.batch, modelname=self.modelname)
 
 
 if __name__ == '__main__':
