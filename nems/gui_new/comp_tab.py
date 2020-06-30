@@ -1,17 +1,13 @@
-from pathlib import Path
 import logging
 import sys
-from configparser import ConfigParser, DuplicateSectionError
+from pathlib import Path
 
 from PyQt5 import uic
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
-import pyqtgraph as pg
-
-from nems import xforms, get_setting
-from nems.gui_new.ui_promoted import ListViewListModel, CompModel, CompPlotWidget
+from nems.gui_new.ui_promoted import CompModel, ListViewListModel
 
 log = logging.getLogger(__name__)
 
@@ -30,19 +26,38 @@ class CompTab(QtBaseClass, Ui_Widget):
 
     def init_models(self):
         """Initialize the models."""
+        # make some parent stuff available locally for ease
+        self.statusbar = self.parent.statusbar
+        self.config = self.parent.config
+
+        # see if there's any config to load
+        batch, modelname1, modelname2 = self.load_settings()
+
         # setup the data and models
         # self.batchModel = ListViewListModel(table_name='Results', column_name='batch')
         self.batchModel = self.parent.batchModel
         self.comboBoxBatches.setModel(self.batchModel)
+        # if batched passed in, set it here
+        if batch is not None:
+            batch_index = self.comboBoxBatches.findText(str(batch), Qt.MatchFixedString)
+            self.comboBoxBatches.setCurrentIndex(batch_index)
 
-        # current_batch = self.batchModel.data[self.comboBoxBatches.currentIndex()][0]
         current_batch = self.batchModel.index(self.comboBoxBatches.currentIndex()).data()
         batch_filter = {'batch': current_batch}
         self.modelnameModel = ListViewListModel(table_name='Results', column_name='modelname', filter=batch_filter)
         self.comboBoxModel1.setModel(self.modelnameModel)
         self.comboBoxModel2.setModel(self.modelnameModel)
-        # set the second model to be the second value (so they're not the same)
-        self.comboBoxModel2.setCurrentIndex(1)
+
+        if modelname1 is not None:
+            modelname1_index = self.comboBoxModel1.findText(modelname1, Qt.MatchFixedString)
+            self.comboBoxModel1.setCurrentIndex(modelname1_index)
+        if modelname2 is not None:
+            modelname2_index = self.comboBoxModel2.findText(modelname2, Qt.MatchFixedString)
+            self.comboBoxModel2.setCurrentIndex(modelname2_index)
+        elif modelname1 is None:
+            # set the second model to be the second value (so they're not the same)
+            # could end up as same value if modelname1 is passed in as index 1, but small chance
+            self.comboBoxModel2.setCurrentIndex(1)
 
         # keep some references
         self.batch = current_batch
@@ -69,8 +84,6 @@ class CompTab(QtBaseClass, Ui_Widget):
         self.listViewCells.setModel(self.cellsProxyModel)
 
         self.listViewCells.setModelColumn(0)  # defaults to zero anyways, but here for clarity
-        self.listViewCells.selectAll()
-        self.cellids = [self.cellsProxyModel.index(i.row(), 0).data() for i in self.listViewCells.selectedIndexes()]
 
         # keep track of the all the models with db connections
         self.parent.db_conns.extend([self.modelnameModel, self.cellsModel])
@@ -90,12 +103,9 @@ class CompTab(QtBaseClass, Ui_Widget):
         self.pushButtonSelectAll.pressed.connect(self.on_button_select_all)
         self.pushButtonPopOut.pressed.connect(self.on_button_popout)
 
-        # make some parent stuff available locally for ease
-        self.statusbar = self.parent.statusbar
-        self.config = self.parent.config
-
-        # update inputs
-        self.update_selections(*self.load_settings())
+        # select all the data
+        self.listViewCells.selectAll()
+        self.update_cell_count_label()
 
     def update_selections(self, batch=None, modelname1=None, modelname2=None):
         """Sets the inputs of batch, model1, and model2 appropriately.
@@ -237,7 +247,8 @@ class CompTab(QtBaseClass, Ui_Widget):
         if self.cellsModel.np_points is None:
             self.widgetPlot.clear_data()
         else:
-            self.widgetPlot.update_data(x=self.cellsModel.np_points[0][rows], y=self.cellsModel.np_points[1][rows])
+            self.widgetPlot.update_data(y=self.cellsModel.np_points[0][rows], x=self.cellsModel.np_points[1][rows],
+                                        labels=self.cellsModel.np_labels[rows])
 
     def update_cell_count_label(self):
         self.labelCellCount.setText(f'Cell IDs (n={self.cellsProxyModel.rowCount()}):')
@@ -256,10 +267,14 @@ class CompTab(QtBaseClass, Ui_Widget):
         # make a dialog and embed the new plot widget
         dialog = QDialog(self)
         dialog.setAttribute(Qt.WA_DeleteOnClose)  # this ensure that the popup will close when the main app exits
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        dialog.setLayout(layout)
         # dialog.setGeometry(100, 100, 520, 500)
 
-        plot_wdiget = self.widgetPlot.get_copy()
-        plot_wdiget.setParent(dialog)
+        plot_widget = self.widgetPlot.get_copy()
+        dialog.setWindowTitle(f'"{plot_widget.left_label}" vs "{plot_widget.bottom_label}"')
+        layout.addWidget(plot_widget)
         dialog.show()
 
 

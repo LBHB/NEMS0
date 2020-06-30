@@ -1,16 +1,16 @@
 from typing import List, Union
 
+import numpy as np
+import scipy.spatial
+
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
-
 import pyqtgraph as pg
 
 from sqlalchemy.orm import aliased
-import numpy as np
 
 from nems import db
-
 
 pg.setConfigOption('background', '#EAEAF2')
 pg.setConfigOption('foreground', 'k')
@@ -259,6 +259,8 @@ class CompPlotWidget(pg.PlotWidget):
     BLUE = '#4c72b0'
     GREEN = '#55a868'
     RED = '#c44e52'
+    ORANGE = '#dd8452'
+    BRIGHT_ORANGE = '#ff7c00'
 
     def __init__(self,
                  left_label=None,
@@ -280,6 +282,8 @@ class CompPlotWidget(pg.PlotWidget):
         self.y_data = None
         self.labels = None
         self.colors = None
+        self.ckdtree = None
+        self.nearest_idx = None
 
         unity = pg.InfiniteLine((0, 0), angle=45, pen='k')
         self.addItem(unity)
@@ -288,13 +292,26 @@ class CompPlotWidget(pg.PlotWidget):
         self.getPlotItem().getAxis('left').enableAutoSIPrefix(False)
         self.getPlotItem().getAxis('bottom').enableAutoSIPrefix(False)
 
-        self.showGrid(x=True, y=True, alpha=0.3)
+        self.showGrid(x=True, y=True, alpha=0.2)
 
         if left_label is not None and bottom_label is not None:
-            self.set_labels(left_label, bottom_label, labels)
+            self.set_labels(left_label, bottom_label, units)
 
         if x_data is not None and y_data is not None:
             self.update_data(x_data, y_data, labels)
+
+        # upper left text to display nearest point
+        self.label_text = pg.LabelItem(text='', justify='left')
+        self.label_text.setParentItem(self.plotItem.vb)
+        self.label_text.anchor(itemPos=(0, 0), parentPos=(0, 0), offset=(10, 5))
+
+        # upper left text to display mouse coords
+        self.coord_text = pg.LabelItem(text='', justify='right')
+        self.coord_text.setParentItem(self.plotItem.vb)
+        self.coord_text.anchor(itemPos=(1, 1), parentPos=(1, 1), offset=(-10, -5))
+
+        # connections for the hover data
+        self.plotItem.scene().sigMouseMoved.connect(self.on_move)
 
     def set_labels(self, label_left, label_bottom, units=None):
         """Helper to simplify setting labels."""
@@ -313,6 +330,7 @@ class CompPlotWidget(pg.PlotWidget):
         """Sets the scatter data to nothing."""
         self.x_data = []
         self.y_data = []
+        self.ckdtree = None
 
         self.scatter.setData(x=[], y=[], symbolBrush=[])
 
@@ -322,13 +340,24 @@ class CompPlotWidget(pg.PlotWidget):
         self.y_data = y
         self.labels = labels
 
-        colors = np.full_like(x, self.BLUE, dtype='object')
-        colors[x > y] = self.RED
-        colors[y > x] = self.GREEN
+        self.scatter.setData(x=x, y=y, symbolSize=size, symbolBrush='k')
+        self.update_colors()
+        self.build_ckdt()
+
+    def update_colors(self, selected: int = None):
+        """Updates the colors. If values are same, defaults to green.
+
+        TODO: default to other color? Brings total colors to 4...
+        """
+        colors = np.full_like(self.x_data, self.BLUE, dtype='object')
+        colors[self.x_data > self.y_data] = self.RED
+        colors[self.y_data > self.x_data] = self.GREEN
+        if selected is not None:
+            colors[selected] = self.BRIGHT_ORANGE
+
         colors = [pg.mkColor(c) for c in colors]
         self.colors = colors
-
-        self.scatter.setData(x=x, y=y, symbolSize=size, symbolBrush=colors)
+        self.scatter.setData(symbolBrush=colors)
 
     def get_copy(self):
         widget = CompPlotWidget(
@@ -341,6 +370,37 @@ class CompPlotWidget(pg.PlotWidget):
         )
 
         return widget
+
+    def on_move(self, pos):
+        """Handles mouse movement on plot events."""
+        if self.plotItem.vb.sceneBoundingRect().contains(pos):
+            mapped_pos = self.plotItem.vb.mapSceneToView(pos)
+            x, y = mapped_pos.x(), mapped_pos.y()
+            self.coord_text.setText(f'x: {x: 04.3f} | y: {y: 04.3f}')
+            # get nearest scatter point
+            if self.ckdtree is not None:
+                nearest_idx = self.ckdtree.query([x, y])[1]
+                if self.nearest_idx != nearest_idx:
+                    self.update_nearest(nearest_idx)
+        else:
+            self.coord_text.setText('')
+            self.label_text.setText('')
+            self.update_colors()
+
+    def build_ckdt(self):
+        """Builds a nearest tree for the hover event.
+
+        See scipy.spatial.cKDTree"""
+        points = np.column_stack([self.x_data, self.y_data])
+        self.ckdtree = scipy.spatial.cKDTree(points)
+
+    def update_nearest(self, nearest_idx):
+        """Highlights the point and updates the label"""
+        self.nearest_idx = nearest_idx
+        scatter_x, scatter_y = self.x_data[nearest_idx], self.y_data[nearest_idx]
+        self.label_text.setText(f'{self.labels[nearest_idx]}<br>x: {scatter_x: 04.3f} | y: {scatter_y: 04.3f}')
+        self.update_colors(selected=self.nearest_idx)
+
 
 
 class ExtendedComboBox(QComboBox):

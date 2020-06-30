@@ -1,6 +1,5 @@
 import logging
 import sys
-from configparser import ConfigParser, DuplicateSectionError
 from pathlib import Path
 
 from PyQt5 import uic
@@ -8,7 +7,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
-from nems import get_setting, xforms
+from nems import xform_helper, xforms
 from nems.gui import editors
 from nems.gui_new.ui_promoted import ListViewListModel
 from nems.utils import lookup_fn_at
@@ -30,22 +29,29 @@ class BrowserTab(QtBaseClass, Ui_Widget):
 
     def init_models(self):
         """Initialize the models."""
+        # make some parent stuff available locally for ease
+        self.statusbar = self.parent.statusbar
+        self.config = self.parent.config
+
+        # see if there's any config to load
+        batch, cellid, modelname, custom_fn = self.load_settings()
+
         # setup the data and models
         self.batchModel = self.parent.batchModel
         self.comboBoxBatches.setModel(self.batchModel)
+        # if batch passed in, set it here
+        if batch is not None:
+            batch_index = self.comboBoxBatches.findText(str(batch), Qt.MatchFixedString)
+            self.comboBoxBatches.setCurrentIndex(batch_index)
 
-        # current_batch = self.batchModel.data[self.comboBoxBatches.currentIndex()][0]
         current_batch = self.batchModel.index(self.comboBoxBatches.currentIndex()).data()
         cell_filter = {'batch': current_batch}
         self.cellsModel = ListViewListModel(table_name='Results', column_name='cellid', filter=cell_filter)
         self.comboBoxCells.setModel(self.cellsModel)
+        if cellid is not None:
+            cellid_index = self.comboBoxCells.findText(cellid, Qt.MatchFixedString)
+            self.comboBoxCells.setCurrentIndex(cellid_index)
 
-        # # make combobox completable
-        # self.comboBoxCells.completer().setCompletionMode(QCompleter.PopupCompletion)
-        # self.comboBoxCells.completer().setFilterMode(Qt.MatchContains)
-        # self.comboBoxCells.completer().setCompletionRole(Qt.DisplayRole)
-
-        # current_cell = self.cellsModel.data[self.comboBoxCells.currentIndex()][0]
         current_cell = self.cellsModel.index(self.comboBoxCells.currentIndex()).data()
         model_filter = {'batch': current_batch, 'cellid': current_cell}
         self.modelnameModel = ListViewListModel(table_name='Results', column_name='modelname', filter=model_filter)
@@ -58,15 +64,23 @@ class BrowserTab(QtBaseClass, Ui_Widget):
         self.modelnamesProxyModel.setFilterCaseSensitivity(Qt.CaseInsensitive)
 
         self.listViewModelnames.setModel(self.modelnamesProxyModel)
-        # select first entry
-        self.listViewModelnames.selectionModel().setCurrentIndex(self.modelnamesProxyModel.index(0, 0),
-                                                                 QItemSelectionModel.SelectCurrent)
+        if modelname is not None:
+            modelname_index = self.modelnameModel.index(self.modelnameModel.get_index(modelname))
+            if modelname_index.row() >= 0:
+                self.listViewModelnames.selectionModel().setCurrentIndex(modelname_index,
+                                                                         QItemSelectionModel.SelectCurrent)
+                self.listViewModelnames.scrollTo(modelname_index)
+                self.modelname = modelname
+        else:
+            # select first entry
+            self.listViewModelnames.selectionModel().setCurrentIndex(self.modelnamesProxyModel.index(0, 0),
+                                                                     QItemSelectionModel.SelectCurrent)
+            self.modelname = self.modelnamesProxyModel.index(0, 0).data()
 
         # keep some references
         self.batch = current_batch
         self.cellid = current_cell
-        self.modelname = self.modelnamesProxyModel.index(0, 0).data()
-        self.custom_fn = None
+        self.custom_fn = custom_fn
 
         # keep track of the all the models with db connections
         self.parent.db_conns.extend([self.cellsModel, self.modelnameModel])
@@ -81,13 +95,7 @@ class BrowserTab(QtBaseClass, Ui_Widget):
 
         # setup the callbacks for the buttons
         self.pushButtonViewModel.clicked.connect(self.on_view_model)
-
-        # make some parent stuff available locally for ease
-        self.statusbar = self.parent.statusbar
-        self.config = self.parent.config
-
-        # update inputs
-        self.update_selections(*self.load_settings())
+        self.pushButtonViewFig.clicked.connect(self.on_view_fig)
 
     def update_selections(self, batch=None, cellid=None, modelname=None, custom_fn=None):
         """Sets the inputs of batch, cellid, and modelname appropriately.
@@ -130,7 +138,7 @@ class BrowserTab(QtBaseClass, Ui_Widget):
             config_group = config_group + ':' + group_name
 
         if config_group not in self.config:
-            return None, None, None
+            return None, None, None, None
 
         batch = self.config[config_group].get(f'{self.tab_name}:batch', None)
         batch = batch if batch is None else int(batch)
@@ -249,7 +257,7 @@ class BrowserTab(QtBaseClass, Ui_Widget):
     def on_modelname_changed(self, current, previous):
         """Event handler for model change."""
         self.modelname = current.data()
-        # TODO: redraw this listview to unhighligh deselected (BUG)
+        # self.listViewModelnames.repaint()  # TODO: figure out why not unhighlighting (BUG)
         if self.modelname is not None:
             log.info(f'Modelname changed to "{self.modelname}".')
         else:
@@ -258,6 +266,12 @@ class BrowserTab(QtBaseClass, Ui_Widget):
     def on_view_model(self):
         """Event handler for view model button."""
         self.statusbar.showMessage('Loading model...', 5000)
+        xfspec, ctx = xform_helper.load_model_xform(self.cellid, self.batch, self.modelname, eval_model=True)
+        self.launch_model_browser(ctx, xfspec)
+
+    def on_view_fig(self):
+        """Event handler for view model button."""
+        self.statusbar.showMessage('Loading figure...', 5000)
 
     def load_xfrom_from_folder(self, directory, eval_model=True):
         """Loads an xform/context from a directory."""
