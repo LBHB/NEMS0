@@ -166,7 +166,7 @@ class KeywordRegistry():
         """ add function obj to registry """
         if name is None:
             name = obj.__name__
-        log.info("%s lib registering function: %s", self.name, name)
+        log.debug("%s lib registering function: %s", self.name, name)
 
         try:
             location = str(obj.__module__) + "." + obj.__name__

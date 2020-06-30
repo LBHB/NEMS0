@@ -1048,15 +1048,17 @@ class ModelSpec:
         """
         if 'stim' not in rec.signals:
             raise ValueError('No "stim" signal found in recording.')
-        D = 100
+        D = 50
         data = rec['stim']._data[:,(index-D):(index+1)].T
 
         # a few safety checks
         if data.ndim != 2:
             raise ValueError('Data must be a recording of shape [channels, time].')
         #if not 0 <= index < width + data.shape[-2]:
-        if D+1 > data.shape[-2]:
+        if D > data.shape[-2]:
             raise ValueError(f'Index must be within the bounds of the time channel plus width.')
+
+        need_fourth_dim = np.any(['Conv2D_NEMS' in m['fn'] for m in self])
 
         print(f'index: {index} shape: {data.shape}')
         # need to import some tf stuff here so we don't clutter and unnecessarily import tf 
@@ -1067,29 +1069,53 @@ class ModelSpec:
 
         if self.tf_model is None or rebuild_model:
             from nems.tf import modelbuilder
+            from nems.tf.layers import Conv2D_NEMS
 
             # generate the model
             model_layers = self.modelspec2tf2(use_modelspec_init=True)
 
+            if need_fourth_dim:
+                # need a "channel" dimension for Conv2D (like rgb channels, not frequency). Only 1 channel for our data.
+                data_shape = data[np.newaxis, ..., np.newaxis].shape
+            else:
+                data_shape = data[np.newaxis].shape
+
             self.tf_model = modelbuilder.ModelBuilder(
                 name='Test-model',
                 layers=model_layers,
-            ).build_model(input_shape=data[np.newaxis].shape)
+            ).build_model(input_shape=data_shape)
 
         # need to convert the data to a tensor
-        tensor = tf.convert_to_tensor(data[np.newaxis])
-
-        #import pdb;
-        #pdb.set_trace()
-        w = get_jacobian(self.tf_model, tensor, D, out_channel).numpy()[0]
-
-        if width == 0:
-            return w.T
+        if need_fourth_dim:
+            tensor = tf.convert_to_tensor(data[np.newaxis, ..., np.newaxis])
         else:
-            # pad only the time axis if necessary
-            padded = np.pad(w, ((width, width), (0, 0)))
-            return padded[D:D + width, :].T
+            tensor = tf.convert_to_tensor(data[np.newaxis])
 
+        if type(out_channel) is list:
+            out_channels=out_channel
+        else:
+            out_channels = [out_channel]
+
+        for outidx in out_channels:
+            w = get_jacobian(self.tf_model, tensor, D, outidx).numpy()[0]
+
+            if need_fourth_dim:
+                w = w[:, :, 0]
+
+            if width == 0:
+                _w = w.T
+            else:
+                # pad only the time axis if necessary
+                padded = np.pad(w, ((width, width), (0, 0)))
+                _w = padded[D:D + width, :].T
+            if len(out_channels)==1:
+                dstrf = _w
+            elif outidx == out_channels[0]:
+                dstrf = _w[..., np.newaxis]
+            else:
+                dstrf = np.concatenate((dstrf, _w[..., np.newaxis]), axis=2)
+
+        return dstrf
 
 def get_modelspec_metadata(modelspec):
     """Return a dict of the metadata for this modelspec.
