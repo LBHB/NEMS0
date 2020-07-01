@@ -345,10 +345,12 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
             except NotImplementedError:
                 # as_continuous only available for RasterizedSignal
                 mean_resp = np.nanmean(rec[output_name].rasterize().as_continuous(), axis=1, keepdims=True)
-            log.info('Mod %d (%s) initializing level to %s mean %.3f',
-                     i, m['fn'], output_name, mean_resp[0])
-            log.info('resp has %d channels', len(mean_resp))
-            m['phi']['level'][:] = mean_resp
+            if len(mean_resp)==len(m['phi']['level'][:]):
+                log.info('Mod %d (%s) initializing level to %s mean %.3f',
+                         i, m['fn'], output_name, mean_resp[0])
+                log.info('Output %s has %d channels', 
+                         output_name, len(mean_resp))
+                m['phi']['level'][:] = mean_resp
 
         if (i < target_i) or ('merge_channels' in m['fn']):
             include_idx.append(i)
