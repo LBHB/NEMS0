@@ -1049,12 +1049,16 @@ class ModelSpec:
         if 'stim' not in rec.signals:
             raise ValueError('No "stim" signal found in recording.')
         D = 50
-        data = rec['stim']._data[:,(index-D):(index+1)].T
+        data = rec['stim']._data[:,np.max([0,index-D]):(index+1)].T
+
+        if index < D:
+            data = np.pad(data, ((D-index, 0), (0, 0)))
 
         # a few safety checks
         if data.ndim != 2:
             raise ValueError('Data must be a recording of shape [channels, time].')
         #if not 0 <= index < width + data.shape[-2]:
+
         if D > data.shape[-2]:
             raise ValueError(f'Index must be within the bounds of the time channel plus width.')
 
@@ -1106,7 +1110,7 @@ class ModelSpec:
                 _w = w.T
             else:
                 # pad only the time axis if necessary
-                padded = np.pad(w, ((width, width), (0, 0)))
+                padded = np.pad(w, ((width-1, width), (0, 0)))
                 _w = padded[D:D + width, :].T
             if len(out_channels)==1:
                 dstrf = _w
