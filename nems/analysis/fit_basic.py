@@ -44,9 +44,10 @@ def fit_basic(data, modelspec,
     start_time = time.time()
 
     modelspec = copy.deepcopy(modelspec)
+    output_name = modelspec.meta.get('output_name', 'resp')
 
     if metric is None:
-        metric = lambda data: metrics.nmse(data, 'pred', 'resp')
+        metric = lambda data: metrics.nmse(data, 'pred', output_name)
 
     if cost_function is None:
         # Use the cost function defined in this module by default

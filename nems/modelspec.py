@@ -559,9 +559,12 @@ class ModelSpec:
         if fit_index is not None:
             self.fit_index = fit_index
 
+        input_name = self.meta.get('input_name', 'stim')
+        output_name = self.meta.get('output_name', 'resp')
+
         if sig_names is None:
             if include_input:
-                sig_names = ['stim']
+                sig_names = [input_name]
             else:
                 sig_names = []
 
@@ -710,7 +713,39 @@ class ModelSpec:
             # add to front
             plot_fns = [(fn, 1)] + plot_fns
 
-        if include_output:
+        if include_output and (output_name=='stim'):
+            if rec[output_name].shape[0] > 1:
+                plot_fn = _lookup_fn_at('nems.plots.api.spectrogram')
+                title = output_name + ' spectrogram'
+            else:
+                plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_signals')
+                title = output_name + ' timeseries'
+
+            # actual output (stim)
+            fn = partial(plot_fn, rec=rec,
+                         sig_name=output_name,
+                         epoch=epoch,
+                         occurrence=occurrence,
+                         time_range=time_range,
+                         title=title
+                         )
+            # add to end
+            plot_fns.append((fn, 1))
+
+            # recon
+            r_test = np.mean(self.meta.get('r_test', [0]))
+            title = f'reconstruction r_test: {r_test:.3f}'
+            fn = partial(plot_fn, rec=rec,
+                         sig_name='pred',
+                         epoch=epoch,
+                         occurrence=occurrence,
+                         time_range=time_range,
+                         title=title
+                         )
+            # add to end
+            plot_fns.append((fn, 1))
+
+        elif include_output:
             if (time_range is not None) or (epoch is None):
                 plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_signals')
             else:
