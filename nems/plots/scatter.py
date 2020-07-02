@@ -38,7 +38,7 @@ def plot_nl_io(module=None, xbounds=None, ax=None):
 
 
 def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
-                 xlabel=None, ylabel=None, legend=True, text=None,
+                 channels=0, xlabel=None, ylabel=None, legend=True, text=None,
                  force_square=False, module=None, **options):
     '''
     Uses the channels of sig1 to place points along the x axis, and channels of
@@ -69,8 +69,8 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
 
     # remove NaNs
     keepidx = np.isfinite(m1[0, :]) * np.isfinite(m2[0, :])
-    m1 = m1[0:1, keepidx]
-    m2 = m2[0:1, keepidx]
+    m1 = m1[channels:(channels+1), keepidx]
+    m2 = m2[channels:(channels+1), keepidx]
 
     for i in range(m2.shape[0]):
         if m1.shape[0] > 1:
