@@ -167,6 +167,7 @@ def newtf(fitkey):
     nl_init = 'tf'
     rand_count = 0
     pick_best = False
+    epoch_name = "REFERENCE"
 
     options = _extract_options(fitkey)
 
@@ -215,7 +216,8 @@ def newtf(fitkey):
                 initializer = 'truncated_normal'
             elif initializer == 'ln':
                 initializer = 'lecun_normal'
-
+        elif op=='cont':
+            epoch_name = ""
     xfspec = []
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
@@ -234,6 +236,7 @@ def newtf(fitkey):
                        'batch_size': batch_size,
                        'initializer': initializer,
                        'seed': seed,
+                       'epoch_name': epoch_name,
                    }])
 
     if pick_best:

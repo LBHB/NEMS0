@@ -135,6 +135,7 @@ def fit_tf(
         filepath: typing.Union[str, Path] = None,
         freeze_layers: typing.Union[None, list] = None,
         IsReload: bool = False,
+        epoch_name: str = "REFERENCE",
         **context
         ) -> dict:
     """TODO
@@ -153,9 +154,11 @@ def fit_tf(
     :param filepath:
     :param freeze_layers: Indexes of layers to freeze prior to training. Indexes are modelspec indexes, so are offset
       from model layer indexes.
+    :param IsReload:
+    :param epoch_name
     :param context:
 
-    :return:
+    :return: dict {'modelspec': modelspec}
     """
 
     if IsReload:
@@ -197,13 +200,21 @@ def fit_tf(
     seed += modelspec.fit_index
 
     # need to get duration of stims in order to reshape data
-    epoch_name = 'REFERENCE'  # TODO: this should not be hardcoded
+    #epoch_name = 'REFERENCE'  # TODO: this should not be hardcoded
+    # moved to input parameter
+
     # also grab the fs
     fs = est['stim'].fs
 
-    # extract out the raw data, and reshape to (batch, time, channel)
-    stim_train = np.transpose(est['stim'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
-    resp_train = np.transpose(est['resp'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
+    if (epoch_name is not None) and (epoch_name != ""):
+        # extract out the raw data, and reshape to (batch, time, channel)
+        stim_train = np.transpose(est['stim'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
+        resp_train = np.transpose(est['resp'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
+    else:
+        # extract out the raw data, and reshape to (batch, time, channel)
+        stim_train = np.transpose(est.apply_mask()['stim'].as_continuous()[np.newaxis, ...], [0, 2, 1])
+        resp_train = np.transpose(est.apply_mask()['resp'].as_continuous()[np.newaxis, ...], [0, 2, 1])
+
     log.info(f'Feature dimensions: {stim_train.shape}; Data dimensions: {resp_train.shape}.')
 
     # get state if present, and setup training data
