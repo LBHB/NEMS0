@@ -776,6 +776,28 @@ def scl(kw):
     return template
 
 
+@xmodule('sum')
+def sum(kw):
+    """
+    sum signal <sig> over channels (N x T) --> (1 x T) signal
+    syntax: sum.<sig>  default <sig>="pred"
+    """
+    op = kw.split(".")[1:]
+    sig = 'pred'
+    if len(op) > 0:
+        sig = op[0]
+    template = {
+        'fn': 'nems.modules.sum.sum_channels',
+        'tf_layer': '',
+        'fn_kwargs': {'i': sig,
+                      'o': sig,
+                      },
+        'phi': {}
+        }
+
+    return template
+
+
 @xmodule('stp')
 def stp(kw):
     '''
@@ -1729,3 +1751,5 @@ def wcn(kw):
         }
 
     return template
+
+
