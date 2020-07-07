@@ -133,6 +133,11 @@ def test_relu(data, kern_size):
     assert compare_ms_tf(layer_spec, data)
 
 
+def test_sum(data, kern_size):
+    layer_spec = f'sum'
+    assert compare_ms_tf(layer_spec, data)
+
+
 def test_dlog(data, kern_size):
     in_size = data.shape[-1]
     layer_spec = f'dlog.c{in_size}'

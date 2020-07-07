@@ -837,6 +837,23 @@ class StateDCGain(BaseLayer):
         return layer_values
 
 
+class Sum(BaseLayer):
+    """Subclass of tf.keras Add layer"""
+    def __init__(self, initializer=None, seed=0, *args, **kwargs):
+        super(Sum, self).__init__(*args, **kwargs)
+
+    def call(self, inputs, training=True):
+        return tf.math.reduce_sum(inputs, axis=-1, keepdims=True)
+
+    def compute_output_shape(self, input_shape):
+        input_shape[-1] = 1
+        return input_shape
+
+    def weights_to_phi(self):
+        log.info(f'No phis to convert for {self.name}.')
+        return {}
+
+
 class Conv2D_NEMS(BaseLayer, Conv2D):
     _TF_ONLY = True
     def __init__(self, initializer=None, seed=0, *args, **kwargs):

@@ -778,7 +778,7 @@ def sum(kw):
         sig = op[0]
     template = {
         'fn': 'nems.modules.sum.sum_channels',
-        'tf_layer': '',
+        'tf_layer': 'nems.tf.layers.Sum',
         'fn_kwargs': {'i': sig,
                       'o': sig,
                       },
