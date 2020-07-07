@@ -368,7 +368,10 @@ def normalize_stim(rec=None, sig='stim', norm_method='meanstd', **context):
     :param context: pass-through for other variables in xforms context dictionary that aren't used.
     :return: copy(?) of rec with updated signal.
     """
-    rec[sig] = rec.copy()[sig].rasterize().normalize(norm_method)
+    if sig in rec.signals.keys():
+        rec[sig] = rec.copy()[sig].rasterize().normalize(norm_method)
+    else:
+        log.info(f'Signal {sig} not in recording, skipping normalize')
     return {'rec': rec}
 
 
@@ -380,7 +383,10 @@ def normalize_sig(rec=None, sig='stim', norm_method='meanstd', **context):
     :param context: pass-through for other variables in xforms context dictionary that aren't used.
     :return: copy(?) of rec with updated signal.
     """
-    rec[sig] = rec.copy()[sig].rasterize().normalize(norm_method)
+    if sig in rec.signals.keys():
+        rec[sig] = rec.copy()[sig].rasterize().normalize(norm_method)
+    else:
+        log.info(f'Signal {sig} not it recording, skipping normalize')
     return {'rec': rec}
 
 

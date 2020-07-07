@@ -548,6 +548,16 @@ def generate_stim_from_epochs(rec, new_signal_name='stim',
         log.info("generate_stim_from_epochs: no epochs matching regex: %s, skipping ..." % epoch_regex)
 
     else:
+        # sort extracted stim
+        try:
+            n = {e: float(e.split("_")[1])+100000*(e.split("_")[0]=="TAR") for e in epochs_to_extract}
+            def _myfunc(i):
+                return(n[i])
+            epochs_to_extract.sort(key=_myfunc)
+            log.info('sorted epochs')
+        except:
+            pass
+
         sigs = []
         for e in epochs_to_extract:
             log.info('Adding to %s: %s with shift = %d',

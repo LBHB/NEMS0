@@ -222,7 +222,10 @@ def fit_tf(
 
     # get state if present, and setup training data
     if 'state' in est.signals:
-        state_train = np.transpose(est['state'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
+        if (epoch_name is not None) and (epoch_name != ""):
+           state_train = np.transpose(est['state'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
+        else:
+           state_train = np.transpose(est.apply_mask()['state'].as_continuous()[np.newaxis, ...], [0, 2, 1])
         state_shape = state_train.shape
         log.info(f'State dimensions: {state_shape}')
         train_data = [stim_train, state_train]
