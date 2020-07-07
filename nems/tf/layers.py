@@ -61,6 +61,8 @@ class BaseLayer(tf.keras.layers.Layer):
             kwargs['reset_signal'] = None
         if 'non_causal' in ms_layer['fn_kwargs']:
             kwargs['non_causal'] = ms_layer['fn_kwargs']['non_causal']
+        if 'state_type' in ms_layer['fn_kwargs']:
+            kwargs['state_type'] = ms_layer['fn_kwargs']['state_type']
 
         pass_through_keys = ['n_inputs', 'crosstalk', 'filters', 'kernel_size',
                              'activation', 'units', 'padding']
@@ -763,10 +765,14 @@ class StateDCGain(BaseLayer):
                  n_inputs=1,
                  initializer=None,
                  seed=0,
+                 state_type='both',
+                 bounds=None,
                  *args,
                  **kwargs,
                  ):
         super(StateDCGain, self).__init__(*args, **kwargs)
+
+        self.state_type = state_type
 
         # try to infer the number of units if not specified
         if units is None and initializer is None:
@@ -788,28 +794,39 @@ class StateDCGain(BaseLayer):
     def build(self, input_shape):
         input_shape, state_shape = input_shape
 
-        self.g = self.add_weight(name='g',
-                                 shape=(self.n_inputs, self.units),
-                                 # shape=(self.units, input_shape[-1]),
-                                 dtype='float32',
-                                 initializer=self.initializer['g'],
-                                 trainable=True,
-                                 )
-        self.d = self.add_weight(name='d',
-                                 shape=(self.n_inputs, self.units),
-                                 # shape=(self.units, input_shape[-1]),
-                                 dtype='float32',
-                                 initializer=self.initializer['d'],
-                                 trainable=True,
-                                 )
+        if self.state_type != 'dc_only':
+            self.g = self.add_weight(name='g',
+                                     shape=(self.n_inputs, self.units),
+                                     # shape=(self.units, input_shape[-1]),
+                                     dtype='float32',
+                                     initializer=self.initializer['g'],
+                                     trainable=True,
+                                     )
+        else:
+            self.g = np.zeros((self.n_inputs, self.units))
+            self.g[:, 0] = 1
+            self.g = tf.constant(self.g, dtype='float32')
+
+        if self.state_type != 'gain_only':
+            # don't need a d param if we only want gain
+            self.d = self.add_weight(name='d',
+                                     shape=(self.n_inputs, self.units),
+                                     # shape=(self.units, input_shape[-1]),
+                                     dtype='float32',
+                                     initializer=self.initializer['d'],
+                                     trainable=True,
+                                     )
 
     def call(self, inputs, training=True):
         inputs, state_inputs = inputs
 
         g_transposed = tf.transpose(self.g)
-        d_transposed = tf.transpose(self.d)
 
         g_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(g_transposed, 0), stride=1, padding='SAME')
+        if self.state_type == 'gain_only':
+            return inputs * g_conv
+
+        d_transposed = tf.transpose(self.d)
         d_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(d_transposed, 0), stride=1, padding='SAME')
 
         return inputs * g_conv + d_conv

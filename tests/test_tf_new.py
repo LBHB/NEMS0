@@ -115,6 +115,18 @@ def test_stategain(data, state_data, kern_size):
     assert compare_ms_tf(layer_spec, data, state_data)
 
 
+def test_stategain_g(data, state_data, kern_size):
+    in_size = state_data.shape[-1]
+    layer_spec = f'stategain.{in_size}.g'
+    assert compare_ms_tf(layer_spec, data, state_data)
+
+
+def test_stategain_dc(data, state_data, kern_size):
+    in_size = state_data.shape[-1]
+    layer_spec = f'stategain.{in_size}.dc'
+    assert compare_ms_tf(layer_spec, data, state_data)
+
+
 def test_relu(data, kern_size):
     in_size = data.shape[-1]
     layer_spec = f'relu.{in_size}'

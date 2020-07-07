@@ -48,7 +48,7 @@ def state_dc_gain(rec, i='pred', o='pred', s='state', include_lv=False, c=None, 
         return [new_signal]
 
 def state_gain(rec, i='pred', o='pred', s='state', include_lv=False,
-               fix_across_channels=0, c=None, g=None):
+               fix_across_channels=0, c=None, g=None, **kwargs):
     '''
     Linear gain for each state applied to each predicted channel
 

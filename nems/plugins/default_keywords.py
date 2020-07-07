@@ -1391,6 +1391,9 @@ def stategain(kw):
     gain_only=('g' in options[2:])
     include_spont=('s' in options[2:]) # separate offset for spont than during evoked
     dc_only=('d' in options[2:])
+    if gain_only and dc_only:
+        raise ValueError('Cannot have both gain only and dc only.')
+
     fix_across_channels = 0
     if 'c1' in options[2:]:
         fix_across_channels = 1
@@ -1417,7 +1420,8 @@ def stategain(kw):
     if dc_only:
         template = {
             'fn': 'nems.modules.state.state_dc_gain',
-            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'g': g_mean},
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars, 'n_inputs': n_chans, 'g': g_mean,
+                          'state_type': 'dc_only'},
             'plot_fns': plot_fns,
             'plot_fn_idx': 5,
             'prior': {'d': ('Normal', {'mean': d_mean, 'sd': d_sd})}
@@ -1428,7 +1432,8 @@ def stategain(kw):
         bounds['g'][1][1:, :fix_across_channels] = g_mean[1:, :fix_across_channels]
         template = {
             'fn': 'nems.modules.state.state_gain',
-            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state},
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars, 'n_inputs': n_chans, 'state_type':
+                          'gain_only'},
             'plot_fns': plot_fns,
             'plot_fn_idx': 5,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd})},
@@ -1449,7 +1454,6 @@ def stategain(kw):
             'fn': 'nems.modules.state.state_dc_gain',
             'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars, 'n_inputs': n_chans},
             # chans/vars backwards for compat with tf layer
-            'tf_layer': 'nems.tf.layers.StateDCGain',
             'plot_fns': plot_fns,
             'plot_fn_idx': 5,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
@@ -1458,6 +1462,7 @@ def stategain(kw):
     if fix_across_channels:
         template['fn_kwargs'].update({'fix_across_channels': fix_across_channels})
 
+    template['tf_layer'] = 'nems.tf.layers.StateDCGain'
     return template
 
 
