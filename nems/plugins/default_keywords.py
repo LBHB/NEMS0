@@ -767,6 +767,27 @@ def scl(kw):
     return template
 
 
+def sum(kw):
+    """
+    sum signal <sig> over channels (N x T) --> (1 x T) signal
+    syntax: sum.<sig>  default <sig>="pred"
+    """
+    op = kw.split(".")[1:]
+    sig = 'pred'
+    if len(op) > 0:
+        sig = op[0]
+    template = {
+        'fn': 'nems.modules.sum.sum_channels',
+        'tf_layer': '',
+        'fn_kwargs': {'i': sig,
+                      'o': sig,
+                      },
+        'phi': {}
+        }
+
+    return template
+
+
 def stp(kw):
     '''
     Generate and register modulespec for short_term_plasticity module.
@@ -1705,3 +1726,5 @@ def wcn(kw):
         }
 
     return template
+
+
