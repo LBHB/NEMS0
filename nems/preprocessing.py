@@ -1207,7 +1207,8 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
     rec0.meta['pc_weights'] = v
     rec0.meta['pc_mag'] = s
     if overwrite_resp:
-        rec0[resp_sig] = rec0[resp_sig]._modified_copy(X[:, pc_idx].T)
+        rec0[resp_sig] = rec0[resp_sig]._modified_copy(X[:, pc_idx].T, 
+                                                       chans=[pc_chans[c] for c in pc_idx])
         rec0.meta['pc_idx'] = pc_idx
 
     return {'rec': rec0}
