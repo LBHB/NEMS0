@@ -176,6 +176,12 @@ def pd_query(sql=None, params=None):
     return d
 
 
+def sql_command(sql):
+    engine = Engine()
+    conn = engine.connect()
+    conn.execute(sql)
+
+
 ###### Functions that access / manipulate the job queue. #######
 
 def enqueue_models(celllist, batch, modellist, force_rerun=False,
