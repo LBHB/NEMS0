@@ -5,6 +5,7 @@ import logging
 import os
 import typing
 from pathlib import Path
+from packaging import version
 
 import numpy as np
 import tensorflow as tf
@@ -294,12 +295,12 @@ def fit_tf(
     # save an initial set of weights before freezing, in case of termination before any checkpoints
     model.save_weights(str(checkpoint_filepath), overwrite=True)
 
-    if float(tf.version)>=2.2:
+    if version.parse(tf.__version__)>=version.parse("2.2.0"):
         callback0 = [sparse_logger]
         verbose=0
     else:
         callback0 = []
-        verbose = 1
+        verbose = 2
 
     log.info(f'Fitting model (batch_size={batch_size}...')
     history = model.fit(
