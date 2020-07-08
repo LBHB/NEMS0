@@ -64,6 +64,7 @@ def Tables():
                 'Analysis': Base.classes.Analysis,
                 'Batches': Base.classes.Batches,
                 'Results': Base.classes.Results,
+                'Data': Base.classes.Data,
                 'tQueue': Base.classes.tQueue,
                 'tComputer': Base.classes.tComputer,
                 }
@@ -73,6 +74,7 @@ def Tables():
             'Analysis': Base.classes.NarfAnalysis,
             'Batches': Base.classes.NarfBatches,
             'Results': Base.classes.Results,
+            'Data': Base.classes.NarfData,
             'tQueue': Base.classes.tQueue,
             'tComputer': Base.classes.tComputer,
         }
@@ -900,6 +902,71 @@ def get_batch(name=None, batchid=None):
 
     return d
 
+def add_batch_data(cellid, batch, recording_uri_list):
+    """
+    Save information about a fit based on modelspec.meta
+    :param cellid:
+    :param batch:
+    :param recording_uri_list:
+    :return:
+    """
+    if type(recording_uri_list) is str:
+        recording_uri_list = [recording_uri_list]
+
+    db_tables = Tables()
+    Batches = db_tables['Batches']
+    Data = db_tables['Data']
+
+    session = Session()
+    results_id = None
+
+    session = Session()
+    db_tables = Tables()
+    Batches = db_tables['Batches']
+    Data = db_tables['Data']
+
+    r = (session.query(Batches)
+         .filter(Batches.cellid == cellid)
+         .filter(Batches.batch == batch)
+         .first()
+         )
+    if r is None:
+        # add cell/batch to Data
+        log.info("Adding (%s/%d) to Batches", cellid, batch)
+        r = Batches()
+        r.cellid = cellid
+        r.batch = batch
+        session.add(r)
+        session.commit()
+
+    r = (session.query(Data)
+         .filter(Data.cellid == cellid)
+         .filter(Data.batch == batch)
+         )
+    if r.count():
+        log.info("Deleting existing (%s/%d) entries in Data", cellid, batch)
+        for row in r:
+            print(row.filepath)
+        r.delete()
+        session.commit()
+
+    for groupid, uri in enumerate(recording_uri_list):
+        r = Data()
+        r.cellid = cellid
+        r.batch = batch
+        r.groupid = groupid + 1
+        r.filepath = uri
+        r.val_snr = 0
+        r.est_snr = 0
+        r.min_isolation = 0
+        r.min_snr_index = 0
+        session.add(r)
+
+    session.commit()
+
+    return True
+
+
 def get_batch_cells(batch=None, cellid=None, rawid=None, as_list=False):
     '''
     Retrieve a dataframe from Data containing all cellids in a batch.
@@ -1202,16 +1269,16 @@ def export_fits(batch, modelnames=None, cellids=None, dest=None):
 def get_stable_batch_cells(batch=None, cellid=None, rawid=None, label ='parm'):
     '''
     New functionality as of 03/13/2020
-        Previous: returned set of cellids that was stable across all files 
+        Previous: returned set of cellids that was stable across all files
             e.g. if 20 cells were recorded across four files but only 15 of the cells
-            were isolated across all four files, this would return a list of only 
+            were isolated across all four files, this would return a list of only
             those 15 cells and the rawid for all four files.
-        
+
         New behavior: Now, does the opposite of before and returns the 20 cellids
             and only the three file rawids where all 20 cells were stable.
-    
+
     If rawid is passed, this will only return the cells that were stable across those
-    rawids. So, in the example, if you passed all four rawids you'd only get the 15 
+    rawids. So, in the example, if you passed all four rawids you'd only get the 15
     cellids back corresponding to the stable isolation units.
     '''
     if (batch is None) | (cellid is None):
@@ -1237,8 +1304,8 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None, label ='parm'):
             cellid = tuple([c for c in cellid])
             sql += " AND cellid IN %s"
             params += (cellid,)
-    
-    # check to see if rawid was specified, if not, just find the 
+
+    # check to see if rawid was specified, if not, just find the
     # superset of cells
     if rawid is not None:
         try:
@@ -1255,7 +1322,7 @@ def get_stable_batch_cells(batch=None, cellid=None, rawid=None, label ='parm'):
         cellids = [cid for cid in cellids if np.all(np.sort(d[d.cellid==cid].rawid.unique().tolist())==np.sort(rawid))]
 
         return cellids, rawid
-    
+
     else:
         d = pd.read_sql(sql=sql, con=engine, params=params)
         cellids = d.cellid.unique().tolist()

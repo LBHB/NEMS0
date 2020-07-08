@@ -76,19 +76,18 @@ import PyQt5.QtWidgets as qw
 import PyQt5.QtCore as qc
 import PyQt5.QtGui as qg
 
+app = qw.QApplication.instance()
+if app is None:
+    # if it does not exist then a QApplication is created
+    app = qw.QApplication(sys.argv)
+
 from nems import xforms
 from nems.gui.models import ArrayModel
 from nems.gui.canvas import NemsCanvas, EpochCanvas, MplWindow
 from nems.modelspec import _lookup_fn_at
 import nems.db as nd
-from nems.registry import KeywordRegistry
-from nems.plugins import (default_keywords, default_loaders,
-                          default_initializers, default_fitters)
+from nems.registry import keyword_lib
 from nems import get_setting
-
-keyword_lib = KeywordRegistry()
-keyword_lib.register_module(default_keywords)
-keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
 log = logging.getLogger(__name__)
 
@@ -1568,17 +1567,12 @@ def run(modelspec, xfspec, rec, ctx):
 
 def browse_xform_fit(ctx, xfspec, recname='val', control_widget=None):
     app = qw.QApplication.instance()
-    if app is None:
-        # if it does not exist then a QApplication is created
-        app = qw.QApplication(sys.argv)
-
     modelspec = ctx['modelspec']
     rec = ctx[recname]
     ex = EditorWindow(modelspec=modelspec, xfspec=xfspec, rec=rec,
                       ctx=ctx, control_widget=control_widget)
 
     return ex
-
 
 _DEBUG = False
 if __name__ == '__main__':

@@ -104,7 +104,7 @@ def _set_phi_in_module(module, prior_to_phi_fn):
             log.warning(m)
     else:
         new_phi = prior_to_phi_fn(prior)
-        if 'phi' in new_module:
+        if new_module.get('phi', None) is not None:
             old_phi = new_module['phi']
             if len(new_phi) != len(old_phi):
                 m = 'Not all phi values have priors: ' + str(module)
@@ -123,9 +123,9 @@ def _set_phi_in_modelspec(modelspec, prior_to_phi_fn):
     '''
     new_mspec = deepcopy(modelspec)
     for m in new_mspec:
-        d = _set_phi_in_module(deepcopy(m), prior_to_phi_fn)
-        if 'phi' in d.keys():
-            m['phi'] = d['phi'].copy()
+        m_new = _set_phi_in_module(m, prior_to_phi_fn)
+        if 'phi' in m_new.keys():
+            m['phi'] = m_new['phi'].copy()
 
     return new_mspec
 

@@ -1624,7 +1624,7 @@ def jackknife_inverse_merge(rec_list):
 #       the unpack option depends on code in this module.
 
 DEMO_NAMES = [
-        'TAR010c-18-1.pkl', 'TAR010c-18-1.tgz', 'eno052d-a1.tgz',
+        'TAR010c-18-1.pkl', 'TAR010c.NAT.fs100.ch18.tgz', 'eno052d-a1.tgz',
         'BRT026c-02-1.tgz', 'resp2.tgz',
         'TAR010c-06-1.tgz',
         ]

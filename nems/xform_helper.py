@@ -245,7 +245,7 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     else:
         figs = []
     save_data = xforms.save_analysis(save_destination,
-                                     recording=ctx['rec'],
+                                     recording=ctx.get('rec'),
                                      modelspec=modelspec,
                                      xfspec=xfspec,
                                      figures=figs,

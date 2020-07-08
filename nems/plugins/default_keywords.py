@@ -30,8 +30,7 @@ import re
 import logging
 
 import numpy as np
-
-from nems.tf import layers
+from nems.registry import xmodule
 
 log = logging.getLogger(__name__)
 
@@ -41,6 +40,7 @@ def _one_zz(zerocount=1):
     return np.concatenate((np.ones(1), np.zeros(zerocount)))
 
 
+@xmodule('wc')
 def wc(kw):
     '''
     Parses the default modulespec for basic and gaussian channel weighting. By default, weights are initialized
@@ -205,6 +205,7 @@ def wc(kw):
 
     return template
 
+@xmodule('lv')
 def lv(kw):
     '''
     weighted sum of r responses (inputs) into n channels (outputs)
@@ -264,6 +265,7 @@ def lv(kw):
     return template
 
 
+@xmodule('fir')
 def fir(kw):
     '''
     Generate and register default modulespec for basic channel weighting
@@ -379,6 +381,7 @@ def fir(kw):
     return template
 
 
+@xmodule('strf')
 def strf(kw):
     '''
     Generate a stim_channel x time_bin array of coefficients to be used
@@ -420,6 +423,7 @@ def strf(kw):
     return template
 
 
+@xmodule('pz')
 def pz(kw):
     '''
     Generate and register default modulespec for pole-zero filters
@@ -501,6 +505,7 @@ def pz(kw):
     return template
 
 
+@xmodule('do')
 def do(kw):
     '''
     Generate and register default modulespec for damped oscillator-based filters.
@@ -590,6 +595,7 @@ def do(kw):
     return template
 
 
+@xmodule('fird')
 def fird(kw):
     '''
     Generate and register default modulespec for fir_dexp filters
@@ -640,6 +646,7 @@ def fird(kw):
     return template
 
 
+@xmodule('firexp')
 def firexp(kw):
     '''
     Generate and register default modulespec for fir_exp filters
@@ -689,6 +696,7 @@ def firexp(kw):
     return template
 
 
+@xmodule('lvl')
 def lvl(kw):
     '''
     Generate and register default modulespec for the levelshift module.
@@ -730,6 +738,7 @@ def lvl(kw):
     return template
 
 
+@xmodule('scl')
 def scl(kw):
     '''
     Generate and register default modulespec for the scale module.
@@ -767,6 +776,7 @@ def scl(kw):
     return template
 
 
+@xmodule('sum')
 def sum(kw):
     """
     sum signal <sig> over channels (N x T) --> (1 x T) signal
@@ -788,6 +798,7 @@ def sum(kw):
     return template
 
 
+@xmodule('stp')
 def stp(kw):
     '''
     Generate and register modulespec for short_term_plasticity module.
@@ -878,6 +889,7 @@ def stp(kw):
     return template
 
 
+@xmodule('dep')
 def dep(kw):
     """ same as stp(kw) but sets kw_args->dep_only = True """
     template = stp(kw.replace('dep','stp'))
@@ -890,6 +902,7 @@ def dep(kw):
     return template
 
 
+@xmodule('stp2')
 def stp2(kw):
     '''
     Generate and register modulespec for short_term_plasticity2 module. Two plasticity timecoursees
@@ -983,6 +996,7 @@ def stp2(kw):
     return template
 
 
+@xmodule('dexp')
 def dexp(kw):
     '''
     Generate and register modulespec for double_exponential module.
@@ -1052,6 +1066,7 @@ def dexp(kw):
     return template
 
 
+@xmodule('qsig')
 def qsig(kw):
     '''
     Generate and register modulespec for quick_sigmoid module.
@@ -1098,6 +1113,7 @@ def qsig(kw):
     return template
 
 
+@xmodule('logsig')
 def logsig(kw):
     '''
     Generate and registry modulespec for the logistic_sigmoid module.
@@ -1137,6 +1153,7 @@ def logsig(kw):
     return template
 
 
+@xmodule('tanh')
 def tanh(kw):
     '''
     Generate and register modulespec for tanh module.
@@ -1190,6 +1207,7 @@ def tanh(kw):
     return template
 
 
+@xmodule('dlog')
 def dlog(kw):
     '''
     Generate and register modulespec for dlog module.
@@ -1254,6 +1272,7 @@ def dlog(kw):
     return template
 
 
+@xmodule('relu')
 def relu(kw):
     '''
     Generate and register modulespec for nonlinearity.relu module.
@@ -1315,6 +1334,7 @@ def relu(kw):
     return template
 
 
+@xmodule('relsat')
 def relsat(kw):
     '''
     Saturated rectifier, similar to relu but uses sigmoidal parameters.
@@ -1345,6 +1365,7 @@ def relsat(kw):
     return template
 
 
+@xmodule('stategain')
 def stategain(kw):
     '''
     Generate and register modulespec for the state_dc_gain module.
@@ -1466,6 +1487,7 @@ def stategain(kw):
     return template
 
 
+@xmodule('stateseg')
 def stateseg(kw):
     '''
     Generate and register modulespec for the state_segmented module.
@@ -1525,6 +1547,7 @@ def stateseg(kw):
     return template
 
 
+@xmodule('sw')
 def sw(kw):
     '''
     Generate and register modulespec for the state.state_weight module.
@@ -1581,6 +1604,7 @@ def sw(kw):
     return template
 
 
+@xmodule('rep')
 def rep(kw):
     '''
     Generate and register modulespec for replicate_channels module.
@@ -1615,6 +1639,7 @@ def rep(kw):
     return template
 
 
+@xmodule('mrg')
 def mrg(kw):
     '''
     Generate and register modulespec for merge_channels module.

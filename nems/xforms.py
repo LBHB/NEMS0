@@ -9,6 +9,7 @@ import os
 import copy
 import socket
 import logging
+import importlib
 import glob
 
 import matplotlib.pyplot as plt
@@ -25,9 +26,9 @@ import nems.plots.api as nplt
 import nems.preprocessing as preproc
 import nems.priors as priors
 from nems import get_setting
-from nems.registry import KeywordRegistry
-from nems.plugins import (default_keywords, default_loaders, default_fitters,
-                          default_initializers)
+from nems.registry import xforms_lib, keyword_lib, xform, xmodule, scan_for_kw_defs
+#from nems.plugins import (default_keywords, default_loaders, default_fitters,
+#                          default_initializers)
 from nems.signal import RasterizedSignal
 from nems.uri import save_resource, load_resource
 from nems.utils import (iso8601_datestring, find_module,
@@ -36,8 +37,22 @@ from nems.fitters.api import scipy_minimize
 from nems.recording import load_recording, Recording
 
 log = logging.getLogger(__name__)
-xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
 
+# REGISTRY SETUP
+# scan in plugins dir by default
+scan_for_kw_defs(os.path.join(get_setting('NEMS_DIR'),'nems','plugins'))
+
+# populate the registry as specified in config settings
+scan_for_kw_defs(get_setting('LIB_PLUGINS'))
+scan_for_kw_defs(get_setting('KEYWORD_PLUGINS'))
+scan_for_kw_defs(get_setting('XFORMS_PLUGINS'))
+
+# DEPRECATED - migrates to import and decorators
+#xforms_lib.register_modules([default_loaders, default_fitters, default_initializers])
+#xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
+
+# DEPRECATED?
+#xforms = {}  # A mapping of kform keywords to xform 2-tuplets (2 element lists)
 
 def defxf(keyword, xformspec):
     """
@@ -45,27 +60,11 @@ def defxf(keyword, xformspec):
     A helper function so not every keyword mapping has to be in a single
     file and part of a very large single multiline dict.
     """
+    raise DeprecationWarning('Deprecated?')
     if keyword in xforms:
         raise ValueError("Keyword already defined! Choose another name.")
     xforms[keyword] = xformspec
 
-
-def load_xform(uri):
-    """
-    Loads and returns xform saved as a JSON.
-    """
-    xform = load_resource(uri)
-    return xform
-
-
-def xfspec_shortname(xformspec):
-    """
-    Given an xformspec, makes a shortname for it.
-    """
-    n = len('nems.xforms.')
-    fn_names = [xf[n:] for xf, xfa in xformspec]
-    name = ".".join(fn_names)
-    return name
 
 
 def evaluate_step(xfa, context={}):
@@ -369,7 +368,10 @@ def normalize_stim(rec=None, sig='stim', norm_method='meanstd', **context):
     :param context: pass-through for other variables in xforms context dictionary that aren't used.
     :return: copy(?) of rec with updated signal.
     """
-    rec[sig] = rec.copy()[sig].rasterize().normalize(norm_method)
+    if sig in rec.signals.keys():
+        rec[sig] = rec.copy()[sig].rasterize().normalize(norm_method)
+    else:
+        log.info(f'Signal {sig} not in recording, skipping normalize')
     return {'rec': rec}
 
 
@@ -381,7 +383,10 @@ def normalize_sig(rec=None, sig='stim', norm_method='meanstd', **context):
     :param context: pass-through for other variables in xforms context dictionary that aren't used.
     :return: copy(?) of rec with updated signal.
     """
-    rec[sig] = rec.copy()[sig].rasterize().normalize(norm_method)
+    if sig in rec.signals.keys():
+        rec[sig] = rec.copy()[sig].rasterize().normalize(norm_method)
+    else:
+        log.info(f'Signal {sig} not it recording, skipping normalize')
     return {'rec': rec}
 
 
@@ -598,11 +603,36 @@ def make_mod_signal(rec, signal='resp'):
 
     return new_rec
 
+@xform()
+def sev(kw):
+    ops = kw.split('.')[1:]
+    epoch_regex = '^STIM' if not ops else ops[0]
+    xfspec = [['nems.xforms.split_by_occurrence_counts',
+               {'epoch_regex': epoch_regex}],
+        ['nems.xforms.average_away_stim_occurrences',
+         {'epoch_regex': epoch_regex}]]
+    return xfspec
 
 def split_by_occurrence_counts(rec, epoch_regex='^STIM_', **context):
     est, val = rec.split_using_epoch_occurrence_counts(epoch_regex=epoch_regex)
 
     return {'est': est, 'val': val}
+
+
+@xform()
+def tev(kw):
+    ops = kw.split('.')[1:]
+
+    valfrac = 0.1
+    for op in ops:
+        if op.startswith("vv"):
+            valfrac=int(op[2:]) / 1000
+        elif op.startswith("v"):
+            valfrac=int(op[1:]) / 100
+
+    xfspec = [['nems.xforms.split_at_time', {'valfrac': valfrac}]]
+
+    return xfspec
 
 
 def split_at_time(rec, valfrac=0.1, **context):
@@ -1233,6 +1263,24 @@ def random_sample_fit(ntimes=10, subset=None, IsReload=False, **context):
 ###############################################################################
 ##################        XFORMS UTILITIES             ########################
 ###############################################################################
+
+
+def load_xform(uri):
+    """
+    Loads and returns xform saved as a JSON.
+    """
+    xform = load_resource(uri)
+    return xform
+
+
+def xfspec_shortname(xformspec):
+    """
+    Given an xformspec, makes a shortname for it.
+    """
+    n = len('nems.xforms.')
+    fn_names = [xf[n:] for xf, xfa in xformspec]
+    name = ".".join(fn_names)
+    return name
 
 
 def tree_path(recording, modelspecs, xfspec):
