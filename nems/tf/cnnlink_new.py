@@ -467,7 +467,7 @@ def fit_tf_init(
                     if init_static_layer == 'relu':
                         ms['phi']['offset'][:] = -0.1
                     else:
-                        modelspec = init_fn(est, modelspec)
+                        modelspec = init_fn(est, modelspec, nl_mode=4)
 
                     static_nl_idx_not = list(set(range(len(modelspec))) - set([idx]))
                     log.info('Running second init fit: all frozen but static nl.')

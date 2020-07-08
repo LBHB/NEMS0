@@ -712,7 +712,6 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
 
         # base = np.max(np.array([meanr - stdr * 4, 0]))
         base[i, 0] = np.min(resp)
-        # base = meanr - stdr * 3
 
         # amp = np.max(resp) - np.min(resp)
         if nl_mode == 1:
@@ -753,12 +752,20 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
 
             shift[i, 0] = np.mean(pred)
             kappa[i, 0] = np.log(predrange)
+        elif nl_mode ==4:
+            base[i, 0] = np.mean(resp) - stdr * 1
+            amp[i, 0] = stdr * 4
+            predrange = 2 / (np.std(pred)*3)
+            if not np.isfinite(predrange):
+                predrange = 1
+            kappa[i, 0] = np.log(predrange)
+            shift[i, 0] = np.mean(pred)
         else:
             raise ValueError('nl mode = {} not valid'.format(nl_mode))
 
     modelspec[target_i]['phi'] = {'amplitude': amp, 'base': base,
                                   'kappa': kappa, 'shift': shift}
-    #log.info("Init dexp: %s", modelspec[target_i]['phi'])
+    log.info("Init dexp: %s", modelspec[target_i]['phi'])
 
     return modelspec
 
