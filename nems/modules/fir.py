@@ -11,7 +11,8 @@ def get_zi(b, x):
     # lfilter to force it to return the final coefficients of the dummy
     # filter operation.
     n_taps = len(b)
-    null_data = np.full(n_taps*2, x[0])
+    #null_data = np.full(n_taps*2, x[0])
+    null_data = np.full(n_taps*2, 0)
     zi = np.ones(n_taps-1)
     return scipy.signal.lfilter(b, [1], null_data, zi=zi)[1]
 

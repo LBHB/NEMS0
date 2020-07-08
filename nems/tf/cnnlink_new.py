@@ -5,6 +5,7 @@ import logging
 import os
 import typing
 from pathlib import Path
+from packaging import version
 
 import numpy as np
 import tensorflow as tf
@@ -135,6 +136,7 @@ def fit_tf(
         filepath: typing.Union[str, Path] = None,
         freeze_layers: typing.Union[None, list] = None,
         IsReload: bool = False,
+        epoch_name: str = "REFERENCE",
         **context
         ) -> dict:
     """TODO
@@ -153,9 +155,11 @@ def fit_tf(
     :param filepath:
     :param freeze_layers: Indexes of layers to freeze prior to training. Indexes are modelspec indexes, so are offset
       from model layer indexes.
+    :param IsReload:
+    :param epoch_name
     :param context:
 
-    :return:
+    :return: dict {'modelspec': modelspec}
     """
 
     if IsReload:
@@ -197,18 +201,32 @@ def fit_tf(
     seed += modelspec.fit_index
 
     # need to get duration of stims in order to reshape data
-    epoch_name = 'REFERENCE'  # TODO: this should not be hardcoded
-    # also grab the fs
-    fs = est['stim'].fs
+    #epoch_name = 'REFERENCE'  # TODO: this should not be hardcoded
+    # moved to input parameter
 
-    # extract out the raw data, and reshape to (batch, time, channel)
-    stim_train = np.transpose(est['stim'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
-    resp_train = np.transpose(est['resp'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
+    input_name = modelspec.meta.get('input_name', 'stim')
+    output_name = modelspec.meta.get('output_name', 'resp')
+
+    # also grab the fs
+    fs = est[input_name].fs
+
+    if (epoch_name is not None) and (epoch_name != ""):
+        # extract out the raw data, and reshape to (batch, time, channel)
+        stim_train = np.transpose(est[input_name].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
+        resp_train = np.transpose(est[output_name].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
+    else:
+        # extract data as a single batch size (1, time, channel)
+        stim_train = np.transpose(est.apply_mask()[input_name].as_continuous()[np.newaxis, ...], [0, 2, 1])
+        resp_train = np.transpose(est.apply_mask()[output_name].as_continuous()[np.newaxis, ...], [0, 2, 1])
+
     log.info(f'Feature dimensions: {stim_train.shape}; Data dimensions: {resp_train.shape}.')
 
     # get state if present, and setup training data
     if 'state' in est.signals:
-        state_train = np.transpose(est['state'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
+        if (epoch_name is not None) and (epoch_name != ""):
+           state_train = np.transpose(est['state'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
+        else:
+           state_train = np.transpose(est.apply_mask()['state'].as_continuous()[np.newaxis, ...], [0, 2, 1])
         state_shape = state_train.shape
         log.info(f'State dimensions: {state_shape}')
         train_data = [stim_train, state_train]
@@ -277,16 +295,22 @@ def fit_tf(
     # save an initial set of weights before freezing, in case of termination before any checkpoints
     model.save_weights(str(checkpoint_filepath), overwrite=True)
 
+    if version.parse(tf.__version__)>=version.parse("2.2.0"):
+        callback0 = [sparse_logger]
+        verbose=0
+    else:
+        callback0 = []
+        verbose = 2
+
     log.info(f'Fitting model (batch_size={batch_size}...')
     history = model.fit(
         train_data,
         resp_train,
         # validation_split=0.2,
-        verbose=0,
+        verbose=verbose,
         epochs=max_iter,
         batch_size=batch_size,
-        callbacks=[
-            sparse_logger,
+        callbacks=callback0 + [
             nan_terminate,
             nan_weight_terminate,
             early_stopping,
@@ -366,23 +390,31 @@ def fit_tf_init(
 
     # find the first 'lvl' or last 'relu'
     ms_modules = [ms['fn'] for ms in modelspec]
-    up_to_idx = first_substring_index(ms_modules, 'levelshift')
-    if up_to_idx is None:
-        up_to_idx = first_substring_index(reversed(ms_modules), 'relu')
-        # because reversed, need to mirror the idx
-        if up_to_idx is not None:
-            up_to_idx = len(modelspec) - 1 - up_to_idx
-        else:
-            up_to_idx = len(modelspec) - 1
-
+    #up_to_idx = first_substring_index(ms_modules, 'levelshift')
+    relu_idx = first_substring_index(reversed(ms_modules), 'relu')
+    lvl_idx = first_substring_index(reversed(ms_modules), 'levelshift')
+    _idxs = [i for i in [relu_idx, lvl_idx, len(modelspec)-1] if i is not None]
+    up_to_idx = len(modelspec) - 1 - np.min(_idxs)
+    #last_idx = np.min([relu_idx, lvl_idx])
+    #up_to_idx = len(modelspec) - 1 - up_to_idx
+    #if up_to_idx is None:
+    #    up_to_idx = first_substring_index(reversed(ms_modules), 'levelshift')
+    #    # because reversed, need to mirror the idx
+    #    if up_to_idx is not None:
+    #        up_to_idx = len(modelspec) - 1 - up_to_idx
+    #    else:
+    #        up_to_idx = len(modelspec) - 1
+    log.info('up_to_idx=%d (%s)', up_to_idx, modelspec[up_to_idx]['fn'])
+    
     # do the +1 here to avoid adding to None
     up_to_idx += 1
-
     # exclude the following from the init
-    exclude = ['stp', 'rdt_gain', 'state_dc_gain', 'state_gain']
+    exclude = ['rdt_gain', 'state_dc_gain', 'state_gain']
+    freeze = ['stp']
     # more complex version of first_substring_index: checks for not membership in init_static_nl_layers
     init_idxes = [idx for idx, ms in enumerate(ms_modules[:up_to_idx]) if not any(sub in ms for sub in exclude)]
 
+    freeze_idxes = []
     # make a temp modelspec
     temp_ms = mslib.ModelSpec()
     log.info('Creating temporary model for init with:')
@@ -399,14 +431,18 @@ def fit_tf_init(
             except NotImplementedError:
                 # as_continuous only available for RasterizedSignal
                 mean_resp = np.nanmean(est[output_name].rasterize().as_continuous(), axis=1, keepdims=True)
-            log.info(f'Fixing "{ms["fn"]}" to: {mean_resp.flatten()[0]:.3f}')
-            ms['phi']['level'][:] = mean_resp
+            if len(ms['phi']['level'][:]) == len(mean_resp):
+               log.info(f'Fixing "{ms["fn"]}" to: {mean_resp.flatten()[0]:.3f}')
+               ms['phi']['level'][:] = mean_resp
 
         temp_ms.append(ms)
+        if any(fr in ms['fn'] for fr in freeze):
+            freeze_idxes.append(len(temp_ms)-1)
 
     log.info('Running first init fit: model up to first lvl/relu without stp/gain.')
+    log.debug('freeze_idxes: %s', freeze_idxes)
     filepath = Path(modelspec.meta['modelpath']) / 'init_part1'
-    temp_ms = fit_tf(temp_ms, est, filepath=filepath, **kwargs)['modelspec']
+    temp_ms = fit_tf(temp_ms, est, freeze_layers=freeze_idxes, filepath=filepath, **kwargs)['modelspec']
 
     # put back into original modelspec
     for ms_idx, temp_ms_module in zip(init_idxes, temp_ms):
@@ -438,7 +474,7 @@ def fit_tf_init(
                     if init_static_layer == 'relu':
                         ms['phi']['offset'][:] = -0.1
                     else:
-                        modelspec = init_fn(est, modelspec)
+                        modelspec = init_fn(est, modelspec, nl_mode=4)
 
                     static_nl_idx_not = list(set(range(len(modelspec))) - set([idx]))
                     log.info('Running second init fit: all frozen but static nl.')

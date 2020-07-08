@@ -1,3 +1,6 @@
+from nems.registry import xform, xmodule
+
+@xform()
 def ld(loadkey, recording_uri=None, recording_uri_list=None, cellid=None):
     '''
     Default loader xfspec. Loads the recording and (optionally) specifies
@@ -51,7 +54,7 @@ def ld(loadkey, recording_uri=None, recording_uri_list=None, cellid=None):
 
     return xfspec
 
-
+@xform()
 def none(loadkey):
     '''
     Does nothing, but xforms expects at least one loader/preprocessor.

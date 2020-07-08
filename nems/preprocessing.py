@@ -548,6 +548,16 @@ def generate_stim_from_epochs(rec, new_signal_name='stim',
         log.info("generate_stim_from_epochs: no epochs matching regex: %s, skipping ..." % epoch_regex)
 
     else:
+        # sort extracted stim
+        try:
+            n = {e: float(e.split("_")[1])+100000*(e.split("_")[0]=="TAR") for e in epochs_to_extract}
+            def _myfunc(i):
+                return(n[i])
+            epochs_to_extract.sort(key=_myfunc)
+            log.info('sorted epochs')
+        except:
+            pass
+
         sigs = []
         for e in epochs_to_extract:
             log.info('Adding to %s: %s with shift = %d',
@@ -1105,7 +1115,7 @@ def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals,
     return ests, vals
 
 
-def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
+def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
                pc_count=None, pc_source='all', overwrite_resp=True,
                compute_power='no',
                whiten=True, **context):
@@ -1125,8 +1135,6 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
     :return: copy of rec with PCs
     """
     rec0 = rec.copy()
-    if type(pc_idx) is int:
-        pc_idx = [pc_idx]
     resp = rec0[resp_sig]
 
     # compute duration of spont period
@@ -1162,6 +1170,10 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
 
     if pc_count is None:
         pc_count = D_ref.shape[1]
+    if pc_idx is None:
+        pc_idx=list(np.arange(pc_count))
+    elif type(pc_idx) is int:
+        pc_idx = [pc_idx]
 
     if False:
         # use sklearn. maybe someday

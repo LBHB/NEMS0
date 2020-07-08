@@ -416,7 +416,7 @@ class WeightChannelsGaussian(BaseLayer):
 
 
 class FIR(BaseLayer):
-    """Basic weight channels."""
+    """Basic FIR filter."""
     # TODO: organize params
     def __init__(self,
                  units=None,
@@ -463,6 +463,15 @@ class FIR(BaseLayer):
                                             trainable=True,
                                             )
 
+    def _call(self, inputs, training=True):
+        """Normal call."""
+        pad_size0 = self.units - 1 - self.non_causal
+        pad_size1 = self.non_causal
+        padded_input = tf.pad(inputs, [[0, 0], [pad_size0, pad_size1], [0, 0]])
+        transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
+        Y = tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
+        return Y
+
     def call(self, inputs, training=True):
         """Normal call."""
         pad_size0 = self.units - 1 - self.non_causal
@@ -480,11 +489,11 @@ class FIR(BaseLayer):
             # this implementation does not evaluate on a CPU if mapping subsets of
             # the input into the different FIR filters.
             transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
+            Y = tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
             if DEBUG:
                 print("padded input: ", padded_input.shape)
                 print("transposed kernel: ", transposed.shape)
                 print("Y: ", Y.shape)
-            Y = tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
             return Y
 
         # alternative, kludgy implementation, evaluate each filter separately on the

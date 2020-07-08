@@ -5,8 +5,8 @@ functions for modifying signals (merging, averaging, subsampling)
 """
 
 import numpy as np
-import nems.signal as signal
-import nems.preprocessing as preproc
+#import nems.signal as signal
+#import nems.preprocessing as preproc
 
 
 #def make_state_signal(rec, signals_in=['pupil'], signals_permute=[], o='state'):
@@ -28,10 +28,10 @@ import nems.preprocessing as preproc
 #    return [state]
 
 
-def average_sig(rec, i='resp', o='resp'):
-
-    return [preproc.generate_average_sig(rec[i], new_signalname=o,
-            epoch_regex='^STIM_')]
+#def average_sig(rec, i='resp', o='resp'):
+#
+#    return [preproc.generate_average_sig(rec[i], new_signalname=o,
+#            epoch_regex='^STIM_')]
 
 
 def replicate_channels(rec, i='pred', o='pred', repcount=2):

@@ -8,6 +8,7 @@ import os
 import re
 import typing
 from functools import partial
+import inspect
 
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
@@ -64,7 +65,15 @@ class ModelSpec:
             # TODO default is to make single list into jack_counts!
             r = np.full((1, 1, len(raw)), None)
             for i, _r in enumerate(raw):
-                r[0, 0, i] = _r
+                r[0, 0, i] = []
+                for __r in _r:
+                    # check if this is a new NemsModule object
+                    _f = _lookup_fn_at(__r['fn'])
+                    if inspect.isclass(_f):
+                        r[0, 0, i].append(_f(**__r))
+                    else:
+                        # if not, just save dict to module
+                        r[0, 0, i].append(__r)
             raw = r
 
         # otherwise, assume raw is a properly formatted 3D array (cell X fit X jack)
@@ -550,9 +559,12 @@ class ModelSpec:
         if fit_index is not None:
             self.fit_index = fit_index
 
+        input_name = self.meta.get('input_name', 'stim')
+        output_name = self.meta.get('output_name', 'resp')
+
         if sig_names is None:
             if include_input:
-                sig_names = ['stim']
+                sig_names = [input_name]
             else:
                 sig_names = []
 
@@ -664,7 +676,7 @@ class ModelSpec:
                 temp_plot_fn_set.append((mod_idx, plot_fn))
 
         plot_fn_modules = temp_plot_fn_set
-        
+
         # use partial so ax can be specified later
         # the format is (fn, col_span), where col_span is 1 for all of these, but will vary for the custom pre-post
         # below fn and col_span should be list, but for simplicity here they are just int and partial and converted
@@ -701,7 +713,39 @@ class ModelSpec:
             # add to front
             plot_fns = [(fn, 1)] + plot_fns
 
-        if include_output:
+        if include_output and (output_name=='stim'):
+            if rec[output_name].shape[0] > 1:
+                plot_fn = _lookup_fn_at('nems.plots.api.spectrogram')
+                title = output_name + ' spectrogram'
+            else:
+                plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_signals')
+                title = output_name + ' timeseries'
+
+            # actual output (stim)
+            fn = partial(plot_fn, rec=rec,
+                         sig_name=output_name,
+                         epoch=epoch,
+                         occurrence=occurrence,
+                         time_range=time_range,
+                         title=title
+                         )
+            # add to end
+            plot_fns.append((fn, 1))
+
+            # recon
+            r_test = np.mean(self.meta.get('r_test', [0]))
+            title = f'reconstruction r_test: {r_test:.3f}'
+            fn = partial(plot_fn, rec=rec,
+                         sig_name='pred',
+                         epoch=epoch,
+                         occurrence=occurrence,
+                         time_range=time_range,
+                         title=title
+                         )
+            # add to end
+            plot_fns.append((fn, 1))
+
+        elif include_output:
             if (time_range is not None) or (epoch is None):
                 plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_signals')
             else:
@@ -1039,43 +1083,78 @@ class ModelSpec:
         """
         if 'stim' not in rec.signals:
             raise ValueError('No "stim" signal found in recording.')
-        data = rec['stim']._data.T
+        D = 50
+        data = rec['stim']._data[:,np.max([0,index-D]):(index+1)].T
+
+        if index < D:
+            data = np.pad(data, ((D-index, 0), (0, 0)))
 
         # a few safety checks
         if data.ndim != 2:
             raise ValueError('Data must be a recording of shape [channels, time].')
-        if not 0 <= index < width + data.shape[-2]:
+        #if not 0 <= index < width + data.shape[-2]:
+
+        if D > data.shape[-2]:
             raise ValueError(f'Index must be within the bounds of the time channel plus width.')
 
-        # need to import some tf stuff here so we don't clutter and unnecessarily import tf (which is slow) when it's
-        # not needed
+        need_fourth_dim = np.any(['Conv2D_NEMS' in m['fn'] for m in self])
+
+        print(f'index: {index} shape: {data.shape}')
+        # need to import some tf stuff here so we don't clutter and unnecessarily import tf 
+        # (which is slow) when it's not needed
         # TODO: is this best practice? Better way to do this?
         import tensorflow as tf
         from nems.tf.cnnlink_new import get_jacobian
 
         if self.tf_model is None or rebuild_model:
             from nems.tf import modelbuilder
+            from nems.tf.layers import Conv2D_NEMS
 
             # generate the model
             model_layers = self.modelspec2tf2(use_modelspec_init=True)
 
+            if need_fourth_dim:
+                # need a "channel" dimension for Conv2D (like rgb channels, not frequency). Only 1 channel for our data.
+                data_shape = data[np.newaxis, ..., np.newaxis].shape
+            else:
+                data_shape = data[np.newaxis].shape
+
             self.tf_model = modelbuilder.ModelBuilder(
                 name='Test-model',
                 layers=model_layers,
-            ).build_model(input_shape=data[np.newaxis].shape)
+            ).build_model(input_shape=data_shape)
 
         # need to convert the data to a tensor
-        tensor = tf.convert_to_tensor(data[np.newaxis])
-
-        w = get_jacobian(self.tf_model, tensor, index, out_channel).numpy()[0]
-
-        if width == 0:
-            return w.T
+        if need_fourth_dim:
+            tensor = tf.convert_to_tensor(data[np.newaxis, ..., np.newaxis])
         else:
-            # pad only the time axis if necessary
-            padded = np.pad(w, ((width, width), (0, 0)))
-            return padded[index:index + width, :].T
+            tensor = tf.convert_to_tensor(data[np.newaxis])
 
+        if type(out_channel) is list:
+            out_channels=out_channel
+        else:
+            out_channels = [out_channel]
+
+        for outidx in out_channels:
+            w = get_jacobian(self.tf_model, tensor, D, outidx).numpy()[0]
+
+            if need_fourth_dim:
+                w = w[:, :, 0]
+
+            if width == 0:
+                _w = w.T
+            else:
+                # pad only the time axis if necessary
+                padded = np.pad(w, ((width-1, width), (0, 0)))
+                _w = padded[D:D + width, :].T
+            if len(out_channels)==1:
+                dstrf = _w
+            elif outidx == out_channels[0]:
+                dstrf = _w[..., np.newaxis]
+            else:
+                dstrf = np.concatenate((dstrf, _w[..., np.newaxis]), axis=2)
+
+        return dstrf
 
 def get_modelspec_metadata(modelspec):
     """Return a dict of the metadata for this modelspec.
@@ -1259,12 +1338,17 @@ def _lookup_fn_at(fn_path, ignore_table=False):
     else:
         api, fn_name = nems.utils.split_to_api_and_fn(fn_path)
         api = api.replace('nems_db.xform', 'nems_lbhb.xform')
-        api_obj = importlib.import_module(api)
-        if ignore_table:
-            importlib.reload(api_obj)  # force overwrite old imports
-        fn = getattr(api_obj, fn_name)
-        if not ignore_table:
-            lookup_table[fn_path] = fn
+        try:
+            api_obj = importlib.import_module(api)
+        
+            if ignore_table:
+                importlib.reload(api_obj)  # force overwrite old imports
+            fn = getattr(api_obj, fn_name)
+            if not ignore_table:
+                lookup_table[fn_path] = fn
+        except:
+            log.info(f'failed to import module: {api}')
+            fn = None
     return fn
 
 
@@ -1381,7 +1465,10 @@ def evaluate(rec, modelspec, start=None, stop=None):
         d = rec.copy()
 
     for m in modelspec[start:stop]:
-        fn = _lookup_fn_at(m['fn'])
+        if type(m) is dict:
+            fn = _lookup_fn_at(m['fn'])
+        else:
+            fn = m.eval
         fn_kwargs = m.get('fn_kwargs', {})
         phi = m.get('phi', {})
         kwargs = {**fn_kwargs, **phi}  # Merges both dicts
