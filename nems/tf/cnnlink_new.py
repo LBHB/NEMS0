@@ -294,16 +294,22 @@ def fit_tf(
     # save an initial set of weights before freezing, in case of termination before any checkpoints
     model.save_weights(str(checkpoint_filepath), overwrite=True)
 
+    if float(tf.version)>=2.2:
+        callback0 = [sparse_logger]
+        verbose=0
+    else:
+        callback0 = []
+        verbose = 1
+
     log.info(f'Fitting model (batch_size={batch_size}...')
     history = model.fit(
         train_data,
         resp_train,
         # validation_split=0.2,
-        verbose=2,
+        verbose=verbose,
         epochs=max_iter,
         batch_size=batch_size,
-        callbacks=[
-            #sparse_logger,
+        callbacks=callback0 + [
             nan_terminate,
             nan_weight_terminate,
             early_stopping,
