@@ -2,6 +2,11 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
+import numpy as np
+
+from matplotlib.backends.backend_qt5agg import FigureCanvas
+from matplotlib.figure import Figure
+
 
 class CollapsibleBox(QWidget):
     """Custom Collapsible Widget.
@@ -58,3 +63,39 @@ class CollapsibleBox(QWidget):
         content_animation.setDuration(250)
         content_animation.setStartValue(0)
         content_animation.setEndValue(content_height)
+
+
+class PyPlotWidget(QWidget):
+
+    def __init__(self, parent):
+        super(PyPlotWidget, self).__init__(parent)
+        layout = QVBoxLayout(self)
+
+        self.canvas = FigureCanvas(Figure(figsize=(1, 1)))
+        layout.addWidget(self.canvas)
+
+        self.ax = self.canvas.figure.subplots()
+        t = np.linspace(0, 10, 501)
+        self.ax.plot(t, np.sin(t), '.')
+        self.ax.figure.canvas.draw()
+
+        self.ax.figure.set_size_inches = self.monkey_patch_figure_set_size_inches
+
+    def monkey_patch_figure_set_size_inches(self, w, h=None, forward=True):
+        """Monkey patches Figure.set_size_inches to accept heights <= 0."""
+        self = self.ax.figure
+
+        if h is None:  # Got called with a single pair as argument.
+            w, h = w
+        size = np.array([w, h])
+        if not np.isfinite(size).all():
+            raise ValueError(f'figure size must be positive finite not {size}')
+        self.bbox_inches.p1 = size
+        if forward:
+            canvas = getattr(self, 'canvas')
+            if canvas is not None:
+                dpi_ratio = getattr(canvas, '_dpi_ratio', 1)
+                manager = getattr(canvas, 'manager', None)
+                if manager is not None:
+                    manager.resize(*(size * self.dpi / dpi_ratio).astype(int))
+        self.stale = True

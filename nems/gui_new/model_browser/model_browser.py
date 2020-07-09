@@ -7,6 +7,7 @@ from PyQt5 import uic
 from PyQt5.QtWidgets import *
 
 from nems.gui_new.model_browser.ui_promoted import CollapsibleBox
+from nems.gui_new.model_browser.layer_area import LayerArea
 
 # TEMP ERROR CATCHER
 # Back up the reference to the exceptionhook
@@ -49,9 +50,8 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
             vlayout.addWidget(cbox)
 
             box_layout = QVBoxLayout()
-            for j in range(5):
-                label = QLabel(f'Label #{j}')
-                box_layout.addWidget(label)
+            label = LayerArea(parent=content, name='testing')
+            box_layout.addWidget(label)
 
             cbox.setContentLayout(box_layout)
 
