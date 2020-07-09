@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import *
 
 from nems import xform_helper, xforms
 from nems.gui import editors
-from nems.gui_new.ui_promoted import ListViewListModel
+from nems.gui_new.db_browser.ui_promoted import ListViewListModel
 from nems.utils import lookup_fn_at
 
 log = logging.getLogger(__name__)
