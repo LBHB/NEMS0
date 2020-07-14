@@ -1069,7 +1069,8 @@ class ModelSpec:
                   index: int,
                   width: int = 30,
                   rebuild_model: bool = False,
-                  out_channel: int = 0
+                  out_channel: int = 0,
+                  method: str = 'jacobian'
                   ) -> np.array:
         """Creates a tf model from the modelspec and generates the dstrf.
 
@@ -1083,6 +1084,7 @@ class ModelSpec:
         """
         if 'stim' not in rec.signals:
             raise ValueError('No "stim" signal found in recording.')
+        # predict response for preceeding D bins, enough time, presumably, for slow nonlinearities to kick in
         D = 50
         data = rec['stim']._data[:,np.max([0,index-D]):(index+1)].T
 
@@ -1135,24 +1137,28 @@ class ModelSpec:
         else:
             out_channels = [out_channel]
 
-        for outidx in out_channels:
-            w = get_jacobian(self.tf_model, tensor, D, outidx).numpy()[0]
-
-            if need_fourth_dim:
-                w = w[:, :, 0]
-
-            if width == 0:
-                _w = w.T
-            else:
-                # pad only the time axis if necessary
-                padded = np.pad(w, ((width-1, width), (0, 0)))
-                _w = padded[D:D + width, :].T
-            if len(out_channels)==1:
-                dstrf = _w
-            elif outidx == out_channels[0]:
-                dstrf = _w[..., np.newaxis]
-            else:
-                dstrf = np.concatenate((dstrf, _w[..., np.newaxis]), axis=2)
+        if method == 'jacobian':
+            for outidx in out_channels:
+                w = get_jacobian(self.tf_model, tensor, D, outidx).numpy()[0]
+                if need_fourth_dim:
+                    w = w[:, :, 0]
+    
+                if width == 0:
+                    _w = w.T
+                else:
+                    # pad only the time axis if necessary
+                    padded = np.pad(w, ((width-1, width), (0, 0)))
+                    _w = padded[D:D + width, :].T
+                if len(out_channels)==1:
+                    dstrf = _w
+                elif outidx == out_channels[0]:
+                    dstrf = _w[..., np.newaxis]
+                else:
+                    dstrf = np.concatenate((dstrf, _w[..., np.newaxis]), axis=2)
+        else:
+            dstrf=np.zeros((width,chan_count,len(out_channels)))
+            import pdb
+            pdb.set_trace()
 
         return dstrf
 

@@ -389,8 +389,6 @@ def normalize_sig(rec=None, sig='stim', norm_method='meanstd', log_compress='Non
         if log_compress != 'None':
            from nems.modules.nonlinearity import _dlog
            fn = lambda x: _dlog(x, -1)
-           import pdb
-           pdb.set_trace()
            s=s.transform(fn, sig)
            
         newrec[sig] = s.normalize(norm_method)
