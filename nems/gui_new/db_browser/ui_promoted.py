@@ -12,6 +12,7 @@ from sqlalchemy.orm import aliased
 
 from nems import db
 
+pg.setConfigOptions(imageAxisOrder='row-major')
 pg.setConfigOption('background', '#EAEAF2')
 pg.setConfigOption('foreground', 'k')
 
@@ -305,7 +306,7 @@ class CompPlotWidget(pg.PlotWidget):
         self.label_text.setParentItem(self.plotItem.vb)
         self.label_text.anchor(itemPos=(0, 0), parentPos=(0, 0), offset=(10, 5))
 
-        # upper left text to display mouse coords
+        # bottom right text to display mouse coords
         self.coord_text = pg.LabelItem(text='', justify='right')
         self.coord_text.setParentItem(self.plotItem.vb)
         self.coord_text.anchor(itemPos=(1, 1), parentPos=(1, 1), offset=(-10, -5))
