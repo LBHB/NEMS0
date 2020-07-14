@@ -375,7 +375,7 @@ def normalize_stim(rec=None, sig='stim', norm_method='meanstd', **context):
     return {'rec': rec}
 
 
-def normalize_sig(rec=None, sig='stim', norm_method='meanstd', **context):
+def normalize_sig(rec=None, sig='stim', norm_method='meanstd', log_compress='None', **context):
     """
     Normalize each channel of rec[sig] according to norm_method
     :param rec:  NEMS recording
@@ -384,10 +384,20 @@ def normalize_sig(rec=None, sig='stim', norm_method='meanstd', **context):
     :return: copy(?) of rec with updated signal.
     """
     if sig in rec.signals.keys():
-        rec[sig] = rec.copy()[sig].rasterize().normalize(norm_method)
+        newrec = rec.copy()
+        s = newrec[sig].rasterize()
+        if log_compress != 'None':
+           from nems.modules.nonlinearity import _dlog
+           fn = lambda x: _dlog(x, -1)
+           import pdb
+           pdb.set_trace()
+           s=s.transform(fn, sig)
+           
+        newrec[sig] = s.normalize(norm_method)
+        return {'rec': newrec}
     else:
         log.info(f'Signal {sig} not it recording, skipping normalize')
-    return {'rec': rec}
+        return {}
 
 
 def init_from_keywords(keywordstring, meta={}, IsReload=False,

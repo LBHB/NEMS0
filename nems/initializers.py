@@ -3,7 +3,6 @@ import logging
 import copy
 import numpy as np
 import os
-from nems.registry import KeywordRegistry
 from nems.plugins import default_keywords
 from nems.utils import find_module, get_default_savepath
 from nems.analysis.api import fit_basic
@@ -14,9 +13,9 @@ import nems.metrics.api as metrics
 from nems import get_setting
 
 log = logging.getLogger(__name__)
-default_kws = KeywordRegistry()
-default_kws.register_module(default_keywords)
-default_kws.register_plugins(get_setting('KEYWORD_PLUGINS'))
+#_kws = KeywordRegistry()
+#default_kws.register_module(default_keywords)
+#default_kws.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
 
 def from_keywords(keyword_string, registry=None, rec=None, meta={},
@@ -29,7 +28,8 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
     '''
 
     if registry is None:
-        registry = default_kws
+        from nems.xforms import keyword_lib
+        registry = keyword_lib
     keywords = keyword_string.split('-')
 
     # Lookup the modelspec fragments in the registry

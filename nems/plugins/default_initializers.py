@@ -150,12 +150,16 @@ def norm(kw):
     """
     ops = kw.split('.')[1:]
     norm_method = 'minmax'
+    log_compress = 'None'
     for op in ops:
         if op == 'ms':
             norm_method = 'meanstd'
         elif op == 'mm':
             norm_method = 'minmax'
+        elif op == 'l':
+            log_compress = int(op[1:])
 
-    return [['nems.xforms.normalize_sig', {'sig': 'stim', 'norm_method': norm_method}],
+    return [['nems.xforms.normalize_sig', {'sig': 'stim', 'norm_method': norm_method, 
+             'log_compress': log_compress}],
             ['nems.xforms.normalize_sig', {'sig': 'resp', 'norm_method': norm_method}],
             ]
