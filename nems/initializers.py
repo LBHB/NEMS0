@@ -758,8 +758,8 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
             predrange = 2 / (np.std(pred)*3)
             if not np.isfinite(predrange):
                 predrange = 1
-            kappa[i, 0] = np.log(predrange)
-            shift[i, 0] = np.mean(pred)
+            kappa[i, 0] = 0
+            shift[i, 0] = 0
         else:
             raise ValueError('nl mode = {} not valid'.format(nl_mode))
 

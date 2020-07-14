@@ -1099,7 +1099,7 @@ class ModelSpec:
 
         need_fourth_dim = np.any(['Conv2D_NEMS' in m['fn'] for m in self])
 
-        print(f'index: {index} shape: {data.shape}')
+        #print(f'index: {index} shape: {data.shape}')
         # need to import some tf stuff here so we don't clutter and unnecessarily import tf 
         # (which is slow) when it's not needed
         # TODO: is this best practice? Better way to do this?

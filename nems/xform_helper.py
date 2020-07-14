@@ -194,7 +194,7 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
                                   meta=meta,  xforms_kwargs=registry_args,
                                   xforms_init_context=xforms_init_context,
                                   autoPlot=autoPlot)
-    log.info(xfspec)
+    log.debug(xfspec)
 
     # actually do the loading, preprocessing, fit
     if initial_context is None:
