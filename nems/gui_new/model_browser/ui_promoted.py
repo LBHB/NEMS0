@@ -144,7 +144,7 @@ class InputSpectrogram(pg.GraphicsLayoutWidget):
         self.p2.showAxis('left', False)
         self.ci.setSpacing(0)
 
-        self.updatePlot()
+        # self.updatePlot()
         self.p2.sigXRangeChanged.connect(self.updateRegion)
         self.lr.sigRegionChanged.connect(self.updatePlot)
         # TODO: add click event to move region instead of only dragging
@@ -173,15 +173,17 @@ class InputSpectrogram(pg.GraphicsLayoutWidget):
         self.p1.setYRange(0, signal.shape[0] - 1)
         self.p2.setYRange(0, signal.shape[0] - 1)
         self.lr.setRegion([0, 500])
-        self.updatePlot()
 
-    def updatePlot(self):
+    def updatePlot(self, sender):
         """When the region item is changed, update the lower plot to match."""
-        self.p2.setXRange(*self.lr.getRegion(), padding=0)
+        self.p2.setXRange(*sender.getRegion(), padding=0)
 
-    def updateRegion(self):
+    def updateRegion(self, sender):
         """When the plot item XRange is changed, update the upper region to match."""
-        self.lr.setRegion(self.p2.getViewBox().viewRange()[0])
+        self.lr.setRegion(sender.viewRange()[0])
+
+    def add_link(self, fn):
+        self.lr.sigRegionChanged.connect(fn)
 
 
 class OutputPlot(pg.PlotWidget):
@@ -216,14 +218,21 @@ class OutputPlot(pg.PlotWidget):
         self.update_plot(y_data, y_data2, y_idx=y_idx)
 
         if x_link is not None:
-            self.plotItem.vb.setXLink(x_link)
+            self.set_xlink(x_link)
 
     def set_xlink(self, x_link):
         self.plotItem.vb.setXLink(x_link)
 
+    def add_link(self, fn):
+        self.sigXRangeChanged.connect(fn)
+
     def update_index(self, y_idx=0):
         """Updates just the index."""
         self.update_plot(self.y_data, self.y_data2, y_idx)
+
+    def updateXRange(self, sender):
+        """When the region item is changed, update the lower plot to match."""
+        self.setXRange(*sender.getRegion(), padding=0)
 
     def update_plot(self, y_data, y_data2=None, y_idx=0):
         """Updates members and plots."""
@@ -249,3 +258,7 @@ class OutputPlot(pg.PlotWidget):
 
         self.line.setData(y=y)
         self.line2.setData(y=y2)
+
+        if y is not None:
+            self.setLimits(xMin=0, xMax=len(y))
+            self.setXRange(0, 500, padding=0)

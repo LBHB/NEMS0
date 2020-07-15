@@ -91,7 +91,7 @@
       </layout>
      </item>
      <item>
-      <widget class="PlotWidget" name="plotWidget" native="true">
+      <widget class="OutputPlot" name="plotWidget" native="true">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
          <horstretch>1</horstretch>
@@ -113,9 +113,9 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>PlotWidget</class>
+   <class>OutputPlot</class>
    <extends>QWidget</extends>
-   <header>pyqtgraph</header>
+   <header>ui_promoted</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

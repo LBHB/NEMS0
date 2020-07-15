@@ -9,6 +9,8 @@ from PyQt5.QtWidgets import *
 from nems.gui_new.model_browser.layer_area import LayerArea
 from nems.gui_new.model_browser.ui_promoted import CollapsibleBox
 
+from nems.modelspec import _lookup_fn_at
+
 # TEMP ERROR CATCHER
 # Back up the reference to the exceptionhook
 sys._excepthook = sys.excepthook
@@ -48,13 +50,22 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
 
         vlayout = QVBoxLayout(content)
 
-        modules = [ms['fn'] for ms in self.ctx['modelspec']]
-        for module in modules:
-            cbox = CollapsibleBox(f'{module}', parent=self.scrollArea)
+        self.rec_container = {}
+        self.plot_container = {}
+
+        modelspec = self.ctx['modelspec']
+        for idx, ms in enumerate(modelspec):
+            module_name = ms['fn']
+
+            layer_output = modelspec.evaluate(self.ctx['val'], start=0, stop=idx + 1)
+            self.rec_container[module_name] = layer_output['pred']._data
+
+            cbox = CollapsibleBox(f'{module_name}', parent=self.scrollArea)
             vlayout.addWidget(cbox)
 
             box_layout = QVBoxLayout(self)
             layer_area = LayerArea(parent=self.scrollArea, name='testing')
+            self.plot_container[module_name] = layer_area.plotWidget
             box_layout.addWidget(layer_area)
 
             cbox.setContentLayout(box_layout)
@@ -63,17 +74,28 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
 
     def init_plots(self):
         """Populates the various plots with data"""
-        self.link_plots()
 
-        output_pred = ctx['val']['pred']._data
-        output_resp = ctx['val']['resp']._data
+        output_pred = self.ctx['val']['pred']._data
+        output_resp = self.ctx['val']['resp']._data
         self.outputPlot.update_plot(y_data=output_pred, y_data2=output_resp)
 
-        self.inputSpectrogram.plot_input(ctx['val'])
+        for module_name, plot in self.plot_container.items():
+            plot.update_plot(y_data=self.rec_container[module_name])
+
+        self.inputSpectrogram.plot_input(self.ctx['val'])
+        self.link_plots()
 
     def link_plots(self):
         """Links the x region of plots."""
-        self.outputPlot.set_xlink(self.inputSpectrogram.p2)
+        self.link_together(self.outputPlot)
+
+        for output_plot in self.plot_container.values():
+            self.link_together(output_plot)
+
+    def link_together(self, output_plot):
+        """Links together the input plot to an output plot."""
+        self.inputSpectrogram.add_link(output_plot.updateXRange)
+        output_plot.add_link(self.inputSpectrogram.updateRegion)
 
 
 if __name__ == '__main__':
