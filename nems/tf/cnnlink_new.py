@@ -293,6 +293,7 @@ def fit_tf(
             log.info(f'Freezing layer #{freeze_index}: "{model.layers[freeze_index + 1].name}".')
 
     # save an initial set of weights before freezing, in case of termination before any checkpoints
+    #log.info('saving weights to : %s', str(checkpoint_filepath) )
     model.save_weights(str(checkpoint_filepath), overwrite=True)
 
     if version.parse(tf.__version__)>=version.parse("2.2.0"):

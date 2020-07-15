@@ -1175,6 +1175,8 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
     elif type(pc_idx) is int:
         pc_idx = [pc_idx]
 
+    log.info(f"PCA: inputs={D_ref.shape[1]}, source={pc_source}, pc_idx(es): {pc_idx}")
+
     if False:
         # use sklearn. maybe someday
         pca = PCA(n_components=pc_count)

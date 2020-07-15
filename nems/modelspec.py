@@ -1069,7 +1069,8 @@ class ModelSpec:
                   index: int,
                   width: int = 30,
                   rebuild_model: bool = False,
-                  out_channel: int = 0
+                  out_channel: int = 0,
+                  method: str = 'jacobian'
                   ) -> np.array:
         """Creates a tf model from the modelspec and generates the dstrf.
 
@@ -1083,8 +1084,10 @@ class ModelSpec:
         """
         if 'stim' not in rec.signals:
             raise ValueError('No "stim" signal found in recording.')
+        # predict response for preceeding D bins, enough time, presumably, for slow nonlinearities to kick in
         D = 50
         data = rec['stim']._data[:,np.max([0,index-D]):(index+1)].T
+        chan_count=data.shape[1]
 
         if index < D:
             data = np.pad(data, ((D-index, 0), (0, 0)))
@@ -1099,7 +1102,7 @@ class ModelSpec:
 
         need_fourth_dim = np.any(['Conv2D_NEMS' in m['fn'] for m in self])
 
-        print(f'index: {index} shape: {data.shape}')
+        #print(f'index: {index} shape: {data.shape}')
         # need to import some tf stuff here so we don't clutter and unnecessarily import tf 
         # (which is slow) when it's not needed
         # TODO: is this best practice? Better way to do this?
@@ -1124,35 +1127,56 @@ class ModelSpec:
                 layers=model_layers,
             ).build_model(input_shape=data_shape)
 
-        # need to convert the data to a tensor
-        if need_fourth_dim:
-            tensor = tf.convert_to_tensor(data[np.newaxis, ..., np.newaxis])
-        else:
-            tensor = tf.convert_to_tensor(data[np.newaxis])
-
         if type(out_channel) is list:
-            out_channels=out_channel
+            out_channels = out_channel
         else:
             out_channels = [out_channel]
 
-        for outidx in out_channels:
-            w = get_jacobian(self.tf_model, tensor, D, outidx).numpy()[0]
+        if method == 'jacobian':
+            # need to convert the data to a tensor
+            if need_fourth_dim:
+                tensor = tf.convert_to_tensor(data[np.newaxis, ..., np.newaxis])
+            else:
+                tensor = tf.convert_to_tensor(data[np.newaxis])
+
+            for outidx in out_channels:
+                w = get_jacobian(self.tf_model, tensor, D, outidx).numpy()[0]
+                if need_fourth_dim:
+                    w = w[:, :, 0]
+    
+                if width == 0:
+                    _w = w.T
+                else:
+                    # pad only the time axis if necessary
+                    padded = np.pad(w, ((width-1, width), (0, 0)))
+                    _w = padded[D:D + width, :].T
+                if len(out_channels)==1:
+                    dstrf = _w
+                elif outidx == out_channels[0]:
+                    dstrf = _w[..., np.newaxis]
+                else:
+                    dstrf = np.concatenate((dstrf, _w[..., np.newaxis]), axis=2)
+        else:
+            dstrf = np.zeros((chan_count, width, len(out_channels)))
 
             if need_fourth_dim:
-                w = w[:, :, 0]
-
-            if width == 0:
-                _w = w.T
+                tensor = tf.convert_to_tensor(data[np.newaxis, ..., np.newaxis])
             else:
-                # pad only the time axis if necessary
-                padded = np.pad(w, ((width-1, width), (0, 0)))
-                _w = padded[D:D + width, :].T
-            if len(out_channels)==1:
-                dstrf = _w
-            elif outidx == out_channels[0]:
-                dstrf = _w[..., np.newaxis]
-            else:
-                dstrf = np.concatenate((dstrf, _w[..., np.newaxis]), axis=2)
+                tensor = tf.convert_to_tensor(data[np.newaxis])
+            p0 = self.tf_model(tensor).numpy()
+            eps = 0.0001
+            for lag in range(width):
+                for c in range(chan_count):
+                    d = data.copy()
+                    d[-lag, c] += eps
+                    if need_fourth_dim:
+                        tensor = tf.convert_to_tensor(d[np.newaxis, ..., np.newaxis])
+                    else:
+                        tensor = tf.convert_to_tensor(d[np.newaxis])
+                    p = self.tf_model(tensor).numpy()
+                    dstrf[c, -lag, :] = p[0, D, out_channels] - p0[0, D, out_channels]
+            if len(out_channels) == 1:
+                dstrf = dstrf[:, :, 0]
 
         return dstrf
 

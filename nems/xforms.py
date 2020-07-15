@@ -389,8 +389,6 @@ def normalize_sig(rec=None, sig='stim', norm_method='meanstd', log_compress='Non
         if log_compress != 'None':
            from nems.modules.nonlinearity import _dlog
            fn = lambda x: _dlog(x, -1)
-           import pdb
-           pdb.set_trace()
            s=s.transform(fn, sig)
            
         newrec[sig] = s.normalize(norm_method)
@@ -1337,7 +1335,9 @@ def save_analysis(destination, recording, modelspec, xfspec=[], figures=[],
         set_modelspec_metadata(m, 'xfspec', xfspec_uri)
         save_resource(base_uri + 'modelspec.{:04d}.json'.format(number), json=m[:])
     for number, figure in enumerate(figures):
-        save_resource(base_uri + 'figure.{:04d}.png'.format(number), data=figure)
+        fig_uri = base_uri + 'figure.{:04d}.png'.format(number)
+        #log.info('saving figure %d to %s', number, fig_uri)
+        save_resource(fig_uri, data=figure)
     save_resource(base_uri + 'log.txt', data=log)
     save_resource(xfspec_uri, json=xfspec)
 

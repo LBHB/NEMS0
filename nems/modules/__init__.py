@@ -49,7 +49,7 @@ class NemsModule(object):
         options['bounds'] = options.get('bounds', {})
         options['phi'] = options.get('phi', None)
 
-        log.info(options)
+        #log.info(options)
 
         self.data_dict = options.copy()
 

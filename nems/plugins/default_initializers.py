@@ -156,7 +156,7 @@ def norm(kw):
             norm_method = 'meanstd'
         elif op == 'mm':
             norm_method = 'minmax'
-        elif op == 'l':
+        elif op.startswith('l'):
             log_compress = int(op[1:])
 
     return [['nems.xforms.normalize_sig', {'sig': 'stim', 'norm_method': norm_method, 
