@@ -208,7 +208,7 @@ class OutputPlot(pg.PlotWidget):
         super(OutputPlot, self).__init__(parent, *args, **kwargs)
 
         self.legend = self.addLegend(offset=None, verSpacing=-10)
-        self.legend.anchor(itemPos=(1, 0), parentPos=(1, 0), offset=(10, -10))
+        self.legend.anchor(itemPos=(1, 0), parentPos=(1, 0), offset=(5, -10))
 
         self.line = self.plot(pen=self.ORANGE, name='pred')
         self.line2 = self.plot(pen=self.BLUE, name='resp')
