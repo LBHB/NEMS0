@@ -74,6 +74,7 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
 
     def init_plots(self):
         """Populates the various plots with data"""
+        self.link_plots()
 
         output_pred = self.ctx['val']['pred']._data
         output_resp = self.ctx['val']['resp']._data
@@ -83,7 +84,6 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
             plot.update_plot(y_data=self.rec_container[module_name])
 
         self.inputSpectrogram.plot_input(self.ctx['val'])
-        self.link_plots()
 
     def link_plots(self):
         """Links the x region of plots."""

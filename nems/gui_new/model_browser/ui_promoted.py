@@ -195,6 +195,9 @@ class OutputPlot(pg.PlotWidget):
     ORANGE = '#dd8452'
     BRIGHT_ORANGE = '#ff7c00'
 
+    # signal for parent to hook into
+    sigChannelsChanged = pyqtSignal(int)
+
     def __init__(self,
                  parent,
                  y_data=None,
@@ -228,13 +231,13 @@ class OutputPlot(pg.PlotWidget):
 
     def update_index(self, y_idx=0):
         """Updates just the index."""
-        self.update_plot(self.y_data, self.y_data2, y_idx)
+        self.update_plot(self.y_data, self.y_data2, y_idx, emit=False)
 
     def updateXRange(self, sender):
         """When the region item is changed, update the lower plot to match."""
         self.setXRange(*sender.getRegion(), padding=0)
 
-    def update_plot(self, y_data, y_data2=None, y_idx=0):
+    def update_plot(self, y_data, y_data2=None, y_idx=0, emit=True):
         """Updates members and plots."""
         self.y_data = y_data
         self.y_data2 = y_data2
@@ -261,4 +264,8 @@ class OutputPlot(pg.PlotWidget):
 
         if y is not None:
             self.setLimits(xMin=0, xMax=len(y))
-            self.setXRange(0, 500, padding=0)
+            # self.setXRange(0, 500)
+
+            # update the spinbox if possible
+            if emit:
+                self.sigChannelsChanged.emit(self.y_data.shape[0])

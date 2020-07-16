@@ -24,3 +24,13 @@ class LayerArea(QtBaseClass, Ui_Widget):
         self.layer_area_name = name
         # TODO: get the plot widget to respect wheel event propagation
         self.plotWidget.setParent(self)
+
+        self.plotWidget.sigChannelsChanged.connect(self.update_spinbox)
+        self.spinBox.valueChanged.connect(self.on_spinbox_changed)
+
+    def update_spinbox(self, channels):
+        self.spinBox.setRange(0, channels - 1)
+        self.label.setText(f'channels: {channels}')
+
+    def on_spinbox_changed(self, value):
+        self.plotWidget.update_index(value)
