@@ -49,9 +49,16 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
         self.plot_container = {}
         self.cbox_container = []
 
+        self.menuView_addLayer = self.menuView.addMenu('Add layer')
+        # self.menuView_addSignal = self.menuView.addMenu('Add Signal')
+
         modelspec = self.ctx['modelspec']
         for idx, ms in enumerate(modelspec):
             module_name = ms['fn']
+
+            # also add in the layer to the menu
+            add_layer = self.menuView_addLayer.addAction(module_name)
+            add_layer.triggered.connect(self.on_action_add_layer)
 
             # get the layer output
             layer_output = modelspec.evaluate(self.ctx['val'], start=0, stop=idx + 1)
@@ -82,12 +89,16 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
 
         # callbacks
         self.actionReset_panels.triggered.connect(self.on_action_reset_panels)
+        self.actionSave_state.triggered.connect(self.save_state)
 
         self.show()
         self.init_plots()
 
         # save the state of all the docks so we can restore it
         self.save_state()
+
+    def add_layer(self, layer_name):
+        pass
 
     def init_plots(self):
         """Populates the various plots with data"""
@@ -115,7 +126,7 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
         output_plot.add_link(self.inputSpectrogram.updateRegion)
 
     def save_state(self):
-        self.saved_state = self.saveState(1)
+        self.saved_state = self.saveState(0)
         # self.saved_geometry = self.saveGeometry()
 
         # record the toggle status of collapsible docks
@@ -123,12 +134,17 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
 
     def on_action_reset_panels(self):
         """Relays out the panels as they were on program startup."""
-        self.restoreState(self.saved_state, 1)
+        # TODO: get the order to be respected (need to change the actual order in init instead of just remove/add the
+        #  output)
+        self.restoreState(self.saved_state, )
         # self.restoreGeometry(self.saved_geometry)
 
         for cbox, toggle in zip(self.cbox_container, self.toggle_status):
             cbox.set_toggle(toggle)
             cbox.parent().show()
+
+    def on_action_add_layer(self):
+        print(self.sender().text())
 
 
 if __name__ == '__main__':
