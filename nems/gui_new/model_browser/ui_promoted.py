@@ -19,39 +19,49 @@ class CollapsibleBox(QWidget):
 
     Adapted from: https://stackoverflow.com/a/52617714
     """
-    def __init__(self, title="", parent=None):
+    def __init__(self, parent=None):
         super(CollapsibleBox, self).__init__(parent)
 
-        self.toggle_button = QToolButton(text=title, checkable=True, checked=False)
-        self.toggle_button.setStyleSheet("QToolButton { border: none; }")
-        self.toggle_button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-        self.toggle_button.setArrowType(Qt.RightArrow)
-        self.toggle_button.pressed.connect(self.on_pressed)
+        # self.toggle_button = QToolButton(text=title, checkable=True, checked=False)
+        # self.toggle_button.setStyleSheet("QToolButton { border: none; }")
+        # self.toggle_button.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        # self.toggle_button.setArrowType(Qt.RightArrow)
+        # self.toggle_button.toggled.connect(self.on_pressed)
 
         self.toggle_animation = QParallelAnimationGroup(self)
 
-        self.content_area = QScrollArea(parent=self, maximumHeight=0, minimumHeight=0)
-        self.content_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.content_area = QScrollArea(parent=self, minimumHeight=0, maximumHeight=0)
+        self.content_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.content_area.setFrameShape(QFrame.NoFrame)
 
         layout = QVBoxLayout(self)
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self.toggle_button)
+        # layout.addWidget(self.toggle_button)
         layout.addWidget(self.content_area)
 
         self.toggle_animation.addAnimation(QPropertyAnimation(self, b'minimumHeight'))
         self.toggle_animation.addAnimation(QPropertyAnimation(self, b'maximumHeight'))
         self.toggle_animation.addAnimation(QPropertyAnimation(self.content_area, b'maximumHeight'))
 
+        self.is_open = False
+        self.setMinimumHeight(0)
+        self.setMaximumHeight(0)
+
+    def set_toggle(self, toggle):
+        """Toggles the cbox as needed."""
+        if toggle != self.is_open:
+            self.on_pressed()
+
     def on_pressed(self):
-        checked = self.toggle_button.isChecked()
-        self.toggle_button.setArrowType(Qt.DownArrow if not checked else Qt.RightArrow)
+        # checked = self.toggle_button.isChecked()
+        # self.toggle_button.setArrowType(Qt.DownArrow if not checked else Qt.RightArrow)
         self.toggle_animation.setDirection(
-            QAbstractAnimation.Forward if not checked
+            QAbstractAnimation.Forward if not self.is_open
             else QAbstractAnimation.Backward
         )
         self.toggle_animation.start()
+        self.is_open = False if self.is_open else True
 
     def setContentLayout(self, layout):
         self.content_area.setLayout(layout)
@@ -60,14 +70,14 @@ class CollapsibleBox(QWidget):
 
         for i in range(self.toggle_animation.animationCount()):
             animation = self.toggle_animation.animationAt(i)
-            animation.setDuration(250)
+            animation.setDuration(100)
             animation.setStartValue(collapsed_height)
             animation.setEndValue(collapsed_height + content_height)
 
-        content_animation = self.toggle_animation.animationAt(self.toggle_animation.animationCount() - 1)
-        content_animation.setDuration(250)
-        content_animation.setStartValue(0)
-        content_animation.setEndValue(content_height)
+        # content_animation = self.toggle_animation.animationAt(self.toggle_animation.animationCount() - 1)
+        # content_animation.setDuration(250)
+        # content_animation.setStartValue(0)
+        # content_animation.setEndValue(content_height)
 
 
 class PyPlotWidget(QWidget):
@@ -189,6 +199,7 @@ class InputSpectrogram(pg.GraphicsLayoutWidget):
 class OutputPlot(pg.PlotWidget):
 
     # seaborn color palette as hex
+    # TODO: add alpha?
     BLUE = '#4c72b0'
     GREEN = '#55a868'
     RED = '#c44e52'
@@ -269,3 +280,94 @@ class OutputPlot(pg.PlotWidget):
             # update the spinbox if possible
             if emit:
                 self.sigChannelsChanged.emit(self.y_data.shape[0])
+
+
+class DockTitleBar(QWidget):
+    def __init__(self, dockWidget, title=''):
+        super(DockTitleBar, self).__init__(dockWidget)
+
+        boxLayout = QHBoxLayout(self)
+        boxLayout.setSpacing(1)
+        boxLayout.setContentsMargins(1, 1, 1, 1)
+
+        self.titleLabel = QLabel(title)
+
+        iconSize = QApplication.style().standardIcon(
+            QStyle.SP_TitleBarNormalButton).actualSize(
+                QSize(12, 12))
+        buttonSize = iconSize + QSize(2, 2)
+
+        self.minButton = QToolButton(self)
+        self.minButton.setMaximumSize(buttonSize)
+        self.minButton.setAutoRaise(True)
+        self.minButton.setIcon(QApplication.style().standardIcon(
+            QStyle.SP_TitleBarMinButton))
+        # self.minButton.clicked.connect(self.toggleFloating)
+
+        self.dockButton = QToolButton(self)
+        self.dockButton.setMaximumSize(buttonSize)
+        self.dockButton.setAutoRaise(True)
+        self.dockButton.setIcon(QApplication.style().standardIcon(
+            QStyle.SP_TitleBarNormalButton))
+        self.dockButton.clicked.connect(self.toggleFloating)
+
+        self.closeButton = QToolButton(self)
+        self.closeButton.setMaximumSize(buttonSize)
+        self.closeButton.setAutoRaise(True)
+        self.closeButton.setIcon(QApplication.style().standardIcon(
+            QStyle.SP_TitleBarCloseButton))
+        self.closeButton.clicked.connect(self.closeParent)
+
+        boxLayout.addSpacing(5)
+        boxLayout.addWidget(self.titleLabel)
+        boxLayout.addStretch()
+        boxLayout.addSpacing(5)
+        boxLayout.addWidget(self.minButton)
+        boxLayout.addWidget(self.dockButton)
+        boxLayout.addWidget(self.closeButton)
+
+        dockWidget.featuresChanged.connect(self.onFeaturesChanged)
+
+        self.onFeaturesChanged(dockWidget.features())
+
+    def onFeaturesChanged(self, features):
+        if not features & QDockWidget.DockWidgetVerticalTitleBar:
+            self.closeButton.setVisible(
+                features & QDockWidget.DockWidgetClosable)
+            self.dockButton.setVisible(
+                features & QDockWidget.DockWidgetFloatable)
+        else:
+            raise ValueError('vertical title bar not supported')
+
+    def toggleFloating(self):
+        self.parent().setFloating(not self.parent().isFloating())
+
+    def closeParent(self, ev):
+        self.parent().close()
+
+    def mouseReleaseEvent(self, event):
+        event.ignore()
+
+    def mousePressEvent(self, event):
+        event.ignore()
+
+    def mouseMoveEvent(self, event):
+        event.ignore()
+
+
+class LeftDockWidget(QDockWidget):
+
+    def __init__(self, *args, title='', **kwargs):
+        super(LeftDockWidget, self).__init__(*args, **kwargs)
+
+        self.setAllowedAreas(Qt.LeftDockWidgetArea)
+        self.setFloating(False)
+
+        self.layout().setContentsMargins(0, 0, 0, 0)
+
+        self.setTitleBarWidget(DockTitleBar(self, title=title))
+        self.setWindowTitle(title.split('.')[-1])
+
+    def connect_min(self, fn):
+        """Connects the min button to a custom callback."""
+        self.titleBarWidget().minButton.clicked.connect(fn)
