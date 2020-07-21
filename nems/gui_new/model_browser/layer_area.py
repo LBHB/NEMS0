@@ -17,12 +17,11 @@ Ui_Widget, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 class LayerArea(QtBaseClass, Ui_Widget):
 
-    def __init__(self, parent=None, name=None):
+    def __init__(self, parent=None, layer_name=''):
         super(LayerArea, self).__init__(parent)
         self.setupUi(self)
 
-        self.layer_area_name = name
-        # TODO: get the plot widget to respect wheel event propagation
+        self.layer_name = layer_name
         self.plotWidget.setParent(self)
 
         self.plotWidget.sigChannelsChanged.connect(self.update_spinbox)
