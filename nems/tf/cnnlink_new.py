@@ -534,7 +534,7 @@ def eval_tf_layer(data: np.ndarray,
 def get_jacobian(model: tf.keras.Model,
                  tensor: tf.Tensor,
                  index: int,
-                 out_channel: int = 0,
+                 out_channel: int = 0
                  ) -> np.array:
     """Gets the jacobian at the given index.
 

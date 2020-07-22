@@ -1088,9 +1088,16 @@ class ModelSpec:
         D = 50
         data = rec['stim']._data[:,np.max([0,index-D]):(index+1)].T
         chan_count=data.shape[1]
+        if 'state' in rec.signals.keys():
+            include_state = True
+            state_data = rec['state']._data[:, np.max([0, index - D]):(index + 1)].T
+        else:
+            include_state = False
 
         if index < D:
             data = np.pad(data, ((D-index, 0), (0, 0)))
+            if include_state:
+                state_data = np.pad(state_data, ((D - index, 0), (0, 0)))
 
         # a few safety checks
         if data.ndim != 2:
@@ -1115,17 +1122,20 @@ class ModelSpec:
 
             # generate the model
             model_layers = self.modelspec2tf2(use_modelspec_init=True)
-
+            state_shape = None
             if need_fourth_dim:
                 # need a "channel" dimension for Conv2D (like rgb channels, not frequency). Only 1 channel for our data.
                 data_shape = data[np.newaxis, ..., np.newaxis].shape
+                if include_state:
+                    state_shape = state_data[np.newaxis, ..., np.newaxis].shape
             else:
                 data_shape = data[np.newaxis].shape
-
+                if include_state:
+                    state_shape = state_data[np.newaxis].shape
             self.tf_model = modelbuilder.ModelBuilder(
                 name='Test-model',
                 layers=model_layers,
-            ).build_model(input_shape=data_shape)
+            ).build_model(input_shape=data_shape, state_shape=state_shape)
 
         if type(out_channel) is list:
             out_channels = out_channel
@@ -1134,10 +1144,18 @@ class ModelSpec:
 
         if method == 'jacobian':
             # need to convert the data to a tensor
+            stensor = None
             if need_fourth_dim:
                 tensor = tf.convert_to_tensor(data[np.newaxis, ..., np.newaxis])
+                if include_state:
+                    stensor = tf.convert_to_tensor(state_data[np.newaxis, ..., np.newaxis])
             else:
                 tensor = tf.convert_to_tensor(data[np.newaxis])
+                if include_state:
+                    stensor = tf.convert_to_tensor(state_data[np.newaxis])
+
+            if state_data is not None:
+                tensor = [tensor, stensor]
 
             for outidx in out_channels:
                 w = get_jacobian(self.tf_model, tensor, D, outidx).numpy()[0]
