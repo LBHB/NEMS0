@@ -129,10 +129,12 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
 
         output_pred = self.ctx['val']['pred']._data
         output_resp = self.ctx['val']['resp']._data
-        self.outputPlot.update_plot(y_data=output_pred, y_data2=output_resp)
+        self.outputPlot.update_plot(y_data=output_pred, y_data2=output_resp,
+                                    y_data_name='pred', y_data2_name='resp')
 
         for layer_area in self.plot_container.values():
-            layer_area.plotWidget.update_plot(y_data=self.signal_container[layer_area.layer_name])
+            layer_area.plotWidget.update_plot(y_data=self.signal_container[layer_area.layer_name],
+                                              y_data_name='pred')
 
         self.inputSpectrogram.plot_input(self.ctx['val'])
 
@@ -173,13 +175,12 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
         layer_name = self.sender().text()
 
         layer_area = self.add_layer(layers.index(layer_name))
-        layer_area.plotWidget.update_plot(y_data=self.signal_container[layer_name])
+        layer_area.plotWidget.update_plot(y_data=self.signal_container[layer_name], y_data_name='pred')
         self.link_together(layer_area.plotWidget)
         layer_area.parent().parent().set_toggle(True)
 
     def on_action_add_signal(self, action):
         signal, recording = action.text(), action.data()
-        print(recording, signal)
         signal_data = self.ctx[recording][signal].rasterize()._data
         signal_name = f'{recording}:{signal}'
         self.signal_container[signal_name] = signal_data
@@ -189,7 +190,7 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
         self.plot_container[id(layer_area)] = layer_area
         self.add_collapsible_dock(layer_area, window_title=signal_name)
 
-        layer_area.plotWidget.update_plot(y_data=signal_data)
+        layer_area.plotWidget.update_plot(y_data=signal_data, y_data_name=signal)
         layer_area.parent().parent().set_toggle(True)
 
         # only link if shapes match
@@ -199,10 +200,6 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
 
 if __name__ == '__main__':
     from nems import xforms
-    # analysis_path = Path(
-    #     r'C:\Users\Alex\PycharmProjects\NEMS\results\308\BRT034f-07-2\ozgf.fs100.ch18-ld-sev.dlog-wc.18x2.g-fir.1x15x2-relu.2-wc.2x1.z-lvl.1-dexp.1.newtf.n.i.lr5e3.et6.2020-06-17T213522')
-    # xfspec, ctx = xforms.load_analysis(str(analysis_path), eval_model=True)
-    # xfspec, ctx = None, None
     xfspec, ctx = xforms.load_context(r'C:\Users\Alex\PycharmProjects\NEMS\results\temp_xform')
 
     app = QApplication(sys.argv)

@@ -212,7 +212,9 @@ class OutputPlot(pg.PlotWidget):
     def __init__(self,
                  parent,
                  y_data=None,
+                 y_data_name=None,
                  y_data2=None,
+                 y_data2_name=None,
                  y_idx=0,
                  x_link=None,
                  *args,
@@ -226,8 +228,8 @@ class OutputPlot(pg.PlotWidget):
         self.legend = self.addLegend(offset=None, verSpacing=-10)
         self.legend.anchor(itemPos=(1, 0), parentPos=(1, 0), offset=(5, -10))
 
-        self.line = self.plot(pen=self.ORANGE, name='pred')
-        self.line2 = self.plot(pen=self.BLUE, name='resp')
+        self.line = self.plot(pen=self.ORANGE)
+        self.line2 = self.plot(pen=self.BLUE)
 
         self.update_plot(y_data, y_data2, y_idx=y_idx)
 
@@ -242,16 +244,22 @@ class OutputPlot(pg.PlotWidget):
 
     def update_index(self, y_idx=0):
         """Updates just the index."""
-        self.update_plot(self.y_data, self.y_data2, y_idx, emit=False)
+        self.update_plot(y_data=self.y_data,
+                         y_data_name=self.y_data_name,
+                         y_data2=self.y_data2,
+                         y_data2_name=self.y_data_name,
+                         y_idx=y_idx, emit=False)
 
     def updateXRange(self, sender):
         """When the region item is changed, update the lower plot to match."""
         self.setXRange(*sender.getRegion(), padding=0)
 
-    def update_plot(self, y_data, y_data2=None, y_idx=0, emit=True):
+    def update_plot(self, y_data, y_data_name=None, y_data2=None, y_data2_name=None, y_idx=0, emit=True):
         """Updates members and plots."""
         self.y_data = y_data
+        self.y_data_name = y_data_name
         self.y_data2 = y_data2
+        self.y_data2_name = y_data2_name
         self.y_idx = y_idx
 
         y2 = None
@@ -270,10 +278,15 @@ class OutputPlot(pg.PlotWidget):
         else:
             y = None
 
-        self.line.setData(y=y)
-        self.line2.setData(y=y2)
+        self.line.setData(y=y, name=y_data_name)
+        self.line2.setData(y=y2, name=y_data2_name)
 
         if y is not None:
+            self.legend.clear()
+            if y_data_name is not None:
+                self.legend.addItem(self.line, y_data_name)
+            if y2 is not None and y_data2_name is not None:
+                self.legend.addItem(self.line2, y_data2_name)
             self.setLimits(xMin=0, xMax=len(y))
             # self.setXRange(0, 500)
 
