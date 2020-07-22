@@ -357,16 +357,19 @@ class DockTitleBar(QWidget):
 
 class LeftDockWidget(QDockWidget):
 
-    def __init__(self, *args, title='', **kwargs):
+    def __init__(self, *args, window_title='', dock_title=None, **kwargs):
         super(LeftDockWidget, self).__init__(*args, **kwargs)
+
+        if dock_title is None:
+            dock_title = window_title
 
         self.setAllowedAreas(Qt.LeftDockWidgetArea)
         self.setFloating(False)
 
         self.layout().setContentsMargins(0, 0, 0, 0)
 
-        self.setTitleBarWidget(DockTitleBar(self, title=title))
-        self.setWindowTitle(title.split('.')[-1])
+        self.setTitleBarWidget(DockTitleBar(self, title=dock_title))
+        self.setWindowTitle(window_title)
 
     def connect_min(self, fn):
         """Connects the min button to a custom callback."""
