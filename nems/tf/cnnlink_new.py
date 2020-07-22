@@ -289,8 +289,8 @@ def fit_tf(
     # freeze layers
     if freeze_layers is not None:
         for freeze_index in freeze_layers:
-            model.layers[freeze_index + 1].trainable = False
             log.info(f'Freezing layer #{freeze_index}: "{model.layers[freeze_index + 1].name}".')
+            model.layers[freeze_index + 1].trainable = False
 
     # save an initial set of weights before freezing, in case of termination before any checkpoints
     #log.info('saving weights to : %s', str(checkpoint_filepath) )
@@ -303,7 +303,7 @@ def fit_tf(
         callback0 = []
         verbose = 2
 
-    log.info(f'Fitting model (batch_size={batch_size}...')
+    log.info(f'Fitting model (batch_size={batch_size})...')
     history = model.fit(
         train_data,
         resp_train,
@@ -449,7 +449,10 @@ def fit_tf_init(
     for ms_idx, temp_ms_module in zip(init_idxes, temp_ms):
         modelspec[ms_idx] = temp_ms_module
 
-    if nl_init == 'scipy':
+    if nl_init == 'skip':
+        return {'modelspec': modelspec}
+
+    elif nl_init == 'scipy':
         # pre-fit static NL if it exists
         _d = init_static_nl(est=est, modelspec=modelspec)
         modelspec = _d['modelspec']

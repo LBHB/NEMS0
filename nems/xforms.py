@@ -100,6 +100,9 @@ def evaluate_step(xfa, context={}):
     # Load relevant function into lib path
     fn = lookup_fn_at(xf)
 
+    # Run the xf
+    log.info('Evaluating: {}'.format(xf))
+
     # Check for collisions; more to avoid confusion than for correctness:
     # (except for init_context, which can update)
     #if not 'init_context' in xf:
@@ -118,8 +121,6 @@ def evaluate_step(xfa, context={}):
     #merged_args = {**xfargs, **context_in}
     #args = copy.deepcopy(merged_args)
 
-    # Run the xf
-    log.info('Evaluating: {}'.format(xf))
     new_context = fn(**args)
     if len(context_out_keys):
         if type(new_context) is tuple:
