@@ -46,10 +46,23 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
         self.ctx = ctx
         self.xfspec = xfspec
 
-        self.signal_container = {}
+        self.rec_container = {}
         self.plot_container = {}
         self.cbox_container = []
 
+        # add in menu items for the other signals
+        self.menuView_addSignal = self.menuView.addMenu('Add signal')
+        for k, v in self.ctx.items():
+            if isinstance(v, Recording):
+                rec_menu = self.menuView_addSignal.addMenu(k)
+                rec_menu.triggered.connect(self.on_action_add_signal)
+                # also add the rec to the rec container
+                self.rec_container[k] = v
+                for signal in v.signals:
+                    add_signal = rec_menu.addAction(signal)
+                    add_signal.setData(k)
+
+        # add the layers
         self.menuView_addLayer = self.menuView.addMenu('Add layer')
 
         modelspec = self.ctx['modelspec']
@@ -60,17 +73,10 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
             add_layer = self.menuView_addLayer.addAction(module_name)
             add_layer.triggered.connect(self.on_action_add_layer)
 
-            self.add_layer(idx)
-
-        # add in menu items for the other signals
-        self.menuView_addSignal = self.menuView.addMenu('Add signal')
-        for k, v in self.ctx.items():
-            if isinstance(v, Recording):
-                rec_menu = self.menuView_addSignal.addMenu(k)
-                rec_menu.triggered.connect(self.on_action_add_signal)
-                for signal in v.signals:
-                    add_signal = rec_menu.addAction(signal)
-                    add_signal.setData(k)
+            layer_area = self.add_layer(idx)
+            # expand the first layer
+            if idx == 0:
+                layer_area.parent().parent().set_toggle(True)
 
         # move the output to the end
         self.removeDockWidget(self.dockWidgetOutput)
@@ -94,12 +100,18 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
 
         # get the layer output and keep track of it
         layer_output = ms.evaluate(self.ctx['val'], start=0, stop=idx + 1)
-        self.signal_container[layer_name] = layer_output['pred']._data
+        self.rec_container[layer_name] = layer_output
 
         # make the layer area and add it as a dock
-        layer_area = LayerArea(layer_name=layer_name)
+        layer_area = LayerArea(rec_name=layer_name, signal_names=['pred'])
         self.plot_container[id(layer_area)] = layer_area  # TODO: fix these keys
         self.add_collapsible_dock(layer_area, window_title=layer_name)
+
+        # add the plot types to the combo box
+        layer_area.comboBox.blockSignals(True)
+        layer_area.comboBox.addItem('pyqtgraph ouptut plot')
+        layer_area.comboBox.addItems(ms[idx]['plot_fns'])
+        layer_area.comboBox.blockSignals(False)
 
         return layer_area
 
@@ -127,14 +139,12 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
         """Populates the various plots with data."""
         self.link_plots()
 
-        output_pred = self.ctx['val']['pred']._data
-        output_resp = self.ctx['val']['resp']._data
-        self.outputPlot.update_plot(y_data=output_pred, y_data2=output_resp,
-                                    y_data_name='pred', y_data2_name='resp')
+        # output_pred = self.ctx['val']['pred']._data
+        # output_resp = self.ctx['val']['resp']._data
+        self.outputPlot.update_plot(rec_name='val', signal_names=['pred', 'resp'], channels=0)
 
         for layer_area in self.plot_container.values():
-            layer_area.plotWidget.update_plot(y_data=self.signal_container[layer_area.layer_name],
-                                              y_data_name='pred')
+            layer_area.update_plot()
 
         self.inputSpectrogram.plot_input(self.ctx['val'])
 
@@ -145,9 +155,9 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
         for layer_area in self.plot_container.values():
             self.link_together(layer_area.plotWidget)
 
-    def link_together(self, output_plot):
+    def link_together(self, output_plot, finished=False):
         """Links together the input plot to an output plot."""
-        self.inputSpectrogram.add_link(output_plot.updateXRange)
+        self.inputSpectrogram.add_link(output_plot.updateXRange, finished=finished)
         self.inputSpectrogram.lr.sigRegionChanged.emit(self.inputSpectrogram.lr)
         output_plot.add_link(self.inputSpectrogram.updateRegion)
 
@@ -175,27 +185,32 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
         layer_name = self.sender().text()
 
         layer_area = self.add_layer(layers.index(layer_name))
-        layer_area.plotWidget.update_plot(y_data=self.signal_container[layer_name], y_data_name='pred')
+        layer_area.update_plot()
         self.link_together(layer_area.plotWidget)
         layer_area.parent().parent().set_toggle(True)
 
     def on_action_add_signal(self, action):
         signal, recording = action.text(), action.data()
-        signal_data = self.ctx[recording][signal].rasterize()._data
-        signal_name = f'{recording}:{signal}'
-        self.signal_container[signal_name] = signal_data
 
         # make the layer area and add it to the dock
-        layer_area = LayerArea(layer_name=signal_name)
+        layer_area = LayerArea(rec_name=recording, signal_names=[signal])
         self.plot_container[id(layer_area)] = layer_area
-        self.add_collapsible_dock(layer_area, window_title=signal_name)
+        self.add_collapsible_dock(layer_area, window_title=f'{recording}:{signal}')
 
-        layer_area.plotWidget.update_plot(y_data=signal_data, y_data_name=signal)
+        # layer_area.plotWidget.update_plot(y_data=signal_data, y_data_name=signal)
         layer_area.parent().parent().set_toggle(True)
 
+        # add the plot types to the combo box
+        layer_area.comboBox.blockSignals(True)
+        layer_area.comboBox.addItem('pyqtgraph ouptut plot')
+        layer_area.comboBox.blockSignals(False)
+
         # only link if shapes match
-        if self.ctx['val']['stim']._data.shape[-1] == signal_data.shape[-1]:
-            self.link_together(layer_area.plotWidget)
+        ## TODO: make this a try in the plot widget
+        # if self.ctx['val']['stim']._data.shape[-1] == signal_data.shape[-1]:
+        #     self.link_together(layer_area.plotWidget)
+
+        layer_area.update_plot()
 
 
 if __name__ == '__main__':

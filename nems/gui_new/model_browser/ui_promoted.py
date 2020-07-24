@@ -1,3 +1,5 @@
+import itertools as it
+
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
@@ -8,6 +10,9 @@ import numpy as np
 from matplotlib.backends.backend_qt5agg import FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib import cm
+from matplotlib import pyplot as plt
+
+from nems.utils import lookup_fn_at
 
 pg.setConfigOptions(imageAxisOrder='row-major')
 pg.setConfigOption('background', '#EAEAF2')
@@ -85,14 +90,15 @@ class PyPlotWidget(QWidget):
     def __init__(self, parent):
         super(PyPlotWidget, self).__init__(parent)
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
 
-        self.canvas = FigureCanvas(Figure(figsize=(1, 1)))
+        # need to name the figure so we can set it to the current figure before passing to nems plotting functions
+        self.figure = plt.figure('figure', figsize=(1, 1))
+        self.figure.clf()  # also need to clear it, since it might an existing figure
+        self.canvas = FigureCanvas(self.figure)
         layout.addWidget(self.canvas)
 
         self.ax = self.canvas.figure.subplots()
-        t = np.linspace(0, 10, 501)
-        self.ax.plot(t, np.sin(t), '.')
-        self.ax.figure.canvas.draw()
 
         self.ax.figure.set_size_inches = self.monkey_patch_figure_set_size_inches
 
@@ -114,6 +120,53 @@ class PyPlotWidget(QWidget):
                 if manager is not None:
                     manager.resize(*(size * self.dpi / dpi_ratio).astype(int))
         self.stale = True
+
+    def plot_nems_fn(self, fn_path, rec, ms, channels=0, **kwargs):
+        """Updates the plot from a nems plot function."""
+        self.fn_path = fn_path
+        self.rec = rec
+        self.ms = ms
+        self.channels = channels
+        self.kwargs = kwargs
+
+        plot_fn = lookup_fn_at(fn_path)
+        plt.figure('figure')
+        self.ax.clear()
+        plot_fn(rec, ms, ax=self.ax, channels=channels, **kwargs)
+        self.canvas.figure.canvas.draw()
+
+    def update_index(self, value, **kwargs):
+        """Updates just the index."""
+        self.kwargs.update(kwargs)
+
+        self.plot_nems_fn(
+            fn_path=self.fn_path,
+            rec=self.rec,
+            ms=self.ms,
+            channels=value,
+            **self.kwargs
+        )
+
+    def update_plot(self, rec_name=None, signal_names=None, channels=None, time_range=None, emit=True, **kwargs):
+        """Updates members and plots."""
+        if rec_name is not None:
+            self.rec_name = rec_name
+        if signal_names is not None:
+            self.signal_names = signal_names
+        if time_range is not None:
+            self.time_range = time_range
+
+        print(time_range)
+
+    def add_link(self, fn):
+        # self.sigXRangeChanged.connect(fn)
+        pass
+
+    def updateXRange(self, sender):
+        """When the region item is changed, update the lower plot to match."""
+        # self.setXRange(*sender.getRegion(), padding=0)
+        self.update_plot(time_range=sender.getRegion())
+        pass
 
 
 def cmap_as_lut(name='viridis'):
@@ -159,6 +212,7 @@ class InputSpectrogram(pg.GraphicsLayoutWidget):
         self.lr.sigRegionChanged.connect(self.updatePlot)
         # TODO: add click event to move region instead of only dragging
         # i.e. that way if region goes off screen, can still move
+        self.p1.scene().sigMouseClicked.connect(self.on_mouse_click)
 
     def plot_input(self, rec, mask=True, sig_name='stim'):
         """Plots a stim, applying a mask."""
@@ -192,8 +246,24 @@ class InputSpectrogram(pg.GraphicsLayoutWidget):
         """When the plot item XRange is changed, update the upper region to match."""
         self.lr.setRegion(sender.viewRange()[0])
 
-    def add_link(self, fn):
-        self.lr.sigRegionChanged.connect(fn)
+    def add_link(self, fn, finished=False):
+        """Connects region changed event.
+
+        :param finished: Whether to trigger during whole drag, or just when dragging finished."""
+        if finished:
+            self.lr.sigRegionChangeFinished.connect(fn)
+        else:
+            self.lr.sigRegionChanged.connect(fn)
+
+    def on_mouse_click(self, ev):
+        """Reposition the region on click."""
+        if self.p1.vb in self.p1.scene().items(ev.scenePos()):
+            # get the current width of the region, then center it around the click
+            region = self.lr.getRegion()
+            half_width = (region[1] - region[0]) / 2
+            click_x_coord = self.p1.vb.mapSceneToView(ev.scenePos()).x()
+            self.lr.setRegion([click_x_coord - half_width, click_x_coord + half_width])
+            ev.accept()
 
 
 class OutputPlot(pg.PlotWidget):
@@ -211,11 +281,10 @@ class OutputPlot(pg.PlotWidget):
 
     def __init__(self,
                  parent,
-                 y_data=None,
-                 y_data_name=None,
-                 y_data2=None,
-                 y_data2_name=None,
-                 y_idx=0,
+                 rec_name=None,
+                 signal_names=None,
+                 channels=None,
+                 time_range=None,
                  x_link=None,
                  *args,
                  **kwargs):
@@ -225,74 +294,81 @@ class OutputPlot(pg.PlotWidget):
         """
         super(OutputPlot, self).__init__(parent, *args, **kwargs)
 
+        self.color_cycle = it.cycle([self.ORANGE,
+                                     self.BLUE,
+                                     self.GREEN,
+                                     self.RED])
+
         self.legend = self.addLegend(offset=None, verSpacing=-10)
         self.legend.anchor(itemPos=(1, 0), parentPos=(1, 0), offset=(5, -10))
 
-        self.line = self.plot(pen=self.ORANGE)
-        self.line2 = self.plot(pen=self.BLUE)
+        # self.line = self.plot(pen=self.ORANGE)
+        # self.line2 = self.plot(pen=self.BLUE)
+        self.lines = []
 
-        self.update_plot(y_data, y_data2, y_idx=y_idx)
+        self.rec_name = rec_name
+        self.signal_names = signal_names
+        self.channels = channels
+        self.time_range = time_range
 
-        if x_link is not None:
-            self.set_xlink(x_link)
+        # self.update_plot(
+        #          rec_name=rec_name,
+        #          signal_names=signal_names,
+        #          channels=channels,
+        #          time_range=time_range,
+        #          *args,
+        #          **kwargs
+        # )
 
-    def set_xlink(self, x_link):
-        self.plotItem.vb.setXLink(x_link)
+    #     if x_link is not None:
+    #         self.set_xlink(x_link)
+    #
+    # def set_xlink(self, x_link):
+    #     self.plotItem.vb.setXLink(x_link)
 
     def add_link(self, fn):
         self.sigXRangeChanged.connect(fn)
 
-    def update_index(self, y_idx=0):
+    def update_index(self, value=0):
         """Updates just the index."""
-        self.update_plot(y_data=self.y_data,
-                         y_data_name=self.y_data_name,
-                         y_data2=self.y_data2,
-                         y_data2_name=self.y_data_name,
-                         y_idx=y_idx, emit=False)
+        self.update_plot(channels=value, emit=False)
 
     def updateXRange(self, sender):
         """When the region item is changed, update the lower plot to match."""
         self.setXRange(*sender.getRegion(), padding=0)
 
-    def update_plot(self, y_data, y_data_name=None, y_data2=None, y_data2_name=None, y_idx=0, emit=True):
+    def update_plot(self, rec_name=None, signal_names=None, channels=None, time_range=None, emit=True, **kwargs):
         """Updates members and plots."""
-        self.y_data = y_data
-        self.y_data_name = y_data_name
-        self.y_data2 = y_data2
-        self.y_data2_name = y_data2_name
-        self.y_idx = y_idx
+        if rec_name is not None:
+            self.rec_name = rec_name
+        if signal_names is not None:
+            self.signal_names = signal_names
+        if time_range is not None:
+            self.time_range = time_range
 
-        y2 = None
+        if not self.lines:
+            self.lines = [
+                self.plot(pen=color)  # zip this way to get color cycle matching len of signals
+                for signal, color in zip(self.signal_names, self.color_cycle)
+            ]
 
-        # messy nested ifs, but it works
-        if self.y_data is not None:
-            if self.y_data.ndim == 2:
-                y = self.y_data[self.y_idx]
-                if self.y_data2 is not None:
-                    if self.y_data2.ndim != 2:
-                        raise ValueError('y_data and y_data2 must have same dims')
-                    y2 = self.y_data2[self.y_idx]
-            else:
-                y = self.y_data
-                y2 = self.y_data2
-        else:
-            y = None
+        assert len(self.lines) == len(self.signal_names)
+        self.legend.clear()
 
-        self.line.setData(y=y, name=y_data_name)
-        self.line2.setData(y=y2, name=y_data2_name)
+        for line, signal_name in zip(self.lines, self.signal_names):
+            signal = self.window().rec_container[self.rec_name][signal_name]
 
-        if y is not None:
-            self.legend.clear()
-            if y_data_name is not None:
-                self.legend.addItem(self.line, y_data_name)
-            if y2 is not None and y_data2_name is not None:
-                self.legend.addItem(self.line2, y_data2_name)
-            self.setLimits(xMin=0, xMax=len(y))
-            # self.setXRange(0, 500)
+            y_data = signal.as_continuous()
+            # x_data = np.arange(0, y_data.shape[-1]) / signal.fs
 
-            # update the spinbox if possible
-            if emit:
-                self.sigChannelsChanged.emit(self.y_data.shape[0])
+            line.setData(y=y_data[channels])  #, x=x_data)
+            self.legend.addItem(line, signal_name)
+
+        # bad practice, but use the last reference for the for loop
+        self.setLimits(xMin=0, xMax=y_data.shape[-1])
+
+        if emit:
+            self.sigChannelsChanged.emit(y_data.shape[0])
 
 
 class DockTitleBar(QWidget):
