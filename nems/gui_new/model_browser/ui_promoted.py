@@ -87,10 +87,17 @@ class CollapsibleBox(QWidget):
 
 class PyPlotWidget(QWidget):
 
-    def __init__(self, parent):
+    def __init__(self, parent, fn_path=None, modelspec=None):
         super(PyPlotWidget, self).__init__(parent)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+
+        self.fn_path = fn_path
+        self.modelspec = modelspec
+        self.rec_name = None
+        self.signal_names = None
+        self.channels = None
+        self.time_range = None
 
         # need to name the figure so we can set it to the current figure before passing to nems plotting functions
         self.figure = plt.figure('figure', figsize=(1, 1))
@@ -121,52 +128,62 @@ class PyPlotWidget(QWidget):
                     manager.resize(*(size * self.dpi / dpi_ratio).astype(int))
         self.stale = True
 
-    def plot_nems_fn(self, fn_path, rec, ms, channels=0, **kwargs):
-        """Updates the plot from a nems plot function."""
-        self.fn_path = fn_path
-        self.rec = rec
-        self.ms = ms
-        self.channels = channels
-        self.kwargs = kwargs
-
-        plot_fn = lookup_fn_at(fn_path)
-        plt.figure('figure')
-        self.ax.clear()
-        plot_fn(rec, ms, ax=self.ax, channels=channels, **kwargs)
-        self.canvas.figure.canvas.draw()
-
     def update_index(self, value, **kwargs):
         """Updates just the index."""
-        self.kwargs.update(kwargs)
-
-        self.plot_nems_fn(
-            fn_path=self.fn_path,
-            rec=self.rec,
-            ms=self.ms,
+        self.update_plot(
             channels=value,
-            **self.kwargs
-        )
+            **kwargs)
 
-    def update_plot(self, rec_name=None, signal_names=None, channels=None, time_range=None, emit=True, **kwargs):
+    def update_plot(self, fn_path=None, modelspec=None, rec_name=None, signal_names=None, channels=None, time_range=None,
+                    emit=True,
+                    **kwargs):
         """Updates members and plots."""
+        if fn_path is not None:
+            self.fn_path = fn_path
+        if modelspec is not None:
+            self.modelspec = modelspec
         if rec_name is not None:
             self.rec_name = rec_name
         if signal_names is not None:
             self.signal_names = signal_names
+        if channels is not None:
+            self.channels = channels
         if time_range is not None:
             self.time_range = time_range
 
-        print(time_range)
+        plot_fn = lookup_fn_at(self.fn_path)
+        plt.figure('figure')
+        self.ax.clear()
+
+        # fill the area
+        pos = self.ax.get_position()
+        pos.x0 = 0.1
+        pos.x1 = 1
+
+        self.ax.set_position(pos)
+        # print(self.ax.get_position())
+        plot_fn(rec=self.window().rec_container[self.rec_name],
+                modelspec=self.modelspec,
+                ax=self.ax,
+                channels=channels,
+                time_range=self.time_range,
+                **kwargs)
+        self.canvas.figure.canvas.draw()
 
     def add_link(self, fn):
         # self.sigXRangeChanged.connect(fn)
+        pass
+
+    def unlink(self, fn):
+        # self.sigXRangeChanged.disconnect(fn)
         pass
 
     def updateXRange(self, sender):
         """When the region item is changed, update the lower plot to match."""
         # self.setXRange(*sender.getRegion(), padding=0)
         self.update_plot(time_range=sender.getRegion())
-        pass
+        # print(f'nems update: {sender.getRegion()}')
+        # pass
 
 
 def cmap_as_lut(name='viridis'):
@@ -214,8 +231,11 @@ class InputSpectrogram(pg.GraphicsLayoutWidget):
         # i.e. that way if region goes off screen, can still move
         self.p1.scene().sigMouseClicked.connect(self.on_mouse_click)
 
-    def plot_input(self, rec, mask=True, sig_name='stim'):
+    def plot_input(self, rec_name, mask=True, sig_name='stim'):
         """Plots a stim, applying a mask."""
+        rec = self.window().rec_container[rec_name]
+        fs = rec[sig_name].fs
+
         if mask and 'mask' in rec.signals:
             signal = rec.apply_mask()[sig_name]
         else:
@@ -224,19 +244,23 @@ class InputSpectrogram(pg.GraphicsLayoutWidget):
         self.image_item_whole.setImage(signal.as_continuous())
         self.image_item_sub.setImage(signal.as_continuous())
 
-        self.p1.setLimits(xMin=0, xMax=signal.shape[1] - 1,
+        # scale in x, y, z
+        self.image_item_whole.scale(1 / fs, 1)
+        self.image_item_sub.scale(1 / fs, 1)
+
+        self.p1.setLimits(xMin=0, xMax=(signal.shape[1] - 1) / fs,
                           yMin=0, yMax=signal.shape[0] - 1,
                           minYRange=signal.shape[0] - 1)
 
-        self.p2.setLimits(xMin=0, xMax=signal.shape[1] - 1,
+        self.p2.setLimits(xMin=0, xMax=(signal.shape[1] - 1) / fs,
                           yMin=0, yMax=signal.shape[0] - 1,
                           minYRange=signal.shape[0] - 1)
         # self.p2.setLabel('bottom', 'test', units='s')
 
-        self.p1.setXRange(0, signal.shape[1] - 1)
+        self.p1.setXRange(0, (signal.shape[1] - 1) / fs)
         self.p1.setYRange(0, signal.shape[0] - 1)
         self.p2.setYRange(0, signal.shape[0] - 1)
-        self.lr.setRegion([0, 500])
+        self.lr.setRegion([0, 500 / fs])
 
     def updatePlot(self, sender):
         """When the region item is changed, update the lower plot to match."""
@@ -254,6 +278,13 @@ class InputSpectrogram(pg.GraphicsLayoutWidget):
             self.lr.sigRegionChangeFinished.connect(fn)
         else:
             self.lr.sigRegionChanged.connect(fn)
+
+    def unlink(self, fn):
+        """Disconnects region change event."""
+        try:
+            self.lr.sigRegionChanged.disconnect(fn)
+        except TypeError:
+            self.lr.sigRegionChangeFinished.disconnect(fn)
 
     def on_mouse_click(self, ev):
         """Reposition the region on click."""
@@ -302,8 +333,6 @@ class OutputPlot(pg.PlotWidget):
         self.legend = self.addLegend(offset=None, verSpacing=-10)
         self.legend.anchor(itemPos=(1, 0), parentPos=(1, 0), offset=(5, -10))
 
-        # self.line = self.plot(pen=self.ORANGE)
-        # self.line2 = self.plot(pen=self.BLUE)
         self.lines = []
 
         self.rec_name = rec_name
@@ -311,23 +340,11 @@ class OutputPlot(pg.PlotWidget):
         self.channels = channels
         self.time_range = time_range
 
-        # self.update_plot(
-        #          rec_name=rec_name,
-        #          signal_names=signal_names,
-        #          channels=channels,
-        #          time_range=time_range,
-        #          *args,
-        #          **kwargs
-        # )
-
-    #     if x_link is not None:
-    #         self.set_xlink(x_link)
-    #
-    # def set_xlink(self, x_link):
-    #     self.plotItem.vb.setXLink(x_link)
-
     def add_link(self, fn):
         self.sigXRangeChanged.connect(fn)
+
+    def unlink(self, fn):
+        self.sigXRangeChanged.disconnect(fn)
 
     def update_index(self, value=0):
         """Updates just the index."""
@@ -359,9 +376,9 @@ class OutputPlot(pg.PlotWidget):
             signal = self.window().rec_container[self.rec_name][signal_name]
 
             y_data = signal.as_continuous()
-            # x_data = np.arange(0, y_data.shape[-1]) / signal.fs
+            x_data = np.arange(0, y_data.shape[-1]) / signal.fs
 
-            line.setData(y=y_data[channels])  #, x=x_data)
+            line.setData(y=y_data[channels], x=x_data)
             self.legend.addItem(line, signal_name)
 
         # bad practice, but use the last reference for the for loop

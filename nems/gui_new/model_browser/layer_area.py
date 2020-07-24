@@ -46,9 +46,11 @@ class LayerArea(QtBaseClass, Ui_Widget):
         else:
             new_plot = self.new_nems_plot(text)
 
+        self.window().unlink(self.plotWidget)
         self.layout().replaceWidget(self.plotWidget, new_plot)
         self.plotWidget.hide()
         del self.plotWidget
+
         self.plotWidget = new_plot
         self.update_plot()
         self.window().link_together(self.plotWidget, finished=self.plot_type == 'nems')
@@ -68,17 +70,10 @@ class LayerArea(QtBaseClass, Ui_Widget):
                                     signal_names=self.signal_names,
                                     channels=0)
 
-        # if self.plot_type == 'pyqtgraph':
-        #     y_data = self.window().rec_container[rec_name][signal_name]._data
-        #     y_data_name = signal_name
-
-
     def new_nems_plot(self, plot_fn):
         """Replaces the plot widget with a nems plot."""
-        pyplot = PyPlotWidget(self)
+        pyplot = PyPlotWidget(self, fn_path=plot_fn, modelspec=self.window().ctx['modelspec'])
         self.plot_type = 'nems'
-
-        pyplot.plot_nems_fn(plot_fn, self.window().ctx['val'], self.window().ctx['modelspec'], time_range=(0, 5))
         return pyplot
 
     def new_pg_plot(self, plot_fn):

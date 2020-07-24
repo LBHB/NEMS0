@@ -50,6 +50,9 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
         self.plot_container = {}
         self.cbox_container = []
 
+        # add the layers menu
+        self.menuView_addLayer = self.menuView.addMenu('Add layer')
+
         # add in menu items for the other signals
         self.menuView_addSignal = self.menuView.addMenu('Add signal')
         for k, v in self.ctx.items():
@@ -61,9 +64,6 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
                 for signal in v.signals:
                     add_signal = rec_menu.addAction(signal)
                     add_signal.setData(k)
-
-        # add the layers
-        self.menuView_addLayer = self.menuView.addMenu('Add layer')
 
         modelspec = self.ctx['modelspec']
         for idx, ms in enumerate(modelspec):
@@ -139,14 +139,12 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
         """Populates the various plots with data."""
         self.link_plots()
 
-        # output_pred = self.ctx['val']['pred']._data
-        # output_resp = self.ctx['val']['resp']._data
         self.outputPlot.update_plot(rec_name='val', signal_names=['pred', 'resp'], channels=0)
 
         for layer_area in self.plot_container.values():
             layer_area.update_plot()
 
-        self.inputSpectrogram.plot_input(self.ctx['val'])
+        self.inputSpectrogram.plot_input(rec_name='val')
 
     def link_plots(self):
         """Links the x region of plots."""
@@ -158,8 +156,16 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
     def link_together(self, output_plot, finished=False):
         """Links together the input plot to an output plot."""
         self.inputSpectrogram.add_link(output_plot.updateXRange, finished=finished)
+
         self.inputSpectrogram.lr.sigRegionChanged.emit(self.inputSpectrogram.lr)
+        self.inputSpectrogram.lr.sigRegionChangeFinished.emit(self.inputSpectrogram.lr)
+
         output_plot.add_link(self.inputSpectrogram.updateRegion)
+
+    def unlink(self, output_plot):
+        """Unlinks plots."""
+        self.inputSpectrogram.unlink(output_plot.updateXRange)
+        output_plot.unlink(self.inputSpectrogram.updateRegion)
 
     def save_state(self):
         self.saved_state = self.saveState(0)
