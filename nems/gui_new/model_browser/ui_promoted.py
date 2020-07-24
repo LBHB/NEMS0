@@ -159,9 +159,8 @@ class PyPlotWidget(QWidget):
         pos = self.ax.get_position()
         pos.x0 = 0.1
         pos.x1 = 1
-
         self.ax.set_position(pos)
-        # print(self.ax.get_position())
+
         plot_fn(rec=self.window().rec_container[self.rec_name],
                 modelspec=self.modelspec,
                 ax=self.ax,
@@ -284,7 +283,11 @@ class InputSpectrogram(pg.GraphicsLayoutWidget):
         try:
             self.lr.sigRegionChanged.disconnect(fn)
         except TypeError:
+            pass
+        try:
             self.lr.sigRegionChangeFinished.disconnect(fn)
+        except TypeError:
+            pass
 
     def on_mouse_click(self, ev):
         """Reposition the region on click."""
@@ -344,7 +347,10 @@ class OutputPlot(pg.PlotWidget):
         self.sigXRangeChanged.connect(fn)
 
     def unlink(self, fn):
-        self.sigXRangeChanged.disconnect(fn)
+        try:
+            self.sigXRangeChanged.disconnect(fn)
+        except TypeError:
+            pass
 
     def update_index(self, value=0):
         """Updates just the index."""
@@ -382,10 +388,84 @@ class OutputPlot(pg.PlotWidget):
             self.legend.addItem(line, signal_name)
 
         # bad practice, but use the last reference for the for loop
-        self.setLimits(xMin=0, xMax=y_data.shape[-1])
+        self.setLimits(xMin=0, xMax=y_data.shape[-1] - 1)
 
         if emit:
             self.sigChannelsChanged.emit(y_data.shape[0])
+
+
+class SpectrogramPlot(pg.PlotWidget):
+
+    # signal for parent to hook into
+    sigChannelsChanged = pyqtSignal(int)
+
+    def __init__(self,
+                 parent,
+                 rec_name=None,
+                 signal_names=None,
+                 channels=None,
+                 time_range=None,
+                 x_link=None,
+                 *args,
+                 **kwargs):
+        """Both y_datas much be same shape.
+
+        y1 is pred, y2 is resp.
+        """
+        super(SpectrogramPlot, self).__init__(parent, *args, **kwargs)
+
+        self.image_item = pg.ImageItem()
+        self.addItem(self.image_item)
+
+        viridis_lut = cmap_as_lut('viridis')
+        self.image_item.setLookupTable(viridis_lut)
+
+        self.rec_name = rec_name
+        self.signal_names = signal_names
+        self.channels = channels
+        self.time_range = time_range
+
+    def add_link(self, fn):
+        self.sigXRangeChanged.connect(fn)
+
+    def unlink(self, fn):
+        self.sigXRangeChanged.disconnect(fn)
+
+    def update_index(self, value=0):
+        """Updates just the index."""
+        pass
+
+    def updateXRange(self, sender):
+        """When the region item is changed, update the lower plot to match."""
+        self.setXRange(*sender.getRegion(), padding=0)
+
+    def update_plot(self, rec_name=None, signal_names=None, channels=None, time_range=None, emit=True, **kwargs):
+        """Updates members and plots."""
+        if rec_name is not None:
+            self.rec_name = rec_name
+        if signal_names is not None:
+            if len(signal_names) != 1:
+                raise ValueError('Spectrogram can only plot a single signal.')
+            self.signal_names = signal_names
+        if time_range is not None:
+            self.time_range = time_range
+
+        # TODO: do we need to apply mask, or is that done already?
+        signal = self.window().rec_container[self.rec_name][self.signal_names[0]]
+        fs = signal.fs
+
+        image_data = signal.as_continuous()
+        self.image_item.scale(1 / fs, 1)
+
+        self.image_item.setImage(image_data)
+
+        # bad practice, but use the last reference for the for loop
+        self.setLimits(xMin=0, xMax=(image_data.shape[-1] - 1) / fs,
+                       yMin=0, yMax=image_data.shape[0] - 1,
+                       minYRange=image_data.shape[0] - 1)
+
+        if emit:
+            self.sigChannelsChanged.emit(1)
 
 
 class DockTitleBar(QWidget):
@@ -480,3 +560,9 @@ class LeftDockWidget(QDockWidget):
     def connect_min(self, fn):
         """Connects the min button to a custom callback."""
         self.titleBarWidget().minButton.clicked.connect(fn)
+
+
+PG_PLOTS = {
+    'pyqtgraph output plot': OutputPlot,
+    'pyqtgraph spectrogram': SpectrogramPlot,
+}

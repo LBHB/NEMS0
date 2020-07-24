@@ -7,7 +7,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
-from nems.gui_new.model_browser.ui_promoted import PyPlotWidget, OutputPlot
+from nems.gui_new.model_browser.ui_promoted import PyPlotWidget, OutputPlot, PG_PLOTS
 
 
 log = logging.getLogger(__name__)
@@ -52,10 +52,11 @@ class LayerArea(QtBaseClass, Ui_Widget):
         del self.plotWidget
 
         self.plotWidget = new_plot
-        self.update_plot()
+        self.plotWidget.sigChannelsChanged.connect(self.update_spinbox)
+        self.update_plot(emit=True)
         self.window().link_together(self.plotWidget, finished=self.plot_type == 'nems')
 
-    def update_plot(self, rec_name=None, signal_names=None, channels=None, time_range=None):
+    def update_plot(self, rec_name=None, signal_names=None, channels=None, time_range=None, **kwargs):
         """Dispatches the proper plot calls."""
         if rec_name is not None:
             self.rec_name = rec_name
@@ -68,7 +69,8 @@ class LayerArea(QtBaseClass, Ui_Widget):
 
         self.plotWidget.update_plot(rec_name=self.rec_name,
                                     signal_names=self.signal_names,
-                                    channels=0)
+                                    channels=0,
+                                    **kwargs)
 
     def new_nems_plot(self, plot_fn):
         """Replaces the plot widget with a nems plot."""
@@ -78,6 +80,6 @@ class LayerArea(QtBaseClass, Ui_Widget):
 
     def new_pg_plot(self, plot_fn):
         """Replaces the plot widget with a pyqtgraph plot."""
-        pgplot = OutputPlot(self)
+        pgplot = PG_PLOTS[plot_fn](self)
         self.plot_type = 'pyqtgraph'
         return pgplot

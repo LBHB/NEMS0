@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import *
 
 from nems.recording import Recording
 from nems.gui_new.model_browser.layer_area import LayerArea
-from nems.gui_new.model_browser.ui_promoted import CollapsibleBox, LeftDockWidget
+from nems.gui_new.model_browser.ui_promoted import CollapsibleBox, LeftDockWidget, PG_PLOTS
 
 from nems.modelspec import _lookup_fn_at
 
@@ -109,7 +109,7 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
 
         # add the plot types to the combo box
         layer_area.comboBox.blockSignals(True)
-        layer_area.comboBox.addItem('pyqtgraph ouptut plot')
+        layer_area.comboBox.addItems(PG_PLOTS.keys())
         layer_area.comboBox.addItems(ms[idx]['plot_fns'])
         layer_area.comboBox.blockSignals(False)
 
@@ -208,7 +208,7 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
 
         # add the plot types to the combo box
         layer_area.comboBox.blockSignals(True)
-        layer_area.comboBox.addItem('pyqtgraph ouptut plot')
+        layer_area.comboBox.addItems(PG_PLOTS.keys())
         layer_area.comboBox.blockSignals(False)
 
         # only link if shapes match
