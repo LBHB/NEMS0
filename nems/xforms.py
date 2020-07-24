@@ -388,8 +388,9 @@ def normalize_sig(rec=None, sig='stim', norm_method='meanstd', log_compress='Non
         newrec = rec.copy()
         s = newrec[sig].rasterize()
         if log_compress != 'None':
+           log.info('xforms.normalize_sig: compressing with dlog(..., %d)', -log_compress)
            from nems.modules.nonlinearity import _dlog
-           fn = lambda x: _dlog(x, -1)
+           fn = lambda x: _dlog(x, -log_compress)
            s=s.transform(fn, sig)
            
         newrec[sig] = s.normalize(norm_method)

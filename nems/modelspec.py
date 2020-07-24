@@ -1158,7 +1158,11 @@ class ModelSpec:
                 tensor = [tensor, stensor]
 
             for outidx in out_channels:
-                w = get_jacobian(self.tf_model, tensor, D, outidx).numpy()[0]
+                if include_state:
+                    w = get_jacobian(self.tf_model, tensor, D, outidx)[0].numpy()[0]
+                else:
+                    w = get_jacobian(self.tf_model, tensor, D, outidx).numpy()[0]
+
                 if need_fourth_dim:
                     w = w[:, :, 0]
     

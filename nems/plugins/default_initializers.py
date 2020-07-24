@@ -156,6 +156,8 @@ def norm(kw):
             norm_method = 'meanstd'
         elif op == 'mm':
             norm_method = 'minmax'
+        elif op.startswith('ln'):
+            log_compress = -int(op[2:])
         elif op.startswith('l'):
             log_compress = int(op[1:])
 

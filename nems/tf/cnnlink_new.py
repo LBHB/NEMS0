@@ -548,3 +548,6 @@ def get_jacobian(model: tf.keras.Model,
 
     w = g.jacobian(z, tensor)
     return w
+
+
+
