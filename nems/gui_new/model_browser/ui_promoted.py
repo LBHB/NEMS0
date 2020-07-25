@@ -87,6 +87,9 @@ class CollapsibleBox(QWidget):
 
 class PyPlotWidget(QWidget):
 
+    # signal for parent to hook into
+    sigChannelsChanged = pyqtSignal(int)
+
     def __init__(self, parent, fn_path=None, modelspec=None):
         super(PyPlotWidget, self).__init__(parent)
         layout = QVBoxLayout(self)
@@ -145,6 +148,8 @@ class PyPlotWidget(QWidget):
         if rec_name is not None:
             self.rec_name = rec_name
         if signal_names is not None:
+            if len(signal_names) != 1:
+                raise ValueError('NEMS can only plot a single signal.')
             self.signal_names = signal_names
         if channels is not None:
             self.channels = channels
@@ -161,13 +166,21 @@ class PyPlotWidget(QWidget):
         pos.x1 = 1
         self.ax.set_position(pos)
 
-        plot_fn(rec=self.window().rec_container[self.rec_name],
+        rec = self.window().rec_container[self.rec_name]
+        plot_fn(rec=rec,
                 modelspec=self.modelspec,
+                sig_name=self.signal_names[0],
                 ax=self.ax,
                 channels=channels,
                 time_range=self.time_range,
                 **kwargs)
         self.canvas.figure.canvas.draw()
+
+        if emit:
+            # TODO: how to know how many channels can be viewed here?
+            #  but might not matter since plotting fn can handle channel input?
+            self.sigChannelsChanged.emit(rec[self.signal_names[0]].shape[0])
+            # has to be a better way to do this
 
     def add_link(self, fn):
         # self.sigXRangeChanged.connect(fn)
