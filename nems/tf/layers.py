@@ -887,7 +887,7 @@ class Dense_NEMS(BaseLayer, Dense):
         return phi
 
 
-class WeightChannelsNew(BaseLayer):
+class WeightChannelsPerBank(BaseLayer):
     _TF_ONLY = True
     def __init__(self, units=None, initializer=None, seed=0, *args, **kwargs):
         '''Similar to WeightChannelsBasic but implemented as a weighted sum, and does not map to a NEMS module.'''
@@ -912,6 +912,38 @@ class WeightChannelsNew(BaseLayer):
         phi = {'coefficients': self.coefficients.numpy()}
         log.info(f'Converted {self.name} to modelspec phis.')
         return phi
+
+
+class WeightChannelsNew(BaseLayer):
+    _TF_ONLY = True
+    def __init__(self, units=None, initializer=None, seed=0, *args, **kwargs):
+        '''Similar to WeightChannelsBasic but implemented as a weighted sum, and does not map to a NEMS module.'''
+        super(WeightChannelsNew, self).__init__(*args, **kwargs)
+        self.units = units
+
+    def build(self, input_shape):
+        ##constraint=tf.keras.constraints.NonNeg(),
+        self.coefficients = self.add_weight(name='coefficients',
+                                            shape=(input_shape[-2]*input_shape[-1], self.units),
+                                            dtype='float32',
+                                            initializer=tf.random_normal_initializer,
+                                            trainable=True,
+                                            )
+
+    def call(self, inputs):
+        # Weighted sum along frequency dimension
+        # Assumes input formated as time x frequency x num_inputs
+        batch, time, channels, units = tuple(inputs.shape)
+        flat_inputs = array_ops.reshape(inputs, (array_ops.shape(inputs)[0],) + (time, channels*units))
+        return tf.linalg.matmul(flat_inputs, self.coefficients)
+
+    def weights_to_phi(self):
+        phi = {'coefficients': self.coefficients.numpy()}
+        log.info(f'Converted {self.name} to modelspec phis.')
+        return phi
+
+
+
 
 
 class FlattenChannels(BaseLayer):

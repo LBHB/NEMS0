@@ -1670,7 +1670,7 @@ def mrg(kw):
         }
     return template
 
-
+@xmodule()
 def conv2d(kw):
     # TODO: choose how to initialize weights
     ops = kw.split('.')
@@ -1713,7 +1713,7 @@ def conv2d(kw):
 
     return templates
 
-
+@xmodule()
 def dense(kw):
     # TODO: choose how to initialize weights
     ops = kw.split('.')
@@ -1740,7 +1740,7 @@ def dense(kw):
 
     return templates
 
-
+@xmodule()
 def wcn(kw):
     # TODO: choose how to initialize weights
     ops = kw.split('.')
