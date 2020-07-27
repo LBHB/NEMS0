@@ -103,7 +103,7 @@ class PyPlotWidget(QWidget):
         self.time_range = None
 
         # need to name the figure so we can set it to the current figure before passing to nems plotting functions
-        self.figure = plt.figure('figure', figsize=(1, 1))
+        self.figure = plt.figure(f'{id(self)}', figsize=(1, 1))
         self.figure.clf()  # also need to clear it, since it might an existing figure
         self.canvas = FigureCanvas(self.figure)
         layout.addWidget(self.canvas)
@@ -131,10 +131,11 @@ class PyPlotWidget(QWidget):
                     manager.resize(*(size * self.dpi / dpi_ratio).astype(int))
         self.stale = True
 
-    def update_index(self, value, **kwargs):
+    def update_index(self, value=0, **kwargs):
         """Updates just the index."""
         self.update_plot(
             channels=value,
+            emit=False,
             **kwargs)
 
     def update_plot(self, fn_path=None, modelspec=None, rec_name=None, signal_names=None, channels=None, time_range=None,
@@ -157,7 +158,7 @@ class PyPlotWidget(QWidget):
             self.time_range = time_range
 
         plot_fn = lookup_fn_at(self.fn_path)
-        plt.figure('figure')
+        plt.figure(f'{id(self)}')
         self.ax.clear()
 
         # fill the area
@@ -167,14 +168,20 @@ class PyPlotWidget(QWidget):
         self.ax.set_position(pos)
 
         rec = self.window().rec_container[self.rec_name]
-        plot_fn(rec=rec,
-                modelspec=self.modelspec,
-                sig_name=self.signal_names[0],
-                ax=self.ax,
-                channels=channels,
-                time_range=self.time_range,
-                **kwargs)
-        self.canvas.figure.canvas.draw()
+
+        # sometimes the current channel index can be out of range
+        try:
+            plot_fn(rec=rec,
+                    modelspec=self.modelspec,
+                    sig_name=self.signal_names[0],
+                    ax=self.ax,
+                    channels=channels,
+                    time_range=self.time_range,
+                    **kwargs)
+            self.canvas.figure.canvas.draw()
+        except IndexError:
+            self.parent().spinBox.setValue(0)
+            return
 
         if emit:
             # TODO: how to know how many channels can be viewed here?
@@ -243,6 +250,8 @@ class InputSpectrogram(pg.GraphicsLayoutWidget):
         # i.e. that way if region goes off screen, can still move
         self.p1.scene().sigMouseClicked.connect(self.on_mouse_click)
 
+        # self.proxies = []  # container to persist instances of SignalProxy
+
     def plot_input(self, rec_name, mask=True, sig_name='stim'):
         """Plots a stim, applying a mask."""
         rec = self.window().rec_container[rec_name]
@@ -290,6 +299,8 @@ class InputSpectrogram(pg.GraphicsLayoutWidget):
             self.lr.sigRegionChangeFinished.connect(fn)
         else:
             self.lr.sigRegionChanged.connect(fn)
+
+        # self.proxies.append(pg.SignalProxy(self.lr.sigRegionChanged, delay=0, rateLimit=30, slot=fn))
 
     def unlink(self, fn):
         """Disconnects region change event."""
@@ -365,9 +376,12 @@ class OutputPlot(pg.PlotWidget):
         except TypeError:
             pass
 
-    def update_index(self, value=0):
+    def update_index(self, value=0, **kwargs):
         """Updates just the index."""
-        self.update_plot(channels=value, emit=False)
+        self.update_plot(
+            channels=value,
+            emit=False,
+            **kwargs)
 
     def updateXRange(self, sender):
         """When the region item is changed, update the lower plot to match."""

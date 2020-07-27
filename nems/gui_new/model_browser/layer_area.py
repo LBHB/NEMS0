@@ -25,6 +25,7 @@ class LayerArea(QtBaseClass, Ui_Widget):
 
         self.rec_name = rec_name
         self.signal_names = signal_names
+        self.channels = 0
         self.plotWidget.setParent(self)
 
         self.plotWidget.sigChannelsChanged.connect(self.update_spinbox)
@@ -36,8 +37,10 @@ class LayerArea(QtBaseClass, Ui_Widget):
     def update_spinbox(self, channels):
         self.spinBox.setRange(0, channels - 1)
         self.label.setText(f'channels: {channels}')
+        # self.spinBox.setValue(0)
 
     def on_spinbox_changed(self, value):
+        self.channels = value
         self.plotWidget.update_index(value)
 
     def on_combobox_changed(self, text):
@@ -54,7 +57,8 @@ class LayerArea(QtBaseClass, Ui_Widget):
         self.plotWidget = new_plot
         self.plotWidget.sigChannelsChanged.connect(self.update_spinbox)
         self.update_plot(emit=True)
-        self.window().link_together(self.plotWidget, finished=self.plot_type == 'nems')
+        # if updating can't keep up for pyplots, uncomment below, or add in a rate limiter on the signal
+        self.window().link_together(self.plotWidget)  #, finished=self.plot_type == 'nems')
 
     def update_plot(self, rec_name=None, signal_names=None, channels=None, time_range=None, **kwargs):
         """Dispatches the proper plot calls."""
@@ -69,7 +73,7 @@ class LayerArea(QtBaseClass, Ui_Widget):
 
         self.plotWidget.update_plot(rec_name=self.rec_name,
                                     signal_names=self.signal_names,
-                                    channels=0,
+                                    channels=self.channels,
                                     **kwargs)
 
     def new_nems_plot(self, plot_fn):
