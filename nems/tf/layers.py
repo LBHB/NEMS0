@@ -979,7 +979,10 @@ class Conv2D_NEMS_new(BaseLayer):
 class Conv2D_NEMS(BaseLayer, Conv2D):
     _TF_ONLY = True
     def __init__(self, initializer=None, seed=0, *args, **kwargs):
-        '''Identical to the stock keras Conv2D but with NEMS compatibility added on, but without a matching module.'''
+        '''
+        Fork of Keras Conv2D module. Currently only works with specialized conditions (relu may be required) but
+        implements a causal filter on the time axis. (SVD updated from JP original code 2020-07-27.)
+        '''
         super(Conv2D_NEMS, self).__init__(*args, **kwargs)
         # force symmetrical padding in frequency, causal in time
         pad_top = self.kernel_size[0]-1
@@ -991,9 +994,7 @@ class Conv2D_NEMS(BaseLayer, Conv2D):
     def call(self, inputs, training=True):
         # inputs should be [batch, in_height, in_width, in_channels]
         # self.weights[0] should be [filter_height, filter_width, in_channels, out_channels]
-        log.info(inputs.shape)
         x = tf.nn.conv2d(inputs, self.weights[0], [1, 1, 1, 1], padding=self.padding)
-        log.info(x.shape)
         # x should be [batch, in_height, in_width, out_channels]
 
         # self.weights[1] should be [1, 1, 1, out_channels]
@@ -1001,7 +1002,6 @@ class Conv2D_NEMS(BaseLayer, Conv2D):
             return tf.nn.relu(x - tf.reshape(self.weights[1], [1, 1, 1, -1]))
         else:
             return tf.nn.relu(x)
-
 
     def weights_to_phi(self):
         phi = {'kernels': self.weights[0].numpy(),

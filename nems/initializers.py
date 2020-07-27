@@ -765,7 +765,10 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
 
     modelspec[target_i]['phi'] = {'amplitude': amp, 'base': base,
                                   'kappa': kappa, 'shift': shift}
-    log.info("Init dexp: %s", modelspec[target_i]['phi'])
+    if len(amp)<2:
+       log.info("Init dexp: %s", modelspec[target_i]['phi'])
+    else:
+       log.info("Init dexp completed for %d channels ", len(modelspec[target_i]['phi']['amplitude']))
 
     return modelspec
 
