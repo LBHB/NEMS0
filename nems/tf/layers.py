@@ -869,8 +869,36 @@ class Conv2D_NEMS(BaseLayer, Conv2D):
         '''Identical to the stock keras Conv2D but with NEMS compatibility added on, but without a matching module.'''
         super(Conv2D_NEMS, self).__init__(*args, **kwargs)
 
+    # Given an input tensor of shape [batch, in_height, in_width, in_channels]
+    # and a filter / kernel tensor of shape
+    # [filter_height, filter_width, in_channels, out_channels],
+    # this op performs the following:
+    def call(self, inputs, training=True):
+        # inputs should be [batch, in_height, in_width, in_channels]
+        # self.weights[0] should be [filter_height, filter_width, in_channels, out_channels]
+        x = tf.nn.conv2d(input, self.weights[0], padding="SAME")
+        # x should be [batch, in_height, in_width, out_channels]
+
+        # self.weights[1] should be [1, 1, 1, out_channels]
+        return tf.nn.relu(x - self.weights[1])
+
+
     def weights_to_phi(self):
-        phi = {'kernels': self.weights[0].numpy(), 'activations': self.weights[1].numpy()}
+        phi = {'kernels': self.weights[0].numpy(),
+               'activations': self.weights[1].numpy()}
+        log.info(f'Converted {self.name} to modelspec phis.')
+        return phi
+
+class Conv2D_NEMS_JP(BaseLayer, Conv2D):
+    _TF_ONLY = True
+    def __init__(self, initializer=None, seed=0, *args, **kwargs):
+        '''Identical to the stock keras Conv2D but with NEMS compatibility added on, but without a matching module.'''
+        super(Conv2D_NEMS, self).__init__(*args, **kwargs)
+
+
+    def weights_to_phi(self):
+        phi = {'kernels': self.weights[0].numpy(),
+               'activations': self.weights[1].numpy()}
         log.info(f'Converted {self.name} to modelspec phis.')
         return phi
 
