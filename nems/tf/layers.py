@@ -880,7 +880,7 @@ class Conv2D_NEMS(BaseLayer, Conv2D):
         # x should be [batch, in_height, in_width, out_channels]
 
         # self.weights[1] should be [1, 1, 1, out_channels]
-        return tf.nn.relu(x - self.weights[1])
+        return tf.nn.relu(x - tf.reshape(self.weights[1], [1, 1, 1, -1])
 
 
     def weights_to_phi(self):
