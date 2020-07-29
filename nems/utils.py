@@ -432,3 +432,75 @@ def lookup_fn_at(fn_path, ignore_table=False):
             lookup_table[fn_path] = fn
     return fn
 
+def simple_search(query, collection):
+    '''
+    Filter cellids or modelnames by simple space-separated search strings.
+
+    Parameters:
+    ----------
+    query : str
+        Search string, see syntax below.
+    collection : list
+        List of items to compare the search string against.
+        Ex: A list of cellids.
+
+    Returns:
+    -------
+    filtered_collection : list
+        Collection with all non-matched entries removed.
+
+    Syntax:
+    ------
+    space : OR
+    &     : AND
+    !     : NEGATE
+    (In that order of precedence)
+
+    Example:
+    collection = ['AMT001', BRT000', 'TAR002', 'TAR003']
+
+    search('AMT', collection)
+    >>  ['AMT001']
+
+    search('AMT TAR', collection)
+    >>  ['AMT001', 'TAR002', 'TAR003']
+
+    search ('AMT TAR&!003', collection)
+    >>  ['AMT001', 'TAR002']
+
+    search ('AMT&TAR', collection)
+    >> []
+
+
+    '''
+    filtered_collection = []
+    for c in collection:
+        for s in query.split(' '):
+            if ('&' in s) or ('!' in s):
+                ands = s.split('&')
+                all_there = True
+                for a in ands:
+                    negate = ('!' in a)
+                    b = a.replace('!', '')
+                    if (b in c) or (c in b):
+                        if negate:
+                            all_there = False
+                            break
+                        else:
+                            continue
+                    else:
+                        if negate:
+                            continue
+                        else:
+                            all_there = False
+                            break
+                if all_there:
+                    filtered_collection.append(c)
+            else:
+                if (s in c) or (c in s):
+                    filtered_collection.append(c)
+                    break
+                else:
+                    pass
+
+    return filtered_collection
