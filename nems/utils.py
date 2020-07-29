@@ -11,11 +11,13 @@ from collections import Sequence
 import logging
 import importlib
 import re
+from configparser import ConfigParser
 
 import numpy as np
 import matplotlib.pyplot as plt
 
 from nems import get_setting
+import nems
 
 log = logging.getLogger(__name__)
 
@@ -504,3 +506,59 @@ def simple_search(query, collection):
                     pass
 
     return filtered_collection
+
+
+default_configfile = os.path.join(nems.get_setting('SAVED_SETTINGS_PATH') + '/gui.ini')
+nems_root = os.path.abspath(nems.get_setting('SAVED_SETTINGS_PATH') + '/../../')
+
+def load_settings(config_group = "db_browser_last", configfile=None):
+
+    if configfile is None:
+        configfile = default_configfile
+
+    config = ConfigParser()
+
+    try:
+        config.read(configfile)
+        settings = config.get(config_group)
+        m.batchLE.setText(config.get(config_group, 'batch'))
+        m.cellLE.setText(config.get(config_group, 'cells'))
+        m.modelLE.setText(config.get(config_group, 'models'))
+
+        geostr = config.get(config_group, 'geometry')
+        g=[int(x) for x in geostr.split(",")]
+        m.setGeometry(*g)
+
+    except:
+        with open(configfile, 'w') as f:
+            config.write(f)
+        save_settings(m)
+
+def save_settings(m):
+
+    config = ConfigParser()
+    config.read(configfile)
+    try:
+        config_group = m.config_group
+    except:
+        config_group = 'db_browser_last'
+
+    batch = m.batchLE.text()
+    cellmask = m.cellLE.text()
+    modelmask = m.modelLE.text()
+    rect = m.frameGeometry().getRect()
+    geostr = ",".join([str(x) for x in rect])
+    #print(geostr)
+    try:
+        # Create non-existent section
+        config.add_section(config_group)
+    except:
+        pass
+
+    config.set(config_group, 'batch', batch)
+    config.set(config_group, 'cells', cellmask)
+    config.set(config_group, 'models', modelmask)
+    config.set(config_group, 'geometry', geostr)
+
+    with open(configfile, 'w') as f:
+        config.write(f)
