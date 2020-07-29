@@ -13,13 +13,14 @@ GENERAL_REQUIRES = ['numpy', 'scipy', 'matplotlib', 'pandas', 'requests',
                     'h5py', 'sqlalchemy', 'configparser']
 # pycharm also requires: tornado
 # TF modules require tensorflow
-# GUI requires pyqt
+# GUI requires pyqt, pyqtgraph
 
 EXTRAS_REQUIRES = {
     'docs': ['sphinx', 'sphinx_rtd_theme', 'pygments-enaml', 'nbsphinx', 'pandoc', 'IPython', 'sphinx_copybutton'],
     'nwb': ['allensdk'],
-    'tensorflow': ['tensorflow>=2.2', 'tensorboard', 'tensorflow-probability'],
-    'tests': ['pytest', 'pytest-benchmark']
+    'tensorflow': ['tensorflow==2.2', 'tensorboard', 'tensorflow-probability==0.10.1'],
+    'tests': ['pytest', 'pytest-benchmark'],
+    'gui': ['PyQt5', 'pyqtgraph']
 }
 
 setup(

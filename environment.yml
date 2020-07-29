@@ -13,6 +13,7 @@ dependencies:
     - configparser
     - tornado
     - pyqt
+    - pyqtgraph
     - tensorflow>=2.2
     - tensorboard
     - tensorflow-probability

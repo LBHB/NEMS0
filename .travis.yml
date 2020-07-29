@@ -27,7 +27,7 @@ before_install:
   - conda create -n condaenv --yes numpy scipy matplotlib pandas requests h5py pytest
   - . $HOME/miniconda/etc/profile.d/conda.sh
   - conda activate condaenv
-  - pip -q install pytest-benchmark tensorflow==2.2 tensorflow-probability
+  - pip -q install pytest-benchmark tensorflow==2.2 tensorflow-probability==0.10.1
   - python --version
   - conda list
 
