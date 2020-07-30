@@ -183,7 +183,6 @@ def sql_command(sql):
     conn = engine.connect()
     conn.execute(sql)
 
-
 ###### Functions that access / manipulate the job queue. #######
 
 def enqueue_models(celllist, batch, modellist, force_rerun=False,
