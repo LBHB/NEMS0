@@ -99,16 +99,16 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
             kw = kw.replace("2R", "{}".format(2*R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        elif ("x3R" in kw) and (rec is not None):
+        elif (("x3R" in kw) or (".3R" in kw)) and (rec is not None):
             R = rec[output_name].nchans
             kw_old = kw
-            kw = kw.replace("x3R", "x{}".format(3*R))
+            kw = kw.replace("3R", "{}".format(3*R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        elif ("x4R" in kw) and (rec is not None):
+        elif (("x4R" in kw) or (".4R" in kw)) and (rec is not None):
             R = rec[output_name].nchans
             kw_old = kw
-            kw = kw.replace("x4R", "x{}".format(4*R))
+            kw = kw.replace("4R", "{}".format(4*R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
         else:
