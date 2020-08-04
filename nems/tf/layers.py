@@ -805,6 +805,14 @@ class StateDCGain(BaseLayer):
             }
         if initializer is not None:
             self.initializer.update(initializer)
+        self.d_constraint = None
+        self.g_constraint = None
+        if bounds is not None:
+            # constraints assumes bounds built with np.full
+            if 'd' in bounds.keys():
+                self.d_constraint = lambda t: tf.clip_by_value(t, bounds['d'][0], bounds['d'][1])
+            if 'g' in bounds.keys():
+                self.g_constraint = lambda t: tf.clip_by_value(t, bounds['g'][0], bounds['g'][1])
 
     def build(self, input_shape):
         input_shape, state_shape = input_shape
@@ -815,6 +823,7 @@ class StateDCGain(BaseLayer):
                                      # shape=(self.units, input_shape[-1]),
                                      dtype='float32',
                                      initializer=self.initializer['g'],
+                                     constraint=self.g_constraint,
                                      trainable=True,
                                      )
         else:
@@ -829,6 +838,7 @@ class StateDCGain(BaseLayer):
                                      # shape=(self.units, input_shape[-1]),
                                      dtype='float32',
                                      initializer=self.initializer['d'],
+                                     constraint=self.d_constraint,
                                      trainable=True,
                                      )
 
