@@ -170,7 +170,6 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
         destination = get_default_savepath(modelspec)
         modelspec.meta['modelpath'] = destination
         modelspec.meta['figurefile'] = os.path.join(destination,'figure.0000.png')
-
     return modelspec
 
 
