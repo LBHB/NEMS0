@@ -87,32 +87,31 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
             kw = kw.replace(".R", ".{}".format(R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        elif ("xR" in kw) and (rec is not None):
+        if ("xR" in kw) and (rec is not None):
             R = rec[output_name].nchans
             kw_old = kw
             kw = kw.replace("xR", "x{}".format(R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        elif (("x2R" in kw) or (".2R" in kw)) and (rec is not None):
+        if (("x2R" in kw) or (".2R" in kw)) and (rec is not None):
             R = rec[output_name].nchans
             kw_old = kw
             kw = kw.replace("2R", "{}".format(2*R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        elif (("x3R" in kw) or (".3R" in kw)) and (rec is not None):
+        if (("x3R" in kw) or (".3R" in kw)) and (rec is not None):
             R = rec[output_name].nchans
             kw_old = kw
             kw = kw.replace("3R", "{}".format(3*R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        elif (("x4R" in kw) or (".4R" in kw)) and (rec is not None):
+        if (("x4R" in kw) or (".4R" in kw)) and (rec is not None):
             R = rec[output_name].nchans
             kw_old = kw
             kw = kw.replace("4R", "{}".format(4*R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        else:
-            log.info('kw: %s', kw)
+        log.info('kw: %s', kw)
 
         if registry.kw_head(kw) not in registry:
             raise ValueError("unknown keyword: {}".format(kw))
