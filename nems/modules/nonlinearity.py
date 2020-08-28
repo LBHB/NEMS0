@@ -113,7 +113,7 @@ def _relu(x, offset):
     return y
 
 
-def relu(rec, i, o, offset):
+def relu(rec, i, o, offset, var_offset=True):
     """
     Simple linear rectifier
     :param rec: recording object with signals i and o.

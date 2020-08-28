@@ -1325,6 +1325,7 @@ def relu(kw):
 
     if var_offset is False:
         template['fn_kwargs']['offset'] = np.array([[0]])
+        template['fn_kwargs']['var_offset'] = False
     else:
         template['prior'] = {'offset': ('Normal', {
                 'mean': np.zeros((chans, 1))-0.1,
