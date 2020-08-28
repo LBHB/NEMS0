@@ -96,7 +96,7 @@ for xfa in xfspec:
 # save results to file
 destination = os.path.join(results_dir, str(batch), xforms.get_meta(ctx)['cellid'],
                            ms.get_modelspec_longname(ctx['modelspec']))
-log.info('Saving modelspec(s) to {0} ...'.format(destination))
+logging.info('Saving modelspec(s) to {0} ...'.format(destination))
 xforms.save_analysis(destination,
                       recording=ctx['rec'],
                       modelspec=ctx['modelspec'],
@@ -105,7 +105,7 @@ xforms.save_analysis(destination,
                       log=log_xf)
 
 # save summary of results to a database
-log.info('Saving metadata to db  ...')
+logging.info('Saving metadata to db  ...')
 modelspec = ctx['modelspec']
 modelspec.meta['modelpath'] = destination
 modelspec.meta['figurefile'] = destination + 'figure.0000.png'

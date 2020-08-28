@@ -202,8 +202,8 @@ def fit_tf(
     fs = est['stim'].fs
 
     # extract out the raw data, and reshape to (batch, time, channel)
-    stim_train = np.transpose(est['stim'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
-    resp_train = np.transpose(est['resp'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
+    stim_train = np.transpose(est['stim'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1]).astype('float32')
+    resp_train = np.transpose(est['resp'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1]).astype('float32')
     log.info(f'Feature dimensions: {stim_train.shape}; Data dimensions: {resp_train.shape}.')
 
     # get state if present, and setup training data
@@ -284,11 +284,11 @@ def fit_tf(
         train_data,
         resp_train,
         # validation_split=0.2,
-        verbose=0,
+        verbose=2,
         epochs=max_iter,
         batch_size=batch_size,
         callbacks=[
-            sparse_logger,
+            #sparse_logger,
             nan_terminate,
             nan_weight_terminate,
             early_stopping,
@@ -313,16 +313,16 @@ def fit_tf(
             pass
 
     modelspec = tf2modelspec(model, modelspec)
-    if not conv2d_model:
-        # compare the predictions from the model and modelspec
-        error = compare_ms_tf(modelspec, model, est, train_data)
-        if error > 1e-5:
-            log.warning(f'Mean difference between NEMS and TF model prediction: {error}')
-        else:
-            log.info(f'Mean difference between NEMS and TF model prediction: {error}')
-    else:
-        # nothing to compare, ms evaluation is not implemented for this type of model
-        pass
+    # if not conv2d_model:
+    #     # compare the predictions from the model and modelspec
+    #     error = compare_ms_tf(modelspec, model, est, train_data)
+    #     if error > 1e-5:
+    #         log.warning(f'Mean difference between NEMS and TF model prediction: {error}')
+    #     else:
+    #         log.info(f'Mean difference between NEMS and TF model prediction: {error}')
+    # else:
+    #     # nothing to compare, ms evaluation is not implemented for this type of model
+    #     pass
 
     # add in some relevant meta information
     modelspec.meta['n_parms'] = len(modelspec.phi_vector)

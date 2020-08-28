@@ -9,10 +9,12 @@ from scipy.signal import resample
 
 from nems.analysis.gammatone.gtgram import gtgram
 from nems import recording, signal
-from nems import xforms, get_setting
+# from nems import xforms, get_setting
+from nems import get_setting
 import nems.gui.editors as gui
 import nems
 import random
+import nems.tf.cnnlink_new as cnn
 
 # if True, reload all the wav files, generate spectrograms and save as recording
 REGENERATE_RECORDING = True
@@ -82,7 +84,9 @@ if REGENERATE_RECORDING:
         thisendtime=lastendtime+len(w)/fs
         row = {'name': b, 'start': lastendtime, 'end': thisendtime}
         epochs = epochs.append(row, ignore_index=True)
-        row = {'name': f"CLASS_{c:.0f}", 'start': lastendtime+silence, 'end': thisendtime-silence}
+        row = {'name': f"CLASS_{c:.0f}", 'start': lastendtime + silence, 'end': thisendtime - silence}
+        epochs = epochs.append(row, ignore_index=True)
+        row = {'name': "REFERENCE", 'start': lastendtime + silence, 'end': thisendtime - silence}
         epochs = epochs.append(row, ignore_index=True)
 
         lastendtime = lastendtime+np.ceil(len(w)/fs * sg_fs)/sg_fs
@@ -121,49 +125,126 @@ modelspecname = f'dlog-wc.18x{n_classes}.g-fir.1x15x{n_classes}-lvl.{n_classes}-
 n_filters = 3
 modelspecname = f'dlog-wc.18x{n_filters}.g-fir.1x15x{n_filters}-wc.{n_filters}x{n_classes}.z-lvl.{n_classes}-dexp.{n_classes}'
 
-modelspecname = 'dlog-wc.18x3.g-fir.1x15x3-lvl.3-dexp.2'
-
+modelspecname = f'dlog-wc.18x{n_classes}.g-fir.1x15x{n_classes}-lvl.{n_classes}-dexp.{n_classes}'
+#######
+#########
 # generate sequence of xforms commands
-xfspec = []
-
-meta = {'cellid': 'Classifier', 'batch': 0, 'modelname': modelspecname,
-        'recording': 'NAT'}
+# xfspec = []
+#
+# meta = {'cellid': 'Classifier', 'batch': 0, 'modelname': modelspecname,
+#         'recording': 'NAT'}
+# # generate modelspec
+# xfspec = []
+# load_command = 'nems.demo.loaders.demo_loader'
+#
+# # load internally:
+# #xfspec.append(['nems.xforms.load_recordings',
+# #               {'recording_uri_list': [recording_uri]}])
+# # load from external format
+# xfspec.append(['nems.xforms.load_recording_wrapper',
+#                {'load_command': load_command,
+#                 'exptid': 'classifier',
+#                 'datafile': recording_file}])
+# xfspec.append(['nems.xforms.split_by_occurrence_counts',
+#                {'epoch_regex': '^STIM_'}])
+# xfspec.append(['nems.xforms.average_away_stim_occurrences', {}])
+# ##SHOULDN'T NEEE THAT^^^
+#
+# # meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
+# #         'recording': exptid}
+#
+# xfspec.append(['nems.xforms.init_from_keywords',
+#                {'keywordstring': modelspecname, 'meta': meta}])
+#
+# #xfspec.append(['nems.initializers.rand_phi', {'rand_count': 5}])
+# #xfspec.append(['nems.xforms.fit_basic_init', {}])
+# #xfspec.append(['nems.xforms.fit_basic', {'tolerance': 1e-6}])
+# xfspec.append(['nems.tf.cnnlink_new.fit_tf_init',
+#                {'max_iter': 1000, 'early_stopping_tolerance': 5e-4, 'use_modelspec_init': True}])
+# xfspec.append(['nems.tf.cnnlink_new.fit_tf',
+#                {'max_iter': 1000, 'early_stopping_tolerance': 1e-4, 'use_modelspec_init': True}])
+#
+# # xfspec.append(['nems.xforms.fit_basic_shrink', {}])
+# #xfspec.append(['nems.xforms.fit_basic_cd', {}])
+# # xfspec.append(['nems.xforms.fit_iteratively', {}])
+#
+# #xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
+#
+# xfspec.append(['nems.xforms.predict', {}])
+# # xfspec.append(['nems.xforms.add_summary_statistics',    {}])
+# xfspec.append(['nems.analysis.api.standard_correlation', {},
+#                ['est', 'val', 'modelspec', 'rec'], ['modelspec']])
+#
+# # GENERATE PLOTS
+# xfspec.append(['nems.xforms.plot_summary', {}])
+#
+# # actually do the fit
+# log_xf = "NO LOG"
+# ctx = {}
+# for xfa in xfspec:
+#     ctx = xforms.evaluate_step(xfa, ctx)
+#################
 
 # initialize context
 ctx = {'rec': rec}
-
+meta = {'cellid': 'Classifier', 'batch': 0, 'modelname': modelspecname,
+        'recording': 'NAT'}
 # xforms logic:
 # define ctx dictionary.
 # each xforms command takes in ctx and returns updated ctx
-#ctx.update(xforms.init_from_keywords(keywordstring=modelspecname, meta=meta, **ctx))
-from nems.initializers import from_keywords
-ctx['modelspec'] = from_keywords(keyword_string=modelspecname,
-                                       meta=meta, registry=None, rec=None,
-                                       input_name='stim',
-                                       output_name='resp')
+ctx.update(xforms.init_from_keywords(keywordstring=modelspecname, meta=meta, **ctx))
 
 # separate out est and val
 ctx.update(xforms.mask_for_jackknife(njacks=5, epoch_regex='^STIM_', **ctx))
 
-# quick and dirty throw away all jackknife sets but one to produce a single
-# est/val pair of recordings
+# make single est/val set, throw away other jackknifes
 ctx.update(xforms.jack_subset(keep_only=1, **ctx))
 
 #xfspec.append(['nems.initializers.rand_phi', {'rand_count': 5}])
-ctx.update(xforms.fit_basic_init(**ctx))
-
-ctx.update(xforms.fit_basic(tolerance=1e-6, **ctx))
-#xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
+# ctx.update(xforms.fit_basic_init(**ctx))
+# ctx.update(xforms.fit_basic(tolerance=1e-6, **ctx))
+ctx.update(cnn.fit_tf_init(max_iter = 1000, early_stopping_tolerance = 5e-4, use_modelspec_init = True,**ctx))
+ctx.update(cnn.fit_tf(max_iter = 1000, early_stopping_tolerance=1e-4, use_modelspec_init= True, **ctx))
 
 ctx.update(xforms.predict(**ctx))
 ctx.update(xforms.add_summary_statistics(**ctx))
 
-# non-xforms command, non-standard way of calling it
-#ctx['modelspec'] = nems.analysis.api.standard_correlation(
-#    ctx['est'], ctx['val'], ctx['modelspec'], ctx['rec'])
+#Make xfspec anyway but don't run it, GUI seems to like it
+xfspec = []
+xfspec.append(['nems.xforms.init_from_keywords',
+               {'keywordstring': modelspecname, 'meta': meta}])
+xfspec.append(['nems.tf.cnnlink_new.fit_tf_init',
+               {'max_iter': 1000, 'early_stopping_tolerance': 5e-4, 'use_modelspec_init': True}])
+xfspec.append(['nems.tf.cnnlink_new.fit_tf',
+               {'max_iter': 1000, 'early_stopping_tolerance': 1e-4, 'use_modelspec_init': True}])
+xfspec.append(['nems.xforms.predict', {}])
+xfspec.append(['nems.analysis.api.standard_correlation', {},
+               ['est', 'val', 'modelspec', 'rec'], ['modelspec']])
+xfspec.append(['nems.xforms.plot_summary', {}])
 
 # GENERATE PLOTS
 ctx.update(xforms.plot_summary(**ctx))
-
+# xfspec.append(['nems.analysis.api.standard_correlation', {},
+#                ['est', 'val', 'modelspec', 'rec'], ['modelspec']])
 # load in gui
 gui.browse_xform_fit(ctx, xfspec)
+
+
+
+
+
+#This way with no xfspec:
+#xfpsec['modelspec'][0] :
+#xfpsec['modelspec'][1] : 3 Guassian weight channels
+#xfpsec['modelspec'][2] : Describes filter banks, get 1 input, 3 fbs
+#xfpsec['modelspec'][3] : Levelshift constant, 3 of them
+#[4] : 3 double expenential fit channels
+
+
+#ONE VERSION OF NEMS I HAD HAD A TYPO IN IT, THIS WAS WORKAROUND
+# from nems.initializers import from_keywords
+# ctx['modelspec'] = from_keywords(keyword_string=modelspecname,
+#                                        meta=meta, registry=None, rec=None,
+#                                        input_name='stim',
+#                                        output_name='resp')
+################################################################

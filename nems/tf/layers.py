@@ -472,8 +472,9 @@ class FIR(BaseLayer):
             print("Banks:", self.banks)
             print("Units:", self.units)
             print("N_inputs: ", self.n_inputs)
-        if config.list_physical_devices('GPU') or \
-                (self.n_inputs == padded_input.shape[-1]):
+        # if config.list_physical_devices('GPU') or \
+        #         (self.n_inputs == padded_input.shape[-1]):
+        if (self.n_inputs == padded_input.shape[-1]):
             # this implementation does not evaluate on a CPU if mapping subsets of
             # the input into the different FIR filters.
             transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
