@@ -67,6 +67,8 @@ class BaseLayer(tf.keras.layers.Layer):
             kwargs['reset_signal'] = None
         if 'non_causal' in ms_layer['fn_kwargs']:
             kwargs['non_causal'] = ms_layer['fn_kwargs']['non_causal']
+        if 'var_offset' in ms_layer['fn_kwargs']:
+            kwargs['var_offset'] = ms_layer['fn_kwargs']['var_offset']
         if 'state_type' in ms_layer['fn_kwargs']:
             kwargs['state_type'] = ms_layer['fn_kwargs']['state_type']
 
@@ -78,8 +80,11 @@ class BaseLayer(tf.keras.layers.Layer):
         if not cls._TF_ONLY:  # TODO: implement proper phi formatting for TF_ONLY layers so that this isn't necessary
             if use_modelspec_init:
                 # convert the phis to tf constants
-                kwargs['initializer'] = {k: tf.constant_initializer(v)
-                                         for k, v in ms_layer['phi'].items()}
+                if ms_layer.get('phi',None):
+                    kwargs['initializer'] = {k: tf.constant_initializer(v)
+                                             for k, v in ms_layer['phi'].items()}
+                else:
+                    kwargs['initializer'] = {}
                 if 'WeightChannelsGaussian' in ms_layer['tf_layer']:
                     # Per SVD: kludge to get TF optimizer to play nice with sd parameter,
                     kwargs['initializer']['sd'] = tf.constant_initializer(ms_layer['phi']['sd'] * 10)
@@ -208,30 +213,40 @@ class Relu(BaseLayer):
     def __init__(self,
                  initializer=None,
                  seed=0,
+                 var_offset=True,
                  *args,
                  **kwargs,
                  ):
         super(Relu, self).__init__(*args, **kwargs)
 
-        self.initializer = {'offset': tf.random_normal_initializer(seed=None)}
-        if initializer is not None:
-            self.initializer.update(initializer)
+        self.var_offset = var_offset
+        if self.var_offset:
+            self.initializer = {'offset': tf.random_normal_initializer(seed=None)}
+            if initializer is not None:
+                self.initializer.update(initializer)
+        else:
+            self.initializer = None
 
     def build(self, input_shape):
-        self.offset = self.add_weight(name='offset',
-                                      shape=(input_shape[-1],),
-                                      dtype='float32',
-                                      initializer=self.initializer['offset'],
-                                      trainable=True,
-                                      )
+        if self.var_offset:
+            self.offset = self.add_weight(name='offset',
+                                          shape=(input_shape[-1],),
+                                          dtype='float32',
+                                          initializer=self.initializer['offset'],
+                                          trainable=True,
+                                          )
 
     def call(self, inputs, training=True):
-        return tf.nn.relu(inputs - self.offset)
+        if self.var_offset:
+            return tf.nn.relu(inputs - self.offset)
+        else:
+            return tf.nn.relu(inputs)
 
     def weights_to_phi(self):
         layer_values = self.layer_values
-        layer_values['offset'] = layer_values['offset'].reshape((-1, 1))
-        log.info(f'Converted {self.name} to modelspec phis.')
+        if self.var_offset:
+            layer_values['offset'] = layer_values['offset'].reshape((-1, 1))
+            log.info(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
 

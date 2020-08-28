@@ -49,8 +49,9 @@ def tf2modelspec(model, modelspec):
         if np.any(['tf_only' in fn for fn in modelspec.fn()]):
             # These TF layers don't have corresponding phi pre-set, so there's nothing to check against.
             # TODO: format phi properly for this model version
-            pass
-        else:
+            ms['phi'] = phis
+
+        elif 'phi' in ms.keys():
             # check that phis/weights match up in name
             if phis.keys() != ms['phi'].keys():
                 raise AssertionError(f'Model layer "{layer.ms_name}" weights and modelspec phis do not have matching names!')
@@ -71,7 +72,7 @@ def tf2modelspec(model, modelspec):
                         log.warning(f'Frozen layer weights changed:\n{ms_phis}\n{model_weights}')
                         log.warning(f'Model layer "{layer.ms_name}" weights changed significantly despite being frozen!')
 
-        ms['phi'] = phis
+            ms['phi'] = phis
 
     return modelspec
 
