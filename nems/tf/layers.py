@@ -130,6 +130,7 @@ class Dlog(BaseLayer):
                  units=None,
                  initializer=None,
                  seed=0,
+                 var_offset=True,
                  *args,
                  **kwargs,
                  ):
@@ -143,27 +144,43 @@ class Dlog(BaseLayer):
         else:
             self.units = units
 
-        self.initializer = {'offset': tf.random_normal_initializer(seed=seed)}
-        if initializer is not None:
-            self.initializer.update(initializer)
+        self.var_offset = var_offset
+
+        if self.var_offset:
+            self.initializer = {'offset': tf.random_normal_initializer(seed=seed)}
+            if initializer is not None:
+                self.initializer.update(initializer)
+        else:
+            self.initializer = None
+            self.fixed_offset = -1.0
 
     def build(self, input_shape):
-        self.offset = self.add_weight(name='offset',
-                                      shape=(self.units,),
-                                      dtype='float32',
-                                      initializer=self.initializer['offset'],
-                                      trainable=True,
-                                      )
+        if self.var_offset:
+            self.offset = self.add_weight(name='offset',
+                                          shape=(self.units,),
+                                          dtype='float32',
+                                          initializer=self.initializer['offset'],
+                                          trainable=True,
+                                          )
+
+    def call(self, inputs, training=True):
+        if self.var_offset:
+            return tf.nn.relu(inputs - self.offset)
 
     def call(self, inputs, training=True):
         # clip bounds at ±2 to avoid huge compression/expansion
-        eb = tf.math.pow(tf.constant(10, dtype='float32'), tf.clip_by_value(self.offset, -2, 2))
+        if self.var_offset:
+            eb = tf.math.pow(tf.constant(10, dtype='float32'), tf.clip_by_value(self.offset, -2, 2))
+        else:
+            eb = tf.constant(np.power(10, self.fixed_offset), dtype='float32')
+
         return tf.math.log((inputs + eb) / eb)
 
     def weights_to_phi(self):
         layer_values = self.layer_values
-        layer_values['offset'] = layer_values['offset'].reshape((-1, 1))
-        log.info(f'Converted {self.name} to modelspec phis.')
+        if self.var_offset:
+            layer_values['offset'] = layer_values['offset'].reshape((-1, 1))
+            log.info(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
 

@@ -1265,6 +1265,7 @@ def dlog(kw):
         template['norm'] = {'type': 'minmax', 'recalc': 0, 'd': d, 'g': g}
 
     if offset:
+        template['fn_kwargs']['var_offset'] = False
         template['fn_kwargs']['offset'] = np.array([[-1]])
         template['prior'] = {}
     else:
