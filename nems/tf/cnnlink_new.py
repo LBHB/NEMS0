@@ -69,7 +69,7 @@ def tf2modelspec(model, modelspec):
             if not layer.trainable:
                 for model_weights, ms_phis in zip(phis.values(), ms['phi'].values()):
                     if not np.allclose(model_weights, ms_phis, rtol=5e-2, atol=5e-2):
-                        log.warning(f'Frozen layer weights changed:\n{ms_phis}\n{model_weights}')
+                        #log.warning(f'Frozen layer weights changed:\n{ms_phis}\n{model_weights}')
                         log.warning(f'Model layer "{layer.ms_name}" weights changed significantly despite being frozen!')
 
             ms['phi'] = phis
@@ -411,7 +411,7 @@ def fit_tf_init(
     # do the +1 here to avoid adding to None
     up_to_idx += 1
     # exclude the following from the init
-    exclude = ['rdt_gain', 'state_dc_gain', 'state_gain']
+    exclude = ['rdt_gain']  # , 'state_dc_gain', 'state_gain', 'sdexp']
     freeze = ['stp']
     # more complex version of first_substring_index: checks for not membership in init_static_nl_layers
     init_idxes = [idx for idx, ms in enumerate(ms_modules[:up_to_idx]) if not any(sub in ms for sub in exclude)]
