@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 import numpy as np
 import scipy.stats as st
@@ -9,14 +10,6 @@ import nems.db as nd
 import nems.xform_helper as xhelp
 
 log = logging.getLogger(__name__)
-
-
-# Basically just a standardized wrapper for np.corrcoef
-def equivalence_correlation(psth1, psth2):
-    '''Computes correlation-based equivalence of two model predictions.'''
-    psth1 = psth1.flatten()
-    psth2 = psth2.flatten()
-    return np.corrcoef(psth1, psth2)[0,1]
 
 
 def equivalence_partial(psth1, psth2, baseline):
@@ -93,20 +86,23 @@ def partial_corr(C):
     return P_corr
 
 
-def equivalence_partial_batch(batch, model1, model2, baseline,
-                              manual_cellids=None,
-                              performance_stat='r_ceiling', load_path=None,
-                              save_path=None):
+def equivalence_partial_batch(batch, model1, model2, baseline, path,
+                              load_only=False, force_rerun=False,
+                              manual_cellids=None, performance_stat='r_ceiling',
+                              test_limit=np.inf):
     '''
     Computes equivalence and effect size for all cells in a batch.
 
     Equivalence is computed as the partial correlation between model1 and
-    model2 relative to baseline. Effect size is computed as the average
-    improvement in prediction correlation relative to baseline.
-
-    Note: this process can take several hours. It is strongly recommended
-    that you specify a `save_path` on the first run so that the results can be
-    quickly loaded in the future.
+    model2 relative to baseline. This process can take several hours, so a save path is required so
+    that results can be quickly reloaded in the future. Default behavior for
+    subsequent function calls is to:
+        1) Load the previously saved dataframe.
+        2) Add computations for cells that do not have existing results.
+        3) Return the updated dataframe.
+    See `load_only` and `force_rerun` parameters to change this behavior.
+    Results will also be saved intermittently while computations are carried
+    out in case of a crash or uncaught exception.
 
     Parameters:
     -----------
@@ -114,121 +110,116 @@ def equivalence_partial_batch(batch, model1, model2, baseline,
         CellDB batch number.
     model1, model2, baseline: str
         Model names indicating which models should be compared.
+    path: str or pathlib.Path
+        Path where results should be saved/loaded from.
+    load_only: bool
+        Return existing results without updating them. Otherwise, computations
+        will be run for cells that do not have existing results. If a dataframe
+        does not exist at the specified `path`, raises a ValueError.
+    force_rerun:
+        Update results for all cells, even if previous results exist.
     manual_cellids: list
-        List of cellids to use. By default, all cellids for the given
+        List of cellids to use. By default, asll cellids for the given
         batch will be used.
-    performance_stat: str
-        One of 'r_test', 'r_fit', or 'r_ceiling' to indicate which statistic
-        should be used for computing effect size.
-    load_path: str
-        Filepath where pandas dataframe of the results should be stored,
-        will be saved as a Python pickle file (.pkl).
-    save_path: str
-        Filepath to load a pickled dataframe from.
+    test_limit: int or np.inf
+        For debugging. Specifies a maximum number of cells to load models for.
 
     Returns:
     --------
     df: Pandas dataframe
-        Indexed by cellid with columns: 'partial_corr' (equivalence) and
-        'performance_effect' (effect size).
+        Indexed by cellid with column: 'partial_corr' (equivalence).
 
     '''
 
-    if manual_cellids is not None:
+    if manual_cellids is None:
         cellids = nd.get_batch_cells(batch=batch, as_list=True)
+    else:
+        cellids = manual_cellids
 
-    if load_path is None:
+    path = Path(path)
+    if load_only:
+        if not path.is_file():
+            raise ValueError("load_only==True, but dataframe does not exist")
+        else:
+            df = pd.read_pickle(path)
+            return df
+    else:
+        if path.is_file() and (not force_rerun):
+            # Only update cells without existing results
+            df = pd.read_pickle(path)
+            existing_cells = df.index.values.tolist()
+            cellids = list(set(cellids) - set(existing_cells))
+        else:
+            df = pd.DataFrame.from_dict({'cellid': [], 'partial_corr': []})
+            df.set_index('cellid', inplace=True)
+
         partials = []
+        used_cells = []
         models = [model1, model2, baseline]
+        i = 0
+        total_used_cells = 0
+
         for cell in cellids:
             try:
                 pred1, pred2, baseline_pred = load_models(cell, batch, models)
-            except ValueError as e:
-                # Missing result
-                log.warning('Missing result: \n%s', e)
+            # Bare except is intentional - missing result should be value error, but
+            # often there are other errors that pop up after package updates
+            # due to outdated preprocessing functions. Since the equivalence analysis
+            # is often left to run overnight, I would rather skip the exceptions
+            # and continue saving the rest of the batch.  -Jacob
+            except Exception as e:
+                log.warning('Missing result or error loading for cell: %s: \n%s',
+                            (cell, e))
+                continue
 
             partial = equivalence_partial(pred1, pred2, baseline_pred)
             partials.append(partial)
+            used_cells.append(cell)
+            i += 1
+            total_used_cells += 1
+            if i % 5 == 0:
+                # intermediate save after every 5 cells
+                df = _save_results(df, used_cells, partials, path)
+                partials = []
+                used_cells = []
 
-        df = nd.batch_comp(batch=batch, modelnames=models, stat=performance_stat)
-        stats = [df[model].values for model in models]
-        rel_1 = stats[0] - stats[2]
-        rel_2 = stats[1] - stats[2]
-        effect_sizes = 0.5*(rel_1 + rel_2)
+            if total_used_cells >= test_limit:
+                break
 
-        results = {'cellid': cellids, 'partial_corr': partials,
-                   'performance_effect': effect_sizes}
-        df = pd.DataFrame.from_dict(results)
-        df.set_index('cellid', inplace=True)
-        if save_path is not None:
-            df.to_pickle(save_path)
-    else:
-        df = pd.read_pickle(load_path)
+        df = _save_results(df, used_cells, partials, path)
+
+    return df
+
+def _save_results(df, used_cells, partials, path):
+    results = {'cellid': used_cells, 'partial_corr': partials}
+    df2 = pd.DataFrame.from_dict(results)
+    df2.set_index('cellid', inplace=True)
+    df = df.append(df2) # combine new results with previous ones
+    df.to_pickle(path) # save updated results
 
     return df
 
 
-def equivalence_corr_batch(batch, model1, model2, manual_cellids=None,
-                           load_path=None, save_path=None):
-    '''Computes correlation-based equivalence for all cells in a batch.
-
-    Parameters:
-    ----------
-    batch: int
-        CellDB batch number.
-    model1, model2: str
-        Model names indicating which models should be compared.
-    manual_cellids: list
-        List of cellids to use. By default, all cellids for the given
-        batch will be used.
-    load_path: str
-        Filepath where pandas dataframe of the results should be stored,
-        will be saved as a Python pickle file (.pkl).
-    save_path: str
-        Filepath to load a pickled dataframe from.
-
-    Returns:
-    --------
-    df: Pandas dataframe
-        Indexed by cellid with column: 'correlation' (equivalence).
-
-    '''
-
-    if manual_cellids is not None:
-        cellids = nd.get_batch_cells(batch=batch, as_list=True)
-
-    if load_path is None:
-        corrs = []
-        models = [model1, model2]
-        for cell in cellids:
-            try:
-                pred1, pred2 = load_models(cell, batch, models)
-            except ValueError as e:
-                # Missing result
-                log.warning('Missing result: \n%s', e)
-
-            corr = equivalence_correlation(pred1, pred2)
-            corrs.append(corr)
-
-        results = {'cellid': cellids, 'correlation': corrs}
-        df = pd.DataFrame.from_dict(results)
-        df.set_index('cellid', inplace=True)
-        if save_path is not None:
-            df.to_pickle(save_path)
-    else:
-        df = pd.read_pickle(load_path)
-
-    return df
-
-
-def load_models(cell, batch, models):
+def load_models(cell, batch, models, check_db=True):
     '''Load standardized psth from each model, error if not all fits exist.'''
 
+    if check_db:
+        # Before trying to load, check database to see if a result exists.
+        # Should set False if you know model results are not stored in DB,
+        # but exist in file storage.
+        df = nd.batch_comp(batch=batch, modelnames=models, cellids=[cell])
+        if np.sum(df.isna().values) > 0:
+            # at least one cell wasn't fit (or at least not stored in db)
+            # so skip trying to load any of them since all are required.
+            raise ValueError('Not all results exist for: %s, %d' % (cell, batch))
+
+    # Load all models
     ctxs = []
     for model in models:
         xf, ctx = xhelp.load_model_xform(cell, batch, model)
         ctxs.append(ctx)
 
+    # Pull out model predictions and remove times with nan for at least 1 model
     preds = [ctx['val'].apply_mask()['pred'].as_continuous() for ctx in ctxs]
     ff = np.isfinite(preds[0])
     for pred in preds[1:]:
@@ -238,35 +229,126 @@ def load_models(cell, batch, models):
     return no_nans
 
 
-def within_model_equivalence(batch, model1, model2, model1_h1, model1_h2,
-                             model2_h1, model2_h2, baseline_h1, baseline_h2,
+def within_model_equivalence(batch, model1, model2, baseline, model1_h1,
+                             model1_h2, model2_h1, model2_h2, baseline_h1,
+                             baseline_h2, between_path,
+                             within_path1a, within_path1b,
+                             within_path2a, within_path2b,
+                             cross_path1a, cross_path1b,
+                             cross_path2a, cross_path2b,
+                             load_only=False, force_rerun=False,
                              manual_cellids=None,
-                             save_path=None, load_path=None,
-                             within_save_path1=None, within_save_path2=None,
-                             cross_save_path1=None, cross_save_path2=None,
-                             within_load_path1=None, within_load_path2=None,
-                             cross_load_path1=None, cross_load_path2=None):
+                             test_limit=None):
 
-    between_df = equivalence_corr_batch(batch, model1, model2,
+    # different models, both full data
+    between_df = equivalence_partial_batch(batch, model1, model2, baseline,
                                         manual_cellids=manual_cellids,
-                                        save_path=save_path, load_path=load_path)
+                                        load_only=load_only,
+                                        force_rerun=force_rerun,
+                                        path=between_path, test_limit=test_limit)
 
-    within_df1 = equivalence_corr_batch(batch, model1_h1, model1_h2,
-                                        manual_cellids=manual_cellids,
-                                        save_path=within_save_path1,
-                                        load_path=within_load_path1)
-    within_df2 = equivalence_corr_batch(batch, model2_h1, model2_h2,
-                                        manual_cellids=manual_cellids,
-                                        save_path=within_save_path2,
-                                        load_path=within_load_path2)
+    # same model, opposite halves of data, first model
+    within_df1a = equivalence_partial_batch(batch, model1_h1, model1_h2,
+                                            baseline_h1,
+                                            manual_cellids=manual_cellids,
+                                            path=within_path1a,
+                                            load_only=load_only,
+                                            force_rerun=force_rerun,
+                                            test_limit=test_limit)
+    within_df1b = equivalence_partial_batch(batch, model1_h1, model1_h2,
+                                            baseline_h2,
+                                            manual_cellids=manual_cellids,
+                                            path=within_path1b,
+                                            test_limit=test_limit,
+                                            load_only=load_only,
+                                            force_rerun=force_rerun)
 
-    cross_df1 = equivalence_corr_batch(batch, model1_h1, model2_h2,
-                                         manual_cellids=manual_cellids,
-                                         save_path=cross_save_path1,
-                                         load_path=cross_load_path1)
-    cross_df2 = equivalence_corr_batch(batch, model1_h2, model2_h1,
-                                         manual_cellids=manual_cellids,
-                                         save_path=cross_save_path2,
-                                         load_path=cross_load_path2)
+    # same model, opposite halves of data, second model
+    within_df2a = equivalence_partial_batch(batch, model2_h1, model2_h2,
+                                           baseline_h1,
+                                           manual_cellids=manual_cellids,
+                                           path=within_path2a,
+                                           test_limit=test_limit,
+                                           load_only=load_only,
+                                           force_rerun=force_rerun)
+    within_df2b = equivalence_partial_batch(batch, model2_h1, model2_h2,
+                                           baseline_h2,
+                                           manual_cellids=manual_cellids,
+                                           path=within_path2b,
+                                           test_limit=test_limit,
+                                           load_only=load_only,
+                                           force_rerun=force_rerun)
 
-    return between_df, within_df1, within_df2, cross_df1, cross_df2
+    # different models, opposite halves of data
+    cross_df1a = equivalence_partial_batch(batch, model1_h1, model2_h2,
+                                           baseline_h1,
+                                           manual_cellids=manual_cellids,
+                                           path=cross_path1a,
+                                           test_limit=test_limit,
+                                           load_only=load_only,
+                                           force_rerun=force_rerun)
+    cross_df1b = equivalence_partial_batch(batch, model1_h1, model2_h2,
+                                           baseline_h2,
+                                           manual_cellids=manual_cellids,
+                                           path=cross_path1b,
+                                           test_limit=test_limit,
+                                           load_only=load_only,
+                                           force_rerun=force_rerun)
+
+    # different models, opposite halves of data
+    cross_df2a = equivalence_partial_batch(batch, model1_h2, model2_h1,
+                                           baseline_h1,
+                                           manual_cellids=manual_cellids,
+                                           path=cross_path2a,
+                                           test_limit=test_limit,
+                                           load_only=load_only,
+                                           force_rerun=force_rerun)
+    cross_df2b = equivalence_partial_batch(batch, model1_h2, model2_h1,
+                                           baseline_h2,
+                                           manual_cellids=manual_cellids,
+                                           path=cross_path2b,
+                                           test_limit=test_limit,
+                                           load_only=load_only,
+                                           force_rerun=force_rerun)
+
+    # Filter dataframe indices so that each cell is present in every dataframe
+    dfs = [between_df, within_df1a, within_df1b, within_df2a, within_df2b,
+           cross_df1a, cross_df1b, cross_df2a, cross_df2b]
+    df = dfs[0]
+    for i, d in enumerate(dfs[1:]):
+        df = df.join(d, how='inner', rsuffix='_df%d'%(i+1)) # use intersection of indices
+    # Convert columns to meaningful names
+    new_keys = ['between_partial', 'between_effect_size',
+                'within_partial_model1a', 'within_partial_model1b',
+                'within_partial_model2a', 'within_partial_model2b',
+                'cross_partial_1a', 'cross_partial_1b',
+                'cross_partial_2a', 'cross_partial_2b']
+    new_columns = {k: v for k, v in zip(df.columns.values, new_keys)}
+    df = df.rename(columns=new_columns)
+
+    cols = df.columns  # in same order as list of dfs
+    between_full = df[cols[0]]
+    within_half_model1 = df[cols[2:4]].mean(axis=1)
+    within_half_model2 = df[cols[4:6]].mean(axis=1)
+    between_half = df[cols[6:]].mean(axis=1)
+
+    within_full_model1 = within_half_model1 * (between_full/between_half)
+    within_full_model2 = within_half_model2 * (between_full/between_half)
+
+    return within_full_model1, within_full_model2, df
+
+
+def equivalence_effect_size(batch, models, performance_stat='r_ceiling',
+                            manual_cellids=None):
+
+    df = nd.batch_comp(batch=batch, modelnames=models, stat=performance_stat,
+                       cellids=manual_cellids)
+    stats = [df[model].values for model in models]
+    rel_1 = stats[0] - stats[2]
+    rel_2 = stats[1] - stats[2]
+    effect_sizes = 0.5*(rel_1 + rel_2)
+    results = {'performance_effect': effect_sizes, 'cellid': df.index.values}
+    df = pd.DataFrame.from_dict(results)
+    df.set_index('cellid', inplace=True)
+
+    return df
