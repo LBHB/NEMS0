@@ -1208,7 +1208,7 @@ class Recording:
             and_mask = ~and_mask
 
         # apply and_mask to existing mask
-        m = rec['mask'].as_continuous()
+        m = rec['mask'].as_continuous().astype('bool')
         rec['mask'] = rec['mask']._modified_copy(m & and_mask)
 
         return rec
