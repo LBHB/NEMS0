@@ -2203,7 +2203,8 @@ class PointProcess(SignalBase):
         return sig.jackknife_by_epoch(njacks, jack_idx, epoch_name,
                                       tiled, invert, excise)
 
-    def concatenate_time(self, signals):
+    @classmethod
+    def concatenate_time(cls, signals):
         '''
         Combines the signals along the time axis. All signals must have the
         same number of channels (and the same sampling rates?).
@@ -2525,7 +2526,8 @@ class TiledSignal(SignalBase):
         return sig.jackknife_by_epoch(njacks, jack_idx, epoch_name,
                                       tiled, invert, excise)
 
-    def concatenate_time(self, signals):
+    @classmethod
+    def concatenate_time(cls, signals):
         '''
         Combines the signals along the time axis. All signals must have the
         same number of channels (and the same sampling rates?).

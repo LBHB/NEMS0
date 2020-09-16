@@ -1230,7 +1230,7 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
 
 
 def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
-                      new_signalname='state'):
+                      new_signalname='state', sm_win_len=180):
     """
     generate state signal for stategain.S/sdexp.S models
 
@@ -1504,8 +1504,9 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         newrec['miss_trials'] = resp.epoch_to_signal('MISS_TRIAL')
         newrec['fa_trials'] = resp.epoch_to_signal('FA_TRIAL')
 
-    sm_len = 180 * newrec['resp'].fs
+    sm_len = int(sm_win_len * newrec['resp'].fs)
     if 'far' in state_signals:
+        log.info('FAR: sm_win_len=%.0f sm_len=%d', sm_win_len, sm_len)
         a = newrec['active'].as_continuous()
         fa = newrec['fa_trials'].as_continuous().astype(float)
         #c = np.concatenate((np.zeros((1,sm_len)), np.ones((1,sm_len+1))),

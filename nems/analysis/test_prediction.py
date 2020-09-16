@@ -134,10 +134,10 @@ def standard_correlation(est, val, modelspec=None, modelspecs=None, rec=None,
         ll_fit[:,i] = nmet.likelihood_poisson(e, 'pred', output_name)
 
         if rec is not None:
-            if 'mask' in rec.signals.keys() and use_mask:
-                r = rec.apply_mask()
-            else:
-                r = rec
+            #if 'mask' in rec.signals.keys() and use_mask:
+            #    r = rec.apply_mask()
+            #else:
+            r = rec
             # print('running r_ceiling')
             r_ceiling[:,i] = nmet.r_ceiling(v, r, 'pred', output_name)
 
