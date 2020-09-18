@@ -238,7 +238,7 @@ def within_model_equivalence(batch, model1, model2, baseline, model1_h1,
                              cross_path2a, cross_path2b,
                              load_only=False, force_rerun=False,
                              manual_cellids=None,
-                             test_limit=None):
+                             test_limit=np.inf):
 
     # different models, both full data
     between_df = equivalence_partial_batch(batch, model1, model2, baseline,
