@@ -551,7 +551,7 @@ def mask_incorrect(rec, **context):
     return {'rec': rec}
 
 
-def generate_psth_from_resp(rec, epoch_regex='^STIM_', use_as_input=True,
+def generate_psth_from_resp(rec, epoch_regex='^(STIM_|TAR_|CAT_|REF_)', use_as_input=True,
                             smooth_resp=False, channel_per_stim=False, **context):
     '''
     generate PSTH prediction from rec['resp'] (before est/val split). Could
@@ -561,7 +561,6 @@ def generate_psth_from_resp(rec, epoch_regex='^STIM_', use_as_input=True,
     generate_psth_from_est_for_both_est_and_val_nfold on each nfold est/val
     split.
     '''
-
     rec = preproc.generate_psth_from_resp(rec, epoch_regex=epoch_regex,
                                           smooth_resp=smooth_resp,
                                           channel_per_stim=channel_per_stim)
@@ -712,7 +711,7 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
 
 
 def mask_for_jackknife(rec, modelspec=None, epoch_name=None,
-                       epoch_regex='(REFERENCE|TARGET)',
+                       epoch_regex='(REFERENCE|TARGET|CATCH)',
                        by_time=False, njacks=10, IsReload=False,
                        allow_partial_epochs=False, **context):
 

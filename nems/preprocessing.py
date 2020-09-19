@@ -307,7 +307,7 @@ def mask_all_but_correct_references(rec, balance_rep_count=False,
         epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
         p=resp.get_epoch_indices("PASSIVE_EXPERIMENT")
         a=np.concatenate((resp.get_epoch_indices("HIT_TRIAL"),
-                          resp.get_epoch_indices("CORRECT_REJECT_TRIAL2")), axis=0)
+                          resp.get_epoch_indices("CORRECT_REJECT_TRIAL")), axis=0)
 
         epoch_list=[]
         for s in epochs_to_extract:
@@ -650,7 +650,7 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
         log.info('INCLUDING ALL TRIALS (CORRECT AND INCORRECT)')
         newrec = newrec.and_mask(['REFERENCE'])
     else:
-        newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
+        newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL'])
         newrec = newrec.and_mask(['REFERENCE'])
 
     mask = newrec['mask']
@@ -748,7 +748,7 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
     return newrec
 
 
-def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_',
+def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^(STIM_|TAR_|CAT_|REF_)',
                             smooth_resp=False, channel_per_stim=False):
     '''
     Estimates a PSTH from all responses to each regex match in a recording
@@ -843,11 +843,9 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_',
 
         newrec['resp'].epochs = resp.epochs.copy()
 
-    if 'mask' in newrec.signals.keys():
-        folded_matrices = resp.extract_epochs(epochs_to_extract, mask=newrec['mask'])
+    # mask=None means no mask
+    folded_matrices = resp.extract_epochs(epochs_to_extract, mask=newrec['mask'])
 
-    else:
-        folded_matrices = resp.extract_epochs(epochs_to_extract)
     log.info('generating PSTHs for %d epochs', len(folded_matrices.keys()))
 
     # 2. Average over all reps of each stim and save into dict called psth.
@@ -870,6 +868,8 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_',
         per_stim_psth[k] = np.nanmean(v, axis=0) - spont_rate[:, np.newaxis]
         per_stim_psth_spont[k] = np.nanmean(v, axis=0)
         folded_matrices[k] = v
+
+    #import pdb; pdb.set_trace()
 
     # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
     #   replacing all epochs in the signal with their average (psth)
@@ -1708,6 +1708,7 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', epoch_regex=None,
     if epoch_regex is None:
         epochs_to_extract = [epoch_name]
     else:
+        log.info('jackknife epoch_regex=%s', epoch_regex)
         epochs_to_extract = ep.epoch_names_matching(rec.epochs, epoch_regex)
 
     # logging.info("Generating {} jackknifes".format(njacks))
