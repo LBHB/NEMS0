@@ -281,11 +281,12 @@ def remove_invalid_segments(rec):
     return newrec
 
 
-def mask_all_but_correct_references(rec, balance_rep_count=False,
-                                    include_incorrect=False, generate_evoked_mask=False):
+def mask_all_but_correct_references(rec, balance_rep_count=False, include_incorrect=False, 
+                                    generate_evoked_mask=False, exclude_partial_ref=True):
     """
     Specialized function for removing incorrect trials from data
     collected using baphy during behavior.
+    exclude_nans: remove any REF epoch with nans in the response
 
     TODO: Migrate to nems_lbhb and/or make a more generic version
     """
@@ -334,6 +335,16 @@ def mask_all_but_correct_references(rec, balance_rep_count=False,
     else:
         newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL'])
         newrec = newrec.and_mask(['REFERENCE'])
+
+    if exclude_partial_ref:
+        mask_data = newrec['mask'].extract_epoch('REFERENCE')
+        pp = np.mean(mask_data, axis=2)[:,0]
+        # if partial mask, remove completely
+        mask_data[(pp>0) & (pp<1),:,:]=0
+        tt = (pp>0) & (pp<1) 
+        if tt.sum() > 0:
+            log.info('removing %d incomplete REFERENCES', tt.sum())
+        newrec.signals['mask']=newrec['mask'].replace_epoch('REFERENCE', mask_data)
 
     # figure out if some actives should be masked out
 #    t = ep.epoch_names_matching(resp.epochs, "^TAR_")
