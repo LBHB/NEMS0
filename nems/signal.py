@@ -2972,14 +2972,16 @@ def _normalize_data(data, normalization='minmax'):
         return data, d, g
 
     elif normalization == 'minmax':
-        #d = np.nanmin(data, axis=1, keepdims=True)
-        #g = np.nanmax(data, axis=1, keepdims=True) - d
-        d = np.nanmin(data)
-        g = np.nanmax(data) - d
+        d = np.nanmin(data, axis=1, keepdims=True)
+        g = np.nanmax(data, axis=1, keepdims=True) - d
+        #d = np.nanmin(data)
+        #g = np.nanmax(data) - d
+        # avoid divide-by-zero
+        g[g == 0] = 1
         data_out = (data - d) / g
 
         # force "quiet" stim to be true zero
-        data_out[data_out<1e-5]=0
+        data_out[data_out<1e-6]=0
 
     elif normalization == 'meanstd':
         d = np.nanmean(data, axis=1, keepdims=True)
