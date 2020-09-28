@@ -330,6 +330,11 @@ def fir(kw):
     elif 'p' in ops:
         p_coefficients['mean'][:, 1+non_causal] = 0.1
         p_coefficients['mean'][:, 2+non_causal] = 0.05
+    elif ('l' in ops) and (n_coefs > 2):
+        p_coefficients['mean'][:, 1+non_causal] = 0.1
+        p_coefficients['mean'][:, 2+non_causal] = 0.05
+        p_coefficients['mean'][:, 3+non_causal] = -0.05
+        p_coefficients['mean'][:, 4+non_causal] = -0.05
     elif n_coefs > 2:
         p_coefficients['mean'][:, 1+non_causal] = 0.1
         p_coefficients['mean'][:, 2+non_causal] = -0.05

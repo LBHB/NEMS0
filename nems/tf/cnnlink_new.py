@@ -87,6 +87,7 @@ def compare_ms_tf(ms, model, rec_ms, train_data):
 
     For the modelspec, uses a recording object. For the tf model, uses the formatted data from fit_tf,
     which may include state data."""
+
     pred_tf = model.predict(train_data)
     pred_ms = np.swapaxes(ms.evaluate(rec_ms.apply_mask())['pred']._data, 0, 1).reshape(pred_tf.shape)
 
