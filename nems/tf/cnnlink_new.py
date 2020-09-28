@@ -122,6 +122,21 @@ def compare_ms_tf(ms, model, rec_ms, train_data):
     return np.nanstd(pred_ms.flatten() - pred_tf.flatten())
 
 
+def _get_tf_data_matrix(rec, signal, epoch_name=None):
+    """
+    extract signal data and reshape to batch X time X channel matrix to work with TF specs
+    """
+    if (epoch_name is not None) and (epoch_name != ""):
+        # extract out the raw data, and reshape to (batch, time, channel)
+        # one batch per occurrence of epoch
+        tf_data = np.transpose(rec[signale].extract_epoch(epoch=epoch_name, mask=rec['mask']), [0, 2, 1])
+    else:
+        # cotinuous, single batch
+        tf_data = np.transpose(rec.apply_mask()[signal].as_continuous()[np.newaxis, ...], [0, 2, 1])
+
+    #check for nans
+
+
 def fit_tf(
         modelspec,
         est: recording.Recording,

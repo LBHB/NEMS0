@@ -264,6 +264,7 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
     folded_pred = result[pred_name].extract_epochs(epochs_to_extract)
 
     resp = fullrec[resp_name].rasterize()
+    fullmask = fullrec['mask']
 
     chancount = resp.shape[0]
 
@@ -276,7 +277,7 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
         for k, d in folded_resp.items():
             if np.sum(np.isfinite(d)) > 0:
                 _n = folded_pred[k][:, chanidx, :].shape[1]
-                _r = resp.extract_epoch(k)[:, chanidx, :_n]
+                _r = resp.extract_epoch(k, mask=fullmask)[:, chanidx, :_n]
                 Xall.append(_r)
                 p.append(folded_pred[k][:, chanidx, :])
                 #print(k)

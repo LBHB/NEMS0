@@ -1568,10 +1568,9 @@ def run(modelspec, xfspec, rec, ctx):
 def browse_xform_fit(ctx, xfspec, recname='val', control_widget=None):
     app = qw.QApplication.instance()
     modelspec = ctx['modelspec']
-    rec = ctx[recname]
+    rec = ctx[recname].apply_mask()
     ex = EditorWindow(modelspec=modelspec, xfspec=xfspec, rec=rec,
                       ctx=ctx, control_widget=control_widget)
-
     return ex
 
 _DEBUG = False
