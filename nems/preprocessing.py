@@ -737,7 +737,7 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
                remove_post_stim = True
            elif (minpos<np.max(posmatch)):
                log.info('epoch %s pos varies, fixing to %.3f s', ename, minpos)
-               ematch_new[:,1] = ematch_new[:,0]+dur.T+minpos
+               ematch_new[:,1] = ematch_new[:,0]+prematch.T+dur.T+minpos
 
            for e_old, e_new in zip(ematch, ematch_new):
                _mask = (np.round(epochs_new['start']-e_old[0], precision)==0) & \
