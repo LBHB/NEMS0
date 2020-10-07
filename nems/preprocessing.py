@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 
 def generate_average_sig(signal_to_average,
-                         new_signalname='respavg', epoch_regex='^STIM_'):
+                         new_signalname='respavg', epoch_regex='^STIM_', mask=None):
     '''
     Returns a signal with a new signal created by replacing every epoch
     matched in "epoch_regex" with the average of every occurrence in that
@@ -34,7 +34,7 @@ def generate_average_sig(signal_to_average,
     #    and each value in the dictionary is (reps X cell X bins)
     epochs_to_extract = ep.epoch_names_matching(signal_to_average.epochs,
                                                 epoch_regex)
-    folded_matrices = signal_to_average.extract_epochs(epochs_to_extract)
+    folded_matrices = signal_to_average.extract_epochs(epochs_to_extract, mask=mask)
 
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()
@@ -656,13 +656,14 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
     """
     newrec = rec.copy()
     resp = newrec[resp_sig].rasterize()
+    log.info('normalize_epoch_lengths: %s',epoch_regex)
 
     if include_incorrect:
         log.info('INCLUDING ALL TRIALS (CORRECT AND INCORRECT)')
-        newrec = newrec.and_mask(['REFERENCE'])
+        #newrec = newrec.and_mask(['REFERENCE'])
     else:
         newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL'])
-        newrec = newrec.and_mask(['REFERENCE'])
+        #newrec = newrec.and_mask(['REFERENCE'])
 
     mask = newrec['mask']
     del newrec.signals['mask']
@@ -719,8 +720,8 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
            mindur = np.min(udur)
            dur[dur < mindur] = mindur
 
-           log.debug('epoch %s: n=%d dur range=%.4f-%.4f', ename,
-                    len(ematch), mindur, np.max(dur))
+           #log.info('epoch %s: n=%d dur range=%.4f-%.4f', ename,
+           #         len(ematch), mindur, np.max(dur))
 
            #import pdb;pdb.set_trace()
            minpre = np.min(prematch)
@@ -1158,12 +1159,10 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
 
     # compute PCs only on valid (masked) times
     rec0[resp_sig] = rec0[resp_sig].rasterize()
-    if 'mask' in rec0.signals:
-        rec_masked = rec0.apply_mask()
-    else:
-        rec_masked = rec0
+    rec_masked = generate_psth_from_resp(rec0, resp_sig=resp_sig)
 
-    rec_masked = generate_psth_from_resp(rec_masked, resp_sig=resp_sig)
+    if 'mask' in rec0.signals:
+        rec_masked = rec_masked.apply_mask()
 
     if pc_source=='all':
         D_ref = rec_masked[resp_sig].as_continuous().T
@@ -1202,19 +1201,27 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
         else:
             sd = np.ones(m.shape)
         D_ref=D_ref[np.sum(np.isfinite(D_ref),axis=1),:]
+        D_ = (D_ref-m)/sd
 
-        u, s, v = np.linalg.svd((D_ref-m)/sd, full_matrices=False)
-        X = (D-m) / sd @ v.T
+        #import pdb;
+        #pdb.set_trace()
+
+        # A = u @ np.diag(s) @ vh = (u * s) @ vh
+        u, s, v = np.linalg.svd(D_.T @ D_, full_matrices=False)
+        X = ((D-m) / sd) @ u
 
         rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
 
         r = rec0[pc_sig].extract_epoch('REFERENCE', mask=rec0['mask'])
         mr = np.mean(r, axis=0)
-        spont = np.mean(mr[:,:prestimbins],axis=1,keepdims=True)
-        mr -= spont
+        if prestimbins>0:
+            spont = np.mean(mr[:,:prestimbins],axis=1,keepdims=True)
+            mr -= spont
         vs = np.sign(np.sum(mr[:, prestimbins:(prestimbins+10)], axis=1, keepdims=True))
-        v *= vs
-        X = (D-m) / sd @ v.T
+        u *= vs
+        X = ((D-m) / sd) @ u
+
+
 
     if compute_power == 'single_trial':
         X = convolve2d(np.abs(X), np.ones((3,1)) / 3, 'same')
@@ -1230,7 +1237,7 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
 #    plt.plot(mr[:5,:].T)
 #    plt.legend(('1','2','3','4','5'))
 
-    rec0.meta['pc_weights'] = v
+    rec0.meta['pc_weights'] = u
     rec0.meta['pc_mag'] = s
     if overwrite_resp:
         rec0[resp_sig] = rec0[resp_sig]._modified_copy(X[:, pc_idx].T, 

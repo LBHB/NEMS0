@@ -235,19 +235,38 @@ def lv(kw):
                          "as the first option after 'wc', e.g.: 'wc.2x15'"
                          "\nkeyword given: %s" % kw)
 
-    if 'c' in options and 'g' in options:
-        log.warning("Options 'c' and 'g' both given for weight_channels, but"
-                    " are mutually exclusive. Whichever comes last will "
-                    "overwrite the previous option. kw given: {}".format(kw))
+    do_gain = ('g' in options)
+
+    if do_gain:
+       fn = 'nems.modules.state.lv_gain'
+    else:
+       fn = 'nems.modules.state.lv_additive'
+    fn_kwargs = {'i': 'pred', 'o': 'pred', 's': 'state'}
+
+    n_state = int(n_inputs/(n_outputs+1))*2
 
     # This is the default for wc, but options might overwrite it.
-    fn = 'nems.modules.weight_channels.basic'
-    fn_kwargs = {'i': 'resp', 'o': 'lv'}
-    p_coefficients = {'mean': np.zeros((n_outputs, n_inputs))+0.01,
-                      'sd': np.full((n_outputs, n_inputs), 0.1)}
-    prior = {'coefficients': ('Normal', p_coefficients)}
+    p_coefficients_in = {'mean': np.zeros((1, n_inputs))+0.01,
+                      'sd': np.full((1, n_inputs), 0.1)}
+    p_coefficients_in['mean'][:,:int(n_state/2)] = 1
+    p_coefficients = {'mean': np.zeros((n_outputs, n_state))+0.00,
+                      'sd': np.full((n_outputs, n_state), 0.1)}
+    if do_gain:
+        p_coefficients['mean'][:,0]=1
+    prior = {'coefficients_in': ('Normal', p_coefficients_in),
+             'coefficients': ('Normal', p_coefficients),
+            }
 
     bounds = None
+    max_in = np.full_like(p_coefficients_in['mean'], np.inf)
+    min_in = np.full_like(p_coefficients_in['mean'], -np.inf)
+    max_in[:,:int(n_state/2)]=1
+    min_in[:,:int(n_state/2)]=1
+    bounds = {
+        'coefficients_in': (min_in, max_in),
+        'coefficients': (np.full_like(p_coefficients['mean'], -np.inf), 
+                         np.full_like(p_coefficients['mean'], np.inf))
+        }
 
     template = {
         'fn': fn,

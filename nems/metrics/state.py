@@ -18,11 +18,15 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
     fs = rec[psth_name].fs
 
     # will default to 0 if None
-    chanidx = get_channel_number(rec[psth_name], channel)
+    if channel is None:
+        chanidx = np.arange(rec[psth_name].shape[0])
+    else:
+        chanidx = np.array([get_channel_number(rec[psth_name], channel)])
+    
     #c = rec[psth_name].chans[chanidx]
     #full_psth = rec[psth_name].loc[c]
     full_psth = rec[psth_name]
-    folded_psth = full_psth.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True)[:, [chanidx], :] #* fs
+    folded_psth = full_psth.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True)[:, chanidx, :] #* fs
 
     full_var = rec[state_sig].loc[state_chan]
     folded_var = np.squeeze(full_var.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True)) #* fs
@@ -99,27 +103,27 @@ def state_mod_index(rec, epoch='REFERENCE', psth_name='pred', divisor=None,
                                 state_sig=state_sig, state_chan=state_chan)
 
     # kludge to deal with variable length REFERENCES.
-    kk = np.isfinite(low) & np.isfinite(high)
-
-    if sum(kk) == 0:
+    kk = np.isfinite(low[:,0]) & np.isfinite(high[:,0])
+    #import pdb;pdb.set_trace()
+    if kk.sum()==0:
         # no timepoints that are valid in both low and high, MI fails to 0
-        return 0
+        return np.zeros(low[0,:].shape)
 
-    low = low[kk]
-    high = high[kk]
+    low = low[kk,:]
+    high = high[kk,:]
 
     if divisor == 1:
-        mod = np.mean(high - low)
+        mod = np.mean(high - low, axis=0)
 
     elif divisor is not None:
         low_denom, high_denom = state_mod_split(rec, epoch=epoch,
                                                 psth_name=divisor,
                                                 state_sig=state_sig,
                                                 state_chan=state_chan)
-        mod = np.sum(high-low) / np.sum(high_denom + low_denom)
+        mod = np.sum(high-low, axis=0) / np.sum(high_denom + low_denom, axis=0)
 
     else:
-        mod = np.sum(high - low) / np.sum(high + low)
+        mod = np.sum(high - low, axis=0) / np.sum(high + low, axis=0)
 
     return mod
 

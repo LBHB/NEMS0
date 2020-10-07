@@ -204,6 +204,8 @@ def state_var_psth_from_epoch(rec, epoch="REFERENCE", psth_name='resp', psth_nam
     if ax is not None:
         plt.sca(ax)
 
+    if channel is None:
+        channel=0
     fs = rec[psth_name].fs
 
     d = rec[psth_name].get_epoch_bounds('PreStimSilence')
@@ -268,7 +270,11 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
     # TODO: Does using epochs make sense for these?
     if ax is not None:
         plt.sca(ax)
+    else:
+        ax = plt.gca()
 
+    if channel is None:
+        channel = 0
     if epoch is None:
         epoch="REFERENCE"
 
