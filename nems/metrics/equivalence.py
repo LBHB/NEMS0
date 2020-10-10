@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from copy import copy
 
 import numpy as np
 import scipy.stats as st
@@ -89,7 +90,7 @@ def partial_corr(C):
 def equivalence_partial_batch(batch, model1, model2, baseline, path,
                               load_only=False, force_rerun=False,
                               manual_cellids=None, performance_stat='r_ceiling',
-                              test_limit=np.inf):
+                              test_limit=np.inf, use_sites=True):
     '''
     Computes equivalence and effect size for all cells in a batch.
 
@@ -123,6 +124,8 @@ def equivalence_partial_batch(batch, model1, model2, baseline, path,
         batch will be used.
     test_limit: int or np.inf
         For debugging. Specifies a maximum number of cells to load models for.
+    use_sites: bool
+        Use siteids as default cell list instead of cellids.
 
     Returns:
     --------
@@ -135,6 +138,7 @@ def equivalence_partial_batch(batch, model1, model2, baseline, path,
         cellids = nd.get_batch_cells(batch=batch, as_list=True)
     else:
         cellids = manual_cellids
+    siteids = list(set([c.split('-')[0] for c in cellids]))
 
     path = Path(path)
     if load_only:
@@ -159,32 +163,39 @@ def equivalence_partial_batch(batch, model1, model2, baseline, path,
         i = 0
         total_used_cells = 0
 
-        for cell in cellids:
-            try:
-                pred1, pred2, baseline_pred = load_models(cell, batch, models)
-            # Bare except is intentional - missing result should be value error, but
-            # often there are other errors that pop up after package updates
-            # due to outdated preprocessing functions. Since the equivalence analysis
-            # is often left to run overnight, I would rather skip the exceptions
-            # and continue saving the rest of the batch.  -Jacob
-            except Exception as e:
-                log.warning('Missing result or error loading for cell: %s: \n%s',
-                            (cell, e))
-                continue
+        if use_sites:
+            site_cache = {site:{} for site in siteids}
+        else:
+            site_cache = None
 
-            partial = equivalence_partial(pred1, pred2, baseline_pred)
-            partials.append(partial)
-            used_cells.append(cell)
-            i += 1
-            total_used_cells += 1
-            if i % 5 == 0:
-                # intermediate save after every 5 cells
-                df = _save_results(df, used_cells, partials, path)
-                partials = []
-                used_cells = []
+        for site in siteids:
+            site_cells = [c for c in cellids if site in c]
+            for cell in site_cells:
+                try:
+                    pred1, pred2, baseline_pred = load_models(cell, batch, models, site=site, site_cache=site_cache)
+                    # Bare except is intentional - missing result should be value error, but
+                    # often there are other errors that pop up after package updates
+                    # due to outdated preprocessing functions. Since the equivalence analysis
+                    # is often left to run overnight, I would rather skip the exceptions
+                    # and continue saving the rest of the batch.  -Jacob
+                except Exception as e:
+                    log.warning('Missing result or error loading for cell: %s: \n%s',
+                                (cell, e))
+                    continue
 
-            if total_used_cells >= test_limit:
-                break
+                partial = equivalence_partial(pred1, pred2, baseline_pred)
+                partials.append(partial)
+                used_cells.append(cell)
+                i += 1
+                total_used_cells += 1
+                if i % 5 == 0:
+                    # intermediate save after every 5 cells
+                    df = _save_results(df, used_cells, partials, path)
+                    partials = []
+                    used_cells = []
+
+                if total_used_cells >= test_limit:
+                    break
 
         df = _save_results(df, used_cells, partials, path)
 
@@ -200,7 +211,7 @@ def _save_results(df, used_cells, partials, path):
     return df
 
 
-def load_models(cell, batch, models, check_db=True):
+def load_models(cell, batch, models, check_db=True, site=None, site_cache=None):
     '''Load standardized psth from each model, error if not all fits exist.'''
 
     if check_db:
@@ -216,11 +227,22 @@ def load_models(cell, batch, models, check_db=True):
     # Load all models
     ctxs = []
     for model in models:
-        xf, ctx = xhelp.load_model_xform(cell, batch, model)
+        if site_cache is None:
+            xf, ctx = xhelp.load_model_xform(cell, batch, model)
+        elif model in site_cache[site]:
+            log.info("Site %s is cached, skipping load...", site)
+            ctx = site_cache[site][model]
+        else:
+            xf, ctx = xhelp.load_model_xform(cell, batch, model)
+            site_cache[site][model] = ctx
         ctxs.append(ctx)
 
+    for ctx in ctxs:
+        if ctx['val']['pred'].chans is None:
+            ctx['val']['pred'].chans = copy(ctx['val']['resp'].chans)
+
     # Pull out model predictions and remove times with nan for at least 1 model
-    preds = [ctx['val'].apply_mask()['pred'].as_continuous() for ctx in ctxs]
+    preds = [ctx['val'].apply_mask()['pred'].extract_channels([cell]).as_continuous() for ctx in ctxs]
     ff = np.isfinite(preds[0])
     for pred in preds[1:]:
         ff &= np.isfinite(pred)
@@ -318,7 +340,7 @@ def within_model_equivalence(batch, model1, model2, baseline, model1_h1,
     for i, d in enumerate(dfs[1:]):
         df = df.join(d, how='inner', rsuffix='_df%d'%(i+1)) # use intersection of indices
     # Convert columns to meaningful names
-    new_keys = ['between_partial', 'between_effect_size',
+    new_keys = ['between_partial',
                 'within_partial_model1a', 'within_partial_model1b',
                 'within_partial_model2a', 'within_partial_model2b',
                 'cross_partial_1a', 'cross_partial_1b',
