@@ -112,6 +112,8 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=Tru
     # get a list of the unique epoch names
     epoch_names = temp_epochs.loc[regex_mask, 'name'].sort_values().unique()
 
+    #import pdb; pdb.set_trace()
+
     # what to round to when checking if epoch timings match
     d = int(np.ceil(np.log10(recording[list(recording.signals.keys())[0]].fs))+1)
 
@@ -194,7 +196,6 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=Tru
         fs = signal.fs
         # Average over all occurrences of each epoch
         data = []
-        #import pdb; pdb.set_trace()
         for epoch_name in epoch_names:
             epoch = epoch_data[epoch_name]
 

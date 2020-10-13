@@ -185,19 +185,23 @@ def weight_channels_heatmap(modelspec, idx=None, ax=None, clim=None, title=None,
     return ax
 
 def fir_heatmap(modelspec, ax=None, clim=None, title=None, chans=None,
-                fir_idx=0, **options):
+                fir_idx=0, cmap=None, **options):
     coefficients = _get_fir_coefficients(modelspec, idx=fir_idx)
+    if cmap is None:
+        cmap = get_setting('FILTER_CMAP')
     plot_heatmap(coefficients, xlabel='Time Bin', ylabel='Channel In',
-                 ax=ax, clim=clim, cmap=get_setting('FILTER_CMAP'), title=title)
+                 ax=ax, clim=clim, cmap=cmap, title=title)
     if chans is not None:
         for i, c in enumerate(chans):
             plt.text(-0.4, i, c, verticalalignment='center')
 
 
-def nonparametric_strf(modelspec, idx, ax=None, clim=None, title=None, **kwargs):
+def nonparametric_strf(modelspec, idx, ax=None, clim=None, title=None, cmap=None, **kwargs):
     coefficients = modelspec[idx]['phi']['coefficients']
+    if cmap is None:
+        cmap = get_setting('FILTER_CMAP')
     plot_heatmap(coefficients, xlabel='Time Bin', ylabel='Channel In',
-                 ax=ax, clim=clim, cmap=get_setting('FILTER_CMAP'), title=title)
+                 ax=ax, clim=clim, cmap=cmap, title=title)
 
 
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
@@ -308,7 +312,7 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
 
     plot_heatmap(everything, xlabel='Lag (s)',
                  ylabel='Channel In', ax=ax, skip=skip, title=title, fs=fs,
-                 interpolation=interpolation, cmap=get_setting('FILTER_CMAP'),
+                 interpolation=interpolation, cmap=cmap,
                  manual_extent=manual_extent, show_cbar=show_cbar)
     ax_remove_box(left=True, bottom=True, ticks=True)
 
