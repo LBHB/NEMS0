@@ -334,7 +334,7 @@ def mask_all_but_correct_references(rec, balance_rep_count=False, include_incorr
         newrec = newrec.and_mask(['REFERENCE'])
 
     else:
-        newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL'])
+        newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL'])
         newrec = newrec.and_mask(['REFERENCE'])
 
     if exclude_partial_ref:
@@ -503,7 +503,7 @@ def mask_incorrect(rec):
     collected using baphy during behavior.
     """
     newrec = rec.copy()
-    newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL'])
+    newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL'])
 
     return newrec
 
@@ -663,7 +663,7 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
         log.info('INCLUDING ALL TRIALS (CORRECT AND INCORRECT)')
         #newrec = newrec.and_mask(['REFERENCE'])
     else:
-        newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL'])
+        newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL'])
         #newrec = newrec.and_mask(['REFERENCE'])
 
     mask = newrec['mask']
