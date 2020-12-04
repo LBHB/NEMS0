@@ -1,4 +1,4 @@
-""""Helpers to build a Tensorflow Keras model from a modelspec."""
+"""Helpers to build a Tensorflow Keras model from a modelspec."""
 
 import copy
 import logging
