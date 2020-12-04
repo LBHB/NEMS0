@@ -32,12 +32,11 @@ cellid = "TAR010c-18-1"
 
 # MODEL SPEC
 #modelspecname = 'wc.18x1.g-fir.1x15-lvl.1'
-#modelspecname = 'dlog-wc.18x1.g-fir.1x15-lvl.1-dexp.1'
-modelspecname = 'dlog-wc.18x1.g-stp.1.q.s-fir.1x15-lvl.1-dexp.1'
+modelspecname = 'dlog-wc.18x1.g-fir.1x15-lvl.1-dexp.1'
+#modelspecname = 'dlog-wc.18x1.g-stp.1.q.s-fir.1x15-lvl.1-dexp.1'
 #modelspecname = 'dlog-wc.18x2.g-do.2x15-lvl.1-dexp.1'
 #modelspecname = 'dlog.f-wc.18x1.g-stp.1.s-do.1x15-lvl.1'
 #modelspecname = 'dlog.f-wc.18x1.g-stp2.1.s-do.1x15-lvl.1'
-
 
 # generate modelspec
 xfspec = []
@@ -52,7 +51,6 @@ xfspec.append(['nems.xforms.load_recording_wrapper',
 xfspec.append(['nems.xforms.split_by_occurrence_counts',
                {'epoch_regex': '^STIM_'}])
 xfspec.append(['nems.xforms.average_away_stim_occurrences', {}])
-
 
 meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
         'recording': exptid}

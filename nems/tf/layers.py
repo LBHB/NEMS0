@@ -4,8 +4,9 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import config
 from tensorflow.keras.layers import Conv2D, Dense
+from tensorflow.python.keras.layers.convolutional import Conv
 from tensorflow.keras.constraints import Constraint
-from tensorflow.python.ops import array_ops
+from tensorflow.python.ops import array_ops, nn_ops, nn
 
 log = logging.getLogger(__name__)
 
@@ -60,6 +61,8 @@ class BaseLayer(tf.keras.layers.Layer):
             kwargs['reset_signal'] = None
         if 'non_causal' in ms_layer['fn_kwargs']:
             kwargs['non_causal'] = ms_layer['fn_kwargs']['non_causal']
+        if 'state_type' in ms_layer['fn_kwargs']:
+            kwargs['state_type'] = ms_layer['fn_kwargs']['state_type']
 
         pass_through_keys = ['n_inputs', 'crosstalk', 'filters', 'kernel_size',
                              'activation', 'units', 'padding']
@@ -413,7 +416,7 @@ class WeightChannelsGaussian(BaseLayer):
 
 
 class FIR(BaseLayer):
-    """Basic weight channels."""
+    """Basic FIR filter."""
     # TODO: organize params
     def __init__(self,
                  units=None,
@@ -460,6 +463,15 @@ class FIR(BaseLayer):
                                             trainable=True,
                                             )
 
+    def _call(self, inputs, training=True):
+        """Normal call."""
+        pad_size0 = self.units - 1 - self.non_causal
+        pad_size1 = self.non_causal
+        padded_input = tf.pad(inputs, [[0, 0], [pad_size0, pad_size1], [0, 0]])
+        transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
+        Y = tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
+        return Y
+
     def call(self, inputs, training=True):
         """Normal call."""
         pad_size0 = self.units - 1 - self.non_causal
@@ -478,11 +490,11 @@ class FIR(BaseLayer):
             # this implementation does not evaluate on a CPU if mapping subsets of
             # the input into the different FIR filters.
             transposed = tf.transpose(tf.reverse(self.coefficients, axis=[-1]))
+            Y = tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
             if DEBUG:
                 print("padded input: ", padded_input.shape)
                 print("transposed kernel: ", transposed.shape)
                 print("Y: ", Y.shape)
-            Y = tf.nn.conv1d(padded_input, transposed, stride=1, padding='VALID')
             return Y
 
         # alternative, kludgy implementation, evaluate each filter separately on the
@@ -763,10 +775,14 @@ class StateDCGain(BaseLayer):
                  n_inputs=1,
                  initializer=None,
                  seed=0,
+                 state_type='both',
+                 bounds=None,
                  *args,
                  **kwargs,
                  ):
         super(StateDCGain, self).__init__(*args, **kwargs)
+
+        self.state_type = state_type
 
         # try to infer the number of units if not specified
         if units is None and initializer is None:
@@ -788,28 +804,39 @@ class StateDCGain(BaseLayer):
     def build(self, input_shape):
         input_shape, state_shape = input_shape
 
-        self.g = self.add_weight(name='g',
-                                 shape=(self.n_inputs, self.units),
-                                 # shape=(self.units, input_shape[-1]),
-                                 dtype='float32',
-                                 initializer=self.initializer['g'],
-                                 trainable=True,
-                                 )
-        self.d = self.add_weight(name='d',
-                                 shape=(self.n_inputs, self.units),
-                                 # shape=(self.units, input_shape[-1]),
-                                 dtype='float32',
-                                 initializer=self.initializer['d'],
-                                 trainable=True,
-                                 )
+        if self.state_type != 'dc_only':
+            self.g = self.add_weight(name='g',
+                                     shape=(self.n_inputs, self.units),
+                                     # shape=(self.units, input_shape[-1]),
+                                     dtype='float32',
+                                     initializer=self.initializer['g'],
+                                     trainable=True,
+                                     )
+        else:
+            self.g = np.zeros((self.n_inputs, self.units))
+            self.g[:, 0] = 1
+            self.g = tf.constant(self.g, dtype='float32')
+
+        if self.state_type != 'gain_only':
+            # don't need a d param if we only want gain
+            self.d = self.add_weight(name='d',
+                                     shape=(self.n_inputs, self.units),
+                                     # shape=(self.units, input_shape[-1]),
+                                     dtype='float32',
+                                     initializer=self.initializer['d'],
+                                     trainable=True,
+                                     )
 
     def call(self, inputs, training=True):
         inputs, state_inputs = inputs
 
         g_transposed = tf.transpose(self.g)
-        d_transposed = tf.transpose(self.d)
 
         g_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(g_transposed, 0), stride=1, padding='SAME')
+        if self.state_type == 'gain_only':
+            return inputs * g_conv
+
+        d_transposed = tf.transpose(self.d)
         d_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(d_transposed, 0), stride=1, padding='SAME')
 
         return inputs * g_conv + d_conv
@@ -820,9 +847,26 @@ class StateDCGain(BaseLayer):
         return layer_values
 
 
+class Sum(BaseLayer):
+    """Subclass of tf.keras Add layer"""
+    def __init__(self, initializer=None, seed=0, *args, **kwargs):
+        super(Sum, self).__init__(*args, **kwargs)
+
+    def call(self, inputs, training=True):
+        return tf.math.reduce_sum(inputs, axis=-1, keepdims=True)
+
+    def compute_output_shape(self, input_shape):
+        input_shape[-1] = 1
+        return input_shape
+
+    def weights_to_phi(self):
+        log.info(f'No phis to convert for {self.name}.')
+        return {}
+
+
 class Conv2D_NEMS(BaseLayer, Conv2D):
     _TF_ONLY = True
-    def __init__(self, initializer=None, *args, **kwargs):
+    def __init__(self, initializer=None, seed=0, *args, **kwargs):
         '''Identical to the stock keras Conv2D but with NEMS compatibility added on, but without a matching module.'''
         super(Conv2D_NEMS, self).__init__(*args, **kwargs)
 
@@ -834,7 +878,7 @@ class Conv2D_NEMS(BaseLayer, Conv2D):
 
 class Dense_NEMS(BaseLayer, Dense):
     _TF_ONLY = True
-    def __init__(self, initializer=None, *args, **kwargs):
+    def __init__(self, initializer=None, seed=0, *args, **kwargs):
         '''Identical to the stock keras Dense but with NEMS compatibility added on, but without a matching module.'''
         super(Dense_NEMS, self).__init__(*args, **kwargs)
 
@@ -846,7 +890,7 @@ class Dense_NEMS(BaseLayer, Dense):
 
 class WeightChannelsNew(BaseLayer):
     _TF_ONLY = True
-    def __init__(self, units=None, initializer=None, *args, **kwargs):
+    def __init__(self, units=None, initializer=None, seed=0, *args, **kwargs):
         '''Similar to WeightChannelsBasic but implemented as a weighted sum, and does not map to a NEMS module.'''
         super(WeightChannelsNew, self).__init__(*args, **kwargs)
         self.units = units
@@ -872,8 +916,8 @@ class WeightChannelsNew(BaseLayer):
 
 
 class FlattenChannels(BaseLayer):
-
-    def __init__(self, initializer=None, *args, **kwargs):
+    _TF_ONLY = True
+    def __init__(self, initializer=None, seed=0, *args, **kwargs):
         # no weights or initializer to deal with
         super(FlattenChannels, self).__init__(*args, **kwargs)
 

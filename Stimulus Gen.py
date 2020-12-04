@@ -313,7 +313,7 @@ sound_files = []
 for zz in sound_sets.values():
     sound_files = sound_files + zz
 
-unique_triads = 1
+unique_triads = 3
 num_cut_sets = 5
 all_trials, all_epochs, all_specs = {}, {}, {}
 #
@@ -343,6 +343,11 @@ seg_dict, seg_label_list = sound_segmenter(stim_dict, cut_dir, fs)
 for mm in range(unique_triads):
     all_trials, all_epochs, all_specs, trial_labels = make_three_trials(all_trials, all_epochs, all_specs, stim_dict,
                                                cut_dir, fs, cats, 15, 6, 2)
+
+
+
+stim = signal.TiledSignal(data=all_specs, epochs=all_epochs, fs=fs, name='stim', recording="NAT")
+stim = stim.rasterize()
 
 
 # fig,ax = plt.subplots(3,1)

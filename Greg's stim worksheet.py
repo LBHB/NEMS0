@@ -129,7 +129,7 @@ def spec_collage(ROOT):
         fs, W = wavfile.read(ss)
         spec = gtgram(W, fs, 0.02, 0.01, 48, 100, 8000)
         pow = np.average(spec,axis=1)
-        basename = os.path.splitext(os.path.basename(ss))[0].split('_')[0]
+        basename = os.path.splitext(os.path.basename(ss))[0].split('_')[1]
         if nn < int(len(set1)/2):
             ax[nn,0].set_title(basename)
             ax[nn,0].imshow(spec,aspect='auto',origin='lower')
@@ -146,6 +146,9 @@ def spec_collage(ROOT):
             ax[nn-5,3].plot(pow)
             ax[nn-5,3].set_yticklabels([])
             ax[nn-5,3].set_yticks([])
+
+    fig.set_figheight(10)
+    fig.set_figwidth(8)
 
 
 
@@ -182,7 +185,7 @@ from nems.analysis.gammatone.gtgram import gtgram
 
 texture_dir = "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Textures/*.wav"
 marm_dir = "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Marms/*.wav"
-pairs = [(0,7),(1,9),(2,5),(3,4),(4,6),(5,0),(6,3),(7,1),(8,2),(9,8)]
+pairs = [(0,7),(1,9),(2,5),(3,4),(4,6),(5,0),(6,3),(7,1),(8,2),(9,8)] # The ones I thought were best
 
 
 def spec_combos(texture_dir, marm_dir, pairs=None):
@@ -275,6 +278,49 @@ def sound_combos(texture_dir, marm_dir, pairs):
 
         for dd, ff in save_paths.items():
             wavfile.write(SAVE_ROOT + dd, fs, ff)
+
+
+def all_sound_combos(texture_dir, marm_dir):
+    '''Takes two directories of wav files as well as a list of tuples and will go through
+    the directory and produce 8 different wav files based on the sounds indicated in the
+    tuples. The 8 are
+    1. A Alone - 2. B Alone - 3. A + B - 4. A + half B - 5. half A + B - 6. half A -
+    7. half B - 8. half A + half B'''
+    texture_dict, marm_dict = sound_dict_maker(texture_dir), sound_dict_maker(marm_dir)
+    save_paths = {}
+    SAVE_ROOT = f"/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Sound Combos/"
+
+    for tt in texture_dict.keys():
+        sound_A = texture_dict[tt]
+        base_text = os.path.splitext(os.path.basename(texture_dict[tt]))[0].split('_')[1]
+        fs_A, A = wavfile.read(sound_A)
+        half_A = A.copy()
+        half_A[:int(len(A) / 2)] = 0
+
+        save_paths[f'{base_text}-0-1.wav'] = A
+        save_paths[f'{base_text}-0.5-1.wav'] = half_A
+
+        for mm in marm_dict:
+            sound_B = marm_dict[mm]
+            base_marm = os.path.splitext(os.path.basename(marm_dict[mm]))[0].split('_')[1]
+            fs_B, B = wavfile.read(sound_B)
+            half_B = B.copy()
+            half_B[:int(len(B) / 2)] = 0
+
+            save_paths[f'{base_marm}-0-1.wav'] = B
+            save_paths[f'{base_marm}-0.5-1.wav'] = half_B
+
+            if fs_A != fs_B:
+                print(f'Sampling rates of Background: {base_text} and '
+                      f'Foreground: {base_marm} do not match!')
+
+            save_paths[f'{base_text}-0-1_{base_marm}-0-1.wav'] = A + B
+            save_paths[f'{base_text}-0-1_{base_marm}-0.5-1.wav'] = A + half_B
+            save_paths[f'{base_text}-0.5-1_{base_marm}-0-1.wav'] = half_A + B
+            save_paths[f'{base_text}-0.5-1_{base_marm}-0.5-1.wav'] = half_A + half_B
+
+    for dd, ff in save_paths.items():
+        wavfile.write(SAVE_ROOT + dd, fs_A, ff)
 
 def sound_dict_maker(dir):
     '''Saves some space in the code above, turns the sound directories to be indexable.'''

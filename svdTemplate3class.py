@@ -9,12 +9,33 @@ from scipy.signal import resample
 
 from nems.analysis.gammatone.gtgram import gtgram
 from nems import recording, signal
-# from nems import xforms, get_setting
+from nems import xforms, get_setting
 from nems import get_setting
 import nems.gui.editors as gui
 import nems
 import random
 import nems.tf.cnnlink_new as cnn
+
+RECORDING_PATH = get_setting('NEMS_RECORDINGS_DIR')
+recording_file = os.path.join(RECORDING_PATH, "classifier.tgz")
+class_labels = ['Animal Sounds','Music','Speech']
+class_labels = ['Animal Sounds', 'Environment','Machine','Marmoset Vocalizations',
+                'Music','Speech','Transients']
+cats = len(class_labels)
+
+sound_sets = {}
+for cc in class_labels:
+    sound_sets[cc] = glob.glob(f"/Users/grego/OneDrive/Documents/Sounds/Classifier/{cc}/*.wav")
+
+lens = [len(sound_sets[i]) for i in sound_sets.keys()]
+for nn,ii in enumerate(lens):
+    if nn == 0:
+        sound_classes = np.zeros(ii) + (nn+1)
+    else:
+        sound_classes = np.concatenate((sound_classes, np.zeros(ii)+(nn+1)))
+sound_files = []
+for zz in sound_sets.values():
+    sound_files = sound_files + zz
 
 # if True, reload all the wav files, generate spectrograms and save as recording
 REGENERATE_RECORDING = True
@@ -99,7 +120,11 @@ if REGENERATE_RECORDING:
     resp1 = stim.epoch_to_signal("CLASS_1")
     resp2 = stim.epoch_to_signal("CLASS_2")
     resp3 = stim.epoch_to_signal("CLASS_3")
-    resp = signal.RasterizedSignal.concatenate_channels([resp1, resp2, resp3])
+    resp4 = stim.epoch_to_signal("CLASS_4")
+    resp5 = stim.epoch_to_signal("CLASS_5")
+    resp6 = stim.epoch_to_signal("CLASS_6")
+    resp7 = stim.epoch_to_signal("CLASS_7")
+    resp = signal.RasterizedSignal.concatenate_channels([resp1, resp2, resp3,resp4,resp5,resp6,resp7])
     resp.name='resp'
     signals = {'stim': stim, 'resp': resp}
 

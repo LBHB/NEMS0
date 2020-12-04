@@ -548,6 +548,16 @@ def generate_stim_from_epochs(rec, new_signal_name='stim',
         log.info("generate_stim_from_epochs: no epochs matching regex: %s, skipping ..." % epoch_regex)
 
     else:
+        # sort extracted stim
+        try:
+            n = {e: float(e.split("_")[1])+100000*(e.split("_")[0]=="TAR") for e in epochs_to_extract}
+            def _myfunc(i):
+                return(n[i])
+            epochs_to_extract.sort(key=_myfunc)
+            log.info('sorted epochs')
+        except:
+            pass
+
         sigs = []
         for e in epochs_to_extract:
             log.info('Adding to %s: %s with shift = %d',
@@ -1105,7 +1115,7 @@ def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals,
     return ests, vals
 
 
-def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
+def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
                pc_count=None, pc_source='all', overwrite_resp=True,
                compute_power='no',
                whiten=True, **context):
@@ -1125,8 +1135,6 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
     :return: copy of rec with PCs
     """
     rec0 = rec.copy()
-    if type(pc_idx) is int:
-        pc_idx = [pc_idx]
     resp = rec0[resp_sig]
 
     # compute duration of spont period
@@ -1162,6 +1170,12 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
 
     if pc_count is None:
         pc_count = D_ref.shape[1]
+    if pc_idx is None:
+        pc_idx=list(np.arange(pc_count))
+    elif type(pc_idx) is int:
+        pc_idx = [pc_idx]
+
+    log.info(f"PCA: inputs={D_ref.shape[1]}, source={pc_source}, pc_idx(es): {pc_idx}")
 
     if False:
         # use sklearn. maybe someday
@@ -1176,6 +1190,7 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
             sd = np.nanstd(D_ref, axis=0, keepdims=True)
         else:
             sd = np.ones(m.shape)
+        D_ref=D_ref[np.sum(np.isfinite(D_ref),axis=1),:]
 
         u, s, v = np.linalg.svd((D_ref-m)/sd, full_matrices=False)
         X = (D-m) / sd @ v.T
@@ -1207,7 +1222,8 @@ def resp_to_pc(rec, pc_idx=[0], resp_sig='resp', pc_sig='pca',
     rec0.meta['pc_weights'] = v
     rec0.meta['pc_mag'] = s
     if overwrite_resp:
-        rec0[resp_sig] = rec0[resp_sig]._modified_copy(X[:, pc_idx].T)
+        rec0[resp_sig] = rec0[resp_sig]._modified_copy(X[:, pc_idx].T, 
+                                                       chans=[pc_chans[c] for c in pc_idx])
         rec0.meta['pc_idx'] = pc_idx
 
     return {'rec': rec0}
@@ -1228,6 +1244,8 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
 
     newrec = rec.copy()
     resp = newrec['resp'].rasterize()
+    state_signals = state_signals.copy()
+    permute_signals = permute_signals.copy()
 
     # normalize mean/std of pupil trace if being used
     if ('pupil' in state_signals) or ('pupil2' in state_signals) or \

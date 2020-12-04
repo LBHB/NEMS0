@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1051</width>
+    <height>835</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>DB Browser</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="BrowserTab" name="tabBrowser">
+       <attribute name="title">
+        <string>Browser</string>
+       </attribute>
+      </widget>
+      <widget class="CompTab" name="tabComp">
+       <attribute name="title">
+        <string>Comp</string>
+       </attribute>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>1051</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionOpen"/>
+   </widget>
+   <widget class="QMenu" name="menuEdit">
+    <property name="title">
+     <string>Edit</string>
+    </property>
+    <addaction name="actionSave_selections"/>
+    <addaction name="actionLoad_selections"/>
+   </widget>
+   <widget class="QMenu" name="menuRun">
+    <property name="title">
+     <string>Run</string>
+    </property>
+    <addaction name="actionCustom_function"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuEdit"/>
+   <addaction name="menuRun"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionOpen">
+   <property name="text">
+    <string>Open</string>
+   </property>
+   <property name="toolTip">
+    <string>Open</string>
+   </property>
+   <property name="statusTip">
+    <string>Load a modelspec from file</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
+   </property>
+  </action>
+  <action name="actionSave_selections">
+   <property name="text">
+    <string>Save selections</string>
+   </property>
+   <property name="statusTip">
+    <string>Save current input selections</string>
+   </property>
+  </action>
+  <action name="actionLoad_selections">
+   <property name="text">
+    <string>Load selections</string>
+   </property>
+   <property name="statusTip">
+    <string>Load saved input selections</string>
+   </property>
+  </action>
+  <action name="actionCustom_function">
+   <property name="text">
+    <string>Custon function</string>
+   </property>
+   <property name="statusTip">
+    <string>Define and run a custom a function</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+R</string>
+   </property>
+  </action>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>BrowserTab</class>
+   <extends>QWidget</extends>
+   <header>browser_tab</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>CompTab</class>
+   <extends>QWidget</extends>
+   <header>comp_tab</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

@@ -1,3 +1,10 @@
+"""
+nems.uri
+
+Where the filesystem organization of nems directories are decided,
+and generic methods for saving and loading resources over HTTP or
+to local files.
+"""
 import re
 import io
 import os
@@ -8,15 +15,8 @@ import numpy as np
 import base64
 
 from requests.exceptions import ConnectionError
-from nems.distributions.distribution import Distribution
-from nems.registry import KeywordRegistry
-
 
 log = logging.getLogger(__name__)
-
-# Where the filesystem organization of nems directories are decided,
-# and generic methods for saving and loading resources over HTTP or
-# to local files.
 
 
 class NumpyAwareJSONEncoder(jsonlib.JSONEncoder):
@@ -28,6 +28,8 @@ class NumpyAwareJSONEncoder(jsonlib.JSONEncoder):
     def default(self, obj):
         if issubclass(type(obj), Distribution):
             return obj.tolist()
+        if issubclass(type(obj), NemsModule):
+            return obj.data_dict
         if isinstance(obj, np.ndarray):  # and obj.ndim == 1:
             return obj.tolist()
         return jsonlib.JSONEncoder.default(self, obj)
@@ -39,14 +41,21 @@ class NumpyEncoder(jsonlib.JSONEncoder):
     https://stackoverflow.com/questions/3488934/simplejson-and-numpy-array
     saving as byte64 doesn't work, but using lists instead seems ok.
     '''
+
     def default(self, obj):
         """
         If input object is an ndarray it will be converted into a dict
         holding dtype, shape and the data. data is encoded as a list,
         which makes it text-readable.
         """
+        from nems.distributions.distribution import Distribution
+        from nems.modules import NemsModule
+
         if issubclass(type(obj), Distribution):
             return obj.tolist()
+
+        if issubclass(type(obj), NemsModule):
+            return obj.data_dict
 
         if isinstance(obj, np.ndarray):
             # currently disabling b64 encoding because it doesn't work and
@@ -70,7 +79,8 @@ class NumpyEncoder(jsonlib.JSONEncoder):
                         shape=obj.shape,
                         encoding='list')
 
-        if isinstance(obj, KeywordRegistry):
+        to_json_exists = getattr(obj, "to_json", None)
+        if callable(to_json_exists):
             return obj.to_json()
 
         # Let the base class default method raise the TypeError
@@ -101,9 +111,7 @@ def json_numpy_obj_hook(dct):
                 dct[k] = np.asarray(dct[k])
 
     if '_KWR_ARGS' in dct:
-        return KeywordRegistry.from_json(dct)
-
-    if '_KWR_ARGS' in dct:
+        from nems.registry import KeywordRegistry
         return KeywordRegistry.from_json(dct)
 
     return dct

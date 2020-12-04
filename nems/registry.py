@@ -3,12 +3,15 @@ import importlib.util
 import inspect
 import re
 import os
-from pathlib import Path
+import glob
+from pathlib import Path, PosixPath
 import sys
 
 from nems import get_setting
-from nems.plugins import (default_keywords, default_loaders, default_fitters,
-                          default_initializers)
+#from nems.plugins import (default_keywords, default_loaders, default_fitters,
+#                          default_initializers)
+#from nems.plugins import (default_loaders, default_fitters,
+#                          default_initializers)
 
 log = logging.getLogger(__name__)
 
@@ -65,9 +68,10 @@ class KeywordRegistry():
     directories or modules of keyword definitions.
     '''
 
-    def __init__(self, **kwargs):
+    def __init__(self, name='registry', **kwargs):
         self.keywords = {}
         self.kwargs = kwargs
+        self.name = name
 
     def __getitem__(self, kw_string):
         kw = self.lookup(kw_string)
@@ -158,11 +162,14 @@ class KeywordRegistry():
         for loc in locations:
             self.register_plugin(loc)
 
-    def register_function(self, obj):
+    def register_function(self, obj, name=None):
         """ add function obj to registry """
-        name = obj.__name__
+        if name is None:
+            name = obj.__name__
+        log.debug("%s lib registering function: %s", self.name, name)
+
         try:
-            location = str(obj.__module__) + "." + name
+            location = str(obj.__module__) + "." + obj.__name__
         except AttributeError:
             # Always default to the name of the module rather than the file
             # because this makes code more portable across platforms.
@@ -207,18 +214,31 @@ class KeywordRegistry():
 
     @classmethod
     def from_json(self, d):
-        registry = KeywordRegistry(*d['_KWR_ARGS'])
+        """
+        refresh keyword_lib with registry stored in xfspec. Currently merges with
+        any keywords already registered elsewhere.
+        Possibility: wipe kw and only return what's specified here?
+        :param d:
+        :return: keyword_lib
+        """
+        # registry = KeywordRegistry(*d['_KWR_ARGS'])
+        # import pdb; pdb.set_trace()
         d.pop('_KWR_ARGS')
         unique_sources = set(d.values())
         for source in unique_sources:
             try:
-                registry.register_plugin(source)
+                if not source.startswith("."):
+                    # skip, loading whole module now
+                    modpath = ".".join(source.split(".")[:-1])
+                    # print(modpath)
+                    importlib.import_module(str(modpath))
+                #registry.register_plugin(source)
             except:
                 log.warn('Unable to register plugin %s', source)
                 # Assume that equivalent plugins are specified in configs.
                 # Will happen when loading a model on a PC that it was not fit
                 # on, for example.
-        return registry
+        return keyword_lib
 
     def info(self, kw=None):
         """
@@ -250,56 +270,64 @@ class Keyword():
         self.parse = parse
         self.source_string = source_string
 
+
+def scan_for_kw_defs(module_list):
+    if type(module_list) is str:
+        module_list = [module_list]
+
+    for m in module_list:
+        pathname = Path(m)
+        if pathname.exists():
+            if pathname.is_dir():
+                file_list = list(pathname.glob('*.py'))
+                scan_for_kw_defs(file_list)
+            else:
+                spec = importlib.util.spec_from_file_location('', pathname)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+        else:
+            importlib.import_module(str(m))
+
+
 def xforms_kw_info(kw_string, **xforms_kwargs):
-    from nems.plugins import (default_loaders,
-                              default_initializers, default_fitters)
-    from nems import get_setting
-
-    xforms_lib = KeywordRegistry(**xforms_kwargs)
-    xforms_lib.register_modules([default_loaders, default_fitters,
-                                default_initializers])
-    xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
-
+    """report info on an xforms keyword string"""
+    import nems.xforms
     return xforms_lib.info(kw_string)
 
+
 def test_xforms_kw(kw_string, **xforms_kwargs):
-    from nems.plugins import (default_loaders,
-                              default_initializers, default_fitters)
-    from nems import get_setting
-
-    xforms_lib = KeywordRegistry(**xforms_kwargs)
-    xforms_lib.register_modules([default_loaders, default_fitters,
-                                default_initializers])
-    xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
-
+    """generate the xfspec entry for a keyword string
+    **xforms_kwargs not used???
+    """
+    import nems.xforms
     return xforms_lib[kw_string]
 
 
 def test_modelspec_kw(kw_string):
-    from nems.plugins import (default_keywords)
-    from nems import get_setting
-
-    kw_lib = KeywordRegistry()
-    kw_lib.register_modules([default_keywords])
-    kw_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
-
+    """generate module keyword output"""
+    import nems.xforms
     return kw_lib[kw_string]
 
 # create registries in here so that they can be updated as new modules are imported
-xforms_lib = KeywordRegistry()
-xforms_lib.register_modules([default_loaders, default_fitters,
-                             default_initializers])
-xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
+xforms_lib = KeywordRegistry(name="xforms")
+#xforms_lib.register_modules([default_loaders, default_fitters,
+#                             default_initializers])
+#xforms_lib.register_plugins(get_setting('XFORMS_PLUGINS'))
 
-keyword_lib = KeywordRegistry()
-keyword_lib.register_module(default_keywords)
-keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
-# TODO scan in plugins dir by default
+keyword_lib = KeywordRegistry(name="modules")
+#keyword_lib.register_module(default_keywords)
+#keyword_lib.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
-def xform(func):
-    log.info("importing xforms function: %s", func.__name__)
-    xforms_lib.register_function(func)
 
-def xmodule(func):
-    log.info("importing keyword function: %s", func.__name__)
-    keyword_lib.register_plugin(func)
+
+def xform(name=None):
+    def decorator(func):
+        xforms_lib.register_function(func, name=name)
+        return func
+    return decorator
+
+def xmodule(name=None):
+    def decorator(func):
+        keyword_lib.register_function(func, name=name)
+        return func
+    return decorator

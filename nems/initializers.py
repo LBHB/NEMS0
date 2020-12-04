@@ -3,7 +3,6 @@ import logging
 import copy
 import numpy as np
 import os
-from nems.registry import KeywordRegistry
 from nems.plugins import default_keywords
 from nems.utils import find_module, get_default_savepath
 from nems.analysis.api import fit_basic
@@ -14,9 +13,9 @@ import nems.metrics.api as metrics
 from nems import get_setting
 
 log = logging.getLogger(__name__)
-default_kws = KeywordRegistry()
-default_kws.register_module(default_keywords)
-default_kws.register_plugins(get_setting('KEYWORD_PLUGINS'))
+#_kws = KeywordRegistry()
+#default_kws.register_module(default_keywords)
+#default_kws.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
 
 def from_keywords(keyword_string, registry=None, rec=None, meta={},
@@ -29,7 +28,8 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
     '''
 
     if registry is None:
-        registry = default_kws
+        from nems.xforms import keyword_lib
+        registry = keyword_lib
     keywords = keyword_string.split('-')
 
     # Lookup the modelspec fragments in the registry
@@ -106,7 +106,6 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
             d['id'] = kw
             if init_phi_to_mean_prior:
                 d = priors.set_mean_phi([d])[0]  # Inits phi for 1 module
-
             modelspec.append(d)
 
     # first module that takes input='pred' should take ctx['input_name']
@@ -346,10 +345,12 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
             except NotImplementedError:
                 # as_continuous only available for RasterizedSignal
                 mean_resp = np.nanmean(rec[output_name].rasterize().as_continuous(), axis=1, keepdims=True)
-            log.info('Mod %d (%s) initializing level to %s mean %.3f',
-                     i, m['fn'], output_name, mean_resp[0])
-            log.info('resp has %d channels', len(mean_resp))
-            m['phi']['level'][:] = mean_resp
+            if len(mean_resp)==len(m['phi']['level'][:]):
+                log.info('Mod %d (%s) initializing level to %s mean %.3f',
+                         i, m['fn'], output_name, mean_resp[0])
+                log.info('Output %s has %d channels', 
+                         output_name, len(mean_resp))
+                m['phi']['level'][:] = mean_resp
 
         if (i < target_i) or ('merge_channels' in m['fn']):
             include_idx.append(i)
@@ -711,7 +712,6 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
 
         # base = np.max(np.array([meanr - stdr * 4, 0]))
         base[i, 0] = np.min(resp)
-        # base = meanr - stdr * 3
 
         # amp = np.max(resp) - np.min(resp)
         if nl_mode == 1:
@@ -752,12 +752,20 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
 
             shift[i, 0] = np.mean(pred)
             kappa[i, 0] = np.log(predrange)
+        elif nl_mode ==4:
+            base[i, 0] = np.mean(resp) - stdr * 1
+            amp[i, 0] = stdr * 4
+            predrange = 2 / (np.std(pred)*3)
+            if not np.isfinite(predrange):
+                predrange = 1
+            kappa[i, 0] = 0
+            shift[i, 0] = 0
         else:
             raise ValueError('nl mode = {} not valid'.format(nl_mode))
 
     modelspec[target_i]['phi'] = {'amplitude': amp, 'base': base,
                                   'kappa': kappa, 'shift': shift}
-    #log.info("Init dexp: %s", modelspec[target_i]['phi'])
+    log.info("Init dexp: %s", modelspec[target_i]['phi'])
 
     return modelspec
 
