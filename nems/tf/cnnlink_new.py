@@ -1,11 +1,10 @@
-"""Helpers to build a Tensorflow Keras model from a modelspec."""
+""""Helpers to build a Tensorflow Keras model from a modelspec."""
 
 import copy
 import logging
 import os
 import typing
 from pathlib import Path
-from packaging import version
 
 import numpy as np
 import tensorflow as tf
@@ -136,7 +135,6 @@ def fit_tf(
         filepath: typing.Union[str, Path] = None,
         freeze_layers: typing.Union[None, list] = None,
         IsReload: bool = False,
-        epoch_name: str = "REFERENCE",
         **context
         ) -> dict:
     """TODO
@@ -155,11 +153,9 @@ def fit_tf(
     :param filepath:
     :param freeze_layers: Indexes of layers to freeze prior to training. Indexes are modelspec indexes, so are offset
       from model layer indexes.
-    :param IsReload:
-    :param epoch_name
     :param context:
 
-    :return: dict {'modelspec': modelspec}
+    :return:
     """
 
     if IsReload:
@@ -201,32 +197,18 @@ def fit_tf(
     seed += modelspec.fit_index
 
     # need to get duration of stims in order to reshape data
-    #epoch_name = 'REFERENCE'  # TODO: this should not be hardcoded
-    # moved to input parameter
-
-    input_name = modelspec.meta.get('input_name', 'stim')
-    output_name = modelspec.meta.get('output_name', 'resp')
-
+    epoch_name = 'REFERENCE'  # TODO: this should not be hardcoded
     # also grab the fs
-    fs = est[input_name].fs
+    fs = est['stim'].fs
 
-    if (epoch_name is not None) and (epoch_name != ""):
-        # extract out the raw data, and reshape to (batch, time, channel)
-        stim_train = np.transpose(est[input_name].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
-        resp_train = np.transpose(est[output_name].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
-    else:
-        # extract data as a single batch size (1, time, channel)
-        stim_train = np.transpose(est.apply_mask()[input_name].as_continuous()[np.newaxis, ...], [0, 2, 1])
-        resp_train = np.transpose(est.apply_mask()[output_name].as_continuous()[np.newaxis, ...], [0, 2, 1])
-
+    # extract out the raw data, and reshape to (batch, time, channel)
+    stim_train = np.transpose(est['stim'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1]).astype('float32')
+    resp_train = np.transpose(est['resp'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1]).astype('float32')
     log.info(f'Feature dimensions: {stim_train.shape}; Data dimensions: {resp_train.shape}.')
 
     # get state if present, and setup training data
     if 'state' in est.signals:
-        if (epoch_name is not None) and (epoch_name != ""):
-           state_train = np.transpose(est['state'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
-        else:
-           state_train = np.transpose(est.apply_mask()['state'].as_continuous()[np.newaxis, ...], [0, 2, 1])
+        state_train = np.transpose(est['state'].extract_epoch(epoch=epoch_name, mask=est['mask']), [0, 2, 1])
         state_shape = state_train.shape
         log.info(f'State dimensions: {state_shape}')
         train_data = [stim_train, state_train]
@@ -245,7 +227,9 @@ def fit_tf(
     if np.any([isinstance(layer, Conv2D_NEMS) for layer in model_layers]):
         # need a "channel" dimension for Conv2D (like rgb channels, not frequency). Only 1 channel for our data.
         stim_train = stim_train[..., np.newaxis]
-        train_data = train_data[..., np.newaxis]
+        conv2d_model = True
+    else:
+        conv2d_model = False
 
     # do some batch sizing logic
     batch_size = stim_train.shape[0] if batch_size == 0 else batch_size
@@ -289,29 +273,22 @@ def fit_tf(
     # freeze layers
     if freeze_layers is not None:
         for freeze_index in freeze_layers:
-            log.info(f'Freezing layer #{freeze_index}: "{model.layers[freeze_index + 1].name}".')
             model.layers[freeze_index + 1].trainable = False
+            log.info(f'Freezing layer #{freeze_index}: "{model.layers[freeze_index + 1].name}".')
 
     # save an initial set of weights before freezing, in case of termination before any checkpoints
-    #log.info('saving weights to : %s', str(checkpoint_filepath) )
     model.save_weights(str(checkpoint_filepath), overwrite=True)
 
-    if version.parse(tf.__version__)>=version.parse("2.2.0"):
-        callback0 = [sparse_logger]
-        verbose=0
-    else:
-        callback0 = []
-        verbose = 2
-
-    log.info(f'Fitting model (batch_size={batch_size})...')
+    log.info(f'Fitting model (batch_size={batch_size}...')
     history = model.fit(
         train_data,
         resp_train,
         # validation_split=0.2,
-        verbose=verbose,
+        verbose=2,
         epochs=max_iter,
         batch_size=batch_size,
-        callbacks=callback0 + [
+        callbacks=[
+            #sparse_logger,
             nan_terminate,
             nan_weight_terminate,
             early_stopping,
@@ -336,18 +313,16 @@ def fit_tf(
             pass
 
     modelspec = tf2modelspec(model, modelspec)
-
-    contains_tf_only_layers = np.any(['tf_only' in m['fn'] for m in modelspec.modules])
-    if not contains_tf_only_layers:
-        # compare the predictions from the model and modelspec
-        error = compare_ms_tf(modelspec, model, est, train_data)
-        if error > 1e-5:
-            log.warning(f'Mean difference between NEMS and TF model prediction: {error}')
-        else:
-            log.info(f'Mean difference between NEMS and TF model prediction: {error}')
-    else:
-        # nothing to compare, ms evaluation is not implemented for this type of model
-        pass
+    # if not conv2d_model:
+    #     # compare the predictions from the model and modelspec
+    #     error = compare_ms_tf(modelspec, model, est, train_data)
+    #     if error > 1e-5:
+    #         log.warning(f'Mean difference between NEMS and TF model prediction: {error}')
+    #     else:
+    #         log.info(f'Mean difference between NEMS and TF model prediction: {error}')
+    # else:
+    #     # nothing to compare, ms evaluation is not implemented for this type of model
+    #     pass
 
     # add in some relevant meta information
     modelspec.meta['n_parms'] = len(modelspec.phi_vector)
@@ -391,31 +366,23 @@ def fit_tf_init(
 
     # find the first 'lvl' or last 'relu'
     ms_modules = [ms['fn'] for ms in modelspec]
-    #up_to_idx = first_substring_index(ms_modules, 'levelshift')
-    relu_idx = first_substring_index(reversed(ms_modules), 'relu')
-    lvl_idx = first_substring_index(reversed(ms_modules), 'levelshift')
-    _idxs = [i for i in [relu_idx, lvl_idx, len(modelspec)-1] if i is not None]
-    up_to_idx = len(modelspec) - 1 - np.min(_idxs)
-    #last_idx = np.min([relu_idx, lvl_idx])
-    #up_to_idx = len(modelspec) - 1 - up_to_idx
-    #if up_to_idx is None:
-    #    up_to_idx = first_substring_index(reversed(ms_modules), 'levelshift')
-    #    # because reversed, need to mirror the idx
-    #    if up_to_idx is not None:
-    #        up_to_idx = len(modelspec) - 1 - up_to_idx
-    #    else:
-    #        up_to_idx = len(modelspec) - 1
-    log.info('up_to_idx=%d (%s)', up_to_idx, modelspec[up_to_idx]['fn'])
-    
+    up_to_idx = first_substring_index(ms_modules, 'levelshift')
+    if up_to_idx is None:
+        up_to_idx = first_substring_index(reversed(ms_modules), 'relu')
+        # because reversed, need to mirror the idx
+        if up_to_idx is not None:
+            up_to_idx = len(modelspec) - 1 - up_to_idx
+        else:
+            up_to_idx = len(modelspec) - 1
+
     # do the +1 here to avoid adding to None
     up_to_idx += 1
+
     # exclude the following from the init
-    exclude = ['rdt_gain', 'state_dc_gain', 'state_gain']
-    freeze = ['stp']
+    exclude = ['stp', 'rdt_gain', 'state_dc_gain', 'state_gain']
     # more complex version of first_substring_index: checks for not membership in init_static_nl_layers
     init_idxes = [idx for idx, ms in enumerate(ms_modules[:up_to_idx]) if not any(sub in ms for sub in exclude)]
 
-    freeze_idxes = []
     # make a temp modelspec
     temp_ms = mslib.ModelSpec()
     log.info('Creating temporary model for init with:')
@@ -432,27 +399,20 @@ def fit_tf_init(
             except NotImplementedError:
                 # as_continuous only available for RasterizedSignal
                 mean_resp = np.nanmean(est[output_name].rasterize().as_continuous(), axis=1, keepdims=True)
-            if len(ms['phi']['level'][:]) == len(mean_resp):
-               log.info(f'Fixing "{ms["fn"]}" to: {mean_resp.flatten()[0]:.3f}')
-               ms['phi']['level'][:] = mean_resp
+            log.info(f'Fixing "{ms["fn"]}" to: {mean_resp.flatten()[0]:.3f}')
+            ms['phi']['level'][:] = mean_resp
 
         temp_ms.append(ms)
-        if any(fr in ms['fn'] for fr in freeze):
-            freeze_idxes.append(len(temp_ms)-1)
 
     log.info('Running first init fit: model up to first lvl/relu without stp/gain.')
-    log.debug('freeze_idxes: %s', freeze_idxes)
     filepath = Path(modelspec.meta['modelpath']) / 'init_part1'
-    temp_ms = fit_tf(temp_ms, est, freeze_layers=freeze_idxes, filepath=filepath, **kwargs)['modelspec']
+    temp_ms = fit_tf(temp_ms, est, filepath=filepath, **kwargs)['modelspec']
 
     # put back into original modelspec
     for ms_idx, temp_ms_module in zip(init_idxes, temp_ms):
         modelspec[ms_idx] = temp_ms_module
 
-    if nl_init == 'skip':
-        return {'modelspec': modelspec}
-
-    elif nl_init == 'scipy':
+    if nl_init == 'scipy':
         # pre-fit static NL if it exists
         _d = init_static_nl(est=est, modelspec=modelspec)
         modelspec = _d['modelspec']
@@ -478,7 +438,7 @@ def fit_tf_init(
                     if init_static_layer == 'relu':
                         ms['phi']['offset'][:] = -0.1
                     else:
-                        modelspec = init_fn(est, modelspec, nl_mode=4)
+                        modelspec = init_fn(est, modelspec)
 
                     static_nl_idx_not = list(set(range(len(modelspec))) - set([idx]))
                     log.info('Running second init fit: all frozen but static nl.')
@@ -537,7 +497,7 @@ def eval_tf_layer(data: np.ndarray,
 def get_jacobian(model: tf.keras.Model,
                  tensor: tf.Tensor,
                  index: int,
-                 out_channel: int = 0
+                 out_channel: int = 0,
                  ) -> np.array:
     """Gets the jacobian at the given index.
 
@@ -548,6 +508,3 @@ def get_jacobian(model: tf.keras.Model,
 
     w = g.jacobian(z, tensor)
     return w
-
-
-
