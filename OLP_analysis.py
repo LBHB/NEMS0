@@ -7,6 +7,9 @@ from scipy import stats
 import joblib as jl
 import pathlib as pl
 
+#lab comp
+rec = jl.load(pl.Path('/home/hamersky/Downloads/HOD009a09_p_OLP'))
+
 #joblib.dump()
 rec = jl.load(pl.Path('/Users/grego/Downloads/HOD005b09_p_OLP'))
 rec = jl.load(pl.Path('/Users/grego/Downloads/HOD009a09_p_OLP'))
@@ -67,7 +70,9 @@ def get_response(experiment, pair, unit, expt_resp=resp, expt_pairs=Pairs, BGs=b
     data to pass to other functions.
     This is a pared down version with no plotting best used for the z-scores.'''
     ids = {}
-    ids['experiment'], ids['pair'], ids['unit'] = experiment, pair, unit
+    ids['experiment'], ids['pair'] = experiment, pair
+    if unit:
+        ids['unit'] = unit
     BG, FG = get_names(experiment, pair, expt_pairs, BGs, FGs)
     names = [f'STIM_{BG}-0-1_null', f'STIM_null_{FG}-0-1', f'STIM_{BG}-0-1_{FG}-0-1',
              f'STIM_{BG}-0.5-1_{FG}-0-1', f'STIM_{BG}-0.5-1_null', f'STIM_null_{FG}-0.5-1',
@@ -75,7 +80,7 @@ def get_response(experiment, pair, unit, expt_resp=resp, expt_pairs=Pairs, BGs=b
     labels = ['Full BG', 'Full FG', 'Full BG/Full FG', 'Half BG/Full FG', 'Half BG', 'Half FG',
               'Half BG/Half FG', 'Full BG/Half FG']
     resps = [expt_resp.extract_epoch(i) for i in names]  # gives you a repeat X neuron X time raster
-    ids['sounds'] = (BG,FG)
+    ids['sounds'], ids['labels'] = (BG,FG), labels
     resp_names = tuple(zip(labels,resps))
 
     return resp_names, ids
@@ -520,3 +525,46 @@ def z_compare(experiment, unit, resp_idx, sigma=2, plot_psth=False, plot_z=False
 
 response, ids = plot_combos(9,0,6)
 resp_idx = [0,1,2]
+
+
+def heat_map(experiment, pair, combo_idx=None, expt_resp=resp, expt_pairs=Pairs, fs=rasterfs, BGs=backgrounds, FGs=foregrounds):
+    response, ids = get_response(experiment, pair, None, expt_resp, expt_pairs, BGs, FGs)
+
+    if combo_idx:
+        fig, axes = plt.subplots(1)
+        mean_resp = response[combo_idx][1].mean(axis=0)
+        axes.imshow(mean_resp, aspect='auto', cmap='inferno',
+                  extent=[-0.5,(mean_resp.shape[1]/fs)-0.5,mean_resp.shape[0],0])
+        ymin, ymax = axes.get_ylim()
+        axes.vlines([0 - (0.5 / fs), 1 - (0.5 / fs)], ymin, ymax, colors='white', linestyles='--',
+                  lw=1)  # unhard code the 1
+        xmin, xmax = axes.get_xlim()
+        axes.set_xlim(xmin+0.3,xmax-0.2)
+        axes.set_xticks([0,0.5,1.0])
+        axes.set_ylabel('Neurons', fontweight='bold')
+        axes.set_xlabel('Time from onset (s)', fontweight='bold')
+        fig.suptitle(f"Experiment HOD00{ids['experiment']} - Pair {ids['pair']} - "
+                     f"Combo {combo_idx} {ids['labels'][combo_idx]}\n"
+                     f"BG: {ids['sounds'][0]} - FG: {ids['sounds'][1]}",fontweight='bold')
+
+    else:
+        fig, axes = plt.subplots(4,2, sharex=True, sharey=True, squeeze=True)
+        axes = np.ravel(axes, order='F')
+
+        for cnt,ax in enumerate(axes):
+            mean_resp = response[cnt][1].mean(axis=0)
+            ax.imshow(mean_resp, aspect='auto', cmap='inferno',
+                      extent=[-0.5,(mean_resp.shape[1]/fs)-0.5,mean_resp.shape[0],0])
+            ax.set_title(f"{ids['labels'][cnt]}", fontweight='bold')
+            ymin, ymax = ax.get_ylim()
+            ax.vlines([0-(0.5/fs),1-(0.5/fs)], ymin, ymax, colors='white', linestyles='--', lw=1)  # unhard code the 1
+
+        xmin, xmax = ax.get_xlim()
+        ax.set_xlim(xmin+0.3,xmax-0.2)
+        ax.set_xticks([0,0.5,1.0])
+
+        fig.text(0.5, 0.07, 'Time from onset (s)', ha='center', va='center', fontweight='bold')
+        fig.text(0.1, 0.5, 'Neurons', ha='center', va='center', rotation='vertical', fontweight='bold')
+        fig.suptitle(f"Experiment HOD00{ids['experiment']} - Pair {ids['pair']} \n"
+                     f"BG: {ids['sounds'][0]} - FG: {ids['sounds'][1]}",fontweight='bold')
+
