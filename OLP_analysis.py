@@ -568,3 +568,43 @@ def heat_map(experiment, pair, combo_idx=None, expt_resp=resp, expt_pairs=Pairs,
         fig.suptitle(f"Experiment HOD00{ids['experiment']} - Pair {ids['pair']} \n"
                      f"BG: {ids['sounds'][0]} - FG: {ids['sounds'][1]}",fontweight='bold')
 
+
+def heat_map_allpairs(experiment, combo_idx, expt_resp=resp, expt_pairs=Pairs, fs=rasterfs, BGs=backgrounds, FGs=foregrounds):
+    expt = f'HOD00{experiment}'
+    sound_pairs, resps, tags = {}, {}, {}
+    tags['experiment'], tags['idx'] = experiment, combo_idx
+    for aa in range(len(expt_pairs[expt])):
+        response, ids = get_response(int(expt[-1]), aa, None, expt_resp, expt_pairs, BGs, FGs)
+        resps[ids['pair']], sound_pairs[ids['pair']] = response, ids['sounds']
+    tags['idx_name'] = ids['labels'][combo_idx]
+    fig, axes = plt.subplots(int(np.round(len(resps)/2)), 2)
+    axes = np.ravel(axes, order='F')
+    if int(len(resps)/2) % 2 != 0:
+        axes[-1].spines['top'].set_visible(False)
+        axes[-1].spines['bottom'].set_visible(False)
+        axes[-1].spines['right'].set_visible(False)
+        axes[-1].spines['left'].set_visible(False)
+        axes[-1].set_yticks([])
+        axes[-1].set_xticks([])
+        axes = axes[:-1]
+
+    for cnt, ax in enumerate(axes):
+        mean_resp = resps[cnt][combo_idx][1].mean(axis=0)
+        ax.imshow(mean_resp, aspect='auto', cmap='inferno',
+                  extent=[-0.5, (mean_resp.shape[1] / fs) - 0.5, mean_resp.shape[0], 0])
+        ax.set_title(f"Pair {cnt}: BG {sound_pairs[cnt][0]} - FG {sound_pairs[cnt][1]}",
+                     fontweight='bold')
+        ymin, ymax = ax.get_ylim()
+        ax.vlines([0 - (0.5 / fs), 1 - (0.5 / fs)], ymin, ymax, colors='white', linestyles='--',
+                  lw=1)  # unhard code the 1
+        xmin, xmax = ax.get_xlim()
+        ax.set_xlim(xmin + 0.3, xmax - 0.2)
+        if cnt == int(np.around(len(resps)/2) - 1) or cnt == int(len(axes) - 1):
+            ax.set_xticks([0, 0.5, 1.0])
+        else:
+            ax.set_xticks([])
+
+    fig.text(0.5, 0.07, 'Time from onset (s)', ha='center', va='center', fontweight='bold')
+    fig.text(0.1, 0.5, 'Neurons', ha='center', va='center', rotation='vertical', fontweight='bold')
+    fig.suptitle(f"Experiment HOD00{ids['experiment']} - Combo Index {tags['idx']} "
+                 f"{tags['idx_name']}", fontweight='bold')
