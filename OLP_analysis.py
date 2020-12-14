@@ -85,39 +85,39 @@ def get_response(experiment, pair, unit, expt_resp=resp, expt_pairs=Pairs, BGs=b
 
     return resp_names, ids
 
-def get_z(resp_idx, expt_resp, expt_ids):
+def get_z(resp_idx, expt_resp, unit):
     '''Uses a list of two or three sound combo types and the responses to generate a
     *z-score* ready for plotting with the label of the component sounds.'''
     labels = ['Full BG', 'Full FG', 'Full BG/Full FG', 'Half BG/Full FG', 'Half BG', 'Half FG',
               'Half BG/Half FG', 'Full BG/Half FG']
     if len(resp_idx) == 3:
         if (0 in resp_idx and 5 in resp_idx) or (1 in resp_idx and 4 in resp_idx):
-            resp_ABfull = expt_resp[2][1][:, expt_ids['unit'], :]
+            resp_ABfull = expt_resp[2][1][:, unit, :]
             resp_ABfull_mean = resp_ABfull.mean(axis=0)
             sem_ABfull = stats.sem(resp_ABfull, axis=0)
-            resp_combo = expt_resp[resp_idx[2]][1][:, expt_ids['unit'], :]
+            resp_combo = expt_resp[resp_idx[2]][1][:, unit, :]
             mean_combo = resp_combo.mean(axis=0)
             sem_combo = stats.sem(resp_combo, axis=0)
-            z_no_nan = np.nan_to_num((resp_ABfull_mean - mean_combo) / (sem_ABfull + sem_combo))
-            label = f'{labels[2]} - {labels[resp_idx[-1]]}'
+            z_no_nan = np.nan_to_num((mean_combo - resp_ABfull_mean) / (sem_combo + sem_ABfull))
+            label = f'{labels[resp_idx[-1]]} - {labels[2]}'
         else:
-            respA, respB = expt_resp[resp_idx[0]][1][:, expt_ids['unit'], :], \
-                           expt_resp[resp_idx[1]][1][:, expt_ids['unit'], :]
+            respA, respB = expt_resp[resp_idx[0]][1][:, unit, :], \
+                           expt_resp[resp_idx[1]][1][:, unit, :]
             trls = np.min([respA.shape[0], respB.shape[0]])
             resplin = (respA[:trls, :] + respB[:trls, :])
             mean_resplin = resplin.mean(axis=0)
-            respAB = expt_resp[resp_idx[2]][1][:, expt_ids['unit'], :]
+            respAB = expt_resp[resp_idx[2]][1][:, unit, :]
             mean_respAB = respAB.mean(axis=0)
             semlin, semAB = stats.sem(resplin, axis=0), stats.sem(respAB, axis=0)
-            z_no_nan = np.nan_to_num((mean_resplin - mean_respAB) / (semlin + semAB))
-            label = f'Linear Sum - {labels[resp_idx[-1]]}'
+            z_no_nan = np.nan_to_num((mean_respAB - mean_resplin) / (semAB + semlin))
+            label = f'{labels[resp_idx[-1]]} - Linear Sum'
     if len(resp_idx) == 2:
-        respX, respY = expt_resp[resp_idx[0]][1][:, expt_ids['unit'], :], \
-                       expt_resp[resp_idx[1]][1][:, expt_ids['unit'], :]
+        respX, respY = expt_resp[resp_idx[0]][1][:, unit, :], \
+                       expt_resp[resp_idx[1]][1][:, unit, :]
         mean_respX, mean_respY = respX.mean(axis=0), respY.mean(axis=0)
         semX, semY = stats.sem(respX, axis=0), stats.sem(respY, axis=0)
-        z_no_nan = np.nan_to_num((mean_respX - mean_respY) / (semX + semY))
-        label = f'{labels[resp_idx[0]]} - {labels[resp_idx[-1]]}'
+        z_no_nan = np.nan_to_num((mean_respY - mean_respX) / (semY + semX))
+        label = f'{labels[resp_idx[-1]]} - {labels[resp_idx[0]]}'
 
     return z_no_nan, label
 
@@ -440,7 +440,7 @@ def z_compare(experiment, unit, resp_idx, sigma=2, plot_psth=False, plot_z=False
     tags['experiment'], tags['unit'], tags['idx'] = experiment, unit, resp_idx
     for aa in range(len(expt_pairs[expt])):
         response, ids = get_response(int(expt[-1]), aa, unit, expt_resp, expt_pairs, BGs, FGs)
-        zscore, label = get_z(resp_idx, response, ids)
+        zscore, label = get_z(resp_idx, response, unit)
         z_labels[ids['pair']], zs[ids['pair']], resps[ids['pair']] = ids['sounds'], zscore, response
         z_list.append(zscore)
     combo_labels = ['Full BG', 'Full FG', 'Full BG/Full FG', 'Half BG/Full FG', 'Half BG', 'Half FG',
@@ -569,7 +569,7 @@ def heat_map(experiment, pair, combo_idx=None, expt_resp=resp, expt_pairs=Pairs,
                      f"BG: {ids['sounds'][0]} - FG: {ids['sounds'][1]}",fontweight='bold')
 
 
-def heat_map_allpairs(experiment, combo_idx, expt_resp=resp, expt_pairs=Pairs, fs=rasterfs, BGs=backgrounds, FGs=foregrounds):
+def heat_map_allpairs(experiment, combo_idx, sigma=None, expt_resp=resp, expt_pairs=Pairs, fs=rasterfs, BGs=backgrounds, FGs=foregrounds):
     expt = f'HOD00{experiment}'
     sound_pairs, resps, tags = {}, {}, {}
     tags['experiment'], tags['idx'] = experiment, combo_idx
@@ -577,6 +577,17 @@ def heat_map_allpairs(experiment, combo_idx, expt_resp=resp, expt_pairs=Pairs, f
         response, ids = get_response(int(expt[-1]), aa, None, expt_resp, expt_pairs, BGs, FGs)
         resps[ids['pair']], sound_pairs[ids['pair']] = response, ids['sounds']
     tags['idx_name'] = ids['labels'][combo_idx]
+
+    mean_resp_list = []
+    for aa in range(len(resps)):
+        mean = resps[aa][combo_idx][1].mean(axis=0)
+        mean_resp_list.append(mean)
+    mean_response = np.stack(mean_resp_list,axis=2)   #creates array unit x time x pair
+    zmin, zmax = np.min(np.min(mean_response, axis=1)), np.max(np.max(mean_response, axis=1))
+
+    if sigma:
+        mean_response = sf.gaussian_filter1d(mean_response, sigma, axis=1)
+
     fig, axes = plt.subplots(int(np.round(len(resps)/2)), 2)
     axes = np.ravel(axes, order='F')
     if int(len(resps)/2) % 2 != 0:
@@ -589,9 +600,10 @@ def heat_map_allpairs(experiment, combo_idx, expt_resp=resp, expt_pairs=Pairs, f
         axes = axes[:-1]
 
     for cnt, ax in enumerate(axes):
-        mean_resp = resps[cnt][combo_idx][1].mean(axis=0)
-        ax.imshow(mean_resp, aspect='auto', cmap='inferno',
-                  extent=[-0.5, (mean_resp.shape[1] / fs) - 0.5, mean_resp.shape[0], 0])
+        # mean_resp = resps[cnt][combo_idx][1].mean(axis=0)
+        ax.imshow(mean_response[:,:,cnt], aspect='auto', cmap='inferno',
+                  extent=[-0.5, (mean_response[:,:,cnt].shape[1] / fs) -
+                          0.5, mean_response[:,:,cnt].shape[0], 0], vmin=zmin, vmax=zmax)
         ax.set_title(f"Pair {cnt}: BG {sound_pairs[cnt][0]} - FG {sound_pairs[cnt][1]}",
                      fontweight='bold')
         ymin, ymax = ax.get_ylim()
@@ -606,5 +618,74 @@ def heat_map_allpairs(experiment, combo_idx, expt_resp=resp, expt_pairs=Pairs, f
 
     fig.text(0.5, 0.07, 'Time from onset (s)', ha='center', va='center', fontweight='bold')
     fig.text(0.1, 0.5, 'Neurons', ha='center', va='center', rotation='vertical', fontweight='bold')
-    fig.suptitle(f"Experiment HOD00{ids['experiment']} - Combo Index {tags['idx']} "
-                 f"{tags['idx_name']}", fontweight='bold')
+    fig.suptitle(f"Experiment HOD00{ids['experiment']} - Combo Index {tags['idx']} - "
+                 f"{tags['idx_name']} - Sigma {sigma}", fontweight='bold')
+
+
+def z_heatmaps(experiment, resp_idx, sigma=2,
+              expt_resp=resp, expt_pairs=Pairs, BGs=backgrounds, FGs=foregrounds, fs=rasterfs):
+    expt = f'HOD00{experiment}'
+    units = len(expt_resp.chans)
+
+    zs, z_labels, resps, tags, all_list = {}, {}, {}, {}, []
+    tags['experiment'], tags['idx'] = experiment, resp_idx
+    for pair in range(len(expt_pairs[expt])):
+        response, ids = get_response(experiment, pair, None, expt_resp, expt_pairs, BGs, FGs)
+        z_list = []
+        for unt in range(units):
+            zscore, label = get_z(resp_idx, response, unt)
+            z_list.append(zscore)
+            zscores = np.stack(z_list, axis=0)    #unitx time array
+            z_labels[ids['pair']], zs[ids['pair']], resps[ids['pair']] = ids['sounds'], zscores, response
+        all_list.append(zscores)
+    all_zs = np.stack(all_list, axis=2)
+    smooth_zs = sf.gaussian_filter1d(all_zs, sigma, axis=1)
+    zmin, zmax = np.min(np.min(smooth_zs, axis=1)), np.max(np.max(smooth_zs, axis=1))
+    abs_max = max(abs(zmin),zmax)
+
+    combo_labels = ['Full BG', 'Full FG', 'Full BG/Full FG', 'Half BG/Full FG', 'Half BG', 'Half FG',
+                    'Half BG/Half FG', 'Full BG/Half FG']
+    tags['idx_names'] = [combo_labels[i] for i in resp_idx]
+    tags['legend'] = label
+
+    if sigma:
+        for pr in range(len(resps)):
+            zs[pr] = sf.gaussian_filter1d(zs[pr], sigma, axis=1)
+
+    disp_pairs = len(resps)
+    fig, axes = plt.subplots(int(np.round(disp_pairs/2)), 2)
+    axes = np.ravel(axes, order='F')
+    if int(len(resps) / 2) % 2 != 0:
+        axes[-1].spines['top'].set_visible(False)
+        axes[-1].spines['bottom'].set_visible(False)
+        axes[-1].spines['right'].set_visible(False)
+        axes[-1].spines['left'].set_visible(False)
+        axes[-1].set_yticks([])
+        axes[-1].set_xticks([])
+        axes = axes[:-1]
+
+    for cnt, ax in enumerate(axes):
+        im = ax.imshow(zs[cnt], aspect='auto', cmap='RdYlBu',
+                  extent=[-0.5, (zs[cnt].shape[1] / fs) -
+                          0.5, zs[cnt].shape[0], 0], vmin=-abs_max, vmax=abs_max)
+        ax.set_title(f"Pair {cnt}: BG {sound_pairs[cnt][0]} - FG {sound_pairs[cnt][1]}",
+                     fontweight='bold')
+        ymin, ymax = ax.get_ylim()
+        ax.vlines([0 - (0.5 / fs), 1 - (0.5 / fs)], ymin, ymax, colors='white', linestyles='--',
+                  lw=1)  # unhard code the 1
+        xmin, xmax = ax.get_xlim()
+        ax.set_xlim(xmin + 0.3, xmax - 0.2)
+        if cnt == int(np.around(len(resps) / 2) - 1) or cnt == int(len(axes) - 1):
+            ax.set_xticks([0, 0.5, 1.0])
+        else:
+            ax.set_xticks([])
+
+    fig.subplots_adjust(right=0.8)
+    cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+    fig.colorbar(im, cax=cbar_ax)
+
+    fig.text(0.5, 0.07, 'Time from onset (s)', ha='center', va='center', fontweight='bold')
+    fig.text(0.1, 0.5, 'Neurons', ha='center', va='center', rotation='vertical', fontweight='bold')
+    fig.suptitle(f"Experiment HOD00{tags['experiment']} - Combo Index {tags['idx']} - "
+                 f"{tags['idx_names']} - Sigma {sigma}\n"
+                 f"{tags['legend']}", fontweight='bold')
