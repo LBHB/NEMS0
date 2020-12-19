@@ -24,6 +24,7 @@ factor = 441
 
 kind = 'Textures'
 kind = 'Marms'
+kind = 'Ferrets'
 
 name = '00cat516_rec1_stream_excerpt1'                                        #50000
 name = 'cat287_rec1_rain_excerpt1'                                            #66100
@@ -47,7 +48,13 @@ name = 'cat669_rec11_marmoset_twitter_excerpt3'                               #7
 name = 'cat669_rec11_marmoset_twitter_excerpt1'                               #86500
 name = 'cat669_rec6_marmoset_phee_4_excerpt4'                                 #78500
 
-
+name = 'cat668_rec3_ferret_kits_51p9-8-10-11-12-13-14_excerpt4'  #50-550, 1150-1650 AND Low 1990-1490, 2450-2950, Mid, Low
+name = 'cat668_rec5_ferret_kits_0p1-2-3-4-5-6_excerpt2'  #2590-3590 Groan
+name = 'cat668_rec6_ferret_kits_18p1-2-3-5-7-8_excerpt7'    #730-1730 Whine
+name = 'cat668_rec7_ferret_oxford_male_chopped_excerpt2'  #0-1000 Gobble
+name = '00cat668_rec7_ferret_oxford_male_chopped_excerpt1'  # 2850-3850 High Gobble
+name = '00cat668_rec1_ferret_fights_Athena-Violet001_excerpt1'  #610-1610 Fight
+name = 'cat668_rec2_ferret_fights_Jasmine-Violet001_excerpt2'  #1750-2750 Fight Squeak
 
 def multi_chop(name, kind, start, s1len, start2, s2len, little_name):
     GREG_ROOT = f"/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/{kind}/"
@@ -65,6 +72,7 @@ def multi_chop(name, kind, start, s1len, start2, s2len, little_name):
     fs, W = wavfile.read(SAVE_PATH)
     spec = gtgram(W, fs, 0.02, 0.01, 48, 100, 8000)
     plt.imshow(spec, aspect='auto', origin='lower')
+    plt.xticks([0,50,100])
     plt.title(f'{name}, length: {len(one_sec)/fs})')
 
 

@@ -14,6 +14,8 @@ rec = jl.load(pl.Path('/home/hamersky/Downloads/HOD009a09_p_OLP'))
 rec = jl.load(pl.Path('/Users/grego/Downloads/HOD005b09_p_OLP'))
 rec = jl.load(pl.Path('/Users/grego/Downloads/HOD009a09_p_OLP'))
 
+expt = jl.load(pl.Path('/Users/grego/Downloads/HOD009a09_p_OLPa'))
+
 rasterfs = 100
 
 # parmfile = '/auto/data/daq/Hood/HOD005/HOD005b09_p_OLP'
@@ -42,13 +44,28 @@ idxs = [([6,10,6,10,7,7,2,4,3,8],[2,2,8,8,1,4,5,7,10,3]),
          ([8,8,1,1,6,6,7,7,5,3,3],[7,2,7,2,5,8,2,7,2,7,9])]
 pair_idx = []
 for idx in range(len(idxs)):
-    list1, list2 = [i - 1 for i in idxs[idx][0]], [j - 1 for j in idxs[idx][1]]
+    list1, list2 = [i - 1 for i in idxs[idx][0]], [j - 1 for j in idxs[idx][1]]  # -1 accounts for MATLAB indexing
     merged = list(zip(list1,list2))
     pair_idx.append(merged)
+
+pair_names = [None] * len(pair_idx)
+for expt in range(len(pair_idx)):
+    pair_names[expt] = [(backgrounds[b], foregrounds[f]) for b,f in pair_idx[expt]]
 
 Pairs = {}
 for tt,ex in enumerate(expts):
     Pairs[ex] = pair_idx[tt]
+
+pairs_named = {}
+for tt,ex in enumerate(expts):
+    pairs_named[ex] = pair_names[tt]
+
+
+# def function that makes all the labels (experiment):
+#
+#
+labels = ['Full BG', 'Full FG', 'Full BG/Full FG', 'Half BG/Full FG', 'Half BG', 'Half FG',
+          'Half BG/Half FG', 'Full BG/Half FG']
 
 def get_pair_names(experiment, expt_pairs, BGs, FGs):
     '''Takes given experiment number and returns all the sound pair names. (Figure out
@@ -64,7 +81,7 @@ def get_names(experiment, pair, expt_pairs, BGs, FGs):
     BG, FG = BGs[index[0]], FGs[index[1]]
     return BG, FG
 
-def get_response(experiment, pair, unit, expt_resp=resp, expt_pairs=Pairs, BGs=backgrounds, FGs=foregrounds):
+def get_response(experiment, pair, unit, spont=True, expt_resp=resp, expt_pairs=Pairs, BGs=backgrounds, FGs=foregrounds):
     '''A given experiment, pair, and unit will return the 8 sound combos, labeled and in the
     repeat x neuron x time raster. Returns that as well as some basic info about the
     data to pass to other functions.
@@ -80,6 +97,10 @@ def get_response(experiment, pair, unit, expt_resp=resp, expt_pairs=Pairs, BGs=b
     labels = ['Full BG', 'Full FG', 'Full BG/Full FG', 'Half BG/Full FG', 'Half BG', 'Half FG',
               'Half BG/Half FG', 'Full BG/Half FG']
     resps = [expt_resp.extract_epoch(i) for i in names]  # gives you a repeat X neuron X time raster
+    if spont:
+        for cb in range(len(resps)):
+            spont_rate = np.mean(resps[cb][:, :, :50], axis=2)[:, :, None]
+            resps[cb] = resps[cb] - spont_rate
     ids['sounds'], ids['labels'] = (BG,FG), labels
     resp_names = tuple(zip(labels,resps))
 
@@ -622,7 +643,7 @@ def heat_map_allpairs(experiment, combo_idx, sigma=None, expt_resp=resp, expt_pa
                  f"{tags['idx_name']} - Sigma {sigma}", fontweight='bold')
 
 
-def z_heatmaps(experiment, resp_idx, sigma=2,
+def z_heatmaps(experiment, resp_idx, sigma=None,
               expt_resp=resp, expt_pairs=Pairs, BGs=backgrounds, FGs=foregrounds, fs=rasterfs):
     expt = f'HOD00{experiment}'
     units = len(expt_resp.chans)
@@ -630,8 +651,14 @@ def z_heatmaps(experiment, resp_idx, sigma=2,
     zs, z_labels, resps, tags, all_list = {}, {}, {}, {}, []
     tags['experiment'], tags['idx'] = experiment, resp_idx
     for pair in range(len(expt_pairs[expt])):
-        response, ids = get_response(experiment, pair, None, expt_resp, expt_pairs, BGs, FGs)
-        z_list = []
+        response, ids = get_response(experiment, pair, None, False, expt_resp, expt_pairs, BGs, FGs)
+        z_list, mean_response = [], []
+        # if spont:
+        #     for cb in range(len(response)):
+        #         mean_resp = response[cb].mean(axis=0)
+        #         spont_rate = np.mean(mean_resp[:, :50], axis=1)[:, None]
+        #         mean_response.append(mean_resp - spont_rate)
+
         for unt in range(units):
             zscore, label = get_z(resp_idx, response, unt)
             z_list.append(zscore)
@@ -639,18 +666,23 @@ def z_heatmaps(experiment, resp_idx, sigma=2,
             z_labels[ids['pair']], zs[ids['pair']], resps[ids['pair']] = ids['sounds'], zscores, response
         all_list.append(zscores)
     all_zs = np.stack(all_list, axis=2)
-    smooth_zs = sf.gaussian_filter1d(all_zs, sigma, axis=1)
-    zmin, zmax = np.min(np.min(smooth_zs, axis=1)), np.max(np.max(smooth_zs, axis=1))
-    abs_max = max(abs(zmin),zmax)
+    if sigma is not None:
+        smooth_zs = sf.gaussian_filter1d(all_zs, sigma, axis=1)
+        zmin, zmax = np.min(np.min(smooth_zs, axis=1)), np.max(np.max(smooth_zs, axis=1))
+        abs_max = max(abs(zmin),zmax)
+    else:
+        zmin, zmax = np.min(np.min(all_zs, axis=1)), np.max(np.max(all_zs, axis=1))
+        abs_max = max(abs(zmin),zmax)
 
     combo_labels = ['Full BG', 'Full FG', 'Full BG/Full FG', 'Half BG/Full FG', 'Half BG', 'Half FG',
                     'Half BG/Half FG', 'Full BG/Half FG']
     tags['idx_names'] = [combo_labels[i] for i in resp_idx]
     tags['legend'] = label
 
-    if sigma:
+    if sigma is not None:
         for pr in range(len(resps)):
             zs[pr] = sf.gaussian_filter1d(zs[pr], sigma, axis=1)
+
 
     disp_pairs = len(resps)
     fig, axes = plt.subplots(int(np.round(disp_pairs/2)), 2)
@@ -665,10 +697,10 @@ def z_heatmaps(experiment, resp_idx, sigma=2,
         axes = axes[:-1]
 
     for cnt, ax in enumerate(axes):
-        im = ax.imshow(zs[cnt], aspect='auto', cmap='RdYlBu',
+        im = ax.imshow(zs[cnt], aspect='auto', cmap='RdYlBu_r',
                   extent=[-0.5, (zs[cnt].shape[1] / fs) -
                           0.5, zs[cnt].shape[0], 0], vmin=-abs_max, vmax=abs_max)
-        ax.set_title(f"Pair {cnt}: BG {sound_pairs[cnt][0]} - FG {sound_pairs[cnt][1]}",
+        ax.set_title(f"Pair {cnt}: BG {z_labels[cnt][0]} - FG {z_labels[cnt][1]}",
                      fontweight='bold')
         ymin, ymax = ax.get_ylim()
         ax.vlines([0 - (0.5 / fs), 1 - (0.5 / fs)], ymin, ymax, colors='white', linestyles='--',
@@ -689,3 +721,97 @@ def z_heatmaps(experiment, resp_idx, sigma=2,
     fig.suptitle(f"Experiment HOD00{tags['experiment']} - Combo Index {tags['idx']} - "
                  f"{tags['idx_names']} - Sigma {sigma}\n"
                  f"{tags['legend']}", fontweight='bold')
+
+
+##Doing life better
+
+def load_experiment_params(parmfile):
+    """Given a parm file, or if I'm on my laptop, a saved experiment file, it will load the file
+    and get relevant parameters about the experiment as well as sort out the sound indexes."""
+    rasterfs = 100
+    params = {}
+    if parmfile.split('/')[1] == 'auto':
+        expt = BAPHYExperiment(parmfile)
+    else:
+        expt = jl.load(pl.Path('/Users/grego/Downloads/HOD009a09_p_OLPa'))
+    rec = expt.get_recording(rasterfs=rasterfs, resp=True, stim=False)
+    resp = rec['resp'].rasterize()
+    e = resp.epochs
+    params['animal'], params['experiment'] = parmfile.split('/')[-3], parmfile.split('/')[-2]
+    params['fs'] = resp.fs
+    params['max reps'] = e[e.name.str.startswith('STIM')].pivot_table(index=['name'], aggfunc='size').max()
+    params['stim length'] = int(e.loc[e.name.str.startswith('REF')].iloc[0]['end']
+                - e.loc[e.name.str.startswith('REF')].iloc[0]['start'])
+    params['combos'] = ['Full BG', 'Full FG', 'Full BG/Full FG', 'Half BG/Full FG', 'Half BG', 'Half FG',
+          'Half BG/Half FG', 'Full BG/Half FG']
+
+    expt_params = expt.get_baphy_exptparams()   #Using Charlie's manager
+    soundies = list(expt_params[0]['TrialObject'][1]['ReferenceHandle'][1]['SoundPairs'].values())
+    params['pairs'] = [tuple([j for j in (soundies[s]['bg_sound_name'].split('.')[0],
+                                  soundies[s]['fg_sound_name'].split('.')[0])])
+                                    for s in range(len(soundies))]
+    params['units'], params['response'] = resp.chans, resp
+
+    return params
+
+
+def get_response(params):
+    '''A given experiment, pair, and unit will return the 8 sound combos, labeled and in the
+    repeat x neuron x time raster. Returns that as well as some basic info about the
+    data to pass to other functions.
+    This is a pared down version with no plotting best used for the z-scores.'''
+    full_response = np.empty((len(params['pairs']), len(params['combos']), params['max reps'],
+                              len(params['units']), (params['stim length']*params['fs'])))
+                    # pair x combo x rep(nan padded to max) x unit x time array
+    full_response[:] = np.nan
+
+    for pr, (BG, FG) in enumerate(params['pairs']):
+        combo_names = [f'STIM_{BG}-0-1_null', f'STIM_null_{FG}-0-1', f'STIM_{BG}-0-1_{FG}-0-1',
+                 f'STIM_{BG}-0.5-1_{FG}-0-1', f'STIM_{BG}-0.5-1_null', f'STIM_null_{FG}-0.5-1',
+                 f'STIM_{BG}-0.5-1_{FG}-0.5-1', f'STIM_{BG}-0-1_{FG}-0.5-1']
+        resps_list = [params['response'].extract_epoch(i) for i in combo_names]  # gives you a repeat X neuron X time raster
+        for cmb, res in enumerate(resps_list):
+            full_response[pr, cmb, :res.shape[0], :, :] = res
+
+    return full_response
+
+
+
+
+
+
+def get_z_nomean(resp_idx, expt_resp, unit):
+    '''Uses a list of two or three sound combo types and the responses to generate a
+    *z-score* ready for plotting with the label of the component sounds.'''
+    labels = ['Full BG', 'Full FG', 'Full BG/Full FG', 'Half BG/Full FG', 'Half BG', 'Half FG',
+              'Half BG/Half FG', 'Full BG/Half FG']
+    if len(resp_idx) == 3:
+        if (0 in resp_idx and 5 in resp_idx) or (1 in resp_idx and 4 in resp_idx):
+            resp_ABfull = expt_resp[2][1][:, unit, :]
+            resp_ABfull_mean = resp_ABfull.mean(axis=0)
+            sem_ABfull = stats.sem(resp_ABfull, axis=0)
+            resp_combo = expt_resp[resp_idx[2]][1][:, unit, :]
+            mean_combo = resp_combo.mean(axis=0)
+            sem_combo = stats.sem(resp_combo, axis=0)
+            z_no_nan = np.nan_to_num((mean_combo - resp_ABfull_mean) / (sem_combo + sem_ABfull))
+            label = f'{labels[resp_idx[-1]]} - {labels[2]}'
+        else:
+            respA, respB = expt_resp[resp_idx[0]][1][:, unit, :], \
+                           expt_resp[resp_idx[1]][1][:, unit, :]
+            trls = np.min([respA.shape[0], respB.shape[0]])
+            resplin = (respA[:trls, :] + respB[:trls, :])
+            mean_resplin = resplin.mean(axis=0)
+            respAB = expt_resp[resp_idx[2]][1][:, unit, :]
+            mean_respAB = respAB.mean(axis=0)
+            semlin, semAB = stats.sem(resplin, axis=0), stats.sem(respAB, axis=0)
+            z_no_nan = np.nan_to_num((mean_respAB - mean_resplin) / (semAB + semlin))
+            label = f'{labels[resp_idx[-1]]} - Linear Sum'
+    if len(resp_idx) == 2:
+        respX, respY = expt_resp[resp_idx[0]][1][:, unit, :], \
+                       expt_resp[resp_idx[1]][1][:, unit, :]
+        mean_respX, mean_respY = respX.mean(axis=0), respY.mean(axis=0)
+        semX, semY = stats.sem(respX, axis=0), stats.sem(respY, axis=0)
+        z_no_nan = np.nan_to_num((mean_respY - mean_respX) / (semY + semX))
+        label = f'{labels[resp_idx[-1]]} - {labels[resp_idx[0]]}'
+
+    return z_no_nan, label
