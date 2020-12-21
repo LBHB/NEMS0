@@ -724,6 +724,7 @@ def z_heatmaps(experiment, resp_idx, sigma=None,
 
 
 ##Doing life better
+parmfile = '/auto/data/daq/Hood/HOD009/HOD009a09_p_OLP'
 
 def load_experiment_params(parmfile):
     """Given a parm file, or if I'm on my laptop, a saved experiment file, it will load the file
@@ -737,16 +738,21 @@ def load_experiment_params(parmfile):
     rec = expt.get_recording(rasterfs=rasterfs, resp=True, stim=False)
     resp = rec['resp'].rasterize()
     e = resp.epochs
+    expt_params = expt.get_baphy_exptparams()   #Using Charlie's manager
+    ref_handle = expt_params[0]['TrialObject'][1]['ReferenceHandle'][1]
+
     params['animal'], params['experiment'] = parmfile.split('/')[-3], parmfile.split('/')[-2]
     params['fs'] = resp.fs
+    params['PreStimSilence'], params['PostStimSilence'] = ref_handle['PreStimSilence'], ref_handle['PostStimSilence']
+    params['SilenceOnset'] = ref_handle['SilenceOnset']
     params['max reps'] = e[e.name.str.startswith('STIM')].pivot_table(index=['name'], aggfunc='size').max()
     params['stim length'] = int(e.loc[e.name.str.startswith('REF')].iloc[0]['end']
                 - e.loc[e.name.str.startswith('REF')].iloc[0]['start'])
     params['combos'] = ['Full BG', 'Full FG', 'Full BG/Full FG', 'Half BG/Full FG', 'Half BG', 'Half FG',
           'Half BG/Half FG', 'Full BG/Half FG']
 
-    expt_params = expt.get_baphy_exptparams()   #Using Charlie's manager
-    soundies = list(expt_params[0]['TrialObject'][1]['ReferenceHandle'][1]['SoundPairs'].values())
+
+    soundies = list(ref_handle['SoundPairs'].values())
     params['pairs'] = [tuple([j for j in (soundies[s]['bg_sound_name'].split('.')[0],
                                   soundies[s]['fg_sound_name'].split('.')[0])])
                                     for s in range(len(soundies))]
@@ -775,9 +781,63 @@ def get_response(params):
 
     return full_response
 
+def subtract_spont(full_response, params):
+
+    silence_times = int(params['PreStimSilence'] * params['fs'])
+    unit_silence_mean = np.nanmean(full_response[..., :silence_times], axis=(0, 1, 2, 4))
+    unit_silence_mean = unit_silence_mean[None,None,None,:,None]
+    response_nospont = full_response - unit_silence_mean
+
+    return response_nospont
 
 
 
+
+
+def get_z(resp_idx, unit, full_response, params):
+    '''Uses a list of two or three sound combo types and the responses to generate a
+    *z-score* ready for plotting with the label of the component sounds.'''
+    if 2 < len(resp_idx) > 3:
+        raise ValueError(f"resp_idx must be two or three values, {len(resp_idx)} given")
+
+    mean_response = np.nanmean(full_response[:], axis=2)
+    for uu in units:
+        if len(resp_idx) == 3:
+            respA, respB = full_response[:, resp_idx[0], :, :, :], \
+                           full_response[:, resp_idx[1], :, :, :]
+
+
+
+    if len(resp_idx) == 3:
+        if (0 in resp_idx and 5 in resp_idx) or (1 in resp_idx and 4 in resp_idx):
+            resp_ABfull = expt_resp[2][1][:, unit, :]
+            resp_ABfull_mean = resp_ABfull.mean(axis=0)
+            sem_ABfull = stats.sem(resp_ABfull, axis=0)
+            resp_combo = expt_resp[resp_idx[2]][1][:, unit, :]
+            mean_combo = resp_combo.mean(axis=0)
+            sem_combo = stats.sem(resp_combo, axis=0)
+            z_no_nan = np.nan_to_num((mean_combo - resp_ABfull_mean) / (sem_combo + sem_ABfull))
+            label = f'{labels[resp_idx[-1]]} - {labels[2]}'
+        else:
+            respA, respB = expt_resp[resp_idx[0]][1][:, unit, :], \
+                           expt_resp[resp_idx[1]][1][:, unit, :]
+            trls = np.min([respA.shape[0], respB.shape[0]])
+            resplin = (respA[:trls, :] + respB[:trls, :])
+            mean_resplin = resplin.mean(axis=0)
+            respAB = expt_resp[resp_idx[2]][1][:, unit, :]
+            mean_respAB = respAB.mean(axis=0)
+            semlin, semAB = stats.sem(resplin, axis=0), stats.sem(respAB, axis=0)
+            z_no_nan = np.nan_to_num((mean_respAB - mean_resplin) / (semAB + semlin))
+            label = f'{labels[resp_idx[-1]]} - Linear Sum'
+    if len(resp_idx) == 2:
+        respX, respY = expt_resp[resp_idx[0]][1][:, unit, :], \
+                       expt_resp[resp_idx[1]][1][:, unit, :]
+        mean_respX, mean_respY = respX.mean(axis=0), respY.mean(axis=0)
+        semX, semY = stats.sem(respX, axis=0), stats.sem(respY, axis=0)
+        z_no_nan = np.nan_to_num((mean_respY - mean_respX) / (semY + semX))
+        label = f'{labels[resp_idx[-1]]} - {labels[resp_idx[0]]}'
+
+    return z_no_nan, label
 
 
 def get_z_nomean(resp_idx, expt_resp, unit):
