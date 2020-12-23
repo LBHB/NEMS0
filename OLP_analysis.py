@@ -724,8 +724,6 @@ def z_heatmaps(experiment, resp_idx, sigma=None,
 
 
 ##Doing life better
-parmfile = '/auto/data/daq/Hood/HOD009/HOD009a09_p_OLP'
-
 def load_experiment_params(parmfile):
     """Given a parm file, or if I'm on my laptop, a saved experiment file, it will load the file
     and get relevant parameters about the experiment as well as sort out the sound indexes."""
@@ -735,6 +733,7 @@ def load_experiment_params(parmfile):
         expt = BAPHYExperiment(parmfile)
     else:
         expt = jl.load(pl.Path('/Users/grego/Downloads/HOD009a09_p_OLPa'))
+        expt = jl.load(pl.Path(parmfile))
     rec = expt.get_recording(rasterfs=rasterfs, resp=True, stim=False)
     resp = rec['resp'].rasterize()
     e = resp.epochs
@@ -781,6 +780,7 @@ def get_response(params):
 
     return full_response
 
+
 def subtract_spont(full_response, params):
 
     silence_times = int(params['PreStimSilence'] * params['fs'])
@@ -791,92 +791,99 @@ def subtract_spont(full_response, params):
     return response_nospont
 
 
-
-
-
-def get_z(resp_idx, unit, full_response, params):
+def get_z(resp_idx, full_response, params):
     '''Uses a list of two or three sound combo types and the responses to generate a
     *z-score* ready for plotting with the label of the component sounds.'''
     if 2 < len(resp_idx) > 3:
         raise ValueError(f"resp_idx must be two or three values, {len(resp_idx)} given")
 
+    z_params = {}
     if len(resp_idx) == 3:
-        if (0 in resp_idx and 5 in resp_idx) or (1 in resp_idx and 4 in resp_idx):
+        respA, respB = full_response[:, resp_idx[0], :, :, :], \
+                       full_response[:, resp_idx[1], :, :, :]
+        lenA = [np.count_nonzero(~np.isnan(respA[aa,:,0,0])) for aa in range(len(params['pairs']))]
+        lenB = [np.count_nonzero(~np.isnan(respB[aa,:,0,0])) for aa in range(len(params['pairs']))]
+        min_rep = np.min(np.stack((lenA,lenB),axis=1),axis=1)
+        #add random sampling of repetitions
+        resplin = [(respA[nn,:ii,:,:] + respB[nn,:ii,:,:]) for (nn, ii) in enumerate(min_rep)]
+        mean_resplin = np.stack([resplin[rr].mean(axis=0) for rr in range(len(resplin))],axis=0)
+        semlin = np.stack([stats.sem(resplin[ww], axis=0) for ww in range(len(resplin))])
 
-        else:
-            respA, respB = full_response[:, resp_idx[0], :, :, :], \
-                           full_response[:, resp_idx[1], :, :, :]
-            lenA = [np.count_nonzero(~np.isnan(respA[aa,:,0,0])) for aa in range(len(params['pairs']))]
-            lenB = [np.count_nonzero(~np.isnan(respB[aa,:,0,0])) for aa in range(len(params['pairs']))]
-            min_rep = np.min(np.stack((lenA,lenB),axis=1),axis=1)
-            #add random sampling of repetitions
-            resplin = [(respA[nn,:ii,:,:] + respB[nn,:ii,:,:]) for (nn, ii) in enumerate(min_rep)]
-            mean_resplin = np.stack([resplin[rr].mean(axis=0) for rr in range(len(resplin))],axis=0)
+        respAB = full_response[:, resp_idx[2], :, :, :]
+        mean_respAB = np.nanmean(respAB, axis=1)
+        semAB = stats.sem(respAB, nan_policy='omit', axis=1).data
 
-            respAB = full_response[:, resp_idx[2], :, :, :]
-            mean_respAB = respAB.mean(axis=1)
-            semlin = np.stack([stats.sem(resplin[ww], axis=0) for ww in range(len(resplin))], axis=0)
-            semAB = stats.sem(respAB, axis=1)
+        bads = np.logical_and(np.isclose(semlin, 0, rtol=0.04), np.isclose(semAB, 0, rtol=0.04))
+        z_no_nan = np.nan_to_num((mean_respAB - mean_resplin) / (semAB + semlin))
+        mean_diff = mean_respAB - mean_resplin
+        z_no_nan[bads] = mean_diff[bads]
 
-            z_no_nan = np.nan_to_num((mean_respAB - mean_resplin) / (semAB + semlin))
-            label = f"{params['combos'][resp_idx[2]]} - Linear Sum"
-
-
-    if len(resp_idx) == 3:
-        if (0 in resp_idx and 5 in resp_idx) or (1 in resp_idx and 4 in resp_idx):
-            resp_ABfull = expt_resp[2][1][:, unit, :]
-            resp_ABfull_mean = resp_ABfull.mean(axis=0)
-            sem_ABfull = stats.sem(resp_ABfull, axis=0)
-            resp_combo = expt_resp[resp_idx[2]][1][:, unit, :]
-            mean_combo = resp_combo.mean(axis=0)
-            sem_combo = stats.sem(resp_combo, axis=0)
-            z_no_nan = np.nan_to_num((mean_combo - resp_ABfull_mean) / (sem_combo + sem_ABfull))
-            label = f'{labels[resp_idx[-1]]} - {labels[2]}'
-
-
+        label = f"{params['combos'][resp_idx[2]]} - Linear Sum"
     if len(resp_idx) == 2:
-        respX, respY = expt_resp[resp_idx[0]][1][:, unit, :], \
-                       expt_resp[resp_idx[1]][1][:, unit, :]
-        mean_respX, mean_respY = respX.mean(axis=0), respY.mean(axis=0)
-        semX, semY = stats.sem(respX, axis=0), stats.sem(respY, axis=0)
-        z_no_nan = np.nan_to_num((mean_respY - mean_respX) / (semY + semX))
-        label = f'{labels[resp_idx[-1]]} - {labels[resp_idx[0]]}'
+        respA, respB = full_response[:, resp_idx[0], :, :, :], \
+                       full_response[:, resp_idx[1], :, :, :]
+        mean_respA, mean_respB = np.nanmean(respA, axis=1), np.nanmean(respB, axis=1)
+        semA, semB = stats.sem(respA, nan_policy='omit', axis=1).data, stats.sem(respB, nan_policy='omit', axis=1).data
+        z_no_nan = np.nan_to_num((mean_respB - mean_respA) / (semB + semA))
+        label = f"{params['combos'][resp_idx[1]]} - {params['combos'][resp_idx[0]]}"
+    z_params['resp_idx'], z_params['label'] = resp_idx, label
+    z_params['idx_names'] = [params['combos'][cc] for cc in z_params['resp_idx']]
 
-    return z_no_nan, label
+    return z_no_nan, z_params
 
 
-def get_z_nomean(resp_idx, expt_resp, unit):
-    '''Uses a list of two or three sound combo types and the responses to generate a
-    *z-score* ready for plotting with the label of the component sounds.'''
-    labels = ['Full BG', 'Full FG', 'Full BG/Full FG', 'Half BG/Full FG', 'Half BG', 'Half FG',
-              'Half BG/Half FG', 'Full BG/Half FG']
-    if len(resp_idx) == 3:
-        if (0 in resp_idx and 5 in resp_idx) or (1 in resp_idx and 4 in resp_idx):
-            resp_ABfull = expt_resp[2][1][:, unit, :]
-            resp_ABfull_mean = resp_ABfull.mean(axis=0)
-            sem_ABfull = stats.sem(resp_ABfull, axis=0)
-            resp_combo = expt_resp[resp_idx[2]][1][:, unit, :]
-            mean_combo = resp_combo.mean(axis=0)
-            sem_combo = stats.sem(resp_combo, axis=0)
-            z_no_nan = np.nan_to_num((mean_combo - resp_ABfull_mean) / (sem_combo + sem_ABfull))
-            label = f'{labels[resp_idx[-1]]} - {labels[2]}'
+def z_heatmaps(zscore, params, z_params, sigma=None):
+
+    if sigma is not None:
+        zscore = sf.gaussian_filter1d(zscore, sigma, axis=2)
+        zmin, zmax = np.min(np.min(zscore, axis=2)), np.max(np.max(zscore, axis=2))
+        abs_max = max(abs(zmin),zmax)
+    else:
+        zmin, zmax = np.min(np.min(zscore, axis=1)), np.max(np.max(zscore, axis=1))
+        abs_max = max(abs(zmin),zmax)
+
+    fig, axes = plt.subplots(int(np.round(zscore.shape[0]/2)), 2)
+    axes = np.ravel(axes, order='F')
+    if int(zscore.shape[0] / 2) % 2 != 0:
+        axes[-1].spines['top'].set_visible(False)
+        axes[-1].spines['bottom'].set_visible(False)
+        axes[-1].spines['right'].set_visible(False)
+        axes[-1].spines['left'].set_visible(False)
+        axes[-1].set_yticks([])
+        axes[-1].set_xticks([])
+        axes = axes[:-1]
+
+    for cnt, ax in enumerate(axes):
+        im = ax.imshow(zscore[cnt, :, :], aspect='auto', cmap='bwr',
+                  extent=[-0.5, (zscore[cnt, :, :].shape[1] / params['fs']) -
+                          0.5, zscore[cnt, :, :].shape[0], 0], vmin=-abs_max, vmax=abs_max)
+        ax.set_title(f"Pair {cnt}: BG {params['pairs'][cnt][0]} - FG {params['pairs'][cnt][1]}",
+                     fontweight='bold')
+        ymin, ymax = ax.get_ylim()
+        ax.vlines([0 - (0.5 / params['fs']), 1 - (0.5 / params['fs'])], ymin, ymax, colors='black', linestyles='--',
+                  lw=1)  # unhard code the 1
+        xmin, xmax = ax.get_xlim()
+        ax.set_xlim(xmin + 0.3, xmax - 0.2)
+        if cnt == int(np.around(zscore.shape[0] / 2) - 1) or cnt == int(len(axes) - 1):
+            ax.set_xticks([0, 0.5, 1.0])
         else:
-            respA, respB = expt_resp[resp_idx[0]][1][:, unit, :], \
-                           expt_resp[resp_idx[1]][1][:, unit, :]
-            trls = np.min([respA.shape[0], respB.shape[0]])
-            resplin = (respA[:trls, :] + respB[:trls, :])
-            mean_resplin = resplin.mean(axis=0)
-            respAB = expt_resp[resp_idx[2]][1][:, unit, :]
-            mean_respAB = respAB.mean(axis=0)
-            semlin, semAB = stats.sem(resplin, axis=0), stats.sem(respAB, axis=0)
-            z_no_nan = np.nan_to_num((mean_respAB - mean_resplin) / (semAB + semlin))
-            label = f'{labels[resp_idx[-1]]} - Linear Sum'
-    if len(resp_idx) == 2:
-        respX, respY = expt_resp[resp_idx[0]][1][:, unit, :], \
-                       expt_resp[resp_idx[1]][1][:, unit, :]
-        mean_respX, mean_respY = respX.mean(axis=0), respY.mean(axis=0)
-        semX, semY = stats.sem(respX, axis=0), stats.sem(respY, axis=0)
-        z_no_nan = np.nan_to_num((mean_respY - mean_respX) / (semY + semX))
-        label = f'{labels[resp_idx[-1]]} - {labels[resp_idx[0]]}'
+            ax.set_xticks([])
 
-    return z_no_nan, label
+    fig.subplots_adjust(right=0.8)
+    cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+    fig.colorbar(im, cax=cbar_ax)
+
+    fig.text(0.5, 0.07, 'Time from onset (s)', ha='center', va='center', fontweight='bold')
+    fig.text(0.1, 0.5, 'Neurons', ha='center', va='center', rotation='vertical', fontweight='bold')
+    fig.suptitle(f"Experiment {params['experiment']} - Combo Index {z_params['resp_idx']} - "
+                 f"{z_params['idx_names']} - Sigma {sigma}\n"
+                 f"{z_params['label']}", fontweight='bold')
+
+
+parmfile = '/auto/data/daq/Hood/HOD009/HOD009a09_p_OLP'
+params = load_experiment_params(parmfile)
+response = get_response(params)
+nospont = subtract_spont(response, params)
+zscore, z_params = get_z([1,4,3], nospont, params)
+# [2,3] (hBG,fFG) - [2,7] (fBG, hFG) - [0,1,2] fBG/fFG - [1,4,3] (hBG,fFG)
+z_heatmaps(zscore, params, z_params, 3)
