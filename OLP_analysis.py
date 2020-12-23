@@ -800,12 +800,26 @@ def get_z(resp_idx, unit, full_response, params):
     if 2 < len(resp_idx) > 3:
         raise ValueError(f"resp_idx must be two or three values, {len(resp_idx)} given")
 
-    mean_response = np.nanmean(full_response[:], axis=2)
-    for uu in units:
-        if len(resp_idx) == 3:
+    if len(resp_idx) == 3:
+        if (0 in resp_idx and 5 in resp_idx) or (1 in resp_idx and 4 in resp_idx):
+
+        else:
             respA, respB = full_response[:, resp_idx[0], :, :, :], \
                            full_response[:, resp_idx[1], :, :, :]
+            lenA = [np.count_nonzero(~np.isnan(respA[aa,:,0,0])) for aa in range(len(params['pairs']))]
+            lenB = [np.count_nonzero(~np.isnan(respB[aa,:,0,0])) for aa in range(len(params['pairs']))]
+            min_rep = np.min(np.stack((lenA,lenB),axis=1),axis=1)
+            #add random sampling of repetitions
+            resplin = [(respA[nn,:ii,:,:] + respB[nn,:ii,:,:]) for (nn, ii) in enumerate(min_rep)]
+            mean_resplin = np.stack([resplin[rr].mean(axis=0) for rr in range(len(resplin))],axis=0)
 
+            respAB = full_response[:, resp_idx[2], :, :, :]
+            mean_respAB = respAB.mean(axis=1)
+            semlin = np.stack([stats.sem(resplin[ww], axis=0) for ww in range(len(resplin))], axis=0)
+            semAB = stats.sem(respAB, axis=1)
+
+            z_no_nan = np.nan_to_num((mean_respAB - mean_resplin) / (semAB + semlin))
+            label = f"{params['combos'][resp_idx[2]]} - Linear Sum"
 
 
     if len(resp_idx) == 3:
@@ -818,17 +832,8 @@ def get_z(resp_idx, unit, full_response, params):
             sem_combo = stats.sem(resp_combo, axis=0)
             z_no_nan = np.nan_to_num((mean_combo - resp_ABfull_mean) / (sem_combo + sem_ABfull))
             label = f'{labels[resp_idx[-1]]} - {labels[2]}'
-        else:
-            respA, respB = expt_resp[resp_idx[0]][1][:, unit, :], \
-                           expt_resp[resp_idx[1]][1][:, unit, :]
-            trls = np.min([respA.shape[0], respB.shape[0]])
-            resplin = (respA[:trls, :] + respB[:trls, :])
-            mean_resplin = resplin.mean(axis=0)
-            respAB = expt_resp[resp_idx[2]][1][:, unit, :]
-            mean_respAB = respAB.mean(axis=0)
-            semlin, semAB = stats.sem(resplin, axis=0), stats.sem(respAB, axis=0)
-            z_no_nan = np.nan_to_num((mean_respAB - mean_resplin) / (semAB + semlin))
-            label = f'{labels[resp_idx[-1]]} - Linear Sum'
+
+
     if len(resp_idx) == 2:
         respX, respY = expt_resp[resp_idx[0]][1][:, unit, :], \
                        expt_resp[resp_idx[1]][1][:, unit, :]
