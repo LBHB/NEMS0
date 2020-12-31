@@ -100,6 +100,9 @@ def evaluate_step(xfa, context={}):
     # Load relevant function into lib path
     fn = lookup_fn_at(xf)
 
+    # Run the xf
+    log.info('Evaluating: {}'.format(xf))
+
     # Check for collisions; more to avoid confusion than for correctness:
     # (except for init_context, which can update)
     #if not 'init_context' in xf:
@@ -118,8 +121,6 @@ def evaluate_step(xfa, context={}):
     #merged_args = {**xfargs, **context_in}
     #args = copy.deepcopy(merged_args)
 
-    # Run the xf
-    log.info('Evaluating: {}'.format(xf))
     new_context = fn(**args)
     if len(context_out_keys):
         if type(new_context) is tuple:
@@ -375,7 +376,7 @@ def normalize_stim(rec=None, sig='stim', norm_method='meanstd', **context):
     return {'rec': rec}
 
 
-def normalize_sig(rec=None, sig='stim', norm_method='meanstd', **context):
+def normalize_sig(rec=None, sig='stim', norm_method='meanstd', log_compress='None', **context):
     """
     Normalize each channel of rec[sig] according to norm_method
     :param rec:  NEMS recording
@@ -384,10 +385,19 @@ def normalize_sig(rec=None, sig='stim', norm_method='meanstd', **context):
     :return: copy(?) of rec with updated signal.
     """
     if sig in rec.signals.keys():
-        rec[sig] = rec.copy()[sig].rasterize().normalize(norm_method)
+        newrec = rec.copy()
+        s = newrec[sig].rasterize()
+        if log_compress != 'None':
+           log.info('xforms.normalize_sig: compressing with dlog(..., %d)', -log_compress)
+           from nems.modules.nonlinearity import _dlog
+           fn = lambda x: _dlog(x, -log_compress)
+           s=s.transform(fn, sig)
+           
+        newrec[sig] = s.normalize(norm_method)
+        return {'rec': newrec}
     else:
         log.info(f'Signal {sig} not it recording, skipping normalize')
-    return {'rec': rec}
+        return {}
 
 
 def init_from_keywords(keywordstring, meta={}, IsReload=False,
@@ -1327,7 +1337,9 @@ def save_analysis(destination, recording, modelspec, xfspec=[], figures=[],
         set_modelspec_metadata(m, 'xfspec', xfspec_uri)
         save_resource(base_uri + 'modelspec.{:04d}.json'.format(number), json=m[:])
     for number, figure in enumerate(figures):
-        save_resource(base_uri + 'figure.{:04d}.png'.format(number), data=figure)
+        fig_uri = base_uri + 'figure.{:04d}.png'.format(number)
+        #log.info('saving figure %d to %s', number, fig_uri)
+        save_resource(fig_uri, data=figure)
     save_resource(base_uri + 'log.txt', data=log)
     save_resource(xfspec_uri, json=xfspec)
 

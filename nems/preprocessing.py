@@ -1175,6 +1175,8 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
     elif type(pc_idx) is int:
         pc_idx = [pc_idx]
 
+    log.info(f"PCA: inputs={D_ref.shape[1]}, source={pc_source}, pc_idx(es): {pc_idx}")
+
     if False:
         # use sklearn. maybe someday
         pca = PCA(n_components=pc_count)
@@ -1188,6 +1190,7 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
             sd = np.nanstd(D_ref, axis=0, keepdims=True)
         else:
             sd = np.ones(m.shape)
+        D_ref=D_ref[np.sum(np.isfinite(D_ref),axis=1),:]
 
         u, s, v = np.linalg.svd((D_ref-m)/sd, full_matrices=False)
         X = (D-m) / sd @ v.T
@@ -1241,6 +1244,8 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
 
     newrec = rec.copy()
     resp = newrec['resp'].rasterize()
+    state_signals = state_signals.copy()
+    permute_signals = permute_signals.copy()
 
     # normalize mean/std of pupil trace if being used
     if ('pupil' in state_signals) or ('pupil2' in state_signals) or \

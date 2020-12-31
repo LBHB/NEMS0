@@ -69,7 +69,7 @@ class levelshift_new(NemsModule):
         return levelshift_new(prior={'level': ('Normal', {'mean': np.zeros([n_shifts, 1]),
                                                           'sd': np.ones([n_shifts, 1])})})
 
-    def eval(self, rec, i, o, level):
+    def eval(self, rec, i, o, level, **kw_args):
         '''
         Parameters
         ----------

@@ -327,6 +327,9 @@ def fir(kw):
         p_coefficients['mean'][:] = 1 / (n_inputs * n_coefs)
     elif 'z' in ops:
         p_coefficients['mean'][:] = 0
+    elif 'p' in ops:
+        p_coefficients['mean'][:, 1+non_causal] = 0.1
+        p_coefficients['mean'][:, 2+non_causal] = 0.05
     elif n_coefs > 2:
         p_coefficients['mean'][:, 1+non_causal] = 0.1
         p_coefficients['mean'][:, 2+non_causal] = -0.05
