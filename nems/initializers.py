@@ -87,14 +87,31 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
             kw = kw.replace(".R", ".{}".format(R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        elif ("xR" in kw) and (rec is not None):
+        if ("xR" in kw) and (rec is not None):
             R = rec[output_name].nchans
             kw_old = kw
             kw = kw.replace("xR", "x{}".format(R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        else:
-            log.info('kw: %s', kw)
+        if (("x2R" in kw) or (".2R" in kw)) and (rec is not None):
+            R = rec[output_name].nchans
+            kw_old = kw
+            kw = kw.replace("2R", "{}".format(2*R))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+
+        if (("x3R" in kw) or (".3R" in kw)) and (rec is not None):
+            R = rec[output_name].nchans
+            kw_old = kw
+            kw = kw.replace("3R", "{}".format(3*R))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+
+        if (("x4R" in kw) or (".4R" in kw)) and (rec is not None):
+            R = rec[output_name].nchans
+            kw_old = kw
+            kw = kw.replace("4R", "{}".format(4*R))
+            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+
+        log.info('kw: %s', kw)
 
         if registry.kw_head(kw) not in registry:
             raise ValueError("unknown keyword: {}".format(kw))
@@ -152,7 +169,6 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
         destination = get_default_savepath(modelspec)
         modelspec.meta['modelpath'] = destination
         modelspec.meta['figurefile'] = os.path.join(destination,'figure.0000.png')
-
     return modelspec
 
 
@@ -765,7 +781,10 @@ def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
 
     modelspec[target_i]['phi'] = {'amplitude': amp, 'base': base,
                                   'kappa': kappa, 'shift': shift}
-    log.info("Init dexp: %s", modelspec[target_i]['phi'])
+    if len(amp)<2:
+       log.info("Init dexp: %s", modelspec[target_i]['phi'])
+    else:
+       log.info("Init dexp completed for %d channels ", len(modelspec[target_i]['phi']['amplitude']))
 
     return modelspec
 

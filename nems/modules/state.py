@@ -162,3 +162,76 @@ def state_weight(rec, i='pred', o='pred', s='state', g=None, d=0):
     fn = lambda x: np.sum(np.matmul(g, rec[s]._data) * x,
                           axis=0, keepdims=True) + np.matmul(d, rec[s]._data)
     return [rec[i].transform(fn, o)]
+
+
+def lv_additive(rec, i, o, s, coefficients_in, coefficients, normalize_coefs=False, **kwargs):
+    '''
+    Parameters
+    ----------
+    s : name of state signal to feed into lv. Should be integer multiple of the number
+        of channels in i and o, so that zeroing out the diagonal works.
+    coefficients : 2d array (1 x S)
+        Weighting of the state channels. A set of weights are provided for each
+        desired output channel. Each row in the array are the weights for the
+        input channels for that given output. The length of the row must be
+        equal to the number of channels in the input array
+        (e.g., `x.shape[-3] == coefficients.shape[-1]`).
+    produces n_output * n_input matrix, since a separate channel is created for 
+        each response channel
+    '''
+
+    n_out = rec[i].shape[0]
+    n_in = coefficients_in.shape[1]
+    n_state = int(n_in/(n_out+1))
+
+    expanded_coefficients = np.tile(coefficients_in, (n_out, 1))
+    expanded_coefficients[:,:n_state] *= coefficients[:,:n_state]
+    for ii in range(0,n_state):
+        x = expanded_coefficients[:,(n_state+ii)::(n_state)]
+        x = coefficients[:,(n_state+ii):(n_state+ii+1)] * x
+        np.fill_diagonal(x, 0)
+        expanded_coefficients[:,(n_state+ii)::(n_state)] = x
+        
+        #np.fill_diagonal(expanded_coefficients[:,(stepsize+ii)::(stepsize)], 0)
+
+    fn = lambda x: x + expanded_coefficients @ rec[s]._data
+    #import pdb; pdb.set_trace() 
+    return [rec[i].transform(fn, o)]
+
+
+def lv_gain(rec, i, o, s, coefficients_in, coefficients, normalize_coefs=False, **kwargs):
+    '''
+    Parameters
+    ----------
+    s : name of state signal to feed into lv. Should be integer multiple of the number
+        of channels in i and o, so that zeroing out the diagonal works.
+    coefficients : 2d array (1 x S)
+        Weighting of the state channels. A set of weights are provided for each
+        desired output channel. Each row in the array are the weights for the
+        input channels for that given output. The length of the row must be
+        equal to the number of channels in the input array
+        (e.g., `x.shape[-3] == coefficients.shape[-1]`).
+    produces n_output * n_input matrix, since a separate channel is created for 
+        each response channel
+    '''
+
+    n_out = rec[i].shape[0]
+    n_in = coefficients_in.shape[1]
+    n_state = int(n_in/(n_out+1))
+
+    expanded_coefficients = np.tile(coefficients_in, (n_out, 1))
+    expanded_coefficients[:,:n_state] *= coefficients[:,:n_state]
+    for ii in range(0,n_state):
+        x = expanded_coefficients[:,(n_state+ii)::(n_state)]
+        x = coefficients[:,(n_state+ii):(n_state+ii+1)] * x
+        np.fill_diagonal(x, 0)
+        expanded_coefficients[:,(n_state+ii)::(n_state)] = x
+
+        #np.fill_diagonal(expanded_coefficients[:,(stepsize+ii)::(stepsize)], 0)
+
+    fn = lambda x: x * (expanded_coefficients @ rec[s]._data)
+    #import pdb; pdb.set_trace() 
+    return [rec[i].transform(fn, o)]
+
+
+

@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 
 def generate_average_sig(signal_to_average,
-                         new_signalname='respavg', epoch_regex='^STIM_'):
+                         new_signalname='respavg', epoch_regex='^STIM_', mask=None):
     '''
     Returns a signal with a new signal created by replacing every epoch
     matched in "epoch_regex" with the average of every occurrence in that
@@ -34,7 +34,7 @@ def generate_average_sig(signal_to_average,
     #    and each value in the dictionary is (reps X cell X bins)
     epochs_to_extract = ep.epoch_names_matching(signal_to_average.epochs,
                                                 epoch_regex)
-    folded_matrices = signal_to_average.extract_epochs(epochs_to_extract)
+    folded_matrices = signal_to_average.extract_epochs(epochs_to_extract, mask=mask)
 
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()
@@ -111,6 +111,8 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=Tru
 
     # get a list of the unique epoch names
     epoch_names = temp_epochs.loc[regex_mask, 'name'].sort_values().unique()
+
+    #import pdb; pdb.set_trace()
 
     # what to round to when checking if epoch timings match
     d = int(np.ceil(np.log10(recording[list(recording.signals.keys())[0]].fs))+1)
@@ -194,7 +196,6 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=Tru
         fs = signal.fs
         # Average over all occurrences of each epoch
         data = []
-        #import pdb; pdb.set_trace()
         for epoch_name in epoch_names:
             epoch = epoch_data[epoch_name]
 
@@ -281,11 +282,12 @@ def remove_invalid_segments(rec):
     return newrec
 
 
-def mask_all_but_correct_references(rec, balance_rep_count=False,
-                                    include_incorrect=False, generate_evoked_mask=False):
+def mask_all_but_correct_references(rec, balance_rep_count=False, include_incorrect=False, 
+                                    generate_evoked_mask=False, exclude_partial_ref=True):
     """
     Specialized function for removing incorrect trials from data
     collected using baphy during behavior.
+    exclude_nans: remove any REF epoch with nans in the response
 
     TODO: Migrate to nems_lbhb and/or make a more generic version
     """
@@ -307,7 +309,7 @@ def mask_all_but_correct_references(rec, balance_rep_count=False,
         epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
         p=resp.get_epoch_indices("PASSIVE_EXPERIMENT")
         a=np.concatenate((resp.get_epoch_indices("HIT_TRIAL"),
-                          resp.get_epoch_indices("CORRECT_REJECT_TRIAL2")), axis=0)
+                          resp.get_epoch_indices("CORRECT_REJECT_TRIAL")), axis=0)
 
         epoch_list=[]
         for s in epochs_to_extract:
@@ -332,8 +334,18 @@ def mask_all_but_correct_references(rec, balance_rep_count=False,
         newrec = newrec.and_mask(['REFERENCE'])
 
     else:
-        newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL'])
+        newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL'])
         newrec = newrec.and_mask(['REFERENCE'])
+
+    if exclude_partial_ref:
+        mask_data = newrec['mask'].extract_epoch('REFERENCE')
+        pp = np.mean(mask_data, axis=2)[:,0]
+        # if partial mask, remove completely
+        mask_data[(pp>0) & (pp<1),:,:]=0
+        tt = (pp>0) & (pp<1) 
+        if tt.sum() > 0:
+            log.info('removing %d incomplete REFERENCES', tt.sum())
+        newrec.signals['mask']=newrec['mask'].replace_epoch('REFERENCE', mask_data)
 
     # figure out if some actives should be masked out
 #    t = ep.epoch_names_matching(resp.epochs, "^TAR_")
@@ -491,7 +503,7 @@ def mask_incorrect(rec):
     collected using baphy during behavior.
     """
     newrec = rec.copy()
-    newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL'])
+    newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL'])
 
     return newrec
 
@@ -645,13 +657,14 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
     """
     newrec = rec.copy()
     resp = newrec[resp_sig].rasterize()
+    log.info('normalize_epoch_lengths: %s',epoch_regex)
 
     if include_incorrect:
         log.info('INCLUDING ALL TRIALS (CORRECT AND INCORRECT)')
-        newrec = newrec.and_mask(['REFERENCE'])
+        #newrec = newrec.and_mask(['REFERENCE'])
     else:
-        newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL'])
-        newrec = newrec.and_mask(['REFERENCE'])
+        newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL'])
+        #newrec = newrec.and_mask(['REFERENCE'])
 
     mask = newrec['mask']
     del newrec.signals['mask']
@@ -689,6 +702,7 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
            for i,e in enumerate(ematch):
                x = ep.epoch_intersection(preidx, [e], precision=precision)
                if len(x):
+                   #import pdb; pdb.set_trace()
                    prematch[i] = np.diff(x)
                else:
                    log.info('pre missing?')
@@ -708,8 +722,8 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
            mindur = np.min(udur)
            dur[dur < mindur] = mindur
 
-           log.debug('epoch %s: n=%d dur range=%.4f-%.4f', ename,
-                    len(ematch), mindur, np.max(dur))
+           #log.info('epoch %s: n=%d dur range=%.4f-%.4f', ename,
+           #         len(ematch), mindur, np.max(dur))
 
            #import pdb;pdb.set_trace()
            minpre = np.min(prematch)
@@ -725,7 +739,7 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
                remove_post_stim = True
            elif (minpos<np.max(posmatch)):
                log.info('epoch %s pos varies, fixing to %.3f s', ename, minpos)
-               ematch_new[:,1] = ematch_new[:,0]+dur.T+minpos
+               ematch_new[:,1] = ematch_new[:,0]+prematch.T+dur.T+minpos
 
            for e_old, e_new in zip(ematch, ematch_new):
                _mask = (np.round(epochs_new['start']-e_old[0], precision)==0) & \
@@ -748,7 +762,7 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
     return newrec
 
 
-def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_',
+def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^(STIM_|TAR_|CAT_|REF_)',
                             smooth_resp=False, channel_per_stim=False):
     '''
     Estimates a PSTH from all responses to each regex match in a recording
@@ -843,11 +857,9 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_',
 
         newrec['resp'].epochs = resp.epochs.copy()
 
-    if 'mask' in newrec.signals.keys():
-        folded_matrices = resp.extract_epochs(epochs_to_extract, mask=newrec['mask'])
+    # mask=None means no mask
+    folded_matrices = resp.extract_epochs(epochs_to_extract, mask=newrec['mask'])
 
-    else:
-        folded_matrices = resp.extract_epochs(epochs_to_extract)
     log.info('generating PSTHs for %d epochs', len(folded_matrices.keys()))
 
     # 2. Average over all reps of each stim and save into dict called psth.
@@ -870,6 +882,8 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^STIM_',
         per_stim_psth[k] = np.nanmean(v, axis=0) - spont_rate[:, np.newaxis]
         per_stim_psth_spont[k] = np.nanmean(v, axis=0)
         folded_matrices[k] = v
+
+    #import pdb; pdb.set_trace()
 
     # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
     #   replacing all epochs in the signal with their average (psth)
@@ -1147,12 +1161,10 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
 
     # compute PCs only on valid (masked) times
     rec0[resp_sig] = rec0[resp_sig].rasterize()
-    if 'mask' in rec0.signals:
-        rec_masked = rec0.apply_mask()
-    else:
-        rec_masked = rec0
+    rec_masked = generate_psth_from_resp(rec0, resp_sig=resp_sig)
 
-    rec_masked = generate_psth_from_resp(rec_masked, resp_sig=resp_sig)
+    if 'mask' in rec0.signals:
+        rec_masked = rec_masked.apply_mask()
 
     if pc_source=='all':
         D_ref = rec_masked[resp_sig].as_continuous().T
@@ -1191,19 +1203,27 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
         else:
             sd = np.ones(m.shape)
         D_ref=D_ref[np.sum(np.isfinite(D_ref),axis=1),:]
+        D_ = (D_ref-m)/sd
 
-        u, s, v = np.linalg.svd((D_ref-m)/sd, full_matrices=False)
-        X = (D-m) / sd @ v.T
+        #import pdb;
+        #pdb.set_trace()
+
+        # A = u @ np.diag(s) @ vh = (u * s) @ vh
+        u, s, v = np.linalg.svd(D_.T @ D_, full_matrices=False)
+        X = ((D-m) / sd) @ u
 
         rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
 
         r = rec0[pc_sig].extract_epoch('REFERENCE', mask=rec0['mask'])
         mr = np.mean(r, axis=0)
-        spont = np.mean(mr[:,:prestimbins],axis=1,keepdims=True)
-        mr -= spont
+        if prestimbins>0:
+            spont = np.mean(mr[:,:prestimbins],axis=1,keepdims=True)
+            mr -= spont
         vs = np.sign(np.sum(mr[:, prestimbins:(prestimbins+10)], axis=1, keepdims=True))
-        v *= vs
-        X = (D-m) / sd @ v.T
+        u *= vs
+        X = ((D-m) / sd) @ u
+
+
 
     if compute_power == 'single_trial':
         X = convolve2d(np.abs(X), np.ones((3,1)) / 3, 'same')
@@ -1219,7 +1239,7 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
 #    plt.plot(mr[:5,:].T)
 #    plt.legend(('1','2','3','4','5'))
 
-    rec0.meta['pc_weights'] = v
+    rec0.meta['pc_weights'] = u
     rec0.meta['pc_mag'] = s
     if overwrite_resp:
         rec0[resp_sig] = rec0[resp_sig]._modified_copy(X[:, pc_idx].T, 
@@ -1230,7 +1250,7 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
 
 
 def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
-                      new_signalname='state'):
+                      new_signalname='state', sm_win_len=180):
     """
     generate state signal for stategain.S/sdexp.S models
 
@@ -1504,8 +1524,9 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         newrec['miss_trials'] = resp.epoch_to_signal('MISS_TRIAL')
         newrec['fa_trials'] = resp.epoch_to_signal('FA_TRIAL')
 
-    sm_len = 180 * newrec['resp'].fs
+    sm_len = int(sm_win_len * newrec['resp'].fs)
     if 'far' in state_signals:
+        log.info('FAR: sm_win_len=%.0f sm_len=%d', sm_win_len, sm_len)
         a = newrec['active'].as_continuous()
         fa = newrec['fa_trials'].as_continuous().astype(float)
         #c = np.concatenate((np.zeros((1,sm_len)), np.ones((1,sm_len+1))),
@@ -1707,6 +1728,7 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', epoch_regex=None,
     if epoch_regex is None:
         epochs_to_extract = [epoch_name]
     else:
+        log.info('jackknife epoch_regex=%s', epoch_regex)
         epochs_to_extract = ep.epoch_names_matching(rec.epochs, epoch_regex)
 
     # logging.info("Generating {} jackknifes".format(njacks))

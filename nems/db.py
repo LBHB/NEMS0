@@ -183,7 +183,6 @@ def sql_command(sql):
     conn = engine.connect()
     conn.execute(sql)
 
-
 ###### Functions that access / manipulate the job queue. #######
 
 def enqueue_models(celllist, batch, modellist, force_rerun=False,
@@ -1179,24 +1178,34 @@ def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test'):
                       'parm100pt_wcg02_fir15_pupgain_fit01_nested5',
                       'parm100pt_wcg02_fir15_stategain_fit01_nested5'
                       ]
-
+    if type(batch) is int:
+        batches=[batch]
+    elif type(batch) is list:
+        batches=batch.copy()
+    else:
+        raise ValueError(f"batch must be integer or list of integers")
     session = Session()
     results=None
-    for mn in modelnames:
-        q = (session.query(Results)
-             .filter(Results.batch == batch)
-             .filter(Results.modelname == mn))
-        if cellids is not None:
-            q = q.filter(Results.cellid.in_(cellids))
-        tr = psql.read_sql_query(q.statement, session.bind)
-        tc = tr[['cellid',stat]]
-        tc = tc.set_index('cellid')
-        tc.columns = [mn]
+    for batch in batches:
+        bresults=None
+        for mn in modelnames:
+            q = (session.query(Results)
+                 .filter(Results.batch == batch)
+                 .filter(Results.modelname == mn))
+            if cellids is not None:
+                q = q.filter(Results.cellid.in_(cellids))
+            tr = psql.read_sql_query(q.statement, session.bind)
+            tc = tr[['cellid',stat]]
+            tc = tc.set_index('cellid')
+            tc.columns = [mn]
+            if bresults is None:
+                bresults = tc
+            else:
+                bresults=bresults.join(tc)
         if results is None:
-            results = tc
+            results=bresults
         else:
-            results=results.join(tc)
-
+            results = pd.concat((results,bresults), axis=0)
     session.close()
 
     return results

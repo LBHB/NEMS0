@@ -45,13 +45,15 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
         # setup relationships
         self.tabBrowser.parent = self
         self.tabComp.parent = self
-        self.children = [self.tabBrowser, self.tabComp]
+        self.tabAnalysis.parent = self
+        self.children = [self.tabBrowser, self.tabComp, self.tabAnalysis]
 
         # init top level models (those shared by multiple tabs)
         self.init_models()
 
         # init models in children
         for child in self.children:
+            print(child)
             child.init_models()
 
         # setup the callbacks for the menu items

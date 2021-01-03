@@ -49,8 +49,9 @@ def tf2modelspec(model, modelspec):
         if np.any(['tf_only' in fn for fn in modelspec.fn()]):
             # These TF layers don't have corresponding phi pre-set, so there's nothing to check against.
             # TODO: format phi properly for this model version
-            pass
-        else:
+            ms['phi'] = phis
+
+        elif 'phi' in ms.keys():
             # check that phis/weights match up in name
             if phis.keys() != ms['phi'].keys():
                 raise AssertionError(f'Model layer "{layer.ms_name}" weights and modelspec phis do not have matching names!')
@@ -68,10 +69,10 @@ def tf2modelspec(model, modelspec):
             if not layer.trainable:
                 for model_weights, ms_phis in zip(phis.values(), ms['phi'].values()):
                     if not np.allclose(model_weights, ms_phis, rtol=5e-2, atol=5e-2):
-                        log.warning(f'Frozen layer weights changed:\n{ms_phis}\n{model_weights}')
+                        #log.warning(f'Frozen layer weights changed:\n{ms_phis}\n{model_weights}')
                         log.warning(f'Model layer "{layer.ms_name}" weights changed significantly despite being frozen!')
 
-        ms['phi'] = phis
+            ms['phi'] = phis
 
     return modelspec
 
@@ -86,6 +87,7 @@ def compare_ms_tf(ms, model, rec_ms, train_data):
 
     For the modelspec, uses a recording object. For the tf model, uses the formatted data from fit_tf,
     which may include state data."""
+
     pred_tf = model.predict(train_data)
     pred_ms = np.swapaxes(ms.evaluate(rec_ms.apply_mask())['pred']._data, 0, 1).reshape(pred_tf.shape)
 
@@ -118,6 +120,21 @@ def compare_ms_tf(ms, model, rec_ms, train_data):
     #     plt.show()
 
     return np.nanstd(pred_ms.flatten() - pred_tf.flatten())
+
+
+def _get_tf_data_matrix(rec, signal, epoch_name=None):
+    """
+    extract signal data and reshape to batch X time X channel matrix to work with TF specs
+    """
+    if (epoch_name is not None) and (epoch_name != ""):
+        # extract out the raw data, and reshape to (batch, time, channel)
+        # one batch per occurrence of epoch
+        tf_data = np.transpose(rec[signale].extract_epoch(epoch=epoch_name, mask=rec['mask']), [0, 2, 1])
+    else:
+        # cotinuous, single batch
+        tf_data = np.transpose(rec.apply_mask()[signal].as_continuous()[np.newaxis, ...], [0, 2, 1])
+
+    #check for nans
 
 
 def fit_tf(
@@ -410,7 +427,7 @@ def fit_tf_init(
     # do the +1 here to avoid adding to None
     up_to_idx += 1
     # exclude the following from the init
-    exclude = ['rdt_gain', 'state_dc_gain', 'state_gain']
+    exclude = ['rdt_gain']  # , 'state_dc_gain', 'state_gain', 'sdexp']
     freeze = ['stp']
     # more complex version of first_substring_index: checks for not membership in init_static_nl_layers
     init_idxes = [idx for idx, ms in enumerate(ms_modules[:up_to_idx]) if not any(sub in ms for sub in exclude)]

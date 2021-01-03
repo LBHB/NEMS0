@@ -749,6 +749,7 @@ class SignalBase:
         '''
 
         mask = np.zeros([1, self.ntimes], dtype=np.bool)
+
         if (epoch is None) or (epoch is False):
             pass
 
@@ -2203,7 +2204,8 @@ class PointProcess(SignalBase):
         return sig.jackknife_by_epoch(njacks, jack_idx, epoch_name,
                                       tiled, invert, excise)
 
-    def concatenate_time(self, signals):
+    @classmethod
+    def concatenate_time(cls, signals):
         '''
         Combines the signals along the time axis. All signals must have the
         same number of channels (and the same sampling rates?).
@@ -2525,7 +2527,8 @@ class TiledSignal(SignalBase):
         return sig.jackknife_by_epoch(njacks, jack_idx, epoch_name,
                                       tiled, invert, excise)
 
-    def concatenate_time(self, signals):
+    @classmethod
+    def concatenate_time(cls, signals):
         '''
         Combines the signals along the time axis. All signals must have the
         same number of channels (and the same sampling rates?).
@@ -2971,16 +2974,23 @@ def _normalize_data(data, normalization='minmax'):
     elif normalization == 'minmax':
         d = np.nanmin(data, axis=1, keepdims=True)
         g = np.nanmax(data, axis=1, keepdims=True) - d
+        #d = np.nanmin(data)
+        #g = np.nanmax(data) - d
+        # avoid divide-by-zero
+        g[g == 0] = 1
+        data_out = (data - d) / g
+
+        # force "quiet" stim to be true zero
+        data_out[data_out<1e-6]=0
 
     elif normalization == 'meanstd':
         d = np.nanmean(data, axis=1, keepdims=True)
         g = np.nanstd(data, axis=1, keepdims=True)
+        # avoid divide-by-zero
+        g[g == 0] = 1
+        data_out = (data - d) / g
 
     else:
         raise ValueError('normalization format unknown')
-
-    # avoid divide-by-zero
-    g[g == 0] = 1
-    data_out = (data - d) / g
 
     return data_out, d, g

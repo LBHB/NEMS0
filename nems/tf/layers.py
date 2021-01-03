@@ -7,6 +7,12 @@ from tensorflow.keras.layers import Conv2D, Dense
 from tensorflow.python.keras.layers.convolutional import Conv
 from tensorflow.keras.constraints import Constraint
 from tensorflow.python.ops import array_ops, nn_ops, nn
+from tensorflow.python.framework import tensor_shape
+from tensorflow.python.keras import constraints
+from tensorflow.python.keras import initializers
+from tensorflow.python.keras import regularizers
+
+
 
 log = logging.getLogger(__name__)
 
@@ -61,6 +67,8 @@ class BaseLayer(tf.keras.layers.Layer):
             kwargs['reset_signal'] = None
         if 'non_causal' in ms_layer['fn_kwargs']:
             kwargs['non_causal'] = ms_layer['fn_kwargs']['non_causal']
+        if 'var_offset' in ms_layer['fn_kwargs']:
+            kwargs['var_offset'] = ms_layer['fn_kwargs']['var_offset']
         if 'state_type' in ms_layer['fn_kwargs']:
             kwargs['state_type'] = ms_layer['fn_kwargs']['state_type']
 
@@ -72,8 +80,11 @@ class BaseLayer(tf.keras.layers.Layer):
         if not cls._TF_ONLY:  # TODO: implement proper phi formatting for TF_ONLY layers so that this isn't necessary
             if use_modelspec_init:
                 # convert the phis to tf constants
-                kwargs['initializer'] = {k: tf.constant_initializer(v)
-                                         for k, v in ms_layer['phi'].items()}
+                if ms_layer.get('phi',None):
+                    kwargs['initializer'] = {k: tf.constant_initializer(v)
+                                             for k, v in ms_layer['phi'].items()}
+                else:
+                    kwargs['initializer'] = {}
                 if 'WeightChannelsGaussian' in ms_layer['tf_layer']:
                     # Per SVD: kludge to get TF optimizer to play nice with sd parameter,
                     kwargs['initializer']['sd'] = tf.constant_initializer(ms_layer['phi']['sd'] * 10)
@@ -119,6 +130,7 @@ class Dlog(BaseLayer):
                  units=None,
                  initializer=None,
                  seed=0,
+                 var_offset=True,
                  *args,
                  **kwargs,
                  ):
@@ -132,27 +144,43 @@ class Dlog(BaseLayer):
         else:
             self.units = units
 
-        self.initializer = {'offset': tf.random_normal_initializer(seed=seed)}
-        if initializer is not None:
-            self.initializer.update(initializer)
+        self.var_offset = var_offset
+
+        if self.var_offset:
+            self.initializer = {'offset': tf.random_normal_initializer(seed=seed)}
+            if initializer is not None:
+                self.initializer.update(initializer)
+        else:
+            self.initializer = None
+            self.fixed_offset = -1.0
 
     def build(self, input_shape):
-        self.offset = self.add_weight(name='offset',
-                                      shape=(self.units,),
-                                      dtype='float32',
-                                      initializer=self.initializer['offset'],
-                                      trainable=True,
-                                      )
+        if self.var_offset:
+            self.offset = self.add_weight(name='offset',
+                                          shape=(self.units,),
+                                          dtype='float32',
+                                          initializer=self.initializer['offset'],
+                                          trainable=True,
+                                          )
+
+    def call(self, inputs, training=True):
+        if self.var_offset:
+            return tf.nn.relu(inputs - self.offset)
 
     def call(self, inputs, training=True):
         # clip bounds at ±2 to avoid huge compression/expansion
-        eb = tf.math.pow(tf.constant(10, dtype='float32'), tf.clip_by_value(self.offset, -2, 2))
+        if self.var_offset:
+            eb = tf.math.pow(tf.constant(10, dtype='float32'), tf.clip_by_value(self.offset, -2, 2))
+        else:
+            eb = tf.constant(np.power(10, self.fixed_offset), dtype='float32')
+
         return tf.math.log((inputs + eb) / eb)
 
     def weights_to_phi(self):
         layer_values = self.layer_values
-        layer_values['offset'] = layer_values['offset'].reshape((-1, 1))
-        log.info(f'Converted {self.name} to modelspec phis.')
+        if self.var_offset:
+            layer_values['offset'] = layer_values['offset'].reshape((-1, 1))
+            log.info(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
 
@@ -202,30 +230,40 @@ class Relu(BaseLayer):
     def __init__(self,
                  initializer=None,
                  seed=0,
+                 var_offset=True,
                  *args,
                  **kwargs,
                  ):
         super(Relu, self).__init__(*args, **kwargs)
 
-        self.initializer = {'offset': tf.random_normal_initializer(seed=None)}
-        if initializer is not None:
-            self.initializer.update(initializer)
+        self.var_offset = var_offset
+        if self.var_offset:
+            self.initializer = {'offset': tf.random_normal_initializer(seed=None)}
+            if initializer is not None:
+                self.initializer.update(initializer)
+        else:
+            self.initializer = None
 
     def build(self, input_shape):
-        self.offset = self.add_weight(name='offset',
-                                      shape=(input_shape[-1],),
-                                      dtype='float32',
-                                      initializer=self.initializer['offset'],
-                                      trainable=True,
-                                      )
+        if self.var_offset:
+            self.offset = self.add_weight(name='offset',
+                                          shape=(input_shape[-1],),
+                                          dtype='float32',
+                                          initializer=self.initializer['offset'],
+                                          trainable=True,
+                                          )
 
     def call(self, inputs, training=True):
-        return tf.nn.relu(inputs - self.offset)
+        if self.var_offset:
+            return tf.nn.relu(inputs - self.offset)
+        else:
+            return tf.nn.relu(inputs)
 
     def weights_to_phi(self):
         layer_values = self.layer_values
-        layer_values['offset'] = layer_values['offset'].reshape((-1, 1))
-        log.info(f'Converted {self.name} to modelspec phis.')
+        if self.var_offset:
+            layer_values['offset'] = layer_values['offset'].reshape((-1, 1))
+            log.info(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
 
@@ -799,6 +837,14 @@ class StateDCGain(BaseLayer):
             }
         if initializer is not None:
             self.initializer.update(initializer)
+        self.d_constraint = None
+        self.g_constraint = None
+        if bounds is not None:
+            # constraints assumes bounds built with np.full
+            if 'd' in bounds.keys():
+                self.d_constraint = lambda t: tf.clip_by_value(t, bounds['d'][0], bounds['d'][1])
+            if 'g' in bounds.keys():
+                self.g_constraint = lambda t: tf.clip_by_value(t, bounds['g'][0], bounds['g'][1])
 
     def build(self, input_shape):
         input_shape, state_shape = input_shape
@@ -809,6 +855,7 @@ class StateDCGain(BaseLayer):
                                      # shape=(self.units, input_shape[-1]),
                                      dtype='float32',
                                      initializer=self.initializer['g'],
+                                     constraint=self.g_constraint,
                                      trainable=True,
                                      )
         else:
@@ -823,6 +870,7 @@ class StateDCGain(BaseLayer):
                                      # shape=(self.units, input_shape[-1]),
                                      dtype='float32',
                                      initializer=self.initializer['d'],
+                                     constraint=self.d_constraint,
                                      trainable=True,
                                      )
 
@@ -863,14 +911,143 @@ class Sum(BaseLayer):
         return {}
 
 
+class Conv2D_NEMS_new(BaseLayer):
+    _TF_ONLY = True
+    def __init__(self,
+               filters,
+               kernel_size,
+               strides=(1, 1),
+               padding='valid',
+               data_format=None,
+               dilation_rate=(1, 1),
+               activation=None,
+               use_bias=True,
+               kernel_initializer='glorot_uniform',
+               bias_initializer='zeros',
+               kernel_regularizer=None,
+               bias_regularizer=None,
+               activity_regularizer=None,
+               kernel_constraint=None,
+               bias_constraint=None,
+               initializer=None, seed=0,
+               *args,
+               **kwargs):
+        #initializer=None, seed=0, *args, **kwargs):
+        '''Identical to the stock keras Conv2D but with NEMS compatibility added on, but without a matching module.'''
+        super(Conv2D_NEMS, self).__init__(*args, **kwargs)
+        self.filters = filters
+        self.kernel_size = kernel_size
+        self.activation = activation
+        self.use_bias = use_bias
+        self.kernel_initializer = initializers.get(kernel_initializer)
+        self.bias_initializer = initializers.get(bias_initializer)
+        self.kernel_regularizer = regularizers.get(kernel_regularizer)
+        self.bias_regularizer = regularizers.get(bias_regularizer)
+        self.kernel_constraint = constraints.get(kernel_constraint)
+        self.bias_constraint = constraints.get(bias_constraint)
+
+        # force symmetrical padding in frequency, causal in time
+        pad_top = kernel_size[0]-1
+        pad_bottom = 0
+        pad_left = int((kernel_size[1]-1)/2)
+        pad_right = kernel_size[1]-pad_left-1
+        self.padding = [[0, 0], [pad_top,pad_bottom], [pad_left, pad_right], [0, 0]]
+
+        #self.rank = rank
+        #self.strides = conv_utils.normalize_tuple(strides, rank, 'strides')
+        #self.padding = conv_utils.normalize_padding(padding)
+        #if (self.padding == 'causal' and not isinstance(self,
+        #                                                (Conv1D, SeparableConv1D))):
+        #  raise ValueError('Causal padding is only supported for `Conv1D`'
+        #                   'and ``SeparableConv1D`.')
+        #self.data_format = conv_utils.normalize_data_format(data_format)
+        #self.dilation_rate = conv_utils.normalize_tuple(
+        #    dilation_rate, rank, 'dilation_rate')
+        #self.activation = activations.get(activation)
+        #self.input_spec = InputSpec(ndim=self.rank + 2)
+
+
+    def build(self, input_shape):
+        input_shape = tensor_shape.TensorShape(input_shape)
+        input_channel = input_shape[-1]
+        kernel_shape = self.kernel_size + [input_channel, self.filters]
+
+        self.kernel = self.add_weight(
+            name='kernel',
+            shape=kernel_shape,
+            initializer=self.kernel_initializer,
+            regularizer=self.kernel_regularizer,
+            constraint=self.kernel_constraint,
+            trainable=True,
+            dtype=self.dtype)
+        if self.use_bias:
+            self.bias = self.add_weight(
+                name='bias',
+                shape=(self.filters,),
+                initializer=self.bias_initializer,
+                regularizer=self.bias_regularizer,
+                constraint=self.bias_constraint,
+                trainable=True,
+                dtype=self.dtype)
+        else:
+            self.bias = None
+
+    # Given an input tensor of shape [batch, in_height, in_width, in_channels]
+    # and a filter / kernel tensor of shape
+    # [filter_height, filter_width, in_channels, out_channels],
+    # this op performs the following:
+    def call(self, inputs, training=True):
+        # inputs should be [batch, in_height, in_width, in_channels]
+        # self.weights[0] should be [filter_height, filter_width, in_channels, out_channels]
+        log.info(inputs.shape)
+        x = tf.nn.conv2d(inputs, self.kernel, [1, 1, 1, 1], padding=self.padding)
+        log.info(x.shape)
+        # x should be [batch, in_height, in_width, out_channels]
+
+        # self.weights[1] should be [1, 1, 1, out_channels]
+        if self.bias is not None:
+            return tf.nn.relu(x - tf.reshape(self.bias, [1, 1, 1, -1]))
+        else:
+            return tf.nn.relu(x)
+
+    def weights_to_phi(self):
+        phi = {'kernel': self.kernel.numpy(),
+               'bias': self.bias.numpy()}
+        log.info(f'Converted {self.name} to modelspec phis.')
+
+        return phi
+
+
 class Conv2D_NEMS(BaseLayer, Conv2D):
     _TF_ONLY = True
     def __init__(self, initializer=None, seed=0, *args, **kwargs):
-        '''Identical to the stock keras Conv2D but with NEMS compatibility added on, but without a matching module.'''
+        '''
+        Fork of Keras Conv2D module. Currently only works with specialized conditions (relu may be required) but
+        implements a causal filter on the time axis. (SVD updated from JP original code 2020-07-27.)
+        '''
         super(Conv2D_NEMS, self).__init__(*args, **kwargs)
+        # force symmetrical padding in frequency, causal in time
+        pad_top = self.kernel_size[0]-1
+        pad_bottom = 0
+        pad_left = int((self.kernel_size[1]-1)/2)
+        pad_right = self.kernel_size[1]-pad_left-1
+        self.padding = [[0, 0], [pad_top,pad_bottom], [pad_left, pad_right], [0, 0]]
+
+    def call(self, inputs, training=True):
+        # inputs should be [batch, in_height, in_width, in_channels]
+        # self.weights[0] should be [filter_height, filter_width, in_channels, out_channels]
+        x = tf.nn.conv2d(inputs, self.weights[0], [1, 1, 1, 1], padding=self.padding)
+        # x should be [batch, in_height, in_width, out_channels]
+
+        # self.weights[1] should be [1, 1, 1, out_channels]
+        if self.bias is not None:
+            return tf.nn.relu(x - tf.reshape(self.weights[1], [1, 1, 1, -1]))
+        else:
+            return tf.nn.relu(x)
 
     def weights_to_phi(self):
-        phi = {'kernels': self.weights[0].numpy(), 'activations': self.weights[1].numpy()}
+        phi = {'kernels': self.weights[0].numpy(),
+               'activations': self.weights[1].numpy()}
         log.info(f'Converted {self.name} to modelspec phis.')
         return phi
 
@@ -887,7 +1064,7 @@ class Dense_NEMS(BaseLayer, Dense):
         return phi
 
 
-class WeightChannelsNew(BaseLayer):
+class WeightChannelsPerBank(BaseLayer):
     _TF_ONLY = True
     def __init__(self, units=None, initializer=None, seed=0, *args, **kwargs):
         '''Similar to WeightChannelsBasic but implemented as a weighted sum, and does not map to a NEMS module.'''
@@ -912,6 +1089,38 @@ class WeightChannelsNew(BaseLayer):
         phi = {'coefficients': self.coefficients.numpy()}
         log.info(f'Converted {self.name} to modelspec phis.')
         return phi
+
+
+class WeightChannelsNew(BaseLayer):
+    _TF_ONLY = True
+    def __init__(self, units=None, initializer=None, seed=0, *args, **kwargs):
+        '''Similar to WeightChannelsBasic but implemented as a weighted sum, and does not map to a NEMS module.'''
+        super(WeightChannelsNew, self).__init__(*args, **kwargs)
+        self.units = units
+
+    def build(self, input_shape):
+        ##constraint=tf.keras.constraints.NonNeg(),
+        self.coefficients = self.add_weight(name='coefficients',
+                                            shape=(input_shape[-2]*input_shape[-1], self.units),
+                                            dtype='float32',
+                                            initializer=tf.random_normal_initializer,
+                                            trainable=True,
+                                            )
+
+    def call(self, inputs):
+        # Weighted sum along frequency dimension
+        # Assumes input formated as time x frequency x num_inputs
+        batch, time, channels, units = tuple(inputs.shape)
+        flat_inputs = array_ops.reshape(inputs, (array_ops.shape(inputs)[0],) + (time, channels*units))
+        return tf.linalg.matmul(flat_inputs, self.coefficients)
+
+    def weights_to_phi(self):
+        phi = {'coefficients': self.coefficients.numpy()}
+        log.info(f'Converted {self.name} to modelspec phis.')
+        return phi
+
+
+
 
 
 class FlattenChannels(BaseLayer):

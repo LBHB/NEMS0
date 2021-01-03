@@ -18,7 +18,7 @@
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="currentIndex">
-       <number>0</number>
+       <number>2</number>
       </property>
       <widget class="BrowserTab" name="tabBrowser">
        <attribute name="title">
@@ -28,6 +28,11 @@
       <widget class="CompTab" name="tabComp">
        <attribute name="title">
         <string>Comp</string>
+       </attribute>
+      </widget>
+      <widget class="AnalysisTab" name="tabAnalysis">
+       <attribute name="title">
+        <string>Analysis</string>
        </attribute>
       </widget>
      </widget>
@@ -40,7 +45,7 @@
      <x>0</x>
      <y>0</y>
      <width>1051</width>
-     <height>21</height>
+     <height>20</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -120,6 +125,12 @@
    <class>CompTab</class>
    <extends>QWidget</extends>
    <header>comp_tab</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>AnalysisTab</class>
+   <extends>QWidget</extends>
+   <header>analysis_tab</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

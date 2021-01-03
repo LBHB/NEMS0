@@ -834,7 +834,7 @@ class ModelSpec:
                     fn(ax=ax)
                     col_idx += col_span
                 except:
-                    log.warning(f'Quickplot: failed plotting function: "{fn}", skipping.')
+                    log.warning(f'Quickplot: failed plotting function: for row {row_idx} skipping.')
 
         # suptitle needs to be after the gridspecs in order to work with constrained_layout
         fig.suptitle(fig_title)
@@ -1154,7 +1154,7 @@ class ModelSpec:
                 if include_state:
                     stensor = tf.convert_to_tensor(state_data[np.newaxis])
 
-            if state_data is not None:
+            if include_state:
                 tensor = [tensor, stensor]
 
             for outidx in out_channels:

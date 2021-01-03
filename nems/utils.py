@@ -11,11 +11,13 @@ from collections import Sequence
 import logging
 import importlib
 import re
+from configparser import ConfigParser
 
 import numpy as np
 import matplotlib.pyplot as plt
 
 from nems import get_setting
+import nems
 
 log = logging.getLogger(__name__)
 
@@ -432,3 +434,116 @@ def lookup_fn_at(fn_path, ignore_table=False):
             lookup_table[fn_path] = fn
     return fn
 
+def simple_search(query, collection):
+    '''
+    Filter cellids or modelnames by simple space-separated search strings.
+
+    Parameters:
+    ----------
+    query : str
+        Search string, see syntax below.
+    collection : list
+        List of items to compare the search string against.
+        Ex: A list of cellids.
+
+    Returns:
+    -------
+    filtered_collection : list
+        Collection with all non-matched entries removed.
+
+    Syntax:
+    ------
+    space : OR
+    &     : AND
+    !     : NEGATE
+    (In that order of precedence)
+
+    Example:
+    collection = ['AMT001', BRT000', 'TAR002', 'TAR003']
+
+    search('AMT', collection)
+    >>  ['AMT001']
+
+    search('AMT TAR', collection)
+    >>  ['AMT001', 'TAR002', 'TAR003']
+
+    search ('AMT TAR&!003', collection)
+    >>  ['AMT001', 'TAR002']
+
+    search ('AMT&TAR', collection)
+    >> []
+
+
+    '''
+    filtered_collection = []
+    for c in collection:
+        for s in query.split(' '):
+            if ('&' in s) or ('!' in s):
+                ands = s.split('&')
+                all_there = True
+                for a in ands:
+                    negate = ('!' in a)
+                    b = a.replace('!', '')
+                    if (b in c) or (c in b):
+                        if negate:
+                            all_there = False
+                            break
+                        else:
+                            continue
+                    else:
+                        if negate:
+                            continue
+                        else:
+                            all_there = False
+                            break
+                if all_there:
+                    filtered_collection.append(c)
+            else:
+                if (s in c) or (c in s):
+                    filtered_collection.append(c)
+                    break
+                else:
+                    pass
+
+    return filtered_collection
+
+
+default_configfile = os.path.join(nems.get_setting('SAVED_SETTINGS_PATH') + '/gui.ini')
+nems_root = os.path.abspath(nems.get_setting('SAVED_SETTINGS_PATH') + '/../../')
+
+def load_settings(config_group="db_browser_last", configfile=None):
+
+    if configfile is None:
+        configfile = default_configfile
+
+    config = ConfigParser(delimiters=('='))
+
+    try:
+        config.read(configfile)
+        settings = dict(config.items(config_group))
+        return settings
+    except:
+        return {}
+
+
+def save_settings(config_group="db_browser_last", settings={}, configfile=None):
+
+    if configfile is None:
+        configfile = default_configfile
+
+    try:
+        config.read(configfile)
+    except:
+        config = ConfigParser()
+
+    try:
+        # Create non-existent section
+        config.add_section(config_group)
+    except:
+        pass
+
+    for k, v in settings.items():
+        config.set(config_group, k, v)
+
+    with open(configfile, 'w') as f:
+        config.write(f)

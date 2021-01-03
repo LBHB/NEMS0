@@ -204,7 +204,13 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     # save some extra metadata
     modelspec = ctx['modelspec']
 
-    if type(cellid) is list:
+    cellids = modelspec.meta.get('cellids', [])
+
+    if (type(cellids) is list) and len(cellids) > 1:
+
+        cell_name = cellids[0].split("-")[0]
+
+    elif type(cellid) is list:
         cell_name = cellid[0].split("-")[0]
     else:
         cell_name = cellid
@@ -223,6 +229,18 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     if get_setting('USE_NEMS_BAPHY_API'):
         prefix = 'http://' + get_setting('NEMS_BAPHY_API_HOST') + ":" + str(get_setting('NEMS_BAPHY_API_PORT')) + \
                  '/results'
+        """
+    # reverted SVD 2020-07-30
+    #    save_loc = str(batch) + '/' + cell_name + '/' + modelspec.get_longname()
+    #    save_destination = prefix + '/' + save_loc
+    #    # set the modelspec meta save locations to be the filesystem and not baphy
+        std_filepath = modelspec.meta['modelpath'].replace(prefix, get_setting('NEMS_RESULTS_DIR'))
+        modelspec.meta['modelpath'] = std_filepath
+        modelspec.meta['figurefile'] = std_filepath + '/' + 'figure.0000.png'
+    #else:
+    
+    save_destination = destination
+        """
         save_loc = str(batch) + '/' + cell_name + '/' + modelspec.get_longname()
         save_destination = prefix + '/' + save_loc
         # set the modelspec meta save locations to be the filesystem and not baphy
