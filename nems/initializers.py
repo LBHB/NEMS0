@@ -96,7 +96,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
         other_xr = re.findall("[x][0-9]+[R]", kw)
-        if bool(other_xR):
+        if bool(other_xr):
             R = rec[output_name].nchans
             kw_old = kw
             kw = kw.replace("xR", "x{}".format(int(other_xr[0])*R))
