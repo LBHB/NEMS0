@@ -702,6 +702,7 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
            for i,e in enumerate(ematch):
                x = ep.epoch_intersection(preidx, [e], precision=precision)
                if len(x):
+                   #import pdb; pdb.set_trace()
                    prematch[i] = np.diff(x)
                else:
                    log.info('pre missing?')
