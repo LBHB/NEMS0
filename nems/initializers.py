@@ -99,7 +99,8 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
         if bool(other_xr):
             R = rec[output_name].nchans
             kw_old = kw
-            kw = kw.replace("xR", "x{}".format(int(other_xr[0])*R))
+            digits = int(re.findall("[0-9]+", other_xr[0])[0])
+            kw = kw.replace("x{}R".format(digits), "x{}".format(digits*R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
         # if (("x2R" in kw) or (".2R" in kw)) and (rec is not None):
