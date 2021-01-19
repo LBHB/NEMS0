@@ -1389,7 +1389,7 @@ def save_context(destination, ctx, xfspec=[]):
 
     save_analysis(destination, recording=ctx['rec'],
                   modelspec=ctx['modelspec'], xfspec=xfspec,
-                  figures=ctx.get('figures'), log=ctx.get('log'))
+                  figures=ctx.get('figures'), log=ctx.get('log', ''))
 
     _ctx=ctx.copy()
     del _ctx['modelspec']

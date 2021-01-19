@@ -700,8 +700,8 @@ def _extract_options(fitkey):
 
 def _parse_basic(options):
     '''Options specific to basic.'''
-    max_iter = 3000
-    tolerance = 1e-7
+    max_iter = 30000
+    tolerance = 1e-5
     fitter = 'scipy_minimize'
     choose_best = False
     rand_count = 1
@@ -789,6 +789,38 @@ def initpop(kw):
         xfspec = [['nems.xforms.fit_wrapper',
                    {'flip_pcs': flip_pcs,
                     'fit_function': 'nems.analysis.fit_pop_model.init_pop_pca'}]]
+    return xfspec
+
+
+@xform()
+def ccnorm(fitkey):
+    '''
+    Perform a fit_cc_norm fit on a model.
+
+    Parameters
+    ----------
+
+    Options
+    -------
+
+    '''
+
+    options = _extract_options(fitkey)
+    max_iter, tolerance, fitter, choose_best, rand_count = _parse_basic(options)
+
+    sel_options = {'max_iter': max_iter, 'tolerance': tolerance}
+    sel_options['fit_function'] = 'nems.analysis.fit_ccnorm.fit_ccnorm'
+
+    xfspec = []
+    if rand_count > 1:
+        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
+
+    xfspec.append(['nems.xforms.fit_wrapper', sel_options])
+
+    if choose_best:
+        xfspec.append(['nems.analysis.test_prediction.pick_best_phi',
+            {'criterion': 'mse_fit', 'keep_n': keep_n}])
+
     return xfspec
 
 

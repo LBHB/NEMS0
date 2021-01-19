@@ -582,6 +582,7 @@ class Recording:
 
         for i, v in enumerate(self.signal_views):
             for k, s in v.items():
+                s.name=k
                 _save_this = False
                 if i == 0:
                     print(i, k)

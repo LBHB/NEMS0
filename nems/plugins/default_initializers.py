@@ -172,3 +172,9 @@ def norm(kw):
                ['nems.xforms.normalize_sig', {'sig': 'resp', 'norm_method': norm_method}],
                ]
 
+@xform()
+def lvnoise(kw):
+    
+    return [['nems.preprocessing.add_noise_signal', {'noise_name': "indep"}, ['rec'], ['rec']],
+            ['nems.preprocessing.add_noise_signal', {'noise_name': "lv", 'ref_signal': "state"}, ['rec'], ['rec']]]
+
