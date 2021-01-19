@@ -1,8 +1,10 @@
 import logging
-
+import re
 import copy
-import numpy as np
 import os
+
+import numpy as np
+
 from nems.plugins import default_keywords
 from nems.utils import find_module, get_default_savepath
 from nems.analysis.api import fit_basic
@@ -93,23 +95,31 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
             kw = kw.replace("xR", "x{}".format(R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        if (("x2R" in kw) or (".2R" in kw)) and (rec is not None):
+        other_xr = re.findall(r"[x\.]?[0-9]+[R]", kw)
+        if bool(other_xr):
             R = rec[output_name].nchans
             kw_old = kw
-            kw = kw.replace("2R", "{}".format(2*R))
+            digits = int(re.findall("[0-9]+", other_xr[0])[0])
+            kw = kw.replace("{}R".format(digits), "{}".format(digits*R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        if (("x3R" in kw) or (".3R" in kw)) and (rec is not None):
-            R = rec[output_name].nchans
-            kw_old = kw
-            kw = kw.replace("3R", "{}".format(3*R))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
-
-        if (("x4R" in kw) or (".4R" in kw)) and (rec is not None):
-            R = rec[output_name].nchans
-            kw_old = kw
-            kw = kw.replace("4R", "{}".format(4*R))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+        # if (("x2R" in kw) or (".2R" in kw)) and (rec is not None):
+        #     R = rec[output_name].nchans
+        #     kw_old = kw
+        #     kw = kw.replace("2R", "{}".format(2*R))
+        #     log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+        #
+        # if (("x3R" in kw) or (".3R" in kw)) and (rec is not None):
+        #     R = rec[output_name].nchans
+        #     kw_old = kw
+        #     kw = kw.replace("3R", "{}".format(3*R))
+        #     log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+        #
+        # if (("x4R" in kw) or (".4R" in kw)) and (rec is not None):
+        #     R = rec[output_name].nchans
+        #     kw_old = kw
+        #     kw = kw.replace("4R", "{}".format(4*R))
+        #     log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
         log.info('kw: %s', kw)
 
