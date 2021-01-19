@@ -262,13 +262,19 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
         figs = ctx['figures']
     else:
         figs = []
-    save_data = xforms.save_analysis(save_destination,
-                                     recording=ctx.get('rec'),
-                                     modelspec=modelspec,
-                                     xfspec=xfspec,
-                                     figures=figs,
-                                     log=log_xf,
-                                     update_meta=False)
+    if ctx.get('save_context', False):
+        ctx['log'] = log_xf
+        save_data = xforms.save_context(save_destination,
+                                        ctx=ctx,
+                                        xfspec=xfspec)
+    else:
+        save_data = xforms.save_analysis(save_destination,
+                                         recording=ctx.get('rec'),
+                                         modelspec=modelspec,
+                                         xfspec=xfspec,
+                                         figures=figs,
+                                         log=log_xf,
+                                         update_meta=False)
 
     # save in database as well
     if saveInDB:
@@ -279,7 +285,7 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
 
 def load_model_xform(cellid, batch=271,
         modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",
-        eval_model=True, only=None):
+        eval_model=True, only=None, load_context=True):
     '''
     Load a model that was previously fit via fit_model_xforms
 
@@ -323,7 +329,9 @@ def load_model_xform(cellid, batch=271,
 
     # hack: hard-coded assumption that server will use this data root
     uri = filepath.replace('/auto/data/nems_db/results', get_setting('NEMS_RESULTS_DIR'))
-    if old:
+    if load_context:
+        xfspec, ctx = xforms.load_context(uri)
+    elif old:
         raise NotImplementedError("need to use oxf library.")
         xfspec, ctx = oxf.load_analysis(uri, eval_model=eval_model)
     else:

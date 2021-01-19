@@ -6,7 +6,7 @@ log = logging.getLogger(__name__)
 
 
 def basic_cost(sigma, unpacker, modelspec, data, segmentor,
-               evaluator, metric):
+               evaluator, metric, display_N=100):
     '''Standard cost function for use by fit_basic and other analyses.'''
     updated_spec = unpacker(sigma)
     # The segmentor takes a subset of the data for fitting each step
@@ -20,7 +20,7 @@ def basic_cost(sigma, unpacker, modelspec, data, segmentor,
 
     if hasattr(basic_cost, 'counter'):
         basic_cost.counter += 1
-        if basic_cost.counter % 100 == 0:
+        if basic_cost.counter % display_N == 0:
             log.info('Eval #%d. E=%.06f', basic_cost.counter, error)
             # log.debug("current sigma: %s", sigma)
             nems.utils.progress_fun()
