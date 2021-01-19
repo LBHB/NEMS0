@@ -3,4 +3,4 @@ from .corrcoef import corrcoef, j_corrcoef, r_floor, r_ceiling
 from .loglike import likelihood_poisson
 from .state import state_mod_index, j_state_mod_index
 from .stp import stp_magnitude
-from .lv import pup_dep_LV
+from .lv import pup_dep_LV, cc_err

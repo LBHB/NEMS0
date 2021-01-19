@@ -702,13 +702,14 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
            for i,e in enumerate(ematch):
                x = ep.epoch_intersection(preidx, [e], precision=precision)
                if len(x):
-                   #import pdb; pdb.set_trace()
                    prematch[i] = np.diff(x)
                else:
                    log.info('pre missing?')
                    import pdb; pdb.set_trace()
                x = ep.epoch_intersection(posidx, [e], precision=precision)
                if len(x):
+                   if x.shape[0]>1:
+                      import pdb; pdb.set_trace()
                    posmatch[i] = np.diff(x)
            prematch = np.round(prematch, decimals=precision)
            posmatch = np.round(posmatch, decimals=precision)
@@ -1223,8 +1224,6 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
         u *= vs
         X = ((D-m) / sd) @ u
 
-
-
     if compute_power == 'single_trial':
         X = convolve2d(np.abs(X), np.ones((3,1)) / 3, 'same')
 
@@ -1612,6 +1611,11 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
             sig.chans = ['pup_x_prw']
             newrec.add_signal(sig)
 
+    # delete any pre-existing state signal. Is this a good idea??
+    if new_signalname in newrec.signals.keys():
+        log.info("Deleting existing %s signal before generating new one", new_signalname)
+        del newrec.signals[new_signalname]
+
     for i, x in enumerate(state_signals):
         if x in permute_signals:
             # kludge: fix random seed to index of state signal in list
@@ -1669,6 +1673,27 @@ def concatenate_input_channels(rec, input_signals=[], input_name=None):
     newrec.add_signal(input)
 
     return newrec
+
+
+def add_noise_signal(rec, n_chans=None, T=None, noise_name="indep", ref_signal="resp", chans=None):
+
+    newrec = rec.copy()
+    if n_chans is None:
+        n_chans=rec[ref_signal].shape[0]
+    if chans is None:
+        chans = rec[ref_signal].chans.copy()
+    if T is None:
+        T = rec[ref_signal].shape[1]
+    d = np.random.randn(n_chans,T)
+    
+    newrec.add_signal(newrec['resp']._modified_copy(data=d, name=noise_name, chans=chans))
+
+    return newrec
+
+
+#
+# SELECT SUBSETS OF THE DATA
+#
 
 def signal_select_channels(rec, sig_name="resp", chans=None):
 
