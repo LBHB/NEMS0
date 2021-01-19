@@ -95,7 +95,6 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
             kw = kw.replace("xR", "x{}".format(R))
             log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-<<<<<<< HEAD
         other_xr = re.findall(r"[x\.]?[0-9]+[R]", kw)
         if bool(other_xr):
             R = rec[output_name].nchans
@@ -121,25 +120,6 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
         #     kw_old = kw
         #     kw = kw.replace("4R", "{}".format(4*R))
         #     log.info("kw: dynamically subbing %s with %s", kw_old, kw)
-=======
-        if (("x2R" in kw) or (".2R" in kw)) and (rec is not None):
-            R = rec[output_name].nchans
-            kw_old = kw
-            kw = kw.replace("2R", "{}".format(2*R))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
-
-        if (("x3R" in kw) or (".3R" in kw)) and (rec is not None):
-            R = rec[output_name].nchans
-            kw_old = kw
-            kw = kw.replace("3R", "{}".format(3*R))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
-
-        if (("x4R" in kw) or (".4R" in kw)) and (rec is not None):
-            R = rec[output_name].nchans
-            kw_old = kw
-            kw = kw.replace("4R", "{}".format(4*R))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
->>>>>>> master
 
         log.info('kw: %s', kw)
 
@@ -394,7 +374,7 @@ def prefit_to_target(rec, modelspec, analysis_function, target_module,
             if len(mean_resp)==len(m['phi']['level'][:]):
                 log.info('Mod %d (%s) initializing level to %s mean %.3f',
                          i, m['fn'], output_name, mean_resp[0])
-                log.info('Output %s has %d channels', 
+                log.info('Output %s has %d channels',
                          output_name, len(mean_resp))
                 m['phi']['level'][:] = mean_resp
 
