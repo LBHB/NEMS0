@@ -508,9 +508,9 @@ class SignalBase:
                     break
                 if e >= n_epochs:
                     break
-        
-        indices = np.asarray(indices, dtype='i')  
-        
+
+        indices = np.asarray(indices, dtype='i')
+
         # exclude segments without data
         if (indices.size != 0) & allow_incomplete:
             zero_data_mask = (indices[:, 0] - indices[:, 1])!=0
@@ -521,14 +521,14 @@ class SignalBase:
             m_data = mask.as_continuous()
 
             # get a "reference epoch mask" for safety checking below
-            standard_mask = None 
+            standard_mask = None
 
             keepidx = []
             for i, (lb, ub) in enumerate(indices):
                 #                samples = ub-lb
                 if np.all(m_data[0, lb:ub]) & np.all(m_data[0, lb]):
                     keepidx.append(i)
-            
+
                 elif (np.sum(m_data[0, lb:ub]) > 0) & allow_incomplete:
                     # "safety" checks
                     if standard_mask is None:
@@ -993,6 +993,10 @@ class RasterizedSignal(SignalBase):
             You may use the same epoch name multiple times; this is common when
             tagging epochs that correspond to occurrences of the same stimulus.
         '''
+        if data.ndim==1:
+            # assume one dim should be time
+            data=np.reshape(data,(1,data.size))
+            
         super().__init__(fs, data, name, recording, chans, epochs, segments,
                          meta, safety_checks, normalization)
         self._data.flags.writeable = False
@@ -1862,7 +1866,7 @@ class RasterizedSignal(SignalBase):
 
     def to_epochs(self):
         """
-        create list of epochs for when a signal is non-zero. intended 
+        create list of epochs for when a signal is non-zero. intended
         for boolean-type signals that are sparsely True, but works
         for any signal type
         :return: epochs list for each segment where self._data > 0
@@ -2346,7 +2350,7 @@ class PointProcess(SignalBase):
             epoch_bounds = self.get_epoch_bounds(epoch,
                                                   boundary_mode=boundary_mode,
                                                   fix_overlap=fix_overlap,
-                                                  mask=mask, 
+                                                  mask=mask,
                                                   allow_incomplete=allow_incomplete)
         else:
             epoch_bounds = epoch

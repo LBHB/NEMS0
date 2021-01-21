@@ -118,7 +118,10 @@ def json_numpy_obj_hook(dct):
 
 
 def local_uri(uri):
-    '''Returns the local filepath if it is a local URI, else None.'''
+    '''
+    Returns the local filepath if it is a local URI, else None.
+    uri - string
+    '''
     if uri[0:7] == 'file://':
         return uri[7:]
     elif uri[0] == '/':

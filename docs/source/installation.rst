@@ -56,6 +56,7 @@ generic install described above:
 **Tensorflow**: If you're using conda to manage packages, it's best to install Tensorflow via conda:
 
 ::
+
     # without GPU (run on CPU):
     conda install tensorflow
     # or with GPU support:

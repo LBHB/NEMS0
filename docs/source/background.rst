@@ -1,6 +1,13 @@
 Background and References
 =========================
 
+The Big Picture
+---------------
+
+.. image:: architecture.svg
+  :width: 400
+  :alt: NEMS architecture overview
+
 Suggested Reading
 -----------------
 

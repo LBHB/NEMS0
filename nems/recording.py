@@ -8,7 +8,7 @@ import tarfile
 import tempfile
 import time
 import warnings
-from pathlib import Path
+from pathlib import Path, PosixPath
 
 import numpy as np
 import pandas as pd
@@ -356,7 +356,7 @@ class Recording:
         """
         The NWB (Neurodata Without Borders) format is a unified data format developed by the Allen Brain Institute.
         Data is stored as an HDF5 file, with the format varying depending how the data was saved.
-        
+
         References:
           - https://nwb.org
           - https://pynwb.readthedocs.io/en/latest/index.html
@@ -377,14 +377,14 @@ class Recording:
 
         if nwb_format == 'neuropixel':
             """
-            In neuropixel ecephys nwb files, data is stored in several attributes of the container: 
+            In neuropixel ecephys nwb files, data is stored in several attributes of the container:
               - units: individual cell metadata, a dataframe
               - epochs: timing of the stimuli, series of arrays
               - lab_meta_data: metadata about the experiment, such as specimen details
-              
-            Spike times are saved as arrays in the 'spike_times' column of the units dataframe as xarrays. 
+
+            Spike times are saved as arrays in the 'spike_times' column of the units dataframe as xarrays.
             The frequency is 1250.
-              
+
             Refs:
               - https://allensdk.readthedocs.io/en/latest/visual_coding_neuropixels.html
               - https://allensdk.readthedocs.io/en/latest/_static/examples/nb/ecephys_quickstart.html
@@ -1410,6 +1410,8 @@ def load_recording(uri):
     # Load from S3:
     rec = Recording.load('s3://nems.lbhb... TODO')
     '''
+    if type(uri) is PosixPath:
+        uri = str(uri)
     if local_uri(uri):
         if targz_uri(uri):
             rec = load_recording_from_targz(local_uri(uri))
@@ -1625,7 +1627,9 @@ def jackknife_inverse_merge(rec_list):
 #       the unpack option depends on code in this module.
 
 DEMO_NAMES = [
-        'TAR010c-18-1.pkl', 'TAR010c.NAT.fs100.ch18.tgz', 'eno052d-a1.tgz',
+        'TAR010c-18-1.pkl',
+        'TAR010c-NAT-stim.csv.gz', 'TAR010c-NAT-resp.csv.gz', 'TAR010c-NAT-epochs.csv',
+        'TAR010c.NAT.fs100.ch18.tgz', 'eno052d-a1.tgz',
         'BRT026c-02-1.tgz', 'resp2.tgz',
         'TAR010c-06-1.tgz',
         ]

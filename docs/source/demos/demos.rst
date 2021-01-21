@@ -1,8 +1,14 @@
 NEMS Demos
 ==========
 
-How to Run Demos
-----------------
+Demo scripts
+------------
+
+The ``NEMS/scripts/`` folder contains a number of files ``demo_*.py`` that illustrate
+different aspects of working with NEMS. A good place to start is ``demo_script.py``.
+
+Demo Notebooks
+--------------
 
 These demos are formatted as Jupyter notebooks. There are two ways to run them.
 One is to launch your preferred Python environment with NEMS installed. Then
@@ -12,10 +18,6 @@ An alternative is to copy the notebooks from nems/docs/source/demos/ to
 a working directory and open them using Jupyter Notebooks/Jupyter Lab. More
 information on using Jupyter here:
 https://jupyter.org/
-
-
-Demo Notebooks
---------------
 
 .. toctree::
     :maxdepth: 1
