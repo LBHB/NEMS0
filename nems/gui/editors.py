@@ -560,6 +560,7 @@ class ModuleCanvas(qw.QFrame):
         gc = self.parent.parent.global_controls
         #if self.axes is None:
         self.axes = self.canvas.figure.add_subplot(111)
+        import pdb; pdb.set_trace()
         ax = self.axes
         #ax.clear()
         rec = self.parent.modelspec.recording

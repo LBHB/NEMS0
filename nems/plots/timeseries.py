@@ -28,9 +28,7 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
 
     TODO: expand this doc  -jacob 2-17-18
     '''
-    if ax is not None:
-        plt.sca(ax)
-    else:
+    if ax is None:
         ax = plt.gca()
 
     cc = 0
@@ -45,21 +43,21 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
             v=v[:,np.newaxis]
         for idx in range(v.shape[1]):
             gidx = np.isfinite(v[:,idx])
-            h_=plt.plot(t[gidx], v[gidx, idx], linestyle=linestyle,
+            h_=ax.plot(t[gidx], v[gidx, idx], linestyle=linestyle,
                         linewidth=linewidth, **opt)
             h = h + h_
         cc += 1
         if gidx.sum() > 0:
             mintime = np.min((mintime, np.min(t[gidx])))
             maxtime = np.max((maxtime, np.max(t[gidx])))
-    plt.margins(x=0)
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
+    #ax.set_margins(x=0)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
     ax.set_xlim([mintime, maxtime])
     if legend:
-        plt.legend(legend)
+        plt.legend(legend, ax=ax)
     if title:
-        plt.title(title)
+        ax.set_title(title)
 
     ax_remove_box(ax)
 
