@@ -423,7 +423,7 @@ def fit_tf_init(
     #    else:
     #        up_to_idx = len(modelspec) - 1
     log.info('up_to_idx=%d (%s)', up_to_idx, modelspec[up_to_idx]['fn'])
-    
+
     # do the +1 here to avoid adding to None
     up_to_idx += 1
     # exclude the following from the init
@@ -565,6 +565,3 @@ def get_jacobian(model: tf.keras.Model,
 
     w = g.jacobian(z, tensor)
     return w
-
-
-

@@ -14,7 +14,7 @@ import nems.utils
 log = logging.getLogger(__name__)
 
 
-def generate_prediction(est, val, modelspecc, **context):
+def generate_prediction(est, val, modelspec, **context):
 
     # TODO support for multiple recording views/modelspec jackknifes (jack_count>0)
     #  outer loop = fit, inner loop = jackknife ?
