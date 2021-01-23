@@ -8,7 +8,7 @@ import tarfile
 import tempfile
 import time
 import warnings
-from pathlib import Path, PosixPath
+from pathlib import Path, PosixPath, WindowsPath
 
 import numpy as np
 import pandas as pd
@@ -1410,7 +1410,7 @@ def load_recording(uri):
     # Load from S3:
     rec = Recording.load('s3://nems.lbhb... TODO')
     '''
-    if type(uri) is PosixPath:
+    if type(uri) in [PosixPath, WindowsPath]:
         uri = str(uri)
     if local_uri(uri):
         if targz_uri(uri):
@@ -1675,7 +1675,7 @@ def get_demo_recordings(directory=None, name=None, unpack=False):
                 # TODO: clean this up, copied from recordings code.
                 #       All of these content-types have showed up *so far*
                 allowed_headers = [
-                        'application/gzip', 'application/x-gzip',
+                        'application/gzip', 'application/x-gzip', 'text/csv',
                         'application/x-compressed', 'application/x-tgz',
                         'application/x-tar', 'application/x-compressed-tar',
                         'binary/octet-stream',  'application/x-www-form-urlencoded; charset=utf-8'

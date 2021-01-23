@@ -5,7 +5,7 @@ The Big Picture
 ---------------
 
 .. image:: architecture.svg
-  :width: 400
+  :width: 600
   :alt: NEMS architecture overview
 
 Suggested Reading

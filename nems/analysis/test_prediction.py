@@ -14,7 +14,7 @@ import nems.utils
 log = logging.getLogger(__name__)
 
 
-def generate_prediction(est, val, modelspec, jackknifed_fit=False, **context):
+def generate_prediction(est, val, modelspecc, **context):
 
     # TODO support for multiple recording views/modelspec jackknifes (jack_count>0)
     #  outer loop = fit, inner loop = jackknife ?
@@ -400,7 +400,7 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
         view_range = [i * jack_count + j for i in range(fit_count)]
         this_est = new_est.view_subset(view_range)
         this_modelspec = modelspec.copy(jack_index=j)
-        
+
         if (metric_fn == 'nems.metrics.mse.nmse') & (criterion == 'mse_fit'):
             # for backwards compatibility, run the below code to compute metric specified
             # by criterion.
