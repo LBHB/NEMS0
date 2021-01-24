@@ -390,8 +390,6 @@ def get_default_savepath(modelspec):
     else:
         results_dir = get_setting('NEMS_RESULTS_DIR')
 
-    import pdb; pdb.set_trace()
-
     batch = modelspec.meta.get('batch', 0)
     exptid = modelspec.meta.get('exptid', 'DATA')
     siteid = modelspec.meta.get('siteid', exptid)
