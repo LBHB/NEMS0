@@ -207,8 +207,10 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     cellids = modelspec.meta.get('cellids', [])
 
     if (type(cellids) is list) and len(cellids) > 1:
-
-        cell_name = cellids[0].split("-")[0]
+        if cellid == 'none':
+            cell_name = 'none'
+        else:
+            cell_name = cellids[0].split("-")[0]
 
     elif type(cellid) is list:
         cell_name = cellid[0].split("-")[0]
