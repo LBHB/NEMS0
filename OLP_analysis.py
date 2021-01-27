@@ -1,19 +1,22 @@
 import numpy as np
 import scipy.ndimage.filters as sf
 from nems_lbhb.baphy_experiment import BAPHYExperiment
-import matplotlib.pyplot as plt
 import matplotlib
+import matplotlib.pyplot as plt
 from scipy import stats
+import sys
+sys.path.extend(['/auto/users/hamersky/olp'])
+import helpers as helpers
+from sklearn.decomposition import PCA
 
-
-def load_experiment_params(parmfile):
+def load_experiment_params(parmfile, rasterfs=100):
     """Given a parm file, or if I'm on my laptop, a saved experiment file, it will load the file
     and get relevant parameters about the experiment as well as sort out the sound indexes."""
-    rasterfs = 100
     params = {}
     expt = BAPHYExperiment(parmfile)
     rec = expt.get_recording(rasterfs=rasterfs, resp=True, stim=False)
     resp = rec['resp'].rasterize()
+    rec['resp'] = rec['resp'].rasterize()
     e = resp.epochs
     expt_params = expt.get_baphy_exptparams()   #Using Charlie's manager
     ref_handle = expt_params[0]['TrialObject'][1]['ReferenceHandle'][1]
@@ -34,6 +37,7 @@ def load_experiment_params(parmfile):
                                   soundies[s]['fg_sound_name'].split('.')[0])])
                                     for s in range(len(soundies))]
     params['units'], params['response'] = resp.chans, resp
+    params['rec'] = rec
 
     return params
 
@@ -378,6 +382,7 @@ def z_allpairs(resp_idx, unit, response, params, sigma=None, z_av=False):
     """Creates subplots for each sound pair where the zscore is plotted for each sound combo
     indicated by resp_idx. Smooth with sigma and z_av creates a new figure that shows the average
     zscore from all the displayed subplots."""
+    disp_pairs = response.shape[0]
     fig, axes = plt.subplots(int(np.round(disp_pairs / 2)), 2, sharey=True)
     axes = np.ravel(axes, order='F')
     zscore, z_params = get_z(resp_idx, response, params)
@@ -432,87 +437,71 @@ def z_allpairs(resp_idx, unit, response, params, sigma=None, z_av=False):
                      f"resp_idx {resp_idx}", fontweight='bold')
 
 
-def plot_heatmap(pair, combo, response, params, sigma=None, ax=None):
-    edit_fig = False
-    if ax == None:
-        fig, ax = plt.subplots()
-        edit_fig = True
+def load_parms(parmfiles):
+    responses, parameters = {}, {}
+    for file in parmfiles:
+        params = load_experiment_params(file)
+        response = get_response(params, sub_spont=True)
+        responses[params['experiment']], parameters[params['experiment']] = response, params
 
-    if sigma is not None:
-        zscore = sf.gaussian_filter1d(mean_resp, sigma, axis=1)
-        zmin, zmax = np.min(np.min(mean_resp, axis=1)), np.max(np.max(mean_resp, axis=1))
-        abs_max = max(abs(zmin),zmax)
-    else:
-        zmin, zmax = np.min(np.min(zscore, axis=1)), np.max(np.max(zscore, axis=1))
-        abs_max = max(abs(zmin),zmax)
+    return responses, parameters
 
-    mean_resp = np.nanmean(response[pair, combo, :, :, :], axis=0)
-    im = ax.imshow(mean_resp, aspect='auto', cmap='bwr',
-            extent=[-0.5, (mean_resp.shape[1] / params['fs']) - 0.5, mean_resp.shape[0], 0])
+##PCA Stuff
 
-    aspect = 'auto', cmap = 'bwr',
-    extent = [-0.5, (zscore[cnt, :, :].shape[1] / params['fs']) -
-              0.5, zscore[cnt, :, :].shape[0], 0], vmin = -abs_max, vmax = abs_max)
+def plot_projections(pair, params):
+    nbins = params['fs'] * params['stim length']
+    time = np.linspace(0, nbins / params['response'].fs, nbins) - params['PreStimSilence']
+    bg_name, fg_name = params['pairs'][pair][0], params['pairs'][pair][1]
 
-        ax.set_title(f"Pair {cnt}: BG {params['pairs'][cnt][0]} - FG {params['pairs'][cnt][1]}",
-                     fontweight='bold')
-        ymin, ymax = ax.get_ylim()
-        ax.vlines([0, params['Duration']], ymin, ymax, colors='black', linestyles='--', lw=1)
-        xmin, xmax = ax.get_xlim()
-        ax.set_xlim(xmin + 0.3, xmax - 0.2)
-        if cnt == int(np.around(zscore.shape[0] / 2) - 1) or cnt == int(len(axes) - 1):
-            ax.set_xticks([0, 0.5, 1.0])
-        else:
-            ax.set_xticks([])
+    bg_epoch = f"{bg_name}-0-{params['Duration']}"
+    fg_epoch = f"{fg_name}-0-{params['Duration']}"
+    fg_bg_epoch = f"STIM_{bg_name}-{params['SilenceOnset']}-{params['Duration']}_" \
+                  f"{fg_name}-0-{params['Duration']}"
+    bg_fg_epoch = f"STIM_{bg_name}-0-{params['Duration']}_" \
+                  f"{fg_name}-{params['SilenceOnset']}-{params['Duration']}"
+    combo_epoch = f"STIM_{bg_name}-0-{params['Duration']}_" \
+                  f"{fg_name}-0-{params['Duration']}"
+    decoder = helpers.get_decoder(params['rec'], fg_epoch, bg_epoch, collapse=False)
 
-def heat_map(experiment, pair, combo_idx=None, expt_resp=resp, expt_pairs=Pairs, fs=rasterfs, BGs=backgrounds, FGs=foregrounds):
-    response, ids = get_response(experiment, pair, None, expt_resp, expt_pairs, BGs, FGs)
+    f = plt.figure(figsize=(11, 9))
+    tser1 = plt.subplot2grid((3, 5), (0, 0), rowspan=1, colspan=3)
+    tser2 = plt.subplot2grid((3, 5), (1, 0), rowspan=1, colspan=3)
+    tser3 = plt.subplot2grid((3, 5), (2, 0), rowspan=1, colspan=3)
+    sim = plt.subplot2grid((3, 5), (1, 3), rowspan=1, colspan=2)
 
-    if combo_idx:
-        fig, axes = plt.subplots(1)
-        mean_resp = response[combo_idx][1].mean(axis=0)
+    combos, axs = [fg_bg_epoch, bg_fg_epoch, combo_epoch], [tser1, tser2, tser3]
+    names = ['half BG, full FG', 'full BG, half FG', 'full BG, full FG']
 
-        ymin, ymax = axes.get_ylim()
-        axes.vlines([0 - (0.5 / fs), 1 - (0.5 / fs)], ymin, ymax, colors='white', linestyles='--',
-                  lw=1)  # unhard code the 1
-        xmin, xmax = axes.get_xlim()
-        axes.set_xlim(xmin+0.3,xmax-0.2)
-        axes.set_xticks([0,0.5,1.0])
-        axes.set_ylabel('Neurons', fontweight='bold')
-        axes.set_xlabel('Time from onset (s)', fontweight='bold')
-        fig.suptitle(f"Experiment HOD00{ids['experiment']} - Pair {ids['pair']} - "
-                     f"Combo {combo_idx} {ids['labels'][combo_idx]}\n"
-                     f"BG: {ids['sounds'][0]} - FG: {ids['sounds'][1]}",fontweight='bold')
+    bg_resp = params['response'].extract_epoch('STIM_'+bg_epoch+'_null')
+    fg_resp = params['response'].extract_epoch('STIM_null_'+fg_epoch)
+    # project single trials onto each decoding axis for responses in isolation
+    bg_resp = np.concatenate([bg_resp[:, :, i] @ decoder[[i], :].T for i in range(decoder.shape[0])], axis=-1)
+    fg_resp = np.concatenate([fg_resp[:, :, i] @ decoder[[i], :].T for i in range(decoder.shape[0])], axis=-1)
 
-    else:
-        fig, axes = plt.subplots(4,2, sharex=True, sharey=True, squeeze=True)
-        axes = np.ravel(axes, order='F')
+    for cnt, (epoch, tser) in enumerate(zip(combos, axs)):
+        combo_resp = params['response'].extract_epoch(epoch)
+        # project single trials onto each decoding axis for combo responses
+        combo_resp = np.concatenate([combo_resp[:, :, i] @ decoder[[i], :].T for i in range(decoder.shape[0])], axis=-1)
 
-        for cnt,ax in enumerate(axes):
-            mean_resp = response[cnt][1].mean(axis=0)
-            ax.imshow(mean_resp, aspect='auto', cmap='inferno',
-                      extent=[-0.5,(mean_resp.shape[1]/fs)-0.5,mean_resp.shape[0],0])
-            ax.set_title(f"{ids['labels'][cnt]}", fontweight='bold')
-            ymin, ymax = ax.get_ylim()
-            ax.vlines([0-(0.5/fs),1-(0.5/fs)], ymin, ymax, colors='white', linestyles='--', lw=1)  # unhard code the 1
+        #plot
+        tser.plot(time, fg_resp.mean(axis=0), '--', label='fg (isolation)', color='tab:blue', lw=2)
+        tser.plot(time, bg_resp.mean(axis=0), '--', label='bg (isolation)', color='tab:orange', lw=2)
+        mean, sem = combo_resp.mean(axis=0), combo_resp.std(axis=0)
+        tser.plot(time, mean, lw=2, color='grey')
+        tser.fill_between(time, mean - sem, mean + sem, lw=0, alpha=0.5, color='grey', label=names[cnt])
+        tser.axvline(params['PreStimSilence'], color='k', lw=2, label='transition', zorder=0)
 
-        xmin, xmax = ax.get_xlim()
-        ax.set_xlim(xmin+0.3,xmax-0.2)
-        ax.set_xticks([0,0.5,1.0])
+        tser.legend(frameon=False, bbox_to_anchor=(1, 1), loc="upper left")
+        tser.set_ylabel('Decoding axis projection')
+        tser.set_xlabel('Trial time')
+        tser.set_title(combo_epoch)
+        tser.set_xlim((time[0], time[-1]))
 
-        fig.text(0.5, 0.07, 'Time from onset (s)', ha='center', va='center', fontweight='bold')
-        fig.text(0.1, 0.5, 'Neurons', ha='center', va='center', rotation='vertical', fontweight='bold')
-        fig.suptitle(f"Experiment HOD00{ids['experiment']} - Pair {ids['pair']} \n"
-                     f"BG: {ids['sounds'][0]} - FG: {ids['sounds'][1]}",fontweight='bold')
+    sim.imshow(np.abs(decoder @ decoder.T), aspect='auto', cmap='Reds', vmin=0, vmax=1,
+               extent=[time[0], time[-1], time[0], time[-1]])
+    sim.set_title(f'Decoding axes similarity - Pair {pair}')
 
-
-
-
-
-parmfile = '/auto/data/daq/Hood/HOD009/HOD009a09_p_OLP'
-params = load_experiment_params(parmfile)
-response = get_response(params, sub_spont=True)
-# [2,3] (hBG,fFG) - [2,7] (fBG, hFG) - [0,1,2] fBG/fFG - [1,4,3] (hBG,fFG)
-z_heatmaps_allpairs([0,4,3], response, params, 2)
+    f.tight_layout()
+    plt.show()
 
 
