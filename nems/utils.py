@@ -389,6 +389,7 @@ def get_default_savepath(modelspec):
                       str(get_setting('NEMS_BAPHY_API_PORT')) + '/results'
     else:
         results_dir = get_setting('NEMS_RESULTS_DIR')
+
     batch = modelspec.meta.get('batch', 0)
     exptid = modelspec.meta.get('exptid', 'DATA')
     siteid = modelspec.meta.get('siteid', exptid)
@@ -396,7 +397,10 @@ def get_default_savepath(modelspec):
     cellids = modelspec.meta.get('cellids', siteid)
 
     if (siteid == 'DATA') and (type(cellids) is list) and len(cellids) > 1:
-        siteid = cellids[0].split("-")[0]
+        if cellid == 'none':
+            siteid = 'none'  # special siteid that uses all sites in a single recording
+        else:
+            siteid = cellids[0].split("-")[0]
         destination = os.path.join(results_dir, str(batch), siteid,
                                    modelspec.get_longname())
     else:
