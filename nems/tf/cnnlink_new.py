@@ -291,7 +291,7 @@ def fit_tf(
                                                     save_freq=100 * stim_train.shape[0],
                                                     monitor='loss',
                                                     verbose=0)
-    sparse_logger = callbacks.SparseProgbarLogger(n_iters=10)
+    sparse_logger = callbacks.SparseProgbarLogger(n_iters=50)
     nan_terminate = tf.keras.callbacks.TerminateOnNaN()
     nan_weight_terminate = callbacks.TerminateOnNaNWeights()
     tensorboard = tf.keras.callbacks.TensorBoard(log_dir=str(tensorboard_filepath),  # TODO: generic tensorboard dir?

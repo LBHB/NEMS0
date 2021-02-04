@@ -285,7 +285,7 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
 
 def load_model_xform(cellid, batch=271,
         modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",
-        eval_model=True, only=None, load_context=True):
+        eval_model=True, only=None, load_context=False):
     '''
     Load a model that was previously fit via fit_model_xforms
 
