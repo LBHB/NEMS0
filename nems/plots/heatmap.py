@@ -22,9 +22,7 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
     '''
     A wrapper for matplotlib's plt.imshow() to ensure consistent formatting.
     '''
-    if ax is not None:
-        plt.sca(ax)
-    else:
+    if ax is None:
         ax = plt.gca()
 
     if cmap is None:
@@ -44,7 +42,7 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
     else:
         extent = None
 
-    plt.imshow(array, aspect='auto', origin='lower', cmap=cmap,
+    im=ax.imshow(array, aspect='auto', origin='lower', cmap=cmap,
                clim=clim, interpolation=interpolation, extent=extent)
 
     # Force integer tick labels, skipping gaps
@@ -54,19 +52,19 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
     #plt.xticklabels(np.arange(0, x-skip))
     #plt.yticks(np.arange(skip, y), np.arange(0, y-skip))
     #plt.yticklabels(np.arange(0, y-skip))
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
 
     if show_cbar:
     # Set the color bar
-        cbar = plt.colorbar()
+        cbar = plt.colorbar(im, ax=ax)
         cbar.ax.tick_params(labelsize=fontsize)
         cbar.ax.yaxis.set_major_locator(plt.MaxNLocator(3))
         cbar.set_label('Gain', fontsize=fontsize)
         cbar.outline.set_edgecolor('white')
 
     if title is not None:
-        plt.title(title)
+        ax.set_title(title)
 
     ax_remove_box(ax)
     return ax

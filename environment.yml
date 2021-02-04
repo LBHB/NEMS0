@@ -1,5 +1,6 @@
 channels:
     - defaults
+    - conda-forge
 
 dependencies:
     - python=3.6
@@ -14,6 +15,6 @@ dependencies:
     - tornado
     - pyqt
     - pyqtgraph
-    - tensorflow>=2.2
+    - tensorflow
     - tensorboard
     - tensorflow-probability
