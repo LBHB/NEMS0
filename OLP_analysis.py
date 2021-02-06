@@ -7,15 +7,25 @@ from scipy import stats
 import sys
 sys.path.extend(['/auto/users/hamersky/olp'])
 import helpers as helpers
+import scipy.stats as sst
+from warnings import warn
 from sklearn.decomposition import PCA
 
-def load_experiment_params(parmfile, rasterfs=100):
+def load_experiment_params(parmfile, rasterfs=100, sub_spont=True):
     """Given a parm file, or if I'm on my laptop, a saved experiment file, it will load the file
     and get relevant parameters about the experiment as well as sort out the sound indexes."""
     params = {}
     expt = BAPHYExperiment(parmfile)
     rec = expt.get_recording(rasterfs=rasterfs, resp=True, stim=False)
     resp = rec['resp'].rasterize()
+    if sub_spont == True:
+        prestimsilence = resp.extract_epoch('PreStimSilence')
+        # average over reps(0) and time(-1), preserve neurons
+        spont_rate = np.expand_dims(np.nanmean(prestimsilence, axis=(0, -1)), axis=1)
+        std_per_neuron = resp._data.std(axis=1, keepdims=True)
+        std_per_neuron[std_per_neuron == 0] = 1
+        resp = resp._modified_copy(data=(resp._data - spont_rate) / std_per_neuron)
+
     rec['resp'] = rec['resp'].rasterize()
     e = resp.epochs
     expt_params = expt.get_baphy_exptparams()   #Using Charlie's manager
@@ -37,7 +47,7 @@ def load_experiment_params(parmfile, rasterfs=100):
                                   soundies[s]['fg_sound_name'].split('.')[0])])
                                     for s in range(len(soundies))]
     params['units'], params['response'] = resp.chans, resp
-    params['rec'] = rec
+    params['rec'] = resp #could be rec, was using for PCA function, might need to fix with spont/std
 
     return params
 
@@ -117,7 +127,7 @@ def get_z(resp_idx, full_response, params):
 
     return z_no_nan, z_params
 
-
+##plotting functions
 def z_heatmaps_allpairs(resp_idx, response, params, sigma=None):
     """Plots a two column figure of subplots, one for each sound pair, displaying a heat map
     of the zscore for all the units."""
@@ -133,7 +143,7 @@ def z_heatmaps_allpairs(resp_idx, response, params, sigma=None):
 
     fig, axes = plt.subplots(int(np.round(zscore.shape[0]/2)), 2)
     axes = np.ravel(axes, order='F')
-    if int(zscore.shape[0] / 2) % 2 != 0:
+    if int(zscore.shape[0]) % 2 != 0:
         axes[-1].spines['top'].set_visible(False), axes[-1].spines['bottom'].set_visible(False)
         axes[-1].spines['right'].set_visible(False), axes[-1].spines['left'].set_visible(False)
         axes[-1].set_yticks([]), axes[-1].set_xticks([])
@@ -357,7 +367,7 @@ def psth_allpairs(resp_idx, unit, response, params, sigma=None, sum=False):
     disp_pairs = response.shape[0]
     fig, axes = plt.subplots(int(np.round(disp_pairs/2)), 2, sharey=True)
     axes = np.ravel(axes, order='F')
-    if int(disp_pairs / 2) % 2 != 0:
+    if int(disp_pairs) % 2 != 0:
         axes[-1].spines['top'].set_visible(False), axes[-1].spines['bottom'].set_visible(False)
         axes[-1].spines['right'].set_visible(False), axes[-1].spines['left'].set_visible(False)
         axes[-1].set_yticks([]), axes[-1].set_xticks([])
@@ -378,6 +388,71 @@ def psth_allpairs(resp_idx, unit, response, params, sigma=None, sum=False):
                  fontweight='bold')
 
 
+def psth_allunits(resp_idx, pair, response, params, sigma=None, sum=False):
+
+    disp_pairs = response.shape[3]
+    dims = int(np.ceil(np.sqrt(disp_pairs)))
+
+    fig, axes = plt.subplots(dims, dims, sharey=True)
+    axes = np.ravel(axes, order='F')
+    if dims**2 - disp_pairs != 0:
+        for aa in range(dims**2 - disp_pairs):
+            axes[-(aa+1)].spines['top'].set_visible(False), axes[-(aa+1)].spines['bottom'].set_visible(False)
+            axes[-(aa+1)].spines['right'].set_visible(False), axes[-(aa+1)].spines['left'].set_visible(False)
+            axes[-(aa+1)].set_xticks([])
+        axes = axes[:-(dims**2 - disp_pairs)]
+    for(ax, unit) in zip(axes, range(disp_pairs)):
+        psth_comp(resp_idx, pair, unit, response, params, sigma, z=False, sum=sum, ax=ax)
+        ax.set_title(f"Unit {unit} - {params['units'][unit]}", fontweight='bold')
+        if unit == 0:
+            ax.legend(loc='upper left', prop={'size': 5})
+        if unit in [x-1 for x in (list(range(dims,dims**2,dims)))] or unit == int(len(axes) - 1):
+            ax.set_xticks([0, 0.5, 1.0])
+        else:
+            ax.set_xticks([])
+
+        ymin, ymax = ax.get_ylim()
+        ax.set_ylim(ymin, ymax)
+
+    fig.text(0.5, 0.07, 'Time from onset (s)', ha='center', va='center', fontweight='bold')
+    fig.text(0.1, 0.5, 'spk/s', ha='center', va='center', rotation='vertical', fontweight='bold')
+    fig.suptitle(f"Experiment {params['experiment']} - resp_idx {resp_idx}\nPair {pair} - "
+                 f"BG {params['pairs'][pair][0]} - FG {params['pairs'][pair][1]}",
+                 fontweight='bold')
+
+def psth_fulls_allunits(pair, response, params, sigma=None):
+
+    disp_pairs, resp_idx = response.shape[3], [0,1]
+    dims = int(np.ceil(np.sqrt(disp_pairs)))
+
+    fig, axes = plt.subplots(dims, dims, sharey=False)
+    axes = np.ravel(axes, order='F')
+    if dims**2 - disp_pairs != 0:
+        for aa in range(dims**2 - disp_pairs):
+            axes[-(aa+1)].spines['top'].set_visible(False), axes[-(aa+1)].spines['bottom'].set_visible(False)
+            axes[-(aa+1)].spines['right'].set_visible(False), axes[-(aa+1)].spines['left'].set_visible(False)
+            axes[-(aa+1)].set_xticks([]), axes[-(aa+1)].set_yticks([])
+        axes = axes[:-(dims**2 - disp_pairs)]
+    for(ax, unit) in zip(axes, range(disp_pairs)):
+        psth_comp(resp_idx, pair, unit, response, params, sigma, z=False, sum=False, ax=ax)
+        ax.set_title(f"Unit {unit} - {params['units'][unit]}", fontweight='bold')
+        ax.hlines(0, -0.5, 1.5, linestyles=':')
+        if unit == 0:
+            ax.legend(loc='upper left', prop={'size': 5})
+        if unit in [x-1 for x in (list(range(dims,dims**2,dims)))] or unit == int(len(axes) - 1):
+            ax.set_xticks([0, 0.5, 1.0])
+        else:
+            ax.set_xticks([])
+
+        ymin, ymax = ax.get_ylim()
+        ax.set_ylim(ymin, ymax)
+
+    fig.text(0.5, 0.07, 'Time from onset (s)', ha='center', va='center', fontweight='bold')
+    fig.text(0.1, 0.5, 'spk/s', ha='center', va='center', rotation='vertical', fontweight='bold')
+    fig.suptitle(f"Experiment {params['experiment']} - resp_idx {resp_idx}\nPair {pair} - "
+                 f"BG {params['pairs'][pair][0]} - FG {params['pairs'][pair][1]}",
+                 fontweight='bold')
+
 def z_allpairs(resp_idx, unit, response, params, sigma=None, z_av=False):
     """Creates subplots for each sound pair where the zscore is plotted for each sound combo
     indicated by resp_idx. Smooth with sigma and z_av creates a new figure that shows the average
@@ -387,7 +462,7 @@ def z_allpairs(resp_idx, unit, response, params, sigma=None, z_av=False):
     axes = np.ravel(axes, order='F')
     zscore, z_params = get_z(resp_idx, response, params)
     x = np.linspace(0, response.shape[-1] / params['fs'], response.shape[-1]) - params['PreStimSilence']
-    if int(disp_pairs / 2) % 2 != 0:
+    if int(disp_pairs) % 2 != 0:
         axes[-1].spines['top'].set_visible(False), axes[-1].spines['bottom'].set_visible(False)
         axes[-1].spines['right'].set_visible(False), axes[-1].spines['left'].set_visible(False)
         axes[-1].set_yticks([]), axes[-1].set_xticks([])
@@ -437,14 +512,216 @@ def z_allpairs(resp_idx, unit, response, params, sigma=None, z_av=False):
                      f"resp_idx {resp_idx}", fontweight='bold')
 
 
+def z_bgfg_compare(resp_idx, resp_idx2, unit, response, params, sigma=None):
+    """Creates subplots for each sound pair where the zscore is plotted for each sound combo
+    indicated by resp_idx. Smooth with sigma and z_av creates a new figure that shows the average
+    zscore from all the displayed subplots."""
+    disp_pairs = response.shape[0]
+    fig, axes = plt.subplots(int(np.round(disp_pairs / 2)), 2, sharey=True)
+    axes = np.ravel(axes, order='F')
+    zscore, z_params = get_z(resp_idx, response, params)
+    zscore2, z_params2 = get_z(resp_idx2, response, params)
+    x = np.linspace(0, response.shape[-1] / params['fs'], response.shape[-1]) - params['PreStimSilence']
+    if int(disp_pairs) % 2 != 0:
+        axes[-1].spines['top'].set_visible(False), axes[-1].spines['bottom'].set_visible(False)
+        axes[-1].spines['right'].set_visible(False), axes[-1].spines['left'].set_visible(False)
+        axes[-1].set_yticks([]), axes[-1].set_xticks([])
+        axes = axes[:-1]
+    for(ax, pair) in zip(axes, range(disp_pairs)):
+        ax.plot(x, sf.gaussian_filter1d(zscore[pair, unit, :], sigma),
+                color='deepskyblue', label=z_params['label'])
+        ax.plot(x, sf.gaussian_filter1d(zscore2[pair, unit, :], sigma),
+                color='yellowgreen', label=z_params2['label'])
+        ax.hlines([0], x[0], x[-1], colors='black', linestyles=':', lw=0.5)
+        ax.set_xlim(-0.3, (params['Duration'] + 0.2))  # arbitrary window I think is nice
+        ax.set_xticks([0, (params['Duration'] / 2), params['Duration']])
+        ax.spines['top'].set_visible(False), ax.spines['right'].set_visible(False)
+        ax.set_title(f"Pair {pair}: BG {params['pairs'][pair][0]} - FG {params['pairs'][pair][1]}",
+                     fontweight='bold')
+        if pair == 0:
+            ax.legend(loc='upper left', prop={'size': 7})
+        if pair == int(np.around(disp_pairs / 2) - 1) or pair == int(len(axes) - 1):
+            ax.set_xticks([0, 0.5, 1.0])
+        else:
+            ax.set_xticks([])
+    for (ax, pair) in zip(axes, range(disp_pairs)):
+        ymin, ymax = ax.get_ylim()
+        ax.vlines([0, params['Duration']], ymin, ymax, colors='black', linestyles=':', lw=0.5)
+        ax.vlines(params['SilenceOnset'], ymax*.9, ymax,colors='black',linestyles='-', lw=0.25)
+        ax.set_ylim(ymin, ymax)
+    fig.text(0.5, 0.07, 'Time from onset (s)', ha='center', va='center', fontweight='bold')
+    fig.text(0.1, 0.5, 'spk/s', ha='center', va='center', rotation='vertical', fontweight='bold')
+    fig.suptitle(f"Experiment {params['experiment']} - Unit {unit} - resp_idx {resp_idx}",
+                 fontweight='bold')
+
+    return zscore, zscore2, z_params, z_params2
+
+
+def z_bgfg_compare2(zscore, z_params, zscore2, z_params2, unit, response, params, sigma=None):
+    """Creates subplots for each sound pair where the zscore is plotted for each sound combo
+    indicated by resp_idx. Smooth with sigma and z_av creates a new figure that shows the average
+    zscore from all the displayed subplots."""
+    disp_pairs = response.shape[0]
+    fig, axes = plt.subplots(int(np.round(disp_pairs / 2)), 2, sharey=True)
+    axes = np.ravel(axes, order='F')
+    x = np.linspace(0, response.shape[-1] / params['fs'], response.shape[-1]) - params['PreStimSilence']
+    if int(disp_pairs) % 2 != 0:
+        axes[-1].spines['top'].set_visible(False), axes[-1].spines['bottom'].set_visible(False)
+        axes[-1].spines['right'].set_visible(False), axes[-1].spines['left'].set_visible(False)
+        axes[-1].set_yticks([]), axes[-1].set_xticks([])
+        axes = axes[:-1]
+    for(ax, pair) in zip(axes, range(disp_pairs)):
+        ax.plot(x, sf.gaussian_filter1d(zscore[pair, unit, :]/zscore2[pair, unit, :], sigma),
+                color='black', label=z_params['label'])
+        ax.hlines([0], x[0], x[-1], colors='black', linestyles=':', lw=0.5)
+        ax.set_xlim(-0.3, (params['Duration'] + 0.2))  # arbitrary window I think is nice
+        ax.set_xticks([0, (params['Duration'] / 2), params['Duration']])
+        ax.spines['top'].set_visible(False), ax.spines['right'].set_visible(False)
+        ax.set_title(f"Pair {pair}: BG {params['pairs'][pair][0]} - FG {params['pairs'][pair][1]}",
+                     fontweight='bold')
+        if pair == 0:
+            ax.legend(loc='upper left', prop={'size': 7})
+        if pair == int(np.around(disp_pairs / 2) - 1) or pair == int(len(axes) - 1):
+            ax.set_xticks([0, 0.5, 1.0])
+        else:
+            ax.set_xticks([])
+    for (ax, pair) in zip(axes, range(disp_pairs)):
+        ymin, ymax = ax.get_ylim()
+        ax.vlines([0, params['Duration']], ymin, ymax, colors='black', linestyles=':', lw=0.5)
+        ax.vlines(params['SilenceOnset'], ymax*.9, ymax,colors='black',linestyles='-', lw=0.25)
+        ax.set_ylim(ymin, ymax)
+    fig.text(0.5, 0.07, 'Time from onset (s)', ha='center', va='center', fontweight='bold')
+    fig.text(0.1, 0.5, 'spk/s', ha='center', va='center', rotation='vertical', fontweight='bold')
+    fig.suptitle(f"Experiment {params['experiment']} - Unit {unit} - resp_idx {resp_idx}",
+                 fontweight='bold')
+
+
 def load_parms(parmfiles):
     responses, parameters = {}, {}
     for file in parmfiles:
         params = load_experiment_params(file)
-        response = get_response(params, sub_spont=True)
+        response = get_response(params, sub_spont=False)
+        # _, response = _base_reliability(response, params,
+        #                                            rep_dim=2, protect_dim=3, threshold=0.1)
         responses[params['experiment']], parameters[params['experiment']] = response, params
 
     return responses, parameters
+
+
+def _histogram_metrics(parmfiles):
+    for cnt, parmfile in enumerate(parmfiles):
+        params = olp.load_experiment_params(parmfile, rasterfs=100, sub_spont=True)
+        response = olp.get_response(params, sub_spont=False)
+        corcoefs = olp._base_reliability(response, params, rep_dim=2, protect_dim=3)
+        avg_resp = olp._significant_resp(response, params, protect_dim=3, time_dim=-1)
+        if cnt == 0:
+            signif, corco = avg_resp, corcoefs
+        else:
+            signif = np.concatenate((signif, avg_resp), axis=0)
+            corco = np.concatenate((corco, corcoefs), axis=0)
+    fig, ax = plt.subplots()
+    ax.hist(signif, bins=bins)
+    ax.set_title('Significance'), ax.set_xlabel('Time Averaged Normalized Response')
+    fig, ax = plt.subplots()
+    ax.hist(corco, bins=bins)
+    ax.set_title('Reliability')
+
+    return corco, signif
+
+
+def _base_reliability(response, params, rep_dim, protect_dim, threshold=0.1):
+    '''
+    :param raster: ndim array
+    :param rep_dim: int. dimension corresponding to repetitions
+    :protect_dim: int. dimension to keep outside of calculations
+    :return: ndarray. Contain perasons R for each position in the protect_dim.
+    '''
+    # reorders dimensions, first is repetitions, second is protected_dim
+    raster = np.moveaxis(response, [rep_dim, protect_dim], [0, -1])
+    R = raster.shape[0]
+    P = raster.shape[-1]
+
+    # gets two subsamples across repetitions, and takes the mean across reps
+    rep1 = np.nanmean(raster[0:-1:2, ...], axis=0)
+    rep2 = np.nanmean(raster[1:R+1:2, ...], axis=0)
+
+    resh1 = np.reshape(rep1,[-1, P])
+    resh2 = np.reshape(rep2,[-1, P])
+
+    corcoefs = np.empty(P)
+    corcoefs[:] = np.nan
+    for pp in range(P):
+        r = sst.pearsonr(resh1[:,pp], resh2[:,pp])
+        corcoefs[pp] = r[0]
+
+    return corcoefs
+
+
+def _significant_resp(response, params, protect_dim, time_dim=-1, threshold=0.2):
+    pre_bin = int(params['PreStimSilence'] * params['fs'])
+    post_bin = int(response.shape[time_dim] - (params['PostStimSilence'] * params['fs']))
+
+    signal_response = response[...,pre_bin:post_bin]
+    raster = np.moveaxis(signal_response, [protect_dim], [-1])
+    S = tuple([*range(0, len(raster.shape[:-1]), 1)])
+    avg_resp = np.nanmean(np.absolute(raster), axis=S)
+
+    return avg_resp
+
+
+def _find_good_units(response, params, corcoefs=None, corcoefs_threshold=None,
+                    avg_resp=None, avg_threshold=None):
+    '''Takes a site response and uses metrics gathered from other functions along
+    with a threshold from each and filters so you only have good units left.
+    Right now have to manually add additional metrics.'''
+    all_mask = (corcoefs > corcoefs_threshold) & (avg_resp > avg_threshold)
+    all_goodcells = np.asarray(params['units'])[all_mask]
+    good_idx = np.where(all_mask==True)
+    params['good_units'], params['good_idx'] = all_goodcells, good_idx
+
+    good_response = response[:, :, :, all_mask, :]
+
+    if len(all_goodcells) == 0:
+        warn(f'no reliable cells found')
+    print(f"Started with {len(params['units'])} units, found {len(all_goodcells)} reliable units.")
+
+    return good_response
+
+
+def plot_auc_mean(combo, response, params):
+    colors = ['deepskyblue', 'yellowgreen', 'dimgray']
+    pre_bin = int(params['PreStimSilence'] * params['fs'])
+    post_bin = int(response.shape[-1] - (params['PostStimSilence'] * params['fs']))
+    for cnt, cmb in enumerate(combo):
+        resp_sub = np.nanmean(response[:, cmb, :, :, :], axis=0)
+        mean_resp = np.nanmean(resp_sub[...,int(pre_bin):int(post_bin)], axis=0)
+        x = np.linspace(0, mean_resp.shape[-1] / params['fs'], mean_resp.shape[-1])
+
+        auc = np.sum(mean_resp, axis=1)
+        center = np.sum(np.abs(mean_resp) * x, axis=1) / np.sum(np.abs(mean_resp), axis=1)
+        plt.plot(auc, center, marker='o', linestyle='None', color=colors[cnt],
+                 label=params['combos'][cmb])
+        plt.xlabel('Area Under Curve'), plt.ylabel('Center')
+        plt.title(f"Experiment {params['experiment']} - Combos {combo}")
+        plt.legend()
+
+
+def multi_exp_auccenter(combo, responses, parameters):
+    markers = ['o', '.', 'v', 'x', '+', 'v', '^', '<', '>', 's', 'd', '*']
+    for cnt,exp in enumerate(responses.keys()):
+        pre_bin = int(parameters[exp]['PreStimSilence'] * parameters[exp]['fs'])
+        post_bin = int(responses[exp].shape[-1] - (parameters[exp]['PostStimSilence'] * parameters[exp]['fs']))
+        resp_sub = np.nanmean(responses[exp][:, combo, :, :, :], axis=0)
+        mean_resp = np.nanmean(resp_sub[..., int(pre_bin):int(post_bin)], axis=0)
+        x = np.linspace(0, mean_resp.shape[-1] / parameters[exp]['fs'], mean_resp.shape[-1])
+
+        auc = np.sum(mean_resp, axis=1)
+        center = np.sum(np.abs(mean_resp) * x, axis=1) / np.sum(np.abs(mean_resp), axis=1)
+
+        plt.plot(auc, center, marker=markers[cnt], linestyle='None', label=exp)
+        plt.legend()
+    plt.xlabel('Area Under Curve'), plt.ylabel('Center')
+    plt.title(f"Combos {combo} {parameters[exp]['combos'][combo]}")
 
 ##PCA Stuff
 
