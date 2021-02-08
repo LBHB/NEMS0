@@ -1799,7 +1799,7 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', epoch_regex=None,
     return est, val, modelspec_out
 
 
-def mask_est_val_for_jackknife_by_time(rec, modelspecs=None,
+def mask_est_val_for_jackknife_by_time(rec, modelspec=None,
                                        njacks=10, IsReload=False, **context):
     """
     take a single recording (est) and define njacks est/val sets using a

@@ -52,8 +52,8 @@ modelspec_name = 'wc.18x1-fir.1x10-lvl.1'        # rank 1 STRF
 #modelspec_name = 'wc.18x2.g-fir.2x10-lvl.1-dexp.1'  # rank 2 Gaussian + sigmoid static NL
 
 modelname = "vsload.fs50-tev_" + modelspec_name + "_init-basic"
-xfspec, ctx = xform_helper.fit_model_xform(cellid, batch, modelname, saveInDB=False,
-                              returnModel=True)
+#xfspec, ctx = xform_helper.fit_model_xform(cellid, batch, modelname, saveInDB=False,
+#                              returnModel=True)
 
 # generate modelspec
 xfspec = []
@@ -64,12 +64,14 @@ xfspec.append([load_command,
                {'cellid': cellid, 'recname': recname, 'fs': fs}])
 
 # generate est/val sets
-xfspec.append(['nems.xforms.split_at_time', {'valfrac': 0.1}])
+#xfspec.append(['nems.xforms.split_at_time', {'valfrac': 0.1}])
 
 meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspec_name,
         'recording': recname}
 xfspec.append(['nems.xforms.init_from_keywords',
                {'keywordstring': modelspec_name, 'meta': meta}])
+
+xfspec.append(['nems.xforms.mask_for_jackknife',{'njacks':10,'by_time':True}])
 
 # generate 5 random initial conditions (instead of just 1 by default)
 #xfspec.append(['nems.initializers.rand_phi', {'rand_count': 5}])
