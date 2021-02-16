@@ -40,7 +40,7 @@ def load_experiment_params(parmfile, rasterfs=100, sub_spont=True):
                 - e.loc[e.name.str.startswith('REF')].iloc[0]['start'])
     params['combos'] = ['Full BG', 'Full FG', 'Full BG/Full FG', 'Half BG/Full FG', 'Half BG', 'Half FG',
           'Half BG/Half FG', 'Full BG/Half FG']
-
+    params['Background'], params['Foreground'] = ref_handle['Background'], ref_handle['Foreground']
 
     soundies = list(ref_handle['SoundPairs'].values())
     params['pairs'] = [tuple([j for j in (soundies[s]['bg_sound_name'].split('.')[0],
@@ -52,11 +52,12 @@ def load_experiment_params(parmfile, rasterfs=100, sub_spont=True):
     return params
 
 
-def get_response(params, sub_spont=True):
+def get_response(params, sub_spont=False):
     """A given experiment, pair, and unit will return the 8 sound combos, labeled and in the
     repeat x neuron x time raster. Returns that as well as some basic info about the
     data to pass to other functions.
-    This is a pared down version with no plotting best used for the z-scores."""
+    This is a pared down version with no plotting best used for the z-scores.
+    2/8/2020 sub_spont basically defunct as norm and spontsub added to the loader"""
     full_response = np.empty((len(params['pairs']), len(params['combos']), params['max reps'],
                               len(params['units']), (params['stim length']*params['fs'])))
                     # pair x combo x rep(nan padded to max) x unit x time array
@@ -78,7 +79,8 @@ def get_response(params, sub_spont=True):
 
 def subtract_spont(full_response, params):
     """Takes the raw response data and substracts the unit average during the prestimsilence period.
-    Returns a new full response array (pair x combo x rep x unit x time"""
+    Returns a new full response array (pair x combo x rep x unit x time
+    2/8/2020 sub_spont basically defunct as norm and spontsub added to the loader"""
     silence_times = int(params['PreStimSilence'] * params['fs'])
     unit_silence_mean = np.nanmean(full_response[..., :silence_times], axis=(0, 1, 2, 4))
     unit_silence_mean = unit_silence_mean[None,None,None,:,None]
@@ -128,7 +130,7 @@ def get_z(resp_idx, full_response, params):
     return z_no_nan, z_params
 
 ##plotting functions
-def z_heatmaps_allpairs(resp_idx, response, params, sigma=None):
+def z_heatmaps_allpairs(resp_idx, response, params, sigma=None, arranged=False):
     """Plots a two column figure of subplots, one for each sound pair, displaying a heat map
     of the zscore for all the units."""
     zscore, z_params = get_z(resp_idx, response, params)
@@ -148,6 +150,13 @@ def z_heatmaps_allpairs(resp_idx, response, params, sigma=None):
         axes[-1].spines['right'].set_visible(False), axes[-1].spines['left'].set_visible(False)
         axes[-1].set_yticks([]), axes[-1].set_xticks([])
         axes = axes[:-1]
+
+    if arranged:
+        prebin = int(params['PreStimSilence'] * params['fs'])
+        postbin = int((params['stim length'] - params['PostStimSilence']) * params['fs'])
+        z_time_avg = np.nanmean(zscore[:,:,prebin:postbin], axis=(0,2))
+        idx = np.argsort(z_time_avg)
+        zscore = zscore[:, idx, :]
 
     for cnt, ax in enumerate(axes):
         im = ax.imshow(zscore[cnt, :, :], aspect='auto', cmap='bwr',
@@ -330,11 +339,12 @@ def psth_comp(resp_idx, pair, unit, response, params, sigma=None, z=False, sum=F
     ax.set_xlim(-0.3, (params['Duration'] + 0.2))        # arbitrary window I think is nice
     ax.set_xticks([0, (params['Duration'] / 2), params['Duration']])
     ymin, ymax = ax.get_ylim()
-    ax.vlines([0, params['Duration']], ymin, ymax, colors='black', linestyles=':')
-    ax.vlines(params['SilenceOnset'], ymax * .9, ymax, colors='black', linestyles='-', lw=0.25)
+
     ax.set_ylim(ymin,ymax)
     if edit_fig:
         ax.set_ylabel('spk/s'), ax.legend(loc='upper left')
+        ax.vlines([0, params['Duration']], ymin, ymax, colors='black', linestyles=':')
+        ax.vlines(params['SilenceOnset'], ymax * .9, ymax, colors='black', linestyles='-', lw=0.25)
 
     if z and 1 < len(resp_idx) < 4:
         ax = axes[1]
@@ -365,8 +375,9 @@ def psth_allpairs(resp_idx, unit, response, params, sigma=None, sum=False):
     indicated by resp_idx. Smooth with sigma and sum adds a dotted line to each psth showing
     the linear sum of the first two resp_idxs"""
     disp_pairs = response.shape[0]
-    fig, axes = plt.subplots(int(np.round(disp_pairs/2)), 2, sharey=True)
+    fig, axes = plt.subplots(int(np.round(disp_pairs/2)), 2, sharey=False)
     axes = np.ravel(axes, order='F')
+    mins, maxs = [], []
     if int(disp_pairs) % 2 != 0:
         axes[-1].spines['top'].set_visible(False), axes[-1].spines['bottom'].set_visible(False)
         axes[-1].spines['right'].set_visible(False), axes[-1].spines['left'].set_visible(False)
@@ -382,6 +393,15 @@ def psth_allpairs(resp_idx, unit, response, params, sigma=None, sum=False):
             ax.set_xticks([0, 0.5, 1.0])
         else:
             ax.set_xticks([])
+        min, max = ax.get_ylim()
+        mins.append(min), maxs.append(max)
+
+    least, most = np.min(mins), np.max(maxs)
+    for ax in axes:
+        ax.set_ylim(least, most)
+        ax.vlines([0, params['Duration']], least, most, colors='black', linestyles=':')
+        ax.vlines(params['SilenceOnset'], most * .9, most, colors='black', linestyles='-', lw=0.25)
+
     fig.text(0.5, 0.07, 'Time from onset (s)', ha='center', va='center', fontweight='bold')
     fig.text(0.1, 0.5, 'spk/s', ha='center', va='center', rotation='vertical', fontweight='bold')
     fig.suptitle(f"Experiment {params['experiment']} - Unit {unit} - resp_idx {resp_idx}",
@@ -392,8 +412,9 @@ def psth_allunits(resp_idx, pair, response, params, sigma=None, sum=False):
 
     disp_pairs = response.shape[3]
     dims = int(np.ceil(np.sqrt(disp_pairs)))
+    mins, maxs = [], []
 
-    fig, axes = plt.subplots(dims, dims, sharey=True)
+    fig, axes = plt.subplots(dims, dims, sharey=False)
     axes = np.ravel(axes, order='F')
     if dims**2 - disp_pairs != 0:
         for aa in range(dims**2 - disp_pairs):
@@ -411,8 +432,14 @@ def psth_allunits(resp_idx, pair, response, params, sigma=None, sum=False):
         else:
             ax.set_xticks([])
 
-        ymin, ymax = ax.get_ylim()
-        ax.set_ylim(ymin, ymax)
+        min, max = ax.get_ylim()
+        mins.append(min), maxs.append(max)
+
+    least, most = np.min(mins), np.max(maxs)
+    for ax in axes:
+        ax.set_ylim(least, most)
+        ax.vlines([0, params['Duration']], least, most, colors='black', linestyles=':')
+        ax.vlines(params['SilenceOnset'], most * .9, most, colors='black', linestyles='-', lw=0.25)
 
     fig.text(0.5, 0.07, 'Time from onset (s)', ha='center', va='center', fontweight='bold')
     fig.text(0.1, 0.5, 'spk/s', ha='center', va='center', rotation='vertical', fontweight='bold')
@@ -422,7 +449,7 @@ def psth_allunits(resp_idx, pair, response, params, sigma=None, sum=False):
 
 def psth_fulls_allunits(pair, response, params, sigma=None):
 
-    disp_pairs, resp_idx = response.shape[3], [0,1]
+    disp_pairs, resp_idx = response.shape[3], [0,1,2]
     dims = int(np.ceil(np.sqrt(disp_pairs)))
 
     fig, axes = plt.subplots(dims, dims, sharey=False)
@@ -434,7 +461,7 @@ def psth_fulls_allunits(pair, response, params, sigma=None):
             axes[-(aa+1)].set_xticks([]), axes[-(aa+1)].set_yticks([])
         axes = axes[:-(dims**2 - disp_pairs)]
     for(ax, unit) in zip(axes, range(disp_pairs)):
-        psth_comp(resp_idx, pair, unit, response, params, sigma, z=False, sum=False, ax=ax)
+        psth_comp(resp_idx, pair, unit, response, params, sigma, z=False, sum=True, ax=ax)
         ax.set_title(f"Unit {unit} - {params['units'][unit]}", fontweight='bold')
         ax.hlines(0, -0.5, 1.5, linestyles=':')
         if unit == 0:
@@ -596,6 +623,7 @@ def z_bgfg_compare2(zscore, z_params, zscore2, z_params2, unit, response, params
                  fontweight='bold')
 
 
+##Bulk loads of parmfiles, right now just useful for histogram metrics below
 def load_parms(parmfiles):
     responses, parameters = {}, {}
     for file in parmfiles:
@@ -608,28 +636,29 @@ def load_parms(parmfiles):
     return responses, parameters
 
 
-def _histogram_metrics(parmfiles):
+def _histogram_metrics(parmfiles, bins=50):
     for cnt, parmfile in enumerate(parmfiles):
-        params = olp.load_experiment_params(parmfile, rasterfs=100, sub_spont=True)
-        response = olp.get_response(params, sub_spont=False)
-        corcoefs = olp._base_reliability(response, params, rep_dim=2, protect_dim=3)
-        avg_resp = olp._significant_resp(response, params, protect_dim=3, time_dim=-1)
+        params = load_experiment_params(parmfile, rasterfs=100, sub_spont=True)
+        response = get_response(params, sub_spont=False)
+        corcoefs = _base_reliability(response, rep_dim=2, protect_dim=3)
+        avg_resp = _significant_resp(response, params, protect_dim=3, time_dim=-1)
         if cnt == 0:
             signif, corco = avg_resp, corcoefs
         else:
             signif = np.concatenate((signif, avg_resp), axis=0)
             corco = np.concatenate((corco, corcoefs), axis=0)
-    fig, ax = plt.subplots()
-    ax.hist(signif, bins=bins)
-    ax.set_title('Significance'), ax.set_xlabel('Time Averaged Normalized Response')
-    fig, ax = plt.subplots()
-    ax.hist(corco, bins=bins)
-    ax.set_title('Reliability')
+    fig, ax = plt.subplots(1,2)
+    ax[0].hist(signif, bins=bins)
+    ax[0].set_title('Significance'), ax[0].set_xlabel('Time Averaged Normalized Response')
+    ax[0].set_ylabel('Number of Cells')
+    ax[1].hist(corco, bins=bins)
+    ax[1].set_title('Reliability'), ax[1].set_xlabel('Reliability')
 
     return corco, signif
 
 
-def _base_reliability(response, params, rep_dim, protect_dim, threshold=0.1):
+#Functions for selecting for good units only
+def _base_reliability(response, rep_dim, protect_dim):
     '''
     :param raster: ndim array
     :param rep_dim: int. dimension corresponding to repetitions
@@ -657,7 +686,7 @@ def _base_reliability(response, params, rep_dim, protect_dim, threshold=0.1):
     return corcoefs
 
 
-def _significant_resp(response, params, protect_dim, time_dim=-1, threshold=0.2):
+def _significant_resp(response, params, protect_dim, time_dim=-1):
     pre_bin = int(params['PreStimSilence'] * params['fs'])
     post_bin = int(response.shape[time_dim] - (params['PostStimSilence'] * params['fs']))
 
@@ -686,6 +715,7 @@ def _find_good_units(response, params, corcoefs=None, corcoefs_threshold=None,
     print(f"Started with {len(params['units'])} units, found {len(all_goodcells)} reliable units.")
 
     return good_response
+####
 
 
 def plot_auc_mean(combo, response, params):
@@ -781,4 +811,125 @@ def plot_projections(pair, params):
     f.tight_layout()
     plt.show()
 
+##############################################
+####scatter plots for initial data viewing####
+
+def get_scatter_resps(pair, response):
+    bg_resp, fg_resp = response[pair, 0, :, :, :], response[pair, 1, :, :, :]
+    combo_resp = response[pair, 2, :, :, :]
+
+    bg_len, fg_len = np.count_nonzero(~np.isnan(bg_resp[:, 0, 0])), \
+                     np.count_nonzero(~np.isnan(fg_resp[:, 0, 0]))
+    min_rep = np.min((bg_len, fg_len))
+    lin_resp = (bg_resp[:min_rep, :, :] + fg_resp[:min_rep, :, :])
+
+    mean_bg, mean_fg = np.nanmean(bg_resp, axis=(0,2)), np.nanmean(fg_resp, axis=(0,2))
+    mean_lin, mean_combo = np.nanmean(lin_resp, axis=(0,2)), np.nanmean(combo_resp, axis=(0,2))
+
+    supp = mean_lin - mean_combo
+
+    bg_fg = np.concatenate((np.expand_dims(mean_bg, axis=1),
+                            np.expand_dims(mean_fg, axis=1)), axis=1)
+    supp_supp = np.concatenate((np.expand_dims(supp, axis=1),
+                                np.expand_dims(supp, axis=1)), axis=1)
+
+    return mean_bg, mean_fg, mean_lin, mean_combo, supp, bg_fg, supp_supp
+
+
+def bg_fg_scatter(pair, response, params):
+    '''Plots a simple scatter with BG alone response on the x and FG alone response
+    on the y with a unity line. Each point is a unit so you can see if at a site
+    units respond more to BG or FGs'''
+    mean_bg, mean_fg, _, _, _, _, _ = get_scatter_resps(pair, response)
+    fig, ax = plt.subplots()
+    for pnt in range(len(params['good_units'])):
+        ax.plot(mean_bg[pnt], mean_fg[pnt], marker='o', color='black', linestyle='None')
+
+    lims = np.stack((ax.get_xlim(), ax.get_ylim()), axis=0)
+    top_lim, bottom_lim = np.min(lims[:, 1]), np.max(lims[:, 0])
+    ax.plot((bottom_lim, top_lim), (bottom_lim, top_lim), linestyle=':', color='black')
+    ax.set_aspect('equal', adjustable='box')
+    for i, txt in enumerate(params['good_units']):
+        ax.annotate(f'    {txt}', (mean_bg[i], mean_fg[i]), size=5)
+    ax.set_xlabel('BG Response'), ax.set_ylabel('FG Response')
+    fig.suptitle(f"Experiment {params['experiment']} - Pair {pair}\n"
+                 f"Background {params['pairs'][pair][0]} - Foreground {params['pairs'][pair][1]}",
+                 fontweight='bold')
+    fig.tight_layout()
+
+
+def lin_combo_scatter(pair, response, params):
+    '''Plots a simple scatter with the linear sum of BG and FG alone on x and BG/FG
+    combo response on the y with a unity line. Each point is a unit so you can see
+    if at a site units show more suppression or enhancement'''
+    _, _, mean_lin, mean_combo, _, _, _ = get_scatter_resps(pair, response)
+    fig, ax = plt.subplots()
+    for pnt in range(len(params['good_units'])):
+        ax.plot(mean_lin[pnt], mean_combo[pnt], marker='o', color='black', linestyle='None')
+    lims = np.stack((ax.get_xlim(), ax.get_ylim()), axis=0)
+    top_lim, bottom_lim = np.min(lims[:, 1]), np.max(lims[:, 0])
+    ax.plot((bottom_lim, top_lim), (bottom_lim, top_lim), linestyle=':', color='black')
+    ax.set_aspect('equal', adjustable='box')
+    for i, txt in enumerate(params['good_units']):
+        ax.annotate(f'    {txt}', (mean_lin[i], mean_combo[i]), size=5)
+    ax.set_xlabel('Linear Sum BG Alone + FG Alone'), ax.set_ylabel('Full BG/Full FG Combo Response')
+    fig.suptitle(f"Experiment {params['experiment']} - Pair {pair}\n"
+                 f"Background {params['pairs'][pair][0]} - Foreground {params['pairs'][pair][1]}",
+                 fontweight='bold')
+    fig.tight_layout()
+
+
+def bgfg_lincombo_scatter(pair, response, params):
+    '''Combines bg_fg_scatter and lin_combo_scatter into one figure'''
+    mean_bg, mean_fg, mean_lin, mean_combo, supp, _, _ = get_scatter_resps(pair, response)
+    fig, ax = plt.subplots(1, 2)
+    for pnt in range(len(params['good_units'])):
+        ax[0].plot(mean_bg[pnt], mean_fg[pnt], marker='o', color='black', linestyle='None')
+    lims = np.stack((ax[0].get_xlim(), ax[0].get_ylim()), axis=0)
+    top_lim, bottom_lim = np.min(lims[:, 1]), np.max(lims[:, 0])
+    ax[0].plot((bottom_lim, top_lim), (bottom_lim, top_lim), linestyle=':', color='black')
+    ax[0].set_aspect('equal', adjustable='box')
+    for i, txt in enumerate(params['good_units']):
+        ax[0].annotate(f'    {txt}', (mean_bg[i], mean_fg[i]), size=5)
+    ax[0].set_xlabel('BG Response'), ax[0].set_ylabel('FG Response')
+
+    for pnt in range(len(params['good_units'])):
+        ax[1].plot(mean_lin[pnt], mean_combo[pnt], marker='o', color='black', linestyle='None')
+
+    lims = np.stack((ax[1].get_xlim(), ax[1].get_ylim()), axis=0)
+    top_lim, bottom_lim = np.min(lims[:, 1]), np.max(lims[:, 0])
+    ax[1].plot((bottom_lim, top_lim), (bottom_lim, top_lim), linestyle=':', color='black')
+    ax[1].set_aspect('equal', adjustable='box')
+    for i, txt in enumerate(params['good_units']):
+        ax[1].annotate(f'    {txt}', (mean_lin[i], mean_combo[i]), size=5)
+    ax[1].set_xlabel('Linear Sum BG Alone + FG Alone'), ax[1].set_ylabel('Full BG/Full FG Combo Response')
+
+    fig.suptitle(f"Experiment {params['experiment']} - Pair {pair}\n"
+                 f"Background {params['pairs'][pair][0]} - Foreground {params['pairs'][pair][1]}",
+                 fontweight='bold')
+    fig.tight_layout()
+
+
+def bgfg_suppression_scatter(pair, response, params):
+    '''Plot one figure with the normalized response to BG and FG alone on the x axis
+    with suppression on the y axis. Points will be connected by a dot from the same
+    unit. Units are labeled on the plot to avoid a lot of colors.'''
+    _, _, _, _, supp, bg_fg, supp_supp = get_scatter_resps(pair, response)
+    fig, ax = plt.subplots()
+    for pnt in range(supp.shape[0]):
+        ax.plot(bg_fg[pnt, :], supp_supp[pnt, :], marker='', color='black', linestyle=':',
+                zorder=-1)
+    ax.scatter(bg_fg[:, 0], supp_supp[:, 0], marker='o', color='deepskyblue', label='BG')
+    ax.scatter(bg_fg[:, 1], supp_supp[:, 1], marker='o', color='yellowgreen', label='FG')
+    ax.legend(loc='upper left')
+
+    for i, txt in enumerate(params['good_units']):
+        ax.annotate(txt, (bg_fg[i, 0], supp_supp[i, 0]), size=6)
+    ax.set_aspect('equal', adjustable='box')
+    ax.set_ylabel('Suppression\n(BG + FG) - BG/FG combo')
+    ax.set_xlabel('Normalized Response')
+    fig.suptitle(f"Experiment {params['experiment']} - Pair {pair}\n"
+                 f"Background {params['pairs'][pair][0]} - Foreground {params['pairs'][pair][1]}",
+                 fontweight='bold')
+    fig.tight_layout()
 
