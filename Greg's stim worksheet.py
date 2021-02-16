@@ -10,6 +10,8 @@ from scipy.signal import resample
 from pydub import AudioSegment
 import matplotlib.gridspec as gridspec
 
+from scipy import stats
+
 from nems.analysis.gammatone.gtgram import gtgram
 # from nems import recording, signal
 # from nems import xforms, get_setting
@@ -103,15 +105,20 @@ def sound_chop(name, kind, start):
     # wavfile.write(SAVE_PATH,fs,one_sec)
 
 #wavfile.write(filepath,fs,file)
-
+#wip stuff
+name = 'Fight Squeak-0-1'
+name = 'Waterfall-0-1'
+name = 'Insect Buzz-0-1'
+name = 'Waterfall-0-1_Fight Squeak-0-1'
+name = 'Insect Buzz-0-1_Fight Squeak-0-1'
 
 def spectro(name, kind):
-    GREG_ROOT = f"/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/{kind}/"
+    GREG_ROOT = f"/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/WIP Combos/"
     filepath = GREG_ROOT + name + '.wav'
 
     fs, W = wavfile.read(filepath)
 
-    spec = gtgram(W, fs, 0.02, 0.01, 48, 100, 8000)
+    spec = gtgram(W, fs, 0.02, 0.01, 128, 100, 8000)
 
     plt.imshow(spec, aspect='auto', origin='lower')
     plt.title(name)
@@ -119,41 +126,217 @@ def spectro(name, kind):
 
 TEXTURE_ROOT = "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Textures"
 MARM_ROOT = "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Marms/"
+FERRET_ROOT = "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Ferrets/"
+ROOTS = ["/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Textures",
+         "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Ferrets/"]
+chans = 12
 
 def spec_collage(ROOT):
     dir = os.path.join(ROOT, "*.wav")
     set1 = glob.glob(dir)
-    fig, ax = plt.subplots(5,4)
+    fig, ax = plt.subplots(5,4, sharey=False)
+    pow_sum = []
 
     for nn, ss in enumerate(set1):
         fs, W = wavfile.read(ss)
         spec = gtgram(W, fs, 0.02, 0.01, 48, 100, 8000)
         pow = np.average(spec,axis=1)
+        y = np.arange(0, pow.shape[0])
         basename = os.path.splitext(os.path.basename(ss))[0].split('_')[1]
         if nn < int(len(set1)/2):
             ax[nn,0].set_title(basename)
             ax[nn,0].imshow(spec,aspect='auto',origin='lower')
             ax[nn,0].set_xticks([])
             ax[nn,0].set_xticklabels([])
-            ax[nn,1].plot(pow)
+            ax[nn,1].plot(pow,y)
             ax[nn,1].set_yticklabels([])
             ax[nn,1].set_yticks([])
+            ax[nn,1].set_xticks([])
         else:
             ax[nn-5,2].set_title(basename)
             ax[nn-5,2].imshow(spec,aspect='auto',origin='lower')
             ax[nn-5,2].set_xticks([])
             ax[nn-5,2].set_xticklabels([])
-            ax[nn-5,3].plot(pow)
+            ax[nn-5,3].plot(pow, y)
             ax[nn-5,3].set_yticklabels([])
             ax[nn-5,3].set_yticks([])
+            ax[nn-5,3].set_xticks([])
+        pow_sum.append(pow)
 
-    fig.set_figheight(10)
-    fig.set_figwidth(8)
+    # fig.suptitle(f"Ferret Vocalizations - 'Foregrounds'", fontweight='bold')
+    fig.suptitle(f"Environment Textures - 'Backgrounds'", fontweight='bold')
+
+    fig.text(0.05, 0.5, 'Frequency (Hz)', ha='center', va='center',
+             rotation='vertical', fontweight='bold')
+    fig.set_figheight(12)
+    fig.set_figwidth(10)
+
+    return pow_sum
+
+ROOTS = ["/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Textures",
+         "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Ferrets/"]
+
+def time_metrics(ROOTS, chans=12, lfreq=100, hfreq=8000):
+    fig, axes = plt.subplots(1, 2, sharey=True, figsize=(12,5))
+    axes = np.ravel(axes, order='F')
+    files = []
+    for root in ROOTS:
+        set = glob.glob(os.path.join(root, "*.wav"))
+        files.append(len(set))
+    longest = np.max(files)
+    std_array = np.zeros([chans, longest, len(ROOTS)])
+
+    all_names = []
+    for count, (ax, RT) in enumerate(zip(axes,ROOTS)):
+        dir = os.path.join(RT, "*.wav")
+        set1 = glob.glob(dir)
+        if len(set1) != std_array.shape[1]:
+            pad = std_array.shape[1] - len(set1)
+            std_array[:, -pad:, count] = np.NaN
+
+        names = []
+        for nn, ss in enumerate(set1):
+            fs, W = wavfile.read(ss)
+            spec = gtgram(W, fs, 0.02, 0.01, chans, lfreq, hfreq)
+            x = np.linspace(0,chans-1,chans)
+            basename = os.path.splitext(os.path.basename(ss))[0].split('_')[1]
+
+            std_pow = np.std(spec, axis=1)
+            std_array[:, nn, count] = std_pow
+            names.append(basename), all_names.append(basename)
+
+        for cnt in range(len(set1)):
+            ax.plot(x, std_array[:,cnt,count], linestyle='-', label=names[cnt])
+        leg = ax.legend(handlelength=0, frameon=False)
+        for line,text in zip(leg.get_lines(), leg.get_texts()):
+            text.set_color(line.get_color())
+        ax.set_xticks([0,chans-1])
+        ax.set_xticklabels([lfreq,hfreq])
+        if count == 0:
+            ax.set_title('Backgrounds', fontweight='bold', size=16)
+        if count == 1:
+            ax.set_title('Foregrounds', fontweight='bold', size=16)
+
+    fig.text(0.5, 0.02, 'Frequency (Hz)', ha='center', va='center',
+             fontweight='bold', size=15)
+    fig.text(0.07, 0.5, 'STD', ha='center', va='center',
+             rotation='vertical', fontweight='bold', size=15)
+
+    return std_array, all_names
+
+#This part makes the summary plot of BG and FG in time
+    std_mean = np.nanmean(std_array, axis=0)
+    std_sem = stats.sem(std_array, nan_policy='omit', axis=0).data
+    sem_rav_mask = std_sem.ravel('F') > 0
+    sem_rav = std_sem.ravel('F')[sem_rav_mask]
+    rav = std_mean.ravel('F')
+    nan_mask = ~np.isnan(rav)
+    rav = rav[nan_mask]
+    vals = sum(~np.isnan(rav))
+    x = np.linspace(0, vals-1, vals)
+    fig, ax = plt.subplots(figsize=(5,5))
+
+    ax.bar(x[:10], rav[:10], yerr=sem_rav[:10], color='deepskyblue')
+    ax.bar(x[10:], rav[10:], yerr=sem_rav[10:], color='yellowgreen')
+    ymin,ymax = ax.get_ylim()
+    ax.axvline(9.5,ymin,ymax, linestyle=':', color='black')
+    ax.set_xticks(x)
+    ax.set_xticklabels(all_names, rotation=90)
+    ax.set_ylabel('Non-stationariness', size=15)
+
+    kind_mean = np.nanmean(std_mean, axis=0)
+    kind_std = np.nanstd(std_mean, axis=0)
+    arra = np.asarray([0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1])
+    data = np.stack((arra,rav), axis=1)
+    ax[1].scatter(arra, rav)
+    ax[1].set_xlim(-0.5,1.5)
+    ax[1].set_xticks([0,1])
+    ax[1].set_xticklabels(['BGs','FGs'])
+
+
+def freq_metrics(ROOTS, chans=48, lfreq=100, hfreq=8000):
+    fig, axes = plt.subplots(1, 2, sharey=True, figsize=(12, 5))
+    axes = np.ravel(axes, order='F')
+    files = []
+    for root in ROOTS:
+        set = glob.glob(os.path.join(root, "*.wav"))
+        files.append(len(set))
+    longest = np.max(files)
+    avg_array = np.zeros([chans, longest, len(ROOTS)])
+
+    all_names = []
+    for count, (ax, RT) in enumerate(zip(axes, ROOTS)):
+        dir = os.path.join(RT, "*.wav")
+        set1 = glob.glob(dir)
+        if len(set1) != avg_array.shape[1]:
+            pad = avg_array.shape[1] - len(set1)
+            avg_array[:, -pad:, count] = np.NaN
+
+        names = []
+        for nn, ss in enumerate(set1):
+            fs, W = wavfile.read(ss)
+            spec = gtgram(W, fs, 0.02, 0.01, chans, lfreq, hfreq)
+            x = np.linspace(0, chans - 1, chans)
+            basename = os.path.splitext(os.path.basename(ss))[0].split('_')[1]
+
+            pow = np.average(spec, axis=1)
+            avg_array[:, nn, count] = pow
+            names.append(basename), all_names.append(basename)
+
+        for cnt in range(len(set1)):
+            ax.plot(x, avg_array[:, cnt, count], linestyle='-', label=names[cnt])
+        leg = ax.legend(handlelength=0, frameon=False)
+        for line, text in zip(leg.get_lines(), leg.get_texts()):
+            text.set_color(line.get_color())
+        ax.set_xticks([0, chans - 1])
+        ax.set_xticklabels([lfreq, hfreq])
+        if count == 0:
+            ax.set_title('Backgrounds', fontweight='bold', size=16)
+        if count == 1:
+            ax.set_title('Foregrounds', fontweight='bold', size=16)
+
+    fig.text(0.5, 0.02, 'Frequency (Hz)', ha='center', va='center',
+             fontweight='bold', size=15)
+    fig.text(0.07, 0.5, 'Average Strength', ha='center', va='center',
+             rotation='vertical', fontweight='bold', size=15)
+
+    return avg_array, all_names
+
+#This part makes the summary plot of BG and FG in time
+    avg_mean_idx = np.argmax(avg_array, axis=0)
+    x_freq = np.logspace(np.log2(lfreq), np.log2(hfreq), num=chans, base=2)
+    cf_idx = list(avg_mean_idx.ravel('F'))
+    cf_idx = [i for i in cf_idx if i != 0]
+    cfs = np.asarray([x_freq[i] for i in cf_idx])
+    x = np.linspace(0, len(cf_idx)-1, len(cf_idx))
+
+    fig, ax = plt.subplots(figsize=(5,5))
+    freq_mask = x_freq > np.max(cfs)
+    x_freq[freq_mask] = np.NaN
+    nonan = sum(~np.isnan(x_freq))
+    listy = list(x_freq)
+    new_x_freq = np.asarray(listy[:nonan])
+
+    ax.bar(x[:10], cfs[:10], color='deepskyblue')
+    ax.bar(x[10:], cfs[10:], color='yellowgreen')
+
+
+    ymin,ymax = ax.get_ylim()
+    ax.set_yticks([new_x_freq[0], new_x_freq[34], new_x_freq[-1]])
+
+    ax.axvline(9.5,ymin,ymax, linestyle=':', color='black')
+    ax.set_xticks(x)
+    ax.set_xticklabels(all_names, rotation=90)
+    ax.set_ylabel('Center Frequency (Hz)', size=15)
 
 
 
 
 
+
+
+
+#######################
 text_names, marm_names = {}, {}
 for kk, ii in texture_dict.items():
     base_text = os.path.splitext(os.path.basename(ii))[0].split('_')[0]
@@ -185,6 +368,7 @@ from nems.analysis.gammatone.gtgram import gtgram
 
 texture_dir = "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Textures/*.wav"
 marm_dir = "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Marms/*.wav"
+ferret_dir = "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Ferrets/*.wav"
 pairs = [(0,7),(1,9),(2,5),(3,4),(4,6),(5,0),(6,3),(7,1),(8,2),(9,8)] # The ones I thought were best
 
 
@@ -252,13 +436,13 @@ def sound_combos(texture_dir, marm_dir, pairs):
 
     for aa in pairs:
         save_paths = {}
-        SAVE_ROOT = f"/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Conditions/Pair-{aa[0]}_"
+        SAVE_ROOT = f"/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/WIP Combos/"
 
         soundA = texture_dict[aa[0]]
         soundB = marm_dict[aa[1]]
 
-        base_text = os.path.splitext(os.path.basename(texture_dict[aa[0]]))[0].split('_')[0]
-        base_marm = os.path.splitext(os.path.basename(marm_dict[aa[1]]))[0].split('_')[0]
+        base_text = os.path.splitext(os.path.basename(texture_dict[aa[0]]))[0].split('_')[1]
+        base_marm = os.path.splitext(os.path.basename(marm_dict[aa[1]]))[0].split('_')[1]
         fs, A = wavfile.read(soundA)
         fs2, B = wavfile.read(soundB)
         if fs != fs2:
