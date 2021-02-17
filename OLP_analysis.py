@@ -342,7 +342,9 @@ def psth_comp(resp_idx, pair, unit, response, params, sigma=None, z=False, sum=F
 
     ax.set_ylim(ymin,ymax)
     if edit_fig:
-        ax.set_ylabel('spk/s'), ax.legend(loc='upper left')
+        # ax.set_ylim(ysmall,ybig)   #Thing I added to toggle on and off for WIP talk
+        # ymin,ymax = ax.get_ylim()  #This too
+        ax.set_ylabel('spk/s', fontweight='bold', size=15), ax.legend(loc='upper left')
         ax.vlines([0, params['Duration']], ymin, ymax, colors='black', linestyles=':')
         ax.vlines(params['SilenceOnset'], ymax * .9, ymax, colors='black', linestyles='-', lw=0.25)
 
@@ -363,11 +365,12 @@ def psth_comp(resp_idx, pair, unit, response, params, sigma=None, z=False, sum=F
     ax.set_xlim(-0.3, (params['Duration'] + 0.2))        # arbitrary window I think is nice
     ax.set_xticks([0, (params['Duration'] / 2), params['Duration']])
     if edit_fig:
-        ax.set_xlabel('Time (s)')
+        ax.set_xlabel('Time (s)', fontweight='bold', size=15)
+        ax.spines['top'].set_visible(False), ax.spines['right'].set_visible(False)
         fig.set_figheight(6), fig.set_figwidth(15)
         fig.suptitle(f"Experiment {params['experiment']} - Unit {unit} - "
                      f"Pair {pair} - BG: {params['pairs'][pair][0]} - "
-                     f"FG: {params['pairs'][pair][1]} - {resp_idx}", fontweight='bold')
+                     f"FG: {params['pairs'][pair][1]} - {resp_idx}", fontweight='bold', size=15)
 
 
 def psth_allpairs(resp_idx, unit, response, params, sigma=None, sum=False):
