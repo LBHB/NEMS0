@@ -126,12 +126,88 @@ def spectro(name, kind):
 
 TEXTURE_ROOT = "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Textures"
 MARM_ROOT = "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Marms/"
-FERRET_ROOT = "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Ferrets/"
+FERRET_ROOT = "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Ferrets1/"
 ROOTS = ["/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Textures",
          "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Ferrets/"]
 chans = 12
 
+def spec_stats(ROOT, idx, chans=48, lfreq=100, hfreq=8000):
+    '''makes the three panel of a spectrogram, power spectra, and
+    std over time at each freq band, for WIP'''
+    dir = os.path.join(ROOT, "*.wav")
+    set1 = glob.glob(dir)
+    sound = set1[idx]
+    fig, axes = plt.subplots(2, 2, figsize=(10,9))
+    ax = np.ravel(axes, order='F')
+    fs, W = wavfile.read(sound)
+    spec = gtgram(W, fs, 0.02, 0.01, chans, lfreq, hfreq)
+    basename = os.path.splitext(os.path.basename(sound))[0].split('_')[1]
+
+    ax[0].imshow(spec,aspect='auto',origin='lower')
+    ymin, ymax = ax[0].get_ylim()
+    xmin, xmax = ax[0].get_xlim()
+    ax[0].set_yticks([ymin,ymax]), ax[0].set_xticks([xmin,xmax])
+    ax[0].set_yticklabels([lfreq,hfreq]), ax[0].set_xticklabels([0,1])
+    ax[0].set_xlabel('Time(s)', fontweight='bold', size=15)
+    ax[0].set_ylabel('Frequency (Hz)', fontweight='bold', size=15)
+    ax[0].set_title(f'{basename}', fontweight='bold', size=20)
+
+    ax[1].set_yticks([]), ax[1].set_xticks([])
+    ax[1].spines['top'].set_visible(False), ax[1].spines['bottom'].set_visible(False)
+    ax[1].spines['right'].set_visible(False), ax[1].spines['left'].set_visible(False)
+
+    pow = np.average(spec, axis=1)
+    y = np.arange(0, pow.shape[0])
+    ax[2].plot(pow, y)
+    ymin, ymax = ax[2].get_ylim()
+    ax[2].set_yticks([ymin, ymax])
+    ax[2].set_yticklabels([lfreq, hfreq])
+    ax[2].set_xlabel('Signal Strength', fontweight='bold', size=15)
+    ax[2].set_ylabel('Frequency (Hz)', fontweight='bold', size=15)
+
+    spec_std = gtgram(W, fs, 0.02, 0.01, int(chans/4), lfreq, hfreq)
+    std_pow = np.std(spec_std, axis=1)
+    y = np.arange(0,std_pow.shape[0])
+    ax[3].plot(std_pow, y)
+    ymin,ymax = ax[3].get_ylim()
+    ax[3].set_yticks([ymin, ymax])
+    ax[3].set_yticklabels([lfreq, hfreq])
+    ax[3].set_xlabel('STD', fontweight='bold', size=15)
+    ax[3].set_ylabel('Frequency (Hz)', fontweight='bold', size=15)
+
+    fig.tight_layout()
+
+
 def spec_collage(ROOT):
+    dir = os.path.join(ROOT, "*.wav")
+    set1 = glob.glob(dir)
+    fig, axes = plt.subplots(5,2, sharey=False, figsize=(6,8))
+    axes = np.ravel(axes, order='F')
+
+    for cnt, (ax, ss) in enumerate(zip(axes, set1)):
+        fs, W = wavfile.read(ss)
+        spec = gtgram(W, fs, 0.02, 0.01, 48, 100, 8000)
+        basename = os.path.splitext(os.path.basename(ss))[0].split('_')[1]
+        ax.set_title(basename)
+        ax.imshow(spec,aspect='auto',origin='lower')
+        ax.set_xticks([])
+        ax.set_xticklabels([])
+
+
+    fig.suptitle(f"Ferret Vocalizations - 'Foregrounds'",
+                 fontweight='bold', size=15)
+    # fig.suptitle(f"Environment Textures - 'Backgrounds'",
+    #              fontweight='bold', size=15)
+
+    fig.text(0.5, 0.02, 'Time (s)', ha='center', va='center',
+             fontweight='bold', size=15)
+    fig.text(0.05, 0.5, 'Frequency (Hz)', ha='center', va='center',
+             rotation='vertical', fontweight='bold', size=15)
+    fig.set_figheight(12)
+    fig.set_figwidth(6)
+
+
+def spec_collage_power(ROOT):
     dir = os.path.join(ROOT, "*.wav")
     set1 = glob.glob(dir)
     fig, ax = plt.subplots(5,4, sharey=False)
@@ -234,7 +310,7 @@ def time_metrics(ROOTS, chans=12, lfreq=100, hfreq=8000):
     rav = rav[nan_mask]
     vals = sum(~np.isnan(rav))
     x = np.linspace(0, vals-1, vals)
-    fig, ax = plt.subplots(figsize=(5,5))
+    fig, ax = plt.subplots(figsize=(6,8))
 
     ax.bar(x[:10], rav[:10], yerr=sem_rav[:10], color='deepskyblue')
     ax.bar(x[10:], rav[10:], yerr=sem_rav[10:], color='yellowgreen')
@@ -242,7 +318,8 @@ def time_metrics(ROOTS, chans=12, lfreq=100, hfreq=8000):
     ax.axvline(9.5,ymin,ymax, linestyle=':', color='black')
     ax.set_xticks(x)
     ax.set_xticklabels(all_names, rotation=90)
-    ax.set_ylabel('Non-stationariness', size=15)
+    ax.set_ylabel('Non-stationariness', size=15, fontweight='bold')
+    fig.tight_layout()
 
     kind_mean = np.nanmean(std_mean, axis=0)
     kind_std = np.nanstd(std_mean, axis=0)
@@ -304,31 +381,42 @@ def freq_metrics(ROOTS, chans=48, lfreq=100, hfreq=8000):
 
 #This part makes the summary plot of BG and FG in time
     avg_mean_idx = np.argmax(avg_array, axis=0)
-    x_freq = np.logspace(np.log2(lfreq), np.log2(hfreq), num=chans, base=2)
+    x_freq = np.logspace(np.log2(lfreq), np.log2(hfreq), num=chans*2, base=2)
     cf_idx = list(avg_mean_idx.ravel('F'))
     cf_idx = [i for i in cf_idx if i != 0]
     cfs = np.asarray([x_freq[i] for i in cf_idx])
-    x = np.linspace(0, len(cf_idx)-1, len(cf_idx))
+    xplot = np.linspace(0, len(cf_idx)-1, len(cf_idx))
+###^^That's for max freq....
+    x_freq = np.logspace(np.log2(lfreq), np.log2(hfreq), num=chans*2, base=2)
 
-    fig, ax = plt.subplots(figsize=(5,5))
+    reshaped = np.swapaxes(np.reshape(avg_array, (48, 20), 'F'), 0, 1)
+    x = np.linspace(0, reshaped.shape[1] - 1, reshaped.shape[1])
+    center = np.sum(np.abs(reshaped) * x, axis=1) / np.sum(np.abs(reshaped), axis=1)
+    cf_idx = list(np.round(center * 2))
+    cf_nums = sum(~np.isnan(cf_idx))
+    cfs = np.asarray([x_freq[int(i)] for i in cf_idx[:cf_nums]])
+
+    xplot = np.linspace(0, len(cfs)-1, len(cfs))
+
+    fig, ax = plt.subplots(figsize=(6,8))
     freq_mask = x_freq > np.max(cfs)
     x_freq[freq_mask] = np.NaN
     nonan = sum(~np.isnan(x_freq))
     listy = list(x_freq)
     new_x_freq = np.asarray(listy[:nonan])
 
-    ax.bar(x[:10], cfs[:10], color='deepskyblue')
-    ax.bar(x[10:], cfs[10:], color='yellowgreen')
+    ax.bar(xplot[:10], cfs[:10], color='deepskyblue')
+    ax.bar(xplot[10:], cfs[10:], color='yellowgreen')
 
 
     ymin,ymax = ax.get_ylim()
-    ax.set_yticks([new_x_freq[0], new_x_freq[34], new_x_freq[-1]])
+    ax.set_yticks([new_x_freq[0], new_x_freq[64], new_x_freq[-1]])
 
     ax.axvline(9.5,ymin,ymax, linestyle=':', color='black')
-    ax.set_xticks(x)
+    ax.set_xticks(xplot)
     ax.set_xticklabels(all_names, rotation=90)
-    ax.set_ylabel('Center Frequency (Hz)', size=15)
-
+    ax.set_ylabel('Average Frequency (Hz)', size=15, fontweight='bold')
+    fig.tight_layout()
 
 
 
