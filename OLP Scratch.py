@@ -139,7 +139,7 @@ fig.tight_layout()
 
 colors = ['deepskyblue', 'yellowgreen', 'dimgray']
 pre_bin = int(params['PreStimSilence'] * params['fs'])
-post_bin = int((params['Duration'] - params['PostStimSilence']) * params['fs'])
+post_bin = int((params['stim length'] - params['PostStimSilence']) * params['fs'])
 for cnt, cmb in enumerate(combo):
     resp_sub = np.nanmean(response[:, cmb, :, :, int(pre_bin):int(post_bin)], axis=0)
     mean_resp = np.nanmean(resp_sub, axis=0)
