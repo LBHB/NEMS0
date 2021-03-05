@@ -9,6 +9,7 @@ from nems.utils import get_channel_number, find_module
 from nems.metrics.state import state_mod_split
 from nems.plots.utils import ax_remove_box
 from nems.gui.decorators import scrollable 
+from .file import save_figure, load_figure_img, load_figure_bytes, fig2BytesIO
 
 line_colors = {'actual_psth': (0,0,0),
                'predicted_psth': 'red',
@@ -475,3 +476,92 @@ def model_per_time(ctx, fit_idx=0):
                         colors=None, channel=None, decimate_by=1,
                         ax=ax, files_only=True, modelspec=modelspec)
 
+
+def cc_comp(val, modelspec, ax=None, figures=None, IsReload=False, **options):
+    if IsReload:
+        return {}
+    
+    ## display noise corr. matrices
+    f,ax = plt.subplots(4,3, figsize=(9,12))
+    #f,ax = plt.subplots(4,3, figsize=(6,8), sharex='col', sharey='col')
+
+    rec = val.apply_mask()
+    large_idx=rec['mask_large'].as_continuous()[0,:].astype(bool)
+    small_idx=rec['mask_small'].as_continuous()[0,:].astype(bool)
+    pred0=rec['pred0'].as_continuous()
+    pred=rec['pred'].as_continuous()
+    resp=rec['resp'].as_continuous()
+    state=rec['state'].as_continuous()
+
+    siteid = modelspec.meta['cellid'].split("-")[0]
+    large_cc = np.cov(resp[:,large_idx]-pred0[:,large_idx])
+    small_cc = np.cov(resp[:,small_idx]-pred0[:,small_idx])
+    mm=np.max(np.abs(small_cc)) * 0.5
+
+    ax[0,0].imshow(small_cc,aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr', origin='lower')
+    ax[1,0].imshow(large_cc,aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr', origin='lower')
+    ax[2,0].imshow(large_cc-small_cc,aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr', origin='lower')
+    ax[0,0].set_title(siteid + ' resp')
+
+    ax[0,0].set_ylabel('small')
+    ax[1,0].set_ylabel('large')
+    ax[2,0].set_ylabel('large-small')
+    ax[3,0].set_ylabel('d_sim-d_act')
+    ax[2,0].set_title(f"std={np.mean((large_cc-small_cc)**2):.3f}")
+
+    sm_cc = np.cov(pred[:,small_idx]-pred0[:,small_idx])
+    lg_cc = np.cov(pred[:,large_idx]-pred0[:,large_idx])
+    ax[0,1].imshow(sm_cc,aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr', origin='lower')
+    ax[1,1].imshow(lg_cc,aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr', origin='lower')
+    ax[2,1].imshow((lg_cc-sm_cc),aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr', origin='lower')
+    ax[3,1].imshow((large_cc-small_cc) - (lg_cc-sm_cc),aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr', origin='lower')
+    ax[0,1].set_title(siteid + ' pred');
+    ax[2,1].set_title(f"std={np.mean((lg_cc-sm_cc)**2):.3f}")
+    ax[3,1].set_title(f"E={np.mean(((large_cc-small_cc) - (lg_cc-sm_cc))**2):.3f}");
+
+    dact=large_cc-small_cc
+    dpred=lg_cc-sm_cc
+    ax[1,2].plot(np.diag(dact),label='act')
+    ax[1,2].plot(np.diag(dpred),label='pred')
+    ax[1,2].set_title('mean lg-sm var')
+    ax[1,2].legend(frameon=False)
+    np.fill_diagonal(dact, 0)
+    ax[2,2].plot(dact.mean(axis=0),label='act')
+    np.fill_diagonal(dpred, 0)
+    ax[2,2].plot(dpred.mean(axis=0),label='pred')
+    ax[2,2].set_title('mean lg-sm cc')
+    ax[2,2].set_xlabel('unit')
+
+    triu = np.triu_indices(dpred.shape[0], 1)
+    cc_avg = (large_cc[triu] + small_cc[triu])/2
+    h,b=np.histogram(cc_avg,bins=20,range=[-0.3,0.3])
+    ax[0,2].bar(b[1:],h,width=b[1]-b[0])
+    ax[0,2].set_title(f"median cc={np.median(cc_avg):.3f}")
+
+    d_each = dact[triu]
+    h,b=np.histogram(d_each,bins=20,range=[-0.3,0.3])
+        
+    ax[3,2].bar(b[1:],h,width=b[1]-b[0])
+    ax[3,2].set_xlabel(f"median d_cc={np.median(d_each):.3f}")
+    f.suptitle(f"{modelspec.meta['cellid']} - {modelspec.meta['modelname']}", fontsize=8)
+
+    cc_std_sm = np.std(small_cc[triu])
+    cc_std_lg = np.std(large_cc[triu])
+    state_std_sm = np.std(state[:,small_idx],axis=1)
+    state_std_lg = np.std(state[:,large_idx],axis=1)
+
+    modelspec.meta['cc_std_sm'] = cc_std_sm
+    modelspec.meta['cc_std_lg'] = cc_std_lg
+    modelspec.meta['state_std_sm'] = state_std_sm
+    modelspec.meta['state_std_lg'] = state_std_lg
+    modelspec.meta['med_d_each'] = np.median(d_each)
+    modelspec.meta['E_dcc'] = np.mean(((large_cc-small_cc) - (lg_cc-sm_cc))**2)
+    modelspec.meta['act_dcc_std'] = np.mean((large_cc-small_cc)**2)
+    modelspec.meta['pred_dcc_std'] = np.mean((lg_cc-sm_cc)**2)
+                                      
+    # CANNOT initialize figures=[] in optional args our you will create a bug
+    if figures is None:
+        figures = []
+    figures.append(fig2BytesIO(f))
+
+    return {'figures': figures, 'modelspec': modelspec}

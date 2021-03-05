@@ -656,6 +656,7 @@ class Recording:
         with the same name will be overwritten. No return value.
         '''
         if not isinstance(signal, SignalBase):
+            import pdb; pdb.set_trace()
             raise TypeError("Recording signals must be instances of"
                             " a Signal class. signal {} was type: {}"
                             .format(signal.name, type(signal)))

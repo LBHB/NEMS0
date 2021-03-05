@@ -655,9 +655,14 @@ def split_at_time(rec, valfrac=0.1, **context):
     return {'est': est, 'val': val}
 
 
-def average_away_stim_occurrences(est, val, epoch_regex='^STIM_', **context):
-    est = preproc.average_away_epoch_occurrences(est, epoch_regex=epoch_regex)
-    val = preproc.average_away_epoch_occurrences(val, epoch_regex=epoch_regex)
+def average_away_stim_occurrences(est=None, val=None, rec=None, epoch_regex='^STIM', **context):
+    if est is not None:
+        est = preproc.average_away_epoch_occurrences(est, epoch_regex=epoch_regex)
+        val = preproc.average_away_epoch_occurrences(val, epoch_regex=epoch_regex)
+        return {'est': est, 'val': val}
+    else:
+        rec = preproc.average_away_epoch_occurrences(rec, epoch_regex=epoch_regex)
+        return {'rec': rec}
 
     # mask out nan periods
 #    d=np.isfinite(est['resp'].as_continuous()[[0],:])
@@ -670,7 +675,7 @@ def average_away_stim_occurrences(est, val, epoch_regex='^STIM_', **context):
 #    val=val.create_mask()
 #    val['mask']=val['mask']._modified_copy(d)
 
-    return {'est': est, 'val': val}
+
 
 
 def average_away_stim_occurrences_rec(rec, epoch_regex='^STIM_', **context):

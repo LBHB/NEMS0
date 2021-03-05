@@ -174,7 +174,13 @@ def norm(kw):
 
 @xform()
 def lvnoise(kw):
+
+    ops = kw.split('.')[1:]
+    rep_count = 1
+    for op in ops:
+        if op.startswith('r'):
+            rep_count=int(op[1:])
     
-    return [['nems.preprocessing.add_noise_signal', {'noise_name': "indep"}, ['rec'], ['rec']],
-            ['nems.preprocessing.add_noise_signal', {'noise_name': "lv", 'ref_signal': "state"}, ['rec'], ['rec']]]
+    return [['nems.preprocessing.add_noise_signal', {'noise_name': "indep", 'rep_count': rep_count}],
+            ['nems.preprocessing.add_noise_signal', {'noise_name': "lv", 'ref_signal': "state"}]]
 
