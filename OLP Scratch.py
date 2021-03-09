@@ -1,35 +1,58 @@
 import OLP_analysis as olp
 
-parmfile = '/auto/data/daq/Hood/HOD005/HOD005b09_p_OLP'
-parmfile = '/auto/data/daq/Hood/HOD006/HOD006b11_p_OLP'
-parmfile = '/auto/data/daq/Hood/HOD007/HOD007a10_p_OLP'
-parmfile = '/auto/data/daq/Hood/HOD008/HOD008d11_p_OLP'
-parmfile = '/auto/data/daq/Hood/HOD009/HOD009a09_p_OLP'
-parmfile = '/auto/data/daq/Armillaria/ARM013/ARM013b32_p_OLP'   #0
-parmfile = '/auto/data/daq/Armillaria/ARM015/ARM015b15_p_OLP'   #1
-parmfile = '/auto/data/daq/Armillaria/ARM016/ARM016c15_p_OLP'   #2
-parmfile = '/auto/data/daq/Armillaria/ARM017/ARM017a10_p_OLP'   #3
-parmfile = '/auto/data/daq/Armillaria/ARM018/ARM018a05_p_OLP'   #4
-parmfile = '/auto/data/daq/Armillaria/ARM019/ARM019a07_p_OLP'   #5
-parmfile = '/auto/data/daq/Armillaria/ARM020/ARM020a05_p_OLP'   #6
-parmfile = '/auto/data/daq/Armillaria/ARM021/ARM021b14_p_OLP'   #7
-parmfile = '/auto/data/daq/Armillaria/ARM022/ARM022b15_p_OLP'   #8
-parmfile = '/auto/data/daq/Armillaria/ARM023/ARM023a11_p_OLP'   #9
-parmfile = '/auto/data/daq/Armillaria/ARM024/ARM024a10_p_OLP'   #10
-parmfile = '/auto/data/daq/Armillaria/ARM025/ARM025a10_p_OLP'   #11
-parmfile = '/auto/data/daq/Armillaria/ARM026/ARM026b07_p_OLP'
-parmfile = '/auto/data/daq/Armillaria/ARM027/ARM027a15_p_OLP'
-parmfile = '/auto/data/daq/Armillaria/ARM028/ARM028b13_p_OLP'
-parmfile = '/auto/data/daq/Armillaria/ARM029/ARM029a14_p_OLP'
-parmfile = '/auto/data/daq/Armillaria/ARM030/ARM030a12_p_OLP'
+parmfiles = ['/auto/data/daq/Armillaria/ARM013/ARM013b32_p_OLP',   #0
+             '/auto/data/daq/Armillaria/ARM015/ARM015b15_p_OLP',   #1
+             '/auto/data/daq/Armillaria/ARM016/ARM016c15_p_OLP',   #2
+             '/auto/data/daq/Armillaria/ARM017/ARM017a10_p_OLP',   #3
+             '/auto/data/daq/Armillaria/ARM018/ARM018a05_p_OLP',   #4
+             '/auto/data/daq/Armillaria/ARM019/ARM019a07_p_OLP',   #5
+             '/auto/data/daq/Armillaria/ARM020/ARM020a05_p_OLP',   #6
+             '/auto/data/daq/Armillaria/ARM021/ARM021b14_p_OLP',   #7
+             '/auto/data/daq/Armillaria/ARM022/ARM022b15_p_OLP',   #8
+             '/auto/data/daq/Armillaria/ARM023/ARM023a11_p_OLP',   #9
+             '/auto/data/daq/Armillaria/ARM024/ARM024a10_p_OLP',   #10
+             '/auto/data/daq/Armillaria/ARM025/ARM025a10_p_OLP',   #11
+             '/auto/data/daq/Armillaria/ARM026/ARM026b07_p_OLP',   #12
+             '/auto/data/daq/Armillaria/ARM027/ARM027a15_p_OLP',   #13
+             '/auto/data/daq/Armillaria/ARM028/ARM028b13_p_OLP',   #14
+             '/auto/data/daq/Armillaria/ARM029/ARM029a14_p_OLP',   #15
+             '/auto/data/daq/Armillaria/ARM030/ARM030a12_p_OLP',   #16
+             '/auto/data/daq/Armillaria/ARM031/ARM031a16_p_OLP',   #17
+             '/auto/data/daq/Armillaria/ARM032/ARM032a18_p_OLP',   #18
+             '/auto/data/daq/Armillaria/ARM033/ARM033a20_p_OLP']   #19
 
+parmfiles_A1 = parmfiles[0:2] + parmfiles[15:]
+parmfiles_PEG = parmfiles[2:15]
+
+response, params = olp._response_params(parmfile)
+
+supp_array = olp._get_suppression(response, params)
+site_results = olp.site_regression(supp_array, params)
+
+import nems_lbhb.gcmodel.figures.snr as snr
+snrs = snr.compute_snr(params['response'])
 params = olp.load_experiment_params(parmfile, rasterfs=100, sub_spont=True)
 response = olp.get_response(params, sub_spont=False)
-corcoefs = olp._base_reliability(response, rep_dim=2, protect_dim=3)
-avg_resp = olp._significant_resp(response, params, protect_dim=3, time_dim=-1)
-response = olp._find_good_units(response, params,
-                               corcoefs=corcoefs, corcoefs_threshold=0.1,
-                               avg_resp=avg_resp, avg_threshold=0.2)
+
+regression_results = olp.multisite_reg_results(parmfiles)
+
+
+
+###
+
+
+olp.psth_fulls_allunits(1, response, params, 2)
+unit = 8
+olp.psth_allpairs([2,3], unit, response, params, sigma=2, sum=False)
+olp.psth_allpairs([4,1,3], unit, response, params, sigma=2, sum=True)
+olp.psth_allpairs([0,5,7], unit, response, params, sigma=2, sum=True)
+olp.psth_allpairs([2,7], unit, response, params, sigma=2, sum=False)
+
+olp.z_allpairs([2,3], unit, response, params, sigma=2, z_av=False)
+olp.z_allpairs([0,1,2], unit, response, params, sigma=2, z_av=False)
+olp.z_allpairs([0,5,7], unit, response, params, sigma=2, z_av=False)
+olp.z_allpairs([2,7], unit, response, params, sigma=2, z_av=False)
+
 
 unit = 1
 pair = 1
@@ -38,6 +61,145 @@ olp.plot_rasters([0,1,2], 1, unit, response, params, 2)
 
 
 
+
+fig, ax = plt.subplots()
+x = np.linspace(0,neuron_coeffs.shape[0],neuron_coeffs.shape[0])
+ax.errorbar(x, neuron_coeffs, yerr=neuron_err,
+            color='black', label='Full Model', capsize=5)
+ax.errorbar(x, neuron_coeffs_shuff, yerr= neuron_err_shuff,
+            color='green', label='Stimulus Shuffled', capsize=5)
+ax.legend()
+
+fig, ax = plt.subplots()
+x = np.linspace(0,stim_coeffs.shape[0],stim_coeffs.shape[0])
+ax.errorbar(x, stim_coeffs, yerr=stim_err,
+            color='black', label='Full Model', capsize=5)
+ax.errorbar(x, stim_coeffs_shuff, yerr= stim_err_shuff,
+            color='blue', label='Neuron Shuffled', capsize=5)
+ax.legend()
+
+by_neuron = np.stack((neuron_coeffs,neuron_coeffs_shuff), axis=1)
+by_stimulus = np.stack((stim_coeffs,stim_coeffs_shuff), axis=1)
+
+
+
+#Coefficients
+fig, ax = plt.subplots(1,2, sharey=True, figsize=(12,5))
+x = np.linspace(0,neur_coeffs.shape[0],neur_coeffs.shape[0])
+ax[0].errorbar(x, neur_coeffs, yerr=neuron_err, color='black')
+ax[0].set_xlabel('Neuron', fontweight='bold', size=15)
+ax[0].set_ylabel('Suppression Units', fontweight='bold', size=15)
+ax[0].axhline(0, linestyle=':', color='black')
+
+x = np.linspace(0,stim_coeffs.shape[0],stim_coeffs.shape[0])
+ax[1].errorbar(x, stim_coeffs, yerr=stim_err, color='black')
+ax[1].set_xlabel('Stimulus Pair', fontweight='bold', size=15)
+ax[1].axhline(0, linestyle=':', color='black')
+
+
+
+from statsmodels.stats.anova import anova_lm
+print(anova_lm(results))
+
+full_pred = results.predict(X)
+neur_pred = results_stimshuf.predict(X)
+stim_pred = results_neushuf.predict(X)
+
+
+full_pred = full_pred.values.reshape(16,10)
+neur_pred = neur_pred.values.reshape(16,10)
+stim_pred = stim_pred.values.reshape(16,10)
+
+vmax = np.max([np.max(supp_array),np.max(full_pred),np.max(neur_pred),np.max(stim_pred)])
+vmin = np.min([np.min(supp_array),np.min(full_pred),np.min(neur_pred),np.min(stim_pred)])
+lims = max(abs(vmax),abs(vmin))
+
+fig, ax = plt.subplots(1,4, figsize=(15,3))
+ax[0].imshow(supp_array*-1,aspect='auto', vmin=-lims, vmax=lims, cmap='bwr')
+ax[0].set_title('Actual Values', fontweight='bold', size=12)
+ax[1].imshow(full_pred*-1,aspect='auto', vmin=-lims, vmax=lims, cmap='bwr')
+ax[1].set_title('Full Model', fontweight='bold', size=12)
+ax[2].imshow(neur_pred*-1,aspect='auto', vmin=-lims, vmax=lims, cmap='bwr')
+ax[2].set_title('Stimulus Shuffle', fontweight='bold', size=12)
+ax[3].imshow(stim_pred*-1,aspect='auto', vmin=-lims, vmax=lims, cmap='bwr')
+ax[3].set_title('Neuron Shuffle', fontweight='bold', size=12)
+
+
+
+fig, ax = plt.subplots(figsize=(3,5))
+ax.plot([stim_r, neur_r, full_r], linestyle='-', color='black')
+ax.set_ylabel('R_squared', fontweight='bold', size=12)
+ax.set_xticks([0,1,2])
+ax.set_xticklabels(['Neuron\nShuffled','Stimulus\nShuffled','Full Model'],
+                   fontweight='bold', size=10)
+ax.axhline(0, linestyle=':', color='black')
+fig.tight_layout()
+
+plt.figure()
+plt.plot([stim_r,neur_r,full_r])
+plt.axhline(0, linestyle=':')
+
+
+def get_rsquared()
+    fig, ax = plt.subplots(1,len(parmfiles), sharey=True, figsize=(15, 5))
+
+    suppression = {}
+    for site in parmfiles:
+        params = olp.load_experiment_params(site, rasterfs=100, sub_spont=True)
+        response = olp.get_response(params, sub_spont=False)
+        corcoefs = olp._base_reliability(response, rep_dim=2, protect_dim=3)
+        avg_resp = olp._significant_resp(response, params, protect_dim=3, time_dim=-1)
+        response = olp._find_good_units(response, params,
+                                        corcoefs=corcoefs, corcoefs_threshold=0.1,
+                                        avg_resp=avg_resp, avg_threshold=0.2)
+
+        supp_array = np.empty([len(params['good_units']), len(params['pairs'])])
+        for nn, pp in enumerate(params['pairs']):
+            _, _, _, _, supp, _, _ = olp.get_scatter_resps(nn, response)
+            supp_array[:, nn] = supp
+
+        suppression[f"{params['experiment']}"] = supp_array
+
+    for cnt, (site, supp_array) in enumerate(suppression.items()):
+        y = supp_array.reshape(1, -1)  # flatten
+        stimulus = np.tile(np.arange(0, supp_array.shape[1]), supp_array.shape[0])
+        neuron = np.concatenate([np.ones(supp_array.shape[1]) * i for i in
+                                 range(supp_array.shape[0])], axis=0)
+
+        X = np.stack([neuron, stimulus])
+        X = pd.DataFrame(data=X.T, columns=['neuron', 'stimulus'])
+        X = sm.add_constant(X)
+        X['suppression'] = y.T
+
+        results = smf.ols(formula='suppression ~ C(neuron) + C(stimulus) + const', data=X).fit()
+
+
+        Xshuff = X.copy()
+        Xshuff['neuron'] = Xshuff['neuron'].iloc[np.random.choice(
+            np.arange(X.shape[0]), X.shape[0], replace=False)].values
+        results_neushuf = smf.ols(formula='suppression ~ C(neuron) + C(stimulus) + const', data=Xshuff).fit()
+
+        Xshuff = X.copy()
+        Xshuff['stimulus'] = Xshuff['stimulus'].iloc[np.random.choice(
+            np.arange(X.shape[0]), X.shape[0], replace=False)].values
+        results_stimshuf = smf.ols(formula='suppression ~ C(neuron) + C(stimulus) + const', data=Xshuff).fit()
+
+        full_r = results.rsquared
+        neur_r = results_stimshuf.rsquared
+        stim_r = results_neushuf.rsquared
+
+        ax[cnt].plot([stim_r, neur_r, full_r], linestyle='-', color='black')
+        ax[0].set_ylabel('R_squared', fontweight='bold', size=12)
+        ax[cnt].set_xticks([0, 1, 2])
+        ax[cnt].set_xticklabels(['Neuron\nShuffled', 'Stimulus\nShuffled', 'Full\nModel'],
+                           fontweight='bold', size=8)
+        ax[cnt].axhline(0, linestyle=':', color='black')
+        ax[cnt].set_title(f"{site}", fontweight='bold', size=15)
+    fig.tight_layout()
+
+
+
+##SUPPRESSION LINE PLOT
 import matplotlib.pyplot as plt
 import numpy as np
 supp_array = np.empty([len(params['good_units']), len(params['pairs'])])
@@ -189,13 +351,16 @@ parmfiles = ['/auto/data/daq/Armillaria/ARM013/ARM013b32_p_OLP',
              '/auto/data/daq/Armillaria/ARM027/ARM027a15_p_OLP',
              '/auto/data/daq/Armillaria/ARM028/ARM028b13_p_OLP',
              '/auto/data/daq/Armillaria/ARM029/ARM029a14_p_OLP',
-             '/auto/data/daq/Armillaria/ARM030/ARM030a12_p_OLP']
+             '/auto/data/daq/Armillaria/ARM030/ARM030a12_p_OLP',
+             '/auto/data/daq/Armillaria/ARM031/ARM031a16_p_OLP',
+             '/auto/data/daq/Armillaria/ARM032/ARM032a18_p_OLP',
+             '/auto/data/daq/Armillaria/ARM033/ARM033a20_p_OLP']
 
 parmfiles = ['/auto/data/daq/Armillaria/ARM015/ARM015b15_p_OLP',
              '/auto/data/daq/Armillaria/ARM017/ARM017a10_p_OLP',
-             '/auto/data/daq/Armillaria/ARM019/ARM019a07_p_OLP',
              '/auto/data/daq/Armillaria/ARM020/ARM020a05_p_OLP',
-             '/auto/data/daq/Armillaria/ARM024/ARM024a10_p_OLP']
+             '/auto/data/daq/Armillaria/ARM024/ARM024a10_p_OLP',
+             '/auto/data/daq/Armillaria/ARM025/ARM025a10_p_OLP']
 responses, parameters = olp.load_parms(parmfiles)
 
 olp.multi_exp_auccenter(0, responses, parameters)

@@ -9,6 +9,10 @@ sys.path.extend(['/auto/users/hamersky/olp'])
 import helpers as helpers
 import scipy.stats as sst
 from warnings import warn
+import statsmodels.formula.api as smf
+import pandas as pd
+import statsmodels.api as sm
+import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 
 def load_experiment_params(parmfile, rasterfs=100, sub_spont=True):
@@ -936,3 +940,139 @@ def bgfg_suppression_scatter(pair, response, params):
                  fontweight='bold')
     fig.tight_layout()
 
+##################
+#Regression stuff
+def _get_suppression(response, params):
+    supp_array = np.empty([len(params['good_units']), len(params['pairs'])])
+    for nn, pp in enumerate(params['pairs']):
+        _, _, _, _, supp, _, _ = get_scatter_resps(nn, response)
+        supp_array[:, nn] = supp
+
+    return supp_array
+
+def site_regression(supp_array, params):
+    site_results = pd.DataFrame()
+    shuffles = [None, 'neuron', 'stimulus']
+    for shuf in shuffles:
+        reg_results = neur_stim_reg(supp_array, params, shuf)
+        site_results = site_results.append(reg_results, ignore_index=True)
+
+    return site_results
+
+
+def neur_stim_reg(supp_array, params, shuffle=None):
+    y = supp_array.reshape(1,-1) #flatten
+    stimulus = np.tile(np.arange(0,supp_array.shape[1]), supp_array.shape[0])
+    neuron = np.concatenate([np.ones(supp_array.shape[1]) * i for i in
+                         range(supp_array.shape[0])], axis=0)
+
+    X = np.stack([neuron,stimulus])
+    X = pd.DataFrame(data=X.T,columns=['neuron','stimulus'])
+    X = sm.add_constant(X)
+    X['suppression'] = y.T
+
+    if not shuffle:
+        results = smf.ols(formula='suppression ~ C(neuron) + C(stimulus) + const', data=X).fit()
+
+    if shuffle == 'neuron':
+        Xshuff = X.copy()
+        Xshuff['neuron'] = Xshuff['neuron'].iloc[np.random.choice(
+                    np.arange(X.shape[0]),X.shape[0],replace=False)].values
+        results = smf.ols(formula='suppression ~ C(neuron) + C(stimulus) + const', data=Xshuff).fit()
+
+    if shuffle == 'stimulus':
+        Xshuff = X.copy()
+        Xshuff['stimulus'] = Xshuff['stimulus'].iloc[np.random.choice(
+            np.arange(X.shape[0]),X.shape[0],replace=False)].values
+        results = smf.ols(formula='suppression ~ C(neuron) + C(stimulus) + const', data=Xshuff).fit()
+
+    reg_results = _regression_results(results, shuffle, params)
+
+    return reg_results
+
+
+def _regression_results(results, shuffle, params):
+    intercept = results.params.loc[results.params.index.str.contains('Intercept')].values
+    int_err = results.bse.loc[results.bse.index.str.contains('Intercept')].values
+    int_conf = results.conf_int().loc[results.conf_int().index.str.contains('Intercept')].values[0]
+    neuron_coeffs = results.params.loc[results.params.index.str.contains('neuron')].values
+    neuron_coeffs = np.concatenate(([0], neuron_coeffs))
+    stim_coeffs = results.params.loc[results.params.index.str.contains('stimulus')].values
+    stim_coeffs = np.concatenate(([0], stim_coeffs))
+    neur_coeffs = neuron_coeffs + intercept + stim_coeffs.mean()
+    stim_coeffs = stim_coeffs + intercept + neuron_coeffs.mean()
+    coef_list = np.concatenate((neur_coeffs, stim_coeffs))
+
+    neuron_err = results.bse.loc[results.bse.index.str.contains('neuron')].values
+    stim_err = results.bse.loc[results.bse.index.str.contains('stimulus')].values
+    neuron_err = np.concatenate((int_err, neuron_err))
+    stim_err = np.concatenate((int_err, stim_err))
+    err_list = np.concatenate((neuron_err, stim_err))
+
+    neur_low_conf = results.conf_int()[0].loc[results.conf_int().index.str.contains('neuron')].values
+    neur_low_conf = np.concatenate(([int_conf[0]], neur_low_conf))
+    stim_low_conf = results.conf_int()[0].loc[results.conf_int().index.str.contains('stimulus')].values
+    stim_low_conf = np.concatenate(([int_conf[0]], stim_low_conf))
+    low_list = np.concatenate((neur_low_conf, stim_low_conf))
+
+    neur_high_conf = results.conf_int()[1].loc[results.conf_int().index.str.contains('neuron')].values
+    neur_high_conf = np.concatenate(([int_conf[1]], neur_high_conf))
+    stim_high_conf = results.conf_int()[1].loc[results.conf_int().index.str.contains('stimulus')].values
+    stim_high_conf = np.concatenate(([int_conf[1]], stim_high_conf))
+    high_list = np.concatenate((neur_high_conf, stim_high_conf))
+
+    neur_list = ['neuron'] * len(neur_coeffs)
+    stim_list = ['stimulus'] * len(stim_coeffs)
+    name_list = np.concatenate((neur_list, stim_list))
+
+    if shuffle == None:
+        shuffle = 'full'
+    shuff_list = [f"{shuffle}"] * len(name_list)
+    site_list = [f"{params['experiment']}"] * len(name_list)
+    r_list = [f"{np.round(results.rsquared,4)}"] * len(name_list)
+
+    name_list_actual = list(params['good_units'])
+    name_list_actual.extend(params['pairs'])
+
+    reg_results = pd.DataFrame(
+        {'name': name_list_actual,
+         'id': name_list,
+         'site': site_list,
+         'shuffle': shuff_list,
+         'coeff': coef_list,
+         'error': err_list,
+         'conf_low': low_list,
+         'conf_high': high_list,
+         'rsquare': r_list
+        })
+
+    return reg_results
+
+
+def multisite_reg_results(parmfiles):
+    regression_results = pd.DataFrame()
+    for file in parmfiles:
+        params = load_experiment_params(file, rasterfs=100, sub_spont=True)
+        response = get_response(params, sub_spont=False)
+        corcoefs = _base_reliability(response, rep_dim=2, protect_dim=3)
+        avg_resp = _significant_resp(response, params, protect_dim=3, time_dim=-1)
+        response = _find_good_units(response, params,
+                                    corcoefs=corcoefs, corcoefs_threshold=0.1,
+                                    avg_resp=avg_resp, avg_threshold=0.2)
+        supp_array = _get_suppression(response, params)
+        site_results = site_regression(supp_array, params)
+
+        regression_results = regression_results.append(site_results, ignore_index=True)
+
+    return regression_results
+
+##General load
+def _response_params(parmfile):
+    params = load_experiment_params(parmfile, rasterfs=100, sub_spont=True)
+    response = get_response(params, sub_spont=False)
+    corcoefs = _base_reliability(response, rep_dim=2, protect_dim=3)
+    avg_resp = _significant_resp(response, params, protect_dim=3, time_dim=-1)
+    response = _find_good_units(response, params,
+                                    corcoefs=corcoefs, corcoefs_threshold=0.1,
+                                    avg_resp=avg_resp, avg_threshold=0.2)
+    return response, params
