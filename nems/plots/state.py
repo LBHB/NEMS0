@@ -477,7 +477,7 @@ def model_per_time(ctx, fit_idx=0):
                         ax=ax, files_only=True, modelspec=modelspec)
 
 
-def cc_comp(val, modelspec, ax=None, figures=None, IsReload=False, **options):
+def cc_comp(val, modelspec, ax=None, figures=None, IsReload=False, extra_epoch=None, **options):
     if IsReload:
         return {}
     
@@ -485,9 +485,24 @@ def cc_comp(val, modelspec, ax=None, figures=None, IsReload=False, **options):
     f,ax = plt.subplots(4,3, figsize=(9,12))
     #f,ax = plt.subplots(4,3, figsize=(6,8), sharex='col', sharey='col')
 
-    rec = val.apply_mask()
-    large_idx=rec['mask_large'].as_continuous()[0,:].astype(bool)
-    small_idx=rec['mask_small'].as_continuous()[0,:].astype(bool)
+    if extra_epoch is not None:
+        rec=val.copy()
+        rec=rec.and_mask(extra_epoch)
+        rec = rec.apply_mask()
+        print(f"masked {extra_epoch} len from {val['mask'].as_continuous().sum()} to {val['mask'].as_continuous().sum()}")
+        large_idx=rec['mask_large'].as_continuous()[0,:].astype(bool)
+        small_idx=rec['mask_small'].as_continuous()[0,:].astype(bool)
+        mask = rec['mask'].as_continuous()[0,:].astype(bool)
+        large_idx *= mask
+        small_idx *= mask
+    else:
+        rec = val.apply_mask()
+        large_idx=rec['mask_large'].as_continuous()[0,:].astype(bool)
+        small_idx=rec['mask_small'].as_continuous()[0,:].astype(bool)
+
+    #rec = val.apply_mask()
+    #large_idx=rec['mask_large'].as_continuous()[0,:].astype(bool)
+    #small_idx=rec['mask_small'].as_continuous()[0,:].astype(bool)
     pred0=rec['pred0'].as_continuous()
     pred=rec['pred'].as_continuous()
     resp=rec['resp'].as_continuous()
