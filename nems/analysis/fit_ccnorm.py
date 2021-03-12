@@ -67,8 +67,15 @@ def fit_ccnorm(modelspec,
         log.info("Data len post-mask: %d", est['mask'].shape[1])
 
     conditions = ["_".join(k.split("_")[1:]) for k in est.signals.keys() if k.startswith("mask_")]
+    if (len(conditions)>2) and any([c.split("_")[-1]=='lg' for c in conditions]):
+        conditions.remove("small")
+        conditions.remove("large")
+        
     #conditions = ['large','small']
     group_idx = [est['mask_'+c].as_continuous()[0,:] for c in conditions]
+    cg_filtered = [(c, g) for c,g in zip(conditions,group_idx) if g.sum()>0]
+    conditions, group_idx = zip(*cg_filtered)
+    
     for c,g in zip(conditions, group_idx):
         log.info(f"cc data for {c} len {g.sum()}")
         
