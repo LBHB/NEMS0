@@ -1687,7 +1687,7 @@ def concatenate_input_channels(rec, input_signals=[], input_name=None):
 
 
 def add_noise_signal(rec, n_chans=None, T=None, noise_name="indep", ref_signal="resp", chans=None, 
-                     rep_count=1, rand_seed=1, est=None, val=None, **context):
+                     rep_count=1, rand_seed=1, distribution="gaussian", est=None, val=None, **context):
     
     newrec = rec.copy()
     
@@ -1708,8 +1708,13 @@ def add_noise_signal(rec, n_chans=None, T=None, noise_name="indep", ref_signal="
     save_state = np.random.get_state()
     np.random.seed(rand_seed+n_chans+T)
 
-    d = np.random.randn(n_chans,T)
-    
+    if distribution=='gaussian':
+        d = np.random.randn(n_chans,T)
+    elif distribution=='uniform':
+        d = np.random.uniform(size=(n_chans,T))
+    else:
+        raise ValueError(f"unknown distribution {distribution}")
+                         
     # restore random state
     np.random.set_state(save_state)
 

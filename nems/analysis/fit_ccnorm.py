@@ -70,7 +70,8 @@ def fit_ccnorm(modelspec,
     if (len(conditions)>2) and any([c.split("_")[-1]=='lg' for c in conditions]):
         conditions.remove("small")
         conditions.remove("large")
-        
+    #conditions = conditions[0:2]
+    
     #conditions = ['large','small']
     group_idx = [est['mask_'+c].as_continuous()[0,:] for c in conditions]
     cg_filtered = [(c, g) for c,g in zip(conditions,group_idx) if g.sum()>0]

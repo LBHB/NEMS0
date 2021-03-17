@@ -486,23 +486,22 @@ def cc_comp(val, modelspec, ax=None, figures=None, IsReload=False, extra_epoch=N
     #f,ax = plt.subplots(4,3, figsize=(6,8), sharex='col', sharey='col')
 
     if extra_epoch is not None:
-        rec=val.copy()
-        rec=rec.and_mask(extra_epoch)
-        rec = rec.apply_mask()
-        print(f"masked {extra_epoch} len from {val['mask'].as_continuous().sum()} to {val['mask'].as_continuous().sum()}")
-        large_idx=rec['mask_large'].as_continuous()[0,:].astype(bool)
-        small_idx=rec['mask_small'].as_continuous()[0,:].astype(bool)
-        mask = rec['mask'].as_continuous()[0,:].astype(bool)
-        large_idx *= mask
-        small_idx *= mask
+        #rec = val.copy()
+        #rec = rec.and_mask(extra_epoch)
+        rec = val.apply_mask()
+        #large_idx=rec['mask_large'].as_continuous()[0,:].astype(bool)
+        #small_idx=rec['mask_small'].as_continuous()[0,:].astype(bool)
+        #mask = rec['mask'].as_continuous()[0,:].astype(bool)
+        #large_idx *= mask
+        #small_idx *= mask
+        large_idx=rec['mask_'+extra_epoch+'_lg'].as_continuous()[0,:].astype(bool)
+        small_idx=rec['mask_'+extra_epoch+'_sm'].as_continuous()[0,:].astype(bool)
+        print(f"masked {extra_epoch} len from {val['mask'].as_continuous().sum()} to {large_idx.sum()+small_idx.sum()}")
     else:
         rec = val.apply_mask()
         large_idx=rec['mask_large'].as_continuous()[0,:].astype(bool)
         small_idx=rec['mask_small'].as_continuous()[0,:].astype(bool)
 
-    #rec = val.apply_mask()
-    #large_idx=rec['mask_large'].as_continuous()[0,:].astype(bool)
-    #small_idx=rec['mask_small'].as_continuous()[0,:].astype(bool)
     pred0=rec['pred0'].as_continuous()
     pred=rec['pred'].as_continuous()
     resp=rec['resp'].as_continuous()
