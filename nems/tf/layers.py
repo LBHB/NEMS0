@@ -37,7 +37,8 @@ class BaseLayer(tf.keras.layers.Layer):
                       use_modelspec_init: bool = True,
                       seed: int = 0,
                       fs: int = 100,
-                      initializer: str = 'random_normal'
+                      initializer: str = 'random_normal',
+                      trainable: bool = True,
                       ):
         """Parses modelspec layer to generate layer class.
 
@@ -53,6 +54,7 @@ class BaseLayer(tf.keras.layers.Layer):
             'ms_name': ms_layer['fn'],
             'fs': fs,
             'seed': seed,
+            'trainable': trainable,
         }
 
         # TODO: clean this up, maybe separate kwargs/fn_kwargs, or method to split out valid tf kwargs from rest
