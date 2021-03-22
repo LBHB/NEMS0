@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 
 def plot_heatmap(array, xlabel='Time', ylabel='Channel',
                  ax=None, cmap=None, clim=None, skip=0, title=None, fs=None,
-                 interpolation='none', manual_extent=None, show_cbar=True,
+                 interpolation=None, manual_extent=None, show_cbar=True,
                  fontsize=7, **options):
     '''
     A wrapper for matplotlib's plt.imshow() to ensure consistent formatting.
@@ -204,7 +204,7 @@ def nonparametric_strf(modelspec, idx, ax=None, clim=None, title=None, cmap=None
 
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
                  title='STRF', fs=None, chans=None, wc_idx=0, fir_idx=0,
-                 interpolation='none', absolute_value=False, cmap='RdYlBu_r',
+                 interpolation=None, absolute_value=False, cmap='RdYlBu_r',
                  manual_extent=None, show_cbar=True, **options):
     """
     chans: list
@@ -214,11 +214,14 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
        if string, passed on as parameter to imshow
        if tuple, ndimage "zoom" by a factor of (x,y) on each dimension
     """
+    if interpolation is None:
+        interpolation = get_setting('FILTER_INTERPOLATION')
     if fs is None:
         try:
             fs = modelspec.recording['stim'].fs
         except:
-            pass
+            fs=1
+
     wcc = _get_wc_coefficients(modelspec, idx=wc_idx)
     firc = _get_fir_coefficients(modelspec, idx=fir_idx, fs=fs)
     fir_mod = find_module('fir', modelspec, find_all_matches=True)[fir_idx]
@@ -254,6 +257,8 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
             strf = np.concatenate(strfs,axis=1)
         else:
             strf = fir_coefs
+        # special case, can't do this stuff for filterbank display
+        interpolation=None
         show_factorized = False
     else:
         wc_coefs = np.array(wcc).T
@@ -270,16 +275,16 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
     else:
         cscale = np.max(np.abs(clim))
 
-    if type(interpolation) is str:
-        if interpolation=='none':
-            pass
-        else:
-            show_factorized = False
+    if interpolation is None:
+        pass
+    elif type(interpolation) is str:
+        pass
     else:
-        s = strf.shape
         strf = zoom(strf, interpolation)
-        fs = fs * interpolation[1]
-        interpolation='none'
+        fs = fs * float(interpolation[1])
+        show_factorized=False
+    #import pdb; pdb.set_trace()
+    interpolation='none'
 
     if show_factorized:
         # Never rescale the STRF or CLIM!

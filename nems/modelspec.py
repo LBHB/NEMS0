@@ -529,9 +529,10 @@ class ModelSpec:
             channels = self.plot_channel
 
         plot_fn = self.get_plot_fn(mod_index, plot_fn_idx, fit_index)
+        
         # call the plot func
-        plot_fn(rec=rec, modelspec=self, sig_name=sig_name, idx=mod_index,
-                channels=channels, ax=ax, **kwargs)
+        return plot_fn(rec=rec, modelspec=self, sig_name=sig_name, idx=mod_index,
+                       channels=channels, ax=ax, **kwargs)
 
     def quickplot(self, rec=None, epoch=None, occurrence=None, fit_index=None,
                   include_input=True, include_output=True, size_mult=(1.0, 3.0),
