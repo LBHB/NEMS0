@@ -1046,14 +1046,14 @@ class ModelSpec:
         return layers
 
     def modelspec2tf2(self, seed=0, use_modelspec_init=True, fs=100, initializer='random_normal',
-                      trainable_layers=None):
+                      freeze_layers=None):
         """New version
 
         TODO
         """
         layers = []
-        if trainable_layers is None:
-            trainable_layers = list(range(len(self.modules)))
+        if freeze_layers is None:
+            freeze_layers = list(range(len(self.modules)))
 
         for i, m in enumerate(self):
             try:
@@ -1061,10 +1061,10 @@ class ModelSpec:
             except KeyError:
                 raise NotImplementedError(f'Layer "{m["fn"]}" does not have a tf equivalent.')
 
-            if i in trainable_layers:
-                trainable=True
-            else:
+            if i in freeze_layers:
                 trainable=False
+            else:
+                trainable=True
             layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
                                            initializer=initializer, trainable=trainable)
             layers.append(layer)

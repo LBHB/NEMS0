@@ -168,7 +168,7 @@ def newtf(fitkey):
     rand_count = 0
     pick_best = False
     epoch_name = "REFERENCE"
-    trainable_layers = None
+    freeze_layers = None
 
     options = _extract_options(fitkey)
 
@@ -219,14 +219,14 @@ def newtf(fitkey):
                 initializer = 'lecun_normal'
         elif op=='cont':
             epoch_name = ""
-        elif op.startswith('TL'):
+        elif op.startswith('FL'):
             if ':' in op:
-                # ex: TL0:5  would be trainable_layers = [0,1,2,3,4]
+                # ex: FL0:5  would be freeze_layers = [0,1,2,3,4]
                 lower, upper = [int(i) for i in op[2:].split(':')]
-                trainable_layers = list(range(lower, upper))
+                freeze_layers = list(range(lower, upper))
             else:
-                # ex: TL2x6x9  would be trainable_layers = [2, 6, 9]
-                trainable_layers = [int(i) for i in op[2:].split('x')]
+                # ex: FL2x6x9  would be freeze_layers = [2, 6, 9]
+                freeze_layers = [int(i) for i in op[2:].split('x')]
     xfspec = []
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
@@ -246,7 +246,7 @@ def newtf(fitkey):
                        'initializer': initializer,
                        'seed': seed,
                        'epoch_name': epoch_name,
-                       'trainable_layers': trainable_layers
+                       'freeze_layers': freeze_layers
                    }])
 
     if pick_best:
@@ -539,6 +539,7 @@ def init(kw):
                     max_iter = None
                 else:
                     max_iter = int(op[1:])
+
         elif op.startswith('ffneg'):
             sel_options['freeze_after'] = -int(op[5:])
         elif op.startswith('fneg'):

@@ -154,7 +154,6 @@ def fit_tf(
         freeze_layers: typing.Union[None, list] = None,
         IsReload: bool = False,
         epoch_name: str = "REFERENCE",
-        trainable_layers: list = None,
         **context
         ) -> dict:
     """TODO
@@ -176,7 +175,6 @@ def fit_tf(
     :param IsReload:
     :param epoch_name
     :param context:
-    :param trainable_layers:
 
     :return: dict {'modelspec': modelspec}
     """
@@ -261,7 +259,7 @@ def fit_tf(
     # get the layers and build the model
     cost_fn = loss_functions.get_loss_fn(cost_function)
     model_layers = modelspec.modelspec2tf2(use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
-                                           initializer=initializer, trainable_layers=trainable_layers)
+                                           initializer=initializer, freeze_layers=freeze_layers)
     if np.any([isinstance(layer, Conv2D_NEMS) for layer in model_layers]):
         # need a "channel" dimension for Conv2D (like rgb channels, not frequency). Only 1 channel for our data.
         stim_train = stim_train[..., np.newaxis]
@@ -278,6 +276,10 @@ def fit_tf(
         optimizer=optimizer,
         metrics=[pearson],
     ).build_model(input_shape=stim_train.shape, state_shape=state_shape, batch_size=batch_size)
+
+    if freeze_layers is not None:
+        for freeze_index in freeze_layers:
+            log.info(f'TF layer #{freeze_index}: "{model.layers[freeze_index + 1].name}" is not trainable.')
 
     # tracking early termination
     model.early_terminated = False
@@ -305,14 +307,6 @@ def fit_tf(
     # gradient_logger = callbacks.GradientLogger(filepath=str(gradient_filepath),
     #                                            train_input=stim_train,
     #                                            model=model)
-
-
-    # TODO: remove this if new trainable_layers version ends up working
-    # freeze layers
-    if freeze_layers is not None:
-        for freeze_index in freeze_layers:
-            log.info(f'Freezing layer #{freeze_index}: "{model.layers[freeze_index + 1].name}".')
-            model.layers[freeze_index + 1].trainable = False
 
     # save an initial set of weights before freezing, in case of termination before any checkpoints
     #log.info('saving weights to : %s', str(checkpoint_filepath) )
@@ -465,6 +459,7 @@ def fit_tf_init(
     log.info('Running first init fit: model up to first lvl/relu without stp/gain.')
     log.debug('freeze_idxes: %s', freeze_idxes)
     filepath = Path(modelspec.meta['modelpath']) / 'init_part1'
+    kwargs.pop('freeze_layers')  # can't pass freeze_layers kwarg twice
     temp_ms = fit_tf(temp_ms, est, freeze_layers=freeze_idxes, filepath=filepath, **kwargs)['modelspec']
 
     # put back into original modelspec
