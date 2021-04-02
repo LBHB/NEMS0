@@ -1053,7 +1053,7 @@ class ModelSpec:
         """
         layers = []
         if freeze_layers is None:
-            freeze_layers = list(range(len(self.modules)))
+            freeze_layers = []
 
         for i, m in enumerate(self):
             try:
