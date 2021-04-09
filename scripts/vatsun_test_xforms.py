@@ -63,6 +63,10 @@ xfspec = []
 xfspec.append([load_command,
                {'cellid': cellid, 'recname': recname, 'fs': fs}])
 
+# uncomment to average across
+#xfspec.append(['nems.xforms.average_away_stim_occurrences', {}])
+
+
 # generate est/val sets
 #xfspec.append(['nems.xforms.split_at_time', {'valfrac': 0.1}])
 

@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
 import copy
@@ -10,6 +11,8 @@ import nems.recording as recording
 from nems.metrics.stp import stp_magnitude
 from nems.plots.utils import ax_remove_box
 from nems.gui.decorators import scrollable
+
+log = logging.getLogger(__name__)
 
 def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
                     linestyle='-', linewidth=1,
@@ -28,7 +31,9 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
 
     TODO: expand this doc  -jacob 2-17-18
     '''
-    if ax is None:
+    if ax is not None:
+        plt.sca(ax)
+    else:
         ax = plt.gca()
 
     cc = 0
@@ -55,7 +60,7 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
     ax.set_ylabel(ylabel)
     ax.set_xlim([mintime, maxtime])
     if legend:
-        plt.legend(legend, ax=ax)
+        ax.legend(legend)
     if title:
         ax.set_title(title)
 
@@ -441,7 +446,8 @@ def pred_resp(rec=None, modelspec=None, ax=None, title=None,
     --------
     ax : axis containing plot
     '''
-    sig_list = ['resp', 'pred']
+    sig_list = [modelspec.meta.get('output_name','resp'), 'pred']
+    ylabel = f'{"/".join(sig_list)} chan {channels}'
     sigs = [rec[s] for s in sig_list]
     ax = timeseries_from_signals(sigs, channels=channels,
                                  xlabel=xlabel, ylabel=ylabel, ax=ax,

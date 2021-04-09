@@ -837,6 +837,10 @@ def ccnorm(fitkey):
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi',
             {'criterion': 'mse_fit', 'keep_n': keep_n}])
 
+    xfspec.append(['nems.xforms.predict', {}])
+    xfspec.append(['nems.xforms.add_summary_statistics', {}])
+    xfspec.append(['nems.plots.state.cc_comp', {}])
+
     return xfspec
 
 

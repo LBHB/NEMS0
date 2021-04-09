@@ -1274,9 +1274,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     permute_signals = permute_signals.copy()
 
     # normalize mean/std of pupil trace if being used
-    if ('pupil' in state_signals) or ('pupil2' in state_signals) or \
-        ('pupil_ev' in state_signals) or ('pupil_bs' in state_signals) or \
-        ('pupil_stim' in state_signals) or ('pupil_x_population' in state_signals):
+    if any([s.startswith('pupil') for s in state_signals]):
         # save raw pupil trace
         # normalize min-max
         p_raw = newrec["pupil"].as_continuous().copy()
@@ -1295,6 +1293,12 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         if ('pupil2') in state_signals:
             newrec["pupil2"] = newrec["pupil"]._modified_copy(p ** 2)
             newrec["pupil2"].chans = ['pupil2']
+        if ('pupil_dup') in state_signals:
+            newrec['pupil_dup']=newrec["pupil"].copy()
+            newrec["pupil_dup"].chans = ['pupil_dup']
+        if ('pupil_dup2') in state_signals:
+            newrec['pupil_dup2']=newrec["pupil"].copy()
+            newrec["pupil_dup2"].chans = ['pupil_dup2']
 
     if ('pupil_psd') in state_signals:
         pup = newrec['pupil'].as_continuous().copy()
@@ -1682,20 +1686,50 @@ def concatenate_input_channels(rec, input_signals=[], input_name=None):
     return newrec
 
 
-def add_noise_signal(rec, n_chans=None, T=None, noise_name="indep", ref_signal="resp", chans=None):
-
-    newrec = rec.copy()
-    if n_chans is None:
-        n_chans=rec[ref_signal].shape[0]
-    if chans is None:
-        chans = rec[ref_signal].chans.copy()
-    if T is None:
-        T = rec[ref_signal].shape[1]
-    d = np.random.randn(n_chans,T)
+def add_noise_signal(rec, n_chans=None, T=None, noise_name="indep", ref_signal="resp", chans=None, 
+                     rep_count=1, rand_seed=1, distribution="gaussian", est=None, val=None, **context):
     
-    newrec.add_signal(newrec['resp']._modified_copy(data=d, name=noise_name, chans=chans))
+    newrec = rec.copy()
+    
+    if rep_count>1:
+        # duplicate signals rep_count times in time to get more variety in the noise signal
+    
+        for k,s in rec.signals.items():
+            newrec.signals[k]=s.concatenate_time([s]*rep_count)
+            log.info(f"concat {k}x{rep_count} len: {s.shape[1]} to {newrec.signals[k].shape[1]}")
+    if n_chans is None:
+        n_chans=newrec[ref_signal].shape[0]
+    if chans is None:
+        chans = newrec[ref_signal].chans.copy()
+    if T is None:
+        T = newrec[ref_signal].shape[1]
+    
+    # set seed to produce frozen noise
+    save_state = np.random.get_state()
+    np.random.seed(rand_seed+n_chans+T)
 
-    return newrec
+    if distribution=='gaussian':
+        d = np.random.randn(n_chans,T)
+    elif distribution=='uniform':
+        d = np.random.uniform(size=(n_chans,T))
+    else:
+        raise ValueError(f"unknown distribution {distribution}")
+                         
+    # restore random state
+    np.random.set_state(save_state)
+
+    newrec.add_signal(newrec['resp']._modified_copy(data=d, name=noise_name, chans=chans))
+    d = {'rec': newrec}
+    if est is not None:
+        est = est.copy()
+        est.add_signal(newrec[noise_name])
+        d['est']=est
+    if val is not None:
+        val = val.copy()
+        val.add_signal(newrec[noise_name])
+        d['val']=val
+
+    return d
 
 
 #

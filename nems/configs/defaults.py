@@ -93,6 +93,7 @@ LIB_PLUGINS = []
 ################################################################################
 # Name of computer
 FILTER_CMAP = 'jet'   # alternative is 'RdYlBu_r'
+FILTER_INTERPOLATION = None
 WEIGHTS_CMAP = 'bwr'
 
 
