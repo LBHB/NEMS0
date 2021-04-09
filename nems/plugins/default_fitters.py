@@ -265,6 +265,11 @@ def tfinit(fitkey):
     idx = [xf[0] for xf in xfspec].index('nems.xforms.fit_wrapper')
     xfspec[idx][1]['fit_function'] = 'nems.tf.cnnlink_new.fit_tf_init'
 
+    options = _extract_options(fitkey)
+    for op in options:
+        if op == 'iso':
+            xfspec[idx][1]['isolate_NL'] = True
+
     return xfspec
 
 

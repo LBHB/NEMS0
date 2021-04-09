@@ -387,6 +387,7 @@ def fit_tf_init(
         est: recording.Recording,
         nl_init: str = 'tf',
         IsReload: bool = False,
+        isolate_NL: bool = False,
         **kwargs
         ) -> dict:
     """Inits a model using tf.
@@ -500,8 +501,15 @@ def fit_tf_init(
                     else:
                         modelspec = init_fn(est, modelspec, nl_mode=4)
 
-                    static_nl_idx_not = list(set(range(len(modelspec))) - set([idx]))
-                    log.info('Running second init fit: all frozen but static nl.')
+                    if isolate_NL:
+                        static_nl_idx_not = list(set(range(len(modelspec))) - set([idx]))
+                        log.info('Running second init fit: all frozen but static nl.')
+                    else:
+                        if force_freeze is None:
+                            static_nl_idx_not = []
+                        else:
+                            static_nl_idx_not = force_freeze
+                        log.info('Running second init fit: not frozen but coarser tolerance.')
 
                     # don't overwrite the phis in the modelspec
                     kwargs['use_modelspec_init'] = True
