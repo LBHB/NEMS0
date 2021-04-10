@@ -1046,21 +1046,28 @@ class ModelSpec:
 
         return layers
 
-    def modelspec2tf2(self, seed=0, use_modelspec_init=True, fs=100, initializer='random_normal'):
+    def modelspec2tf2(self, seed=0, use_modelspec_init=True, fs=100, initializer='random_normal',
+                      freeze_layers=None):
         """New version
 
         TODO
         """
         layers = []
+        if freeze_layers is None:
+            freeze_layers = []
 
-        for m in self:
+        for i, m in enumerate(self):
             try:
                 tf_layer = nems.utils.lookup_fn_at(m['tf_layer'])
             except KeyError:
                 raise NotImplementedError(f'Layer "{m["fn"]}" does not have a tf equivalent.')
 
+            if i in freeze_layers:
+                trainable=False
+            else:
+                trainable=True
             layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
-                                           initializer=initializer)
+                                           initializer=initializer, trainable=trainable)
             layers.append(layer)
 
         return layers
