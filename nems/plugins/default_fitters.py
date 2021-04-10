@@ -173,7 +173,7 @@ def newtf(fitkey):
     options = _extract_options(fitkey)
 
     for op in options:
-        if op[:1] == 'i':
+        if op[:1] == 'i' and op != 'iso':
             if len(op[1:]) == 0:
                 max_iter = int(1e10)  # just a really large number
             else:
