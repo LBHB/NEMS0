@@ -745,19 +745,30 @@ class ModelSpec:
                          )
             # add to end
             plot_fns.append((fn, 1))
-
+            
         elif include_output:
-            if (time_range is not None) or (epoch is None):
-                plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_signals')
+            if rec[output_name].shape[0] > 1:
+                plot_fn = _lookup_fn_at('nems.plots.api.spectrogram')
+                title = output_name + ' spectrogram'
+                fn = partial(plot_fn, rec=rec,
+                             sig_name=output_name,
+                             epoch=epoch,
+                             occurrence=occurrence,
+                             time_range=time_range,
+                             title=title
+                             )
             else:
-                plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_epoch')
-            fn = partial(plot_fn,
-                         signals=[rec_resp, rec_pred],
-                         epoch=epoch,
-                         time_range=time_range,
-                         occurrences=occurrence,
-                         title=f'Prediction vs Response, {epoch} #{occurrence}'
-                         )
+                if (time_range is not None) or (epoch is None):
+                    plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_signals')
+                else:
+                    plot_fn = _lookup_fn_at('nems.plots.api.timeseries_from_epoch')
+                fn = partial(plot_fn,
+                             signals=[rec_resp, rec_pred],
+                             epoch=epoch,
+                             time_range=time_range,
+                             occurrences=occurrence,
+                             title=f'Prediction vs Response, {epoch} #{occurrence}'
+                             )
             # add to end
             plot_fns.append((fn, 1))
 

@@ -623,7 +623,8 @@ class SignalBase:
             lepochs = self.epochs.loc[mask]
             mask = self.epochs['end'] > split_time
             repochs = self.epochs.loc[mask]
-            repochs.loc[:, ['start', 'end']] -= split_time
+            repochs.loc[:, 'start'] -= split_time
+            repochs.loc[:, 'end'] -= split_time
 
             # If epochs were present initially but missing after split,
             # raise a warning.

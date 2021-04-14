@@ -460,8 +460,11 @@ def fit_tf_init(
     log.info('Running first init fit: model up to first lvl/relu without stp/gain.')
     log.debug('freeze_idxes: %s', freeze_idxes)
     filepath = Path(modelspec.meta['modelpath']) / 'init_part1'
-
-    force_freeze = kwargs.pop('freeze_layers')              # can't pass freeze_layers twice,
+    
+    if 'freeze_layers' in kwargs.keys():
+        force_freeze = kwargs.pop('freeze_layers')              # can't pass freeze_layers twice,
+    else:
+        force_freeze = None
     if force_freeze is not None:
         freeze_idxes = list(set(force_freeze + freeze_idxes))  # but also need to take union with freeze_idxes
     temp_ms = fit_tf(temp_ms, est, freeze_layers=freeze_idxes, filepath=filepath, **kwargs)['modelspec']

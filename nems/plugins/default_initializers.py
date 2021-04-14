@@ -161,15 +161,18 @@ def norm(kw):
         elif op.startswith('l'):
             log_compress = int(op[1:])
     stim_only = ('s' in ops)
+    resp_only = ('r' in ops)
 
     if stim_only:
-       return [['nems.xforms.normalize_sig', {'sig': 'stim', 'norm_method': norm_method, 
-                'log_compress': log_compress}],
-               ]
+        return [['nems.xforms.normalize_sig', {'sig': 'stim', 'norm_method': norm_method,
+                                               'log_compress': log_compress}],
+                ]
+    elif resp_only:
+        return [['nems.xforms.normalize_sig', {'sig': 'resp', 'norm_method': norm_method}]]
     else:
-       return [['nems.xforms.normalize_sig', {'sig': 'stim', 'norm_method': norm_method, 
+        return [['nems.xforms.normalize_sig', {'sig': 'stim', 'norm_method': norm_method,
                 'log_compress': log_compress}],
-               ['nems.xforms.normalize_sig', {'sig': 'resp', 'norm_method': norm_method}],
+                ['nems.xforms.normalize_sig', {'sig': 'resp', 'norm_method': norm_method}],
                ]
 
 @xform()

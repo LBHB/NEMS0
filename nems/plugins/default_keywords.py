@@ -358,7 +358,7 @@ def fir(kw):
         p_coefficients['mean'][:, 1+non_causal] = 0.1
         p_coefficients['mean'][:, 2+non_causal] = -0.05
     else:
-        p_coefficients['mean'][:, 0] = 1
+        p_coefficients['mean'][:, 0] = 0.1
 
 
     if (n_banks == 1) and (not cross_channels):
