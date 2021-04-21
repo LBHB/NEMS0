@@ -56,9 +56,80 @@ name = '00cat668_rec7_ferret_oxford_male_chopped_excerpt1'  # 2850-3850 High Gob
 name = '00cat668_rec1_ferret_fights_Athena-Violet001_excerpt1'  #610-1610 Fight
 name = 'cat668_rec2_ferret_fights_Jasmine-Violet001_excerpt2'  #1750-2750 Fight Squeak
 
-def multi_chop(name, kind, start, s1len, start2, s2len, little_name):
+#Background2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##########Foreground3####################
+#Threshold == 0.15
+name = 'cat668_rec2_ferret_fights_Jasmine-Violet001_excerpt2'
+#01Fight Squeak - start:181
+#OLD WAYone_sec[19845:] = one_sec[18963:-882] v1 add #one_sec[16758:-5292] = one_sec[22050:] v2
+#FINAL:one_sec[19845:] = one_sec[18963:-882]
+
+name = '00cat668_rec1_ferret_fights_Athena-Violet001_excerpt1'  #02Fight 610-1610 Fight
+#02Fight - start:66
+#OLD WAYspec[:,38:] = spec[:,35:-3] #spec[:,90:] = 0
+#FINAL    one_sec[21609:] = one_sec[17199:-4410]
+    # one_sec[17640:22050] = 0
+
+name = 'cat668_rec7_ferret_oxford_male_chopped_excerpt2'  #0-1000 Gobble
+#04Gobble - start:9
+# one_sec = W[start:start + int((len(W) / 4)) + (3 * factor)]
+# one_sec = one_sec.copy()
+# one_sec[22050:-1323] = one_sec[23373:]
+# one_sec = one_sec[:-1323]
+
+name = 'cat668_rec5_ferret_kits_0p1-2-3-4-5-6_excerpt2'
+#05Kit Groan - start:262
+
+name = 'cat668_rec3_ferret_kits_51p9-8-10-11-12-13-14_excerpt4'  #50-550, 1150-1650 AND Low 1990-1490, 2450-2950, Mid, Low
+#07Kit High - start:59
+# one_sec = W[start:start + int((len(W) / 4)) + (factor * 10)]
+# one_sec = one_sec.copy()
+# one_sec[19845:-4410] = one_sec[24255:]
+# one_sec = one_sec[:-3969]
+
+name = 'cat668_rec6_ferret_kits_18p1-2-3-5-7-8_excerpt7'    #730-1730 Whine
+#08Kit Whine - start:76
+# one_sec = W[start:start + int((len(W) / 4)) + (factor * 10)]
+# one_sec = one_sec.copy()
+# one_sec[22050:-1323] = one_sec[23373:]
+# one_sec = one_sec[:-4410]
+################END FERRET########################
+##################################################
+
+ROOT = f"/Users/grego/OneDrive/Documents/Sounds/Classifier/Transients/"
+
+name = 'cat211_rec1_keys_jingling_excerpt1' #keys jingling
+
+
+filepath = GREG_ROOT + name + '.wav'
+SAVE_PATH = f'/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Tests/{kind}/{little_name}_{start}.wav'
+start, s1len, start2, s2len = start * factor, s1len * factor, start2 * factor, s2len * factor
+sound = AudioSegment.from_file(filepath)
+cut = sound
+
+
+def multi_chop(name, kind, start, s1len, start2, s2len, little_name, factor=441):
     GREG_ROOT = f"/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/{kind}/"
     filepath = GREG_ROOT + name + '.wav'
+    SAVE_PATH = f'/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Tests/{kind}/{little_name}_{start}.wav'
+    # SAVE_PATH = f'/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/{kind}/{little_name}_{start}-{start+s1len}_{start2}-{start2+s2len}.wav'
+
+    start, s1len, start2, s2len = start*factor, s1len*factor, start2*factor, s2len*factor
 
     sound = AudioSegment.from_file(filepath)
     cut1 = sound[start:start+s1len]
@@ -66,7 +137,6 @@ def multi_chop(name, kind, start, s1len, start2, s2len, little_name):
     # silence = AudioSegment.silent(duration=200)
 
     one_sec = cut1 + cut2
-    SAVE_PATH = f'/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/{kind}/{little_name}_{start}-{start+s1len}_{start2}-{start2+s2len}.wav'
     one_sec.export(SAVE_PATH, format='wav')
 
     fs, W = wavfile.read(SAVE_PATH)
@@ -76,22 +146,53 @@ def multi_chop(name, kind, start, s1len, start2, s2len, little_name):
     plt.title(f'{name}, length: {len(one_sec)/fs})')
 
 
-def save_chop(name, kind, start, little_name):
+def save_chop(name, kind, start, little_name, factor=441):
     GREG_ROOT = f"/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/{kind}/"
     filepath = GREG_ROOT + name + '.wav'
+    SAVE_PATH = f'/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Tests/{kind}/{little_name}_{start}.wav'
 
+    start = start*factor
     fs, W = wavfile.read(filepath)
 
-    one_sec = W[start:start+int((len(W)/4))]
+    one_sec = W[start:start + int((len(W) / 4))]
+    one_sec = one_sec.copy()
+
+
+
 
     spec = gtgram(one_sec, fs, 0.02, 0.01, 48, 100, 8000)
+    get_z(spec, threshold=0.15)
 
+    plt.figure()
     plt.imshow(spec, aspect='auto', origin='lower')
     plt.title(f'{name}, length: {len(one_sec)/fs})')
+    plt.vlines(50,3,45,color='white', ls=':')
 
-    SAVE_PATH = f'/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/{kind}/{little_name}_{start}.wav'
+    spec = gtgram(W, fs, 0.02, 0.01, 48, 100, 8000)
 
     wavfile.write(SAVE_PATH,fs,one_sec)
+
+def get_z(spec, threshold=0.15):
+    import numpy as np
+    av = spec.mean(axis=0)
+    me = av.mean()
+    sd = np.std(av)
+    zz = (av - me) / sd
+    di = np.diff(zz)
+    fig, ax = plt.subplots(3,1, sharex=True)
+    ax[0].imshow(spec, aspect='auto', origin='lower')
+    ax[0].set_ylabel('Frequency (Hz)')
+    ax[1].plot(zz)
+    ax[1].set_ylabel('z-score')
+    ax[0].vlines(50,3,45,color='white', ls=':')
+    ticks = np.arange(0, spec.shape[1], 5)
+    ax[1].set_xticks(ticks)
+    ax[2].plot(di)
+    ax[2].set_ylabel('z-score difference')
+    goods = np.where(di > threshold)[0].tolist()
+    min,max = ax[1].get_ylim()
+    ax[1].vlines(goods, min, max, ls=':')
+    ax[2].vlines(goods, min, max, ls=':')
 
 def sound_chop(name, kind, start):
     GREG_ROOT = f"/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/{kind}/"
@@ -111,6 +212,12 @@ def sound_chop(name, kind, start):
     # wavfile.write(SAVE_PATH,fs,one_sec)
 
 #wavfile.write(filepath,fs,file)
+ROOT = '/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Ferrets/'
+name = 'cat668_rec2_ferret_fights_Jasmine-Violet001_excerpt2'  #1750-2750 Fight Squeak
+name = 'cat668_rec7_ferret_oxford_male_chopped_excerpt2'  #0-1000 Gobble
+name = 'cat668_rec5_ferret_kits_0p1-2-3-4-5-6_excerpt2'  #2590-3590 Groan
+name = 'cat668_rec3_ferret_kits_51p9-8-10-11-12-13-14_excerpt4'  #50-550, 1150-1650 AND Low 1990-1490, 2450-2950, Mid, Low
+name = 'cat668_rec6_ferret_kits_18p1-2-3-5-7-8_excerpt7'    #730-1730 Whine
 
 
 def spectro(name, kind):
@@ -121,12 +228,13 @@ def spectro(name, kind):
 
     spec = gtgram(W, fs, 0.02, 0.01, 48, 100, 8000)
 
+    plt.figure()
     plt.imshow(spec, aspect='auto', origin='lower')
     plt.title(name)
 
 
 TEXTURE_ROOT = "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Textures"
-MARM_ROOT = "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Marms/"
+MARM_ROOT = "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Ferrets/"
 
 def spec_collage(ROOT):
     dir = os.path.join(ROOT, "*.wav")
