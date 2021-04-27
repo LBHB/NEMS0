@@ -16,44 +16,55 @@ kind = 'Marms'
 kind = 'Transients'
 
 ##########Foreground3####################
-#Threshold == 0.15
+#Threshold == 0.15 #z
+#Threshold = 0.025 #norm
 kind = "Ferrets"
 ROOT = f"/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/{kind}/"
 
 name = 'cat668_rec2_ferret_fights_Jasmine-Violet001_excerpt2'
-#01Fight Squeak - start:181
-#OLD WAYone_sec[19845:] = one_sec[18963:-882] v1 add #one_sec[16758:-5292] = one_sec[22050:] v2
-#FINAL:one_sec[19845:] = one_sec[18963:-882]
+# little_name = '01_Fight Squeak'
+# start = 180
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+# one_sec[22050:] = one_sec[21609:-441]
 
-name = '00cat668_rec1_ferret_fights_Athena-Violet001_excerpt1'  #02Fight 610-1610 Fight
+# name = '00cat668_rec1_ferret_fights_Athena-Violet001_excerpt1'  #02Fight 610-1610 Fight
 #02Fight - start:66
 #OLD WAYspec[:,38:] = spec[:,35:-3] #spec[:,90:] = 0
 #FINAL    one_sec[21609:] = one_sec[17199:-4410]
     # one_sec[17640:22050] = 0
 
 name = 'cat668_rec7_ferret_oxford_male_chopped_excerpt2'  #0-1000 Gobble
-#04Gobble - start:9
+# little_name = '04_Gobble'
+# start = 9
 # one_sec = W[start:start + int((len(W) / 4)) + (3 * factor)]
 # one_sec = one_sec.copy()
 # one_sec[22050:-1323] = one_sec[23373:]
 # one_sec = one_sec[:-1323]
 
 name = 'cat668_rec5_ferret_kits_0p1-2-3-4-5-6_excerpt2'
-#05Kit Groan - start:262
+# little_name = '05_Kit Groan'
+# start = 262
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
 
 name = 'cat668_rec3_ferret_kits_51p9-8-10-11-12-13-14_excerpt4'  #50-550, 1150-1650 AND Low 1990-1490, 2450-2950, Mid, Low
-#07Kit High - start:59
-# one_sec = W[start:start + int((len(W) / 4)) + (factor * 10)]
+# little_name = '07_Kit High'
+# start, start2 = 59, 118
+# start2 = start2 * factor
+# one_sec = W[start:start + int((len(W) / 4))]
 # one_sec = one_sec.copy()
-# one_sec[19845:-4410] = one_sec[24255:]
-# one_sec = one_sec[:-3969]
+# half_sec = W[start2:start2 + int((len(W) / 8))]
+# one_sec[22050:] = half_sec[:]
 
 name = 'cat668_rec6_ferret_kits_18p1-2-3-5-7-8_excerpt7'    #730-1730 Whine
-#08Kit Whine - start:76
-# one_sec = W[start:start + int((len(W) / 4)) + (factor * 10)]
+# little_name = '08_Kit Whine'
+# start, start2 = 76, 129
+# start2 = start2 * factor
+# one_sec = W[start:start + int((len(W) / 4))]
 # one_sec = one_sec.copy()
-# one_sec[22050:-1323] = one_sec[23373:]
-# one_sec = one_sec[:-4410]
+# half_sec = W[start2:start2 + int((len(W) / 8))]
+# one_sec[22050:] = half_sec[:]
 ################END FERRET########################
 
 #######TRANSIENTS#####
@@ -61,7 +72,8 @@ kind = "Transients"
 ROOT = f"/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/{kind}/"
 
 name = 'cat24_rec1_desk_bell_freesound_burkay_bell_hotel_desk_excerpt1'
-#11Bell start:6,196 (50 each)
+# little_name = '11_Bell'
+# start, start2 = 6, 196
 # start2 = 196 * factor
 # one_sec = W[start:start + int((len(W) / 4))]
 # one_sec = one_sec.copy()
@@ -69,7 +81,8 @@ name = 'cat24_rec1_desk_bell_freesound_burkay_bell_hotel_desk_excerpt1'
 # one_sec[22050:] = half_sec[:]
 
 name = 'cat30_rec1_blacksmith_hammering_excerpt1'
-#12Blacksmith start:185, 273 (50 each)
+# little_name = '12_Blacksmith'
+# start, start2 = 185, 273
 # start2 = 273 * factor
 # one_sec = W[start:start + int((len(W) / 4))]
 # one_sec = one_sec.copy()
@@ -79,10 +92,14 @@ name = 'cat30_rec1_blacksmith_hammering_excerpt1'
 # one_sec[39690:] = 0
 
 name = 'cat33_rec1_bluegrass_excerpt1'
-#13Banjo - start:149
+# little_name = '13_Banjo'
+# start = 149
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
 
 name = 'cat39_rec1_branch_snapping_sound-ideas-37-96_excerpt1'
-#14Branch - start:71, 140 (50 each)
+# little_name = '14_Branch'
+# start, start2 = 71, 140
 # start2 = start2 * factor
 # one_sec = W[start:start + int((len(W) / 4))]
 # one_sec = one_sec.copy()
@@ -92,8 +109,7 @@ name = 'cat39_rec1_branch_snapping_sound-ideas-37-96_excerpt1'
 # one_sec[39690:] = 0
 
 name = 'cat66_rec1_cash_register_excerpt1'
-#15Cash Register - start:168, 211 (50 each)
-# little_name = "15_Cash Register
+# little_name = '15_Cash Register'
 # start, start2 = 168, 211
 # start2 = start2 * factor
 # one_sec = W[start:start + int((len(W) / 4))]
@@ -113,20 +129,17 @@ name = 'cat536_rec1_fire_crackers_excerpt1'
 # half_sec = W[start2:start2 + int((len(W) / 8))]
 # one_sec[22050:] = half_sec[:]
 # one_sec[39690:] = 0
-#OR v2
-# start = 186
-# one_sec = W[start:start + int((len(W) / 4) + (10*factor))]
-# one_sec = one_sec.copy()
-# one_sec[15876:] = one_sec[11907:-3969]
-# one_sec[11907:15876] = 0
 
 name = 'cat387_rec1_typing_excerpt1'
 # little_name = '17_Typing'
-# start = 186
+# start, start2 = 155, 193
+# start2 = start2 * factor
 # one_sec = W[start:start + int((len(W) / 4))]
 # one_sec = one_sec.copy()
-# one_sec[22050:] = one_sec[20727:-1323]
-# one_sec[20727:22050] = 0
+# half_sec = W[start2:start2 + int((len(W) / 8))]
+# one_sec[22050:] = half_sec[:]
+# one_sec[20727:22050] = one_sec[20286]
+# one_sec[22050:] = one_sec[21609:-441]
 
 name = '00cat401_rec1_walking_with_heels_excerpt1'
 # little_name = "18_Heels"
@@ -169,7 +182,7 @@ name = 'cat413_rec1_wolves_howling_excerpt1'
 
 name = 'cat560_rec1_chipmunk_excerpt1'
 # little_name = "23_Chipmunk"
-# start, start2 = 5, 80
+# start, start2 = 5, 79
 # start2 = start2 * factor
 # one_sec = W[start:start + int((len(W) / 4))]
 # one_sec = one_sec.copy()
@@ -213,7 +226,7 @@ name = 'cat44_rec1_bugle_excerpt1'
 # one_sec = one_sec.copy()
 # one_sec[7938:-882] = one_sec[8820:]
 # one_sec = one_sec[:-882]
-# one_sec[40572:] = 0
+# # one_sec[40572:] = 0
 
 name = 'cat67_rec1_castenets_excerpt1'
 # little_name = "29_Castinets"
@@ -307,7 +320,7 @@ name = 'cat301_rec1_envsounds_rock-tumbling_sound-ideas-38-27_2sec_excerpt1'  #9
 
 name = '00cat516_rec1_stream_excerpt1'                                        #50000
 # little_name = "06_Stream"
-# start = 164
+# start = 165
 # one_sec = W[start:start + int((len(W) / 4))]
 # one_sec = one_sec.copy()
 
@@ -319,7 +332,7 @@ name = 'cat368_rec1_thunder_excerpt1'                                         #4
 
 name = 'cat534_rec1_waterfall_excerpt1'                                       #121200
 # little_name = "08_Waterfall"
-# start = 268
+# start = 269
 # one_sec = W[start:start + int((len(W) / 4))]
 # one_sec = one_sec.copy()
 
@@ -344,36 +357,120 @@ dir = os.path.join(ROOT, "*.wav")
 set = glob.glob(dir)
 names = [nn.split('\\')[-1].split('.')[0] for nn in set]
 
-name = 'cat106_rec1_dentist_drill_sound-ideas-18-03_excerpt1'
-name = 'cat111_rec1_dice_excerpt1'
-name = 'cat129_rec1_jackhammer_excerpt1'
 name = 'cat140_rec1_hand_drill_sound-ideas-12-45_excerpt1'
+# little_name = "11_Drill"
+# start = 161
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
 name = 'cat149_rec1_film_reel_freesounds_bone666138_excerpt1'
-name = 'cat151_rec1_fire_excerpt1'
+# little_name = "12_Film"
+# start = 214
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
 name = 'cat185_rec1_hairdryer_excerpt1'
-name = 'cat198_rec1_horse_galloping_excerpt1'
+# little_name = "13_Hairdryer"
+# start = 59
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
 name = 'cat23_rec1_bees_buzzing_excerpt1'
+# little_name = "14_Bees"
+# start = 49
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
 name = 'cat254_rec1_classicalsymphony_mozart_symphony48-allegro_80sec_excerpt1'
+# little_name = "15_OrchestraA"
+# start = 155
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
 name = 'cat254_rec2_classicalsymphony_schumann_symphony3-lebhaft_0sec_excerpt1'
+# little_name = "16_OrchestraB"
+# start = 130
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
 name = 'cat255_rec1_orchestra_tuning_up_excerpt1'
+# little_name = "17_Tuning"
+# start = 52
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
 name = 'cat256_rec1_classical-organ_handel_messiah-hallelujah-chorus_2sec_excerpt1'
-name = 'cat27_rec1_bicycling_sound-ideas-10-32_excerpt1'
-name = 'cat291_rec1_rattlesnake_excerpt1'
-name = 'cat2_rec1_accordian_cafe-accordian_valse_amelie_excerpt1'
-name = 'cat313_rec1_electric_sander_excerpt1'
+# little_name = "18_Organ"
+# start = 294
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
 name = 'cat31_rec1_blender_excerpt1'
+# little_name = "19_Bike"
+# start = 261
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
+name = 'cat291_rec1_rattlesnake_excerpt1'
+# little_name = "20_Rattlesnake"
+# start = 267
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
+name = 'cat313_rec1_electric_sander_excerpt1'
+# little_name = "21_Sander"
+# start = 75
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
 name = 'cat329_rec1_electric_shaver_excerpt1'
-name = 'cat392_rec1_velcro_excerpt1'
-name = 'cat404_rec1_animal-calls_whale_animal-trax-103_47sec_excerpt1'
-name = 'cat404_rec1_animal-calls_whale_animal-trax-103_47sec_excerpt2'
+# little_name = "22_Shaver"
+# start = 252
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
 name = 'cat45_rec1_bulldozer_sound-ideas-11-41_excerpt1'
+# little_name = "23_Bulldozer"
+# start = 118
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
 name = 'cat47_rec1_bus_excerpt1'
-name = 'cat546_rec1_electric_arcing_excerpt1'
+# little_name = "24_Bus"
+# start = 157
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
 name = 'cat581_rec1_tractor_excerpt1'
-name = 'cat602_rec1_vibraphone_excerpt1'
+# little_name = "25_Tractor"
+# start = 85
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
 name = 'cat61_rec1_idling_sound-ideas-5-22_excerpt1'
+# little_name = "26_Idling"
+# start = 100
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
 name = 'cat73_rec1_chainsaw_excerpt1'
+# little_name = "27_Chainsaw"
+# start = 204
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
 name = 'cat87_rec1_coffee_machine_excerpt1'
+# little_name = "28_Coffee"
+# start = 293
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
+name = 'cat129_rec1_jackhammer_excerpt1'
+# little_name = "29_Jackhammer"
+# start = 299
+# one_sec = W[start:start + int((len(W) / 4))]
+# one_sec = one_sec.copy()
+
 
 
 
@@ -388,20 +485,55 @@ fs, W = wavfile.read(filepath)
 
 #INSERT CODE HERE
 
-little_name = "10_Wind"
-start = 0
+little_name = "29_Jackhammer"
+start = 299
 one_sec = W[start:start + int((len(W) / 4))]
 one_sec = one_sec.copy()
 
 
+
+#FINAL:one_sec[19845:] = one_sec[18963:-882]
 ##
 
 spec = gtgram(one_sec, fs, 0.02, 0.01, 48, 100, 8000)
-get_z(spec, name, threshold=0.15)
+# get_z(spec, name, threshold=0.15)
+get_norm(spec, name, threshold=0.025)
 
 wavfile.write(SAVE_PATH, fs, one_sec)
 
-
+def get_norm(spec, name, threshold=0.05):
+    '''Plots the spectrogram you're working with, with a panel below of the z-score
+    and below that the difference in adjacent z-scores. Vertical lines are placed
+    when the z-score difference between two bins exceeds a defined threshold.'''
+    import numpy as np
+    av = spec.mean(axis=0)
+    big = np.max(av)
+    norm = av/big
+    fig, ax = plt.subplots(3,1, sharex=True)
+    ax[0].imshow(spec, aspect='auto', origin='lower')
+    ax[0].set_ylabel('Frequency (Hz)')
+    ax[1].plot(norm)
+    ax[1].set_ylabel('normalized')
+    ax[0].vlines(50,3,45,color='white', ls=':')
+    ticks = np.arange(0, spec.shape[1], 5)
+    ax[1].set_xticks(ticks)
+    di = np.diff(norm)
+    ax[2].plot(di)
+    ax[2].set_ylabel('difference')
+    goods = []
+    # for x in range(len(norm) - 1):
+    #     if norm[x] < threshold and norm[x+1] > threshold:
+    #         goods.append(x)
+    for x in range(len(di)):
+        if x == 0 and di[x] > threshold:
+            goods.append(x)
+        if x != 0:
+            if di[x] > threshold and di[x-1] < threshold:
+                goods.append(x)
+    min,max = ax[1].get_ylim()
+    ax[1].vlines(goods, min, max, ls=':')
+    ax[2].vlines(goods, min, max, ls=':')
+    fig.suptitle(f'{name} - threshold: {threshold}')
 
 def get_z(spec, name, threshold=0.15):
     '''Plots the spectrogram you're working with, with a panel below of the z-score
@@ -436,4 +568,5 @@ def full_spec(ROOT, name, kind, factor=441):
     filepath = ROOT + name + '.wav'
     fs, W = wavfile.read(filepath)
     spec = gtgram(W, fs, 0.02, 0.01, 48, 100, 8000)
-    get_z(spec, name, threshold=0.15)
+    # get_z(spec, name, threshold=0.15)
+    get_norm(spec, name, threshold=0.025)
