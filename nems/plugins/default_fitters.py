@@ -811,7 +811,7 @@ def initpop(kw):
 @xform()
 def ccnorm(fitkey):
     '''
-    Perform a fit_cc_norm fit on a model.
+    Perform a fit_ccnorm fit on a model.
 
     Parameters
     ----------
@@ -824,8 +824,60 @@ def ccnorm(fitkey):
     options = _extract_options(fitkey)
     max_iter, tolerance, fitter, choose_best, rand_count = _parse_basic(options)
 
-    sel_options = {'max_iter': max_iter, 'tolerance': tolerance}
+    noise_pcs = 0
+    shared_pcs = 0
+    shrink_cc = 0
+    for op in options:
+        if op[:2]=='pc':
+            noise_pcs = int(op[2:])
+        if op[:2]=='ss':
+            shared_pcs = int(op[2:])
+        if op[:2]=='sh':
+            shrink_cc = int(op[2:])
+
+    sel_options = {'max_iter': max_iter, 'tolerance': tolerance, 'noise_pcs': noise_pcs, 
+                   'shared_pcs': shared_pcs, 'shrink_cc': shrink_cc}
     sel_options['fit_function'] = 'nems.analysis.fit_ccnorm.fit_ccnorm'
+
+    xfspec = []
+    if rand_count > 1:
+        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
+
+    xfspec.append(['nems.xforms.fit_wrapper', sel_options])
+
+    if choose_best:
+        xfspec.append(['nems.analysis.test_prediction.pick_best_phi',
+            {'criterion': 'mse_fit', 'keep_n': keep_n}])
+
+    xfspec.append(['nems.xforms.predict', {}])
+    xfspec.append(['nems.xforms.add_summary_statistics', {}])
+    xfspec.append(['nems.plots.state.cc_comp', {}])
+
+    return xfspec
+
+@xform()
+def pcnorm(fitkey):
+    '''
+    Perform a fit_pcnorm fit on a model.
+
+    Parameters
+    ----------
+
+    Options
+    -------
+
+    '''
+
+    options = _extract_options(fitkey)
+    max_iter, tolerance, fitter, choose_best, rand_count = _parse_basic(options)
+
+    n_pcs = 2
+    for op in options:
+        if op[:2]=='pc':
+            n_pcs = int(op[2:])
+
+    sel_options = {'max_iter': max_iter, 'tolerance': tolerance, 'n_pcs': n_pcs}
+    sel_options['fit_function'] = 'nems.analysis.fit_ccnorm.fit_pcnorm'
 
     xfspec = []
     if rand_count > 1:

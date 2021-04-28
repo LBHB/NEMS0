@@ -24,21 +24,20 @@ def perf_per_cell(modelspec, channels=0, ax=None, **options):
         ax = plt.gca()
 
     cellids = modelspec.meta.get('cellids', [modelspec.meta.get('cellid', None)])
-    cellcount = len(cellids)
+    cellcount = len(modelspec.meta['r_test'])
     ax.plot(modelspec.meta['r_test'], color='black')
     ax.plot(modelspec.meta['r_fit'], ls='--', color='blue')
     ax.plot(modelspec.meta['r_floor'], ls='-.', color='gray')
 
     ax.plot(channels, modelspec.meta['r_test'][channels], 'o')
     ax.set_xticks(np.arange(cellcount))
-    ax.set_xticklabels(cellids)
+    ax.set_xticklabels(cellids[:cellcount])
     ylim = ax.get_ylim()
     if channels == 0:
         hoffset = 0
     else:
         hoffset = 1
-    ax.text(0.1+hoffset, 0.1,
-            'mean r={:.3f}'.format(np.mean(modelspec.meta['r_test'])))
+    ax.text(0.1+hoffset, 0.1, 'mean r={:.3f}'.format(np.mean(modelspec.meta['r_test'])))
     ax.text(channels+0.1, modelspec.meta['r_test'][channels, 0],
             '{:.3f}'.format(modelspec.meta['r_test'][channels, 0]))
 
