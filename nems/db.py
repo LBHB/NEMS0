@@ -740,7 +740,8 @@ def update_results_table(modelspec, preview=None,
     results_id = None
 
     cellids = modelspec.meta.get('cellids', [modelspec.meta['cellid']])
-
+    if ('r_test' in modelspec.meta.keys()) and (len(modelspec.meta['r_test'])<len(cellids)):
+        cellids=cellids[:len(modelspec.meta['r_test'])]
     for cellid in cellids:
         batch = modelspec.meta['batch']
         modelname = modelspec.meta['modelname']
