@@ -17,6 +17,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from nems import get_setting
+from nems.uri import NumpyEncoder
 import nems
 
 log = logging.getLogger(__name__)
@@ -45,7 +46,7 @@ def recording_filename_hash(name, meta, uri_path='', uncompressed=False):
     hashing function to generate recording filenames
     JSON encode meta, then append hash to name
     """
-    meta_hash = hashlib.sha1(json.dumps(meta, sort_keys=True).encode('utf-8')).hexdigest()
+    meta_hash = hashlib.sha1(json.dumps(meta, sort_keys=True, cls=NumpyEncoder).encode('utf-8')).hexdigest()
 
     if uncompressed:
         guessed_filename = name + "_" + meta_hash + os.sep

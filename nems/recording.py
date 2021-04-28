@@ -18,7 +18,8 @@ import nems.epoch as ep
 from nems import get_setting
 from nems.signal import SignalBase, RasterizedSignal, PointProcess, merge_selections, \
     list_signals, load_signal, load_signal_from_streams
-from nems.uri import local_uri, http_uri, targz_uri
+from nems.uri import local_uri, http_uri, targz_uri, NumpyEncoder, json_numpy_obj_hook
+
 from nems.utils import recording_filename_hash
 
 log = logging.getLogger(__name__)
@@ -636,7 +637,7 @@ class Recording:
         you may use optional parameter fmt (for example, fmt='%1.3e')
         to alter the precision of the floating point matrices.
         '''
-        json.dump(self.meta, md_fh)
+        json.dump(self.meta, md_fh, cls=NumpyEncoder)
 
     def get_signal(self, signal_name):
         '''
@@ -1332,7 +1333,7 @@ def load_recording_from_targz_stream(tgz_stream):
 
             if basename.endswith('meta.json'):
                 f = io.StringIO(t.extractfile(member).read().decode('utf-8'))
-                meta = json.load(f)
+                meta = json.load(f, object_hook=json_numpy_obj_hook)
                 f = None
             elif basename.endswith('epoch.csv'):
                 keyname = 'epoch_stream'
