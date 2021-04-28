@@ -299,7 +299,7 @@ def load_recordings(recording_uri_list=None, normalize=False, cellid=None,
         rec['stim'] = rec['stim'].rasterize().normalize('minmax')
 
     log.info('Extracting cellid(s) {}'.format(cellid))
-    if (cellid is None) or (cellid == 'none'):
+    if (cellid is None) or (cellid in ['none', 'NAT3', 'NAT4']):
         # No cellid specified, use all channels
         channels = rec[output_name].chans
         if len(channels) == 0:
