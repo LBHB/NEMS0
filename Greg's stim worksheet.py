@@ -11,6 +11,7 @@ from pydub import AudioSegment
 import matplotlib.gridspec as gridspec
 
 from scipy import stats
+import scipy.ndimage.filters as sf
 
 from nems.analysis.gammatone.gtgram import gtgram
 # from nems import recording, signal
@@ -252,13 +253,19 @@ def spec_collage_power(ROOT):
 ROOTS = ["/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Textures",
          "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Ferrets/"]
 
-def time_metrics(ROOTS, chans=12, lfreq=100, hfreq=8000):
+#Roots for added sounds
+ROOTS = ["/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Tests/Backgrounds",\
+        "/Users/grego/OneDrive/Documents/Sounds/Pilot Sounds/Clips/Tests/Foregrounds"]
+
+def time_metrics(ROOTS, chans=12, lfreq=100, hfreq=20000):
     fig, axes = plt.subplots(1, 2, sharey=True, figsize=(12,5))
     axes = np.ravel(axes, order='F')
     files = []
+    lens = []
     for root in ROOTS:
         set = glob.glob(os.path.join(root, "*.wav"))
         files.append(len(set))
+        lens.append(len(set))
     longest = np.max(files)
     std_array = np.zeros([chans, longest, len(ROOTS)])
 
@@ -298,9 +305,11 @@ def time_metrics(ROOTS, chans=12, lfreq=100, hfreq=8000):
     fig.text(0.07, 0.5, 'STD', ha='center', va='center',
              rotation='vertical', fontweight='bold', size=15)
 
-    return std_array, all_names
+    return std_array, all_names, lens
 
 #This part makes the summary plot of BG and FG in time
+    std_array, all_names, lens = time_metrics(ROOTS)
+
     std_mean = np.nanmean(std_array, axis=0)
     std_sem = stats.sem(std_array, nan_policy='omit', axis=0).data
     sem_rav_mask = std_sem.ravel('F') > 0
@@ -308,14 +317,15 @@ def time_metrics(ROOTS, chans=12, lfreq=100, hfreq=8000):
     rav = std_mean.ravel('F')
     nan_mask = ~np.isnan(rav)
     rav = rav[nan_mask]
-    vals = sum(~np.isnan(rav))
+    vals = np.sum(~np.isnan(rav))
     x = np.linspace(0, vals-1, vals)
     fig, ax = plt.subplots(figsize=(6,8))
+    bgs = lens[0]
 
-    ax.bar(x[:10], rav[:10], yerr=sem_rav[:10], color='deepskyblue')
-    ax.bar(x[10:], rav[10:], yerr=sem_rav[10:], color='yellowgreen')
+    ax.bar(x[:bgs], rav[:bgs], yerr=sem_rav[:bgs], color='deepskyblue')
+    ax.bar(x[bgs:], rav[bgs:], yerr=sem_rav[bgs:], color='yellowgreen')
     ymin,ymax = ax.get_ylim()
-    ax.axvline(9.5,ymin,ymax, linestyle=':', color='black')
+    ax.axvline((bgs-0.5),ymin,ymax, linestyle=':', color='black')
     ax.set_xticks(x)
     ax.set_xticklabels(all_names, rotation=90)
     ax.set_ylabel('Non-stationariness', size=15, fontweight='bold')
@@ -331,13 +341,15 @@ def time_metrics(ROOTS, chans=12, lfreq=100, hfreq=8000):
     ax[1].set_xticklabels(['BGs','FGs'])
 
 
-def freq_metrics(ROOTS, chans=48, lfreq=100, hfreq=8000):
+def freq_metrics(ROOTS, chans=48, lfreq=100, hfreq=20000):
     fig, axes = plt.subplots(1, 2, sharey=True, figsize=(12, 5))
     axes = np.ravel(axes, order='F')
     files = []
+    lens = []
     for root in ROOTS:
         set = glob.glob(os.path.join(root, "*.wav"))
         files.append(len(set))
+        lens.append(len(set))
     longest = np.max(files)
     avg_array = np.zeros([chans, longest, len(ROOTS)])
 
@@ -354,7 +366,8 @@ def freq_metrics(ROOTS, chans=48, lfreq=100, hfreq=8000):
             fs, W = wavfile.read(ss)
             spec = gtgram(W, fs, 0.02, 0.01, chans, lfreq, hfreq)
             x = np.linspace(0, chans - 1, chans)
-            basename = os.path.splitext(os.path.basename(ss))[0].split('_')[1]
+            basename = os.path.splitext(os.path.basename(ss))[0].split('_')[0] + \
+                       '_' + os.path.splitext(os.path.basename(ss))[0].split('_')[1]
 
             pow = np.average(spec, axis=1)
             avg_array[:, nn, count] = pow
@@ -377,23 +390,35 @@ def freq_metrics(ROOTS, chans=48, lfreq=100, hfreq=8000):
     fig.text(0.07, 0.5, 'Average Strength', ha='center', va='center',
              rotation='vertical', fontweight='bold', size=15)
 
-    return avg_array, all_names
+    return avg_array, all_names, lens
 
 #This part makes the summary plot of BG and FG in time
+    avg_array, all_names, lens = freq_metrics(ROOTS)
+
+    chans, lfreq, hfreq = 48, 100, 20000
     avg_mean_idx = np.argmax(avg_array, axis=0)
-    x_freq = np.logspace(np.log2(lfreq), np.log2(hfreq), num=chans*2, base=2)
+    x_freq = np.logspace(np.log2(lfreq), np.log2(hfreq), num=chans, base=2)
     cf_idx = list(avg_mean_idx.ravel('F'))
     cf_idx = [i for i in cf_idx if i != 0]
+    cf_idx = [i for i in cf_idx if ~np.isnan(i)]
     cfs = np.asarray([x_freq[i] for i in cf_idx])
     xplot = np.linspace(0, len(cf_idx)-1, len(cf_idx))
 ###^^That's for max freq....
-    x_freq = np.logspace(np.log2(lfreq), np.log2(hfreq), num=chans*2, base=2)
+    x_freq = np.logspace(np.log2(lfreq), np.log2(hfreq), num=chans, base=2)
+    bgs = lens[0]
+    reshaped = np.swapaxes(np.reshape(avg_array, (48, len(avg_mean_idx.ravel())), 'F'), 0, 1)
 
-    reshaped = np.swapaxes(np.reshape(avg_array, (48, 20), 'F'), 0, 1)
+
+    bee = reshaped[:lens[0], :]
+    eff = reshaped[-lens[1]:,:]
+    reshaped = np.concatenate([bee, eff], axis=0)
     x = np.linspace(0, reshaped.shape[1] - 1, reshaped.shape[1])
+
     center = np.sum(np.abs(reshaped) * x, axis=1) / np.sum(np.abs(reshaped), axis=1)
-    cf_idx = list(np.round(center * 2))
-    cf_nums = sum(~np.isnan(cf_idx))
+
+    cf_idx = list(np.round(center))
+
+    cf_nums = np.sum(~np.isnan(cf_idx))
     cfs = np.asarray([x_freq[int(i)] for i in cf_idx[:cf_nums]])
 
     xplot = np.linspace(0, len(cfs)-1, len(cfs))
@@ -401,27 +426,65 @@ def freq_metrics(ROOTS, chans=48, lfreq=100, hfreq=8000):
     fig, ax = plt.subplots(figsize=(6,8))
     freq_mask = x_freq > np.max(cfs)
     x_freq[freq_mask] = np.NaN
-    nonan = sum(~np.isnan(x_freq))
+    nonan = np.sum(~np.isnan(x_freq))
     listy = list(x_freq)
     new_x_freq = np.asarray(listy[:nonan])
+    x_amount = len(new_x_freq)
+    x_freq = np.logspace(np.log2(lfreq), np.log2(hfreq), num=chans, base=2)
 
-    ax.bar(xplot[:10], cfs[:10], color='deepskyblue')
-    ax.bar(xplot[10:], cfs[10:], color='yellowgreen')
 
+    idxs = np.concatenate([np.arange(0,x_amount,10), [x_amount+1]])
+    freq = np.round([x_freq[i] for i in idxs])
+    ax.set_yticks(freq)
+    ax.set_yticklabels(freq/1000)
+
+    ax.bar(xplot[:bgs], cfs[:bgs], color='deepskyblue')
+    ax.bar(xplot[bgs:], cfs[bgs:], color='yellowgreen')
 
     ymin,ymax = ax.get_ylim()
-    ax.set_yticks([new_x_freq[0], new_x_freq[64], new_x_freq[-1]])
 
-    ax.axvline(9.5,ymin,ymax, linestyle=':', color='black')
+    # ax.set_yticks([new_x_freq[0], new_x_freq[], new_x_freq[-1]])
+
+    ax.axvline((bgs-0.5),ymin,ymax, linestyle=':', color='black')
     ax.set_xticks(xplot)
     ax.set_xticklabels(all_names, rotation=90)
-    ax.set_ylabel('Average Frequency (Hz)', size=15, fontweight='bold')
+    ax.set_ylabel('Average Frequency (kHz)', size=15, fontweight='bold')
     fig.tight_layout()
 
+##Let's plot the mean freq spectrum as a image
+spectrums = np.swapaxes(reshaped, 0,1)
 
+plt.figure()
+plt.imshow(spectrums, origin='lower', aspect='auto')
+BG = spectrums[:, :lens[0]]
+FG = spectrums[:, -lens[1]:]
+bgcf = cfs[:lens[0]]
+fgcf = cfs[-lens[1]:]
 
+bg_names = all_names[:lens[0]]
+fg_names = all_names[-lens[1]:]
 
+bgsorted = BG[:,np.argsort(bgcf)]
+fgsorted = FG[:,np.argsort(fgcf)]
+bg_names_sort = [bg_names[i] for i in np.argsort(bgcf)]
+fg_names_sort = [fg_names[i] for i in np.argsort(fgcf)]
 
+x_freq = np.logspace(np.log2(lfreq), np.log2(hfreq), num=chans, base=2)
+yidxs = np.concatenate([np.arange(0, len(x_freq), 10), [len(x_freq) - 1]])
+freq = np.round([x_freq[i] for i in yidxs])
+
+sorted = np.concatenate([bgsorted, fgsorted], axis=1)
+sort_names = bg_names_sort + fg_names_sort
+
+fig, ax = plt.subplots()
+plt.figure()
+plt.imshow(sorted, aspect='auto', origin='lower', cmap='Blues')
+plt.xticks(np.arange(0,len(sort_names),1), sort_names, rotation=90)
+plt.vlines((lens[0]-0.5), -0.5, chans-0.5, ls=':')
+plt.yticks(yidxs, (freq/1000))
+plt.ylabel('Frequency (kHz)')
+plt.colorbar()
+fig.tight_layout()
 
 
 #######################
