@@ -494,8 +494,19 @@ def cc_comp(val, modelspec, ax=None, figures=None, IsReload=False, extra_epoch=N
         #mask = rec['mask'].as_continuous()[0,:].astype(bool)
         #large_idx *= mask
         #small_idx *= mask
-        large_idx=rec['mask_'+extra_epoch+'_lg'].as_continuous()[0,:].astype(bool)
-        small_idx=rec['mask_'+extra_epoch+'_sm'].as_continuous()[0,:].astype(bool)
+        if type(extra_epoch) is list:
+            for i, e in enumerate(extra_epoch):
+                if i == 0:
+                    large_idx=rec['mask_'+e+'_lg'].as_continuous()[0,:].astype(bool)
+                    small_idx=rec['mask_'+e+'_sm'].as_continuous()[0,:].astype(bool)
+                else:
+                    li = rec['mask_'+e+'_lg'].as_continuous()[0,:].astype(bool)
+                    si = rec['mask_'+e+'_sm'].as_continuous()[0,:].astype(bool)
+                    large_idx += li
+                    small_idx += si
+        else:
+            large_idx=rec['mask_'+extra_epoch+'_lg'].as_continuous()[0,:].astype(bool)
+            small_idx=rec['mask_'+extra_epoch+'_sm'].as_continuous()[0,:].astype(bool)
         print(f"masked {extra_epoch} len from {val['mask'].as_continuous().sum()} to {large_idx.sum()+small_idx.sum()}")
     else:
         rec = val.apply_mask()
