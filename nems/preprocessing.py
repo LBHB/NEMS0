@@ -804,11 +804,23 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^(STIM_|TAR_|CAT_
         epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
 
     # figure out spont rate for subtraction from PSTH
-    prestimsilence = resp.extract_epoch('PreStimSilence', mask=mask)
-    if len(prestimsilence.shape) == 3:
-        spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
-    else:
-        spont_rate = np.nanmean(prestimsilence)
+    try:
+        prestimsilence = resp.extract_epoch('PreStimSilence', mask=mask)
+        if len(prestimsilence.shape) == 3:
+            spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
+        else:
+            spont_rate = np.nanmean(prestimsilence)
+    except ValueError:
+        # special case where the epochs included in mask don't have PreStimSilence,
+        # so we get it elsewhere. Designed for CPN data...
+        try:
+            prestimsilence = resp.extract_epoch('TRIALPreStimSilence')
+            if len(prestimsilence.shape) == 3:
+                spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
+            else:
+                spont_rate = np.nanmean(prestimsilence)
+        except:
+            raise ValueError("Can't find prestim silence to use for PSTH calculation")
 
     NEW_WAY = True
     if NEW_WAY:
