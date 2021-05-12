@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import tensorflow as tf
 from tensorflow import config
-from tensorflow.keras.layers import Conv2D, Dense
+from tensorflow.keras.layers import Conv2D, Dense, Dropout
 from tensorflow.python.keras.layers.convolutional import Conv
 from tensorflow.keras.constraints import Constraint
 from tensorflow.python.ops import array_ops, nn_ops, nn
@@ -74,8 +74,9 @@ class BaseLayer(tf.keras.layers.Layer):
         if 'state_type' in ms_layer['fn_kwargs']:
             kwargs['state_type'] = ms_layer['fn_kwargs']['state_type']
 
+        # TODO: this approach could cause issues if there are name clashes with NEMS kwargs
         pass_through_keys = ['n_inputs', 'crosstalk', 'filters', 'kernel_size',
-                             'activation', 'units', 'padding']
+                             'activation', 'units', 'padding', 'rate']
         pass_throughs = {k: v for k, v in ms_layer['fn_kwargs'].items() if k in pass_through_keys}
         kwargs.update(pass_throughs)
 
@@ -1134,6 +1135,17 @@ class FlattenChannels(BaseLayer):
     def call(self, inputs):
         batch, time, channels, units = tuple(inputs.shape)
         return array_ops.reshape(inputs, (array_ops.shape(inputs)[0],) + (time, channels*units))
+
+    def weights_to_phi(self):
+        return {}  # no trainable weights
+
+
+class Dropout_NEMS(BaseLayer, Dropout):
+    '''A NEMS wrapper-layer for tensorflow.keras.layers.Dropout.'''
+    _TF_ONLY = True
+    def __init__(self, initializer=None, seed=0, *args, **kwargs):
+        # no weights or initializer to deal with
+        super(Dropout_NEMS, self).__init__(*args, **kwargs)
 
     def weights_to_phi(self):
         return {}  # no trainable weights

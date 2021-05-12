@@ -1787,3 +1787,18 @@ def wcn(kw):
     return template
 
 
+@xmodule()
+def drop(kw):
+    ops = kw.split('.')
+    # first option hard-coded to be dropout rate as percentage, e.x. drop.50  for rate = 0.50
+    rate = float(ops[1])/100
+    template = {
+        'fn': 'nems.tf_only.Dropout_NEMS',    # not a real path
+        'tf_layer': 'nems.tf.layers.Dropout_NEMS',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'rate': rate},
+        'phi': {}
+        }
+
+    return template
