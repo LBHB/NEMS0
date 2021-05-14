@@ -285,7 +285,7 @@ def fit_tf(
     model.early_terminated = False
 
     # create the callbacks
-    early_stopping = callbacks.DelayedStopper(monitor='loss',
+    early_stopping = callbacks.DelayedStopper(monitor='val_loss',
                                               patience=30 * early_stopping_steps,
                                               min_delta=early_stopping_tolerance,
                                               verbose=1,
@@ -323,7 +323,7 @@ def fit_tf(
     history = model.fit(
         train_data,
         resp_train,
-        # validation_split=0.2,
+        validation_split=0.2,
         verbose=verbose,
         epochs=max_iter,
         batch_size=batch_size,
