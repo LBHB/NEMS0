@@ -1705,6 +1705,7 @@ def conv2d(kw):
     activation = 'relu'
     layer_count = 1
     flatten = False
+    dropout_rate = None
     for op in ops[3:]:
         if op.startswith('actX'):
             activation = op[4:]
@@ -1714,6 +1715,8 @@ def conv2d(kw):
             layer_count = int(op[3:])
         elif op == 'flat':
             flatten = True
+        elif op.startswith('dr'):
+            dropout_rate = float(op[2:])/100
 
     template = {
         'fn': 'nems.tf_only.Conv2D_NEMS',   # not a real path, flag for ms.evaluate to use evaluate_tf()
@@ -1736,6 +1739,19 @@ def conv2d(kw):
             'phi': {}
         }
         templates.append(flatten_template)
+
+    if dropout_rate is not None:
+        dropout_template = {
+            'fn': 'nems.tf_only.Dropout_NEMS',    # not a real path
+            'tf_layer': 'nems.tf.layers.Dropout_NEMS',
+            'fn_kwargs': {'i': 'pred',
+                          'o': 'pred',
+                          'rate': rate},
+            'phi': {}
+        }
+        # Add dropout after every conv layer
+        dropout_templates = [dropout_template]*layer_count
+        templates = [t for pair in zip(templates, dropout_templates) for t in pair]
 
     return templates
 
