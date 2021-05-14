@@ -1746,7 +1746,7 @@ def conv2d(kw):
             'tf_layer': 'nems.tf.layers.Dropout_NEMS',
             'fn_kwargs': {'i': 'pred',
                           'o': 'pred',
-                          'rate': rate},
+                          'rate': dropout_rate},
             'phi': {}
         }
         # Add dropout after every conv layer
