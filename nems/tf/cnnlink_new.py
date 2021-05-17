@@ -216,7 +216,8 @@ def fit_tf(
 
     tbpath = tbroot / (str(modelspec.meta['batch']) + '_' + modelspec.meta['cellid'] + '_' + modelspec.meta['modelname'])
     use_tensorboard=True
-    if use_tensorboard:
+    if 0 & use_tensorboard:
+        # disabled, this is dumb. it deletes the previous round of fitting (eg, tfinit)
         fileList = glob.glob(str(tbpath / '*' / '*'))
         for filePath in fileList:
             try:
