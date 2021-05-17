@@ -203,7 +203,7 @@ def fit_tf(
                      / modelspec.meta.get('cellid', "NOCELL")\
                      / modelspec.meta['modelname']
        filepath = log_dir_root / log_dir_sub
-       tbroot = filepath / logs
+       tbroot = filepath / 'logs'
     elif filepath is None:
        filepath = modelspec.meta['modelpath']
        tbroot = Path(f'/auto/data/tmp/tensorboard/')
