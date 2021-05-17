@@ -3,6 +3,7 @@
 import copy
 import logging
 import os
+import glob
 import typing
 from pathlib import Path
 from packaging import version
@@ -190,12 +191,9 @@ def fit_tf(
     nems.utils.progress_fun()
 
     # figure out where to save model checkpoints
-    if filepath is None:
-        filepath = modelspec.meta['modelpath']
-
-    # if job is running on slurm, need to change model checkpoint dir
     job_id = os.environ.get('SLURM_JOBID', None)
     if job_id is not None:
+       # if job is running on slurm, need to change model checkpoint dir
        # keep a record of the job id
        modelspec.meta['slurm_jobid'] = job_id
 
@@ -205,13 +203,29 @@ def fit_tf(
                      / modelspec.meta.get('cellid', "NOCELL")\
                      / modelspec.meta['modelname']
        filepath = log_dir_root / log_dir_sub
-
+       tbroot = filepath / logs
+    elif filepath is None:
+       filepath = modelspec.meta['modelpath']
+       tbroot = Path(f'/auto/data/tmp/tensorboard/')
+    else:
+       tbroot = Path(f'/auto/data/tmp/tensorboard/')
+    
     filepath = Path(filepath)
     if not filepath.exists():
         filepath.mkdir(exist_ok=True, parents=True)
 
+    tbpath = tbroot / (str(modelspec.meta['batch']) + '_' + modelspec.meta['cellid'] + '_' + modelspec.meta['modelname'])
+    use_tensorboard=True
+    if use_tensorboard:
+        fileList = glob.glob(str(tbpath / '*' / '*'))
+        for filePath in fileList:
+            try:
+                os.remove(filePath)
+            except:
+                print("Error while deleting file : ", filePath)
+
     checkpoint_filepath = filepath / 'weights.hdf5'
-    tensorboard_filepath = filepath / 'logs'
+    tensorboard_filepath = tbpath
     gradient_filepath = filepath / 'gradients'
 
     # update seed based on fit index
@@ -289,7 +303,7 @@ def fit_tf(
                                               patience=30 * early_stopping_steps,
                                               min_delta=early_stopping_tolerance,
                                               verbose=1,
-                                              restore_best_weights=False)
+                                              restore_best_weights=True)
     checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath=str(checkpoint_filepath),
                                                     save_best_only=False,
                                                     save_weights_only=True,
@@ -318,6 +332,13 @@ def fit_tf(
     else:
         callback0 = []
         verbose = 2
+    # enable the below to log tracked parameters to tensorboard
+    if use_tensorboard:
+        callback0.append(tensorboard)
+        log.info(f'Enabling tensorboard, log: {str(tensorboard_filepath)}')
+        # enable the below to record gradients to visualize in tensorboard; this is very slow,
+        # and loading all this into tensorboard can use A LOT of memory
+        # callback0.append(gradient_logger)
 
     log.info(f'Fitting model (batch_size={batch_size})...')
     history = model.fit(
@@ -332,11 +353,6 @@ def fit_tf(
             nan_weight_terminate,
             early_stopping,
             checkpoint,
-            # enable the below to log tracked parameters to tensorboard
-            # tensorboard,
-            # enable the below to record gradients to visualize in tensorboard; this is very slow,
-            # and loading all this into tensorboard can use A LOT of memory
-            # gradient_logger,
         ]
     )
 
