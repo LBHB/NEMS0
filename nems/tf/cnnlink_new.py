@@ -386,8 +386,25 @@ def fit_tf(
     modelspec.meta['n_parms'] = len(modelspec.phi_vector)
     try:
         n_epochs = len(history.history['loss'])
+        if 'val_loss' in history.history.keys():
+            val_stop = np.argmin(history.history['val_loss'])
+            loss = history.history['loss'][val_stop]
+        else:
+            loss = np.min(history.history['loss'])
+        
     except KeyError:
         n_epochs = 0
+        loss = 0
+    if modelspec.fit_count==1:
+        modelspec.meta['n_epochs'] = n_epochs
+        modelspec.meta['loss'] = loss
+    else:
+        if modelspec.fit_index==0:
+            modelspec.meta['n_epochs'] = np.zeros(modelspec.fit_count)
+            modelspec.meta['loss'] = np.zeros(modelspec.fit_count)
+        modelspec.meta['n_epochs'][modelspec.fit_index] = n_epochs
+        modelspec.meta['loss'][modelspec.fit_index] = loss
+        
     try:
         max_iter = modelspec.meta['extra_results']
         modelspec.meta['extra_results'] = max(max_iter, n_epochs)

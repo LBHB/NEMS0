@@ -96,7 +96,7 @@ def wc(kw):
                  }
     tf_layer = 'nems.tf.layers.WeightChannelsBasic'
     p_coefficients = {'mean': np.full((n_outputs, n_inputs), 0.01),
-                      'sd': np.full((n_outputs, n_inputs), 0.2)}
+                      'sd': np.full((n_outputs, n_inputs), 0.1)}
     # add some variety across channels to help get the fitter started
     for i in range(n_outputs):
         x0 = int(i/n_outputs*n_inputs)
@@ -152,7 +152,7 @@ def wc(kw):
 
             mean_prior_coefficients = {
                 'mean': mean,
-                'sd': np.full_like(mean, 0.4),
+                'sd': np.full_like(mean, 0.2),
             }
             sd_prior_coefficients = {'sd': sd}
             prior = {'mean': ('Normal', mean_prior_coefficients),
@@ -758,7 +758,7 @@ def lvl(kw):
                      'nems.plots.api.pred_resp'],
         'plot_fn_idx': 2,
         'prior': {'level': ('Normal', {'mean': np.zeros([n_shifts, 1]),
-                                       'sd': np.ones([n_shifts, 1])})}
+                                       'sd': np.ones([n_shifts, 1])/10})}
 
         }
 

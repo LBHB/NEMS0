@@ -401,7 +401,13 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
         this_est = new_est.view_subset(view_range)
         this_modelspec = modelspec.copy(jack_index=j)
 
-        if (metric_fn == 'nems.metrics.mse.nmse') & (criterion == 'mse_fit'):
+        if 'loss' in modelspec.meta.keys():
+            x = modelspec.meta['loss']
+            if j>1:
+                log.info('Not supported yet! jackknife + multifit using tf loss to select')
+                import pdb; pdb.set_trace()
+            
+        elif (metric_fn == 'nems.metrics.mse.nmse') & (criterion == 'mse_fit'):
             # for backwards compatibility, run the below code to compute metric specified
             # by criterion.
             new_modelspec = standard_correlation(est=this_est, val=new_val, modelspec=this_modelspec)
