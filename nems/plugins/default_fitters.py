@@ -160,6 +160,7 @@ def newtf(fitkey):
     cost_function = 'squared_error'
     early_stopping_steps = 5
     early_stopping_tolerance = 5e-4
+    early_stopping_val_split = 0.0
     learning_rate = 1e-4
     batch_size = None
     seed = 0
@@ -169,6 +170,7 @@ def newtf(fitkey):
     pick_best = False
     epoch_name = "REFERENCE"
     freeze_layers = None
+    use_tensorboard = False
 
     options = _extract_options(fitkey)
 
@@ -182,7 +184,7 @@ def newtf(fitkey):
             nl_init = "scipy"
         elif op[:1] == 'n':
             use_modelspec_init = True
-        if op == 'b':
+        elif op == 'b':
             pick_best = True
         elif op.startswith('rb'):
             pick_best = True
@@ -227,6 +229,13 @@ def newtf(fitkey):
             else:
                 # ex: FL2x6x9  would be freeze_layers = [2, 6, 9]
                 freeze_layers = [int(i) for i in op[2:].split('x')]
+
+        elif op.startswith('es'):
+            early_stopping_val_split = float(op[2:])/100
+
+        elif op == 'tb':
+            use_tensorboard = True
+
     xfspec = []
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
@@ -241,12 +250,14 @@ def newtf(fitkey):
                        'fit_function': 'nems.tf.cnnlink_new.fit_tf',
                        'early_stopping_steps': early_stopping_steps,
                        'early_stopping_tolerance': early_stopping_tolerance,
+                       'early_stopping_val_split': early_stopping_val_split,
                        'learning_rate': learning_rate,
                        'batch_size': batch_size,
                        'initializer': initializer,
                        'seed': seed,
                        'epoch_name': epoch_name,
-                       'freeze_layers': freeze_layers
+                       'freeze_layers': freeze_layers,
+                       'use_tensorboard': use_tensorboard
                    }])
 
     if pick_best:
