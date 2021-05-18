@@ -96,7 +96,7 @@ def wc(kw):
                  }
     tf_layer = 'nems.tf.layers.WeightChannelsBasic'
     p_coefficients = {'mean': np.full((n_outputs, n_inputs), 0.01),
-                      'sd': np.full((n_outputs, n_inputs), 0.1)}
+                      'sd': np.full((n_outputs, n_inputs), 0.05)}
     # add some variety across channels to help get the fitter started
     for i in range(n_outputs):
         x0 = int(i/n_outputs*n_inputs)
@@ -339,7 +339,7 @@ def fir(kw):
 
     p_coefficients = {
         'mean': np.zeros((n_inputs * n_banks, n_coefs)),
-        'sd': np.ones((n_inputs * n_banks, n_coefs)),
+        'sd': np.ones((n_inputs * n_banks, n_coefs)) * 0.05,
     }
 
     if 'fl' in ops:
@@ -358,7 +358,7 @@ def fir(kw):
         p_coefficients['mean'][:, 1+non_causal] = 0.1
         p_coefficients['mean'][:, 2+non_causal] = -0.05
     else:
-        p_coefficients['mean'][:, 0] = 0.1
+        p_coefficients['mean'][:, 0] = 0.05
 
 
     if (n_banks == 1) and (not cross_channels):
