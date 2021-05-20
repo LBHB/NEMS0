@@ -427,7 +427,7 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
 
            log.info('jack %d: %d/%d best phi (fit_idx=%d) has fit_metric=%.5f',
                     j, n+1, keep_n, best_idx[j], tx[best_idx[j]])
-           tx[best_idx[j]] = tx.nanmax()
+           tx[best_idx[j]] = np.nanmax(tx)
 
     new_raw[0,0,0][0]['meta'] = modelspec.meta.copy()
     new_modelspec = ms.ModelSpec(new_raw)
