@@ -394,9 +394,9 @@ def fit_tf(
         if 'val_loss' in history.history.keys():
             #val_stop = np.argmin(history.history['val_loss'])
             #loss = history.history['loss'][val_stop]
-            loss = np.min(history.history['val_loss'])
+            loss = np.nanmin(history.history['val_loss'])
         else:
-            loss = np.min(history.history['loss'])
+            loss = np.nanmin(history.history['loss'])
         
     except KeyError:
         n_epochs = 0
