@@ -394,18 +394,18 @@ def fit_tf(
         if 'val_loss' in history.history.keys():
             #val_stop = np.argmin(history.history['val_loss'])
             #loss = history.history['loss'][val_stop]
-            loss = np.min(history.history['val_loss'])
+            loss = np.nanmin(history.history['val_loss'])
         else:
-            loss = np.min(history.history['loss'])
+            loss = np.nanmin(history.history['loss'])
         
     except KeyError:
         n_epochs = 0
         loss = 0
-    if modelspec.fit_count==1:
+    if modelspec.fit_count == 1:
         modelspec.meta['n_epochs'] = n_epochs
         modelspec.meta['loss'] = loss
     else:
-        if modelspec.fit_index==0:
+        if modelspec.fit_index == 0:
             modelspec.meta['n_epochs'] = np.zeros(modelspec.fit_count)
             modelspec.meta['loss'] = np.zeros(modelspec.fit_count)
         modelspec.meta['n_epochs'][modelspec.fit_index] = n_epochs
