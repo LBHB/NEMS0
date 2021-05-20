@@ -1636,9 +1636,9 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
 
     if 'drift' in state_signals:
         resp_len = rec['resp'].shape[1]
-        drift = np.linspace(0,1,resp_len)
+        drift = np.reshape(np.linspace(0,1,resp_len), (1, -1))
         _s = nems.signal.RasterizedSignal(fs=rec['resp'].fs, data=drift, name="drift",
-                                                recording=rec['resp'].recording, chans=["drift"], epochs=rec['resp'].epochs)
+                                          recording=rec['resp'].recording, chans=["drift"], epochs=rec['resp'].epochs)
         newrec.add_signal(_s)
 
     # delete any pre-existing state signal. Is this a good idea??
