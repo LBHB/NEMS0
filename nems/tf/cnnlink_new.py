@@ -157,6 +157,8 @@ def fit_tf(
         IsReload: bool = False,
         epoch_name: str = "REFERENCE",
         use_tensorboard: bool = False,
+        scale_L2: float = 0.0,
+        scheduled_learning: bool = False,
         **context
         ) -> dict:
     """TODO
@@ -275,6 +277,11 @@ def fit_tf(
 
     # get the layers and build the model
     cost_fn = loss_functions.get_loss_fn(cost_function)
+    if scale_L2 > 0:
+        def regularized_cost(x, y):
+            return cost_fn(x, y) + loss_functions.compute_L2(scale=scale_L2)
+        cost_fn = regularized_cost
+
     model_layers = modelspec.modelspec2tf2(use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
                                            initializer=initializer, freeze_layers=freeze_layers)
     if np.any([isinstance(layer, Conv2D_NEMS) for layer in model_layers]):
@@ -292,6 +299,7 @@ def fit_tf(
         loss_fn=cost_fn,
         optimizer=optimizer,
         metrics=[pearson],
+        scheduled_learning=scheduled_learning,
     ).build_model(input_shape=stim_train.shape, state_shape=state_shape, batch_size=batch_size)
 
     if freeze_layers is not None:

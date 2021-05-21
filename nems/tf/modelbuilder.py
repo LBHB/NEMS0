@@ -1,5 +1,7 @@
-import tensorflow as tf
 import logging
+
+import tensorflow as tf
+from tf.keras.optimizers.schedules import InverseTimeDecay
 
 from nems.tf import loss_functions
 
@@ -19,6 +21,7 @@ class ModelBuilder:
                  optimizer='adam',
                  loss_fn=loss_functions.loss_se,
                  metrics=None,
+                 scheduled_learning=False,
                  *args,
                  **kwargs
                  ):
@@ -90,8 +93,12 @@ class ModelBuilder:
 
         # build the optimizer
         try:
-            optimizer = self.optimizer_dict[self.optimizer](learning_rate=self.learning_rate, clipnorm=1.)
-            log.debug(f"optimizer {self.optimizer}: learning_rate={self.learning_rate}, clipnorm={1.}")
+            if scheduled_learning:
+                schedule = InverseTimeDecay(0.001, decay_steps=1000, decay_rate=1, staircase=False)
+                optimizer = self.optimizer_dict[self.optimizer](schedule)
+            else:
+                optimizer = self.optimizer_dict[self.optimizer](learning_rate=self.learning_rate, clipnorm=1.)
+                log.debug(f"optimizer {self.optimizer}: learning_rate={self.learning_rate}, clipnorm={1.}")
         except KeyError:
             optimizer = self.optimizer
 

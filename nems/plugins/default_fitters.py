@@ -171,6 +171,8 @@ def newtf(fitkey):
     epoch_name = "REFERENCE"
     freeze_layers = None
     use_tensorboard = False
+    scale_L2 = 0.0
+    scheduled_learning = False
 
     options = _extract_options(fitkey)
 
@@ -236,6 +238,17 @@ def newtf(fitkey):
         elif op == 'tb':
             use_tensorboard = True
 
+        elif op.startswith('L2'):
+            # Ex: L2x2 means scale_L2 = 0.002
+            if 'x' in op:
+                scale_L2 = float(op[3:])/1000
+
+            else:
+                scale_L2 = 0.001
+
+        elif op == 'sch':
+            scheduled_learning = True
+
     xfspec = []
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
@@ -257,7 +270,9 @@ def newtf(fitkey):
                        'seed': seed,
                        'epoch_name': epoch_name,
                        'freeze_layers': freeze_layers,
-                       'use_tensorboard': use_tensorboard
+                       'use_tensorboard': use_tensorboard,
+                       'scale_L2': scale_L2,
+                       'scheduled_learning': scheduled_learning,
                    }])
 
     if pick_best:

@@ -157,3 +157,11 @@ def tf_shrinkage(mE, sE, shrink_factor=0.5, thresh=False):
     smd = smd * tf.dtypes.cast(smd > 0, smd.dtype)
 
     return 1 - mE * smd
+
+
+def compute_L2(scale=0.001):
+    '''Computes the sum of L2 regularization added to every fittable model parameter.'''
+    params = tf.trainable_variables()
+    regularization_term = tf.add_n([tf.nn.l2_loss(v) for p in params]) * scale
+
+    return regularization_term
