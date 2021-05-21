@@ -96,7 +96,7 @@ def wc(kw):
                  }
     tf_layer = 'nems.tf.layers.WeightChannelsBasic'
     p_coefficients = {'mean': np.full((n_outputs, n_inputs), 0.01),
-                      'sd': np.full((n_outputs, n_inputs), 0.2)}
+                      'sd': np.full((n_outputs, n_inputs), 0.05)}
     # add some variety across channels to help get the fitter started
     for i in range(n_outputs):
         x0 = int(i/n_outputs*n_inputs)
@@ -152,7 +152,7 @@ def wc(kw):
 
             mean_prior_coefficients = {
                 'mean': mean,
-                'sd': np.full_like(mean, 0.4),
+                'sd': np.full_like(mean, 0.2),
             }
             sd_prior_coefficients = {'sd': sd}
             prior = {'mean': ('Normal', mean_prior_coefficients),
@@ -339,7 +339,7 @@ def fir(kw):
 
     p_coefficients = {
         'mean': np.zeros((n_inputs * n_banks, n_coefs)),
-        'sd': np.ones((n_inputs * n_banks, n_coefs)),
+        'sd': np.ones((n_inputs * n_banks, n_coefs)) * 0.05,
     }
 
     if 'fl' in ops:
@@ -358,7 +358,7 @@ def fir(kw):
         p_coefficients['mean'][:, 1+non_causal] = 0.1
         p_coefficients['mean'][:, 2+non_causal] = -0.05
     else:
-        p_coefficients['mean'][:, 0] = 0.1
+        p_coefficients['mean'][:, 0] = 0.05
 
 
     if (n_banks == 1) and (not cross_channels):
@@ -758,7 +758,7 @@ def lvl(kw):
                      'nems.plots.api.pred_resp'],
         'plot_fn_idx': 2,
         'prior': {'level': ('Normal', {'mean': np.zeros([n_shifts, 1]),
-                                       'sd': np.ones([n_shifts, 1])})}
+                                       'sd': np.ones([n_shifts, 1])/10})}
 
         }
 
@@ -1705,6 +1705,7 @@ def conv2d(kw):
     activation = 'relu'
     layer_count = 1
     flatten = False
+    dropout_rate = None
     for op in ops[3:]:
         if op.startswith('actX'):
             activation = op[4:]
@@ -1714,6 +1715,8 @@ def conv2d(kw):
             layer_count = int(op[3:])
         elif op == 'flat':
             flatten = True
+        elif op.startswith('dr'):
+            dropout_rate = float(op[2:])/100
 
     template = {
         'fn': 'nems.tf_only.Conv2D_NEMS',   # not a real path, flag for ms.evaluate to use evaluate_tf()
@@ -1736,6 +1739,19 @@ def conv2d(kw):
             'phi': {}
         }
         templates.append(flatten_template)
+
+    if dropout_rate is not None:
+        dropout_template = {
+            'fn': 'nems.tf_only.Dropout_NEMS',    # not a real path
+            'tf_layer': 'nems.tf.layers.Dropout_NEMS',
+            'fn_kwargs': {'i': 'pred',
+                          'o': 'pred',
+                          'rate': dropout_rate},
+            'phi': {}
+        }
+        # Add dropout after every conv layer
+        dropout_templates = [dropout_template]*layer_count
+        templates = [t for pair in zip(templates, dropout_templates) for t in pair]
 
     return templates
 
@@ -1787,3 +1803,18 @@ def wcn(kw):
     return template
 
 
+@xmodule()
+def drop(kw):
+    ops = kw.split('.')
+    # first option hard-coded to be dropout rate as percentage, e.x. drop.50  for rate = 0.50
+    rate = float(ops[1])/100
+    template = {
+        'fn': 'nems.tf_only.Dropout_NEMS',    # not a real path
+        'tf_layer': 'nems.tf.layers.Dropout_NEMS',
+        'fn_kwargs': {'i': 'pred',
+                      'o': 'pred',
+                      'rate': rate},
+        'phi': {}
+        }
+
+    return template

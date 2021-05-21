@@ -123,5 +123,6 @@ class TerminateOnNaNWeights(tf.keras.callbacks.Callback):
         for weight in self.model.weights:
             if tf.math.reduce_any(tf.math.is_nan(weight)) or tf.math.reduce_any(tf.math.is_inf(weight)):
                 print('Epoch %d: Invalid weights in "%s", terminating training' % (epoch, weight.name))
+                print('Weights %s' % (weight))
                 self.model.early_terminated = True
                 self.model.stop_training = True

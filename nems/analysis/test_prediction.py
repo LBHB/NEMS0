@@ -391,7 +391,7 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
 
     jack_count = modelspec.jack_count
     fit_count = modelspec.fit_count
-    best_idx = np.zeros(jack_count,dtype=int)
+    best_idx = np.zeros(jack_count, dtype=int)
     new_raw = np.zeros((1, keep_n, jack_count), dtype='O')
     #import pdb; pdb.set_trace()
 
@@ -401,7 +401,13 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
         this_est = new_est.view_subset(view_range)
         this_modelspec = modelspec.copy(jack_index=j)
 
-        if (metric_fn == 'nems.metrics.mse.nmse') & (criterion == 'mse_fit'):
+        if 'loss' in modelspec.meta.keys():
+            x = modelspec.meta['loss']
+            if j>1:
+                log.info('Not supported yet! jackknife + multifit using tf loss to select')
+                import pdb; pdb.set_trace()
+            
+        elif (metric_fn == 'nems.metrics.mse.nmse') & (criterion == 'mse_fit'):
             # for backwards compatibility, run the below code to compute metric specified
             # by criterion.
             new_modelspec = standard_correlation(est=this_est, val=new_val, modelspec=this_modelspec)
@@ -413,14 +419,15 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
             x = []
             for e in this_est.views():
                 x.append(fn(e, **context))
+
         tx = x.copy()
         for n in range(keep_n):
-           best_idx[j] = int(np.argmin(tx))
+           best_idx[j] = int(np.nanargmin(tx))
            new_raw[0, n, j] = modelspec.raw[0, best_idx[j], j]
 
            log.info('jack %d: %d/%d best phi (fit_idx=%d) has fit_metric=%.5f',
                     j, n+1, keep_n, best_idx[j], tx[best_idx[j]])
-           tx[best_idx[j]] = tx.max()
+           tx[best_idx[j]] = np.nanmax(tx)
 
     new_raw[0,0,0][0]['meta'] = modelspec.meta.copy()
     new_modelspec = ms.ModelSpec(new_raw)

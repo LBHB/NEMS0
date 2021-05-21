@@ -3,6 +3,7 @@
 import copy
 import logging
 import os
+import glob
 import typing
 from pathlib import Path
 from packaging import version
@@ -129,7 +130,7 @@ def _get_tf_data_matrix(rec, signal, epoch_name=None):
     if (epoch_name is not None) and (epoch_name != ""):
         # extract out the raw data, and reshape to (batch, time, channel)
         # one batch per occurrence of epoch
-        tf_data = np.transpose(rec[signale].extract_epoch(epoch=epoch_name, mask=rec['mask']), [0, 2, 1])
+        tf_data = np.transpose(rec[signal].extract_epoch(epoch=epoch_name, mask=rec['mask']), [0, 2, 1])
     else:
         # cotinuous, single batch
         tf_data = np.transpose(rec.apply_mask()[signal].as_continuous()[np.newaxis, ...], [0, 2, 1])
@@ -146,6 +147,7 @@ def fit_tf(
         cost_function: str = 'squared_error',
         early_stopping_steps: int = 5,
         early_stopping_tolerance: float = 5e-4,
+        early_stopping_val_split: float = 0.2,
         learning_rate: float = 1e-4,
         batch_size: typing.Union[None, int] = None,
         seed: int = 0,
@@ -154,6 +156,7 @@ def fit_tf(
         freeze_layers: typing.Union[None, list] = None,
         IsReload: bool = False,
         epoch_name: str = "REFERENCE",
+        use_tensorboard: bool = False,
         **context
         ) -> dict:
     """TODO
@@ -190,12 +193,9 @@ def fit_tf(
     nems.utils.progress_fun()
 
     # figure out where to save model checkpoints
-    if filepath is None:
-        filepath = modelspec.meta['modelpath']
-
-    # if job is running on slurm, need to change model checkpoint dir
     job_id = os.environ.get('SLURM_JOBID', None)
     if job_id is not None:
+       # if job is running on slurm, need to change model checkpoint dir
        # keep a record of the job id
        modelspec.meta['slurm_jobid'] = job_id
 
@@ -205,13 +205,30 @@ def fit_tf(
                      / modelspec.meta.get('cellid', "NOCELL")\
                      / modelspec.meta['modelname']
        filepath = log_dir_root / log_dir_sub
-
+       tbroot = filepath / 'logs'
+    elif filepath is None:
+       filepath = modelspec.meta['modelpath']
+       tbroot = Path(f'/auto/data/tmp/tensorboard/')
+    else:
+       tbroot = Path(f'/auto/data/tmp/tensorboard/')
+    
     filepath = Path(filepath)
     if not filepath.exists():
         filepath.mkdir(exist_ok=True, parents=True)
 
+    tbpath = tbroot / (str(modelspec.meta['batch']) + '_' + modelspec.meta['cellid'] + '_' + modelspec.meta['modelname'])
+    # TODO: should this code just be deleted then?
+    if 0 & use_tensorboard:
+        # disabled, this is dumb. it deletes the previous round of fitting (eg, tfinit)
+        fileList = glob.glob(str(tbpath / '*' / '*'))
+        for filePath in fileList:
+            try:
+                os.remove(filePath)
+            except:
+                print("Error while deleting file : ", filePath)
+
     checkpoint_filepath = filepath / 'weights.hdf5'
-    tensorboard_filepath = filepath / 'logs'
+    tensorboard_filepath = tbpath
     gradient_filepath = filepath / 'gradients'
 
     # update seed based on fit index
@@ -285,11 +302,11 @@ def fit_tf(
     model.early_terminated = False
 
     # create the callbacks
-    early_stopping = callbacks.DelayedStopper(monitor='loss',
+    early_stopping = callbacks.DelayedStopper(monitor='val_loss',
                                               patience=30 * early_stopping_steps,
                                               min_delta=early_stopping_tolerance,
                                               verbose=1,
-                                              restore_best_weights=False)
+                                              restore_best_weights=True)
     checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath=str(checkpoint_filepath),
                                                     save_best_only=False,
                                                     save_weights_only=True,
@@ -318,26 +335,31 @@ def fit_tf(
     else:
         callback0 = []
         verbose = 2
+    # enable the below to log tracked parameters to tensorboard
+    if use_tensorboard:
+        callback0.append(tensorboard)
+        log.info(f'Enabling tensorboard, log: {str(tensorboard_filepath)}')
+        # enable the below to record gradients to visualize in tensorboard; this is very slow,
+        # and loading all this into tensorboard can use A LOT of memory
+        # callback0.append(gradient_logger)
+
+    if early_stopping_val_split > 0:
+        callback0.append(early_stopping)
+        log.info(f'Enabling early stopping, val split: {str(early_stopping_val_split)}')
 
     log.info(f'Fitting model (batch_size={batch_size})...')
     history = model.fit(
         train_data,
         resp_train,
-        # validation_split=0.2,
+        validation_split=early_stopping_val_split,
         verbose=verbose,
         epochs=max_iter,
-        batch_size=batch_size,
         callbacks=callback0 + [
             nan_terminate,
             nan_weight_terminate,
-            early_stopping,
             checkpoint,
-            # enable the below to log tracked parameters to tensorboard
-            # tensorboard,
-            # enable the below to record gradients to visualize in tensorboard; this is very slow,
-            # and loading all this into tensorboard can use A LOT of memory
-            # gradient_logger,
-        ]
+        ],
+        batch_size=batch_size
     )
 
     # did we terminate on a nan loss or weights? Load checkpoint if so
@@ -369,8 +391,26 @@ def fit_tf(
     modelspec.meta['n_parms'] = len(modelspec.phi_vector)
     try:
         n_epochs = len(history.history['loss'])
+        if 'val_loss' in history.history.keys():
+            #val_stop = np.argmin(history.history['val_loss'])
+            #loss = history.history['loss'][val_stop]
+            loss = np.nanmin(history.history['val_loss'])
+        else:
+            loss = np.nanmin(history.history['loss'])
+        
     except KeyError:
         n_epochs = 0
+        loss = 0
+    if modelspec.fit_count == 1:
+        modelspec.meta['n_epochs'] = n_epochs
+        modelspec.meta['loss'] = loss
+    else:
+        if modelspec.fit_index == 0:
+            modelspec.meta['n_epochs'] = np.zeros(modelspec.fit_count)
+            modelspec.meta['loss'] = np.zeros(modelspec.fit_count)
+        modelspec.meta['n_epochs'][modelspec.fit_index] = n_epochs
+        modelspec.meta['loss'][modelspec.fit_index] = loss
+        
     try:
         max_iter = modelspec.meta['extra_results']
         modelspec.meta['extra_results'] = max(max_iter, n_epochs)
