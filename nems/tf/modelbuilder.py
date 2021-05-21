@@ -90,7 +90,8 @@ class ModelBuilder:
 
         # build the optimizer
         try:
-            optimizer = self.optimizer_dict[self.optimizer](learning_rate=self.learning_rate)
+            optimizer = self.optimizer_dict[self.optimizer](learning_rate=self.learning_rate, clipnorm=1.)
+            log.debug(f"optimizer {self.optimizer}: learning_rate={self.learning_rate}, clipnorm={1.}")
         except KeyError:
             optimizer = self.optimizer
 

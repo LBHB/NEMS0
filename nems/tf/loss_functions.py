@@ -12,7 +12,7 @@ def get_loss_fn(loss_fn_str: str):
     """Utility to get a function from a string name."""
     mapping = {
         'squared_error': loss_se,
-        # 'squared_error': loss_se_safe,
+        #'squared_error': loss_se_safe,
         'poisson': poisson,
         'nmse': loss_tf_nmse,
         'nmse_shrinkage': loss_tf_nmse_shrinkage,
@@ -37,7 +37,8 @@ def drop_nan(response, prediction):
 
 def loss_se(response, prediction):
     """Squared error loss."""
-    return tf.math.reduce_mean(tf.math.square(response - prediction)) / tf.math.reduce_mean(tf.math.square(response))
+    #return (tf.math.reduce_mean(tf.math.square(response - prediction))+1e-7) / (tf.math.reduce_mean(tf.math.square(response))+1e-7)
+    return (tf.math.reduce_mean(tf.math.square(response - prediction))) / (tf.math.reduce_mean(tf.math.square(response)))
 
 
 def loss_se_safe(response, prediction):
