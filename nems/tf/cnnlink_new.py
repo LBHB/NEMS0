@@ -276,11 +276,13 @@ def fit_tf(
         return tfp.stats.correlation(y_true, y_pred, event_axis=None, sample_axis=None)
 
     # get the layers and build the model
-    cost_fn = loss_functions.get_loss_fn(cost_function)
+    temp_cost_fn = loss_functions.get_loss_fn(cost_function)
     if scale_L2 > 0:
         def regularized_cost(x, y):
-            return cost_fn(x, y) + loss_functions.compute_L2(scale=scale_L2)
+            return temp_cost_fn(x, y) + loss_functions.compute_L2(scale=scale_L2)
         cost_fn = regularized_cost
+    else:
+        cost_fn = temp_cost_fn
 
     model_layers = modelspec.modelspec2tf2(use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
                                            initializer=initializer, freeze_layers=freeze_layers)

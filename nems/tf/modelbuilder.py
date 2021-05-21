@@ -1,7 +1,6 @@
 import logging
 
 import tensorflow as tf
-from tf.keras.optimizers.schedules import InverseTimeDecay
 
 from nems.tf import loss_functions
 
@@ -47,6 +46,7 @@ class ModelBuilder:
 
         self.learning_rate = learning_rate
         self.optimizer = optimizer
+        self.scheduled_learning = scheduled_learning
 
     def add_layer(self, layer, idx=None):
         """Adds a layer to the list of layers that will be part of the model.
@@ -93,8 +93,9 @@ class ModelBuilder:
 
         # build the optimizer
         try:
-            if scheduled_learning:
-                schedule = InverseTimeDecay(0.001, decay_steps=1000, decay_rate=1, staircase=False)
+            if self.scheduled_learning:
+                schedule = tf.keras.optimizers.schedules.InverseTimeDecay(0.001, decay_steps=1000, decay_rate=1,
+                                                                          staircase=False)
                 optimizer = self.optimizer_dict[self.optimizer](schedule)
             else:
                 optimizer = self.optimizer_dict[self.optimizer](learning_rate=self.learning_rate, clipnorm=1.)

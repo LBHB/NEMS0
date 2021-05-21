@@ -159,6 +159,7 @@ def tf_shrinkage(mE, sE, shrink_factor=0.5, thresh=False):
     return 1 - mE * smd
 
 
+# TODO: not working currently, apparently TF 2.0 does not support .trainable_variables()
 def compute_L2(scale=0.001):
     '''Computes the sum of L2 regularization added to every fittable model parameter.'''
     params = tf.trainable_variables()
