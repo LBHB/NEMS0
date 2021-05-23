@@ -1818,3 +1818,23 @@ def drop(kw):
         }
 
     return template
+
+
+def dns(kw):
+    '''A NEMS version of multiple dense layers, repeated wc-relu  with the same number of units.
+
+    Note: since every layer uses the same size, the output of the previous layer must match the number of units
+    used for this dense layer, ex:  kw1-kw2-wc.100x10-dns.10-dns.10-wc.10xR-
+
+    '''
+    options = kw.split('.')
+    units = int(options[1])
+    reps = 1
+    for op in options:
+        if op.startswith('rep'):
+            reps = int(op[3:])
+
+    wc_template = wc(f'wc.{units}x{units}.g')
+    relu_template = relu(f'relu.{units}.f')
+
+    return [wc_template, relu_template]*reps
