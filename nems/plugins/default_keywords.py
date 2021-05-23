@@ -1820,6 +1820,7 @@ def drop(kw):
     return template
 
 
+@xmodule()
 def dns(kw):
     '''A NEMS version of multiple dense layers, repeated wc-relu  with the same number of units.
 
