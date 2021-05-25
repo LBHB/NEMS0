@@ -991,6 +991,10 @@ class ModelSpec:
         guess = re.sub('[:]', '', guess)
         guess = re.sub('[,]', '', guess)
 
+        if len(guess) > 100:
+            # If modelname is too long, causes filesystem errors.
+            guess = guess[:80] + '...' + str(hash(guess))
+
         return guess
 
     def modelspec2tf(self, tps_per_stim=550, feat_dims=1, data_dims=1, state_dims=0,
