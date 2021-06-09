@@ -1172,7 +1172,7 @@ def get_data_parms(rawid=None, parmfile=None):
     return d
 
 
-def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test'):
+def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test', join_how='left'):
     Results = Tables()['Results']
     if modelnames is None:
         modelnames = ['parm100pt_wcg02_fir15_pupgainctl_fit01_nested5',
@@ -1202,7 +1202,7 @@ def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test'):
             if bresults is None:
                 bresults = tc
             else:
-                bresults=bresults.join(tc)
+                bresults=bresults.join(tc, how=join_how)
         if results is None:
             results=bresults
         else:
