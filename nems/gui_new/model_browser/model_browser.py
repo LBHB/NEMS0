@@ -221,7 +221,10 @@ class MainWindow(QtBaseClass, Ui_MainWindow):
 
 if __name__ == '__main__':
     from nems import xforms
-    xfspec, ctx = xforms.load_context(r'C:\Users\Alex\PycharmProjects\NEMS\results\temp_xform')
+    demo_model = '/auto/data/nems_db/results/322/ARM030a-28-2/ozgf.fs100.ch18-ld-sev.dlog-wc.18x3.g-fir.3x15-lvl.1-dexp.1.tfinit.n.lr1e3.rb5.es20-newtf.n.lr1e4.es20.2021-06-15T212246'
+    xfspec, ctx = xforms.load_analysis(demo_model)
+
+    #xfspec, ctx = xforms.load_context(r'C:\Users\Alex\PycharmProjects\NEMS\results\temp_xform')
 
     app = QApplication(sys.argv)
     window = MainWindow(ctx=ctx, xfspec=xfspec)
