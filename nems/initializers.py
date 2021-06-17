@@ -11,6 +11,7 @@ from nems.analysis.api import fit_basic
 from nems.fitters.api import scipy_minimize
 import nems.priors as priors
 import nems.modelspec as ms
+from nems.uri import save_resource, load_resource
 import nems.metrics.api as metrics
 from nems import get_setting
 
@@ -220,6 +221,25 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, rand_seed=1234, **context
     modelspec.tile_jacks(jack_count)
 
     return {'modelspec': modelspec}
+
+def load_phi(modelspec, prefit_uri="", copy_layers=0, **kwargs):
+    """
+    copy the first copy_layers of a previously fit modelspec into
+    the current modelspec. barfs if the phi sizes don't match exactly
+    """
+    prefit_modelspec = ms.ModelSpec([load_resource(prefit_uri)])
+
+    # copy phi from existing modelspec to the other:
+    for i, phi in enumerate(prefit_modelspec.phi[:copy_layers]):
+        if phi is not None:
+            for k in phi.keys():
+                log.info(f"{i} {k} {phi[k].shape}")
+                if phi[k].shape == modelspec.phi[i][k].shape:
+                    modelspec.phi[i][k] = phi[k]
+                else:
+                    raise ValueError(f"new shape mismatch {modelspec.phi[i][k].shape}")
+
+    return {'modelspec': modelspec, 'old_modelspec': prefit_modelspec}
 
 
 def prefit_LN(rec, modelspec, analysis_function=fit_basic,

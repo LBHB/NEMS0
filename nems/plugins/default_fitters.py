@@ -239,26 +239,27 @@ def newtf(fitkey):
     xfspec = []
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
+    parm_dict = {
+           'max_iter': max_iter,
+           'use_modelspec_init': use_modelspec_init,
+           'nl_init': nl_init,
+           'optimizer': optimizer,
+           'cost_function': cost_function,
+           'fit_function': 'nems.tf.cnnlink_new.fit_tf',
+           'early_stopping_steps': early_stopping_steps,
+           'early_stopping_tolerance': early_stopping_tolerance,
+           'early_stopping_val_split': early_stopping_val_split,
+           'learning_rate': learning_rate,
+           'batch_size': batch_size,
+           'initializer': initializer,
+           'seed': seed,
+           'epoch_name': epoch_name,
+           'use_tensorboard': use_tensorboard
+               }
+    if freeze_layers is not None:
+        parm_dict['freeze_layers'] = freeze_layers
 
-    xfspec.append(['nems.xforms.fit_wrapper',
-                   {
-                       'max_iter': max_iter,
-                       'use_modelspec_init': use_modelspec_init,
-                       'nl_init': nl_init,
-                       'optimizer': optimizer,
-                       'cost_function': cost_function,
-                       'fit_function': 'nems.tf.cnnlink_new.fit_tf',
-                       'early_stopping_steps': early_stopping_steps,
-                       'early_stopping_tolerance': early_stopping_tolerance,
-                       'early_stopping_val_split': early_stopping_val_split,
-                       'learning_rate': learning_rate,
-                       'batch_size': batch_size,
-                       'initializer': initializer,
-                       'seed': seed,
-                       'epoch_name': epoch_name,
-                       'freeze_layers': freeze_layers,
-                       'use_tensorboard': use_tensorboard
-                   }])
+    xfspec.append(['nems.xforms.fit_wrapper', parm_dict])
 
     if pick_best:
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
