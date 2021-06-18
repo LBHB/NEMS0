@@ -712,7 +712,8 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
                    prematch[i] = np.diff(x)
                else:
                    log.info('pre missing?')
-                   import pdb; pdb.set_trace()
+                   prematch[i] = 0
+                   #import pdb; pdb.set_trace()
                x = ep.epoch_intersection(posidx, [e], precision=precision)
                if len(x):
                    if x.shape[0]>1:
@@ -735,8 +736,11 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
 
            #import pdb;pdb.set_trace()
            minpre = np.min(prematch)
-           minpos = np.min(posmatch[posmatch>0])
-           posmatch[posmatch<minpos]=minpos
+           if (posmatch>0).sum():
+               minpos = np.min(posmatch[posmatch > 0])
+           else:
+               minpos = 0
+           posmatch[posmatch < minpos] = minpos
            remove_post_stim = False
            if (minpre<np.max(prematch)) & (ematch.shape[0]==prematch.shape[0]):
                log.info('epoch %s pre varies, fixing to %.3f s', ename, minpre)
