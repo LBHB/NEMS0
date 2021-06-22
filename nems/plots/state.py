@@ -513,10 +513,15 @@ def cc_comp(val, modelspec, ax=None, figures=None, IsReload=False, extra_epoch=N
         large_idx=rec['mask_large'].as_continuous()[0,:].astype(bool)
         small_idx=rec['mask_small'].as_continuous()[0,:].astype(bool)
 
-    pred0=rec['pred0'].as_continuous()
-    pred=rec['pred'].as_continuous()
-    resp=rec['resp'].as_continuous()
-    state=rec['state'].as_continuous()
+    if 'pred0' in rec.signals.keys():
+        input_name = 'pred0'
+    else:
+        input_name = 'psth'
+
+    pred0 = rec[input_name].as_continuous()
+    pred = rec['pred'].as_continuous()
+    resp = rec['resp'].as_continuous()
+    state = rec['state'].as_continuous()
 
     siteid = modelspec.meta['cellid'].split("-")[0]
     large_cc = np.cov(resp[:,large_idx]-pred0[:,large_idx])
@@ -540,28 +545,28 @@ def cc_comp(val, modelspec, ax=None, figures=None, IsReload=False, extra_epoch=N
     ax[1,1].imshow(lg_cc,aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr', origin='lower')
     ax[2,1].imshow((lg_cc-sm_cc),aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr', origin='lower')
     ax[3,1].imshow((large_cc-small_cc) - (lg_cc-sm_cc),aspect='auto',interpolation='none',clim=[-mm,mm], cmap='bwr', origin='lower')
-    ax[0,1].set_title(siteid + ' pred');
+    ax[0,1].set_title(siteid + ' pred')
     ax[2,1].set_title(f"std={np.mean((lg_cc-sm_cc)**2):.3f}")
     ax[3,1].set_title(f"E={np.mean(((large_cc-small_cc) - (lg_cc-sm_cc))**2):.3f}");
 
     dact=large_cc-small_cc
     dpred=lg_cc-sm_cc
-    ax[1,2].plot(np.diag(dact),label='act')
-    ax[1,2].plot(np.diag(dpred),label='pred')
+    ax[1,2].plot(np.diag(dact), label='act')
+    ax[1,2].plot(np.diag(dpred), label='pred')
     ax[1,2].set_title('mean lg-sm var')
     ax[1,2].legend(frameon=False)
     np.fill_diagonal(dact, 0)
-    ax[2,2].plot(dact.mean(axis=0),label='act')
+    ax[2,2].plot(dact.mean(axis=0), label='act')
     np.fill_diagonal(dpred, 0)
-    ax[2,2].plot(dpred.mean(axis=0),label='pred')
+    ax[2,2].plot(dpred.mean(axis=0), label='pred')
     ax[2,2].set_title('mean lg-sm cc')
     ax[2,2].set_xlabel('unit')
 
     triu = np.triu_indices(dpred.shape[0], 1)
     cc_avg = (large_cc[triu] + small_cc[triu])/2
-    h,b=np.histogram(cc_avg,bins=20,range=[-0.3,0.3])
-    ax[0,2].bar(b[1:],h,width=b[1]-b[0])
-    ax[0,2].set_title(f"median cc={np.median(cc_avg):.3f}")
+    h, b = np.histogram(cc_avg,bins=20,range=[-0.3, 0.3])
+    ax[0, 2].bar(b[1:],h,width=b[1]-b[0])
+    ax[0, 2].set_title(f"median cc={np.median(cc_avg):.3f}")
 
     d_each = dact[triu]
     h,b=np.histogram(d_each,bins=20,range=[-0.3,0.3])

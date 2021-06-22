@@ -77,6 +77,7 @@ def fit_ccnorm(modelspec,
         shrink_cc: float = 0,
         noise_pcs: int = 0,
         shared_pcs: int = 0,
+        also_fit_resp: bool = False,
         **context):
     '''
     Required Arguments:
@@ -100,6 +101,10 @@ def fit_ccnorm(modelspec,
     start_time = time.time()
 
     modelspec = copy.deepcopy(modelspec)
+    if 'pred0' in est.signals.keys():
+        input_name = 'pred0'
+    else:
+        input_name = 'psth'
 
     # apply mask to remove invalid portions of signals and allow fit to
     # only evaluate the model on the valid portion of the signals
@@ -123,7 +128,7 @@ def fit_ccnorm(modelspec,
         log.info(f"cc data for {c} len {g.sum()}")
         
     resp = est['resp'].as_continuous()
-    pred0 = est['pred0'].as_continuous()
+    pred0 = est[input_name].as_continuous()
     
     if shrink_cc > 0:
         log.info(f'cc approx: shrink_cc={shrink_cc}')
@@ -172,7 +177,12 @@ def fit_ccnorm(modelspec,
     pcproj0 = (resp-pred0).T.dot(pc_axes.T).T
     pcproj_std = pcproj0.std(axis=1)
     
-    if metric is None:
+    if (metric is None) and also_fit_resp:
+        metric = lambda d: metrics.resp_cc_err(d, pred_name='pred', pred0_name='psth',
+                                          group_idx=group_idx, group_cc=group_cc,
+                                          pcproj_std=None, pc_axes=None)
+
+    elif (metric is None):
         #def cc_err(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred',
         #   group_idx=None, group_cc=None, pcproj_std=None, pc_axes=None):
 
@@ -234,7 +244,7 @@ def fit_ccnorm(modelspec,
             'save_context': True}
 
 
-def pc_err(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred', 
+def pc_err(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred',
            group_idx=None, group_pc=None, pc_axes=None, resp_std=None):
     '''
     Given the evaluated data, return the mean squared error for correlation coefficient computed

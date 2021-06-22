@@ -839,6 +839,7 @@ def ccnorm(fitkey):
     noise_pcs = 0
     shared_pcs = 0
     shrink_cc = 0
+    fit_resp = ('r' in options)
     for op in options:
         if op[:2]=='pc':
             noise_pcs = int(op[2:])
@@ -850,6 +851,8 @@ def ccnorm(fitkey):
     sel_options = {'max_iter': max_iter, 'tolerance': tolerance, 'noise_pcs': noise_pcs, 
                    'shared_pcs': shared_pcs, 'shrink_cc': shrink_cc}
     sel_options['fit_function'] = 'nems.analysis.fit_ccnorm.fit_ccnorm'
+    if fit_resp:
+        sel_options['also_fit_resp'] = True
 
     xfspec = []
     if rand_count > 1:

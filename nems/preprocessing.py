@@ -789,7 +789,8 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^(STIM_|TAR_|CAT_
     '''
 
     newrec = rec.copy()
-    resp = newrec[resp_sig].rasterize()
+    newrec[resp_sig] = newrec[resp_sig].rasterize()
+    resp = newrec[resp_sig]
 
     # compute spont rate during valid (non-masked) trials
     if 'mask' in newrec.signals.keys():

@@ -53,6 +53,56 @@ def cc_err(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred',
         E += np.sum((pcproj_std-pp_std)**2)*10
     return E
 
+def resp_cc_err(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred',
+           group_idx=None, group_cc=None, pcproj_std=None, pc_axes=None):
+    '''
+    Given the evaluated data, return the mean squared error for correlation coefficient computed
+    separately for each group of the data (eg, passive vs. active or big vs. small pupil)
+
+    Parameters
+    ----------
+    result : A Recording object
+        Generally the output of `model.evaluate(phi, data)`
+    (these other parameters can be hard-coded into a partial function that is then passed onto the fitter:)
+    pred_name : string
+        Name of prediction in the result recording
+    pred0_name : string
+        Name of prediction in the result recording
+    resp_name : string
+        Name of response in the result recording
+    group_idx: list of array indexes defining which samples belong in which group
+    group_cc: list of CC matrices, one for each group
+    pcproj_std: std of projection onto first N pcs
+    pc_axes: projection vectors for first N pcs--to project prediction and compute difference from
+             actual pcproj_std
+
+    Returns
+    -------
+    E : float
+        Mean-squared difference between the CC matrix for each group
+
+    Example
+    -------
+    >>> result = model.evaluate(data, phi)
+    >>> error = cc_err(result, 'pred', 'resp', <other parameters>)
+
+    '''
+    if type(result) is dict:
+        pred=result[pred_name]
+        pred0=result[pred0_name]
+    else:
+        pred = result[pred_name].as_continuous()
+        pred0 = result[pred0_name].as_continuous()
+    E = np.mean((pred-result[resp_name].as_continuous())**2) / \
+        np.mean(result[resp_name].as_continuous()**2)
+    cc_count = len(group_cc)
+    for idx,cc_act in zip(group_idx, group_cc):
+       E += np.sum((np.cov(pred[:,idx] - pred0[:,idx])-cc_act)**2) / np.sum(cc_act**2) / cc_count
+    if pc_axes is not None:
+        pcproj = (pred-pred0).T.dot(pc_axes.T).T
+        pp_std = pcproj.std(axis=1)
+        E += np.sum((pcproj_std-pp_std)**2)*10
+    return E
 
 def pup_dep_LV(result, pred_name='pred', resp_name='resp', **context):
     '''

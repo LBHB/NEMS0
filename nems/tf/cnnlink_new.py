@@ -255,6 +255,9 @@ def fit_tf(
 
     log.info(f'Feature dimensions: {stim_train.shape}; Data dimensions: {resp_train.shape}.')
 
+    if True:
+        log.info("adding a tiny bit of noise to resp_train")
+        resp_train = resp_train + np.random.randn(*resp_train.shape)/10000
     # get state if present, and setup training data
     if 'state' in est.signals:
         if (epoch_name is not None) and (epoch_name != ""):
