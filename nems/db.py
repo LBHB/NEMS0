@@ -1172,6 +1172,40 @@ def get_data_parms(rawid=None, parmfile=None):
     return d
 
 
+def get_siteid(s):
+    """
+    strip off the tail of a cellid to get the siteid
+    """
+    return s.split("-")[0]
+
+def get_batch_sites(batch):
+    """
+    get all siteids and a representative cellid from each site in a batch
+    :param batch: NEMS batch
+    :return: (siteids, cellids) tuple lists of siteids and cellids
+    """
+    d = get_batch_cells(batch=batch)
+    d['siteid'] = d.cellid.map(get_siteid)
+
+    siteids = list(set(d.siteid.tolist()))
+
+    if batch == 322:
+        siteids.remove('DRX006b')
+        siteids.remove('DRX007a')
+        siteids.remove('DRX008b')
+        cellids = [d.loc[d.cellid.str.startswith(s)].cellid.values[0] for s in siteids]
+        siteids.extend(['DRX006b.e1:64', 'DRX006b.e65:128', 'DRX007a.e1:64', 'DRX007a.e65:128', 'DRX008b.e1:64',
+                        'DRX008b.e65:128'])
+        cellids.extend(['DRX006b-01-2', 'DRX006b-66-1', 'DRX007a-01-1', 'DRX007a-69-1', 'DRX008b-01-2', 'DRX008b-66-1'])
+    else:
+        cellids = [d.loc[d.cellid.str.startswith(s)].cellid.values[0] for s in siteids]
+
+    siteids.sort()
+    cellids.sort()
+
+    return siteids, cellids
+
+
 def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test'):
     Results = Tables()['Results']
     if modelnames is None:

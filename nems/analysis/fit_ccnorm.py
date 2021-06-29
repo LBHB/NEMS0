@@ -17,7 +17,7 @@ import nems.metrics.api as metrics
 import nems.segmentors
 import nems.utils
 import nems.recording as recording
-
+from nems.initializers import modelspec_freeze_layers, modelspec_unfreeze_layers
 
 log = logging.getLogger(__name__)
 
@@ -78,6 +78,9 @@ def fit_ccnorm(modelspec,
         noise_pcs: int = 0,
         shared_pcs: int = 0,
         also_fit_resp: bool = False,
+        beta: float = 1,
+        exclude_idx=None, exclude_after=None,
+        freeze_idx=None, freeze_after=None,
         **context):
     '''
     Required Arguments:
@@ -101,6 +104,17 @@ def fit_ccnorm(modelspec,
     start_time = time.time()
 
     modelspec = copy.deepcopy(modelspec)
+
+    if (exclude_idx is not None) | (freeze_idx is not None) | \
+            (exclude_after is not None) | (freeze_after is not None):
+        modelspec0 = modelspec.copy()
+        modelspec, include_set = modelspec_freeze_layers(
+            modelspec, include_idx=None,
+            exclude_idx=exclude_idx, exclude_after=exclude_after,
+            freeze_idx=freeze_idx, freeze_after=freeze_after)
+    else:
+        include_set = None
+
     if 'pred0' in est.signals.keys():
         input_name = 'pred0'
     else:
@@ -137,9 +151,9 @@ def fit_ccnorm(modelspec,
         log.info(f'cc approx: shared_pcs={shared_pcs}')
         cc=np.cov(resp-pred0)
         u,s,vh = np.linalg.svd(cc)
-        U = u[:,:shared_pcs] @ u[:,:shared_pcs].T
+        U = u[:, :shared_pcs] @ u[:, :shared_pcs].T
 
-        group_cc = [cc_shared_space(resp[:,idx]-pred0[:,idx], U) for idx in group_idx]
+        group_cc = [cc_shared_space(resp[:, idx]-pred0[:,idx], U) for idx in group_idx]
     elif noise_pcs > 0:
         log.info(f'cc approx: noise_pcs={noise_pcs}')
         group_cc = [cc_lowrank(resp[:,idx]-pred0[:,idx], n_pcs=noise_pcs) for idx in group_idx]
@@ -147,14 +161,21 @@ def fit_ccnorm(modelspec,
         group_cc = [np.cov(resp[:,idx]-pred0[:,idx]) for idx in group_idx]
     group_cc_raw = [np.cov(resp[:,idx]-pred0[:,idx]) for idx in group_idx]
 
+    # some day remove this plotting code
+    log.info("fit_ccnorm: Plotting cc matrices, should delete this code at some point")
     import matplotlib.pyplot as plt
-    for g,g_raw,cond in zip(group_cc, group_cc_raw, conditions):
-        f,ax=plt.subplots(1,2,figsize=(4,2))
-        mm=np.max(np.abs(g))
-        ax[0].imshow(g,cmap='bwr',clim=[-mm,mm])
-        ax[1].imshow(g_raw,cmap='bwr',clim=[-mm,mm])
+    cols = 4
+    rows = int(np.ceil(len(group_cc)/2))
+    f, ax = plt.subplots(rows, cols, figsize=(4, 2*rows))
+    ax = ax.flatten()
+    i = 0
+    for g, g_raw, cond in zip(group_cc, group_cc_raw, conditions):
+        mm= np.max(np.abs(g))
+        ax[i*2].imshow(g, cmap='bwr', clim=[-mm,mm])
+        ax[i*2+1].imshow(g_raw, cmap='bwr', clim=[-mm,mm])
         f.suptitle(cond)
-        
+        i += 1
+
     # Computing PCs
     epoch_regex = "^STIM_"
     stims = (est.epochs['name'].value_counts() >= 8)
@@ -178,8 +199,9 @@ def fit_ccnorm(modelspec,
     pcproj_std = pcproj0.std(axis=1)
     
     if (metric is None) and also_fit_resp:
-        metric = lambda d: metrics.resp_cc_err(d, pred_name='pred', pred0_name='psth',
-                                          group_idx=group_idx, group_cc=group_cc,
+        log.info(f"resp_cc_err: pred0_name: {input_name} beta: {beta}")
+        metric = lambda d: metrics.resp_cc_err(d, pred_name='pred', pred0_name=input_name,
+                                          group_idx=group_idx, group_cc=group_cc, beta=beta,
                                           pcproj_std=None, pc_axes=None)
 
     elif (metric is None):
@@ -239,6 +261,11 @@ def fit_ccnorm(modelspec,
     ms.set_modelspec_metadata(improved_modelspec, 'fitter', 'ccnorm')
     ms.set_modelspec_metadata(improved_modelspec, 'fit_time', elapsed_time)
     ms.set_modelspec_metadata(improved_modelspec, 'n_parms', len(improved_sigma))
+
+    if include_set is not None:
+        # pull out updated phi values from improved_modelspec, include_set only
+        improved_modelspec = \
+            modelspec_unfreeze_layers(improved_modelspec, modelspec0, include_set)
 
     return {'modelspec': improved_modelspec.copy(),
             'save_context': True}

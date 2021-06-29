@@ -54,7 +54,7 @@ def cc_err(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred',
     return E
 
 def resp_cc_err(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred',
-           group_idx=None, group_cc=None, pcproj_std=None, pc_axes=None):
+           group_idx=None, group_cc=None, pcproj_std=None, pc_axes=None, beta=1):
     '''
     Given the evaluated data, return the mean squared error for correlation coefficient computed
     separately for each group of the data (eg, passive vs. active or big vs. small pupil)
@@ -95,7 +95,7 @@ def resp_cc_err(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred'
         pred0 = result[pred0_name].as_continuous()
     E = np.mean((pred-result[resp_name].as_continuous())**2) / \
         np.mean(result[resp_name].as_continuous()**2)
-    cc_count = len(group_cc)
+    cc_count = len(group_cc) / beta
     for idx,cc_act in zip(group_idx, group_cc):
        E += np.sum((np.cov(pred[:,idx] - pred0[:,idx])-cc_act)**2) / np.sum(cc_act**2) / cc_count
     if pc_axes is not None:
