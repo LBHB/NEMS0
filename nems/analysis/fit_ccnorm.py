@@ -211,7 +211,7 @@ def fit_ccnorm(modelspec,
         #metric = lambda d: metrics.cc_err(d, pred_name='pred', pred0_name='pred0',
         #                                  group_idx=group_idx, group_cc=group_cc, 
         #                                  pcproj_std=pcproj_std, pc_axes=pc_axes)
-        metric = lambda d: metrics.cc_err(d, pred_name='pred', pred0_name='pred0',
+        metric = lambda d: metrics.cc_err(d, pred_name='pred', pred0_name=input_name,
                                           group_idx=group_idx, group_cc=group_cc, 
                                           pcproj_std=None, pc_axes=None)
 
@@ -267,8 +267,8 @@ def fit_ccnorm(modelspec,
         improved_modelspec = \
             modelspec_unfreeze_layers(improved_modelspec, modelspec0, include_set)
 
-    return {'modelspec': improved_modelspec.copy(),
-            'save_context': True}
+    return {'modelspec': improved_modelspec.copy()}
+    # return {'modelspec': improved_modelspec.copy(), 'save_context': True}
 
 
 def pc_err(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred',
