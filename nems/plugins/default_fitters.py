@@ -256,9 +256,13 @@ def newtf(fitkey):
                        'initializer': initializer,
                        'seed': seed,
                        'epoch_name': epoch_name,
-                       'freeze_layers': freeze_layers,
+                       #'freeze_layers': freeze_layers,
                        'use_tensorboard': use_tensorboard
                    }])
+    if freeze_layers is not None:
+        # don't overwrite with None, in case it's already in context.
+        # if nothing is passed, default is still None in the corresponding function
+        xfspec[-1][1]['freeze_layers'] = freeze_layers
 
     if pick_best:
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
