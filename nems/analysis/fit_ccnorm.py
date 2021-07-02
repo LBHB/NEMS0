@@ -115,17 +115,22 @@ def fit_ccnorm(modelspec,
     else:
         include_set = None
 
-    if 'pred0' in est.signals.keys():
-        input_name = 'pred0'
-    else:
-        input_name = 'psth'
-
     # apply mask to remove invalid portions of signals and allow fit to
     # only evaluate the model on the valid portion of the signals
     if 'mask' in est.signals.keys():
         log.info("Data len pre-mask: %d", est['mask'].shape[1])
         est = est.apply_mask()
         log.info("Data len post-mask: %d", est['mask'].shape[1])
+
+    # if we want to fit to first-order cc error.
+    #uncomment this and make sure sdexp is generating a pred0 signal
+    #est = modelspec.evaluate(est)
+    if 'pred0' in est.signals.keys():
+        input_name = 'pred0'
+        log.info('Found pred0 for fitting CC')
+    else:
+        input_name = 'psth'
+        log.info('No pred0, using psth for fitting CC')
 
     conditions = ["_".join(k.split("_")[1:]) for k in est.signals.keys() if k.startswith("mask_")]
     if (len(conditions)>2) and any([c.split("_")[-1]=='lg' for c in conditions]):

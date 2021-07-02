@@ -659,8 +659,8 @@ def modelspec_freeze_layers(modelspec,
 def modelspec_unfreeze_layers(modelspec, modelspec0, include_set):
     """
     Generate a modelspec using inlcude_set layers from modelspec and other layers from modelspec0
-    :param modelspec: modelspec with layers that were fit (and others frozen)
-    :param modelspec0:  pre-fit modelspec with appropriately defined frozen layers
+    :param modelspec: modelspec with layers that were fit (include_set)
+    :param modelspec0: pre-fit modelspec with appropriately defined frozen layers (~include_set)
     :param include_set: list of fit (non-frozen) layers
     :return: modelspec
     """
@@ -786,9 +786,7 @@ def prefit_subset(est, modelspec, analysis_function=fit_basic,
                                    metric=metric, fit_kwargs=fit_kwargs)
 
     # pull out updated phi values from tmodelspec, include_set only
-    for i in include_set:
-        #log.info('restoring %d', i)
-        modelspec[i] = tmodelspec[i]
+    modelspec = modelspec_unfreeze_layers(tmodelspec, modelspec, include_set)
 
     return modelspec
 
