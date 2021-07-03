@@ -899,6 +899,8 @@ def ccnorm(fitkey):
             sel_options['beta'] = int(op[4:])
         if op=='r':
             sel_options['also_fit_resp'] = True
+        if op=='psth':
+            sel_options['force_psth'] = True
 
         elif op.startswith('ffneg'):
             sel_options['freeze_after'] = -int(op[5:])

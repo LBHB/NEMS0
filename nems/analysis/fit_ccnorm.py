@@ -78,6 +78,7 @@ def fit_ccnorm(modelspec,
         noise_pcs: int = 0,
         shared_pcs: int = 0,
         also_fit_resp: bool = False,
+        force_psth: bool = False,
         beta: float = 1,
         exclude_idx=None, exclude_after=None,
         freeze_idx=None, freeze_after=None,
@@ -125,7 +126,7 @@ def fit_ccnorm(modelspec,
     # if we want to fit to first-order cc error.
     #uncomment this and make sure sdexp is generating a pred0 signal
     #est = modelspec.evaluate(est)
-    if 'pred0' in est.signals.keys():
+    if ('pred0' in est.signals.keys()) & (not force_psth):
         input_name = 'pred0'
         log.info('Found pred0 for fitting CC')
     else:
