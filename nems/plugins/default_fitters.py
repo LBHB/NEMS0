@@ -285,6 +285,8 @@ def tfinit(fitkey):
     for op in options:
         if op == 'iso':
             xfspec[idx][1]['isolate_NL'] = True
+        if op[:2] == 'xx':
+            xfspec[idx][1]['up_to_idx'] = int(op[2:])
 
     return xfspec
 
@@ -923,7 +925,7 @@ def ccnorm(fitkey):
             sel_options['exclude_idx'] = sel_options.get('exclude_idx', [])
             sel_options['exclude_idx'].append(int(op[1:]))
 
-        sel_options['fit_function'] = 'nems.analysis.fit_ccnorm.fit_ccnorm'
+    sel_options['fit_function'] = 'nems.analysis.fit_ccnorm.fit_ccnorm'
 
     xfspec = []
     if rand_count > 1:

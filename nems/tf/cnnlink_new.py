@@ -431,6 +431,7 @@ def fit_tf_init(
         nl_init: str = 'tf',
         IsReload: bool = False,
         isolate_NL: bool = False,
+        up_to_idx=None,
         **kwargs
         ) -> dict:
     """Inits a model using tf.
@@ -451,13 +452,14 @@ def fit_tf_init(
 
     # find the first 'lvl' or last 'relu'
     ms_modules = [ms['fn'] for ms in modelspec]
-    #up_to_idx = first_substring_index(ms_modules, 'levelshift')
-    relu_idx = first_substring_index(reversed(ms_modules), 'relu')
-    lvl_idx = first_substring_index(reversed(ms_modules), 'levelshift')
-    _idxs = [i for i in [relu_idx, lvl_idx, len(modelspec)-1] if i is not None]
-    up_to_idx = len(modelspec) - 1 - np.min(_idxs)
-    #last_idx = np.min([relu_idx, lvl_idx])
-    #up_to_idx = len(modelspec) - 1 - up_to_idx
+    if up_to_idx is None:
+        #up_to_idx = first_substring_index(ms_modules, 'levelshift')
+        relu_idx = first_substring_index(reversed(ms_modules), 'relu')
+        lvl_idx = first_substring_index(reversed(ms_modules), 'levelshift')
+        _idxs = [i for i in [relu_idx, lvl_idx, len(modelspec)-1] if i is not None]
+        up_to_idx = len(modelspec) - 1 - np.min(_idxs)
+        #last_idx = np.min([relu_idx, lvl_idx])
+        #up_to_idx = len(modelspec) - 1 - up_to_idx
     #if up_to_idx is None:
     #    up_to_idx = first_substring_index(reversed(ms_modules), 'levelshift')
     #    # because reversed, need to mirror the idx
