@@ -1075,7 +1075,7 @@ def get_batches(name=None):
     return d
 
 
-def get_cell_files(cellid=None, runclass=None):
+def get_cell_files(cellid=None, runclass=None, rawid=None):
     # eg, sql="SELECT * from sCellFile WHERE cellid like "TAR010c-30-1"
     engine = Engine()
     params = ()
@@ -1089,6 +1089,9 @@ def get_cell_files(cellid=None, runclass=None):
     if runclass is not None:
         sql += " AND gRunClass.name like %s"
         params = params+("%"+runclass+"%",)
+    if rawid is not None:
+        sql+= " AND sCellFile.rawid = %s"
+        params=params+(rawid,)
 
     d = pd.read_sql(sql=sql, con=engine, params=params)
 
