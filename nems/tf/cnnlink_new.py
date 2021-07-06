@@ -255,6 +255,9 @@ def fit_tf(
 
     log.info(f'Feature dimensions: {stim_train.shape}; Data dimensions: {resp_train.shape}.')
 
+    if True:
+        log.info("adding a tiny bit of noise to resp_train")
+        resp_train = resp_train + np.random.randn(*resp_train.shape)/10000
     # get state if present, and setup training data
     if 'state' in est.signals:
         if (epoch_name is not None) and (epoch_name != ""):
@@ -428,6 +431,7 @@ def fit_tf_init(
         nl_init: str = 'tf',
         IsReload: bool = False,
         isolate_NL: bool = False,
+        up_to_idx=None,
         **kwargs
         ) -> dict:
     """Inits a model using tf.
@@ -448,13 +452,14 @@ def fit_tf_init(
 
     # find the first 'lvl' or last 'relu'
     ms_modules = [ms['fn'] for ms in modelspec]
-    #up_to_idx = first_substring_index(ms_modules, 'levelshift')
-    relu_idx = first_substring_index(reversed(ms_modules), 'relu')
-    lvl_idx = first_substring_index(reversed(ms_modules), 'levelshift')
-    _idxs = [i for i in [relu_idx, lvl_idx, len(modelspec)-1] if i is not None]
-    up_to_idx = len(modelspec) - 1 - np.min(_idxs)
-    #last_idx = np.min([relu_idx, lvl_idx])
-    #up_to_idx = len(modelspec) - 1 - up_to_idx
+    if up_to_idx is None:
+        #up_to_idx = first_substring_index(ms_modules, 'levelshift')
+        relu_idx = first_substring_index(reversed(ms_modules), 'relu')
+        lvl_idx = first_substring_index(reversed(ms_modules), 'levelshift')
+        _idxs = [i for i in [relu_idx, lvl_idx, len(modelspec)-1] if i is not None]
+        up_to_idx = len(modelspec) - 1 - np.min(_idxs)
+        #last_idx = np.min([relu_idx, lvl_idx])
+        #up_to_idx = len(modelspec) - 1 - up_to_idx
     #if up_to_idx is None:
     #    up_to_idx = first_substring_index(reversed(ms_modules), 'levelshift')
     #    # because reversed, need to mirror the idx

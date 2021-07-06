@@ -117,14 +117,18 @@ def basic(fitkey):
 
     xfspec = []
 
-    options = _extract_options(fitkey)
-    max_iter, tolerance, fitter, choose_best, rand_count = _parse_basic(options)
+    options = _parse_options(fitkey)
+    #max_iter, tolerance, fitter, choose_best, rand_count = _parse_basic(options)
+    rand_count = options.get('rand_count', 1)
+    choose_best = options.get('choose_best', False)
+
+    del options['rand_count']
+    del options['choose_best']
+
     xfspec = []
     if rand_count>1:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
-    xfspec.append(['nems.xforms.fit_basic',
-                  {'max_iter': max_iter,
-                   'fitter': fitter, 'tolerance': tolerance}])
+    xfspec.append(['nems.xforms.fit_basic', options])
     if choose_best:
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
@@ -239,26 +243,27 @@ def newtf(fitkey):
     xfspec = []
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
+    parm_dict = {
+        'max_iter': max_iter,
+        'use_modelspec_init': use_modelspec_init,
+        'nl_init': nl_init,
+        'optimizer': optimizer,
+        'cost_function': cost_function,
+        'fit_function': 'nems.tf.cnnlink_new.fit_tf',
+        'early_stopping_steps': early_stopping_steps,
+        'early_stopping_tolerance': early_stopping_tolerance,
+        'early_stopping_val_split': early_stopping_val_split,
+        'learning_rate': learning_rate,
+        'batch_size': batch_size,
+        'initializer': initializer,
+        'seed': seed,
+        'epoch_name': epoch_name,
+        'use_tensorboard': use_tensorboard
+        }
+    if freeze_layers is not None:
+        parm_dict['freeze_layers'] = freeze_layers
 
-    xfspec.append(['nems.xforms.fit_wrapper',
-                   {
-                       'max_iter': max_iter,
-                       'use_modelspec_init': use_modelspec_init,
-                       'nl_init': nl_init,
-                       'optimizer': optimizer,
-                       'cost_function': cost_function,
-                       'fit_function': 'nems.tf.cnnlink_new.fit_tf',
-                       'early_stopping_steps': early_stopping_steps,
-                       'early_stopping_tolerance': early_stopping_tolerance,
-                       'early_stopping_val_split': early_stopping_val_split,
-                       'learning_rate': learning_rate,
-                       'batch_size': batch_size,
-                       'initializer': initializer,
-                       'seed': seed,
-                       'epoch_name': epoch_name,
-                       'freeze_layers': freeze_layers,
-                       'use_tensorboard': use_tensorboard
-                   }])
+    xfspec.append(['nems.xforms.fit_wrapper', parm_dict])
 
     if pick_best:
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
@@ -280,6 +285,8 @@ def tfinit(fitkey):
     for op in options:
         if op == 'iso':
             xfspec[idx][1]['isolate_NL'] = True
+        if op[:2] == 'xx':
+            xfspec[idx][1]['up_to_idx'] = int(op[2:])
 
     return xfspec
 
@@ -724,6 +731,53 @@ def _extract_options(fitkey):
         options = chunks[1:]
     return options
 
+def _parse_options(fitkey, **default_options):
+    
+    chunks = escaped_split(fitkey, '.')
+    ops = chunks[1:]
+
+    # set defaults
+    options = {}
+    options['max_iter'] = default_options.get('max_iter', 30000)
+    options['tolerance'] = default_options.get('tolerance', 1e-5)
+    options['fitter'] = default_options.get('fitter', 'scipy_minimize')
+    options['choose_best'] = default_options.get('choose_best', False)
+    options['rand_count'] = default_options.get('rand_count', 1)
+
+    for op in ops:
+        if op.startswith('mi'):
+            pattern = re.compile(r'^mi(\d{1,})')
+            options['max_iter'] = int(re.match(pattern, op).group(1))
+
+        elif op.startswith('FL'):
+            if ':' in op:
+                # ex: FL0:5  would be freeze_layers = [0,1,2,3,4]
+                lower, upper = [int(i) for i in op[2:].split(':')]
+                options['freeze_layers'] = list(range(lower, upper))
+            else:
+                # ex: FL2x6x9  would be freeze_layers = [2, 6, 9]
+                options['freeze_layers'] = [int(i) for i in op[2:].split('x')]
+        elif op.startswith('t'):
+            # Should use \ to escape going forward, but keep d-sub in
+            # for backwards compatibility.
+            num = op.replace('d', '.').replace('\\', '')
+            tolpower = float(num[1:])*(-1)
+            options['tolerance'] = 10**tolpower
+        elif op == 'cd':
+            options['fitter'] = 'coordinate_descent'
+        elif op == 'b':
+            options['choose_best'] = True
+        elif op.startswith('rb'):
+            if len(op) == 2:
+                options['rand_count'] = 10
+            else:
+                options['rand_count'] = int(op[2:])
+            options['choose_best'] = True
+
+    return options
+
+
+
 
 def _parse_basic(options):
     '''Options specific to basic.'''
@@ -835,19 +889,42 @@ def ccnorm(fitkey):
     options = _extract_options(fitkey)
     max_iter, tolerance, fitter, choose_best, rand_count = _parse_basic(options)
 
-    noise_pcs = 0
-    shared_pcs = 0
-    shrink_cc = 0
+    sel_options = {'max_iter': max_iter, 'tolerance': tolerance}
     for op in options:
         if op[:2]=='pc':
-            noise_pcs = int(op[2:])
+            sel_options['noise_pcs'] = int(op[2:])
         if op[:2]=='ss':
-            shared_pcs = int(op[2:])
+            sel_options['shared_pcs'] = int(op[2:])
         if op[:2]=='sh':
-            shrink_cc = int(op[2:])
+            sel_options['shrink_cc'] = int(op[2:])
+        if op[:4]=='beta':
+            sel_options['beta'] = int(op[4:])
+        if op=='r':
+            sel_options['also_fit_resp'] = True
+        if op=='psth':
+            sel_options['force_psth'] = True
 
-    sel_options = {'max_iter': max_iter, 'tolerance': tolerance, 'noise_pcs': noise_pcs, 
-                   'shared_pcs': shared_pcs, 'shrink_cc': shrink_cc}
+        elif op.startswith('ffneg'):
+            sel_options['freeze_after'] = -int(op[5:])
+        elif op.startswith('fneg'):
+            sel_options['freeze_idx'] = sel_options.get('freeze_idx', [])
+            sel_options['freeze_idx'].append(-int(op[4:]))
+        elif op.startswith('ff'):
+            sel_options['freeze_after'] = int(op[2:])
+        elif op.startswith('f'):
+            sel_options['freeze_idx'] = sel_options.get('freeze_idx', [])
+            sel_options['freeze_idx'].append(int(op[1:]))
+        elif op.startswith('xxneg'):
+            sel_options['exclude_after'] = -int(op[5:])
+        elif op.startswith('xneg'):
+            sel_options['exclude_idx'] = sel_options.get('exclude_idx', [])
+            sel_options['exclude_idx'].append(-int(op[4:]))
+        elif op.startswith('xx'):
+            sel_options['exclude_after'] = int(op[2:])
+        elif op.startswith('x'):
+            sel_options['exclude_idx'] = sel_options.get('exclude_idx', [])
+            sel_options['exclude_idx'].append(int(op[1:]))
+
     sel_options['fit_function'] = 'nems.analysis.fit_ccnorm.fit_ccnorm'
 
     xfspec = []

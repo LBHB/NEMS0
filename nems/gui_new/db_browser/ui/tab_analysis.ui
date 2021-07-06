@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>786</width>
-    <height>438</height>
+    <width>800</width>
+    <height>500</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,7 +16,7 @@
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <layout class="QGridLayout" name="gridLayout">
-     <item row="14" column="1">
+     <item row="19" column="1">
       <widget class="QLabel" name="labelModelInfo">
        <property name="text">
         <string>TextLabel</string>
@@ -26,8 +26,15 @@
        </property>
       </widget>
      </item>
-     <item row="3" column="1">
+     <item row="5" column="1">
       <layout class="QHBoxLayout" name="horizontalLayout">
+       <item>
+        <widget class="QLabel" name="label">
+         <property name="text">
+          <string>Model filter</string>
+         </property>
+        </widget>
+       </item>
        <item>
         <widget class="QLineEdit" name="lineModelname">
          <property name="sizePolicy">
@@ -78,7 +85,7 @@
        </item>
       </layout>
      </item>
-     <item row="4" column="0">
+     <item row="8" column="0">
       <widget class="QListView" name="listCellid">
        <property name="maximumSize">
         <size>
@@ -91,7 +98,7 @@
        </property>
       </widget>
      </item>
-     <item row="4" column="1">
+     <item row="8" column="1">
       <widget class="QListView" name="listModelname">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -99,18 +106,14 @@
          <verstretch>0</verstretch>
         </sizepolicy>
        </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>16777215</height>
+        </size>
+       </property>
        <property name="selectionMode">
         <enum>QAbstractItemView::ExtendedSelection</enum>
-       </property>
-      </widget>
-     </item>
-     <item row="13" column="1">
-      <widget class="QLineEdit" name="lineAnalysis"/>
-     </item>
-     <item row="2" column="1">
-      <widget class="QLabel" name="label">
-       <property name="text">
-        <string>Model search</string>
        </property>
       </widget>
      </item>
@@ -135,7 +138,7 @@
        </item>
       </layout>
      </item>
-     <item row="11" column="1">
+     <item row="15" column="1">
       <layout class="QHBoxLayout" name="horizontalLayout_6">
        <item>
         <widget class="QPushButton" name="pushPreview">
@@ -152,23 +155,23 @@
         </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="pushButton_2">
+        <widget class="QPushButton" name="pushViewNew">
          <property name="text">
-          <string>PushButton</string>
+          <string>View new</string>
          </property>
         </widget>
        </item>
+       <item>
+        <widget class="QPushButton" name="pushCustomSingle">
+         <property name="text">
+          <string>Custom</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="lineCustomSingle"/>
+       </item>
       </layout>
-     </item>
-     <item row="3" column="0">
-      <widget class="QLineEdit" name="lineCellid">
-       <property name="maximumSize">
-        <size>
-         <width>150</width>
-         <height>16777215</height>
-        </size>
-       </property>
-      </widget>
      </item>
      <item row="1" column="0">
       <widget class="QLabel" name="label_3">
@@ -177,19 +180,19 @@
        </property>
       </widget>
      </item>
-     <item row="2" column="0">
-      <widget class="QLabel" name="label_2">
-       <property name="text">
-        <string>Cell search</string>
-       </property>
-      </widget>
-     </item>
-     <item row="12" column="1">
+     <item row="16" column="1">
       <layout class="QHBoxLayout" name="horizontalLayout_5">
        <item>
         <widget class="QPushButton" name="pushScatter">
          <property name="text">
           <string>Scatter</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="pushLineComp">
+         <property name="text">
+          <string>Comp</string>
          </property>
         </widget>
        </item>
@@ -207,17 +210,49 @@
          </property>
         </widget>
        </item>
+       <item>
+        <widget class="QPushButton" name="pushCustomGroup">
+         <property name="text">
+          <string>Custom</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="lineCustomGroup"/>
+       </item>
       </layout>
      </item>
-     <item row="13" column="0">
-      <widget class="QPushButton" name="pushRun">
-       <property name="text">
-        <string>Run</string>
+     <item row="20" column="1">
+      <widget class="QTableWidget" name="tableModels"/>
+     </item>
+     <item row="5" column="0">
+      <layout class="QHBoxLayout" name="horizontalLayout_4">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_7">
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_8">
+           <item>
+            <widget class="QLabel" name="label_2">
+             <property name="text">
+              <string>Cell filter</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </item>
+     <item row="6" column="0">
+      <widget class="QLineEdit" name="lineCellid">
+       <property name="maximumSize">
+        <size>
+         <width>150</width>
+         <height>16777215</height>
+        </size>
        </property>
       </widget>
-     </item>
-     <item row="15" column="1">
-      <widget class="QTableWidget" name="tableModels"/>
      </item>
     </layout>
    </item>

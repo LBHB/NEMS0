@@ -712,7 +712,8 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
                    prematch[i] = np.diff(x)
                else:
                    log.info('pre missing?')
-                   import pdb; pdb.set_trace()
+                   prematch[i] = 0
+                   #import pdb; pdb.set_trace()
                x = ep.epoch_intersection(posidx, [e], precision=precision)
                if len(x):
                    if x.shape[0]>1:
@@ -735,8 +736,11 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
 
            #import pdb;pdb.set_trace()
            minpre = np.min(prematch)
-           minpos = np.min(posmatch[posmatch>0])
-           posmatch[posmatch<minpos]=minpos
+           if (posmatch>0).sum():
+               minpos = np.min(posmatch[posmatch > 0])
+           else:
+               minpos = 0
+           posmatch[posmatch < minpos] = minpos
            remove_post_stim = False
            if (minpre<np.max(prematch)) & (ematch.shape[0]==prematch.shape[0]):
                log.info('epoch %s pre varies, fixing to %.3f s', ename, minpre)
@@ -785,7 +789,8 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^(STIM_|TAR_|CAT_
     '''
 
     newrec = rec.copy()
-    resp = newrec[resp_sig].rasterize()
+    newrec[resp_sig] = newrec[resp_sig].rasterize()
+    resp = newrec[resp_sig]
 
     # compute spont rate during valid (non-masked) trials
     if 'mask' in newrec.signals.keys():
@@ -806,11 +811,21 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^(STIM_|TAR_|CAT_
     # figure out spont rate for subtraction from PSTH
     try:
         prestimsilence = resp.extract_epoch('PreStimSilence', mask=mask)
-        if len(prestimsilence.shape) == 3:
-            spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
+        if prestimsilence.shape[-1] > 0:        
+            if len(prestimsilence.shape) == 3:
+                spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
+            else:
+                spont_rate = np.nanmean(prestimsilence)
         else:
-            spont_rate = np.nanmean(prestimsilence)
-    except ValueError:
+            try:
+                prestimsilence = resp.extract_epoch('TRIALPreStimSilence')
+                if len(prestimsilence.shape) == 3:
+                    spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
+                else:
+                    spont_rate = np.nanmean(prestimsilence)
+            except:
+                raise ValueError("Can't find prestim silence to use for PSTH calculation")
+    except:
         # special case where the epochs included in mask don't have PreStimSilence,
         # so we get it elsewhere. Designed for CPN data...
         try:

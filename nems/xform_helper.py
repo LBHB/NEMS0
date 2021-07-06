@@ -191,7 +191,7 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
 
     log.info("TODO: simplify generate_xforms_spec parameters")
     xfspec = generate_xforms_spec(recording_uri=recording_uri, modelname=modelname,
-                                  meta=meta,  xforms_kwargs=registry_args,
+                                  meta=meta, xforms_kwargs=registry_args,
                                   xforms_init_context=xforms_init_context,
                                   autoPlot=autoPlot)
     log.debug(xfspec)
@@ -281,6 +281,11 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     # save in database as well
     if saveInDB:
         nd.update_results_table(modelspec)
+
+    for xfa in xfspec:
+        if 'postprocess' in xfa[0]:
+            log.info('Running preprocessing kw:', xfa[0])
+            ctx = xforms.evaluate_step(xfa, ctx)
 
     return save_data['savepath']
 

@@ -17,7 +17,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from nems import get_setting
-from nems.uri import NumpyEncoder
 import nems
 
 log = logging.getLogger(__name__)
@@ -28,6 +27,108 @@ def iso8601_datestring():
     Returns a string containing the present date as a string.
     '''
     return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
+
+"""
+Utils imported from uri for more general purpose JSON encoding/decoding
+"""
+class NumpyEncoder(json.JSONEncoder):
+    '''
+    For serializing Numpy arrays safely as JSONs. Modified from:
+    https://stackoverflow.com/questions/3488934/simplejson-and-numpy-array
+    saving as byte64 doesn't work, but using lists instead seems ok.
+    '''
+
+    def default(self, obj):
+        """
+        If input object is an ndarray it will be converted into a dict
+        holding dtype, shape and the data. data is encoded as a list,
+        which makes it text-readable.
+        """
+        from nems.distributions.distribution import Distribution
+        from nems.modules import NemsModule
+
+        if issubclass(type(obj), Distribution):
+            return obj.tolist()
+
+        if issubclass(type(obj), NemsModule):
+            return obj.data_dict
+
+        if isinstance(obj, np.ndarray):
+            # currently disabling b64 encoding because it doesn't work and
+            # it makes JSON files unreadable. However, it may be worth
+            # implementing in the future for different parts of the
+            # modelspec
+            use_b64_encoding = False
+            if use_b64_encoding:
+                if obj.flags['C_CONTIGUOUS']:
+                    obj_data = obj.data
+                else:
+                    cont_obj = np.ascontiguousarray(obj)
+                    assert(cont_obj.flags['C_CONTIGUOUS'])
+                    obj_data = cont_obj.data
+                data_encoded = base64.b64encode(obj_data)
+            else:
+                data_encoded = obj.tolist()
+
+            return dict(__ndarray__=data_encoded,
+                        dtype=str(obj.dtype),
+                        shape=obj.shape,
+                        encoding='list')
+
+        to_json_exists = getattr(obj, "to_json", None)
+        if callable(to_json_exists):
+            return obj.to_json()
+
+        # Let the base class default method raise the TypeError
+        return json.JSONEncoder.default(self, obj)
+
+def json_numpy_obj_hook(dct):
+    """
+    Decodes a previously encoded numpy ndarray with proper shape and dtype,
+    or an encoded KeywordRegistry.
+
+    :param dct: (dict) json encoded ndarray
+    :return: (ndarray) if input was an encoded ndarray
+    """
+
+    if isinstance(dct, dict) and '__ndarray__' in dct:
+        # data = base64.b64decode(dct['__ndarray__'])
+        data = dct['__ndarray__']
+        return np.asarray(data, dct['dtype']).reshape(dct['shape'])
+
+    special_keys = ['level', 'coefficients', 'amplitude', 'kappa',
+                    'base', 'shift', 'mean', 'sd', 'u', 'tau', 'offset']
+
+    if isinstance(dct, dict) and any(k in special_keys for k in dct):
+        # print("json_numpy_obj_hook: {0} type {1}".format(dct,type(dct)))
+        for k in dct:
+            if type(dct[k]) is list:
+                dct[k] = np.asarray(dct[k])
+
+    if '_KWR_ARGS' in dct:
+        from nems.registry import KeywordRegistry
+        return KeywordRegistry.from_json(dct)
+
+    return dct
+
+def adjust_uri_prefix(uri, use_nems_defaults=True):
+
+    use_API = get_setting('USE_NEMS_BAPHY_API')
+
+    if use_API:
+        rec_prefix = get_setting('NEMS_RECORDINGS_DIR')
+        res_prefix = get_setting('NEMS_RESULTS_DIR')
+        api_prefix = 'http://'+get_setting('NEMS_BAPHY_API_HOST')+":"+str(get_setting('NEMS_BAPHY_API_PORT'))
+        if uri.startswith(rec_prefix):
+            new_uri = uri.replace(rec_prefix, api_prefix + "/recordings" )
+        elif uri.startswith(res_prefix):
+            new_uri = uri.replace(rec_prefix, api_prefix + "/results" )
+        else:
+            new_uri = uri
+    else:
+        new_uri = uri
+
+    return new_uri
 
 
 def recording_filename_hash(name, meta, uri_path='', uncompressed=False):
