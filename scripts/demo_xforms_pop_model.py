@@ -93,14 +93,18 @@ modelspec.meta['cellid'] = siteid
 modelspec.meta['cellids'] = cellids
 
 # save location generated when model initialized. Can be changed
-log.info('Saving modelspec(s) to {0} ...'.format(modelspec.meta['modelpath']))
-xforms.save_analysis(modelspec.meta['modelpath'],
+res = xforms.save_analysis(modelspec.meta['modelpath'],
                      recording=ctx['rec'],
                      modelspec=modelspec,
                      xfspec=xfspec,
                      figures=ctx['figures'],
                      log=log_xf)
+log.info('Saved modelspec(s) to {0} ...'.format(res['savepath']))
 
 # save summary of results to a database
 log.info('Saving metadata to db  ...')
 nd.update_results_table(modelspec)
+
+# illustrate dstrf analysis
+from nems.demo import dstrf
+f,d = dstrf.dstrf_sample(ctx=ctx, cellid='TAR010c-18-2')
