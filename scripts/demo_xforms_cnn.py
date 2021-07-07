@@ -1,5 +1,5 @@
-# A Template NEMS Script that demonstrates use of xforms for generating
-# models that are easy to reload
+# A Template NEMS Script suitable for beginners
+# Please see docs/architecture.svg for a visual diagram of this code
 
 import logging
 import os
@@ -27,19 +27,22 @@ recording.get_demo_recordings()
 datafile = os.path.join(signals_dir, "TAR010c.NAT.fs100.ch18.tgz")
 exptid = "TAR010c"
 batch = 271
-siteid = "TAR010c"
+cellid = "TAR010c-18-2"
 
-# MODEL SPEC
-modelspecname = 'wc.18x3-fir.1x10x3-relu.3-wc.3xR-lvl.R'
-#modelspecname = 'wc.18x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
-#modelspecname = 'dlog-wc.18x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R'
-#modelspecname = 'dlog-wc.18x3.g-fir.1x10x3-relu.3-wc.3xR-lvl.R-dexp.R'
+# SINGLE MODEL SPEC
 
-meta = {'cellid': siteid, 'batch': batch, 'modelname': modelspecname,
+# LN model
+modelspecname = 'dlog-wc.18x3.g-fir.3x15-relu.1'
+
+# Simple CNN
+#modelspecname = 'wc.18x3-fir.1x10x3-relu.3-wc.3xR-lvl.R'
+
+
+meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname,
         'recording': exptid}
 
-# setting cellid to siteid indicates using the entire site (all cells)
-xforms_init_context = {'cellid': siteid, 'batch': int(batch)}
+# cellid indicates a single cell
+xforms_init_context = {'cellid': cellid, 'batch': int(batch)}
 xforms_init_context['keywordstring'] = modelspecname
 xforms_init_context['meta'] = meta
 xforms_init_context['recording_uri_list'] = [datafile]
@@ -89,8 +92,7 @@ for xfa in xfspec:
 # save results to file
 cellids=ctx['rec'].meta['cellid']
 modelspec = ctx['modelspec']
-modelspec.meta['cellid'] = siteid
-modelspec.meta['cellids'] = cellids
+modelspec.meta['cellid'] = cellid
 
 # save location generated when model initialized. Can be changed
 log.info('Saving modelspec(s) to {0} ...'.format(modelspec.meta['modelpath']))
