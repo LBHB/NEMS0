@@ -1239,7 +1239,7 @@ def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test'):
             if bresults is None:
                 bresults = tc
             else:
-                bresults=bresults.join(tc)
+                bresults=bresults.join(tc, how=join_how)
         if results is None:
             results=bresults
         else:

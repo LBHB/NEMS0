@@ -203,7 +203,7 @@ def fit_tf(
        assert log_dir_root.exists()
        log_dir_sub = Path('SLURM_JOBID' + job_id) / str(modelspec.meta['batch'])\
                      / modelspec.meta.get('cellid', "NOCELL")\
-                     / modelspec.meta['modelname']
+                     / modelspec.get_longname()
        filepath = log_dir_root / log_dir_sub
        tbroot = filepath / 'logs'
     elif filepath is None:
@@ -495,8 +495,8 @@ def fit_tf_init(
                 # as_continuous only available for RasterizedSignal
                 mean_resp = np.nanmean(est[output_name].rasterize().as_continuous(), axis=1, keepdims=True)
             if len(ms['phi']['level'][:]) == len(mean_resp):
-               log.info(f'Fixing "{ms["fn"]}" to: {mean_resp.flatten()[0]:.3f}')
-               ms['phi']['level'][:] = mean_resp
+                log.info(f'Fixing "{ms["fn"]}" to: {mean_resp.flatten()[0]:.3f}')
+                ms['phi']['level'][:] = mean_resp
 
         temp_ms.append(ms)
         if any(fr in ms['fn'] for fr in freeze):

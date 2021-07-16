@@ -243,6 +243,7 @@ def newtf(fitkey):
     xfspec = []
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
+
     parm_dict = {
         'max_iter': max_iter,
         'use_modelspec_init': use_modelspec_init,
