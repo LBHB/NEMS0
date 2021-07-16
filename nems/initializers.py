@@ -11,6 +11,7 @@ from nems.analysis.api import fit_basic
 from nems.fitters.api import scipy_minimize
 import nems.priors as priors
 import nems.modelspec as ms
+from nems.uri import save_resource, load_resource
 import nems.metrics.api as metrics
 from nems import get_setting
 
@@ -220,6 +221,25 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, rand_seed=1234, **context
     modelspec.tile_jacks(jack_count)
 
     return {'modelspec': modelspec}
+
+def load_phi(modelspec, prefit_uri="", copy_layers=0, **kwargs):
+    """
+    copy the first copy_layers of a previously fit modelspec into
+    the current modelspec. barfs if the phi sizes don't match exactly
+    """
+    prefit_modelspec = ms.ModelSpec([load_resource(prefit_uri)])
+
+    # copy phi from existing modelspec to the other:
+    for i, phi in enumerate(prefit_modelspec.phi[:copy_layers]):
+        if phi is not None:
+            for k in phi.keys():
+                log.info(f"{i} {k} {phi[k].shape}")
+                if phi[k].shape == modelspec.phi[i][k].shape:
+                    modelspec.phi[i][k] = phi[k]
+                else:
+                    raise ValueError(f"new shape mismatch {modelspec.phi[i][k].shape}")
+
+    return {'modelspec': modelspec, 'old_modelspec': prefit_modelspec}
 
 
 def prefit_LN(rec, modelspec, analysis_function=fit_basic,
@@ -559,6 +579,99 @@ def _calc_neg_modidx(idx_list, ms_len):
 
     return idx_list
 
+def modelspec_freeze_layers(modelspec,
+                            include_idx=None, include_through=None,
+                            include_names=None,
+                            exclude_idx=None, exclude_after=None,
+                            freeze_idx=None, freeze_after=None
+                            ):
+
+    mslen = len(modelspec)
+
+    # first, figure out which modules to fit
+    include_set = []
+    if include_names is not None:
+        for i, m in enumerate(modelspec.modules):
+            for fn in include_names:
+                if fn in m['fn']:
+                    include_set.append(i)
+                    log.info('Found module %d (%s) for subset prefit', i, fn)
+    include_set = np.array(include_set, dtype=int)
+    if include_through is not None:
+        include_set = np.union1d(include_set, np.arange(_calc_neg_modidx(include_through, mslen), dtype=int))
+    if include_idx is not None:
+        include_set = np.union1d(include_set, _calc_neg_modidx(include_idx, mslen))
+    if len(include_set) == 0:
+        include_set = np.arange(mslen, dtype=int)
+
+    # then figure out which ones to freeze, possibly overwriting some of the fits
+    freeze_set = np.setdiff1d(np.arange(mslen), include_set)
+    if freeze_idx is not None:
+        freeze_set = np.union1d(freeze_set, _calc_neg_modidx(freeze_idx, mslen))
+    if freeze_after is not None:
+        freeze_set = np.union1d(freeze_set, np.arange(_calc_neg_modidx(freeze_after, mslen)[0], mslen))
+    include_set = np.setdiff1d(include_set, freeze_set)
+
+    # then figure out which ones to exclude, again possibly overwriting the include/freeze sets
+    exclude_set = []
+    if exclude_idx is not None:
+        exclude_set = np.union1d(exclude_set, _calc_neg_modidx(exclude_idx, mslen))
+    if exclude_after is not None:
+        exclude_set = np.union1d(exclude_set, np.arange(_calc_neg_modidx(exclude_after, mslen)[0], mslen, dtype=int))
+    include_set = np.setdiff1d(include_set, exclude_set)
+    freeze_set = np.setdiff1d(freeze_set, exclude_set)
+
+    log.info("Fit: %s", include_set)
+    log.info("Freeze: %s", freeze_set)
+    log.info("Exclude: %s", exclude_set)
+
+    if len(include_set) == 0:
+        log.info('No modules matching include_set for subset prefit')
+        return modelspec
+
+    tmodelspec = copy.deepcopy(modelspec)
+
+    for i in range(mslen):
+        m = tmodelspec[i]
+        if not m.get('phi'):
+            log.info('Initializing phi for module %d (%s)', i, m['fn'])
+            m = priors.set_mean_phi([m])[0]  # Inits phi
+        if i in freeze_set:
+            log.info('Freezing phi for module %d (%s)', i, m['fn'])
+            m['fn_kwargs'].update(m['phi'])
+            m['phi'] = {}
+            tmodelspec[i] = m
+        elif i in exclude_set:
+            # replace with null module
+            log.info('Excluding module %d (%s)', i, m['fn'])
+            if type(m) is dict:
+                # fn = _lookup_fn_at(m['fn'])
+                m['fn'] = 'nems.modules.scale.null'
+            else:
+                # it's a NemsModule object, need to divert the .eval method to null
+                m.eval = ms._lookup_fn_at('nems.modules.scale.null')
+            m['phi'] = {}
+            tmodelspec[i] = m
+
+    return tmodelspec, include_set
+
+
+def modelspec_unfreeze_layers(modelspec, modelspec0, include_set):
+    """
+    Generate a modelspec using inlcude_set layers from modelspec and other layers from modelspec0
+    :param modelspec: modelspec with layers that were fit (include_set)
+    :param modelspec0: pre-fit modelspec with appropriately defined frozen layers (~include_set)
+    :param include_set: list of fit (non-frozen) layers
+    :return: modelspec
+    """
+    modelspecnew = modelspec0.copy()
+    for i in include_set:
+        log.info('saving module %d', i)
+        modelspecnew[i] = modelspec[i]
+
+    return modelspecnew
+
+
 def prefit_subset(est, modelspec, analysis_function=fit_basic,
                   include_idx=None, include_through=None,
                   include_names=None,
@@ -591,10 +704,17 @@ def prefit_subset(est, modelspec, analysis_function=fit_basic,
     :return: updated modelspec
     """
 
-    # preserve input modelspec
-    modelspec = copy.deepcopy(modelspec)
-    mslen=len(modelspec)
     fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
+
+    tmodelspec, include_set = modelspec_freeze_layers(
+        modelspec, include_idx=include_idx,
+        exclude_idx=exclude_idx, exclude_after=exclude_after,
+        freeze_idx=freeze_idx, freeze_after=freeze_after)
+
+    """
+    # preserve input modelspec
+    tmodelspec = copy.deepcopy(modelspec)
+    mslen=len(modelspec)
 
     #first, figure out which modules to fit
     include_set = []
@@ -651,18 +771,22 @@ def prefit_subset(est, modelspec, analysis_function=fit_basic,
         elif i in exclude_set:
             # replace with null module
             log.info('Excluding module %d (%s)', i, m['fn'])
-            m['fn'] = 'nems.modules.scale.null'
+            if type(m) is dict:
+                #fn = _lookup_fn_at(m['fn'])
+                m['fn'] = 'nems.modules.scale.null'
+            else:
+                #it's a NemsModule object, need to divert the .eval method to null
+                m.eval = ms._lookup_fn_at('nems.modules.scale.null')
             m['phi'] = {}
             tmodelspec[i] = m
+    """
 
     # fit the subset of modules
     tmodelspec = analysis_function(est, tmodelspec, fitter=fitter,
                                    metric=metric, fit_kwargs=fit_kwargs)
 
     # pull out updated phi values from tmodelspec, include_set only
-    for i in include_set:
-        #log.info('restoring %d', i)
-        modelspec[i] = tmodelspec[i]
+    modelspec = modelspec_unfreeze_layers(tmodelspec, modelspec, include_set)
 
     return modelspec
 

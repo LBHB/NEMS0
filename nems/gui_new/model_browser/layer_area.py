@@ -7,13 +7,14 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
-from nems.gui_new.model_browser.ui_promoted import PyPlotWidget, OutputPlot, PG_PLOTS
+from nems.gui_new.model_browser.ui_promoted import PyPlotWidget, PG_PLOTS
 
 
 log = logging.getLogger(__name__)
 
 # read and parse the UI file to generate the GUI
 qt_creator_file = Path(r'ui') / 'layer_area.ui'
+#qt_creator_file = 'layer_area.ui'
 Ui_Widget, QtBaseClass = uic.loadUiType(qt_creator_file)
 
 

@@ -17,7 +17,7 @@ import nems.metrics.api as metrics
 import nems.segmentors
 import nems.utils
 import nems.recording as recording
-
+from nems.initializers import modelspec_freeze_layers, modelspec_unfreeze_layers
 
 log = logging.getLogger(__name__)
 
@@ -77,6 +77,11 @@ def fit_ccnorm(modelspec,
         shrink_cc: float = 0,
         noise_pcs: int = 0,
         shared_pcs: int = 0,
+        also_fit_resp: bool = False,
+        force_psth: bool = False,
+        beta: float = 1,
+        exclude_idx=None, exclude_after=None,
+        freeze_idx=None, freeze_after=None,
         **context):
     '''
     Required Arguments:
@@ -101,12 +106,32 @@ def fit_ccnorm(modelspec,
 
     modelspec = copy.deepcopy(modelspec)
 
+    if (exclude_idx is not None) | (freeze_idx is not None) | \
+            (exclude_after is not None) | (freeze_after is not None):
+        modelspec0 = modelspec.copy()
+        modelspec, include_set = modelspec_freeze_layers(
+            modelspec, include_idx=None,
+            exclude_idx=exclude_idx, exclude_after=exclude_after,
+            freeze_idx=freeze_idx, freeze_after=freeze_after)
+    else:
+        include_set = None
+
     # apply mask to remove invalid portions of signals and allow fit to
     # only evaluate the model on the valid portion of the signals
     if 'mask' in est.signals.keys():
         log.info("Data len pre-mask: %d", est['mask'].shape[1])
         est = est.apply_mask()
         log.info("Data len post-mask: %d", est['mask'].shape[1])
+
+    # if we want to fit to first-order cc error.
+    #uncomment this and make sure sdexp is generating a pred0 signal
+    est = modelspec.evaluate(est, stop=1)
+    if ('pred0' in est.signals.keys()) & (not force_psth):
+        input_name = 'pred0'
+        log.info('Found pred0 for fitting CC')
+    else:
+        input_name = 'psth'
+        log.info('No pred0, using psth for fitting CC')
 
     conditions = ["_".join(k.split("_")[1:]) for k in est.signals.keys() if k.startswith("mask_")]
     if (len(conditions)>2) and any([c.split("_")[-1]=='lg' for c in conditions]):
@@ -123,7 +148,7 @@ def fit_ccnorm(modelspec,
         log.info(f"cc data for {c} len {g.sum()}")
         
     resp = est['resp'].as_continuous()
-    pred0 = est['pred0'].as_continuous()
+    pred0 = est[input_name].as_continuous()
     
     if shrink_cc > 0:
         log.info(f'cc approx: shrink_cc={shrink_cc}')
@@ -132,9 +157,9 @@ def fit_ccnorm(modelspec,
         log.info(f'cc approx: shared_pcs={shared_pcs}')
         cc=np.cov(resp-pred0)
         u,s,vh = np.linalg.svd(cc)
-        U = u[:,:shared_pcs] @ u[:,:shared_pcs].T
+        U = u[:, :shared_pcs] @ u[:, :shared_pcs].T
 
-        group_cc = [cc_shared_space(resp[:,idx]-pred0[:,idx], U) for idx in group_idx]
+        group_cc = [cc_shared_space(resp[:, idx]-pred0[:,idx], U) for idx in group_idx]
     elif noise_pcs > 0:
         log.info(f'cc approx: noise_pcs={noise_pcs}')
         group_cc = [cc_lowrank(resp[:,idx]-pred0[:,idx], n_pcs=noise_pcs) for idx in group_idx]
@@ -142,14 +167,21 @@ def fit_ccnorm(modelspec,
         group_cc = [np.cov(resp[:,idx]-pred0[:,idx]) for idx in group_idx]
     group_cc_raw = [np.cov(resp[:,idx]-pred0[:,idx]) for idx in group_idx]
 
+    # some day remove this plotting code
+    log.info("fit_ccnorm: Plotting cc matrices, should delete this code at some point")
     import matplotlib.pyplot as plt
-    for g,g_raw,cond in zip(group_cc, group_cc_raw, conditions):
-        f,ax=plt.subplots(1,2,figsize=(4,2))
-        mm=np.max(np.abs(g))
-        ax[0].imshow(g,cmap='bwr',clim=[-mm,mm])
-        ax[1].imshow(g_raw,cmap='bwr',clim=[-mm,mm])
+    cols = 4
+    rows = int(np.ceil(len(group_cc)/2))
+    f, ax = plt.subplots(rows, cols, figsize=(4, 2*rows))
+    ax = ax.flatten()
+    i = 0
+    for g, g_raw, cond in zip(group_cc, group_cc_raw, conditions):
+        mm= np.max(np.abs(g))
+        ax[i*2].imshow(g, cmap='bwr', clim=[-mm,mm])
+        ax[i*2+1].imshow(g_raw, cmap='bwr', clim=[-mm,mm])
         f.suptitle(cond)
-        
+        i += 1
+
     # Computing PCs
     epoch_regex = "^STIM_"
     stims = (est.epochs['name'].value_counts() >= 8)
@@ -172,14 +204,20 @@ def fit_ccnorm(modelspec,
     pcproj0 = (resp-pred0).T.dot(pc_axes.T).T
     pcproj_std = pcproj0.std(axis=1)
     
-    if metric is None:
+    if (metric is None) and also_fit_resp:
+        log.info(f"resp_cc_err: pred0_name: {input_name} beta: {beta}")
+        metric = lambda d: metrics.resp_cc_err(d, pred_name='pred', pred0_name=input_name,
+                                          group_idx=group_idx, group_cc=group_cc, beta=beta,
+                                          pcproj_std=None, pc_axes=None)
+
+    elif (metric is None):
         #def cc_err(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred',
         #   group_idx=None, group_cc=None, pcproj_std=None, pc_axes=None):
 
         #metric = lambda d: metrics.cc_err(d, pred_name='pred', pred0_name='pred0',
         #                                  group_idx=group_idx, group_cc=group_cc, 
         #                                  pcproj_std=pcproj_std, pc_axes=pc_axes)
-        metric = lambda d: metrics.cc_err(d, pred_name='pred', pred0_name='pred0',
+        metric = lambda d: metrics.cc_err(d, pred_name='pred', pred0_name=input_name,
                                           group_idx=group_idx, group_cc=group_cc, 
                                           pcproj_std=None, pc_axes=None)
 
@@ -230,11 +268,16 @@ def fit_ccnorm(modelspec,
     ms.set_modelspec_metadata(improved_modelspec, 'fit_time', elapsed_time)
     ms.set_modelspec_metadata(improved_modelspec, 'n_parms', len(improved_sigma))
 
-    return {'modelspec': improved_modelspec.copy(),
-            'save_context': True}
+    if include_set is not None:
+        # pull out updated phi values from improved_modelspec, include_set only
+        improved_modelspec = \
+            modelspec_unfreeze_layers(improved_modelspec, modelspec0, include_set)
+
+    return {'modelspec': improved_modelspec.copy()}
+    # return {'modelspec': improved_modelspec.copy(), 'save_context': True}
 
 
-def pc_err(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred', 
+def pc_err(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred',
            group_idx=None, group_pc=None, pc_axes=None, resp_std=None):
     '''
     Given the evaluated data, return the mean squared error for correlation coefficient computed

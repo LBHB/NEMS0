@@ -140,7 +140,7 @@ def evaluate_step(xfa, context={}):
     return context_out
 
 
-def evaluate(xformspec, context={}, start=0, stop=None):
+def evaluate(xformspec, context={}, start=0, stop=None, skip_postprocess=True):
     '''
     Similar to modelspec.evaluate, but for xformspecs, which is a list of
     2-element lists of function and keyword arguments dict. Each XFORM must
@@ -164,7 +164,8 @@ def evaluate(xformspec, context={}, start=0, stop=None):
 
     # Evaluate the xforms
     for xfa in xformspec[start:stop]:
-        context = evaluate_step(xfa, context)
+        if not(skip_postprocess) or not('postprocess' in xfa[0]):
+            context = evaluate_step(xfa, context)
 
     # Close the log, remove the handler, and add the 'log' string to context
     log.info('Done (re-)evaluating xforms.')
