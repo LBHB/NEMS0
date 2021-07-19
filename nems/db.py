@@ -1209,7 +1209,7 @@ def get_batch_sites(batch):
     return siteids, cellids
 
 
-def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test'):
+def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test', join_how='left'):
     Results = Tables()['Results']
     if modelnames is None:
         modelnames = ['parm100pt_wcg02_fir15_pupgainctl_fit01_nested5',
