@@ -1062,7 +1062,7 @@ class ModelSpec:
         return layers
 
     def modelspec2tf2(self, seed=0, use_modelspec_init=True, fs=100, initializer='random_normal',
-                      freeze_layers=None):
+                      freeze_layers=None, kernel_regularizer=None):
         """New version
 
         TODO
@@ -1082,7 +1082,8 @@ class ModelSpec:
             else:
                 trainable=True
             layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
-                                           initializer=initializer, trainable=trainable)
+                                           initializer=initializer, trainable=trainable,
+                                           kernel_regularizer=kernel_regularizer)
             layers.append(layer)
 
         return layers

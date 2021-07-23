@@ -176,6 +176,7 @@ def newtf(fitkey):
     epoch_name = "REFERENCE"
     freeze_layers = None
     use_tensorboard = False
+    kernel_regularizer = None
 
     options = _extract_options(fitkey)
 
@@ -243,6 +244,9 @@ def newtf(fitkey):
         elif op == 'tb':
             use_tensorboard = True
 
+        elif op == 'L2':
+            kernel_regularizer = 'l2'
+
     xfspec = []
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
@@ -263,7 +267,8 @@ def newtf(fitkey):
         'initializer': initializer,
         'seed': seed,
         'epoch_name': epoch_name,
-        'use_tensorboard': use_tensorboard
+        'use_tensorboard': use_tensorboard,
+        'kernel_regularizer': kernel_regularizer,
         }
     if freeze_layers is not None:
         parm_dict['freeze_layers'] = freeze_layers
