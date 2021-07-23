@@ -149,6 +149,7 @@ def fit_tf(
         early_stopping_tolerance: float = 5e-4,
         early_stopping_val_split: float = 0.2,
         learning_rate: float = 1e-4,
+        variable_learning_rate: bool = False,
         batch_size: typing.Union[None, int] = None,
         seed: int = 0,
         initializer: str = 'random_normal',
@@ -287,6 +288,15 @@ def fit_tf(
 
     # do some batch sizing logic
     batch_size = stim_train.shape[0] if batch_size == 0 else batch_size
+
+    if variable_learning_rate:
+        # TODO: allow other schedule options instead of hard-coding exp decay?
+        # TODO: expose exp decay kwargs as kw options? not clear how to choose these parameters
+        learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(
+            initial_learning_rate=learning_rate*10,
+            decay_steps=10000,
+            decay_rate=0.9
+        )
 
     model = modelbuilder.ModelBuilder(
         name='Test-model',
@@ -441,6 +451,7 @@ def fit_tf_init(
     which looks at the last 2 layers of the original model, and if any of dexp, relu, log_sig, sat_rect are in those
     last two, only fits the first it encounters (freezes all other layers).
     """
+
     if IsReload:
         return {}
 
