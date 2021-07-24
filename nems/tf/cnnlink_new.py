@@ -295,7 +295,7 @@ def fit_tf(
         # TODO: allow other schedule options instead of hard-coding exp decay?
         # TODO: expose exp decay kwargs as kw options? not clear how to choose these parameters
         learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(
-            initial_learning_rate=learning_rate*10,
+            initial_learning_rate=learning_rate,
             decay_steps=10000,
             decay_rate=0.9
         )
