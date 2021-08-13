@@ -84,7 +84,6 @@ def _to_phi(prior, method='mean', percentile=50):
         else:
             raise ValueError('_to_phi got invalid method name.')
         phi[param_name] = np.array(ary)
-
     return phi
 
 
@@ -94,8 +93,10 @@ def _set_phi_in_module(module, prior_to_phi_fn):
     Returns a module identical to the one provided, but with phi
     initalized using the priors.
     '''
+    # make a copy so that prior function can be evaluated
+    t_module = deepcopy(module)
     new_module = deepcopy(module)
-    prior = _get_module_prior(module)
+    prior = _get_module_prior(t_module)
     if not prior:
         if new_module.get('phi', False):
             # Changes this so that empty phi {} won't trigger it
@@ -124,9 +125,10 @@ def _set_phi_in_modelspec(modelspec, prior_to_phi_fn):
     new_mspec = deepcopy(modelspec)
     for m in new_mspec:
         m_new = _set_phi_in_module(m, prior_to_phi_fn)
+
         if 'phi' in m_new.keys():
             m['phi'] = m_new['phi'].copy()
-
+        
     return new_mspec
 
 

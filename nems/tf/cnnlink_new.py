@@ -390,6 +390,10 @@ def fit_tf(
 
     modelspec = tf2modelspec(model, modelspec)
 
+    # debug: dump modelspec parameters
+    #for i in range(len(modelspec)):
+    #    log.info(modelspec.phi[i])
+        
     contains_tf_only_layers = np.any(['tf_only' in m['fn'] for m in modelspec.modules])
     if not contains_tf_only_layers:
         # compare the predictions from the model and modelspec
