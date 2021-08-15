@@ -240,6 +240,19 @@ def fit_tf(
     #epoch_name = 'REFERENCE'  # TODO: this should not be hardcoded
     # moved to input parameter
 
+    if (freeze_layers is not None) and len(freeze_layers) and (len(freeze_layers)==freeze_layers[-1]+1):
+        log.info("Special case of freezing: truncating model!!!")
+        truncate_model=True
+        #modelspec_trunc, rec_trunc = modelspec_remove_input_layers(modelspec, rec, remove_count=0)
+        modelspec_trunc, est_trunc = initializers.modelspec_remove_input_layers(modelspec, est, remove_count=len(freeze_layers))
+        modelspec_original = modelspec
+        est_original = est
+        modelspec = modelspec_trunc
+        est = est_trunc
+        freeze_layers = None
+    else:
+        truncate_model=False
+    
     input_name = modelspec.meta.get('input_name', 'stim')
     output_name = modelspec.meta.get('output_name', 'resp')
 
@@ -272,7 +285,7 @@ def fit_tf(
     else:
         state_train, state_shape = None, None
         train_data = stim_train
-
+        
     # correlation for monitoring
     # TODO: tf.utils?
     def pearson(y_true, y_pred):
@@ -322,6 +335,11 @@ def fit_tf(
                                               min_delta=early_stopping_tolerance,
                                               verbose=1,
                                               restore_best_weights=True)
+    regular_stopping = callbacks.DelayedStopper(monitor='loss',
+                                              patience=30 * early_stopping_steps,
+                                              min_delta=early_stopping_tolerance,
+                                              verbose=1,
+                                              restore_best_weights=True)
     checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath=str(checkpoint_filepath),
                                                     save_best_only=False,
                                                     save_weights_only=True,
@@ -361,7 +379,11 @@ def fit_tf(
     if early_stopping_val_split > 0:
         callback0.append(early_stopping)
         log.info(f'Enabling early stopping, val split: {str(early_stopping_val_split)}')
-
+    else:
+        callback0.append(regular_stopping)
+        log.info(f'Stop tolerance: min_delta={early_stopping_tolerance}')
+                 
+                 
     log.info(f'Fitting model (batch_size={batch_size})...')
     history = model.fit(
         train_data,
@@ -389,6 +411,13 @@ def fit_tf(
             pass
 
     modelspec = tf2modelspec(model, modelspec)
+    
+    if truncate_model:
+        log.info("Special case of freezing: restoring truncated model!!!")
+        #modelspec_restored, rec_restored = modelspec_restore_input_layers(modelspec_trunc, rec_trunc, modelspec_original)
+        modelspec_restored, est_restored = initializers.modelspec_restore_input_layers(modelspec, est, modelspec_original)
+        est=est_original
+        modelspec=modelspec_restored
 
     # debug: dump modelspec parameters
     #for i in range(len(modelspec)):

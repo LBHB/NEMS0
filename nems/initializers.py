@@ -791,6 +791,64 @@ def prefit_subset(est, modelspec, analysis_function=fit_basic,
     return modelspec
 
 
+def modelspec_remove_input_layers(modelspec, rec, remove_count=0):
+    """
+    remove the first remove_count layers from a modelspec, evaluate rec so that the "stim" is the output of layer remove_count
+    return the modified rec as well.
+    """
+    input_name = modelspec.meta['input_name']
+    if remove_count == 0:
+        log.info('modelspec_remove_input_layers doing nothing')
+        rec.signals['saved_input'] = rec[input_name].copy()
+
+        return modelspec.copy(), rec
+    
+    # generate recording starting at layer remove_count
+    rec_trunc = modelspec.evaluate(rec, stop=remove_count)
+    rec_trunc.signals['saved_input'] = rec_trunc[input_name].copy()
+    rec_trunc.signals[input_name] = rec_trunc["pred"]._modified_copy(data=rec_trunc["pred"]._data.copy())
+
+    raw_trunc = copy.deepcopy(modelspec.raw)
+    for i_ in range(raw_trunc.shape[0]):
+        for j_ in range(raw_trunc.shape[1]):
+            for k_ in range(raw_trunc.shape[2]):
+                raw_trunc[i_,j_,k_] = modelspec.raw[i_,j_,k_][remove_count:]
+                raw_trunc[i_,j_,k_][0]['fn_kwargs']['i'] = "stim"
+
+    raw_trunc[0,0,0][0]['meta'] = modelspec.meta.copy()
+    
+    modelspec_trunc = ms.ModelSpec(raw=raw_trunc)
+
+    return modelspec_trunc, rec_trunc
+
+
+def modelspec_restore_input_layers(modelspec_trunc, rec_trunc, modelspec_original):
+    """
+    put a newly fit truncated modelspec back on top of the frozen layers from modelspec_original
+    """
+    restore_stop = len(modelspec_original)
+    restore_start = restore_stop - len(modelspec_trunc)
+    
+    log.info(f"updating modules {restore_start} to {restore_stop} in modelspec_original")
+    
+    modelspec_restored = modelspec_original.copy()
+    for i_ in range(modelspec_restored.raw.shape[0]):
+        for j_ in range(modelspec_restored.raw.shape[1]):
+            for k_ in range(modelspec_restored.raw.shape[2]):
+                for r in range(restore_stop-restore_start):
+                    modelspec_restored.raw[i_,j_,k_][r+restore_start] = modelspec_trunc.raw[i_,j_,k_][r]
+                modelspec_restored.raw[i_,j_,k_][restore_start]['fn_kwargs']['i'] = "pred"
+    
+    # return recording to normal. maybe unnecessary, since original rec should have been saved?
+    input_name = modelspec_trunc.meta['input_name']
+    rec_restored = rec_trunc.copy()
+    rec_restored.signals[input_name] = rec_restored.signals['saved_input']
+    
+    rec_restored = modelspec_restored.evaluate(rec_restored)
+    
+    return modelspec_restored, rec_restored
+
+
 def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
     """
     choose initial values for dexp applied after preceeding fir is
