@@ -233,7 +233,7 @@ class ModelSpec:
         :return: None if in place, otherwise a new modelspec without the dropped module.
         """
         if mod_index is None:
-            mod_index = self.mod_index
+            mod_index = len(self)-1
 
         if in_place:
             for fit in self.raw.flatten():
@@ -1578,6 +1578,7 @@ def evaluate(rec, modelspec, start=None, stop=None):
 
 
 def evaluate_tf(rec, modelspec, epoch_name='REFERENCE', **kwargs):
+
     input_name = modelspec[0]['fn_kwargs']['i']
     output_name = modelspec[-1]['fn_kwargs']['o']
     # convert ms to TF model
@@ -1593,7 +1594,13 @@ def evaluate_tf(rec, modelspec, epoch_name='REFERENCE', **kwargs):
     pred_stacked = stim_train
     for layer in model_layers:  # looping over layers avoids needing to re-compile entire model
         pred_stacked = layer(pred_stacked)  # stims x time x cells
+
     output_count = rec['resp'].shape[0]
+    pred_size = np.prod(np.array(pred_stacked.shape))
+    if rec['resp'].shape[0] * mask.as_continuous().sum() == pred_size:
+        output_count = rec['resp'].shape[0]
+    else:
+        output_count = int(pred_size/mask.as_continuous().sum())
     pred = pred_stacked.numpy().T.swapaxes(1, 2).reshape(output_count, -1)  # output cells x time
 
     # need to put back into shape of original unmasked signal, otherwise some nems functions break

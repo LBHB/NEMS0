@@ -1181,18 +1181,24 @@ def get_siteid(s):
     """
     return s.split("-")[0]
 
-def get_batch_sites(batch):
+def get_batch_sites(batch, modelname_filter=None):
     """
     get all siteids and a representative cellid from each site in a batch
     :param batch: NEMS batch
     :return: (siteids, cellids) tuple lists of siteids and cellids
     """
-    d = get_batch_cells(batch=batch)
+    if modelname_filter is None:
+        d = get_batch_cells(batch=batch)
+    else:
+        d = batch_comp(batch=batch, modelnames=[modelname_filter])
+        d = d.reset_index()
+        
     d['siteid'] = d.cellid.map(get_siteid)
 
     siteids = list(set(d.siteid.tolist()))
 
     if batch == 322:
+        #if 'DRX006b'
         siteids.remove('DRX006b')
         siteids.remove('DRX007a')
         siteids.remove('DRX008b')

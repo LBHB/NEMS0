@@ -251,7 +251,7 @@ def fit_tf(
         est = est_trunc
         freeze_layers = None
     else:
-        truncate_model=False
+        truncate_model = False
     
     input_name = modelspec.meta.get('input_name', 'stim')
     output_name = modelspec.meta.get('output_name', 'resp')

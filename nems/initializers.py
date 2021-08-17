@@ -234,7 +234,11 @@ def load_phi(modelspec, prefit_uri="", copy_layers=0, **kwargs):
         if phi is not None:
             for k in phi.keys():
                 log.info(f"{i} {k} {phi[k].shape}")
-                if phi[k].shape == modelspec.phi[i][k].shape:
+                #import pdb; pdb.set_trace()
+                if (k not in modelspec.phi[i].keys()):
+                    log.info(f'module {i} creating phi entry for {k}')
+                    modelspec.phi[i][k] = phi[k]
+                elif phi[k].shape == modelspec.phi[i][k].shape:
                     modelspec.phi[i][k] = phi[k]
                 else:
                     raise ValueError(f"new shape mismatch {modelspec.phi[i][k].shape}")
@@ -804,7 +808,12 @@ def modelspec_remove_input_layers(modelspec, rec, remove_count=0):
         return modelspec.copy(), rec
     
     # generate recording starting at layer remove_count
-    rec_trunc = modelspec.evaluate(rec, stop=remove_count)
+    dropcount = len(modelspec)-remove_count
+    modelspec_dropped = modelspec.copy()
+    for i in range(dropcount):
+        modelspec_dropped.drop_module(in_place=True)
+
+    rec_trunc = modelspec_dropped.evaluate(rec.copy(), stop=remove_count)
     rec_trunc.signals['saved_input'] = rec_trunc[input_name].copy()
     rec_trunc.signals[input_name] = rec_trunc["pred"]._modified_copy(data=rec_trunc["pred"]._data.copy())
 
