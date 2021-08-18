@@ -122,7 +122,7 @@ def adjust_uri_prefix(uri, use_nems_defaults=True):
         if uri.startswith(rec_prefix):
             new_uri = uri.replace(rec_prefix, api_prefix + "/recordings" )
         elif uri.startswith(res_prefix):
-            new_uri = uri.replace(rec_prefix, api_prefix + "/results" )
+            new_uri = uri.replace(res_prefix, api_prefix + "/results" )
         else:
             new_uri = uri
     else:
