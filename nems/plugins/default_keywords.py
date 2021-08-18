@@ -570,7 +570,7 @@ def do(kw):
 
     n_channels = n_inputs * n_banks
     cross_channels = False
-    mean_delay = 1
+    mean_delay = 1.5
 
     # additional options
     for op in options[2:]:
@@ -580,16 +580,16 @@ def do(kw):
             mean_delay=int(op[1:])
 
     p_f1s = {
-        'sd': np.full((n_channels, 1), 1)
+        'sd': np.full((n_channels, 1), 0.6)
     }
     p_taus = {
-        'sd': np.full((n_channels, 1), 0.2)
+        'sd': np.full((n_channels, 1), 0.3)
     }
-    g0 = np.array([[0.5, -0.25, 0.5, -0.25, 0.5, -0.25, 0.5, -0.25]]).T
+    g0 = np.array([[1, -0.5, 1, -0.5, 1, -0.5, 1, -0.5]]).T / 5
     g0 = np.tile(g0, (int(np.ceil(n_channels / len(g0))), 1))[:n_channels, :]
     p_gains = {
             'mean': np.tile(g0[:n_inputs, :], (n_banks, 1)),  # TODO: tile
-            'sd': np.ones((n_channels, 1))*.4,
+            'sd': np.ones((n_channels, 1))* 0.2,
     }
     p_delays = {
         'sd': np.full((n_channels, 1), mean_delay)
@@ -758,7 +758,7 @@ def lvl(kw):
                      'nems.plots.api.pred_resp'],
         'plot_fn_idx': 2,
         'prior': {'level': ('Normal', {'mean': np.zeros([n_shifts, 1]),
-                                       'sd': np.ones([n_shifts, 1])/10})}
+                                       'sd': np.ones([n_shifts, 1])/100})}
 
         }
 
@@ -897,7 +897,7 @@ def stp(kw):
                      'nems.plots.api.before_and_after_stp'],
         'plot_fn_idx': 3,
         'prior': {'u': ('Normal', {'mean': u_mean, 'sd': u_sd}),
-                  'tau': ('Normal', {'mean': tau_mean, 'sd': tau_sd})},
+                  'tau': ('HalfNormal', {'sd': tau_mean})},
         'bounds': {'u': (np.full_like(u_mean, -np.inf), np.full_like(u_mean, np.inf)),
                    'tau': (np.full_like(tau_mean, 0.01), np.full_like(tau_mean, np.inf))}
     }
@@ -1056,13 +1056,13 @@ def dexp(kw):
             raise ValueError('dexp keyword: invalid option %s' % op)
 
     base_mean = np.zeros([n_dims, 1]) if n_dims > 1 else np.array([0])
-    base_sd = np.ones([n_dims, 1]) if n_dims > 1 else np.array([1])
-    amp_mean = base_mean + 1
+    base_sd = np.ones([n_dims, 1])*0.01 if n_dims > 1 else np.array([0.01])
+    amp_mean = base_mean + 5
     amp_sd = base_mean + 0.5
     shift_mean = base_mean
     shift_sd = base_sd
     kappa_mean = base_mean + 1
-    kappa_sd = amp_sd
+    kappa_sd = base_sd*10
 
     template = {
         'fn': 'nems.modules.nonlinearity.double_exponential',

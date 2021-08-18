@@ -82,7 +82,7 @@ def _stp(X, u, tau, x0=None, crosstalk=0, fs=1, reset_signal=None, quick_eval=Fa
 
     # force tau to have positive sign (probably better done with bounds on fitter)
     taui = np.absolute(tau.copy())
-    #taui[taui < 2/fs] = 2/fs
+    taui[taui < 2/fs] = 2/fs
 
     #ui[ui > 1] = 1
     #ui[ui < -0.4] = -0.4

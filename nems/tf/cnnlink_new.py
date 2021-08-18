@@ -149,6 +149,7 @@ def fit_tf(
         early_stopping_tolerance: float = 5e-4,
         early_stopping_val_split: float = 0.2,
         learning_rate: float = 1e-4,
+        variable_learning_rate: bool = False,
         batch_size: typing.Union[None, int] = None,
         seed: int = 0,
         initializer: str = 'random_normal',
@@ -157,6 +158,7 @@ def fit_tf(
         IsReload: bool = False,
         epoch_name: str = "REFERENCE",
         use_tensorboard: bool = False,
+        kernel_regularizer: str = None,
         **context
         ) -> dict:
     """TODO
@@ -238,6 +240,19 @@ def fit_tf(
     #epoch_name = 'REFERENCE'  # TODO: this should not be hardcoded
     # moved to input parameter
 
+    if (freeze_layers is not None) and len(freeze_layers) and (len(freeze_layers)==freeze_layers[-1]+1):
+        log.info("Special case of freezing: truncating model!!!")
+        truncate_model=True
+        #modelspec_trunc, rec_trunc = modelspec_remove_input_layers(modelspec, rec, remove_count=0)
+        modelspec_trunc, est_trunc = initializers.modelspec_remove_input_layers(modelspec, est, remove_count=len(freeze_layers))
+        modelspec_original = modelspec
+        est_original = est
+        modelspec = modelspec_trunc
+        est = est_trunc
+        freeze_layers = None
+    else:
+        truncate_model = False
+    
     input_name = modelspec.meta.get('input_name', 'stim')
     output_name = modelspec.meta.get('output_name', 'resp')
 
@@ -270,7 +285,7 @@ def fit_tf(
     else:
         state_train, state_shape = None, None
         train_data = stim_train
-
+        
     # correlation for monitoring
     # TODO: tf.utils?
     def pearson(y_true, y_pred):
@@ -279,7 +294,8 @@ def fit_tf(
     # get the layers and build the model
     cost_fn = loss_functions.get_loss_fn(cost_function)
     model_layers = modelspec.modelspec2tf2(use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
-                                           initializer=initializer, freeze_layers=freeze_layers)
+                                           initializer=initializer, freeze_layers=freeze_layers,
+                                           kernel_regularizer=kernel_regularizer)
     if np.any([isinstance(layer, Conv2D_NEMS) for layer in model_layers]):
         # need a "channel" dimension for Conv2D (like rgb channels, not frequency). Only 1 channel for our data.
         stim_train = stim_train[..., np.newaxis]
@@ -287,6 +303,15 @@ def fit_tf(
 
     # do some batch sizing logic
     batch_size = stim_train.shape[0] if batch_size == 0 else batch_size
+
+    if variable_learning_rate:
+        # TODO: allow other schedule options instead of hard-coding exp decay?
+        # TODO: expose exp decay kwargs as kw options? not clear how to choose these parameters
+        learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(
+            initial_learning_rate=learning_rate,
+            decay_steps=10000,
+            decay_rate=0.9
+        )
 
     model = modelbuilder.ModelBuilder(
         name='Test-model',
@@ -306,6 +331,11 @@ def fit_tf(
 
     # create the callbacks
     early_stopping = callbacks.DelayedStopper(monitor='val_loss',
+                                              patience=30 * early_stopping_steps,
+                                              min_delta=early_stopping_tolerance,
+                                              verbose=1,
+                                              restore_best_weights=True)
+    regular_stopping = callbacks.DelayedStopper(monitor='loss',
                                               patience=30 * early_stopping_steps,
                                               min_delta=early_stopping_tolerance,
                                               verbose=1,
@@ -349,7 +379,11 @@ def fit_tf(
     if early_stopping_val_split > 0:
         callback0.append(early_stopping)
         log.info(f'Enabling early stopping, val split: {str(early_stopping_val_split)}')
-
+    else:
+        callback0.append(regular_stopping)
+        log.info(f'Stop tolerance: min_delta={early_stopping_tolerance}')
+                 
+                 
     log.info(f'Fitting model (batch_size={batch_size})...')
     history = model.fit(
         train_data,
@@ -377,7 +411,18 @@ def fit_tf(
             pass
 
     modelspec = tf2modelspec(model, modelspec)
+    
+    if truncate_model:
+        log.info("Special case of freezing: restoring truncated model!!!")
+        #modelspec_restored, rec_restored = modelspec_restore_input_layers(modelspec_trunc, rec_trunc, modelspec_original)
+        modelspec_restored, est_restored = initializers.modelspec_restore_input_layers(modelspec, est, modelspec_original)
+        est=est_original
+        modelspec=modelspec_restored
 
+    # debug: dump modelspec parameters
+    #for i in range(len(modelspec)):
+    #    log.info(modelspec.phi[i])
+        
     contains_tf_only_layers = np.any(['tf_only' in m['fn'] for m in modelspec.modules])
     if not contains_tf_only_layers:
         # compare the predictions from the model and modelspec
@@ -441,6 +486,7 @@ def fit_tf_init(
     which looks at the last 2 layers of the original model, and if any of dexp, relu, log_sig, sat_rect are in those
     last two, only fits the first it encounters (freezes all other layers).
     """
+
     if IsReload:
         return {}
 

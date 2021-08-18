@@ -166,6 +166,7 @@ def newtf(fitkey):
     early_stopping_tolerance = 5e-4
     early_stopping_val_split = 0.0
     learning_rate = 1e-4
+    variable_learning_rate = False
     batch_size = None
     seed = 0
     initializer = 'random_normal'
@@ -175,6 +176,7 @@ def newtf(fitkey):
     epoch_name = "REFERENCE"
     freeze_layers = None
     use_tensorboard = False
+    kernel_regularizer = None
 
     options = _extract_options(fitkey)
 
@@ -208,6 +210,8 @@ def newtf(fitkey):
                 learning_rate = int(base) * 10 ** -int(exponent)
             else:
                 learning_rate = int(learning_rate)
+        elif op == 'v':
+            variable_learning_rate = True
         elif op.startswith('et'):
             exp = op[2:].replace('d', '.')
             early_stopping_tolerance = 10 ** -float(exp)
@@ -240,6 +244,9 @@ def newtf(fitkey):
         elif op == 'tb':
             use_tensorboard = True
 
+        elif op == 'L2':
+            kernel_regularizer = 'l2'
+
     xfspec = []
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
@@ -255,11 +262,13 @@ def newtf(fitkey):
         'early_stopping_tolerance': early_stopping_tolerance,
         'early_stopping_val_split': early_stopping_val_split,
         'learning_rate': learning_rate,
+        'variable_learning_rate': variable_learning_rate,
         'batch_size': batch_size,
         'initializer': initializer,
         'seed': seed,
         'epoch_name': epoch_name,
-        'use_tensorboard': use_tensorboard
+        'use_tensorboard': use_tensorboard,
+        'kernel_regularizer': kernel_regularizer,
         }
     if freeze_layers is not None:
         parm_dict['freeze_layers'] = freeze_layers

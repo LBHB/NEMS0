@@ -27,8 +27,10 @@ class BaseLayer(tf.keras.layers.Layer):
         """Catch args/kwargs that aren't allowed kwargs of keras.layers.Layers"""
         self.fs = kwargs.pop('fs', None)
         self.ms_name = kwargs.pop('ms_name', None)
+        self.kernel_regularizer = kwargs.pop('kernel_regularizer', None)
         # Overwrite in other layers' __init__ to change which fn_kwargs get copied
         # (see self.copy_valid_fn_kwargs)
+
         super(BaseLayer, self).__init__(*args, **kwargs)
 
     @classmethod
@@ -38,6 +40,7 @@ class BaseLayer(tf.keras.layers.Layer):
                       seed: int = 0,
                       fs: int = 100,
                       initializer: str = 'random_normal',
+                      kernel_regularizer: str = None,
                       trainable: bool = True,
                       ):
         """Parses modelspec layer to generate layer class.
@@ -56,6 +59,9 @@ class BaseLayer(tf.keras.layers.Layer):
             'seed': seed,
             'trainable': trainable,
         }
+
+        if kernel_regularizer is not None:
+            kwargs['kernel_regularizer'] = regularizers.get(kernel_regularizer)
 
         # TODO: clean this up, maybe separate kwargs/fn_kwargs, or method to split out valid tf kwargs from rest
         if 'bounds' in ms_layer:
@@ -377,6 +383,7 @@ class WeightChannelsBasic(BaseLayer):
                                             dtype='float32',
                                             initializer=self.initializer['coefficients'],
                                             trainable=True,
+                                            regularizer=self.kernel_regularizer,
                                             )
 
     def call(self, inputs, training=True):
@@ -430,6 +437,7 @@ class WeightChannelsGaussian(BaseLayer):
                                     initializer=self.initializer['mean'],
                                     constraint=self.mean_constraint,
                                     trainable=True,
+                                    regularizer=self.kernel_regularizer,
                                     )
         self.sd = self.add_weight(name='sd',
                                   shape=(self.units,),
@@ -437,6 +445,7 @@ class WeightChannelsGaussian(BaseLayer):
                                   initializer=self.initializer['sd'],
                                   constraint=self.sd_constraint,
                                   trainable=True,
+                                  regularizer=self.kernel_regularizer,
                                   )
 
     def call(self, inputs, training=True):
@@ -502,6 +511,7 @@ class FIR(BaseLayer):
                                             dtype='float32',
                                             initializer=self.initializer['coefficients'],
                                             trainable=True,
+                                            regularizer=self.kernel_regularizer,
                                             )
 
     def _call(self, inputs, training=True):
@@ -710,7 +720,7 @@ class STPQuick(BaseLayer):
                                  shape=(self.units,),
                                  dtype='float32',
                                  initializer=self.initializer['u'],
-                                   constraint=self.u_constraint,
+                                 constraint=self.u_constraint,
                                  trainable=True,
                                  )
         self.tau = self.add_weight(name='tau',
