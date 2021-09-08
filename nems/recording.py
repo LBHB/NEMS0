@@ -1294,6 +1294,7 @@ class Recording:
 
         return rec
 
+
 ## I/O functions
 def load_recording_from_targz(targz):
     if os.path.exists(targz):

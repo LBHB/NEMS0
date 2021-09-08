@@ -976,6 +976,26 @@ class SignalBase:
 
         return d
 
+    ## plotting functions
+    def plot_mean(self, epoch="TRIAL", ax=None):
+        import matplotlib.pyplot as plt
+
+        e = self.extract_epoch(epoch).mean(axis=2)
+        #log.info(f"epoch {epoch} eshape={e.shape}")
+        if ax is None:
+            f, ax = plt.subplots()
+        if e.shape[1] == 1:
+            ax.plot(e)
+            ax.set_xlabel('occurrence')
+            ax.set_ylabel('mean')
+        else:
+            im = ax.imshow(e.T, origin='lower', aspect='auto')
+            #plt.colorbar(im, ax=ax)
+            ax.set_xlabel('occurrence')
+            ax.set_ylabel('channel')
+
+        ax.set_title(self.name)
+
 
 class RasterizedSignal(SignalBase):
 
