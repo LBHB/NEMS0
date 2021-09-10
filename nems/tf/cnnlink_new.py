@@ -218,7 +218,7 @@ def fit_tf(
     if not filepath.exists():
         filepath.mkdir(exist_ok=True, parents=True)
 
-    tbpath = tbroot / (str(modelspec.meta['batch']) + '_' + modelspec.meta['cellid'] + '_' + modelspec.meta['modelname'])
+    tbpath = tbroot / (str(modelspec.meta['batch']) + '_' + modelspec.meta['cellids'][0] + '_' + modelspec.meta['modelname'])
     # TODO: should this code just be deleted then?
     if 0 & use_tensorboard:
         # disabled, this is dumb. it deletes the previous round of fitting (eg, tfinit)
