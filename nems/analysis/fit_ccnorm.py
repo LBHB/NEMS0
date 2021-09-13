@@ -125,7 +125,7 @@ def fit_ccnorm(modelspec,
 
     # if we want to fit to first-order cc error.
     #uncomment this and make sure sdexp is generating a pred0 signal
-    est = modelspec.evaluate(est, stop=1)
+    est = modelspec.evaluate(est, stop=2)
     if ('pred0' in est.signals.keys()) & (not force_psth):
         input_name = 'pred0'
         log.info('Found pred0 for fitting CC')
@@ -149,7 +149,7 @@ def fit_ccnorm(modelspec,
         
     resp = est['resp'].as_continuous()
     pred0 = est[input_name].as_continuous()
-    
+    #import pdb; pdb.set_trace() 
     if shrink_cc > 0:
         log.info(f'cc approx: shrink_cc={shrink_cc}')
         group_cc = [cc_shrink(resp[:,idx]-pred0[:,idx], sigrat=shrink_cc) for idx in group_idx]
