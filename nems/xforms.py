@@ -616,22 +616,28 @@ def make_mod_signal(rec, signal='resp'):
 @xform()
 def sev(kw):
     ops = kw.split('.')[1:]
-    epoch_regex = '^STIM' if not ops else ops[0]
+    epoch_regex = '^STIM'
     continuous=False
+    keepfrac = 1.0
     if 'seq' in ops:
         epoch_regex='^STIM_se'
     if 'cont' in ops:
         continuous=True
+    for op in ops:
+        if op.startswith("k"):
+            keepfrac=int(op[1:]) / 100
+        else:
+            epoch_regex = op
     
     xfspec = [['nems.xforms.split_by_occurrence_counts',
-               {'epoch_regex': epoch_regex}]]
+               {'epoch_regex': epoch_regex, 'keepfrac': keepfrac}]]
     if not continuous:
         xfspec.append(['nems.xforms.average_away_stim_occurrences',
          {'epoch_regex': epoch_regex}])
     return xfspec
 
-def split_by_occurrence_counts(rec, epoch_regex='^STIM_', **context):
-    est, val = rec.split_using_epoch_occurrence_counts(epoch_regex=epoch_regex)
+def split_by_occurrence_counts(rec, epoch_regex='^STIM_', keepfrac=1, **context):
+    est, val = rec.split_using_epoch_occurrence_counts(epoch_regex=epoch_regex, keepfrac=keepfrac)
 
     return {'est': est, 'val': val}
 

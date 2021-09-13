@@ -725,13 +725,15 @@ class Recording:
         return self._split_helper(lambda s: s.split_by_epochs(epochs_for_est,
                                                               epochs_for_val))
 
-    def split_using_epoch_occurrence_counts(self, epoch_regex):
+    def split_using_epoch_occurrence_counts(self, epoch_regex=None, keepfrac=1):
         '''
         Returns (est, val) given a recording rec, a signal name 'stim_name', and an
         epoch_regex that matches 'various' epochs. This function will throw an exception
         when there are not exactly two values for the number of epoch occurrences; i.e.
         low-rep epochs and high-rep epochs.
 
+        keepfrac: if <1: save only keepfrac fraction of the trials
+        
         NOTE: This is a fairly specialized function that we use in the LBHB lab. We have
         found that, given a limited recording time, it is advantageous to have a variety of sounds
         presented to the neuron (i.e. many low-repetition stimuli) for accurate estimation
@@ -773,6 +775,14 @@ class Recording:
         n_occurrences = sorted(groups.keys())
         lo_rep_epochs = groups[n_occurrences[0]]
         hi_rep_epochs = groups[n_occurrences[1]]
+        
+        lo_count=len(lo_rep_epochs)
+        keep_count=int(np.ceil(keepfrac*lo_count))
+        log.info(f"keepfrac={keepfrac}, keeping {keep_count}/{lo_count} low-rep epochs")
+        if keepfrac<1:
+            log.info(f"REALLY keepfrac={keepfrac}, keeping {keep_count}/{lo_count} low-rep epochs")
+            lo_rep_epochs = lo_rep_epochs[:keep_count]
+        
         return self.split_by_epochs(lo_rep_epochs, hi_rep_epochs)
 
     def get_epoch_indices(self, epoch_name, allow_partial_epochs=False):
