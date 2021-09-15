@@ -553,7 +553,7 @@ def mask_incorrect(rec, **context):
 
 
 def generate_psth_from_resp(rec, epoch_regex='^(STIM_|TAR_|CAT_|REF_)', use_as_input=True,
-                            smooth_resp=False, channel_per_stim=False, **context):
+                            smooth_resp=False, channel_per_stim=False, mean_zero=False, **context):
     '''
     generate PSTH prediction from rec['resp'] (before est/val split). Could
     be considered "cheating" b/c predicted PSTH then is based on data in
@@ -564,7 +564,8 @@ def generate_psth_from_resp(rec, epoch_regex='^(STIM_|TAR_|CAT_|REF_)', use_as_i
     '''
     rec = preproc.generate_psth_from_resp(rec, epoch_regex=epoch_regex,
                                           smooth_resp=smooth_resp,
-                                          channel_per_stim=channel_per_stim)
+                                          channel_per_stim=channel_per_stim,
+                                          mean_zero=mean_zero)
     if use_as_input:
         return {'rec': rec, 'input_name': 'psth'}
     else:
@@ -572,12 +573,13 @@ def generate_psth_from_resp(rec, epoch_regex='^(STIM_|TAR_|CAT_|REF_)', use_as_i
 
 
 def generate_psth_from_est_for_both_est_and_val_nfold(
-        est, val, epoch_regex='^STIM_', **context):
+        est, val, epoch_regex='^STIM_', mean_zero=False, **context):
     '''
     generate PSTH prediction for each set
     '''
     est_out, val_out = \
-        preproc.generate_psth_from_est_for_both_est_and_val_nfold(est, val)
+        preproc.generate_psth_from_est_for_both_est_and_val_nfold(est, val,
+                                          mean_zero=mean_zero)
     return {'est': est_out, 'val': val_out}
 
 

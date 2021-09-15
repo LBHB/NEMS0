@@ -775,7 +775,7 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
 
 
 def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^(STIM_|TAR_|CAT_|REF_)',
-                            smooth_resp=False, channel_per_stim=False):
+                            smooth_resp=False, channel_per_stim=False, mean_zero=False):
     '''
     Estimates a PSTH from all responses to each regex match in a recording
 
@@ -900,6 +900,9 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^(STIM_|TAR_|CAT_
     # 2. Average over all reps of each stim and save into dict called psth.
     per_stim_psth = dict()
     per_stim_psth_spont = dict()
+    total = np.zeros((resp.shape[0],1))
+    total_n = 0
+
     for k, v in folded_matrices.items():
         if smooth_resp:
             # replace each epoch (pre, during, post) with average
@@ -918,7 +921,14 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^(STIM_|TAR_|CAT_
         per_stim_psth_spont[k] = np.nanmean(v, axis=0)
         folded_matrices[k] = v
 
+        total += v.mean(axis=2, keepdims=True).sum(axis=0)
+        total_n += v.shape[0]
+
     #import pdb; pdb.set_trace()
+    if mean_zero:
+        total=total/total_n
+        for k, v in folded_matrices.items():
+            per_stim_psth[k] = per_stim_psth_spont[k] - total
 
     # 3. Invert the folding to unwrap the psth into a predicted spike_dict by
     #   replacing all epochs in the signal with their average (psth)
@@ -1107,7 +1117,7 @@ def smooth_epoch_segments(sig, epoch_regex='^STIM_', mask=None):
 
 
 def generate_psth_from_est_for_both_est_and_val(est, val,
-                                                epoch_regex='^STIM_'):
+                                                epoch_regex='^STIM_', mean_zero=False):
     '''
     Estimates a PSTH from the EST set, and returns two signals based on the
     est and val, in which each repetition of a stim uses the EST PSTH?
@@ -1153,13 +1163,13 @@ def generate_psth_from_est_for_both_est_and_val(est, val,
 
 
 def generate_psth_from_est_for_both_est_and_val_nfold(ests, vals,
-                                                      epoch_regex='^STIM_'):
+                                                      epoch_regex='^STIM_', mean_zero=False):
     '''
     call generate_psth_from_est_for_both_est_and_val for each e,v
     pair in ests,vals
     '''
     for e, v in zip(ests, vals):
-        e, v = generate_psth_from_est_for_both_est_and_val(e, v, epoch_regex)
+        e, v = generate_psth_from_est_for_both_est_and_val(e, v, epoch_regex, mean_zero=mean_zero)
 
     return ests, vals
 
