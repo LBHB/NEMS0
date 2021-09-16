@@ -506,13 +506,7 @@ def fit_tf_init(
         up_to_idx = len(modelspec) - 1 - np.min(_idxs)
         #last_idx = np.min([relu_idx, lvl_idx])
         #up_to_idx = len(modelspec) - 1 - up_to_idx
-    #if up_to_idx is None:
-    #    up_to_idx = first_substring_index(reversed(ms_modules), 'levelshift')
-    #    # because reversed, need to mirror the idx
-    #    if up_to_idx is not None:
-    #        up_to_idx = len(modelspec) - 1 - up_to_idx
-    #    else:
-    #        up_to_idx = len(modelspec) - 1
+
     log.info('up_to_idx=%d (%s)', up_to_idx, modelspec[up_to_idx]['fn'])
 
     # do the +1 here to avoid adding to None
@@ -520,29 +514,37 @@ def fit_tf_init(
     # exclude the following from the init
     exclude = ['rdt_gain']  # , 'state_dc_gain', 'state_gain', 'sdexp']
     freeze = ['stp']
+
     # more complex version of first_substring_index: checks for not membership in init_static_nl_layers
     init_idxes = [idx for idx, ms in enumerate(ms_modules[:up_to_idx]) if not any(sub in ms for sub in exclude)]
-
     freeze_idxes = []
+
     # make a temp modelspec
     temp_ms = mslib.ModelSpec()
     log.info('Creating temporary model for init with:')
+    output_name = modelspec.meta.get('output_name', 'resp')
+    try:
+        mean_resp = np.nanmean(est[output_name].as_continuous(), axis=1, keepdims=True)
+    except NotImplementedError:
+        # as_continuous only available for RasterizedSignal
+        mean_resp = np.nanmean(est[output_name].rasterize().as_continuous(), axis=1, keepdims=True)
+    mean_added = False
     for idx in init_idxes:
         # TODO: handle 'merge_channels'
         ms = copy.deepcopy(modelspec[idx])
         log.info(f'{ms["fn"]}')
 
-        # fix levelshift if present (will always be the last module)
-        if idx == init_idxes[-1] and 'levelshift' in ms['fn']:
-            output_name = modelspec.meta.get('output_name', 'resp')
-            try:
-                mean_resp = np.nanmean(est[output_name].as_continuous(), axis=1, keepdims=True)
-            except NotImplementedError:
-                # as_continuous only available for RasterizedSignal
-                mean_resp = np.nanmean(est[output_name].rasterize().as_continuous(), axis=1, keepdims=True)
-            if len(ms['phi']['level'][:]) == len(mean_resp):
-                log.info(f'Fixing "{ms["fn"]}" to: {mean_resp.flatten()[0]:.3f}')
-                ms['phi']['level'][:] = mean_resp
+        # fix dc to mean_resp if present
+        if (not mean_added) and (idx == init_idxes[-1]) and \
+                ('levelshift' in ms['fn']) and (len(ms['phi']['level']) == len(mean_resp)):
+            log.info(f'Fixing "{ms["fn"]}" to: {mean_resp.flatten()[0]:.3f}')
+            ms['phi']['level'][:] = mean_resp
+            mean_added = True
+        elif (not mean_added) and ('state_dc' in ms['fn']) and \
+                (ms['phi']['d'].shape[0] == len(mean_resp)):
+            log.info(f'Fixing "{ms["fn"]}[d][:,0]" to mean_resp')
+            ms['phi']['d'][:, [0]] = mean_resp
+            mean_added = True
 
         temp_ms.append(ms)
         if any(fr in ms['fn'] for fr in freeze):
