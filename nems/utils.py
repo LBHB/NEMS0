@@ -111,18 +111,39 @@ def json_numpy_obj_hook(dct):
 
     return dct
 
+
 def adjust_uri_prefix(uri, use_nems_defaults=True):
-
+    """
+    if get_setting('USE_NEMS_BAPHY_API') is True: translate file system URI to http --or--
+    if get_setting('USE_NEMS_BAPHY_API') is False: translate http URI to file system
+    
+    Warning! May be too hacky, and unclear where this should be evaluated! Currently run in uri.load_uri, which may be too low-level,
+    as there may be situations where you want to hard-code a URI that doesn't match the expectations of the current configuration.
+    """
     use_API = get_setting('USE_NEMS_BAPHY_API')
+    prefix_is_http = uri.startswith("http")
+    rec_prefix = get_setting('NEMS_RECORDINGS_DIR')
+    res_prefix = get_setting('NEMS_RESULTS_DIR')
+    rec_match = uri.find("/recordings")
+    res_match = uri.find("/results")
 
-    if use_API:
-        rec_prefix = get_setting('NEMS_RECORDINGS_DIR')
-        res_prefix = get_setting('NEMS_RESULTS_DIR')
+    if use_API and (not prefix_is_http):
         api_prefix = 'http://'+get_setting('NEMS_BAPHY_API_HOST')+":"+str(get_setting('NEMS_BAPHY_API_PORT'))
         if uri.startswith(rec_prefix):
             new_uri = uri.replace(rec_prefix, api_prefix + "/recordings" )
+            log.info(f"Adjusting URI from {uri} to {new_uri}")
         elif uri.startswith(res_prefix):
             new_uri = uri.replace(res_prefix, api_prefix + "/results" )
+            log.info(f"Adjusting URI from {uri} to {new_uri}")
+        else:
+            new_uri = uri
+    elif (not use_API) and prefix_is_http:
+        if rec_match:
+            new_uri = rec_prefix + uri[(rec_match+11):]
+            log.info(f"Adjusting URI from {uri} to {new_uri}")
+        elif res_match:
+            new_uri = res_prefix + uri[(res_match+8):]
+            log.info(f"Adjusting URI from {uri} to {new_uri}")
         else:
             new_uri = uri
     else:

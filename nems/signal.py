@@ -977,22 +977,25 @@ class SignalBase:
         return d
 
     ## plotting functions
-    def plot_mean(self, epoch="TRIAL", ax=None):
+    def plot_mean(self, epoch="TRIAL", channel=None, ax=None):
         import matplotlib.pyplot as plt
 
-        e = self.extract_epoch(epoch).mean(axis=2)
+        e = np.nanmean(self.extract_epoch(epoch), axis=2)
+        if channel is not None:
+            e=e[:,channel, :]
+
         #log.info(f"epoch {epoch} eshape={e.shape}")
         if ax is None:
             f, ax = plt.subplots()
         if e.shape[1] == 1:
             ax.plot(e)
-            ax.set_xlabel('occurrence')
-            ax.set_ylabel('mean')
+            ax.set_xlabel(f'{epoch} occurrence')
+            ax.set_ylabel('Mean')
         else:
             im = ax.imshow(e.T, origin='lower', aspect='auto')
             #plt.colorbar(im, ax=ax)
-            ax.set_xlabel('occurrence')
-            ax.set_ylabel('channel')
+            ax.set_xlabel(f'{epoch} occurrence')
+            ax.set_ylabel('Channel')
 
         ax.set_title(self.name)
 

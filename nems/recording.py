@@ -20,7 +20,7 @@ from nems.signal import SignalBase, RasterizedSignal, PointProcess, merge_select
     list_signals, load_signal, load_signal_from_streams
 from nems.uri import local_uri, http_uri, targz_uri, NumpyEncoder, json_numpy_obj_hook
 
-from nems.utils import recording_filename_hash
+from nems.utils import recording_filename_hash, adjust_uri_prefix
 
 log = logging.getLogger(__name__)
 
@@ -1425,12 +1425,15 @@ def load_recording(uri):
     '''
     if type(uri) in [PosixPath, WindowsPath]:
         uri = str(uri)
+    uri = adjust_uri_prefix(uri)
+    
     if local_uri(uri):
         if targz_uri(uri):
             rec = load_recording_from_targz(local_uri(uri))
         else:
             rec = load_recording_from_dir(local_uri(uri))
     elif http_uri(uri):
+        log.info(f"URL: {uri}")
         rec = load_recording_from_url(http_uri(uri))
     elif uri[0:6] == 's3://':
         raise NotImplementedError
