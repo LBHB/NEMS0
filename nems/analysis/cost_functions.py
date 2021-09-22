@@ -1,4 +1,5 @@
 import logging
+import inspect
 
 import nems.utils
 
@@ -15,12 +16,16 @@ def basic_cost(sigma, unpacker, modelspec, data, segmentor,
     data_subset = segmentor(data)
     updated_data_subset = evaluator(data_subset, updated_spec)
     error = metric(updated_data_subset)
-    log.debug("inside cost function, current error: %.06f", error)
-    log.debug("current sigma: %s", sigma)
+    #log.debug("inside cost function, current error: %.06f", error)
+    #log.debug("current sigma: %s", sigma)
 
     if hasattr(basic_cost, 'counter'):
         basic_cost.counter += 1
         if basic_cost.counter % display_N == 0:
+            a=inspect.getfullargspec(metric)
+            if 'verbose' in a.args:
+                e2 = metric(updated_data_subset, verbose=True)
+                
             log.info('Eval #%d. E=%.06f', basic_cost.counter, error)
             # log.debug("current sigma: %s", sigma)
             nems.utils.progress_fun()

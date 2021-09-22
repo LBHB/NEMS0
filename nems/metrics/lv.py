@@ -53,6 +53,68 @@ def cc_err(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred',
         E += np.sum((pcproj_std-pp_std)**2)*10
     return E
 
+
+def cc_err_w(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred', 
+             alpha=1, group_idx=None, group_cc=None, pcproj_std=None, pc_axes=None, verbose=False):
+    '''
+    Given the evaluated data, return the mean squared error for correlation coefficient computed
+    separately for each group of the data (eg, passive vs. active or big vs. small pupil)
+
+    Parameters
+    ----------
+    result : A Recording object
+        Generally the output of `model.evaluate(phi, data)`
+    (these other parameters can be hard-coded into a partial function that is then passed onto the fitter:)
+    pred_name : string
+        Name of prediction in the result recording
+    pred0_name : string
+        Name of prediction in the result recording
+    resp_name : string
+        Name of response in the result recording
+    group_idx: list of array indexes defining which samples belong in which group
+    group_cc: list of CC matrices, one for each group
+    pcproj_std: std of projection onto first N pcs
+    pc_axes: projection vectors for first N pcs--to project prediction and compute difference from
+             actual pcproj_std
+    alpha: how much to weigh diagonal vs. off-diagonal terms of cc matrix error. 
+           alpha>1 weigh diag more, alpha<1 weigh diag less.
+    
+    Returns
+    -------
+    E : float
+        Mean-squared difference between the CC matrix for each group
+
+    Example
+    -------
+    >>> result = model.evaluate(data, phi)
+    >>> error = cc_err(result, 'pred', 'resp', <other parameters>)
+
+    '''
+    if type(result) is dict:
+        pred=result[pred_name]
+        pred0=result[pred0_name]
+    else:
+        pred = result[pred_name].as_continuous()
+        pred0 = result[pred0_name].as_continuous()
+    E = 0
+    for i,idx,cc_act in zip(range(len(group_idx)),group_idx, group_cc):
+        c1 = (np.cov(pred[:,idx] - pred0[:,idx])-cc_act)
+        if alpha != 1:
+            a=np.diagonal(c1)*alpha
+            np.fill_diagonal(c1,a)
+        if verbose:
+            derr=np.sum(a**2) / np.sum(cc_act**2)
+            oderr = np.sum(c1**2) / np.sum(cc_act**2) - derr
+            log.info(f"   E {i}: diag: {derr:.5f} off-diag: {oderr:.5f}")
+        E += np.sum(c1**2) / np.sum(cc_act**2) # / (alpha**2)
+    
+    if pc_axes is not None:
+        pcproj = (pred-pred0).T.dot(pc_axes.T).T
+        pp_std = pcproj.std(axis=1)
+        E += np.sum((pcproj_std-pp_std)**2)*10
+    return E
+
+
 def resp_cc_err(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred',
            group_idx=None, group_cc=None, pcproj_std=None, pc_axes=None, beta=1):
     '''
