@@ -977,7 +977,7 @@ class SignalBase:
         return d
 
     ## plotting functions
-    def plot_mean(self, epoch="TRIAL", ax=None):
+    def plot_mean(self, epoch="TRIAL", norm=True, ax=None):
         import matplotlib.pyplot as plt
 
         e = self.extract_epoch(epoch).mean(axis=2)
@@ -989,7 +989,10 @@ class SignalBase:
             ax.set_xlabel('occurrence')
             ax.set_ylabel('mean')
         else:
-            im = ax.imshow(e.T, origin='lower', aspect='auto')
+            if norm:
+                im = ax.imshow((e / e.max(axis=0)).T, origin='lower', aspect='auto')
+            else:
+                im = ax.imshow(e.T, origin='lower', aspect='auto')
             #plt.colorbar(im, ax=ax)
             ax.set_xlabel('occurrence')
             ax.set_ylabel('channel')
