@@ -213,14 +213,21 @@ def fit_ccnorm(modelspec,
     elif (metric is None):
         #def cc_err(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred',
         #   group_idx=None, group_cc=None, pcproj_std=None, pc_axes=None):
-
+        #old stuff
         #metric = lambda d: metrics.cc_err(d, pred_name='pred', pred0_name='pred0',
         #                                  group_idx=group_idx, group_cc=group_cc, 
         #                                  pcproj_std=pcproj_std, pc_axes=pc_axes)
+        
+        # current implementation of cc_err
         metric = lambda d: metrics.cc_err(d, pred_name='pred', pred0_name=input_name,
                                           group_idx=group_idx, group_cc=group_cc, 
                                           pcproj_std=None, pc_axes=None)
-
+        # uncomment these lines to use weighted cc_err:
+        #def metric(d, verbose=False):
+        #    return metrics.cc_err_w(d, pred_name='pred', pred0_name=input_name,
+        #                            group_idx=group_idx, group_cc=group_cc, alpha=0.1,
+        #                            pcproj_std=None, pc_axes=None, verbose=verbose)
+        log.info(f"fit_ccnorm metric = cc_err_w")
     # turn on "fit mode". currently this serves one purpose, for normalization
     # parameters to be re-fit for the output of each module that uses
     # normalization. does nothing if normalization is not being used.
