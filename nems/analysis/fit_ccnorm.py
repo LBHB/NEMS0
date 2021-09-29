@@ -116,8 +116,32 @@ def fit_ccnorm(modelspec,
     else:
         include_set = None
 
+
+    # Computing PCs before masking out unwanted stimuli in order to
+    # preserve match with epochs
+    epoch_regex = "^STIM_"
+    stims = (est.epochs['name'].value_counts() >= 8)
+    stims = [stims.index[i] for i, s in enumerate(stims)
+             if bool(re.search(epoch_regex, stims.index[i])) and s == True]
+
+    # can't simply extract evoked for refs because can be longer/shorted if it came after target
+    # and / or if it was the last stim. So, masking prestim / postim doesn't work. Do it manually
+    d = est['resp'].extract_epochs(stims, mask=est['mask'])
+
+    R = [v.mean(axis=0) for (k, v) in d.items()]
+    #R = [np.reshape(np.transpose(v,[1,0,2]),[v.shape[1],-1]) for (k, v) in d.items()]
+    Rall_u = np.hstack(R).T
+
+    pca = PCA(n_components=2)
+    pca.fit(Rall_u)
+    pc_axes = pca.components_
+
     # apply mask to remove invalid portions of signals and allow fit to
     # only evaluate the model on the valid portion of the signals
+    if 'mask_small' in est.signals.keys():
+        log.info('reseting mask with mask_small+mask_large subset')
+        est['mask'] = est['mask']._modified_copy(data=est['mask_small']._data + est['mask_large']._data)
+
     if 'mask' in est.signals.keys():
         log.info("Data len pre-mask: %d", est['mask'].shape[1])
         est = est.apply_mask()
@@ -138,8 +162,8 @@ def fit_ccnorm(modelspec,
         conditions.remove("small")
         conditions.remove("large")
     #conditions = conditions[0:2]
-    
     #conditions = ['large','small']
+
     group_idx = [est['mask_'+c].as_continuous()[0,:] for c in conditions]
     cg_filtered = [(c, g) for c,g in zip(conditions,group_idx) if g.sum()>0]
     conditions, group_idx = zip(*cg_filtered)
@@ -168,39 +192,22 @@ def fit_ccnorm(modelspec,
     group_cc_raw = [np.cov(resp[:,idx]-pred0[:,idx]) for idx in group_idx]
 
     # some day remove this plotting code
-    log.info("fit_ccnorm: Plotting cc matrices, should delete this code at some point")
-    import matplotlib.pyplot as plt
-    cols = 4
-    rows = int(np.ceil(len(group_cc)/2))
-    f, ax = plt.subplots(rows, cols, figsize=(4, 2*rows))
-    ax = ax.flatten()
-    i = 0
-    for g, g_raw, cond in zip(group_cc, group_cc_raw, conditions):
-        mm= np.max(np.abs(g))
-        ax[i*2].imshow(g, cmap='bwr', clim=[-mm,mm])
-        ax[i*2+1].imshow(g_raw, cmap='bwr', clim=[-mm,mm])
-        f.suptitle(cond)
-        i += 1
+    if 1:
+        log.info("fit_ccnorm: Plotting cc matrices, should delete this code at some point")
+        import matplotlib.pyplot as plt
+        cols = 4
+        rows = int(np.ceil(len(group_cc)/2))
+        f, ax = plt.subplots(rows, cols, figsize=(4, 2*rows))
+        ax = ax.flatten()
+        i = 0
+        for g, g_raw, cond in zip(group_cc, group_cc_raw, conditions):
+            mm= np.max(np.abs(g))
+            ax[i*2].imshow(g, cmap='bwr', clim=[-mm,mm])
+            ax[i*2+1].imshow(g_raw, cmap='bwr', clim=[-mm,mm])
+            f.suptitle(cond)
+            i += 1
 
-    # Computing PCs
-    epoch_regex = "^STIM_"
-    stims = (est.epochs['name'].value_counts() >= 8)
-    stims = [stims.index[i] for i, s in enumerate(stims) 
-             if bool(re.search(epoch_regex, stims.index[i])) and s == True]
-
-    # can't simply extract evoked for refs because can be longer/shorted if it came after target 
-    # and / or if it was the last stim. So, masking prestim / postim doesn't work. Do it manually
-    d = est['resp'].extract_epochs(stims, mask=est['mask'])
-
-    R = [v.mean(axis=0) for (k, v) in d.items()]
-    #R = [np.reshape(np.transpose(v,[1,0,2]),[v.shape[1],-1]) for (k, v) in d.items()]
-    Rall_u = np.hstack(R).T
-
-    pca = PCA(n_components=2)
-    pca.fit(Rall_u)
-    pc_axes = pca.components_
-
-    # variance of projection onto PCs
+    # variance of projection onto PCs (PCs computed above before masking)
     pcproj0 = (resp-pred0).T.dot(pc_axes.T).T
     pcproj_std = pcproj0.std(axis=1)
     
@@ -220,14 +227,17 @@ def fit_ccnorm(modelspec,
         
         # current implementation of cc_err
         metric = lambda d: metrics.cc_err(d, pred_name='pred', pred0_name=input_name,
-                                          group_idx=group_idx, group_cc=group_cc, 
+                                          group_idx=group_idx, group_cc=group_cc,
                                           pcproj_std=None, pc_axes=None)
+        log.info(f"fit_ccnorm metric: cc_err")
+
         # uncomment these lines to use weighted cc_err:
         #def metric(d, verbose=False):
         #    return metrics.cc_err_w(d, pred_name='pred', pred0_name=input_name,
         #                            group_idx=group_idx, group_cc=group_cc, alpha=0.1,
         #                            pcproj_std=None, pc_axes=None, verbose=verbose)
-        log.info(f"fit_ccnorm metric = cc_err_w")
+        #log.info(f"fit_ccnorm metric: cc_err_w")
+
     # turn on "fit mode". currently this serves one purpose, for normalization
     # parameters to be re-fit for the output of each module that uses
     # normalization. does nothing if normalization is not being used.

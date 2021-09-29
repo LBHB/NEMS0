@@ -100,13 +100,13 @@ def cc_err_w(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred',
     for i,idx,cc_act in zip(range(len(group_idx)),group_idx, group_cc):
         c1 = (np.cov(pred[:,idx] - pred0[:,idx])-cc_act)
         if alpha != 1:
-            a=np.diagonal(c1)*alpha
-            np.fill_diagonal(c1,a)
-        if verbose:
-            derr=np.sum(a**2) / np.sum(cc_act**2)
-            oderr = np.sum(c1**2) / np.sum(cc_act**2) - derr
-            log.info(f"   E {i}: diag: {derr:.5f} off-diag: {oderr:.5f}")
-        E += np.sum(c1**2) / np.sum(cc_act**2) # / (alpha**2)
+            a = np.diagonal(c1)*alpha
+            np.fill_diagonal(c1, a)
+            if verbose:
+                derr=np.sum(a**2) / np.sum(cc_act**2)
+                oderr = np.sum(c1**2) / np.sum(cc_act**2) - derr
+                log.info(f"   E {i}: diag: {derr:.5f} off-diag: {oderr:.5f}")
+        E += np.sum(c1**2) / np.sum(cc_act**2)  # / (alpha**2)
     
     if pc_axes is not None:
         pcproj = (pred-pred0).T.dot(pc_axes.T).T

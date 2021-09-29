@@ -787,8 +787,6 @@ def _parse_options(fitkey, **default_options):
     return options
 
 
-
-
 def _parse_basic(options):
     '''Options specific to basic.'''
     max_iter = 30000

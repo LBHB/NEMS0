@@ -778,9 +778,8 @@ class Recording:
         
         lo_count=len(lo_rep_epochs)
         keep_count=int(np.ceil(keepfrac*lo_count))
-        log.info(f"keepfrac={keepfrac}, keeping {keep_count}/{lo_count} low-rep epochs")
         if keepfrac<1:
-            log.info(f"REALLY keepfrac={keepfrac}, keeping {keep_count}/{lo_count} low-rep epochs")
+            log.info(f"keepfrac={keepfrac}, keeping {keep_count}/{lo_count} low-rep epochs")
             lo_rep_epochs = lo_rep_epochs[:keep_count]
         
         return self.split_by_epochs(lo_rep_epochs, hi_rep_epochs)
@@ -1226,23 +1225,23 @@ class Recording:
 
         return rec
 
-    def apply_mask(self, reset_epochs=False):
+    def apply_mask(self, reset_epochs=False, mask_name='mask'):
         '''
         Used to excise data based on boolean called mask. Returns new recording
         with only data specified mask. To make mask, see "create_mask"
         '''
-        if 'mask' not in self.signals.keys():
-            log.info("No mask specified, apply_mask() simply copying recording.")
+        if mask_name not in self.signals.keys():
+            log.info("No mask exists, apply_mask() simply copying recording.")
             return self.copy()
 
         rec = self.copy()
-        sig = rec['mask']
+        sig = rec[mask_name]
 
         if np.sum(sig._data == False) == 0:
             # mask is all true, passthrough
             return rec
 
-        m = rec['mask']._data[0, :].copy()
+        m = rec[mask_name]._data[0, :].copy()
         z = np.array([0])
         m = np.concatenate((z, m, z))
         s, = np.nonzero(np.diff(m) > 0)

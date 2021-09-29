@@ -483,7 +483,6 @@ def cc_comp(val, modelspec, ax=None, figures=None, IsReload=False, extra_epoch=N
     
     ## display noise corr. matrices
     f,ax = plt.subplots(4,3, figsize=(9,12))
-    #f,ax = plt.subplots(4,3, figsize=(6,8), sharex='col', sharey='col')
 
     if extra_epoch is not None:
         #rec = val.copy()
@@ -589,6 +588,70 @@ def cc_comp(val, modelspec, ax=None, figures=None, IsReload=False, extra_epoch=N
     modelspec.meta['act_dcc_std'] = np.mean((large_cc-small_cc)**2)
     modelspec.meta['pred_dcc_std'] = np.mean((lg_cc-sm_cc)**2)
                                       
+    # CANNOT initialize figures=[] in optional args our you will create a bug
+    if figures is None:
+        figures = []
+    figures.append(fig2BytesIO(f))
+
+    return {'figures': figures, 'modelspec': modelspec}
+
+
+def cc_comp_per_mask(val=None, modelspec=None, IsReload=False, figures=None, **options):
+    if IsReload:
+        return {}
+
+    ## display noise corr. matrices
+    f,ax = plt.subplots(4,5, figsize=(12,9))
+
+    rec = val.copy()
+
+    masks = ["_".join(k.split("_")[:-1]) for k in val.signals.keys()
+             if (k.startswith("mask_") and k!="mask_small" and k!="mask_large")]
+    masks = list(set(masks))
+
+    if 'pred0' in rec.signals.keys():
+        input_name = 'pred0'
+    else:
+        input_name = 'psth'
+    pred0 = rec[input_name].as_continuous()
+    pred = rec['pred'].as_continuous()
+    resp = rec['resp'].as_continuous()
+
+    for i, m in enumerate(masks[:4]):
+        ml = rec[m+"_lg"].as_continuous()[0,:]
+        ms = rec[m+"_sm"].as_continuous()[0,:]
+
+        large_cc = np.cov(resp[:,ml]-pred0[:,ml])
+        small_cc = np.cov(resp[:,ms]-pred0[:,ms])
+        pred_large_cc = np.cov(pred[:,ml]-pred0[:,ml])
+        pred_small_cc = np.cov(pred[:,ms]-pred0[:,ms])
+
+        mm=np.max(np.abs(small_cc)) * 0.5
+
+        ax[i,0].imshow(small_cc,aspect='equal',interpolation='none',clim=[-mm,mm], cmap='bwr', origin='lower')
+        ax[i,1].imshow(large_cc,aspect='equal',interpolation='none',clim=[-mm,mm], cmap='bwr', origin='lower')
+        ax[i,2].imshow(pred_small_cc,aspect='equal',interpolation='none',clim=[-mm,mm], cmap='bwr', origin='lower')
+        ax[i,3].imshow(pred_large_cc,aspect='equal',interpolation='none',clim=[-mm,mm], cmap='bwr', origin='lower')
+
+        dact=large_cc-small_cc
+        dpred=pred_large_cc-pred_small_cc
+
+        np.fill_diagonal(dact, 0)
+        ax[i,4].plot(dact.mean(axis=0), label='act')
+        np.fill_diagonal(dpred, 0)
+        ax[i,4].plot(dpred.mean(axis=0), label='pred')
+        ax[i,4].set_title('mean lg-sm cc')
+        ax[i,4].set_xlabel('unit')
+        ax[i,4].legend(frameon=False)
+
+        ax[i,3].set_ylabel(m,fontsize=6)
+    ax[0,0].set_title('act sm cc')
+    ax[0,1].set_title('act lg cc')
+    ax[0,2].set_title('pred sm cc')
+    ax[0,3].set_title('pred lg cc')
+
+    f.suptitle(f"{modelspec.meta['cellid']} - {modelspec.meta['modelname']}", fontsize=8)
+
     # CANNOT initialize figures=[] in optional args our you will create a bug
     if figures is None:
         figures = []

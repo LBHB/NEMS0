@@ -1220,6 +1220,7 @@ class ModelSpec:
                     else:
                         tensor = tf.convert_to_tensor(d[np.newaxis])
                     p = self.tf_model(tensor).numpy()
+                    #print(p.shape)
                     dstrf[c, -lag, :] = p[0, D, out_channels] - p0[0, D, out_channels]
             if len(out_channels) == 1:
                 dstrf = dstrf[:, :, 0]
