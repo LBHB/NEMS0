@@ -658,3 +658,4 @@ def cc_comp_per_mask(val=None, modelspec=None, IsReload=False, figures=None, **o
     figures.append(fig2BytesIO(f))
 
     return {'figures': figures, 'modelspec': modelspec}
+

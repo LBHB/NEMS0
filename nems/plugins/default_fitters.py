@@ -953,7 +953,7 @@ def ccnorm(fitkey):
 
     xfspec.append(['nems.xforms.predict', {}])
     xfspec.append(['nems.xforms.add_summary_statistics', {}])
-    xfspec.append(['nems.plots.state.cc_comp', {}])
+    xfspec.append(['nems_lbhb.stateplots.ddr_pairs', {}])
 
     return xfspec
 
