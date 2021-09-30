@@ -79,6 +79,8 @@ def fit_ccnorm(modelspec,
         shared_pcs: int = 0,
         also_fit_resp: bool = False,
         force_psth: bool = False,
+        use_metric: typing.Union[None, str] = None,
+        alpha: float = 0.1,
         beta: float = 1,
         exclude_idx=None, exclude_after=None,
         freeze_idx=None, freeze_after=None,
@@ -124,13 +126,14 @@ def fit_ccnorm(modelspec,
     stims = [stims.index[i] for i, s in enumerate(stims)
              if bool(re.search(epoch_regex, stims.index[i])) and s == True]
 
+    Rall_u = est.apply_mask()['psth'].as_continuous().T
     # can't simply extract evoked for refs because can be longer/shorted if it came after target
     # and / or if it was the last stim. So, masking prestim / postim doesn't work. Do it manually
-    d = est['resp'].extract_epochs(stims, mask=est['mask'])
+    #d = est['resp'].extract_epochs(stims, mask=est['mask'])
 
-    R = [v.mean(axis=0) for (k, v) in d.items()]
+    #R = [v.mean(axis=0) for (k, v) in d.items()]
     #R = [np.reshape(np.transpose(v,[1,0,2]),[v.shape[1],-1]) for (k, v) in d.items()]
-    Rall_u = np.hstack(R).T
+    #Rall_u = np.hstack(R).T
 
     pca = PCA(n_components=2)
     pca.fit(Rall_u)
@@ -202,16 +205,24 @@ def fit_ccnorm(modelspec,
         i = 0
         for g, g_raw, cond in zip(group_cc, group_cc_raw, conditions):
             mm= np.max(np.abs(g))
-            ax[i*2].imshow(g, cmap='bwr', clim=[-mm,mm])
-            ax[i*2+1].imshow(g_raw, cmap='bwr', clim=[-mm,mm])
+            ax[i*2].imshow(g, cmap='bwr', clim=[-mm,mm], origin='lower')
+            ax[i*2+1].imshow(g_raw, cmap='bwr', clim=[-mm,mm], origin='lower')
             f.suptitle(cond)
             i += 1
 
     # variance of projection onto PCs (PCs computed above before masking)
     pcproj0 = (resp-pred0).T.dot(pc_axes.T).T
     pcproj_std = pcproj0.std(axis=1)
-    
-    if (metric is None) and also_fit_resp:
+
+    if (use_metric=='cc_err_w'):
+
+        def metric(d, verbose=False):
+            return metrics.cc_err_w(d, pred_name='pred', pred0_name=input_name,
+                                    group_idx=group_idx, group_cc=group_cc, alpha=alpha,
+                                    pcproj_std=None, pc_axes=None, verbose=verbose)
+        log.info(f"fit_ccnorm metric: cc_err_w (alpha={alpha})")
+
+    elif (metric is None) and also_fit_resp:
         log.info(f"resp_cc_err: pred0_name: {input_name} beta: {beta}")
         metric = lambda d: metrics.resp_cc_err(d, pred_name='pred', pred0_name=input_name,
                                           group_idx=group_idx, group_cc=group_cc, beta=beta,
@@ -230,13 +241,6 @@ def fit_ccnorm(modelspec,
                                           group_idx=group_idx, group_cc=group_cc,
                                           pcproj_std=None, pc_axes=None)
         log.info(f"fit_ccnorm metric: cc_err")
-
-        # uncomment these lines to use weighted cc_err:
-        #def metric(d, verbose=False):
-        #    return metrics.cc_err_w(d, pred_name='pred', pred0_name=input_name,
-        #                            group_idx=group_idx, group_cc=group_cc, alpha=0.1,
-        #                            pcproj_std=None, pc_axes=None, verbose=verbose)
-        #log.info(f"fit_ccnorm metric: cc_err_w")
 
     # turn on "fit mode". currently this serves one purpose, for normalization
     # parameters to be re-fit for the output of each module that uses

@@ -99,8 +99,11 @@ def state_mod_index(rec, epoch='REFERENCE', psth_name='pred', divisor=None,
     #    log.info('no %s epochs found. Trying TARGET instead', epoch)
     #    epoch = 'TARGET'
     log.info('state_mod_index for {}, {}, {}'.format(psth_name,state_sig,state_chan))
-    low, high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
+    try:
+        low, high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
                                 state_sig=state_sig, state_chan=state_chan)
+    except:
+        return np.array([0])
 
     # kludge to deal with variable length REFERENCES.
     kk = np.isfinite(low[:,0]) & np.isfinite(high[:,0])

@@ -898,7 +898,15 @@ def ccnorm(fitkey):
     max_iter, tolerance, fitter, choose_best, rand_count = _parse_basic(options)
 
     sel_options = {'max_iter': max_iter, 'tolerance': tolerance}
+    sel_options['fit_function'] = 'nems.analysis.fit_ccnorm.fit_ccnorm'
+
     for op in options:
+        if op[:1] == 'w':
+            sel_options['use_metric'] = 'cc_err_w'
+            if len(op)>1:
+                op = op.replace('n','-')
+                op = op.replace('e','.')
+                sel_options['alpha']=10**int(op[1:])
         if op[:2]=='pc':
             sel_options['noise_pcs'] = int(op[2:])
         if op[:2]=='ss':
@@ -932,8 +940,6 @@ def ccnorm(fitkey):
         elif op.startswith('x'):
             sel_options['exclude_idx'] = sel_options.get('exclude_idx', [])
             sel_options['exclude_idx'].append(int(op[1:]))
-
-    sel_options['fit_function'] = 'nems.analysis.fit_ccnorm.fit_ccnorm'
 
     xfspec = []
     if rand_count > 1:

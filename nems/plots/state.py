@@ -605,7 +605,7 @@ def cc_comp_per_mask(val=None, modelspec=None, IsReload=False, figures=None, **o
 
     rec = val.copy()
 
-    masks = ["_".join(k.split("_")[:-1]) for k in val.signals.keys()
+    masks = ["_".join(k.split("_")[:-1]) for k in rec.signals.keys()
              if (k.startswith("mask_") and k!="mask_small" and k!="mask_large")]
     masks = list(set(masks))
 
@@ -626,7 +626,7 @@ def cc_comp_per_mask(val=None, modelspec=None, IsReload=False, figures=None, **o
         pred_large_cc = np.cov(pred[:,ml]-pred0[:,ml])
         pred_small_cc = np.cov(pred[:,ms]-pred0[:,ms])
 
-        mm=np.max(np.abs(small_cc)) * 0.5
+        mm=np.max(np.abs(small_cc)) * 1
 
         ax[i,0].imshow(small_cc,aspect='equal',interpolation='none',clim=[-mm,mm], cmap='bwr', origin='lower')
         ax[i,1].imshow(large_cc,aspect='equal',interpolation='none',clim=[-mm,mm], cmap='bwr', origin='lower')
@@ -644,7 +644,7 @@ def cc_comp_per_mask(val=None, modelspec=None, IsReload=False, figures=None, **o
         ax[i,4].set_xlabel('unit')
         ax[i,4].legend(frameon=False)
 
-        ax[i,3].set_ylabel(m,fontsize=6)
+        ax[i,0].set_ylabel(m.replace("mask_STIM",""),fontsize=6)
     ax[0,0].set_title('act sm cc')
     ax[0,1].set_title('act lg cc')
     ax[0,2].set_title('pred sm cc')

@@ -1247,7 +1247,7 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
             sd = np.nanstd(D_ref, axis=0, keepdims=True)
         else:
             sd = np.ones(m.shape)
-        D_ref=D_ref[np.sum(np.isfinite(D_ref),axis=1),:]
+        D_ref = D_ref[np.sum(np.isfinite(D_ref),axis=1),:]
         D_ = (D_ref-m)/sd
 
         #import pdb;
