@@ -88,7 +88,7 @@ from nems.modelspec import _lookup_fn_at
 import nems.db as nd
 from nems.registry import keyword_lib
 from nems import get_setting
-
+import matplotlib.pyplot as plt
 log = logging.getLogger(__name__)
 
 # These are used as click-once operations
@@ -538,12 +538,13 @@ class ModuleCanvas(qw.QFrame):
         self.layout.removeWidget(self.canvas)
         self.highlight_obj = None
         self.canvas.close()
+        if hasattr(self.canvas,'figure'):
+            plt.close(self.canvas.figure)
         self.canvas = NemsCanvas(parent=self)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.plot_on_axes()
         self.layout.addWidget(self.canvas)
         self.scrollable = self.check_scrollable()
-
         self.update_plot()
 
     def onclick(self, event):
@@ -677,6 +678,8 @@ class SignalCanvas(qw.QFrame):
         self.layout.removeWidget(self.canvas)
         self.highlight_obj = None
         self.canvas.close()
+        if hasattr(self.canvas, 'figure'):
+            plt.close(self.canvas.figure)
         self.canvas = NemsCanvas(parent=self)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.plot_on_axes()
