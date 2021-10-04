@@ -1279,7 +1279,8 @@ def dlog(kw):
                      'nems.plots.api.spectrogram_output',
                      'nems.plots.api.pred_resp',
                      'nems.plots.api.before_and_after',
-                     'nems.plots.api.spectrogram'],
+                     'nems.plots.api.spectrogram',
+                     'nems.plots.api.mod_output_all'],
         'plot_fn_idx': 2,
     }
 
