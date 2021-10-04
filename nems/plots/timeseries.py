@@ -32,7 +32,8 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
     TODO: expand this doc  -jacob 2-17-18
     '''
     if ax is not None:
-        plt.sca(ax)
+        pass
+        #plt.sca(ax)
     else:
         ax = plt.gca()
 
