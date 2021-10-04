@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 
 force_SDB=True
 try:
-    if sys.argv[3][:4] == 'SDB-':
+    if 'SDB-' in sys.argv[3]:
         force_SDB=True
 except:
     pass
