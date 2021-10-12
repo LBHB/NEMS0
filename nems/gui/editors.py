@@ -88,7 +88,7 @@ from nems.modelspec import _lookup_fn_at
 import nems.db as nd
 from nems.registry import keyword_lib
 from nems import get_setting
-
+import matplotlib.pyplot as plt
 log = logging.getLogger(__name__)
 
 # These are used as click-once operations
@@ -531,19 +531,20 @@ class ModuleCanvas(qw.QFrame):
         self.layout.addWidget(self.canvas)
         self.layout.setAlignment(qc.Qt.AlignTop)
         self.setLayout(self.layout)
-        self.axes = None
+        # self.axes = None
 
     def new_plot(self):
         '''Remove plot from layout and replace it with a new one.'''
         self.layout.removeWidget(self.canvas)
         self.highlight_obj = None
         self.canvas.close()
+        if hasattr(self.canvas,'figure'):
+            plt.close(self.canvas.figure)
         self.canvas = NemsCanvas(parent=self)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.plot_on_axes()
         self.layout.addWidget(self.canvas)
         self.scrollable = self.check_scrollable()
-
         self.update_plot()
 
     def onclick(self, event):
@@ -559,8 +560,8 @@ class ModuleCanvas(qw.QFrame):
         '''Draw plot on current canvas axes.'''
         gc = self.parent.parent.global_controls
         #if self.axes is None:
-        self.axes = self.canvas.figure.add_subplot(111)
-        ax = self.axes
+        self.canvas.axes = self.canvas.figure.add_subplot(111, label='module'+str(self.mod_index))
+        ax = self.canvas.axes
         #ax.clear()
         rec = self.parent.modelspec.recording
         self.parent.modelspec[self.mod_index]['plot_fn_idx']=self.plot_fn_idx
@@ -591,7 +592,9 @@ class ModuleCanvas(qw.QFrame):
         '''Shift xlimits of current plot if it's scrollable.'''
 
         if self.scrollable:
+
             gc = self.parent.parent.global_controls
+
             self.canvas.axes.set_xlim(gc.start_time, gc.stop_time)
             self.canvas.draw()
         else:
@@ -675,6 +678,8 @@ class SignalCanvas(qw.QFrame):
         self.layout.removeWidget(self.canvas)
         self.highlight_obj = None
         self.canvas.close()
+        if hasattr(self.canvas, 'figure'):
+            plt.close(self.canvas.figure)
         self.canvas = NemsCanvas(parent=self)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.plot_on_axes()
@@ -695,7 +700,8 @@ class SignalCanvas(qw.QFrame):
     def plot_on_axes(self):
         '''Draw plot on current canvas axes.'''
         gc = self.parent.parent.global_controls
-        ax = self.canvas.figure.add_subplot(111)
+        self.canvas.axes = self.canvas.figure.add_subplot(111)
+        ax = self.canvas.axes
         rec = self.rec
         from nems.modelspec import _lookup_fn_at
         plot_fn = _lookup_fn_at(self.plot_list[self.plot_fn_idx])

@@ -26,6 +26,7 @@ import nems.plots.api as nplt
 import nems.preprocessing as preproc
 import nems.priors as priors
 from nems import get_setting
+import nems.analysis as na
 from nems.registry import xforms_lib, keyword_lib, xform, xmodule, scan_for_kw_defs
 #from nems.plugins import (default_keywords, default_loaders, default_fitters,
 #                          default_initializers)
@@ -1263,6 +1264,10 @@ def add_summary_statistics(est, val, modelspec, est_list=None, val_list=None, re
     modelspec.set_cell(0)
     return {'modelspec': modelspec}
 
+def add_summary_statistics_by_condition(est,val,modelspec,evaluation_conditions,rec=None,**context):
+    modelspec = na.api.standard_correlation_by_epochs(est,val,modelspec=modelspec,
+            epochs_list=evaluation_conditions,rec=rec)
+    return {'modelspec': modelspec}
 
 def plot_summary(modelspec, val, figures=None, IsReload=False,
                  figures_to_load=None, **context):

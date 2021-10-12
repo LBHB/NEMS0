@@ -17,7 +17,8 @@ def plot_nl_io(module=None, xbounds=None, ax=None):
     if xbounds is None:
         xbounds = np.array([-1, 1])
     if ax:
-        plt.sca(ax)
+        #plt.sca(ax)
+        pass
     else:
         ax=plt.gca()
 
@@ -30,7 +31,7 @@ def plot_nl_io(module=None, xbounds=None, ax=None):
     if chancount > 1:
         d_in = np.tile(d_in, (chancount, 1))
     d_out = fn(d_in, **module['phi'])
-    plt.plot(d_in.T, d_out.T)
+    ax.plot(d_in.T, d_out.T)
 
     ax_remove_box(ax)
 
@@ -61,7 +62,8 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
     if (sig1.nchans > 1) or (sig2.nchans > 1):
         log.warning('sig1 or sig2 chancount > 1, using chan 0')
     if ax:
-        plt.sca(ax)
+        #plt.sca(ax)
+        pass
     ax = plt.gca()
 
     m1 = sig1.as_continuous()
@@ -107,27 +109,27 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
 #            y = s2[1, :]
 
         chan_name = 'Channel {}'.format(i) if not sig2.chans else sig2.chans[i]
-        plt.scatter(x, y, label=chan_name, s=2, color='darkgray')
+        ax.scatter(x, y, label=chan_name, s=2, color='darkgray')
 
     if module is not None:
         xbounds = ax.get_xbound()
         plot_nl_io(module, xbounds, ax)
 
     xlabel = xlabel if xlabel else sig1.name
-    plt.xlabel(xlabel)
+    ax.set_xlabel(xlabel)
 
     ylabel = ylabel if ylabel else sig2.name
-    plt.ylabel(ylabel)
+    ax.set_ylabel(ylabel)
 
     if legend and sig2.nchans > 1:
-        plt.legend(loc='lower right')
+        ax.legend(loc='lower right')
 
     if title:
-        plt.title(title)
+        ax.set_title(title)
 
     if text is not None:
         # Figure out where to align text box
-        axes = plt.gca()
+        axes = ax
         ymin, ymax = axes.get_ylim()
         xmin, xmax = axes.get_xlim()
         if ymin == ymax:
@@ -136,10 +138,10 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
             xmax = xmin + 1
         x_coord = xmin + (xmax - xmin)/50
         y_coord = ymax - (ymax - ymin)/20
-        plt.text(x_coord, y_coord, text, verticalalignment='top')
+        ax.text(x_coord, y_coord, text, verticalalignment='top')
 
     if force_square:
-        axes = plt.gca()
+        axes = ax
         ymin, ymax = axes.get_ylim()
         xmin, xmax = axes.get_xlim()
         axes.set_aspect(abs(xmax-xmin)/abs(ymax-ymin))

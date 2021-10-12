@@ -32,7 +32,8 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
     TODO: expand this doc  -jacob 2-17-18
     '''
     if ax is not None:
-        plt.sca(ax)
+        pass
+        #plt.sca(ax)
     else:
         ax = plt.gca()
 
@@ -104,7 +105,8 @@ def timeseries_from_signals(signals=None, channels=0, no_legend=False,
         channels = 0
     if signals is None:
         signals = [rec[sig_name]]
-
+    if type(channels) is int and channels >= signals[0].shape[0]:
+        channels=np.arange(signals[0].shape[0])
     channels = pad_to_signals(signals, channels)
     times = []
     values = []

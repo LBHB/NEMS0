@@ -66,6 +66,7 @@ class NemsCanvas(FigureCanvas):
         plt.ioff()
         fig = plt.figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
+        self.figure = fig
         if hide_axes:
             self.axes.get_yaxis().set_visible(False)
             self.axes.get_xaxis().set_visible(False)
