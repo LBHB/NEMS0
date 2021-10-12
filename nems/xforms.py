@@ -377,7 +377,7 @@ def normalize_stim(rec=None, sig='stim', norm_method='meanstd', **context):
     return {'rec': rec}
 
 
-def normalize_sig(rec=None, sig='stim', norm_method='meanstd', log_compress='None', **context):
+def normalize_sig(rec=None, rec_list=None, sig='stim', norm_method='meanstd', log_compress='None', **context):
     """
     Normalize each channel of rec[sig] according to norm_method
     :param rec:  NEMS recording
@@ -385,32 +385,51 @@ def normalize_sig(rec=None, sig='stim', norm_method='meanstd', log_compress='Non
     :param context: pass-through for other variables in xforms context dictionary that aren't used.
     :return: copy(?) of rec with updated signal.
     """
-    if sig in rec.signals.keys():
-        newrec = rec.copy()
-        s = newrec[sig].rasterize()
-        if log_compress != 'None':
-           log.info('xforms.normalize_sig: compressing with dlog(..., %d)', -log_compress)
-           from nems.modules.nonlinearity import _dlog
-           fn = lambda x: _dlog(x, -log_compress)
-           s=s.transform(fn, sig)
-           
-        newrec[sig] = s.normalize(norm_method)
-        return {'rec': newrec}
+    if rec_list is None:
+        rec_list = [rec]
+        return_reclist = False
     else:
-        log.info(f'Signal {sig} not it recording, skipping normalize')
+        rec=rec_list[0]
+        return_reclist = True
+    new_rec_list = []
+    b,g = None, None
+    if sig in rec.signals.keys():
+        for i, r in enumerate(rec_list):
+            newrec = r.copy()
+            s = newrec[sig].rasterize()
+
+            if log_compress != 'None':
+               from nems.modules.nonlinearity import _dlog
+               fn = lambda x: _dlog(x, -log_compress)
+               s=s.transform(fn, sig)
+            newrec[sig] = s.normalize(norm_method, b=b, g=g)
+            new_rec_list.append(newrec)
+            if (sig=='stim') and (i==0):
+                b=newrec[sig].norm_baseline
+                g=newrec[sig].norm_gain
+            log.info(f'xforms.normalize_sig: {sig} b={newrec[sig].norm_baseline.mean()}, g={newrec[sig].norm_gain.mean()}, dlog(..., -{log_compress})')
+            
+        if return_reclist:
+            return {'rec': rec_list[0], 'rec_list': new_rec_list}
+        else:
+            return {'rec': newrec}
+    else:
+        log.info(f'Signal {sig} not in recording, skipping normalize')
         return {}
 
 
 def init_from_keywords(keywordstring, meta={}, IsReload=False,
-                       registry=None, rec=None, input_name='stim',
+                       registry=None, rec=None, rec_list=None, input_name='stim',
                        output_name='resp', **context):
     if not IsReload:
         modelspec = init.from_keywords(keyword_string=keywordstring,
-                                       meta=meta, registry=registry, rec=rec,
+                                       meta=meta, registry=registry, rec=rec, rec_list=rec_list,
                                        input_name=input_name,
                                        output_name=output_name)
     else:
         modelspec=context['modelspec']
+        
+        # backward compatibility? Maybe can delete?
         if modelspec is not None:
             if modelspec.meta.get('input_name', None) is None:
                 modelspec.meta['input_name'] = input_name
@@ -1146,17 +1165,26 @@ def save_recordings(modelspec, est, val, **context):
     return {'modelspec': modelspec}
 
 
-def predict(modelspec, est, val, jackknifed_fit=False, **context):
+def predict(modelspec, est, val, est_list=None, val_list=None, jackknifed_fit=False, **context):
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
     # TODO: Add statistics to metadata of every modelspec
+    if (val_list is None):
+        est, val = nems.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
+        modelspec.recording = val
 
-    est, val = nems.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
-    modelspec.recording = val
+        return {'val': val, 'est': est, 'modelspec': modelspec}
+    else:
+        for cellidx,est,val in zip(range(len(est_list)),est_list,val_list):
+            modelspec.set_cell(cellidx)
+            est, val = nems.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
+            modelspec.recording = val
+            est_list[cellidx] = est
+            val_list[cellidx] = val
+        modelspec.set_cell(0)
+        return {'val': val_list[0], 'est': est_list[0], 'est_list': est_list, 'val_list': val_list, 'modelspec': modelspec}
+        
 
-    return {'val': val, 'est': est, 'modelspec': modelspec}
-
-
-def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
+def add_summary_statistics(est, val, modelspec, est_list=None, val_list=None, rec_list=None, fn='standard_correlation',
                            rec=None, use_mask=True, **context):
     '''
     standard_correlation: average all correlation metrics and add
@@ -1165,64 +1193,74 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
                            modelspec and save results in each modelspec
     '''
     corr_fn = getattr(nems.analysis.api, fn)
-    modelspec = corr_fn(est, val, modelspec=modelspec, rec=rec, use_mask=use_mask)
+    
+    if est_list is None:
+        est_list=[est]
+        val_list=[val]
+        rec_list=[rec]
+        
+    for cellidx,est,val,rec in zip(range(len(est_list)),est_list,val_list,rec_list):
+        modelspec.set_cell(cellidx)
+        log.info(f'cell_index: {cellidx}')
+        modelspec = corr_fn(est, val, modelspec=modelspec, rec=rec, use_mask=use_mask)
 
-    if find_module('state', modelspec) is not None:
-        if ('state' not in val.signals.keys()):
-            pass
-        else:
-            log.info('Skipping jackknife MI calculations')
-            s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='pred',
-                                state_sig='state_raw', state_chan=[])
-            #j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='pred',
-            #                    state_sig='state_raw', state_chan=[], njacks=10)
-            j_s = s
-            ee = np.zeros(j_s.shape)
-            modelspec.meta['state_mod'] = s
-            modelspec.meta['j_state_mod'] = j_s
-            modelspec.meta['se_state_mod'] = ee
-            modelspec.meta['state_chans'] = val['state'].chans
-
-            # adding gain / DC mod_indexes (if the corresponding signals exist -- new sdexp models)
-            if 'gain' in val.signals.keys():
-                log.info('Saving gain/DC MI')
-                g = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='gain', divisor=1,
-                                state_sig='state_raw', state_chan=[])
-                dc = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='dc', divisor=1,
-                                state_sig='state_raw', state_chan=[])
-                modelspec.meta['state_mod_gain'] = g
-                modelspec.meta['state_mod_dc'] = dc
-
-
-            # Charlie testing diff ways to calculate mod index
-
-            # try using resp
-            s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='resp',
-                                state_sig='state_raw', state_chan=[])
-            #j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='resp',
-            #                    state_sig='state_raw', state_chan=[], njacks=10)
-            j_s = s
-            ee = np.zeros(j_s.shape)
-            modelspec.meta['state_mod_r'] = s
-            modelspec.meta['j_state_mod_r'] = j_s
-            modelspec.meta['se_state_mod_r'] = ee
-
-            # try using the "mod" signal (if it exists) which is calculated
-            if ('mod' in modelspec.meta['modelname']) and ('mod' in val.signals.keys()):
-                s = metrics.state_mod_index(val, epoch='REFERENCE',
-                                                psth_name='mod', divisor='resp',
-                                                state_sig='state_raw', state_chan=[])
-                #j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE',
-                #                                psth_name='mod', divisor='resp',
-                #                                state_sig='state_raw', state_chan=[],
-                #                                njacks=10)
+        if find_module('state', modelspec) is not None:
+            if ('state' not in val.signals.keys()):
+                pass
+            else:
+                log.info('Skipping jackknife MI calculations')
+                s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='pred',
+                                    state_sig='state_raw', state_chan=[])
+                #j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='pred',
+                #                    state_sig='state_raw', state_chan=[], njacks=10)
                 j_s = s
                 ee = np.zeros(j_s.shape)
+                modelspec.meta['state_mod'] = s
+                modelspec.meta['j_state_mod'] = j_s
+                modelspec.meta['se_state_mod'] = ee
+                modelspec.meta['state_chans'] = val['state'].chans
 
-                modelspec.meta['state_mod_m'] = s
-                modelspec.meta['j_state_mod_m'] = j_s
-                modelspec.meta['se_state_mod_m'] = ee
+                # adding gain / DC mod_indexes (if the corresponding signals exist -- new sdexp models)
+                if 'gain' in val.signals.keys():
+                    log.info('Saving gain/DC MI')
+                    g = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='gain', divisor=1,
+                                    state_sig='state_raw', state_chan=[])
+                    dc = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='dc', divisor=1,
+                                    state_sig='state_raw', state_chan=[])
+                    modelspec.meta['state_mod_gain'] = g
+                    modelspec.meta['state_mod_dc'] = dc
 
+
+                # Charlie testing diff ways to calculate mod index
+
+                # try using resp
+                s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='resp',
+                                    state_sig='state_raw', state_chan=[])
+                #j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='resp',
+                #                    state_sig='state_raw', state_chan=[], njacks=10)
+                j_s = s
+                ee = np.zeros(j_s.shape)
+                modelspec.meta['state_mod_r'] = s
+                modelspec.meta['j_state_mod_r'] = j_s
+                modelspec.meta['se_state_mod_r'] = ee
+
+                # try using the "mod" signal (if it exists) which is calculated
+                if ('mod' in modelspec.meta['modelname']) and ('mod' in val.signals.keys()):
+                    s = metrics.state_mod_index(val, epoch='REFERENCE',
+                                                    psth_name='mod', divisor='resp',
+                                                    state_sig='state_raw', state_chan=[])
+                    #j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE',
+                    #                                psth_name='mod', divisor='resp',
+                    #                                state_sig='state_raw', state_chan=[],
+                    #                                njacks=10)
+                    j_s = s
+                    ee = np.zeros(j_s.shape)
+
+                    modelspec.meta['state_mod_m'] = s
+                    modelspec.meta['j_state_mod_m'] = j_s
+                    modelspec.meta['se_state_mod_m'] = ee
+                    
+    modelspec.set_cell(0)
     return {'modelspec': modelspec}
 
 
@@ -1350,12 +1388,19 @@ def save_analysis(destination, recording, modelspec, xfspec=[], figures=[],
 
     base_uri = base_uri if base_uri[-1] == '/' else base_uri + '/'
     xfspec_uri = base_uri + 'xfspec.json'  # For attaching to modelspecs
-
-    for number in range(modelspec.jack_count):
-        m = modelspec.copy()
-        m.jack_index = number
-        set_modelspec_metadata(m, 'xfspec', xfspec_uri)
-        save_resource(base_uri + 'modelspec.{:04d}.json'.format(number), json=m[:])
+    
+    number=0
+    for cc in range(modelspec.cell_count):
+        for ff in range(modelspec.fit_count):
+            for jj in range(modelspec.jack_count):
+                m = modelspec.copy()
+                m.jack_index = jj
+                m.fit_index = ff
+                m.cell_index = cc
+                set_modelspec_metadata(m, 'xfspec', xfspec_uri)
+                set_modelspec_metadata(m, 'shape', modelspec.raw.shape)
+                save_resource(base_uri + 'modelspec.{:04d}.json'.format(number), json=m[:])
+                number+=1
     for number, figure in enumerate(figures):
         fig_uri = base_uri + 'figure.{:04d}.png'.format(number)
         #log.info('saving figure %d to %s', number, fig_uri)
@@ -1481,6 +1526,7 @@ def load_analysis(filepath, eval_model=True, only=None):
             logpath = _path_join(filepath, file)
             with open(logpath) as logfile:
                 logstring = logfile.read()
+    mspaths.sort()  # make sure we're in alphanumeric order!
     ctx = load_modelspecs([], uris=mspaths, IsReload=False)
     ctx['IsReload'] = True
     ctx['figures_to_load'] = figures_to_load

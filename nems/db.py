@@ -739,70 +739,74 @@ def update_results_table(modelspec, preview=None,
     session = Session()
     results_id = None
 
-    cellids = modelspec.meta.get('cellids', [modelspec.meta['cellid']])
-    if ('r_test' in modelspec.meta.keys()) and (len(modelspec.meta['r_test'])<len(cellids)):
-        cellids=cellids[:len(modelspec.meta['r_test'])]
-    for cellid in cellids:
-        batch = modelspec.meta['batch']
-        modelname = modelspec.meta['modelname']
-        r = (
-            session.query(Batches)
-            .filter(Batches.cellid == cellid)
-            .filter(Batches.batch == batch)
-            .first()
-        )
-        if not r:
-            # add cell/batch to Data
-            log.info("Adding (%s/%d) to Batches", cellid, batch)
-            r = Batches()
+    for cellidx in range(modelspec.cell_count):
+        modelspec.cell_index = cellidx
+
+        cellids = modelspec.meta.get('cellids', [modelspec.meta['cellid']])
+        if ('r_test' in modelspec.meta.keys()) and (len(modelspec.meta['r_test'])<len(cellids)):
+            cellids=cellids[:len(modelspec.meta['r_test'])]
+        for cellid in cellids:
+            batch = modelspec.meta['batch']
+            modelname = modelspec.meta['modelname']
+            r = (
+                session.query(Batches)
+                .filter(Batches.cellid == cellid)
+                .filter(Batches.batch == batch)
+                .first()
+            )
+            if not r:
+                # add cell/batch to Data
+                log.info("Adding (%s/%d) to Batches", cellid, batch)
+                r = Batches()
+                r.cellid = cellid
+                r.batch = batch
+                session.add(r)
+
+            r = (
+                session.query(Results)
+                .filter(Results.cellid == cellid)
+                .filter(Results.batch == batch)
+                .filter(Results.modelname == modelname)
+                .first()
+            )
+            collist = ['%s' % (s) for s in Results.__table__.columns]
+            attrs = [s.replace('Results.', '') for s in collist]
+            removals = [
+                'id', 'lastmod'
+            ]
+            for col in removals:
+                attrs.remove(col)
+
+            if not r:
+                r = Results()
+                new_entry = True
+            else:
+                new_entry = False
+
+            if preview:
+                r.figurefile = preview
+            # TODO: This overrides any existing username and labgroup assignment.
+            #       Is this the desired behavior?
+            r.username = username
+            r.public = public
+            if not labgroup == 'SPECIAL_NONE_FLAG':
+                try:
+                    if not labgroup in r.labgroup:
+                        r.labgroup += ', %s' % labgroup
+                except TypeError:
+                    # if r.labgroup is none, can't check if labgroup is in it
+                    r.labgroup = labgroup
+            fetch_meta_data(modelspec, r, attrs, cellid)
+
+            if new_entry:
+                session.add(r)
+
             r.cellid = cellid
-            r.batch = batch
-            session.add(r)
-
-        r = (
-            session.query(Results)
-            .filter(Results.cellid == cellid)
-            .filter(Results.batch == batch)
-            .filter(Results.modelname == modelname)
-            .first()
-        )
-        collist = ['%s' % (s) for s in Results.__table__.columns]
-        attrs = [s.replace('Results.', '') for s in collist]
-        removals = [
-            'id', 'lastmod'
-        ]
-        for col in removals:
-            attrs.remove(col)
-
-        if not r:
-            r = Results()
-            new_entry = True
-        else:
-            new_entry = False
-
-        if preview:
-            r.figurefile = preview
-        # TODO: This overrides any existing username and labgroup assignment.
-        #       Is this the desired behavior?
-        r.username = username
-        r.public = public
-        if not labgroup == 'SPECIAL_NONE_FLAG':
-            try:
-                if not labgroup in r.labgroup:
-                    r.labgroup += ', %s' % labgroup
-            except TypeError:
-                # if r.labgroup is none, can't check if labgroup is in it
-                r.labgroup = labgroup
-        fetch_meta_data(modelspec, r, attrs, cellid)
-
-        if new_entry:
-            session.add(r)
-
-        r.cellid = cellid
-        session.commit()
-        results_id = r.id
+            session.commit()
+            results_id = r.id
 
     session.close()
+    modelspec.cell_index = cellidx
 
     return results_id
 

@@ -2,6 +2,7 @@ import tensorflow as tf
 import logging
 
 from nems.tf import loss_functions
+from nems.utils import lookup_fn_at
 
 log = logging.getLogger(__name__)
 
@@ -97,3 +98,33 @@ class ModelBuilder:
 
         model.compile(optimizer, loss=self.loss_fn, metrics=self.metrics)
         return model
+
+    
+def modelspec2tf(modelspec, seed=0, use_modelspec_init=True, fs=100, 
+                 initializer='random_normal',
+                 freeze_layers=None, kernel_regularizer=None):
+    """
+    Was in nems.modelspec, but this is so tightly coupled to tf libraries that
+    it probably belongs here instead.
+
+    """
+    layers = []
+    if freeze_layers is None:
+        freeze_layers = []
+
+    for i, m in enumerate(modelspec):
+        try:
+            tf_layer = lookup_fn_at(m['tf_layer'])
+        except KeyError:
+            raise NotImplementedError(f'Layer "{m["fn"]}" does not have a tf equivalent.')
+
+        if i in freeze_layers:
+            trainable=False
+        else:
+            trainable=True
+        layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
+                                       initializer=initializer, trainable=trainable,
+                                       kernel_regularizer=kernel_regularizer)
+        layers.append(layer)
+
+    return layers

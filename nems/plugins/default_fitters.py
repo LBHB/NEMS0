@@ -177,8 +177,9 @@ def newtf(fitkey):
     freeze_layers = None
     use_tensorboard = False
     kernel_regularizer = None
-
+    fit_fn = 'nems.tf.cnnlink_new.fit_tf'
     options = _extract_options(fitkey)
+    iters_per_loop = 100
 
     for op in options:
         if op[:1] == 'i' and op != 'iso':
@@ -188,6 +189,12 @@ def newtf(fitkey):
                 max_iter = int(op[1:])
         elif op == 'nlis':
             nl_init = "scipy"
+        elif op.startswith('mc'):
+            # multi-cell_index
+            fit_fn = 'nems.tf.cnnlink_new.fit_tf_iterate'
+            if len(op[2:]) > 0:
+                iters_per_loop = int(op[2:])
+
         elif op[:1] == 'n':
             use_modelspec_init = True
         elif op == 'b':
@@ -257,7 +264,7 @@ def newtf(fitkey):
         'nl_init': nl_init,
         'optimizer': optimizer,
         'cost_function': cost_function,
-        'fit_function': 'nems.tf.cnnlink_new.fit_tf',
+        'fit_function': fit_fn,
         'early_stopping_steps': early_stopping_steps,
         'early_stopping_tolerance': early_stopping_tolerance,
         'early_stopping_val_split': early_stopping_val_split,
@@ -269,6 +276,7 @@ def newtf(fitkey):
         'epoch_name': epoch_name,
         'use_tensorboard': use_tensorboard,
         'kernel_regularizer': kernel_regularizer,
+        'iters_per_loop': iters_per_loop,
         }
     if freeze_layers is not None:
         parm_dict['freeze_layers'] = freeze_layers

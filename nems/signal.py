@@ -1271,14 +1271,14 @@ class RasterizedSignal(SignalBase):
                 raise ValueError('Trying to extract invalid range from signal for epoch (out of bounds or negative duration?).')
         return epoch_data
 
-    def normalize(self, normalization='minmax'):
+    def normalize(self, normalization='minmax', b=None, g=None):
         '''
         Returns a copy of this signal with each channel normalized to have a
         mean of 0 and standard deviation of 1.
         '''
         m = self._data * self.norm_gain + self.norm_baseline
-
-        m_normed, b, g = _normalize_data(m, normalization)
+        
+        m_normed, b, g = _normalize_data(m, normalization, d=b, g=g)
         sig = self._modified_copy(m_normed)
         sig.normalization = normalization
         sig.norm_baseline = b
@@ -2995,9 +2995,12 @@ def _merge_epochs(signals):
     return pd.concat(epochs, ignore_index=True)
 
 
-def _normalize_data(data, normalization='minmax'):
+def _normalize_data(data, normalization='minmax', d=None, g=None):
 
-    if normalization == 'none':
+    if (d is not None) and (g is not None):
+        data_out = (data - d) / g
+        
+    elif normalization == 'none':
         d = np.zeros([data.shape[0], 1])
         g = np.ones([data.shape[0], 1])
         return data, d, g
@@ -3022,6 +3025,6 @@ def _normalize_data(data, normalization='minmax'):
         data_out = (data - d) / g
 
     else:
-        raise ValueError('normalization format unknown')
+        raise ValueError(f'Signal normalization format {normalization} unknown')
 
     return data_out, d, g

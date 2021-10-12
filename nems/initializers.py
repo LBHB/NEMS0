@@ -21,13 +21,16 @@ log = logging.getLogger(__name__)
 #default_kws.register_plugins(get_setting('KEYWORD_PLUGINS'))
 
 
-def from_keywords(keyword_string, registry=None, rec=None, meta={},
+def from_keywords(keyword_string, registry=None, rec=None, meta={}, rec_list=None, branch_at=0,
                   init_phi_to_mean_prior=True, input_name='stim', output_name='resp'):
     '''
     Returns a modelspec created by splitting keyword_string on underscores
     and replacing each keyword with what is found in the nems.keywords.defaults
     registry. You may provide your own keyword registry using the
     registry={...} argument.
+    
+    rec_list : if not None, should be a list of recordings. This will generate modelspec with multiple cells, 
+    branching at branch_at
     '''
 
     if registry is None:
@@ -36,150 +39,149 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={},
     keywords = keyword_string.split('-')
 
     # Lookup the modelspec fragments in the registry
-    modelspec = ms.ModelSpec()
-    for kw in keywords:
-        if (kw.startswith("fir.Nx") or kw.startswith("wc.Nx")) and \
-                (rec is not None):
-            N = rec[input_name].nchans
-            kw_old = kw
-            kw = kw.replace(".N", ".{}".format(N))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
-        elif kw.startswith("stategain.N") and (rec is not None):
-            N = rec['state'].nchans
-            kw_old = kw
-            kw = kw.replace("stategain.N", "stategain.{}".format(N))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
-        elif (kw.endswith(".N")) and (rec is not None):
-            N = rec[input_name].nchans
-            kw_old = kw
-            kw = kw.replace(".N", ".{}".format(N))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
-        elif (kw.endswith(".cN")) and (rec is not None):
-            N = rec[input_name].nchans
-            kw_old = kw
-            kw = kw.replace(".cN", ".c{}".format(N))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+    if rec_list is None:
+        rec_list=[rec]
+    cell_count = len(rec_list)
 
-        elif (kw.endswith("xN")) and (rec is not None):
-            N = rec[input_name].nchans
-            kw_old = kw
-            kw = kw.replace("xN", "x{}".format(N))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+    modelspec = ms.ModelSpec(cell_count=cell_count)
+    for cell_index, _rec in enumerate(rec_list):
+        modelspec.cell_index = cell_index
+        shared_modules = []
+        for kw in keywords:
+            shared = True
+            if (kw.startswith("fir.Nx") or kw.startswith("wc.Nx")) and \
+                    (_rec is not None):
+                N = _rec[input_name].nchans
+                kw_old = kw
+                kw = kw.replace(".N", ".{}".format(N))
+                log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+            elif kw.startswith("stategain.N") and (_rec is not None):
+                N = _rec['state'].nchans
+                kw_old = kw
+                kw = kw.replace("stategain.N", "stategain.{}".format(N))
+                log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+            elif (kw.endswith(".N")) and (_rec is not None):
+                N = _rec[input_name].nchans
+                kw_old = kw
+                kw = kw.replace(".N", ".{}".format(N))
+                log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+            elif (kw.endswith(".cN")) and (_rec is not None):
+                N = _rec[input_name].nchans
+                kw_old = kw
+                kw = kw.replace(".cN", ".c{}".format(N))
+                log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        elif ("xN" in kw) and (rec is not None):
-            N = rec[input_name].nchans
-            kw_old = kw
-            kw = kw.replace("xN", "x{}".format(N))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+            elif (kw.endswith("xN")) and (_rec is not None):
+                N = _rec[input_name].nchans
+                kw_old = kw
+                kw = kw.replace("xN", "x{}".format(N))
+                log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        if (".S" in kw or ".Sx" in kw) and (rec is not None):
-            S = rec['state'].nchans
-            kw_old = kw
-            kw = kw.replace(".S", ".{}".format(S))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+            elif ("xN" in kw) and (_rec is not None):
+                N = _rec[input_name].nchans
+                kw_old = kw
+                kw = kw.replace("xN", "x{}".format(N))
+                log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        if ("xS" in kw) and (rec is not None):
-            S = rec['state'].nchans
-            kw_old = kw
-            kw = kw.replace("xS", "x{}".format(S))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+            if (".S" in kw or ".Sx" in kw) and (_rec is not None):
+                S = _rec['state'].nchans
+                kw_old = kw
+                kw = kw.replace(".S", ".{}".format(S))
+                log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        if (".R" in kw) and (rec is not None):
-            R = rec[output_name].nchans
-            kw_old = kw
-            kw = kw.replace(".R", ".{}".format(R))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+            if ("xS" in kw) and (_rec is not None):
+                S = _rec['state'].nchans
+                kw_old = kw
+                kw = kw.replace("xS", "x{}".format(S))
+                log.info("kw: dynamically subbing %s with %s", kw_old, kw)
 
-        if ("xR" in kw) and (rec is not None):
-            R = rec[output_name].nchans
-            kw_old = kw
-            kw = kw.replace("xR", "x{}".format(R))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+            if (".R" in kw) and (_rec is not None):
+                R = _rec[output_name].nchans
+                kw_old = kw
+                kw = kw.replace(".R", ".{}".format(R))
+                log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+                shared = False  #  "R" means output-dependent
+            if ("xR" in kw) and (_rec is not None):
+                R = _rec[output_name].nchans
+                kw_old = kw
+                kw = kw.replace("xR", "x{}".format(R))
+                log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+                shared = False  #  "R" means output-dependent
 
-        other_xr = re.findall(r"[x\.]?[0-9]+[R]", kw)
-        if bool(other_xr):
-            R = rec[output_name].nchans
-            kw_old = kw
-            digits = int(re.findall("[0-9]+", other_xr[0])[0])
-            kw = kw.replace("{}R".format(digits), "{}".format(digits*R))
-            log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+            other_xr = re.findall(r"[x\.]?[0-9]+[R]", kw)
+            if bool(other_xr):
+                R = _rec[output_name].nchans
+                kw_old = kw
+                digits = int(re.findall("[0-9]+", other_xr[0])[0])
+                kw = kw.replace("{}R".format(digits), "{}".format(digits*R))
+                log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+                shared = False  #  "R" means output-dependent
 
-        # if (("x2R" in kw) or (".2R" in kw)) and (rec is not None):
-        #     R = rec[output_name].nchans
-        #     kw_old = kw
-        #     kw = kw.replace("2R", "{}".format(2*R))
-        #     log.info("kw: dynamically subbing %s with %s", kw_old, kw)
-        #
-        # if (("x3R" in kw) or (".3R" in kw)) and (rec is not None):
-        #     R = rec[output_name].nchans
-        #     kw_old = kw
-        #     kw = kw.replace("3R", "{}".format(3*R))
-        #     log.info("kw: dynamically subbing %s with %s", kw_old, kw)
-        #
-        # if (("x4R" in kw) or (".4R" in kw)) and (rec is not None):
-        #     R = rec[output_name].nchans
-        #     kw_old = kw
-        #     kw = kw.replace("4R", "{}".format(4*R))
-        #     log.info("kw: dynamically subbing %s with %s", kw_old, kw)
+            log.info('kw: %s', kw)
+            shared_modules.append(shared)
+            if registry.kw_head(kw) not in registry:
+                raise ValueError("unknown keyword: {}".format(kw))
 
-        log.info('kw: %s', kw)
+            templates = copy.deepcopy(registry[kw])
+            if not isinstance(templates, list):
+                templates = [templates]
+            for d in templates:
+                d['id'] = kw
+                if init_phi_to_mean_prior:
+                    d = priors.set_mean_phi([d])[0]  # Inits phi for 1 module
+                modelspec.append(d)
+        shared_modules[-1]=False
+        shared_modules=np.array(shared_modules)
+        shared_count = np.min(np.where(shared_modules==False)[0])
+        modelspec.shared_count = shared_count
 
-        if registry.kw_head(kw) not in registry:
-            raise ValueError("unknown keyword: {}".format(kw))
-
-        templates = copy.deepcopy(registry[kw])
-        if not isinstance(templates, list):
-            templates = [templates]
-        for d in templates:
-            d['id'] = kw
-            if init_phi_to_mean_prior:
-                d = priors.set_mean_phi([d])[0]  # Inits phi for 1 module
-            modelspec.append(d)
-
-    # first module that takes input='pred' should take ctx['input_name']
-    # instead. can't hard-code in keywords, since we don't know which
-    # keyword will be first. and can't assume that it will be module[0]
-    # because those might be state manipulations
-    first_input_found = False
-    i = 0
-    while (not first_input_found) and (i < len(modelspec)):
-        if ('i' in modelspec[i]['fn_kwargs'].keys()) and (modelspec[i]['fn_kwargs']['i'] == 'pred'):
-            log.info("Setting modelspec[%d] input to %s", i, input_name)
-            modelspec[i]['fn_kwargs']['i'] = input_name
-            """ OLD
-            if input_name != 'stim':
+        # first module that takes input='pred' should take ctx['input_name']
+        # instead. can't hard-code in keywords, since we don't know which
+        # keyword will be first. and can't assume that it will be module[0]
+        # because those might be state manipulations
+        first_input_found = False
+        i = 0
+        while (not first_input_found) and (i < len(modelspec)):
+            if ('i' in modelspec[i]['fn_kwargs'].keys()) and (modelspec[i]['fn_kwargs']['i'] == 'pred'):
+                log.info("Setting modelspec[%d] input to %s", i, input_name)
                 modelspec[i]['fn_kwargs']['i'] = input_name
-            elif 'state' in modelspec[i]['fn']:
-                modelspec[i]['fn_kwargs']['i'] = 'psth'
-            else:
-                modelspec[i]['fn_kwargs']['i'] = input_name
-            """
+                """ OLD
+                if input_name != 'stim':
+                    modelspec[i]['fn_kwargs']['i'] = input_name
+                elif 'state' in modelspec[i]['fn']:
+                    modelspec[i]['fn_kwargs']['i'] = 'psth'
+                else:
+                    modelspec[i]['fn_kwargs']['i'] = input_name
+                """
 
-            # 'i' key found
-            first_input_found = True
-        i += 1
+                # 'i' key found
+                first_input_found = True
+            i += 1
 
-    # insert metadata, if provided
-    if rec is not None:
-        if 'cellids' in meta.keys():
-            # cellids list already exists. keep it.
-            pass
-        elif 'cellid' in meta.keys():
-            meta['cellids'] = [meta['cellid']]
-        elif ((rec['resp'].shape[0] > 1) and (type(rec.meta['cellid']) is list)):
-            # guess cellids list from rec.meta
-            meta['cellids'] = rec.meta['cellid']
+        # insert metadata, if provided
+        if _rec is not None:
+            if 'cellids' in meta.keys():
+                # cellids list already exists. keep it.
+                pass
+            elif ((_rec['resp'].shape[0] > 1) and (type(_rec.meta['cellid']) is list)):
+                # guess cellids list from rec.meta
+                meta['cellids'] = _rec.meta['cellid']
+            elif 'cellid' in meta.keys():
+                meta['cellids'] = [meta['cellid']]
 
-    meta['input_name'] = input_name
-    meta['output_name'] = output_name
+        meta['input_name'] = input_name
+        meta['output_name'] = output_name
 
-    # for modelspec object, we know that meta must exist, so just update
-    modelspec.meta.update(meta)
+        # for modelspec object, we know that meta must exist, so just update
+        modelspec.meta.update(meta)
 
-    if modelspec.meta.get('modelpath') is None:
-        destination = get_default_savepath(modelspec)
-        modelspec.meta['modelpath'] = destination
-        modelspec.meta['figurefile'] = os.path.join(destination,'figure.0000.png')
+        if modelspec.meta.get('modelpath') is None:
+            destination = get_default_savepath(modelspec)
+            modelspec.meta['modelpath'] = destination
+            modelspec.meta['figurefile'] = os.path.join(destination,'figure.0000.png')
+        del meta['cellids']
+    modelspec.cell_index=0
+        
     return modelspec
 
 
@@ -824,10 +826,10 @@ def modelspec_remove_input_layers(modelspec, rec, remove_count=0):
                 raw_trunc[i_,j_,k_] = modelspec.raw[i_,j_,k_][remove_count:]
                 raw_trunc[i_,j_,k_][0]['fn_kwargs']['i'] = "stim"
 
-    raw_trunc[0,0,0][0]['meta'] = modelspec.meta.copy()
+        raw_trunc[i_,0,0][0]['meta'] = copy.deepcopy(modelspec.raw[i_,0,0][0]['meta'])
     
-    modelspec_trunc = ms.ModelSpec(raw=raw_trunc)
-
+    modelspec_trunc = ms.ModelSpec(raw=raw_trunc, cell_count=modelspec.cell_count, cell_index=modelspec.cell_index)
+    
     return modelspec_trunc, rec_trunc
 
 
@@ -838,7 +840,7 @@ def modelspec_restore_input_layers(modelspec_trunc, rec_trunc, modelspec_origina
     restore_stop = len(modelspec_original)
     restore_start = restore_stop - len(modelspec_trunc)
     
-    log.info(f"updating modules {restore_start} to {restore_stop} in modelspec_original")
+    log.info(f"Updating modules {restore_start} to {restore_stop} in modelspec_original")
     
     modelspec_restored = modelspec_original.copy()
     for i_ in range(modelspec_restored.raw.shape[0]):
@@ -847,7 +849,7 @@ def modelspec_restore_input_layers(modelspec_trunc, rec_trunc, modelspec_origina
                 for r in range(restore_stop-restore_start):
                     modelspec_restored.raw[i_,j_,k_][r+restore_start] = modelspec_trunc.raw[i_,j_,k_][r]
                 modelspec_restored.raw[i_,j_,k_][restore_start]['fn_kwargs']['i'] = "pred"
-    
+
     # return recording to normal. maybe unnecessary, since original rec should have been saved?
     input_name = modelspec_trunc.meta['input_name']
     rec_restored = rec_trunc.copy()
@@ -856,6 +858,53 @@ def modelspec_restore_input_layers(modelspec_trunc, rec_trunc, modelspec_origina
     rec_restored = modelspec_restored.evaluate(rec_restored)
     
     return modelspec_restored, rec_restored
+
+def modelspec_slice_output_layers(modelspec, rec, slice_channels, slice_at=-1):
+    """
+    Tweak the model to predict a subset of the response, for multi-dataset fitting
+    return the modified rec as well.
+    
+    slice_at : start slicing at layer slice_at (default -1 means last layer)
+    """
+    input_name = modelspec.meta['input_name']
+    output_name = modelspec.meta['output_name']
+    output_count_old = rec[output_name].shape[0]
+    output_count_new = len(slice_channels)
+
+    if output_count_new == output_count_old:
+        log.info('modelspec_slice_output_layers doing nothing')
+        rec.signals['saved_input'] = rec[output_name].copy()
+
+        return modelspec.copy(), rec
+    
+    if slice_at<0:
+        slice_at = len(modelspec)+slice_at
+        
+    # generate recording starting at layer remove_count
+
+    
+    modelspec_dropped = modelspec.copy()
+    for i in range(dropcount):
+        modelspec_dropped.drop_module(in_place=True)
+
+    rec_trunc = modelspec_dropped.evaluate(rec.copy(), stop=remove_count)
+    rec_trunc.signals['saved_input'] = rec_trunc[input_name].copy()
+    rec_trunc.signals[input_name] = rec_trunc["pred"]._modified_copy(data=rec_trunc["pred"]._data.copy())
+
+    raw_trunc = copy.deepcopy(modelspec.raw)
+    for i_ in range(raw_trunc.shape[0]):
+        for j_ in range(raw_trunc.shape[1]):
+            for k_ in range(raw_trunc.shape[2]):
+                raw_trunc[i_,j_,k_] = modelspec.raw[i_,j_,k_][remove_count:]
+                raw_trunc[i_,j_,k_][0]['fn_kwargs']['i'] = "stim"
+
+    raw_trunc[0,0,0][0]['meta'] = modelspec.meta.copy()
+    
+    modelspec_sliced = ms.ModelSpec(raw=raw_trunc)
+
+    return modelspec_sliced, rec_sliced
+
+
 
 
 def init_dexp(rec, modelspec, nl_mode=2, override_target_i=None):
