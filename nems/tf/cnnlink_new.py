@@ -473,7 +473,8 @@ def fit_tf_iterate(modelspec,
                    est_list: list,
                    early_stopping_tolerance: float = 5e-4,
                    max_iter: int = 10000,
-                   iters_per_loop = None,
+                   iters_per_loop: typing.Union[None, int] = None,
+                   freeze_layers: typing.Union[None, list] = None,
                    IsReload: bool = False,
                    **context
                 ) -> dict:
@@ -486,11 +487,14 @@ def fit_tf_iterate(modelspec,
         return {}
     if iters_per_loop is None:
         iters_per_loop = int(max_iter/100)
+
     elif iters_per_loop == 0:
         iters_per_loop = max_iter
+        freeze_layers = list(range(modelspec.shared_count))
 
     n_outer_loops = int(max_iter/iters_per_loop)
 
+    log.info(f"**** fit_tf_iterate, STARTING STAGE 1: iterate fits")
     outer_n = 0
     done = False
     previous_losses = np.ones(modelspec.cell_count)
@@ -504,6 +508,7 @@ def fit_tf_iterate(modelspec,
 
             modelspec = fit_tf(modelspec, est, max_iter=iters_per_loop,
                                early_stopping_tolerance=early_stopping_tolerance,
+                               freeze_layers=freeze_layers,
                                **context)['modelspec']
 
             epoch_counts.append(modelspec.meta['n_epochs'])
@@ -519,16 +524,31 @@ def fit_tf_iterate(modelspec,
                                     copy.deepcopy(modelspec[_modidx]['phi'])
         log.info(f"**** fit_tf_iterate, outer n={outer_n} complete")
         log.info(f"**** epoch_counts={epoch_counts}, losses={losses}")
-        mean_delta_loss = np.mean(previous_losses-np.array(losses))
+        max_delta_loss = np.max(previous_losses-np.array(losses))
         previous_losses = np.array(losses)
-        log.info(f"**** mean_delta_loss={mean_delta_loss}")
+        log.info(f"**** max_delta_loss={max_delta_loss}")
 
         outer_n += 1
-        if mean_delta_loss < early_stopping_tolerance:
+        if max_delta_loss < early_stopping_tolerance:
             done = True
         if np.max(epoch_counts) < 6:
             done = True
+
+    log.info(f"**** fit_tf_iterate, STARTING STAGE 2: fit branches")
+    iters_per_loop2 = max_iter
+    freeze_layers2 = list(range(modelspec.shared_count))
+    for cell_idx in range(modelspec.cell_count):
+        log.info(f"**** fit_tf_iterate, outer n={outer_n} cell_index={cell_idx}")
+        est = est_list[cell_idx]
+        modelspec.cell_index = cell_idx
+
+        modelspec = fit_tf(modelspec, est, max_iter=iters_per_loop2,
+                           early_stopping_tolerance=early_stopping_tolerance,
+                           freeze_layers=freeze_layers2,
+                           **context)['modelspec']
+
     modelspec.cell_index = 0
+
     return {'modelspec': modelspec}
 
 
