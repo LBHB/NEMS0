@@ -1147,11 +1147,12 @@ def save_recordings(modelspec, est, val, **context):
     return {'modelspec': modelspec}
 
 
-def predict(modelspec, est, val, jackknifed_fit=False, **context):
+def predict(modelspec, est, val, jackknifed_fit=False, use_mask=True, **context):
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
     # TODO: Add statistics to metadata of every modelspec
 
-    est, val = nems.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
+    est, val = nems.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit,
+                                                     use_mask=use_mask)
     modelspec.recording = val
 
     return {'val': val, 'est': est, 'modelspec': modelspec}
@@ -1226,9 +1227,10 @@ def add_summary_statistics(est, val, modelspec, fn='standard_correlation',
 
     return {'modelspec': modelspec}
 
-def add_summary_statistics_by_condition(est,val,modelspec,evaluation_conditions,rec=None,**context):
+def add_summary_statistics_by_condition(est, val, modelspec, evaluation_conditions, rec=None,
+                                        use_mask=True, **context):
     modelspec = na.api.standard_correlation_by_epochs(est,val,modelspec=modelspec,
-            epochs_list=evaluation_conditions,rec=rec)
+            epochs_list=evaluation_conditions,rec=rec, use_mask=use_mask)
     return {'modelspec': modelspec}
 
 def plot_summary(modelspec, val, figures=None, IsReload=False,
