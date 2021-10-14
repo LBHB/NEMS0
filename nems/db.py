@@ -1227,9 +1227,9 @@ def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test', join_how
                       'parm100pt_wcg02_fir15_stategain_fit01_nested5'
                       ]
     if type(batch) is int:
-        batches=[batch]
+        batches = [batch]
     elif type(batch) is list:
-        batches=batch.copy()
+        batches = batch.copy()
     else:
         raise ValueError(f"batch must be integer or list of integers")
     session = Session()

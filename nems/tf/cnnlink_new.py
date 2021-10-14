@@ -720,7 +720,7 @@ def fit_tf_init(
                         elif isolate_NL:
                             log.info('Running second init fit: all frozen but static nl.')
                             static_nl_idx_not = list(set(range(len(modelspec))) - set([idx]))
-                        elif modelspec.cell_count>0:
+                        elif modelspec.cell_count>1:
                             log.info(f'Titan model: freezing first {modelspec.shared_count} layers.')
                             static_nl_idx_not = list(range(modelspec.shared_count))
                         else:
