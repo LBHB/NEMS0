@@ -1690,18 +1690,21 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     return newrec
 
 
-def concatenate_state_channel(rec, sig, state_signal_name='state'):
+def concatenate_state_channel(rec, sig, state_signal_name='state', generate_baseline=True):
 
     newrec = rec.copy()
 
-    if state_signal_name not in rec.signals.keys():
-        # create an initial state signal of all ones for baseline
-        x = np.ones([1, sig.shape[1]])
-        ones_sig = sig._modified_copy(x)
-        ones_sig.name = "baseline"
-        ones_sig.chans = ["baseline"]
-
-        state_sig_list = [ones_sig]
+    if (state_signal_name not in rec.signals.keys()):
+        if generate_baseline:
+            # create an initial state signal of all ones for baseline
+            x = np.ones([1, sig.shape[1]])
+            ones_sig = sig._modified_copy(x)
+            ones_sig.name = "baseline"
+            ones_sig.chans = ["baseline"]
+    
+            state_sig_list = [ones_sig]
+        else:
+            state_sig_list=[]
     else:
         # start with existing state signal
         state_sig_list = [rec[state_signal_name]]
@@ -1908,3 +1911,11 @@ def mask_est_val_for_jackknife_by_time(rec, modelspec=None,
             raise ValueError('modelspec.jack_count must be 1 or njacks')
 
     return est, val, modelspec_out
+
+def shuffle(sigs, recs=['est','val'], ** context):  
+    for r in recs:
+        for i,sig in enumerate(sigs):
+            context[r][sig]=context[r][sig].shuffle_time(rand_seed=i,mask=context[r]['mask'])
+    
+    return context
+    
