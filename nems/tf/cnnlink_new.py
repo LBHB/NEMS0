@@ -90,6 +90,7 @@ def compare_ms_tf(ms, model, rec_ms, train_data):
     which may include state data."""
 
     pred_tf = model.predict(train_data)
+    #import pdb; pdb.set_trace()
     pred_ms = np.swapaxes(ms.evaluate(rec_ms.apply_mask())['pred']._data, 0, 1).reshape(pred_tf.shape)
 
     # for idx, layer in enumerate(model.layers[1:]):
@@ -236,15 +237,11 @@ def fit_tf(
     # update seed based on fit index
     seed += modelspec.fit_index
 
-    # need to get duration of stims in order to reshape data
-    #epoch_name = 'REFERENCE'  # TODO: this should not be hardcoded
-    # moved to input parameter
-
     if (freeze_layers is not None) and len(freeze_layers) and (len(freeze_layers)==freeze_layers[-1]+1):
         log.info("Special case of freezing: truncating model!!!")
         truncate_model=True
-        #modelspec_trunc, rec_trunc = modelspec_remove_input_layers(modelspec, rec, remove_count=0)
-        modelspec_trunc, est_trunc = initializers.modelspec_remove_input_layers(modelspec, est, remove_count=len(freeze_layers))
+        modelspec_trunc, est_trunc = \
+            initializers.modelspec_remove_input_layers(modelspec, est, remove_count=len(freeze_layers))
         modelspec_original = modelspec
         est_original = est
         modelspec = modelspec_trunc
@@ -293,9 +290,11 @@ def fit_tf(
 
     # get the layers and build the model
     cost_fn = loss_functions.get_loss_fn(cost_function)
-    model_layers = modelspec.modelspec2tf2(use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
-                                           initializer=initializer, freeze_layers=freeze_layers,
-                                           kernel_regularizer=kernel_regularizer)
+    model_layers = modelbuilder.modelspec2tf(
+        modelspec, use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
+        initializer=initializer, freeze_layers=freeze_layers,
+        kernel_regularizer=kernel_regularizer)
+    
     if np.any([isinstance(layer, Conv2D_NEMS) for layer in model_layers]):
         # need a "channel" dimension for Conv2D (like rgb channels, not frequency). Only 1 channel for our data.
         stim_train = stim_train[..., np.newaxis]
@@ -416,8 +415,8 @@ def fit_tf(
         log.info("Special case of freezing: restoring truncated model!!!")
         #modelspec_restored, rec_restored = modelspec_restore_input_layers(modelspec_trunc, rec_trunc, modelspec_original)
         modelspec_restored, est_restored = initializers.modelspec_restore_input_layers(modelspec, est, modelspec_original)
-        est=est_original
-        modelspec=modelspec_restored
+        est = est_original
+        modelspec = modelspec_restored
 
     # debug: dump modelspec parameters
     #for i in range(len(modelspec)):
@@ -469,10 +468,94 @@ def fit_tf(
 
     return {'modelspec': modelspec}
 
+def fit_tf_iterate(modelspec,
+                   est: recording.Recording,
+                   est_list: list,
+                   early_stopping_tolerance: float = 5e-4,
+                   max_iter: int = 10000,
+                   iters_per_loop: typing.Union[None, int] = None,
+                   freeze_layers: typing.Union[None, list] = None,
+                   IsReload: bool = False,
+                   **context
+                ) -> dict:
+    """
+    wrapper for fit_tf that can handle est_list and modelspec.cell_count>1
+
+    :return:
+    """
+    if IsReload:
+        return {}
+    if iters_per_loop is None:
+        iters_per_loop = int(max_iter/100)
+
+    elif iters_per_loop == 0:
+        iters_per_loop = max_iter
+        freeze_layers = list(range(modelspec.shared_count))
+
+    n_outer_loops = int(max_iter/iters_per_loop)
+
+    log.info(f"**** fit_tf_iterate, STARTING STAGE 1: iterate fits")
+    outer_n = 0
+    done = False
+    previous_losses = np.ones(modelspec.cell_count)
+    while (outer_n < n_outer_loops) and (not done):
+        epoch_counts = []
+        losses = []
+        for cell_idx in range(modelspec.cell_count):
+            log.info(f"**** fit_tf_iterate, outer n={outer_n} cell_index={cell_idx}")
+            est = est_list[cell_idx]
+            modelspec.cell_index = cell_idx
+
+            modelspec = fit_tf(modelspec, est, max_iter=iters_per_loop,
+                               early_stopping_tolerance=early_stopping_tolerance,
+                               freeze_layers=freeze_layers,
+                               **context)['modelspec']
+
+            epoch_counts.append(modelspec.meta['n_epochs'])
+            losses.append(modelspec.meta['loss'])
+
+            if (modelspec.shared_count > 0):
+                log.info(f'copying first {modelspec.shared_count} mods from modelspec cell_index {modelspec.cell_index}')
+                for cell_idx in range(modelspec.cell_count):
+                    if cell_idx != modelspec.cell_index:
+                        for _modidx in range(modelspec.shared_count):
+                            if 'phi' in modelspec[_modidx].keys():
+                                modelspec.raw[cell_idx, modelspec.fit_index, modelspec.jack_index][_modidx]['phi'] = \
+                                    copy.deepcopy(modelspec[_modidx]['phi'])
+        log.info(f"**** fit_tf_iterate, outer n={outer_n} complete")
+        log.info(f"**** epoch_counts={epoch_counts}, losses={losses}")
+        max_delta_loss = np.max(previous_losses-np.array(losses))
+        previous_losses = np.array(losses)
+        log.info(f"**** max_delta_loss={max_delta_loss}")
+
+        outer_n += 1
+        if max_delta_loss < early_stopping_tolerance:
+            done = True
+        if np.max(epoch_counts) < 6:
+            done = True
+
+    log.info(f"**** fit_tf_iterate, STARTING STAGE 2: fit branches")
+    iters_per_loop2 = max_iter
+    freeze_layers2 = list(range(modelspec.shared_count))
+    for cell_idx in range(modelspec.cell_count):
+        log.info(f"**** fit_tf_iterate, outer n={outer_n} cell_index={cell_idx}")
+        est = est_list[cell_idx]
+        modelspec.cell_index = cell_idx
+
+        modelspec = fit_tf(modelspec, est, max_iter=iters_per_loop2,
+                           early_stopping_tolerance=early_stopping_tolerance,
+                           freeze_layers=freeze_layers2,
+                           **context)['modelspec']
+
+    modelspec.cell_index = 0
+
+    return {'modelspec': modelspec}
+
 
 def fit_tf_init(
         modelspec,
         est: recording.Recording,
+        est_list: typing.Union[None, list] = None,
         nl_init: str = 'tf',
         IsReload: bool = False,
         isolate_NL: bool = False,
@@ -495,6 +578,10 @@ def fit_tf_init(
             return next(i for i, string in enumerate(strings) if substring in string)
         except StopIteration:
             return None
+
+    modelspec.cell_index = 0
+    if est_list is None:
+        est_list=[est]
 
     # find the first 'lvl' or last 'relu'
     ms_modules = [ms['fn'] for ms in modelspec]
@@ -520,35 +607,46 @@ def fit_tf_init(
     freeze_idxes = []
 
     # make a temp modelspec
-    temp_ms = mslib.ModelSpec()
-    log.info('Creating temporary model for init with:')
-    output_name = modelspec.meta.get('output_name', 'resp')
-    try:
-        mean_resp = np.nanmean(est[output_name].as_continuous(), axis=1, keepdims=True)
-    except NotImplementedError:
-        # as_continuous only available for RasterizedSignal
-        mean_resp = np.nanmean(est[output_name].rasterize().as_continuous(), axis=1, keepdims=True)
-    mean_added = False
-    for idx in init_idxes:
-        # TODO: handle 'merge_channels'
-        ms = copy.deepcopy(modelspec[idx])
-        log.info(f'{ms["fn"]}')
+    log.info('Creating temporary model for init')
+    temp_ms = mslib.ModelSpec(cell_count=modelspec.cell_count)
+    temp_ms.shared_count = modelspec.shared_count
+    for cell_idx in range(modelspec.cell_count):
+        modelspec.cell_index = cell_idx
+        temp_ms.cell_index = cell_idx
+        est = est_list[cell_idx]
 
-        # fix dc to mean_resp if present
-        if (not mean_added) and (idx == init_idxes[-1]) and \
-                ('levelshift' in ms['fn']) and (len(ms['phi']['level']) == len(mean_resp)):
-            log.info(f'Fixing "{ms["fn"]}" to: {mean_resp.flatten()[0]:.3f}')
-            ms['phi']['level'][:] = mean_resp
-            mean_added = True
-        elif (not mean_added) and ('state_dc' in ms['fn']) and \
-                (ms['phi']['d'].shape[0] == len(mean_resp)):
-            log.info(f'Fixing "{ms["fn"]}[d][:,0]" to mean_resp')
-            ms['phi']['d'][:, [0]] = mean_resp
-            mean_added = True
+        output_name = modelspec.meta.get('output_name', 'resp')
+        try:
+            mean_resp = np.nanmean(est[output_name].as_continuous(), axis=1, keepdims=True)
+        except NotImplementedError:
+            # as_continuous only available for RasterizedSignal
+            mean_resp = np.nanmean(est[output_name].rasterize().as_continuous(), axis=1, keepdims=True)
+        mean_added = False
 
-        temp_ms.append(ms)
-        if any(fr in ms['fn'] for fr in freeze):
-            freeze_idxes.append(len(temp_ms)-1)
+        for idx in init_idxes:
+            # TODO: handle 'merge_channels'
+            ms = copy.deepcopy(modelspec[idx])
+            log.info(f'{ms["fn"]}')
+
+            # fix dc to mean_resp if present
+            if (not mean_added) and (idx == init_idxes[-1]) and \
+                    ('levelshift' in ms['fn']) and (len(ms['phi']['level']) == len(mean_resp)):
+                log.info(f'Fixing "{ms["fn"]}" to: {mean_resp.flatten()[0]:.3f}')
+                ms['phi']['level'][:] = mean_resp
+                mean_added = True
+            elif (not mean_added) and ('state_dc' in ms['fn']) and \
+                    (ms['phi']['d'].shape[0] == len(mean_resp)):
+                log.info(f'Fixing "{ms["fn"]}[d][:,0]" to mean_resp')
+                ms['phi']['d'][:, [0]] = mean_resp
+                mean_added = True
+
+            temp_ms.append(ms)
+            if any(fr in ms['fn'] for fr in freeze):
+                freeze_idxes.append(len(temp_ms)-1)
+
+    # important to reset cell_index to zero???
+    est=est_list[0]
+    temp_ms.cell_index = 0
 
     log.info('Running first init fit: model up to first lvl/relu without stp/gain.')
     log.debug('freeze_idxes: %s', freeze_idxes)
@@ -560,60 +658,79 @@ def fit_tf_init(
         force_freeze = None
     if force_freeze is not None:
         freeze_idxes = list(set(force_freeze + freeze_idxes))  # but also need to take union with freeze_idxes
-    temp_ms = fit_tf(temp_ms, est, freeze_layers=freeze_idxes, filepath=filepath, **kwargs)['modelspec']
-
-    # put back into original modelspec
-    for ms_idx, temp_ms_module in zip(init_idxes, temp_ms):
-        modelspec[ms_idx] = temp_ms_module
-
-    if nl_init == 'skip':
-        return {'modelspec': modelspec}
-
-    elif nl_init == 'scipy':
-        # pre-fit static NL if it exists
-        _d = init_static_nl(est=est, modelspec=modelspec)
-        modelspec = _d['modelspec']
-        # TODO : Initialize relu in some intelligent way?
-
-        log.info('finished fit_tf_init, fit_idx=%d/%d', modelspec.fit_index + 1, modelspec.fit_count)
-        return {'modelspec': modelspec}
+    if modelspec.cell_count>1:
+        temp_ms = fit_tf_iterate(temp_ms, est, est_list=est_list, freeze_layers=freeze_idxes, filepath=filepath, **kwargs)['modelspec']
     else:
-        # init the static nl
-        init_static_nl_mapping = {
-            'double_exponential': initializers.init_dexp,
-            'relu': None,
-            'logistic_sigmoid': initializers.init_logsig,
-            'saturated_rectifier': initializers.init_relsat,
-        }
-        # first find the first occurrence of a static nl in last two layers
-        # if present, remove it from the idxes of the modules to freeze, init the nl and fit, and return the modelspec
-        for idx, ms in enumerate(modelspec[-2:], len(modelspec)-2):
-            for init_static_layer, init_fn in init_static_nl_mapping.items():
-                if init_static_layer in ms['fn']:
-                    log.info(f'Initializing static nl "{ms["fn"]}" at layer #{idx}')
-                    # relu has a custom init
-                    if init_static_layer == 'relu':
-                        ms['phi']['offset'][:] = -0.1
-                    else:
-                        modelspec = init_fn(est, modelspec, nl_mode=4)
+        temp_ms = fit_tf(temp_ms, est, est_list=est_list, freeze_layers=freeze_idxes, filepath=filepath, **kwargs)['modelspec']
 
-                    if isolate_NL:
-                        static_nl_idx_not = list(set(range(len(modelspec))) - set([idx]))
-                        log.info('Running second init fit: all frozen but static nl.')
-                    else:
-                        if force_freeze is None:
-                            static_nl_idx_not = []
+    for cell_idx in range(temp_ms.cell_count):
+        modelspec.cell_index = cell_idx
+        temp_ms.cell_index = cell_idx
+        est = est_list[cell_idx]
+
+        # put back into original modelspec
+        meta_save = modelspec.meta.copy()
+        for ms_idx, temp_ms_module in zip(init_idxes, temp_ms):
+            modelspec[ms_idx] = temp_ms_module
+        modelspec.meta.update(meta_save)
+
+        if nl_init == 'skip':
+            pass
+            # to support multiple cell_indexes, don't return here,
+            # wait til done looping instead
+            #return {'modelspec': modelspec}
+
+        elif nl_init == 'scipy':
+            # pre-fit static NL if it exists
+            _d = init_static_nl(est=est, modelspec=modelspec)
+            modelspec = _d['modelspec']
+            # TODO : Initialize relu in some intelligent way?
+
+            log.info('finished fit_tf_init, fit_idx=%d/%d', modelspec.fit_index + 1, modelspec.fit_count)
+            #return {'modelspec': modelspec}
+
+        else:
+            # init the static nl
+            init_static_nl_mapping = {
+                'double_exponential': initializers.init_dexp,
+                'relu': None,
+                'logistic_sigmoid': initializers.init_logsig,
+                'saturated_rectifier': initializers.init_relsat,
+            }
+            # first find the first occurrence of a static nl in last two layers
+            # if present, remove it from the idxes of the modules to freeze, init the nl and fit, and return the modelspec
+            stage2_pending = True
+            for idx, ms in enumerate(modelspec[-2:], len(modelspec)-2):
+                for init_static_layer, init_fn in init_static_nl_mapping.items():
+                    if stage2_pending and (init_static_layer in ms['fn']):
+                        log.info(f'Initializing static nl "{ms["fn"]}" at layer #{idx}')
+                        # relu has a custom init
+                        if init_static_layer == 'relu':
+                            ms['phi']['offset'][:] = -0.1
                         else:
+                            modelspec = init_fn(est, modelspec, nl_mode=4)
+
+                        if force_freeze is not None:
+                            log.info(f'Running second init fit: force_freeze: {force_freeze}.')
                             static_nl_idx_not = force_freeze
-                        log.info('Running second init fit: not frozen but coarser tolerance.')
+                        elif isolate_NL:
+                            log.info('Running second init fit: all frozen but static nl.')
+                            static_nl_idx_not = list(set(range(len(modelspec))) - set([idx]))
+                        elif modelspec.cell_count>0:
+                            log.info(f'Titan model: freezing first {modelspec.shared_count} layers.')
+                            static_nl_idx_not = list(range(modelspec.shared_count))
+                        else:
+                            log.info('Running second init fit: not frozen but coarser tolerance.')
+                            static_nl_idx_not = []
 
-                    # don't overwrite the phis in the modelspec
-                    kwargs['use_modelspec_init'] = True
-                    filepath = Path(modelspec.meta['modelpath']) / 'init_part2'
-                    return fit_tf(modelspec, est, freeze_layers=static_nl_idx_not,
-                                  filepath=filepath, **kwargs)
+                        # don't overwrite the phis in the modelspec
+                        kwargs['use_modelspec_init'] = True
+                        filepath = Path(modelspec.meta['modelpath']) / 'init_part2'
+                        modelspec = fit_tf(modelspec, est, freeze_layers=static_nl_idx_not,
+                                           filepath=filepath, **kwargs)['modelspec']
+                        stage2_pending = False
 
-    # no static nl to init
+    modelspec.cell_index = 0
     return {'modelspec': modelspec}
 
 
@@ -642,7 +759,7 @@ def eval_tf_layer(data: np.ndarray,
     else:
         ms = initializers.from_keywords(layer_spec)
 
-    layers = ms.modelspec2tf2(use_modelspec_init=True)[:stop]
+    layers = modelbuilder.modelspec2tf(ms, use_modelspec_init=True)[:stop]
 
     data_shape = data.shape
     state_shape = None

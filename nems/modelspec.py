@@ -38,10 +38,11 @@ class ModelSpec:
     """
 
     def __init__(self, raw=None, phis=None, fit_index=0, cell_index=0,
-                 jack_index=0, recording=None):
+                 jack_index=0, recording=None, cell_count=1, fit_count=1, jack_count=1):
         """Initialize the modelspec.
 
-        Long goes here. TODO docs
+        TODO more details
+        a modelspec can have multiple fits, each of which contains a different set of phi values.
 
         :param dict raw: Nested list of dictionaries. Equivalent of the old NEMS modelspec. The first level is a
             list of cells, each of which is a list of lists. The second level is a list of fits, each of which
@@ -51,37 +52,50 @@ class ModelSpec:
         :param int fit_index: Index of which fit to reference when multiple are present. Defaults to 0.
         :param int cell_index: Index of which cell to reference when multiple are present. Defaults to 0.
         :param int jack_index: Index of which jacknife to reference when multiple are present. Defaults to 0.
-        :param recording: TODO docs
+        :param int cell_count: Defaults to 1.
+        :param int fit_count: Defaults to 1.
+        :param int jack_count: Defaults to 1.
+        :param recording: recording for evaluation & plotting. Defaults to None
         """
         if raw is None:
-            # one model, no modules
-            raw = np.full((1, 1, 1), None)
-            raw[0, 0, 0] = []
+            # initialize with empty lists (no modules)
+            raw = np.full((cell_count,fit_count,jack_count), None)
+            for i in range(cell_count):
+                for j in range(fit_count):
+                    for k in range(jack_count):
+                        raw[i,j,k] = []
+                        
         elif type(raw) is list:
+            # compatible with load_modelspec -- read in list of lists
             if type(raw[0]) is not list:
                 raw = [raw]
-            # compatible with load_modelspec -- read in list of lists
-            # make raw (1, fit_count, 1) array of lists
-            # TODO default is to make single list into jack_counts!
-            r = np.full((1, 1, len(raw)), None)
+            
+            r = np.full((len(raw)), None)
             for i, _r in enumerate(raw):
-                r[0, 0, i] = []
+                r[i] = []
                 for __r in _r:
                     # check if this is a new NemsModule object
                     _f = _lookup_fn_at(__r['fn'])
                     if inspect.isclass(_f):
-                        r[0, 0, i].append(_f(**__r))
+                        r[i].append(_f(**__r))
                     else:
                         # if not, just save dict to module
-                        r[0, 0, i].append(__r)
-            raw = r
-
-        # otherwise, assume raw is a properly formatted 3D array (cell X fit X jack)
+                        r[i].append(__r)
+                        
+            # raw array will be reshaped to 1 x 1 x jack_count unless ms_shape is specified in meta dict
+            ms_shape = raw[0][0]['meta'].get('shape', [1,1,len(raw)])
+            raw = np.reshape(r, ms_shape)  # cell_count x fit_count x jack_count
+        else:
+            cell_count=raw.shape[0]
+            fit_count=raw.shape[1]
+            jack_count=raw.shape[2]
+            
+        # otherwise, assume raw is a properly formatted 3D numpy array (cell_count X fit_count X jack_count) of lists of Modules
+        
         self.raw = raw
         self.phis = [] if phis is None else phis
+        self.rec_list = [None] * cell_count
 
-        # a Model can have multiple fits, each of which contains a different
-        # set of phi values. fit_index re
         # references the default phi
         self.fit_index = fit_index
         self.jack_index = jack_index
@@ -94,7 +108,8 @@ class ModelSpec:
         self.fast_eval = False
         self.fast_eval_start = 0
         self.freeze_rec = None
-
+        self.shared_count = 0
+        
         # cache the tf model if it exists
         self.tf_model = None
 
@@ -190,7 +205,7 @@ class ModelSpec:
         :return: A deep copy of the modelspec (subset of modules if specified).
         """
         raw = copy.deepcopy(self.raw)
-        meta_save = copy.deepcopy(self.meta)
+        #meta_save = [copy.deepcopy(raw.flatten()[i][0].get('meta',{})) for i in range(len(raw.flatten()))]
 
         if fit_index is not None:
             raw = raw[:, fit_index:(fit_index+1), :]
@@ -203,11 +218,14 @@ class ModelSpec:
         else:
             _j = self.jack_index
 
-        for r in self.raw.flatten():
-            r[0]['meta'] = meta_save
+        #for i, r in enumerate(raw.flatten()):
+        #    r[0]['meta'] = meta_save[i]
 
         m = ModelSpec(raw, fit_index=_f, cell_index=self.cell_index,
                       jack_index=_j)
+        m.shared_count = self.shared_count
+        m.rec_list = self.rec_list.copy()
+
         return m
 
     def get_module(self, mod_index=None):
@@ -245,6 +263,7 @@ class ModelSpec:
             for fit in self.raw.flatten():
                 del fit[mod_index]
             new_spec = ModelSpec(raw_copy)
+            new_spec.cell_count=self.cell_count
             new_spec.recording = self.recording
             return new_spec
 
@@ -319,7 +338,6 @@ class ModelSpec:
         """
         if cell_index is not None:
             self.cell_index = cell_index
-
         return self
 
     def set_fit(self, fit_index):
@@ -357,10 +375,19 @@ class ModelSpec:
     @property
     def meta(self):
         """Dict of meta information."""
-        if self.raw[0, 0, 0][0].get('meta') is None:
-            self.raw[0, 0, 0][0]['meta'] = {}
-        return self.raw[0, 0, 0][0]['meta']
+        if self.raw[self.cell_index, 0, 0][0].get('meta') is None:
+            self.raw[self.cell_index, 0, 0][0]['meta'] = {}
+        return self.raw[self.cell_index, 0, 0][0]['meta']
 
+    @property
+    def recording(self):
+        """recording for current cell_index."""
+        return self.rec_list[self.cell_index]
+
+    @recording.setter
+    def recording(self, rec):
+        self.rec_list[self.cell_index] = rec
+        
     @property
     def modelspecname(self):
         """Name of the modelspec."""
@@ -1251,6 +1278,7 @@ def set_modelspec_metadata(modelspec, key, value):
     if not modelspec.meta:
         modelspec[0]['meta'] = {}
     modelspec[0]['meta'][key] = value
+    
     return modelspec
 
 
