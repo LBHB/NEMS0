@@ -236,7 +236,9 @@ def quickplot(ctx, default='val', epoch=None, occurrence=None, figsize=None,
             _plot_axes(1, fn2, -2)
 
     else:
-        sigs = [rec[modelspec.meta['output_name']], rec['pred']]
+        #sigs = [rec[modelspec.meta['output_name']], rec['pred']]
+        sigs = [rec[modelspec.meta.get('output_name', 'resp')], rec['pred']]
+
         title = 'Prediction vs Response, {} #{}'.format(epoch, occurrence)
         timeseries = partial(timeseries_from_epoch, sigs, epoch, title=title,
                              occurrences=occurrence)

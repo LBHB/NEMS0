@@ -1166,24 +1166,23 @@ def save_recordings(modelspec, est, val, **context):
     return {'modelspec': modelspec}
 
 
-def predict(modelspec, est, val, est_list=None, val_list=None, jackknifed_fit=False, **context):
+def predict(modelspec, est, val, est_list=None, val_list=None, jackknifed_fit=False, use_mask=True, **context):
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
     # TODO: Add statistics to metadata of every modelspec
     if (val_list is None):
-        est, val = nems.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
+        est, val = nems.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit, use_mask=use_mask)
         modelspec.recording = val
-
         return {'val': val, 'est': est, 'modelspec': modelspec}
     else:
         for cellidx,est,val in zip(range(len(est_list)),est_list,val_list):
             modelspec.set_cell(cellidx)
-            est, val = nems.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
+            est, val = nems.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit, use_mask=use_mask)
             modelspec.recording = val
             est_list[cellidx] = est
             val_list[cellidx] = val
         modelspec.set_cell(0)
         return {'val': val_list[0], 'est': est_list[0], 'est_list': est_list, 'val_list': val_list, 'modelspec': modelspec}
-        
+
 
 def add_summary_statistics(est, val, modelspec, est_list=None, val_list=None, rec_list=None, fn='standard_correlation',
                            rec=None, use_mask=True, **context):
@@ -1264,9 +1263,11 @@ def add_summary_statistics(est, val, modelspec, est_list=None, val_list=None, re
     modelspec.set_cell(0)
     return {'modelspec': modelspec}
 
-def add_summary_statistics_by_condition(est,val,modelspec,evaluation_conditions,rec=None,**context):
+
+def add_summary_statistics_by_condition(est, val, modelspec, evaluation_conditions, rec=None,
+                                        use_mask=True, **context):
     modelspec = na.api.standard_correlation_by_epochs(est,val,modelspec=modelspec,
-            epochs_list=evaluation_conditions,rec=rec)
+            epochs_list=evaluation_conditions,rec=rec, use_mask=use_mask)
     return {'modelspec': modelspec}
 
 def plot_summary(modelspec, val, figures=None, IsReload=False,

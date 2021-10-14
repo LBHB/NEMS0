@@ -44,7 +44,7 @@ def plot_timeseries(times, values, xlabel='Time', ylabel='Value', legend=None,
     maxtime = 0
     for t, v in zip(times, values):
         if colors is not None:
-            opt = {'color': colors[cc]}
+            opt = {'color': colors[cc % len(colors)]} #Wraparound to avoid crash
         if v.ndim==1:
             v=v[:,np.newaxis]
         for idx in range(v.shape[1]):

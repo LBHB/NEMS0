@@ -14,7 +14,7 @@ import nems.utils
 log = logging.getLogger(__name__)
 
 
-def generate_prediction(est, val, modelspec, **context):
+def generate_prediction(est, val, modelspec, use_mask=True, **context):
 
     # TODO support for multiple recording views/modelspec jackknifes (jack_count>0)
     #  outer loop = fit, inner loop = jackknife ?
@@ -62,7 +62,7 @@ def generate_prediction(est, val, modelspec, **context):
             new_val = modelspec.evaluate(new_val)
 
             # this seems kludgy. but where should mask be handled?
-            if 'mask' in new_val.signals.keys():
+            if 'mask' in new_val.signals.keys() and use_mask:
                 m = new_val['mask'].as_continuous()
                 x = new_val['pred'].as_continuous().copy()
                 x[..., m[0, :] == 0] = np.nan
@@ -233,7 +233,7 @@ def correlation_per_model(est, val, modelspecs, rec=None):
     return modelspecs
 
 
-def standard_correlation_by_epochs(est,val,modelspec=None,modelspecs=None,epochs_list=None, rec=None):
+def standard_correlation_by_epochs(est,val,modelspec=None,modelspecs=None,epochs_list=None, rec=None, use_mask=True):
     """
     Does the same thing as standard_correlation, excpet with subsets of data
     defined by epochs_list
@@ -267,32 +267,16 @@ def standard_correlation_by_epochs(est,val,modelspec=None,modelspecs=None,epochs
         for ec in est_copy:
             ec['resp']=ec['resp'].select_epochs(epochs)
 
-        # Compute scores for validation data
-        r_test = [nmet.corrcoef(p, 'pred', 'resp') for p in val_copy]
-        mse_test = [nmet.nmse(p, 'pred', 'resp') for p in val_copy]
-        ll_test = [nmet.likelihood_poisson(p, 'pred', 'resp') for p in val_copy]
+        modelspec_ = modelspec.copy()
 
-        r_floor = [nmet.r_floor(p, 'pred', 'resp') for p in val]
-        if rec is not None:
-            r_ceiling = [nmet.r_ceiling(p, rec, 'pred', 'resp') for p in val_copy]
+        #CALL standard_correlation to compute metrics on this subset
+        modelspec_ = standard_correlation(est_copy, val_copy, modelspec_, rec=rec,use_mask=use_mask)
 
-        # Repeat for est data.
-        r_fit = [nmet.corrcoef(p, 'pred', 'resp') for p in est_copy]
-        mse_fit = [nmet.nmse(p, 'pred', 'resp') for p in est_copy]
-        ll_fit = [nmet.likelihood_poisson(p, 'pred', 'resp') for p in est_copy]
-
-        #Avergage
+        names = ['r_test','se_test','r_floor','mse_test','se_mse_test','ll_test',
+                 'r_fit','se_fit','r_ceiling','mse_fit','se_mse_fit','ll_fit']
         modelspec.meta[epoch_list_str]={}
-        modelspec.meta[epoch_list_str]['r_test'] = np.mean(r_test)
-        modelspec.meta[epoch_list_str]['mse_test'] = np.mean(mse_test)
-        modelspec.meta[epoch_list_str]['ll_test'] = np.mean(ll_test)
-
-        modelspec.meta[epoch_list_str]['r_fit'] = np.mean(r_fit)
-        modelspec.meta[epoch_list_str]['r_floor'] = np.mean(r_floor)
-        if rec is not None:
-            modelspec.meta[epoch_list_str]['r_ceiling'] = np.mean(r_ceiling)
-        modelspec.meta[epoch_list_str]['mse_fit'] = np.mean(mse_fit)
-        modelspec.meta[epoch_list_str]['ll_fit'] = np.mean(ll_fit)
+        for name in names:
+            modelspec.meta[epoch_list_str][name] = modelspec_.meta[name]
 
     if list_modelspec:
         # backward compatibility
