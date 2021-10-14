@@ -290,11 +290,15 @@ def fit_tf(
 
     # get the layers and build the model
     cost_fn = loss_functions.get_loss_fn(cost_function)
-    model_layers = modelbuilder.modelspec2tf(
-        modelspec, use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
+    #model_layers = modelspec.modelspec2tf2(
+    #    use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
+    #    initializer=initializer, freeze_layers=freeze_layers,
+    #    kernel_regularizer=kernel_regularizer)
+    model_layers = modelbuilder.modelspec2tf(modelspec,
+        use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
         initializer=initializer, freeze_layers=freeze_layers,
         kernel_regularizer=kernel_regularizer)
-    
+
     if np.any([isinstance(layer, Conv2D_NEMS) for layer in model_layers]):
         # need a "channel" dimension for Conv2D (like rgb channels, not frequency). Only 1 channel for our data.
         stim_train = stim_train[..., np.newaxis]
