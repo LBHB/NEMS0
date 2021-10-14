@@ -1462,6 +1462,15 @@ def stategain(kw):
     d_mean = zeros
     d_sd = ones
 
+    #If .o# is passed, fix gainoffset to #, initialize gain to 0.
+    # y = (np.matmul(g, rec[s]._data) + offset) * x so .g1 will by initialize with no state-dependence
+    gainoffset = 0
+    for op in options[2:]:
+        if op.startswith('o'):
+            num = op[1:].replace('\\', '')
+            gainoffset = float(num)
+            g_mean[:, 0] = 0
+
     plot_fns = ['nems.plots.api.mod_output',
                 'nems.plots.api.spectrogram_output',
                 'nems.plots.api.before_and_after',
@@ -1483,8 +1492,8 @@ def stategain(kw):
         bounds['g'][1][1:, :fix_across_channels] = g_mean[1:, :fix_across_channels]
         template = {
             'fn': 'nems.modules.state.state_gain',
-            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars, 'n_inputs': n_chans, 'state_type':
-                          'gain_only'},
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars, 'n_inputs': n_chans,
+                          'state_type':'gain_only', 'gainoffset':gainoffset},
             'plot_fns': plot_fns,
             'plot_fn_idx': 5,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd})},
