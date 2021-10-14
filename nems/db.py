@@ -1179,7 +1179,12 @@ def get_siteid(s):
     """
     strip off the tail of a cellid to get the siteid
     """
-    return s.split("-")[0]
+    if '_' in s:
+        split_dash = s.split("-")
+        split_underscore = s.split("_")
+        return split_dash[0] + '*' + split_underscore[-1]
+    else:
+        return s.split("-")[0]
 
 def get_batch_sites(batch, modelname_filter=None):
     """
@@ -1207,10 +1212,21 @@ def get_batch_sites(batch, modelname_filter=None):
                         'DRX008b.e65:128'])
         cellids.extend(['DRX006b-01-2', 'DRX006b-66-1', 'DRX007a-01-1', 'DRX007a-69-1', 'DRX008b-01-2', 'DRX008b-66-1'])
     else:
-        cellids = [d.loc[d.cellid.str.startswith(s)].cellid.values[0] for s in siteids]
+        if not any(['*' in s for s in siteids]):
+            cellids = [d.loc[d.cellid.str.startswith(s)].cellid.values[0] for s in siteids]
+        elif all(['*' in s for s in siteids]):
+            cellids=[]
+            for s in siteids:
+                s_split = s.split('*')
+                cells_in_site = d.cellid.str.contains(s_split[0]) & d.cellid.str.contains(s_split[1])
+                cellids.append(d.loc[cells_in_site].cellid.values[0])
+        else:
+            raise RuntimeError('siteids should either all have "*" in them, or none of them should. In this case only some do. Why?')
 
-    siteids.sort()
-    cellids.sort()
+    #sort siteids and cellids by siteids
+    sorted_pairs = sorted(zip(siteids, cellids))
+    tuples = zip(*sorted_pairs)
+    siteids, cellids = [list(tuple) for tuple in tuples]
 
     return siteids, cellids
 
