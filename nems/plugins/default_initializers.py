@@ -187,3 +187,13 @@ def lvnoise(kw):
     return [['nems.preprocessing.add_noise_signal', {'noise_name': "indep", 'rep_count': rep_count}],
             ['nems.preprocessing.add_noise_signal', {'noise_name': "lv", 'ref_signal': "state"}]]
 
+def shuf(load_key):
+    options = load_key.split('.')[1:]
+    shuf_sigs=[]
+    shuf_recs = ['est','val']
+    for op in options:
+        if op == 'st':
+            shuf_sigs.append('state')
+        else:
+            raise ValueError('Unknown shuf keyword option {}'.format(op))
+    return [['nems.preprocessing.shuffle',{'sigs':shuf_sigs,'recs':shuf_recs}]]
