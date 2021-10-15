@@ -61,6 +61,13 @@ def state_gain(rec, i='pred', o='pred', s='state', include_lv=False,
     g - gain to scale s by
     '''
 
+    #BACKWARDS compatibility for old models where gainoffset was just called offset (changed to make it less confusable with a dc offset)
+    if 'offset' in kwargs:
+        if gainoffset == 0 and kwargs['offset'] != 0:
+            gainoffset = kwargs['offset']
+        elif gainoffset != 0 and kwargs['offset'] != 0:
+            raise RunTimeError('gainoffset and offset cannot both be set to 0')
+
     if fix_across_channels:
         #import pdb; pdb.set_trace()
         # kludge-- force a subset of the terms to be constant across stim/resp channels

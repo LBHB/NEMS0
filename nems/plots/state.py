@@ -54,9 +54,7 @@ fill_colors = {'actual_psth': (.8,.8,.8),
 def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
                           decimate_by=1, channel=None, **options):
 
-    if ax is not None:
-        plt.sca(ax)
-    else:
+    if ax is None:
         ax = plt.gca()
 
     rec = rec.apply_mask()
@@ -79,8 +77,8 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
 
     t = np.arange(len(r1)) / fs
 
-    plt.plot(t, r1, linewidth=1, color='gray')
-    plt.plot(t, p1, linewidth=1, color='black')
+    ax.plot(t, r1, linewidth=1, color='gray')
+    ax.plot(t, p1, linewidth=1, color='black')
     #print(p1.shape)
     mmax = np.nanmax(p1) * 0.8
 
@@ -106,8 +104,10 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
             if len(g) < 10:
                 s = ",".join(rec["state"].chans)
                 g_string = np.array2string(g, precision=3)
-                d_string = np.array2string(d, precision=3)
-                s += " g={} d={} ".format(g_string, d_string)
+                s += " g={} ".format(g_string)
+                if d is not None:
+                    d_string = np.array2string(d, precision=3)
+                    s += "d={} ".format(d_string)
             else:
                 s = None
 
@@ -117,7 +117,7 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
         if num_vars > 6:
             ts = scipy.signal.decimate(ts, q=10, axis=1)
             ts = ts / np.nanmax(ts, axis=1, keepdims=True)
-            plt.imshow(ts, extent=(0, t[-1], -100, 0))
+            ax.imshow(ts, extent=(0, t[-1], -100, 0))
         else:
             if state_colors is None:
                 state_colors = [None] * num_vars
@@ -132,55 +132,54 @@ def state_vars_timeseries(rec, modelspec, ax=None, state_colors=None,
                     dinc = np.argwhere(np.diff(st) > 0)
                     ddec = np.argwhere(np.diff(st) < 0)
                     for x0, x1 in zip(dinc, ddec):
-                        plt.plot([x0/fs, x1/fs], [offset, offset],
+                        ax.plot([x0/fs, x1/fs], [offset, offset],
                                  lw=2, color=state_colors[i-1])
                     tstr = "{}".format(rec['state'].chans[i])
-                    plt.text(x0/fs, offset, tstr, fontsize=6)
+                    ax.text(x0/fs, offset, tstr, fontsize=6)
                     #print("{} {} {}".format(rec['state'].chans[i], x0/fs, offset))
                 else:
                     # non-binary variable, plot in own row
                     # figure out gain
+                    tstr = "{} (".format(rec['state'].chans[i])
                     if sp is not None:
                         if g.ndim == 1:
-                            tstr = "{} (sp={:.3f},d={:.3f},g={:.3f})".format(
-                                    rec['state'].chans[i], sp[i], d[i], g[i])
+                            tstr += "sp={:.3f},d={:.3f},g={:.3f})".format(sp[i], d[i], g[i])
                         else:
-                            tstr = "{} (sp={:.3f},d={:.3f},g={:.3f})".format(
-                                    rec['state'].chans[i], sp[0, i], d[0, i], g[0, i])
+                            tstr += "sp={:.3f},d={:.3f},g={:.3f})".format(sp[0, i], d[0, i], g[0, i])
                     elif g is not None:
+                        if d is not None:
+                            if d.ndim == 1:
+                                tstr += "d={:.3f},".format(d[i])
+                            else:
+                                tstr += "d={:.3f},".format(d[0, i])
                         if g.ndim == 1:
-                            tstr = "{} (d={:.3f},g={:.3f})".format(
-                                    rec['state'].chans[i], d[i], g[i])
+                            tstr += "g={:.3f})".format(g[i])
                         else:
-                            tstr = "{} (d={:.3f},g={:.3f})".format(
-                                    rec['state'].chans[i], d[0, i], g[0, i])
-                    else:
-                        tstr = "{}".format(rec['state'].chans[i])
+                            tstr += "g={:.3f})".format(g[0, i])
+
                     if decimate_by > 1:
                         st = scipy.signal.decimate(st[nnidx], q=decimate_by, axis=0)
                     else:
                         st = st[nnidx]
 
                     st = st / np.nanmax(st) * mmax + offset
-                    plt.plot(t, st, linewidth=1, color=state_colors[i-1])
-                    plt.text(t[0], offset, tstr, fontsize=6)
+                    ax.plot(t, st, linewidth=1, color=state_colors[i-1])
+                    ax.text(t[0], offset, tstr, fontsize=6)
 
                     offset -= 1.25*mmax
 
-        # plt.text(0.5, 0.9, s, transform=ax.transAxes,
+        # ax.text(0.5, 0.9, s, transform=ax.transAxes,
         #         horizontalalignment='center')
         # if s:
-        #    plt.title(s, fontsize=8)
-    plt.xlabel('time (s)')
-    plt.axis('tight')
+        #    ax.title(s, fontsize=8)
+    ax.set_xlabel('time (s)')
+    ax.axis('tight')
 
     ax_remove_box(ax)
 
 
 def state_var_psth(rec, psth_name='resp', var_name='pupil', ax=None,
                    channel=None):
-    if ax is not None:
-        plt.sca(ax)
 
     chanidx = get_channel_number(rec[psth_name], channel)
 
@@ -202,8 +201,6 @@ def state_var_psth_from_epoch(rec, epoch="REFERENCE", psth_name='resp', psth_nam
     """
 
     # TODO: Does using epochs make sense for these?
-    if ax is not None:
-        plt.sca(ax)
 
     if channel is None:
         channel=0
@@ -269,9 +266,7 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
                         files_only=False, modelspec=None, max_states=100, **options):
 
     # TODO: Does using epochs make sense for these?
-    if ax is not None:
-        plt.sca(ax)
-    else:
+    if ax is None:
         ax = plt.gca()
 
     if channel is None:
@@ -386,7 +381,7 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
         ax.plot(tt, high2, ls='--', lw=1, color=line_colors['active'])
 
     if not files_only:
-        plt.legend((l1,l2), ('Lo','Hi'))
+        ax.legend((l1,l2), ('Lo','Hi'))
 
     ax.set_ylabel('sp/sec')
     ylim = ax.get_ylim()
@@ -415,20 +410,18 @@ def state_gain_plot(modelspec, ax=None, colors=None, clim=None, title=None, **op
 
     MI = modelspec[0]['meta']['state_mod']
     state_chans = modelspec[0]['meta']['state_chans']
-    if ax is not None:
-        plt.sca(ax)
-    else:
-        ax=plt.gca()
+    if ax is None:
+        ax = plt.gca()
     if d.shape[0] > 1:
         opt={}
         for cc in range(d.shape[1]):
             if colors is not None:
                 opt = {'color': colors[cc]}
-            plt.plot(d[:,cc],'--', **opt)
-            plt.plot(g[:,cc], **opt)
+            ax.plot(d[:,cc],'--', **opt)
+            ax.plot(g[:,cc], **opt)
     else:
-        plt.errorbar(np.arange(len(d[0, :])), d[0, :], de[0, :], color='blue')
-        plt.errorbar(np.arange(len(g[0, :])), g[0, :], ge[0, :], color='red')
+        ax.errorbar(np.arange(len(d[0, :])), d[0, :], de[0, :], color='blue')
+        ax.errorbar(np.arange(len(g[0, :])), g[0, :], ge[0, :], color='red')
         dz = np.abs(d[0, :] / de[0, :])
         gz = np.abs(g[0, :] / ge[0, :])
         for i in range(len(gz)):
@@ -439,13 +432,13 @@ def state_gain_plot(modelspec, ax=None, colors=None, clim=None, title=None, **op
                 ax.text(i, d[0,i]+np.sign(d[0,i])*de[0,i], state_chans[i],
                         color='blue', ha='center', fontsize=6)
 
-    #plt.plot(MI)
-    #plt.xticks(np.arange(len(state_chans)), state_chans, fontsize=6)
-    plt.legend(('baseline', 'gain'), frameon=False)
-    plt.plot(np.arange(len(state_chans)),np.zeros(len(state_chans)),'k--',
+    #ax.plot(MI)
+    #ax.xticks(np.arange(len(state_chans)), state_chans, fontsize=6)
+    ax.legend(('baseline', 'gain'), frameon=False)
+    ax.plot(np.arange(len(state_chans)),np.zeros(len(state_chans)),'k--',
              linewidth=0.5)
     if title:
-        plt.title(title)
+        ax.title(title)
 
     ax_remove_box(ax)
 
