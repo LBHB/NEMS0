@@ -362,6 +362,7 @@ def fir(kw):
 
 
     if (n_banks == 1) and (not cross_channels):
+        plot_fn_idx = 4 if n_inputs <=3 else 2
         template = {
             'fn': 'nems.modules.fir.basic',
             'fn_kwargs': {'i': 'pred', 'o': 'pred', 'non_causal': non_causal,
@@ -374,7 +375,7 @@ def fir(kw):
                          'nems.plots.api.strf_local_lin',
                          'nems.plots.api.strf_timeseries',
                          'nems.plots.api.fir_output_all'],
-            'plot_fn_idx': 2,
+            'plot_fn_idx': plot_fn_idx,
             'prior': {
                 'coefficients': ('Normal', p_coefficients),
             }
