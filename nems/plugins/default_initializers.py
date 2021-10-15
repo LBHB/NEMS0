@@ -187,6 +187,7 @@ def lvnoise(kw):
     return [['nems.preprocessing.add_noise_signal', {'noise_name': "indep", 'rep_count': rep_count}],
             ['nems.preprocessing.add_noise_signal', {'noise_name': "lv", 'ref_signal': "state"}]]
 
+@xform()
 def shuf(load_key):
     options = load_key.split('.')[1:]
     shuf_sigs=[]
