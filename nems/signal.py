@@ -1947,7 +1947,7 @@ class RasterizedSignal(SignalBase):
         if mask is None:
             arr0 = arr[np.isfinite(x[0, :])]
         else:
-            arr0 = arr[mask.as_continuous()[0,:] & np.isfinite(x[0, :])]
+            arr0 = arr[mask.as_continuous()[0,:].astype(bool) & np.isfinite(x[0, :])]
 
         arr = arr0.copy()
 
