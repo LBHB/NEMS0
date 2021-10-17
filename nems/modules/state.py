@@ -48,7 +48,7 @@ def state_dc_gain(rec, i='pred', o='pred', s='state', include_lv=False, c=None, 
         return [new_signal]
 
 def state_gain(rec, i='pred', o='pred', s='state', include_lv=False,
-               fix_across_channels=0, c=None, g=None, **kwargs):
+               fix_across_channels=0, c=None, g=None, gainoffset=0, **kwargs):
     '''
     Linear gain for each state applied to each predicted channel
 
@@ -61,6 +61,13 @@ def state_gain(rec, i='pred', o='pred', s='state', include_lv=False,
     g - gain to scale s by
     '''
 
+    #BACKWARDS compatibility for old models where gainoffset was just called offset (changed to make it less confusable with a dc offset)
+    if 'offset' in kwargs:
+        if gainoffset == 0 and kwargs['offset'] != 0:
+            gainoffset = kwargs['offset']
+        elif gainoffset != 0 and kwargs['offset'] != 0:
+            raise RunTimeError('gainoffset and offset cannot both be set to 0')
+
     if fix_across_channels:
         #import pdb; pdb.set_trace()
         # kludge-- force a subset of the terms to be constant across stim/resp channels
@@ -68,7 +75,7 @@ def state_gain(rec, i='pred', o='pred', s='state', include_lv=False,
         g = g.copy()
         g[:, :fix_across_channels] = g[0:1,:fix_across_channels]
 
-    fn = lambda x: np.matmul(g, rec[s]._data) * x
+    fn = lambda x: (np.matmul(g, rec[s]._data) + gainoffset) * x
 
     if c is None:
         return [rec[i].transform(fn, o)]

@@ -300,6 +300,7 @@ def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
         #pdb.set_trace()
         if minreps > 1:
             rac = _r_single(X, N)
+            rac = _r_single(X[:,np.squeeze(np.isfinite(p))],N) #LAS edit 2021. Only use times when pred is finite
 
             repcount = X.shape[0]
             rs = np.zeros(repcount)

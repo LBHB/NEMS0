@@ -10,7 +10,7 @@ import shutil
 
 import pandas as pd
 import numpy as np
-from sqlalchemy import create_engine, desc
+from sqlalchemy import create_engine, desc, exc
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.automap import automap_base
 import pandas.io.sql as psql
@@ -173,8 +173,12 @@ def pd_query(sql=None, params=None):
 
         d = pd.read_sql_query(sql=sql, con=engine)
     else:
-        d = pd.read_sql_query(sql=sql, con=engine, params=params)
-
+        try:
+            d = pd.read_sql_query(sql=sql, con=engine, params=params)
+        except exc.SQLAlchemyError as OpErr:
+            if OpErr._message().count('Lost connection to MySQL server during query')>0:
+                log.warning('Lost connection to MySQL server during query, trying again.')
+                d = pd.read_sql_query(sql=sql, con=engine, params=params)
     return d
 
 
