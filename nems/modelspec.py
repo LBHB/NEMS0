@@ -84,7 +84,10 @@ class ModelSpec:
                         
             # raw array will be reshaped to 1 x 1 x jack_count unless ms_shape is specified in meta dict
             ms_shape = raw[0][0]['meta'].get('shape', [1,1,len(raw)])
-            raw = np.reshape(r, ms_shape)  # cell_count x fit_count x jack_count
+            if len(raw) == (ms_shape[0]*ms_shape[1]*ms_shape[2]):
+                raw = np.reshape(r, ms_shape)  # cell_count x fit_count x jack_count
+            else:
+                raw = np.reshape(r,[1,1,len(raw)])
         else:
             cell_count=raw.shape[0]
             fit_count=raw.shape[1]

@@ -1207,14 +1207,19 @@ def get_batch_sites(batch, modelname_filter=None):
     siteids = list(set(d.siteid.tolist()))
 
     if batch == 322:
-        #if 'DRX006b'
-        siteids.remove('DRX006b')
-        siteids.remove('DRX007a')
-        siteids.remove('DRX008b')
         cellids = [d.loc[d.cellid.str.startswith(s)].cellid.values[0] for s in siteids]
-        siteids.extend(['DRX006b.e1:64', 'DRX006b.e65:128', 'DRX007a.e1:64', 'DRX007a.e65:128', 'DRX008b.e1:64',
-                        'DRX008b.e65:128'])
-        cellids.extend(['DRX006b-01-2', 'DRX006b-66-1', 'DRX007a-01-1', 'DRX007a-69-1', 'DRX008b-01-2', 'DRX008b-66-1'])
+        if 'DRX006b' in siteids:
+            siteids.remove('DRX006b')
+            siteids.extend(['DRX006b.e1:64', 'DRX006b.e65:128'])
+            cellids.append('DRX006b-66-1')
+        if 'DRX007a' in siteids:
+            siteids.remove('DRX007a')
+            siteids.extend(['DRX007a.e1:64', 'DRX007a.e65:128'])
+            cellids.append('DRX007a-69-1')
+        if 'DRX008b' in siteids:
+            siteids.remove('DRX008b')
+            siteids.extend(['DRX008b.e1:64', 'DRX008b.e65:128'])
+            cellids.append('DRX008b-66-1')
     else:
         if not any(['*' in s for s in siteids]):
             cellids = [d.loc[d.cellid.str.startswith(s)].cellid.values[0] for s in siteids]
