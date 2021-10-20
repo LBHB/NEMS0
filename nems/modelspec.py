@@ -565,7 +565,7 @@ class ModelSpec:
                        channels=channels, ax=ax, **kwargs)
 
     def quickplot(self, rec=None, epoch=None, occurrence=None, fit_index=None,
-                  include_input=True, include_output=True, size_mult=(1.0, 3.0),
+                  include_input=True, include_output=True, size_mult=(1.0, 2.0),
                   figsize=None, fig=None, time_range=None, sig_names=None,
                   modidx_set=None):
 
@@ -692,9 +692,10 @@ class ModelSpec:
                     self[mod_idx + 1]['fn'] == 'nems.modules.fir.basic':
                 continue
             # don't double up on spectrograms
-            if self[mod_idx]['fn'] == 'nems.modules.nonlinearity.dlog':
+            if m['fn'] == 'nems.modules.nonlinearity.dlog':
                 continue
-
+            if m['plot_fns'][m['plot_fn_idx']] == 'nems.plots.api.null':
+                continue
             if mod_idx in modidx_set:
                 plot_fn_modules.append((mod_idx, self.get_plot_fn(mod_idx)))
 
@@ -853,6 +854,7 @@ class ModelSpec:
 
         # each module gets a row in the gridspec, giving plots control over subplots, etc.
         gs_rows = gridspec.GridSpec(n_rows, 1, figure=fig)
+        max_cols = max([sum(pfn[1]) if type(pfn[1]) is list else 1 for pfn in plot_fns])
 
         # iterate through the plotting partials and plot them to the gridspec
         for row_idx, (plot_fn, col_spans) in enumerate(plot_fns):
@@ -868,7 +870,13 @@ class ModelSpec:
             col_idx = 0
             for fn, col_span in zip(plot_fn, col_spans):
                 try:
-                    ax = fig.add_subplot(n_rows, n_cols, row_idx * n_cols + col_idx + 1)
+                    # if n_cols == max_cols:
+                    #     plot_ind = row_idx * max_cols + col_idx + 1
+                    # else:
+                    start_ind = row_idx * max_cols + col_idx + 1
+                    plot_ind = (start_ind,int(start_ind + max_cols/n_cols + col_span - 2))
+                    ax = fig.add_subplot(n_rows, max_cols, plot_ind)
+
                     #ax = plt.Subplot(fig, gs_cols[0, col_span-1])
                     #ax = fig.add_subplot(gs_cols[0, col_idx:(col_idx+col_span)])
                     #ax = plt.Subplot(fig, gs_cols[0, col_idx:col_idx + col_span])
@@ -880,7 +888,7 @@ class ModelSpec:
 
         # suptitle needs to be after the gridspecs in order to work with constrained_layout
         fig.suptitle(fig_title)
-        fig.set_constrained_layout_pads(w_pad=0.25, h_pad=0.1)
+        fig.set_constrained_layout_pads(w_pad=0.05, h_pad=0.1, w_space=0)
 
         log.info('Quickplot: generated fig with title "{}"'.format(fig_title.replace("\n", " ")))
         return fig
