@@ -756,8 +756,9 @@ def lvl(kw):
         'tf_layer': 'nems.tf.layers.Levelshift',
         'plot_fns': ['nems.plots.api.mod_output',
                      'nems.plots.api.spectrogram_output',
-                     'nems.plots.api.pred_resp'],
-        'plot_fn_idx': 2,
+                     'nems.plots.api.pred_resp',
+                     'nems.plots.api.null'],
+        'plot_fn_idx': 3,
         'prior': {'level': ('Normal', {'mean': np.zeros([n_shifts, 1]),
                                        'sd': np.ones([n_shifts, 1])/100})}
 
@@ -1297,7 +1298,7 @@ def dlog(kw):
     else:
         template['prior'] = {'offset': ('Normal', {
                 'mean': np.zeros((chans, 1)),
-                'sd': np.full((chans, 1), 0.5)})}
+                'sd': np.full((chans, 1), 0.05)})}
 
     return template
 
@@ -1459,7 +1460,7 @@ def stategain(kw):
     ones = np.ones([n_chans, n_vars])
     g_mean = zeros.copy()
     g_mean[:, 0] = 1
-    g_sd = ones.copy()
+    g_sd = ones.copy() / 20
     d_mean = zeros
     d_sd = ones
 
@@ -1495,8 +1496,8 @@ def stategain(kw):
             'fn': 'nems.modules.state.state_gain',
             'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars, 'n_inputs': n_chans,
                           'state_type':'gain_only', 'gainoffset':gainoffset},
-            'plot_fns': plot_fns,
-            'plot_fn_idx': 5,
+            'plot_fns': plot_fns + ['nems.plots.api.state_gain_plot'],
+            'plot_fn_idx': 6,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd})},
             'bounds': bounds
         }

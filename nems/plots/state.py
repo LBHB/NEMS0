@@ -400,43 +400,60 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
     ax_remove_box(ax)
 
 
-def state_gain_plot(modelspec, ax=None, colors=None, clim=None, title=None, **options):
+def state_gain_plot(modelspec, rec, state_sig='state_raw', ax=None, colors=None, clim=None, title=None, **options):
 
+    state_chan_list = rec[state_sig].chans
     state_idx = find_module('state', modelspec)
-    g = modelspec.phi_mean[state_idx]['g']
-    d = modelspec.phi_mean[state_idx]['d']
+    g = modelspec.phi_mean[state_idx]['g'].copy()
     ge = modelspec.phi_sem[state_idx]['g']
-    de = modelspec.phi_sem[state_idx]['d']
+    if modelspec[state_idx]['fn'] == 'nems.modules.state.state_gain':
+        d = None
+        de = None
+        gainoffset = modelspec[state_idx]['fn_kwargs']['gainoffset']
+        g += modelspec[state_idx]['fn_kwargs']['gainoffset']
+    else:
+        d = modelspec.phi_mean[state_idx]['d']
+        de = modelspec.phi_sem[state_idx]['d']
+
+
 
     MI = modelspec[0]['meta']['state_mod']
     state_chans = modelspec[0]['meta']['state_chans']
     if ax is None:
         ax = plt.gca()
-    if d.shape[0] > 1:
+    if g.shape[0] > 1:
         opt={}
-        for cc in range(d.shape[1]):
+        for cc in range(g.shape[1]):
             if colors is not None:
                 opt = {'color': colors[cc]}
-            ax.plot(d[:,cc],'--', **opt)
+            if d is not None:
+                ax.plot(d[:,cc],'--', **opt)
             ax.plot(g[:,cc], **opt)
     else:
-        ax.errorbar(np.arange(len(d[0, :])), d[0, :], de[0, :], color='blue')
+        if d is not None:
+            ax.errorbar(np.arange(len(d[0, :])), d[0, :], de[0, :], color='blue')
+            dz = np.abs(d[0, :] / de[0, :])
         ax.errorbar(np.arange(len(g[0, :])), g[0, :], ge[0, :], color='red')
-        dz = np.abs(d[0, :] / de[0, :])
         gz = np.abs(g[0, :] / ge[0, :])
         for i in range(len(gz)):
             if gz[i] > 2:
                 ax.text(i, g[0, i] + np.sign(g[0, i]) * ge[0, i], state_chans[i],
                         color='red', ha='center', fontsize=6)
-            elif dz[i] > 2:
+            elif d is not None and dz[i] > 2:
                 ax.text(i, d[0,i]+np.sign(d[0,i])*de[0,i], state_chans[i],
                         color='blue', ha='center', fontsize=6)
 
     #ax.plot(MI)
     #ax.xticks(np.arange(len(state_chans)), state_chans, fontsize=6)
-    ax.legend(('baseline', 'gain'), frameon=False)
-    ax.plot(np.arange(len(state_chans)),np.zeros(len(state_chans)),'k--',
-             linewidth=0.5)
+    if d is None:
+        ax.legend(state_chan_list, frameon=False)
+        ax.set_ylabel('Gain')
+        ax.plot(np.arange(len(state_chans)), gainoffset*np.ones(len(state_chans)), 'k--',
+                linewidth=0.5)
+    else:
+        ax.legend(('baseline', 'gain'), frameon=False)
+        ax.plot(np.arange(len(state_chans)),np.zeros(len(state_chans)),'k--',
+                 linewidth=0.5)
     if title:
         ax.title(title)
 
