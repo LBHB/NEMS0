@@ -712,8 +712,9 @@ def prefit_subset(est, modelspec, analysis_function=fit_basic,
 
     fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
 
-    tmodelspec, include_set = modelspec_freeze_layers(
-        modelspec, include_idx=include_idx,
+    tmodelspec, include_set = modelspec_freeze_layers(modelspec,
+        include_idx=include_idx, include_through=include_through,
+        include_names=include_names,
         exclude_idx=exclude_idx, exclude_after=exclude_after,
         freeze_idx=freeze_idx, freeze_after=freeze_after)
 
