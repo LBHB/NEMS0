@@ -450,7 +450,9 @@ class ModelspecEditor(qw.QWidget):
     def refresh_plots(self):
         '''Regenerate plot for each module and signal.'''
         for m in self.modules:
-            m.new_plot()
+            if m.parent.modelspec[m.mod_index]['plot_fns']\
+                    [m.parent.modelspec[m.mod_index]['plot_fn_idx']] != 'nems.plots.api.null':
+                m.new_plot()
 
         for m in self.signal_displays:
             m.new_plot()
