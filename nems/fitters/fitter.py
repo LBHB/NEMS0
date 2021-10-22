@@ -157,6 +157,7 @@ def scipy_minimize(sigma, cost_fn, tolerance=None, max_iter=None,
                                    bounds=bounds, options=options)
     sigma = result.x
     final_err = cost_fn(sigma)
+    log.info("Stopped due to: %s", result.message)
     log.info("Starting error: %.06f -- Final error: %.06f", start_err, final_err)
     log.info("Final sigma: %s", np.round(sigma, 4))
 
