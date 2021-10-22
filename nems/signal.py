@@ -864,8 +864,8 @@ class SignalBase:
         fs = mask.fs
 
         temp_epochs = signal.epochs.copy()
-        temp_epochs['start'] = (temp_epochs['start'] * fs).astype(int)
-        temp_epochs['end'] = (temp_epochs['end'] * fs).astype(int)
+        temp_epochs['start'] = np.round(temp_epochs['start'] * fs).astype(int)
+        temp_epochs['end'] = np.round(temp_epochs['end'] * fs).astype(int)
 
         new_mask = np.full(len(temp_epochs), False)
         mask_data = mask._data[0]
