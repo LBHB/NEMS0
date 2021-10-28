@@ -696,6 +696,8 @@ class ModelSpec:
                 continue
             if m.get('plot_fns', None) is None:
                 continue
+            if m['plot_fns'] == []:
+                continue
             if m['plot_fns'][m['plot_fn_idx']] == 'nems.plots.api.null':
                 continue
             if mod_idx in modidx_set:
