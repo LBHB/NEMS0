@@ -497,6 +497,7 @@ def fit_tf_iterate(modelspec,
         freeze_layers = list(range(modelspec.shared_count))
 
     n_outer_loops = int(max_iter/iters_per_loop)
+    freeze_layers2 = list(range(modelspec.shared_count))
 
     log.info(f"**** fit_tf_iterate, STARTING STAGE 1: iterate fits")
     outer_n = 0
@@ -509,6 +510,12 @@ def fit_tf_iterate(modelspec,
             log.info(f"**** fit_tf_iterate, outer n={outer_n} cell_index={cell_idx}")
             est = est_list[cell_idx]
             modelspec.cell_index = cell_idx
+
+            if (freeze_layers is None) or (len(freeze_layers2)>len(freeze_layers)):
+                modelspec = fit_tf(modelspec, est, max_iter=iters_per_loop,
+                                   early_stopping_tolerance=early_stopping_tolerance,
+                                   freeze_layers=freeze_layers2,
+                                   **context)['modelspec']
 
             modelspec = fit_tf(modelspec, est, max_iter=iters_per_loop,
                                early_stopping_tolerance=early_stopping_tolerance,
@@ -526,10 +533,15 @@ def fit_tf_iterate(modelspec,
                             if 'phi' in modelspec[_modidx].keys():
                                 modelspec.raw[cell_idx, modelspec.fit_index, modelspec.jack_index][_modidx]['phi'] = \
                                     copy.deepcopy(modelspec[_modidx]['phi'])
+        max_delta_loss = np.max(previous_losses-np.array(losses))
+        prev_loop_sum_str = ",".join([f'{i}: {l:7.5f}' for i,l in enumerate(previous_losses)])
+        loop_sum_str = ",".join([f'{i}: {l:7.5f}' for i,l in enumerate(losses)])
+        previous_losses = np.array(losses)
+
         log.info(f"**** fit_tf_iterate, outer n={outer_n} complete")
         log.info(f"**** epoch_counts={epoch_counts}, losses={losses}")
-        max_delta_loss = np.max(previous_losses-np.array(losses))
-        previous_losses = np.array(losses)
+        log.info(f"**** prev_loss={prev_loop_sum_str}")
+        log.info(f"**** this_loss={loop_sum_str}")
         log.info(f"**** max_delta_loss={max_delta_loss}")
 
         outer_n += 1

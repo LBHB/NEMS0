@@ -163,6 +163,9 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, rec_list=Non
             if 'cellids' in meta.keys():
                 # cellids list already exists. keep it.
                 pass
+            elif 'cellids' in _rec.meta.keys():
+                # cellids list already exists. keep it.
+                meta['cellids'] = _rec.meta['cellids'].copy()
             elif ((_rec['resp'].shape[0] > 1) and (type(_rec.meta['cellid']) is list)):
                 # guess cellids list from rec.meta
                 meta['cellids'] = _rec.meta['cellid']

@@ -586,7 +586,7 @@ class Recording:
                 s.name=k
                 _save_this = False
                 if i == 0:
-                    print(i, k)
+                    log.info(f"view {i}, signal {k}")
                     _save_this = True
                     prefix = ''
                 else:

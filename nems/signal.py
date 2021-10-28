@@ -301,6 +301,20 @@ class SignalBase:
 
         return hdf5filepath
 
+    def __getitem__(self, key):
+        """Overloaded get.
+
+        :return: _data indexed to key
+        """
+        return self._data[key]
+
+    def __repr__(self):
+        """Overloaded repr.
+
+        :return: Repr of the modelspec `_data` property.
+        """
+        return repr(self._data)
+
     def copy(self):
         '''
         Returns a shallow copy of this signal. _data matrix is not copied.
@@ -998,6 +1012,35 @@ class SignalBase:
                 im = ax.imshow(e.T, origin='lower', aspect='auto')
             #plt.colorbar(im, ax=ax)
             ax.set_xlabel(f'{epoch} occurrence')
+            ax.set_ylabel('Channel')
+
+        ax.set_title(self.name)
+
+    def plot_epoch_avg(self, epoch="TRIAL", channel=None, norm=False, ax=None):
+        import matplotlib.pyplot as plt
+
+        e = np.nanmean(self.extract_epoch(epoch), axis=0)
+
+        if channel is not None:
+            if type(channel) is int:
+                e = e[[channel], :]
+            else:
+                e = e[channel, :]
+
+        #log.info(f"epoch {epoch} eshape={e.shape}")
+        if ax is None:
+            f, ax = plt.subplots()
+        if e.shape[0] == 1:
+            ax.plot(e.T)
+            ax.set_xlabel(f'Bins from {epoch} onset')
+            ax.set_ylabel('Mean')
+        else:
+            if norm:
+                im = ax.imshow((e / e.max(axis=1)), origin='lower', aspect='auto')
+            else:
+                im = ax.imshow(e, origin='lower', aspect='auto')
+            #plt.colorbar(im, ax=ax)
+            ax.set_xlabel(f'Bins from {epoch} onset')
             ax.set_ylabel('Channel')
 
         ax.set_title(self.name)

@@ -301,7 +301,7 @@ def load_recordings(recording_uri_list=None, normalize=False, cellid=None,
         rec['stim'] = rec['stim'].rasterize().normalize('minmax')
 
     log.info('Extracting cellid(s) {}'.format(cellid))
-    if (cellid is None) or (cellid in ['none', 'NAT3', 'NAT4']):
+    if (cellid is None) or (cellid in ['none', 'NAT3', 'NAT4', 'ALLCELLS']):
         # No cellid specified, use all channels
         channels = rec[output_name].chans
         if len(channels) == 0:
@@ -658,10 +658,26 @@ def sev(kw):
          {'epoch_regex': epoch_regex}])
     return xfspec
 
-def split_by_occurrence_counts(rec, epoch_regex='^STIM_', keepfrac=1, **context):
-    est, val = rec.split_using_epoch_occurrence_counts(epoch_regex=epoch_regex, keepfrac=keepfrac)
+def split_by_occurrence_counts(rec, epoch_regex='^STIM_', rec_list=None, keepfrac=1, **context):
 
-    return {'est': est, 'val': val}
+    if rec_list is None:
+        rec_list = [rec]
+        return_reclist = False
+    else:
+        rec=rec_list[0]
+        return_reclist = True
+    est_list = []
+    val_list = []
+
+    for rec in rec_list:
+        est, val = rec.split_using_epoch_occurrence_counts(epoch_regex=epoch_regex, keepfrac=keepfrac)
+        est_list.append(est)
+        val_list.append(val)
+
+    if return_reclist:
+        return {'est': est_list[0], 'val': val_list[0], 'est_list': est_list, 'val_list': val_list}
+    else:
+        return {'est': est, 'val': val}
 
 
 @xform()
@@ -680,23 +696,40 @@ def tev(kw):
     return xfspec
 
 
-def split_at_time(rec, valfrac=0.1, **context):
-
-    rec['resp'] = rec['resp'].rasterize()
-    rec['stim'] = rec['stim'].rasterize()
-    est, val = rec.split_at_time(fraction=valfrac)
-
-    return {'est': est, 'val': val}
-
-
-def average_away_stim_occurrences(est=None, val=None, rec=None, epoch_regex='^STIM', **context):
-    if est is not None:
-        est = preproc.average_away_epoch_occurrences(est, epoch_regex=epoch_regex)
-        val = preproc.average_away_epoch_occurrences(val, epoch_regex=epoch_regex)
-        return {'est': est, 'val': val}
+def average_away_stim_occurrences(est=None, val=None, rec=None,
+                                  est_list=None, val_list=None, rec_list=None,
+                                  epoch_regex='^STIM', **context):
+    if rec_list is None:
+        rec_list = [rec]
+        est_list = [est]
+        val_list = [val]
+        return_reclist = False
     else:
-        rec = preproc.average_away_epoch_occurrences(rec, epoch_regex=epoch_regex)
-        return {'rec': rec}
+        return_reclist = True
+
+    if est[0] is not None:
+        new_est_list=[]
+        new_val_list=[]
+        for est, val in zip(est_list, val_list):
+            est = preproc.average_away_epoch_occurrences(est, epoch_regex=epoch_regex)
+            val = preproc.average_away_epoch_occurrences(val, epoch_regex=epoch_regex)
+            new_est_list.append(est)
+            new_val_list.append(val)
+        if return_reclist:
+            return {'est': new_est_list[0], 'val': new_val_list[0],
+                    'est_list': new_est_list, 'val_list': new_val_list}
+        else:
+            return {'est': est, 'val': val}
+    else:
+        new_rec_list=[]
+        for rec in rec_list:
+            rec = preproc.average_away_epoch_occurrences(rec, epoch_regex=epoch_regex)
+            new_rec_list.append(rec)
+
+        if return_reclist:
+            return {'rec': new_rec_list[0], 'rec_list': new_rec_list}
+        else:
+            return {'rec': rec}
 
     # mask out nan periods
 #    d=np.isfinite(est['resp'].as_continuous()[[0],:])
@@ -1193,12 +1226,12 @@ def add_summary_statistics(est, val, modelspec, est_list=None, val_list=None, re
                            modelspec and save results in each modelspec
     '''
     corr_fn = getattr(nems.analysis.api, fn)
-    
+
     if est_list is None:
         est_list=[est]
         val_list=[val]
         rec_list=[rec]
-        
+
     for cellidx,est,val,rec in zip(range(len(est_list)),est_list,val_list,rec_list):
         modelspec.set_cell(cellidx)
         log.info(f'cell_index: {cellidx}')
@@ -1259,7 +1292,7 @@ def add_summary_statistics(est, val, modelspec, est_list=None, val_list=None, re
                     modelspec.meta['state_mod_m'] = s
                     modelspec.meta['j_state_mod_m'] = j_s
                     modelspec.meta['se_state_mod_m'] = ee
-                    
+
     modelspec.set_cell(0)
     return {'modelspec': modelspec}
 
@@ -1394,7 +1427,7 @@ def save_analysis(destination, recording, modelspec, xfspec=[], figures=[],
 
     base_uri = base_uri if base_uri[-1] == '/' else base_uri + '/'
     xfspec_uri = base_uri + 'xfspec.json'  # For attaching to modelspecs
-    
+
     number=0
     for cc in range(modelspec.cell_count):
         for ff in range(modelspec.fit_count):
@@ -1711,3 +1744,28 @@ def fit_module_sets(modelspecs, est, max_iter=1000, IsReload=False,
                 for modelspec in modelspecs
                 ]
     return {'modelspecs': modelspecs}
+
+
+def split_at_time(rec, valfrac=0.1, rec_list=None, **context):
+
+    if rec_list is None:
+        rec_list = [rec]
+        return_reclist = False
+    else:
+        rec=rec_list[0]
+        return_reclist = True
+
+    est_list = []
+    val_list = []
+
+    for rec in rec_list:
+        rec['resp'] = rec['resp'].rasterize()
+        rec['stim'] = rec['stim'].rasterize()
+        est, val = rec.split_at_time(fraction=valfrac)
+        est_list.append(est)
+        val_list.append(val)
+
+    if return_reclist:
+        return {'est': est_list[0], 'val': val_list[0], 'est_list': est_list, 'val_list': val_list}
+    else:
+        return {'est': est, 'val': val}
