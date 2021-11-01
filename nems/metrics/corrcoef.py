@@ -164,7 +164,7 @@ def r_floor(result, pred_name='pred', resp_name='resp'):
     return r_floor
 
 
-def _r_single(X, N=100,limit=0.01):
+def _r_single(X, N=1000,limit=0.01):
     """
     Assume X is trials X time raster (channel removed)
 
@@ -232,7 +232,7 @@ def _r_single(X, N=100,limit=0.01):
     return rac
 
 
-def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=100):
+def r_ceiling(result, fullrec, pred_name='pred', resp_name='resp', N=1000):
     """
     parameter:
         result : recording
