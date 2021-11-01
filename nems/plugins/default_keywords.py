@@ -31,7 +31,7 @@ import logging
 
 import numpy as np
 from nems.registry import xmodule
-
+from nems.utils import escaped_split
 log = logging.getLogger(__name__)
 
 
@@ -1418,7 +1418,7 @@ def stategain(kw):
         .lv -- concatenate latent variable "lv" onto 'state'. Will need to specify accurate S for this to work.
     None
     '''
-    options = kw.split('.')
+    options = escaped_split(kw, '.')
     in_out_pattern = re.compile(r'^(\d{1,})x(\d{1,})$')
 
     try:
@@ -1467,11 +1467,16 @@ def stategain(kw):
     #If .o# is passed, fix gainoffset to #, initialize gain to 0.
     # y = (np.matmul(g, rec[s]._data) + offset) * x so .g1 will by initialize with no state-dependence
     gainoffset = 0
+    bounds=None
     for op in options[2:]:
         if op.startswith('o'):
             num = op[1:].replace('\\', '')
             gainoffset = float(num)
             g_mean[:, 0] = 0
+        if op.startswith('b'):
+            bounds_in = op[1:].replace('\\', '').replace('d', '.')
+            bounds_in = bounds_in.split(':')
+            bounds = tuple(np.full_like(g_mean,float(bound) - gainoffset) for bound in bounds_in)
 
     plot_fns = ['nems.plots.api.mod_output',
                 'nems.plots.api.spectrogram_output',
@@ -1489,7 +1494,10 @@ def stategain(kw):
             'prior': {'d': ('Normal', {'mean': d_mean, 'sd': d_sd})}
         }
     elif gain_only:
-        bounds = {'g': (g_mean - 0.5, g_mean + 0.5)}
+        if bounds is None:
+            bounds = {'g': (g_mean - 0.5, g_mean + 0.5)}
+        else:
+            bounds = {'g': bounds}
         bounds['g'][0][1:, :fix_across_channels] = g_mean[1:, :fix_across_channels]
         bounds['g'][1][1:, :fix_across_channels] = g_mean[1:, :fix_across_channels]
         template = {
