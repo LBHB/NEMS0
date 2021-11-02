@@ -68,7 +68,7 @@ import sys
 import copy
 import json
 import logging
-from os.path import expanduser, join, dirname
+from os.path import expanduser, join, dirname, exists
 
 import numpy as np
 import matplotlib
@@ -90,6 +90,11 @@ from nems.registry import keyword_lib
 from nems import get_setting
 import matplotlib.pyplot as plt
 log = logging.getLogger(__name__)
+
+from configparser import ConfigParser
+import nems
+
+configfile = join(nems.get_setting('SAVED_SETTINGS_PATH') + '/gui.ini')
 
 # These are used as click-once operations
 # TODO: separate initialization from prefitting
@@ -156,6 +161,9 @@ class EditorWindow(qw.QMainWindow):
         self.setCentralWidget(self.editor)
         self.setWindowTitle(self.title)
         self.show()
+
+    def closeEvent(self, QCloseEvent):
+        self.editor.global_controls.save_view(on_close=True)
 
 
 class EditorWidget(qw.QWidget):
@@ -249,7 +257,64 @@ class EditorWidget(qw.QWidget):
         self.setLayout(outer_layout)
 
         self.setWindowTitle(self.title)
+        self.set_view_params()
         self.show()
+
+    def set_view_params(self,view_file=None,config_group=None):
+        if view_file is None:
+            view_file = configfile
+        if config_group is None:
+            config_group = 'Model_Browser_' + self.ctx['meta']['modelname']
+
+        config = ConfigParser()
+        if not exists(view_file):
+            log.warning(f"Config file {view_file} does not exist. Can't load view parameters")
+            return
+        config.read(view_file)
+        if config_group not in config.sections():
+            if view_file is not None:
+                log.warning(f"Config file {view_file} does not contain a {config_group} section. Can't load view parameters")
+            return
+        else:
+            log.info(f"Loading view params from {view_file}, {config_group} section.")
+        try:
+            time_range = eval(config.get(config_group, 'time_range'))
+            plot_fn_idxs = eval(config.get(config_group, 'plot_fn_idxs'))
+            plot_channels = eval(config.get(config_group, 'plot_channels'))
+            collapsed = eval(config.get(config_group, 'collapsed'))
+            signal_idxs = eval(config.get(config_group, 'signal_idxs'))
+            signal_fn_idxs = eval(config.get(config_group, 'signal_fn_idxs'))
+            signal_channels = eval(config.get(config_group, 'signal_channels'))
+            signal_collapsed = eval(config.get(config_group, 'signal_collapsed'))
+
+            self.global_controls.display_start.setText(str(time_range[0]))
+            self.global_controls.display_range.setText(str(time_range[1] - time_range[0]))
+            self.global_controls.set_display_range()
+
+            for mod, pfi, pc in zip(self.modelspec_editor.modules, plot_fn_idxs, plot_channels):
+                mod.plot_fn_idx = pfi
+                mod.plot_channel = pc
+
+            for cont, pfi, pc in zip(self.modelspec_editor.controllers, plot_fn_idxs, plot_channels):
+                cont.plot_functions_menu.setCurrentIndex(pfi)
+                cont.channel_entry.setText(str(pc))
+
+            for cont, si, pfi, pc in zip(self.modelspec_editor.signal_controllers, signal_idxs, signal_fn_idxs, signal_channels):
+                cont.signal_menu.setCurrentIndex(si)
+                cont.plot_functions_menu.setCurrentIndex(pfi)
+                cont.channel_entry.setText(str(pc))
+
+            for coll, collapsed_ in zip(self.modelspec_editor.collapsers, collapsed):
+                coll.collapsed = not collapsed_
+                coll.toggle_collapsed()
+
+            for coll, collapsed_ in zip(self.modelspec_editor.signal_collapsers, signal_collapsed):
+                coll.collapsed = not collapsed_
+                coll.toggle_collapsed()
+
+        except Exception as inst:
+            print('Error setting view parameters:')
+            print(inst)
 
     def set_new_modelspec(self, new):
         '''Update modelspec references to new and evaluate it.'''
@@ -709,7 +774,6 @@ class SignalCanvas(qw.QFrame):
         rec = self.rec
         from nems.modelspec import _lookup_fn_at
         plot_fn = _lookup_fn_at(self.plot_list[self.plot_fn_idx])
-        print('running SignalCanvas.plot_on_axes() sig_name={}'.format(self.sig_name))
         plot_fn(rec=rec, modelspec=self.parent.modelspec, sig_name=self.sig_name,
                 channels=self.plot_channel, no_legend=True,
                 ax=ax, cursor_time=gc.cursor_time)
@@ -1293,6 +1357,9 @@ class GlobalControls(qw.QFrame):
         self.quickplot_btn = qw.QPushButton('Save Quickplot')
         self.quickplot_btn.clicked.connect(self.export_plot)
 
+        self.save_view_btn = qw.QPushButton('Save View')
+        self.save_view_btn.clicked.connect(self.save_view)
+
         self.buttons_layout.addWidget(self.reset_model_btn)
         self.buttons_layout.addWidget(self.fit_index_label)
         self.buttons_layout.addWidget(self.fit_index_line)
@@ -1301,6 +1368,7 @@ class GlobalControls(qw.QFrame):
         self.buttons_layout.addWidget(self.cursor_time_label)
         self.buttons_layout.addWidget(self.cursor_time_line)
         self.buttons_layout.addWidget(self.quickplot_btn)
+        self.buttons_layout.addWidget(self.save_view_btn)
 
         layout = qw.QVBoxLayout()
         layout.setAlignment(qc.Qt.AlignTop)
@@ -1402,6 +1470,54 @@ class GlobalControls(qw.QFrame):
         fig.savefig(fname)
         # keep path in memory for next save
         self.export_path = dirname(fname)
+
+    def save_view(self, on_close=False):
+        time_range = (self.start_time, self.stop_time)
+        plot_fn_idxs = [mod.plot_fn_idx for mod in self.parent.modelspec_editor.modules]
+        plot_channels = [mod.plot_channel for mod in self.parent.modelspec_editor.modules]
+        collapsed = [sc.collapsed for sc in self.parent.modelspec_editor.collapsers]
+        signal_idxs = [sc.signal_menu.currentIndex() for sc in self.parent.modelspec_editor.signal_controllers]
+        signal_fn_idxs = [sc.plot_functions_menu.currentIndex() for sc in self.parent.modelspec_editor.signal_controllers]
+        signal_channels = [int(sc.channel_entry.text()) for sc in self.parent.modelspec_editor.signal_controllers]
+        signal_collapsed = [sc.collapsed for sc in self.parent.modelspec_editor.signal_collapsers]
+
+        path = configfile
+        config_group = 'Model_Browser_'+self.parent.ctx['meta']['modelname']
+
+        if not on_close:
+            dlg = view_config_location_dlg(path, config_group, parent=self)
+            if dlg.exec():
+                path, config_group = dlg.getInputs()
+                print((path, config_group))
+            else:
+                print('Canceled')
+                return
+
+        config = ConfigParser()
+        if not exists(path):
+            log.warning(f"Config file {path} does not exist, creating")
+        else:
+            config.read(path)
+
+        try:
+            # Create non-existent section
+            config.add_section(config_group)
+        except:
+            pass
+
+        config.set(config_group, 'time_range', str(time_range))
+        config.set(config_group, 'plot_fn_idxs', str(plot_fn_idxs))
+        config.set(config_group, 'plot_channels', str(plot_channels))
+        config.set(config_group, 'collapsed', str(collapsed))
+        config.set(config_group, 'signal_idxs', str(signal_idxs))
+        config.set(config_group, 'signal_fn_idxs', str(signal_fn_idxs))
+        config.set(config_group, 'signal_channels', str(signal_channels))
+        config.set(config_group, 'signal_collapsed', str(signal_collapsed))
+
+        log.info(f'saving view parameters to {configfile}, section {config_group}')
+        with open(configfile, 'w') as f:
+            config.write(f)
+
 
     def update_fit_index(self):
         i = int(self.fit_index_line.text())
@@ -1615,3 +1731,36 @@ if __name__ == '__main__':
             rec = None
 
     run(modelspec, xfspec, rec, ctx)
+
+class view_config_location_dlg(qw.QDialog):
+    def __init__(self, path='', config_group='', parent = None):
+        qw.QWidget.__init__(self, parent=parent)
+        # super(view_config_location_dlg, self).__init__(parent)
+
+        formLayout = qw.QFormLayout(self)
+        pathlabel = qw.QLabel(self)
+        pathlabel.setText('Config file:')
+        pathlabel.setMaximumWidth(200)
+        self.pathLE = qw.QLineEdit(self)
+        self.pathLE.setText(str(path))
+        self.pathLE.setMaximumWidth(1200)
+        formLayout.addRow(pathlabel, self.pathLE)
+
+        config_grouplabel = qw.QLabel(self)
+        config_grouplabel.setText('config group:')
+        config_grouplabel.setMaximumWidth(200)
+        self.config_groupLE = qw.QLineEdit(self)
+        self.config_groupLE.setText(str(config_group))
+        self.config_groupLE.setMaximumWidth(1200)
+        formLayout.addRow(config_grouplabel, self.config_groupLE)
+
+        buttonBox = qw.QDialogButtonBox(qw.QDialogButtonBox.Ok | qw.QDialogButtonBox.Cancel, self)
+        formLayout.addWidget(buttonBox)
+        buttonBox.accepted.connect(self.accept)
+        buttonBox.rejected.connect(self.reject)
+        self.resize(1200, 100)
+        self.show()
+    def getInputs(self):
+        path = self.pathLE.text()
+        config_group = self.config_groupLE.text()
+        return path, config_group
