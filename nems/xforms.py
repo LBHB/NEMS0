@@ -1304,13 +1304,13 @@ def add_summary_statistics_by_condition(est, val, modelspec, evaluation_conditio
     return {'modelspec': modelspec}
 
 def plot_summary(modelspec, val, figures=None, IsReload=False,
-                 figures_to_load=None, **context):
+                 figures_to_load=None, time_range = None, **context):
     # CANNOT initialize figures=[] in optional args our you will create a bug
 
     if figures is None:
         figures = []
     if not IsReload:
-        fig = modelspec.quickplot()
+        fig = modelspec.quickplot(time_range=time_range)
         # Needed to make into a Bytes because you can't deepcopy figures!
         figures.append(nplt.fig2BytesIO(fig))
     else:
