@@ -51,7 +51,7 @@ class BaseLayer(tf.keras.layers.Layer):
         :param fs: The sampling rate of the data.
         :param initializer: What initializer to use. Only used if use_modelspec_init is False.
         """
-        log.info(f'Building tf layer for "{ms_layer["fn"]}".')
+        log.debug(f'Building tf layer for "{ms_layer["fn"]}".')
 
         kwargs = {
             'ms_name': ms_layer['fn'],
@@ -189,7 +189,7 @@ class Dlog(BaseLayer):
         layer_values = self.layer_values
         if self.var_offset:
             layer_values['offset'] = layer_values['offset'].reshape((-1, 1))
-            log.info(f'Converted {self.name} to modelspec phis.')
+            log.debug(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
 
@@ -230,7 +230,7 @@ class Levelshift(BaseLayer):
     def weights_to_phi(self):
         layer_values = self.layer_values
         layer_values['level'] = layer_values['level'].reshape((-1, 1))
-        log.info(f'Converted {self.name} to modelspec phis.')
+        log.debug(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
 
@@ -272,7 +272,7 @@ class Relu(BaseLayer):
         layer_values = self.layer_values
         if self.var_offset:
             layer_values['offset'] = layer_values['offset'].reshape((-1, 1))
-            log.info(f'Converted {self.name} to modelspec phis.')
+            log.debug(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
 
@@ -349,7 +349,7 @@ class DoubleExponential(BaseLayer):
         layer_values['kappa'] = layer_values['kappa'].reshape(shape)
         layer_values['shift'] = layer_values['shift'].reshape(shape)
 
-        log.info(f'Converted {self.name} to modelspec phis.')
+        log.debug(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
 
@@ -392,7 +392,7 @@ class WeightChannelsBasic(BaseLayer):
 
     def weights_to_phi(self):
         layer_values = self.layer_values
-        log.info(f'Converted {self.name} to modelspec phis.')
+        log.debug(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
 
@@ -461,7 +461,7 @@ class WeightChannelsGaussian(BaseLayer):
         layer_values = self.layer_values
         layer_values['sd'] = layer_values['sd'] / 10  # reverses *10 kludge in initialization
         # don't need to do any reshaping
-        log.info(f'Converted {self.name} to modelspec phis.')
+        log.debug(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
 
@@ -573,7 +573,7 @@ class FIR(BaseLayer):
         layer_values = self.layer_values
         layer_values['coefficients'] = layer_values['coefficients'].reshape((-1, self.units))
         # don't need to do any reshaping
-        log.info(f'Converted {self.name} to modelspec phis.')
+        log.debug(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
 
@@ -811,7 +811,7 @@ class STPQuick(BaseLayer):
     def weights_to_phi(self):
         layer_values = self.layer_values
         # don't need to do any reshaping
-        log.info(f'Converted {self.name} to modelspec phis.')
+        log.debug(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
 
@@ -903,7 +903,7 @@ class StateDCGain(BaseLayer):
 
     def weights_to_phi(self):
         layer_values = self.layer_values
-        log.info(f'Converted {self.name} to modelspec phis.')
+        log.debug(f'Converted {self.name} to modelspec phis.')
         return layer_values
 
 
@@ -1026,7 +1026,7 @@ class Conv2D_NEMS_new(BaseLayer):
     def weights_to_phi(self):
         phi = {'kernel': self.kernel.numpy(),
                'bias': self.bias.numpy()}
-        log.info(f'Converted {self.name} to modelspec phis.')
+        log.debug(f'Converted {self.name} to modelspec phis.')
 
         return phi
 
@@ -1061,7 +1061,7 @@ class Conv2D_NEMS(BaseLayer, Conv2D):
     def weights_to_phi(self):
         phi = {'kernels': self.weights[0].numpy(),
                'activations': self.weights[1].numpy()}
-        log.info(f'Converted {self.name} to modelspec phis.')
+        log.debug(f'Converted {self.name} to modelspec phis.')
         return phi
 
 
@@ -1073,7 +1073,7 @@ class Dense_NEMS(BaseLayer, Dense):
 
     def weights_to_phi(self):
         phi = {'kernels': self.weights[0].numpy(), 'activations': self.weights[1].numpy()}
-        log.info(f'Converted {self.name} to modelspec phis.')
+        log.debug(f'Converted {self.name} to modelspec phis.')
         return phi
 
 
@@ -1100,7 +1100,7 @@ class WeightChannelsPerBank(BaseLayer):
 
     def weights_to_phi(self):
         phi = {'coefficients': self.coefficients.numpy()}
-        log.info(f'Converted {self.name} to modelspec phis.')
+        log.debug(f'Converted {self.name} to modelspec phis.')
         return phi
 
 
@@ -1129,7 +1129,7 @@ class WeightChannelsNew(BaseLayer):
 
     def weights_to_phi(self):
         phi = {'coefficients': self.coefficients.numpy()}
-        log.info(f'Converted {self.name} to modelspec phis.')
+        log.debug(f'Converted {self.name} to modelspec phis.')
         return phi
 
 

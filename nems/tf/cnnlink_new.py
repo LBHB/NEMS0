@@ -506,8 +506,12 @@ def fit_tf_iterate(modelspec,
     while (outer_n < n_outer_loops) and (not done):
         epoch_counts = []
         losses = []
-        for cell_idx in range(modelspec.cell_count):
-            log.info(f"**** fit_tf_iterate, outer n={outer_n} cell_index={cell_idx}")
+        cell_range = np.arange(modelspec.cell_count)
+        np.random.shuffle(cell_range)
+        for i,cell_idx in enumerate(cell_range):
+            log.info(f"***********************************************************************************")
+            log.info(f"**** fit_tf_iterate, outer n={outer_n} cell_index={cell_idx} ({i+1}/{len(cell_range)}) ****")
+            log.info(f"***********************************************************************************")
             est = est_list[cell_idx]
             modelspec.cell_index = cell_idx
 
@@ -533,19 +537,18 @@ def fit_tf_iterate(modelspec,
                             if 'phi' in modelspec[_modidx].keys():
                                 modelspec.raw[cell_idx, modelspec.fit_index, modelspec.jack_index][_modidx]['phi'] = \
                                     copy.deepcopy(modelspec[_modidx]['phi'])
-        max_delta_loss = np.max(previous_losses-np.array(losses))
-        prev_loop_sum_str = ",".join([f'{i}: {l:7.5f}' for i,l in enumerate(previous_losses)])
-        loop_sum_str = ",".join([f'{i}: {l:7.5f}' for i,l in enumerate(losses)])
+        mean_delta_loss = np.mean(previous_losses-np.array(losses))
+        prev_loop_sum_str = ", ".join([f'{i}: {l:6.4f}' for i,l in enumerate(previous_losses)])
+        loop_sum_str = ", ".join([f'{i}: {l:6.4f}' for i,l in enumerate(losses)])
         previous_losses = np.array(losses)
 
-        log.info(f"**** fit_tf_iterate, outer n={outer_n} complete")
-        log.info(f"**** epoch_counts={epoch_counts}, losses={losses}")
+        log.info(f"**** fit_tf_iterate, outer n={outer_n}, inner={np.max(epoch_counts)} complete")
         log.info(f"**** prev_loss={prev_loop_sum_str}")
         log.info(f"**** this_loss={loop_sum_str}")
-        log.info(f"**** max_delta_loss={max_delta_loss}")
+        log.info(f"**** mean_delta_loss={mean_delta_loss}")
 
         outer_n += 1
-        if max_delta_loss < early_stopping_tolerance:
+        if mean_delta_loss < early_stopping_tolerance:
             done = True
         if np.max(epoch_counts) < 6:
             done = True
