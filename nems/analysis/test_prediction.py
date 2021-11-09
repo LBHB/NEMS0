@@ -454,7 +454,7 @@ def pick_best_phi(modelspec=None, est=None, val=None, est_list=None, val_list=No
            tx[best_idx[j]] = np.nanmax(tx)
 
     for cell_index in range(new_raw.shape[0]):
-        new_raw[cell_index,0,0][0]['meta'] = modelspec.raw[cell_index,0,0].meta.copy()
+        new_raw[cell_index,0,0][0]['meta'] = modelspec.raw[cell_index,0,0][0].meta.copy()
     new_modelspec = ms.ModelSpec(new_raw)
     new_modelspec.meta['rand_'+criterion] = x
 
