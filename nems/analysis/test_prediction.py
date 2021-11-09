@@ -456,6 +456,7 @@ def pick_best_phi(modelspec=None, est=None, val=None, est_list=None, val_list=No
     for cell_index in range(new_raw.shape[0]):
         new_raw[cell_index,0,0][0]['meta'] = modelspec.raw[cell_index,0,0][0]['meta'].copy()
     new_modelspec = ms.ModelSpec(new_raw)
+    new_modelspec.set_cell(0)
     new_modelspec.meta['rand_'+criterion] = x
 
     return {'modelspec': new_modelspec, 'best_random_idx': best_idx}

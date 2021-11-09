@@ -288,13 +288,13 @@ class ModelSpec:
         :param int fit_count: Number of tiles to create.
         :return: Self.
         """
-        meta_save = self.meta
+        #meta_save = self.meta
 
         fits = [copy.deepcopy(self.raw[:, 0:1, :]) for i in range(fit_count)]
         self.raw = np.concatenate(fits, axis=1)
 
-        for r in self.raw.flatten():
-            r[0]['meta'] = meta_save
+        #for r in self.raw.flatten():
+        #    r[0]['meta'] = meta_save
 
         return self
 
