@@ -405,7 +405,8 @@ def pick_best_phi(modelspec=None, est=None, val=None, est_list=None, val_list=No
             # set the recording/model for this cell_idx
             this_est = est_list[cell_idx].view_subset(view_range)
             this_modelspec = modelspec.copy(jack_index=j)
-            this_modelspec.cell_index=cell_idx
+            this_modelspec.cell_index = cell_idx
+            modelspec.cell_index = cell_idx
 
             # these functions each generate a vector of losses?
             if 'loss' in modelspec.meta.keys():
@@ -452,7 +453,8 @@ def pick_best_phi(modelspec=None, est=None, val=None, est_list=None, val_list=No
                     j, n+1, keep_n, best_idx[j], tx[best_idx[j]])
            tx[best_idx[j]] = np.nanmax(tx)
 
-    new_raw[0,0,0][0]['meta'] = modelspec.meta.copy()
+    for cell_index in range(new_raw.shape[0]):
+        new_raw[cell_index,0,0][0]['meta'] = modelspec.raw[cell_index,0,0].meta.copy()
     new_modelspec = ms.ModelSpec(new_raw)
     new_modelspec.meta['rand_'+criterion] = x
 
