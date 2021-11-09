@@ -199,7 +199,10 @@ def from_keywords_as_list(keyword_string, registry=None, meta={}):
 
 
 def rand_phi(modelspec, rand_count=10, IsReload=False, rand_seed=1234, **context):
-    """ initialize modelspec phi to random values based on priors """
+    """ 
+    initialize modelspec phi to random values based on priors
+    2021-11-08: svd added support for multiple-cell modelspecs
+    """
 
     if IsReload:
         return {}
@@ -212,13 +215,17 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, rand_seed=1234, **context
     save_state = np.random.get_state()
     np.random.seed(rand_seed)
 
-    for i in range(rand_count):
-        modelspec.set_fit(i)
-        if i == 0:
-            # make first one mean of priors:
-            modelspec = priors.set_mean_phi(modelspec)
-        else:
-            modelspec = priors.set_random_phi(modelspec)
+    for cell_idx in range(modelspec.cell_count):
+        modelspec.set_cell(cell_idx)
+        for i in range(rand_count):
+            modelspec.set_fit(i)
+            if i == 0:
+                # make first one mean of priors:
+                modelspec = priors.set_mean_phi(modelspec)
+            else:
+                modelspec = priors.set_random_phi(modelspec)
+    modelspec.set_cell(0)
+    modelspec.set_fit(0)
 
     # restore random seed
     np.random.set_state(save_state)
