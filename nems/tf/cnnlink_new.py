@@ -477,6 +477,7 @@ def fit_tf_iterate(modelspec,
                    est_list: list,
                    early_stopping_tolerance: float = 5e-4,
                    max_iter: int = 10000,
+                   extra_tail_fit: str = 'none',
                    iters_per_loop: typing.Union[None, int] = None,
                    freeze_layers: typing.Union[None, list] = None,
                    IsReload: bool = False,
@@ -505,21 +506,35 @@ def fit_tf_iterate(modelspec,
     previous_losses = np.ones(modelspec.cell_count)
     while (outer_n < n_outer_loops) and (not done):
         epoch_counts = []
-        losses = []
+        losses = np.ones(modelspec.cell_count)
         cell_range = np.arange(modelspec.cell_count)
         np.random.shuffle(cell_range)
         for i,cell_idx in enumerate(cell_range):
             log.info(f"***********************************************************************************")
-            log.info(f"**** fit_tf_iterate, outer n={outer_n} cell_index={cell_idx} ({i+1}/{len(cell_range)}) ****")
-            log.info(f"***********************************************************************************")
+            log.info(f"**** fit_tf_iterate, outer n={outer_n} cell_index={cell_idx} ({i+1}/{len(cell_range)}) prev loss={previous_losses[cell_idx]:4f} ****")
             est = est_list[cell_idx]
             modelspec.cell_index = cell_idx
 
-            if (freeze_layers is None) or (len(freeze_layers2)>len(freeze_layers)):
-                modelspec = fit_tf(modelspec, est, max_iter=iters_per_loop,
-                                   early_stopping_tolerance=early_stopping_tolerance,
+            if (extra_tail_fit == 'pre') and ((i>0) or (outer_n>0)) and \
+              ((freeze_layers is None) or (len(freeze_layers2)>len(freeze_layers))):
+                log.info(f"**** pre-fitting non-shared layers {modelspec.shared_count}-{len(modelspec)}")
+                modelspec = fit_tf(modelspec, est, max_iter=iters_per_loop*20,
+                                   early_stopping_tolerance=early_stopping_tolerance*20,
                                    freeze_layers=freeze_layers2,
                                    **context)['modelspec']
+            elif extra_tail_fit == 'pre_reset' and ((i>0) or (outer_n>0)) and \
+              ((freeze_layers is None) or (len(freeze_layers2)>len(freeze_layers))):
+                log.info(f"**** reseting non-shared layers {modelspec.shared_count}-{len(modelspec)} to prior")
+                for _modidx in range(modelspec.shared_count, len(modelspec)):
+                    if 'phi' in modelspec[_modidx].keys():
+                        for param_name,dist in modelspec[_modidx]['prior'].items():
+                            modelspec[_modidx]['phi'][param_name] = dist[1]['mean']
+                
+                modelspec = fit_tf(modelspec, est, max_iter=max_iter,
+                                   early_stopping_tolerance=early_stopping_tolerance*10,
+                                   freeze_layers=freeze_layers2,
+                                   **context)['modelspec']
+            log.info(f"***********************************************************************************")
 
             modelspec = fit_tf(modelspec, est, max_iter=iters_per_loop,
                                early_stopping_tolerance=early_stopping_tolerance,
@@ -527,17 +542,26 @@ def fit_tf_iterate(modelspec,
                                **context)['modelspec']
 
             epoch_counts.append(modelspec.meta['n_epochs'])
-            losses.append(modelspec.meta['loss'])
+            losses[cell_idx] = modelspec.meta['loss']
 
             if (modelspec.shared_count > 0):
                 log.info(f'copying first {modelspec.shared_count} mods from modelspec cell_index {modelspec.cell_index}')
-                for cell_idx in range(modelspec.cell_count):
-                    if cell_idx != modelspec.cell_index:
+                for cc in range(modelspec.cell_count):
+                    if cc != cell_idx:
                         for _modidx in range(modelspec.shared_count):
                             if 'phi' in modelspec[_modidx].keys():
-                                modelspec.raw[cell_idx, modelspec.fit_index, modelspec.jack_index][_modidx]['phi'] = \
+                                modelspec.raw[cc, modelspec.fit_index, modelspec.jack_index][_modidx]['phi'] = \
                                     copy.deepcopy(modelspec[_modidx]['phi'])
-        mean_delta_loss = np.mean(previous_losses-np.array(losses))
+                        if extra_tail_fit == 'post':
+                            modelspec.cell_index = cc
+                            est = est_list[cc]
+                            log.info(f'*** cc={cc}')
+                            modelspec = fit_tf(modelspec, est, max_iter=iters_per_loop*4,
+                                               early_stopping_tolerance=early_stopping_tolerance,
+                                               freeze_layers=freeze_layers2,
+                                               **context)['modelspec']
+
+        mean_delta_loss = np.mean(previous_losses-losses)
         prev_loop_sum_str = ", ".join([f'{i}: {l:6.4f}' for i,l in enumerate(previous_losses)])
         loop_sum_str = ", ".join([f'{i}: {l:6.4f}' for i,l in enumerate(losses)])
         previous_losses = np.array(losses)
@@ -557,7 +581,7 @@ def fit_tf_iterate(modelspec,
     iters_per_loop2 = max_iter
     freeze_layers2 = list(range(modelspec.shared_count))
     for cell_idx in range(modelspec.cell_count):
-        log.info(f"**** fit_tf_iterate, outer n={outer_n} cell_index={cell_idx}")
+        log.info(f"**** fit_tf_iterate, STAGE 2 cell_index={cell_idx}")
         est = est_list[cell_idx]
         modelspec.cell_index = cell_idx
 
@@ -683,6 +707,8 @@ def fit_tf_init(
         temp_ms = fit_tf(temp_ms, est, est_list=est_list, freeze_layers=freeze_idxes, filepath=filepath, **kwargs)['modelspec']
 
     for cell_idx in range(temp_ms.cell_count):
+        log.info(f"***********************************************************************************")
+        log.info(f"**** fit_tf_init, cell_index={cell_idx} fitting output NL     ****")
         modelspec.cell_index = cell_idx
         temp_ms.cell_index = cell_idx
         est = est_list[cell_idx]
