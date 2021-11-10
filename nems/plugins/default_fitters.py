@@ -202,6 +202,12 @@ def newtf(fitkey):
             parm_dict['extra_tail_fit'] = 'pre'
         elif op == 'mxpo':
             parm_dict['extra_tail_fit'] = 'post'
+        elif op == 'prop':
+            parm_dict['proportional_iter'] = True
+        elif op == 'unif':
+            parm_dict['proportional_iter'] = False
+        elif op == 'mxpo':
+            parm_dict['extra_tail_fit'] = 'post'
         elif op[:1] == 'n':
             use_modelspec_init = True
         elif op == 'b':
