@@ -514,7 +514,7 @@ def fit_tf_iterate(modelspec,
     
     while (outer_n < n_outer_loops) and (not done):
         epoch_counts = []
-        losses = np.ones(modelspec.cell_count)
+        losses = previous_losses.copy()
         if proportional_iter:
             cell_range = np.array([np.argmax(est_sizes>np.random.rand()) for i in range(modelspec.cell_count)])
         else:
@@ -522,8 +522,8 @@ def fit_tf_iterate(modelspec,
             np.random.shuffle(cell_range)
         for i,cell_idx in enumerate(cell_range):
             
+            log.info(f"**** fit_tf_iterate outer/inner {outer_n}/{i}: cell {cell_idx}      ****")
             log.info(f"***********************************************************************************")
-            log.info(f"**** fit_tf_iterate, outer n={outer_n} cell_index={cell_idx} ({i+1}/{len(cell_range)}) prev loss={previous_losses[cell_idx]:4f} ****")
             est = est_list[cell_idx]
             modelspec.cell_index = cell_idx
 
@@ -534,6 +534,7 @@ def fit_tf_iterate(modelspec,
                                    early_stopping_tolerance=early_stopping_tolerance*20,
                                    freeze_layers=freeze_layers2,
                                    **context)['modelspec']
+                log.info(f"***********************************************************************************")
             elif extra_tail_fit == 'pre_reset' and ((i>0) or (outer_n>0)) and \
               ((freeze_layers is None) or (len(freeze_layers2)>len(freeze_layers))):
                 log.info(f"**** resetting non-shared layers {modelspec.shared_count}-{len(modelspec)} to prior")
@@ -546,15 +547,16 @@ def fit_tf_iterate(modelspec,
                                    early_stopping_tolerance=early_stopping_tolerance*10,
                                    freeze_layers=freeze_layers2,
                                    **context)['modelspec']
-            log.info(f"***********************************************************************************")
-            previous_losses[i] = modelspec.meta.get('loss',1)
+                log.info(f"***********************************************************************************")
+
+            #previous_losses[i] = modelspec.meta.get('loss',1)
             modelspec = fit_tf(modelspec, est, max_iter=iters_per_loop,
                                early_stopping_tolerance=early_stopping_tolerance,
                                freeze_layers=freeze_layers,
                                **context)['modelspec']
 
             epoch_counts.append(modelspec.meta['n_epochs'])
-            losses[i] = modelspec.meta['loss']
+            losses[cell_idx] = modelspec.meta['loss']
 
             if (modelspec.shared_count > 0):
                 log.info(f'copying first {modelspec.shared_count} mods from modelspec cell_index {modelspec.cell_index}')
@@ -572,11 +574,14 @@ def fit_tf_iterate(modelspec,
                                                early_stopping_tolerance=early_stopping_tolerance,
                                                freeze_layers=freeze_layers2,
                                                **context)['modelspec']
+            log.info(f"**** outer/inner {outer_n}/{i}: cell {cell_idx} prev loss={previous_losses[cell_idx]:4f} new loss={losses[cell_idx]:4f}     ****")
+            log.info(f"***********************************************************************************")
 
-        mean_delta_loss = np.mean(previous_losses-losses)
-        prev_loop_sum_str = ", ".join([f'{cell_range[i]}: {l:6.4f}' for i,l in enumerate(previous_losses)])
-        loop_sum_str = ", ".join([f'{cell_range[i]}: {l:6.4f}' for i,l in enumerate(losses)])
-        #previous_losses = np.array(losses)
+        
+        mean_delta_loss = np.mean(previous_losses[cell_range]-losses[cell_range])
+        prev_loop_sum_str = ", ".join([f'{i}: {l:6.4f}' for i,l in enumerate(previous_losses)])
+        loop_sum_str = ", ".join([f'{i}: {l:6.4f}' for i,l in enumerate(losses)])
+        previous_losses = losses.copy()
 
         log.info(f"**** fit_tf_iterate, outer n={outer_n}, inner={np.max(epoch_counts)} complete")
         log.info(f"**** prev_loss={prev_loop_sum_str}")
