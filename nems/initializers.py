@@ -44,6 +44,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, rec_list=Non
     cell_count = len(rec_list)
 
     modelspec = ms.ModelSpec(cell_count=cell_count)
+    destination = None
     for cell_index, _rec in enumerate(rec_list):
         modelspec.cell_index = cell_index
         shared_modules = []
@@ -178,12 +179,18 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, rec_list=Non
         # for modelspec object, we know that meta must exist, so just update
         modelspec.meta.update(meta)
 
-        if modelspec.meta.get('modelpath') is None:
+        if destination is None:
             destination = get_default_savepath(modelspec)
-            modelspec.meta['modelpath'] = destination
-            modelspec.meta['figurefile'] = os.path.join(destination,'figure.0000.png')
+        modelspec.meta['modelpath'] = destination
+        modelspec.meta['figurefile'] = os.path.join(destination, 'figure.0000.png')
+
+        #modelspec.meta.update(meta)
+
+        print(destination, modelspec.meta['modelpath'])
+
         del meta['cellids']
-    modelspec.cell_index=0
+
+    modelspec.cell_index = 0
         
     return modelspec
 

@@ -222,8 +222,11 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
         destination = os.path.join(prefix, str(batch), cell_name, modelspec.get_longname())
 
         log.info(f'Setting modelpath to "{destination}"')
-        modelspec.meta['modelpath'] = destination
-        modelspec.meta['figurefile'] = os.path.join(destination, 'figure.0000.png')
+        for cellidx in range(modelspec.cell_count):
+            modelspec.set_cell(cellidx)
+            modelspec.meta['modelpath'] = destination
+            modelspec.meta['figurefile'] = os.path.join(destination, 'figure.0000.png')
+        modelspec.set_cell(0)
     else:
         destination = modelspec.meta['modelpath']
 
@@ -246,13 +249,17 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
         save_loc = str(batch) + '/' + cell_name + '/' + modelspec.get_longname()
         save_destination = prefix + '/' + save_loc
         # set the modelspec meta save locations to be the filesystem and not baphy
-        modelspec.meta['modelpath'] = get_setting('NEMS_RESULTS_DIR') + '/' + save_loc
-        modelspec.meta['figurefile'] = modelspec.meta['modelpath'] + '/' + 'figure.0000.png'
+        for cellidx in range(modelspec.cell_count):
+            modelspec.set_cell(cellidx)
+            modelspec.meta['modelpath'] = get_setting('NEMS_RESULTS_DIR') + '/' + save_loc
+            modelspec.meta['figurefile'] = modelspec.meta['modelpath'] + '/' + 'figure.0000.png'
+        modelspec.set_cell(0)
+
     else:
         save_destination = destination
 
     modelspec.meta['runtime'] = int(time.time() - startime)
-    modelspec.meta.update(meta)
+    #modelspec.meta.update(meta)
 
     if returnModel:
         # return fit, skip save!
