@@ -847,6 +847,8 @@ def modelspec_remove_input_layers(modelspec, rec, remove_count=0):
         raw_trunc[i_,0,0][0]['meta'] = copy.deepcopy(modelspec.raw[i_,0,0][0]['meta'])
     
     modelspec_trunc = ms.ModelSpec(raw=raw_trunc, cell_count=modelspec.cell_count, cell_index=modelspec.cell_index)
+    modelspec_trunc.fit_index=modelspec.fit_index
+    modelspec_trunc.jack_index=modelspec.jack_index
     
     return modelspec_trunc, rec_trunc
 

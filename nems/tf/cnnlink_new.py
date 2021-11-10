@@ -238,7 +238,6 @@ def fit_tf(
     seed += modelspec.fit_index
 
     if (freeze_layers is not None) and len(freeze_layers) and (len(freeze_layers)==freeze_layers[-1]+1):
-        log.info("Special case of freezing: truncating model!!!")
         truncate_model=True
         modelspec_trunc, est_trunc = \
             initializers.modelspec_remove_input_layers(modelspec, est, remove_count=len(freeze_layers))
@@ -247,6 +246,7 @@ def fit_tf(
         modelspec = modelspec_trunc
         est = est_trunc
         freeze_layers = None
+        log.info(f"Special case of freezing: truncating model. fit_index={modelspec.fit_index} cell_index={modelspec.cell_index}")
     else:
         truncate_model = False
     
@@ -516,6 +516,8 @@ def fit_tf_iterate(modelspec,
         epoch_counts = []
         losses = previous_losses.copy()
         if proportional_iter:
+            for i in range(outer_n*modelspec.cell_count):
+                _i = np.random.rand()
             cell_range = np.array([np.argmax(est_sizes>np.random.rand()) for i in range(modelspec.cell_count)])
         else:
             cell_range = np.arange(modelspec.cell_count)
@@ -598,7 +600,7 @@ def fit_tf_iterate(modelspec,
     iters_per_loop2 = max_iter
     freeze_layers2 = list(range(modelspec.shared_count))
     for cell_idx in range(modelspec.cell_count):
-        log.info(f"**** fit_tf_iterate, STAGE 2 cell_index={cell_idx}")
+        log.info(f"**** fit_tf_iterate, STAGE 2 fit_index={modelspec.fit_index} cell_index={cell_idx}")
         est = est_list[cell_idx]
         modelspec.cell_index = cell_idx
 
@@ -725,7 +727,7 @@ def fit_tf_init(
 
     for cell_idx in range(temp_ms.cell_count):
         log.info(f"***********************************************************************************")
-        log.info(f"**** fit_tf_init, cell_index={cell_idx} fitting output NL     ****")
+        log.info(f"****   fit_tf_init, fit_index={modelspec.fit_index} cell_index={cell_idx} fitting output NL    ****")
         modelspec.cell_index = cell_idx
         temp_ms.cell_index = cell_idx
         est = est_list[cell_idx]
