@@ -1040,7 +1040,7 @@ def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None):
     sql = ("SELECT DISTINCT Data.*,sCellFile.goodtrials" +
            " FROM Data LEFT JOIN sCellFile " +
            " ON (Data.rawid=sCellFile.rawid " +
-           " AND Data.cellid=sCellFile.cellid)" +
+           " AND substring(Data.cellid,1,locate('_',Data.cellid)-1)=sCellFile.cellid)" +  # remove underscore and beyond from Data.cellid
            " WHERE 1")
     if batch is not None:
         sql += " AND Data.batch=%s"
