@@ -580,15 +580,15 @@ def fit_tf_iterate(modelspec,
             log.info(f"***********************************************************************************")
 
         
-        mean_delta_loss = np.mean(previous_losses[cell_range]-losses[cell_range])
+        mean_delta_loss = np.mean(previous_losses[cell_range]-losses[cell_range]) / iters_per_loop
         prev_loop_sum_str = ", ".join([f'{i}: {l:6.4f}' for i,l in enumerate(previous_losses)])
         loop_sum_str = ", ".join([f'{i}: {l:6.4f}' for i,l in enumerate(losses)])
         previous_losses = losses.copy()
 
-        log.info(f"**** fit_tf_iterate, outer n={outer_n}, inner={np.max(epoch_counts)} complete")
         log.info(f"**** prev_loss={prev_loop_sum_str}")
         log.info(f"**** this_loss={loop_sum_str}")
-        log.info(f"**** mean_delta_loss={mean_delta_loss}")
+        log.info(f"**** fit_tf_iterate, outer n={outer_n}, inner={np.max(epoch_counts)} complete, mean_delta_loss={mean_delta_loss:.6f}")
+        log.info(f"**** ")
 
         outer_n += 1
         if mean_delta_loss < early_stopping_tolerance:
@@ -596,6 +596,7 @@ def fit_tf_iterate(modelspec,
         if np.max(epoch_counts) < 6:
             done = True
 
+    log.info(f"***********************************************************************************")
     log.info(f"**** fit_tf_iterate, STARTING STAGE 2: fit branches")
     iters_per_loop2 = max_iter
     freeze_layers2 = list(range(modelspec.shared_count))
