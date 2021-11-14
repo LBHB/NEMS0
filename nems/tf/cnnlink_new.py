@@ -510,7 +510,7 @@ def fit_tf_iterate(modelspec,
     output_name=modelspec.meta['output_name']
     for i, e in enumerate(est_list):
         est_sizes[i] = np.prod(e[output_name].shape)
-    est_sizes += est_sizes.max()/20  # tweak ratios a bit to not completely skip rare sites
+    #est_sizes += est_sizes.max()/20  # tweak ratios a bit to not completely skip rare sites
     est_sizes = np.cumsum(est_sizes/np.sum(est_sizes))
     
     while (outer_n < n_outer_loops) and (not done):
