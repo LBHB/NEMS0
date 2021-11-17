@@ -205,14 +205,15 @@ def from_keywords_as_list(keyword_string, registry=None, meta={}):
     return [from_keywords(keyword_string, registry, meta)]
 
 
-def rand_phi(modelspec, rand_count=10, IsReload=False, rand_seed=1234, **context):
+def rand_phi(modelspec, rand_count=10, IsReload=False, skip_init=False, rand_seed=1234, **context):
     """ 
     initialize modelspec phi to random values based on priors
     2021-11-08: svd added support for multiple-cell modelspecs
     """
 
-    if IsReload:
+    if IsReload or skip_init:
         return {}
+
     jack_count = modelspec.jack_count
     modelspec = modelspec.copy(jack_index=0)
 

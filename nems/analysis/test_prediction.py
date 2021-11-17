@@ -369,6 +369,8 @@ def pick_best_phi(modelspec=None, est=None, val=None, est_list=None, val_list=No
     """
     if IsReload:
         return {}
+    if modelspec.fit_count<=1:
+        return {}
 
     if est_list is None:
         est_list=[est]

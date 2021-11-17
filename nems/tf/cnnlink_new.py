@@ -623,6 +623,7 @@ def fit_tf_init(
         nl_init: str = 'tf',
         IsReload: bool = False,
         isolate_NL: bool = False,
+        skip_init: bool = False,
         up_to_idx=None,
         **kwargs
         ) -> dict:
@@ -634,7 +635,7 @@ def fit_tf_init(
     last two, only fits the first it encounters (freezes all other layers).
     """
 
-    if IsReload:
+    if IsReload or skip_init:
         return {}
 
     def first_substring_index(strings, substring):
