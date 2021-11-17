@@ -243,17 +243,19 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
         modelspec.meta['modelpath'] = std_filepath
         modelspec.meta['figurefile'] = std_filepath + '/' + 'figure.0000.png'
     #else:
-    
-    save_destination = destination
+        save_destination = destination
         """
         save_loc = str(batch) + '/' + cell_name + '/' + modelspec.get_longname()
         save_destination = prefix + '/' + save_loc
         # set the modelspec meta save locations to be the filesystem and not baphy
         for cellidx in range(modelspec.cell_count):
             modelspec.set_cell(cellidx)
-            modelspec.meta['modelpath'] = get_setting('NEMS_RESULTS_DIR') + '/' + save_loc
-            modelspec.meta['figurefile'] = modelspec.meta['modelpath'] + '/' + 'figure.0000.png'
+            for jackidx in range(modelspec.jack_count):
+                modelspec.set_jack(cellidx)
+                modelspec.meta['modelpath'] = get_setting('NEMS_RESULTS_DIR') + '/' + save_loc
+                modelspec.meta['figurefile'] = modelspec.meta['modelpath'] + '/' + 'figure.0000.png'
         modelspec.set_cell(0)
+        modelspec.set_jack(0)
 
     else:
         save_destination = destination
@@ -267,6 +269,7 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
 
     # save results
     log.info('Saving modelspec(s) to {0} ...'.format(save_destination))
+    log.info(f'modelspec recordings meta.modelpath: {modelspec.meta["modelpath"]}')
     if 'figures' in ctx.keys():
         figs = ctx['figures']
     else:

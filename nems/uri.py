@@ -155,6 +155,7 @@ def load_resource(uri):
     Loads and returns the resource (probably a JSON) found at URI.
     '''
     if http_uri(uri):
+        print(uri)
         r = requests.get(uri)
         if r.status_code != 200:
             err = 'HTTP GET failed. Got {}: {}'.format(r.status_code,
