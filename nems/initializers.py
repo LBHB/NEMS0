@@ -9,6 +9,7 @@ from nems.plugins import default_keywords
 from nems.utils import find_module, get_default_savepath
 from nems.analysis.api import fit_basic
 from nems.fitters.api import scipy_minimize
+from nems import xforms
 import nems.priors as priors
 import nems.modelspec as ms
 from nems.uri import save_resource, load_resource
@@ -242,26 +243,35 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, skip_init=False, rand_see
 
     return {'modelspec': modelspec}
 
-def load_phi(modelspec, prefit_uri="", copy_layers=0, **kwargs):
+def load_phi(modelspec, prefit_uri="", prefit_modelspec=None, copy_layers=0, **kwargs):
     """
     copy the first copy_layers of a previously fit modelspec into
     the current modelspec. barfs if the phi sizes don't match exactly
     """
-    prefit_modelspec = ms.ModelSpec([load_resource(prefit_uri)])
+    if prefit_modelspec is None:
+        _, ctx_old = xforms.load_analysis(prefit_uri, eval_model=False)
+        prefit_modelspec = ctx_old['modelspec']
+        #prefit_modelspec = ms.ModelSpec([load_resource(prefit_uri)])
 
     # copy phi from existing modelspec to the other:
-    for i, phi in enumerate(prefit_modelspec.phi[:copy_layers]):
-        if phi is not None:
-            for k in phi.keys():
-                log.info(f"{i} {k} {phi[k].shape}")
-                #import pdb; pdb.set_trace()
-                if (k not in modelspec.phi[i].keys()):
-                    log.info(f'module {i} creating phi entry for {k}')
-                    modelspec.phi[i][k] = phi[k]
-                elif phi[k].shape == modelspec.phi[i][k].shape:
-                    modelspec.phi[i][k] = phi[k]
-                else:
-                    raise ValueError(f"new shape mismatch {modelspec.phi[i][k].shape}")
+    for cellidx in range(modelspec.cell_count):
+        modelspec.set_cell(cellidx)
+        prefit_modelspec.set_cell(cellidx)
+
+        for i, phi in enumerate(prefit_modelspec.phi[:copy_layers]):
+            if phi is not None:
+                for k in phi.keys():
+                    log.info(f"{i} {k} {phi[k].shape}")
+                    #import pdb; pdb.set_trace()
+                    if (k not in modelspec.phi[i].keys()):
+                        log.info(f'module {i} creating phi entry for {k}')
+                        modelspec.phi[i][k] = phi[k]
+                    elif phi[k].shape == modelspec.phi[i][k].shape:
+                        modelspec.phi[i][k] = phi[k]
+                    else:
+                        raise ValueError(f"new shape mismatch {modelspec.phi[i][k].shape}")
+    modelspec.set_cell(0)
+    prefit_modelspec.set_cell(0)
 
     return {'modelspec': modelspec, 'old_modelspec': prefit_modelspec}
 
