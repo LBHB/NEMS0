@@ -530,8 +530,9 @@ def fit_tf_iterate(modelspec,
             est = est_list[cell_idx]
             modelspec.cell_index = cell_idx
 
-            if (extra_tail_fit == 'pre') and ((i>0) or (outer_n>0)) and \
-              ((freeze_layers is None) or (len(freeze_layers2)>len(freeze_layers))):
+            #if (extra_tail_fit == 'pre') and ((i>0) or (outer_n>0)) and \
+            if (extra_tail_fit == 'pre') and (outer_n > 1) and \
+                ((freeze_layers is None) or (len(freeze_layers2) > len(freeze_layers))):
                 log.info(f"**** pre-fitting non-shared layers {modelspec.shared_count}-{len(modelspec)}")
                 modelspec = fit_tf(modelspec, est, max_iter=iters_per_loop*20,
                                    early_stopping_tolerance=early_stopping_tolerance*20,
