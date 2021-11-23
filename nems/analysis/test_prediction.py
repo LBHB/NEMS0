@@ -375,7 +375,6 @@ def pick_best_phi(modelspec=None, est=None, val=None, est_list=None, val_list=No
     if est_list is None:
         est_list=[est]
         val_list=[val]
-        rec_list=[rec]
 
     for cellidx,est,val in zip(range(len(est_list)),est_list,val_list):
         modelspec.set_cell(cellidx)
