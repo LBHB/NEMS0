@@ -3,6 +3,7 @@
 import copy
 import logging
 import os
+import shutil
 import glob
 import typing
 from pathlib import Path
@@ -204,10 +205,11 @@ def fit_tf(
 
        log_dir_root = Path('/mnt/scratch')
        assert log_dir_root.exists()
-       log_dir_sub = Path('SLURM_JOBID' + job_id) / str(modelspec.meta['batch'])\
+       log_dir_base = log_dir_root / Path('SLURM_JOBID' + job_id)
+       log_dir_sub = str(modelspec.meta['batch'])\
                      / modelspec.meta.get('cellid', "NOCELL")\
                      / modelspec.get_longname()
-       filepath = log_dir_root / log_dir_sub
+       filepath = log_dir_base / log_dir_sub
        tbroot = filepath / 'logs'
     elif filepath is None:
        filepath = modelspec.meta['modelpath']
@@ -469,6 +471,11 @@ def fit_tf(
         modelspec.meta['extra_results'] = n_epochs
 
     nems.utils.progress_fun()
+
+    # clean up temp files
+    if job_id is not None:
+        log.info('removing temporary weights file(s)')
+        shutil.rmtree(log_dir_base)
 
     return {'modelspec': modelspec}
 
