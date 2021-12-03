@@ -206,7 +206,7 @@ def fit_tf(
        log_dir_root = Path('/mnt/scratch')
        assert log_dir_root.exists()
        log_dir_base = log_dir_root / Path('SLURM_JOBID' + job_id)
-       log_dir_sub = str(modelspec.meta['batch'])\
+       log_dir_sub = Path(str(modelspec.meta['batch']))\
                      / modelspec.meta.get('cellid', "NOCELL")\
                      / modelspec.get_longname()
        filepath = log_dir_base / log_dir_sub
