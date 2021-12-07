@@ -199,23 +199,23 @@ def fit_tf(
     # figure out where to save model checkpoints
     job_id = os.environ.get('SLURM_JOBID', None)
     if job_id is not None:
-       # if job is running on slurm, need to change model checkpoint dir
-       # keep a record of the job id
-       modelspec.meta['slurm_jobid'] = job_id
+        # if job is running on slurm, need to change model checkpoint dir
+        # keep a record of the job id
+        modelspec.meta['slurm_jobid'] = job_id
 
-       log_dir_root = Path('/mnt/scratch')
-       assert log_dir_root.exists()
-       log_dir_base = log_dir_root / Path('SLURM_JOBID' + job_id)
-       log_dir_sub = Path(str(modelspec.meta['batch']))\
-                     / modelspec.meta.get('cellid', "NOCELL")\
-                     / modelspec.get_longname()
-       filepath = log_dir_base / log_dir_sub
-       tbroot = filepath / 'logs'
+        log_dir_root = Path('/mnt/scratch')
+        assert log_dir_root.exists()
+        log_dir_base = log_dir_root / Path('SLURM_JOBID' + job_id)
+        log_dir_sub = Path(str(modelspec.meta['batch'])) \
+                / modelspec.meta.get('cellid', "NOCELL") \
+                / modelspec.get_longname()
+        filepath = log_dir_base / log_dir_sub
+        tbroot = filepath / 'logs'
     elif filepath is None:
-       filepath = modelspec.meta['modelpath']
-       tbroot = Path(f'/auto/data/tmp/tensorboard/')
+        filepath = modelspec.meta['modelpath']
+        tbroot = Path(f'/auto/data/tmp/tensorboard/')
     else:
-       tbroot = Path(f'/auto/data/tmp/tensorboard/')
+        tbroot = Path(f'/auto/data/tmp/tensorboard/')
     
     filepath = Path(filepath)
     if not filepath.exists():
