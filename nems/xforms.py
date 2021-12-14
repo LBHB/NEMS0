@@ -603,11 +603,12 @@ def generate_psth_from_est_for_both_est_and_val_nfold(
     return {'est': est_out, 'val': val_out}
 
 
-def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
+def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], generate_signals=[],
                       new_signalname='state', sm_win_len=180, **context):
 
     rec = preproc.make_state_signal(rec, state_signals=state_signals,
                                     permute_signals=permute_signals,
+                                    generate_signals=generate_signals,
                                     new_signalname=new_signalname, sm_win_len=sm_win_len)
 
     return {'rec': rec}
