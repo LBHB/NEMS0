@@ -1328,6 +1328,10 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], generate
         newrec["pupil"] = newrec["pupil"]._modified_copy(p)
         newrec["pupil_raw"] = newrec["pupil"]._modified_copy(p_raw)
 
+        for state_signal in [s for s in state_signals if s.startswith('pupil_r')]:
+            # copy repetitions of pupil
+            newrec[state_signal] = newrec["pupil"]._modified_copy(newrec['pupil']._data)
+            newrec[state_signal].chans = [state_signal]
         if ('pupil2') in state_signals:
             newrec["pupil2"] = newrec["pupil"]._modified_copy(p ** 2)
             newrec["pupil2"].chans = ['pupil2']
@@ -1681,7 +1685,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], generate
                     newrec, newrec[x].shuffle_time(rand_seed=i,
                                   mask=newrec['mask']),
                     state_signal_name=new_signalname)
-        if x in generate_signals:
+        elif x in generate_signals:
             # fit a gaussian process to the signal, then generate a new signal using the fit
             newrec = concatenate_state_channel(
                     newrec, _generate_gp(newrec[x], rand_seed=i), 
@@ -1692,7 +1696,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], generate
 
         newrec = concatenate_state_channel(
                 newrec, newrec[x], state_signal_name=new_signalname+"_raw")
-
+                
     return newrec
 
 
