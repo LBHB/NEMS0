@@ -158,6 +158,8 @@ def newtf(fitkey):
 
     TODO
     """
+    parm_dict = {}
+
     use_modelspec_init = False
     optimizer = 'adam'
     max_iter = 10_000
@@ -194,7 +196,18 @@ def newtf(fitkey):
             fit_fn = 'nems.tf.cnnlink_new.fit_tf_iterate'
             if len(op[2:]) > 0:
                 iters_per_loop = int(op[2:])
-
+        elif op == 'mxr':
+            parm_dict['extra_tail_fit'] = 'pre_reset'
+        elif op == 'mxpr':
+            parm_dict['extra_tail_fit'] = 'pre'
+        elif op == 'mxpo':
+            parm_dict['extra_tail_fit'] = 'post'
+        elif op == 'prop':
+            parm_dict['proportional_iter'] = True
+        elif op == 'unif':
+            parm_dict['proportional_iter'] = False
+        elif op == 'mxpo':
+            parm_dict['extra_tail_fit'] = 'post'
         elif op[:1] == 'n':
             use_modelspec_init = True
         elif op == 'b':
@@ -258,7 +271,7 @@ def newtf(fitkey):
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
 
-    parm_dict = {
+    parm_dict.update({
         'max_iter': max_iter,
         'use_modelspec_init': use_modelspec_init,
         'nl_init': nl_init,
@@ -277,7 +290,7 @@ def newtf(fitkey):
         'use_tensorboard': use_tensorboard,
         'kernel_regularizer': kernel_regularizer,
         'iters_per_loop': iters_per_loop,
-        }
+        })
     if freeze_layers is not None:
         parm_dict['freeze_layers'] = freeze_layers
 

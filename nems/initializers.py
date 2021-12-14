@@ -9,6 +9,7 @@ from nems.plugins import default_keywords
 from nems.utils import find_module, get_default_savepath
 from nems.analysis.api import fit_basic
 from nems.fitters.api import scipy_minimize
+from nems import xforms
 import nems.priors as priors
 import nems.modelspec as ms
 from nems.uri import save_resource, load_resource
@@ -44,6 +45,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, rec_list=Non
     cell_count = len(rec_list)
 
     modelspec = ms.ModelSpec(cell_count=cell_count)
+    destination = None
     for cell_index, _rec in enumerate(rec_list):
         modelspec.cell_index = cell_index
         shared_modules = []
@@ -178,12 +180,18 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, rec_list=Non
         # for modelspec object, we know that meta must exist, so just update
         modelspec.meta.update(meta)
 
-        if modelspec.meta.get('modelpath') is None:
+        if destination is None:
             destination = get_default_savepath(modelspec)
-            modelspec.meta['modelpath'] = destination
-            modelspec.meta['figurefile'] = os.path.join(destination,'figure.0000.png')
+        modelspec.meta['modelpath'] = destination
+        modelspec.meta['figurefile'] = os.path.join(destination, 'figure.0000.png')
+
+        #modelspec.meta.update(meta)
+
+        print(destination, modelspec.meta['modelpath'])
+
         del meta['cellids']
-    modelspec.cell_index=0
+
+    modelspec.cell_index = 0
         
     return modelspec
 
@@ -198,11 +206,15 @@ def from_keywords_as_list(keyword_string, registry=None, meta={}):
     return [from_keywords(keyword_string, registry, meta)]
 
 
-def rand_phi(modelspec, rand_count=10, IsReload=False, rand_seed=1234, **context):
-    """ initialize modelspec phi to random values based on priors """
+def rand_phi(modelspec, rand_count=10, IsReload=False, skip_init=False, rand_seed=1234, **context):
+    """ 
+    initialize modelspec phi to random values based on priors
+    2021-11-08: svd added support for multiple-cell modelspecs
+    """
 
-    if IsReload:
+    if IsReload or skip_init:
         return {}
+
     jack_count = modelspec.jack_count
     modelspec = modelspec.copy(jack_index=0)
 
@@ -212,13 +224,17 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, rand_seed=1234, **context
     save_state = np.random.get_state()
     np.random.seed(rand_seed)
 
-    for i in range(rand_count):
-        modelspec.set_fit(i)
-        if i == 0:
-            # make first one mean of priors:
-            modelspec = priors.set_mean_phi(modelspec)
-        else:
-            modelspec = priors.set_random_phi(modelspec)
+    for cell_idx in range(modelspec.cell_count):
+        modelspec.set_cell(cell_idx)
+        for i in range(rand_count):
+            modelspec.set_fit(i)
+            if i == 0:
+                # make first one mean of priors:
+                modelspec = priors.set_mean_phi(modelspec)
+            else:
+                modelspec = priors.set_random_phi(modelspec)
+    modelspec.set_cell(0)
+    modelspec.set_fit(0)
 
     # restore random seed
     np.random.set_state(save_state)
@@ -227,26 +243,35 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, rand_seed=1234, **context
 
     return {'modelspec': modelspec}
 
-def load_phi(modelspec, prefit_uri="", copy_layers=0, **kwargs):
+def load_phi(modelspec, prefit_uri="", prefit_modelspec=None, copy_layers=0, **kwargs):
     """
     copy the first copy_layers of a previously fit modelspec into
     the current modelspec. barfs if the phi sizes don't match exactly
     """
-    prefit_modelspec = ms.ModelSpec([load_resource(prefit_uri)])
+    if prefit_modelspec is None:
+        _, ctx_old = xforms.load_analysis(prefit_uri, eval_model=False)
+        prefit_modelspec = ctx_old['modelspec']
+        #prefit_modelspec = ms.ModelSpec([load_resource(prefit_uri)])
 
     # copy phi from existing modelspec to the other:
-    for i, phi in enumerate(prefit_modelspec.phi[:copy_layers]):
-        if phi is not None:
-            for k in phi.keys():
-                log.info(f"{i} {k} {phi[k].shape}")
-                #import pdb; pdb.set_trace()
-                if (k not in modelspec.phi[i].keys()):
-                    log.info(f'module {i} creating phi entry for {k}')
-                    modelspec.phi[i][k] = phi[k]
-                elif phi[k].shape == modelspec.phi[i][k].shape:
-                    modelspec.phi[i][k] = phi[k]
-                else:
-                    raise ValueError(f"new shape mismatch {modelspec.phi[i][k].shape}")
+    for cellidx in range(modelspec.cell_count):
+        modelspec.set_cell(cellidx)
+        prefit_modelspec.set_cell(cellidx)
+
+        for i, phi in enumerate(prefit_modelspec.phi[:copy_layers]):
+            if phi is not None:
+                for k in phi.keys():
+                    log.info(f"{i} {k} {phi[k].shape}")
+                    #import pdb; pdb.set_trace()
+                    if (k not in modelspec.phi[i].keys()):
+                        log.info(f'module {i} creating phi entry for {k}')
+                        modelspec.phi[i][k] = phi[k]
+                    elif phi[k].shape == modelspec.phi[i][k].shape:
+                        modelspec.phi[i][k] = phi[k]
+                    else:
+                        raise ValueError(f"new shape mismatch {modelspec.phi[i][k].shape}")
+    modelspec.set_cell(0)
+    prefit_modelspec.set_cell(0)
 
     return {'modelspec': modelspec, 'old_modelspec': prefit_modelspec}
 
@@ -833,6 +858,8 @@ def modelspec_remove_input_layers(modelspec, rec, remove_count=0):
         raw_trunc[i_,0,0][0]['meta'] = copy.deepcopy(modelspec.raw[i_,0,0][0]['meta'])
     
     modelspec_trunc = ms.ModelSpec(raw=raw_trunc, cell_count=modelspec.cell_count, cell_index=modelspec.cell_index)
+    modelspec_trunc.fit_index=modelspec.fit_index
+    modelspec_trunc.jack_index=modelspec.jack_index
     
     return modelspec_trunc, rec_trunc
 

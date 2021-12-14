@@ -348,7 +348,7 @@ def basic_error(data, modelspec, cost_function=None,
 
     return error
 
-def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
+def pick_best_phi(modelspec=None, est=None, val=None, est_list=None, val_list=None, criterion='mse_fit',
                   metric_fn='nems.metrics.mse.nmse', jackknifed_fit=False, keep_n=1,
                   IsReload=False, **context):
 
@@ -369,52 +369,95 @@ def pick_best_phi(modelspec=None, est=None, val=None, criterion='mse_fit',
     """
     if IsReload:
         return {}
+    if modelspec.fit_count<=1:
+        return {}
+
+    if est_list is None:
+        est_list=[est]
+        val_list=[val]
+
+    for cellidx,est,val in zip(range(len(est_list)),est_list,val_list):
+        modelspec.set_cell(cellidx)
+        est, val = nems.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
+        modelspec.recording = val
+        est_list[cellidx] = est
+        val_list[cellidx] = val
+    modelspec.set_cell(0)
 
     # generate prediction for each jack and fit
-    new_est, new_val = generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
+    #new_est, new_val = generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
 
     jack_count = modelspec.jack_count
     fit_count = modelspec.fit_count
     best_idx = np.zeros(jack_count, dtype=int)
-    new_raw = np.zeros((1, keep_n, jack_count), dtype='O')
+    new_raw = np.zeros((modelspec.cell_count, keep_n, jack_count), dtype='O')
     #import pdb; pdb.set_trace()
 
     # for each jackknife set, figure out best fit
     for j in range(jack_count):
         view_range = [i * jack_count + j for i in range(fit_count)]
-        this_est = new_est.view_subset(view_range)
-        this_modelspec = modelspec.copy(jack_index=j)
+        x = None
+        n = 0
 
-        if 'loss' in modelspec.meta.keys():
-            x = modelspec.meta['loss']
-            if j>1:
-                log.info('Not supported yet! jackknife + multifit using tf loss to select')
-                import pdb; pdb.set_trace()
+        # support for multi-cell, len(est_list)>1 fits
+        #import pdb; pdb.set_trace()
+ 
+        for cell_idx in range(len(est_list)):
+            # set the recording/model for this cell_idx
+            this_est = est_list[cell_idx].view_subset(view_range)
+            this_modelspec = modelspec.copy(jack_index=j)
+            this_modelspec.cell_index = cell_idx
+            modelspec.cell_index = cell_idx
+
+            # these functions each generate a vector of losses?
+            if 'loss' in modelspec.meta.keys():
+                if x is None:
+                    x = modelspec.meta['loss']
+                else:
+                    x = x+modelspec.meta['loss']
+                n = n+1
+                if j>1:
+                    log.info('Not supported yet! jackknife + multifit using tf loss to select')
+                    import pdb; pdb.set_trace()
             
-        elif (metric_fn == 'nems.metrics.mse.nmse') & (criterion == 'mse_fit'):
-            # for backwards compatibility, run the below code to compute metric specified
-            # by criterion.
-            new_modelspec = standard_correlation(est=this_est, val=new_val, modelspec=this_modelspec)
-            # average performance across output channels (if more than one output)
-            x = np.mean(new_modelspec.meta[criterion], axis=0)
+            elif (metric_fn == 'nems.metrics.mse.nmse') & (criterion == 'mse_fit'):
+                # for backwards compatibility, run the below code to compute metric specified
+                # by criterion.
+                new_modelspec = standard_correlation(est=this_est, val=new_val, modelspec=this_modelspec)
+                # average performance across output channels (if more than one output)
+                if x is None:
+                   x = new_modelspec.meta[criterion].sum(axis=0)
+                else:
+                   x = x + new_modelspec.meta[criterion].sum(axis=0)
+                n += new_modelspec.meta[criterion].shape[0]
 
-        else:
-            fn = nems.utils.lookup_fn_at(metric_fn)
-            x = []
-            for e in this_est.views():
-                x.append(fn(e, **context))
+            else:
+                fn = nems.utils.lookup_fn_at(metric_fn)
+                tx=[]
+                for e in this_est.views():
+                    tx.append(fn(e, **context))
+                n = n + tx[0].shape[0]
+                tx = np.concatenate(tx, axis=1).mean(axis=0)
+                if x is None:
+                   x = tx
+                else:
+                   x = x + tx
+
+        x = x / n
 
         tx = x.copy()
         for n in range(keep_n):
            best_idx[j] = int(np.nanargmin(tx))
-           new_raw[0, n, j] = modelspec.raw[0, best_idx[j], j]
+           new_raw[:, n, j] = modelspec.raw[:, best_idx[j], j]
 
            log.info('jack %d: %d/%d best phi (fit_idx=%d) has fit_metric=%.5f',
                     j, n+1, keep_n, best_idx[j], tx[best_idx[j]])
            tx[best_idx[j]] = np.nanmax(tx)
 
-    new_raw[0,0,0][0]['meta'] = modelspec.meta.copy()
+    for cell_index in range(new_raw.shape[0]):
+        new_raw[cell_index,0,0][0]['meta'] = modelspec.raw[cell_index,0,0][0]['meta'].copy()
     new_modelspec = ms.ModelSpec(new_raw)
+    new_modelspec.set_cell(0)
     new_modelspec.meta['rand_'+criterion] = x
 
     return {'modelspec': new_modelspec, 'best_random_idx': best_idx}

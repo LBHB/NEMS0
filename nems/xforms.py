@@ -1144,7 +1144,8 @@ def fit_wrapper(modelspec, est=None, fit_function='nems.analysis.api.fit_basic',
 
             # compatible with direct modelspec return or xforms-ese dictionary
             if type(results) is dict:
-                modelspec = results['modelspec']
+                if 'modelspec' in results.keys():
+                    modelspec = results['modelspec']
             else:
                 modelspec = results
                 results = {'modelspec', modelspec}

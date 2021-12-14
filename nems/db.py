@@ -746,7 +746,7 @@ def update_results_table(modelspec, preview=None,
     for cellidx in range(modelspec.cell_count):
         modelspec.cell_index = cellidx
 
-        cellids = modelspec.meta.get('cellids', [modelspec.meta['cellid']])
+        cellids = modelspec.meta.get('cellids', [modelspec.meta.get('cellid','CELL')])
         if ('r_test' in modelspec.meta.keys()) and (len(modelspec.meta['r_test'])<len(cellids)):
             cellids=cellids[:len(modelspec.meta['r_test'])]
         for cellid in cellids:
@@ -1040,7 +1040,7 @@ def get_batch_cell_data(batch=None, cellid=None, rawid=None, label=None):
     sql = ("SELECT DISTINCT Data.*,sCellFile.goodtrials" +
            " FROM Data LEFT JOIN sCellFile " +
            " ON (Data.rawid=sCellFile.rawid " +
-           " AND Data.cellid=sCellFile.cellid)" +
+           " AND substring(Data.cellid,1,locate('_',Data.cellid)-1)=sCellFile.cellid)" +  # remove underscore and beyond from Data.cellid
            " WHERE 1")
     if batch is not None:
         sql += " AND Data.batch=%s"
