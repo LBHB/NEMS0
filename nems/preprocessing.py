@@ -1683,7 +1683,6 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], generate
                     state_signal_name=new_signalname)
         if x in generate_signals:
             # fit a gaussian process to the signal, then generate a new signal using the fit
-            import pdb; pdb.set_trace()
             newrec = concatenate_state_channel(
                     newrec, _generate_gp(newrec[x], rand_seed=i), 
                     state_signal_name=new_signalname)
