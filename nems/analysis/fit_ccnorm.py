@@ -228,14 +228,16 @@ def fit_ccnorm(modelspec,
                                           group_idx=group_idx, group_cc=group_cc, beta=beta,
                                           pcproj_std=None, pc_axes=None)
 
+    elif (use_metric=='cc_err_md'):
+        def metric(d, verbose=False):
+            return metrics.cc_err_md(d, pred_name='pred', pred0_name=input_name,
+                                    group_idx=group_idx, group_cc=group_cc,
+                                    pcproj_std=None, pc_axes=None)
+        log.info(f"fit_ccnorm metric: cc_err_md")
+
     elif (metric is None):
         #def cc_err(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred',
-        #   group_idx=None, group_cc=None, pcproj_std=None, pc_axes=None):
-        #old stuff
-        #metric = lambda d: metrics.cc_err(d, pred_name='pred', pred0_name='pred0',
-        #                                  group_idx=group_idx, group_cc=group_cc, 
-        #                                  pcproj_std=pcproj_std, pc_axes=pc_axes)
-        
+        #   group_idx=None, group_cc=None, pcproj_std=None, pc_axes=None):        
         # current implementation of cc_err
         metric = lambda d: metrics.cc_err(d, pred_name='pred', pred0_name=input_name,
                                           group_idx=group_idx, group_cc=group_cc,

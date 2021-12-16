@@ -928,6 +928,8 @@ def ccnorm(fitkey):
                 op = op.replace('n','-')
                 op = op.replace('e','.')
                 sel_options['alpha']=10**int(op[1:])
+        if op == 'md':
+            sel_options['use_metric'] = 'cc_err_md'
         if op[:2]=='pc':
             sel_options['noise_pcs'] = int(op[2:])
         if op[:2]=='ss':
