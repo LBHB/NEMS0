@@ -1292,7 +1292,7 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
     return {'rec': rec0}
 
 
-def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
+def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], generate_signals=[],
                       new_signalname='state', sm_win_len=180):
     """
     generate state signal for stategain.S/sdexp.S models
@@ -1309,6 +1309,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
     resp = newrec['resp'].rasterize()
     state_signals = state_signals.copy()
     permute_signals = permute_signals.copy()
+    generate_signals = generate_signals.copy()
 
     # normalize mean/std of pupil trace if being used
     if any([s.startswith('pupil') for s in state_signals]):
@@ -1327,6 +1328,10 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
         newrec["pupil"] = newrec["pupil"]._modified_copy(p)
         newrec["pupil_raw"] = newrec["pupil"]._modified_copy(p_raw)
 
+        for state_signal in [s for s in state_signals if s.startswith('pupil_r')]:
+            # copy repetitions of pupil
+            newrec[state_signal] = newrec["pupil"]._modified_copy(newrec['pupil']._data)
+            newrec[state_signal].chans = [state_signal]
         if ('pupil2') in state_signals:
             newrec["pupil2"] = newrec["pupil"]._modified_copy(p ** 2)
             newrec["pupil2"].chans = ['pupil2']
@@ -1680,14 +1685,54 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[],
                     newrec, newrec[x].shuffle_time(rand_seed=i,
                                   mask=newrec['mask']),
                     state_signal_name=new_signalname)
+        elif x in generate_signals:
+            # fit a gaussian process to the signal, then generate a new signal using the fit
+            newrec = concatenate_state_channel(
+                    newrec, _generate_gp(newrec[x], rand_seed=i), 
+                    state_signal_name=new_signalname)
         else:
             newrec = concatenate_state_channel(
                     newrec, newrec[x], state_signal_name=new_signalname)
 
         newrec = concatenate_state_channel(
                 newrec, newrec[x], state_signal_name=new_signalname+"_raw")
-
+                
     return newrec
+
+
+def _generate_gp(signal, rand_seed):
+    from sklearn.gaussian_process import GaussianProcessRegressor
+    import sklearn.gaussian_process.kernels as k
+    cur_state = np.random.get_state()
+    np.random.seed(rand_seed)
+    data = signal._data
+    # fit signal
+    log.info(f"Fitting RBF kernel to signal")
+    kernel = k.RBF(length_scale=5, length_scale_bounds=(1, 100))
+    gp = GaussianProcessRegressor(kernel=kernel)
+    gp.fit(np.atleast_2d(np.linspace(0, data.shape[1], data.shape[1])).T, data.T)
+
+    log.info(f"RBF kernel length: {gp.kernel_.length_scale}")
+
+    # general new signal
+    def rbf_kernel(a, b, length=1):
+        square_distance = np.sum((a - b) ** 2)
+        return np.exp(-square_distance / (2 * (length**2)))
+    log.info("Generating a new signal using GP fit")
+    N = data.shape[1]
+    cov = np.zeros((N, N))
+    for ii in range(N):
+        for jj in range(N):
+            cov[ii, jj] = rbf_kernel(ii, jj, length=gp.kernel_.length_scale)
+
+    # generate random pupil
+    newsig = np.random.multivariate_normal(np.zeros(N), cov, (1,))
+    
+    # return state
+    np.random.set_state(cur_state)
+
+    return signal._modified_copy(newsig)
+    
 
 
 def concatenate_state_channel(rec, sig, state_signal_name='state', generate_baseline=True):
