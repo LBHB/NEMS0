@@ -371,15 +371,22 @@ def smooth(x,window_len=11,window='hanning'):
 
     if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
         raise ValueError("Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
-
-    s=np.r_[x[window_len-1:0:-1],x,x[-2:-window_len-1:-1]]
+    if window_len & 0x1:
+        w1 = int((window_len+1)/2)
+        w2 = int((window_len+1)/2)
+    else:
+        w1 = int(window_len/2)+1
+        w2 = int(window_len/2)
+    s=np.r_[x[w1-1:0:-1],x,x[-2:-w2-1:-1]]
     #print(len(s))
+
     if window == 'flat': #moving average
         w=np.ones(window_len,'d')
     else:
         w=eval('np.'+window+'(window_len)')
 
-    y=np.convolve(w/w.sum(),s,mode='valid')
+    y = np.convolve(w/w.sum(), s, mode='valid')
+
     return y
 
 
@@ -504,6 +511,7 @@ def find_common(s_list, pre=True, suf=True):
         log.debug("final s: %s" % s)
 
     return (shortened, prefix, suffix)
+
 
 
 def get_default_savepath(modelspec):

@@ -119,12 +119,19 @@ def modelspec2tf(modelspec, seed=0, use_modelspec_init=True, fs=100,
             raise NotImplementedError(f'Layer "{m["fn"]}" does not have a tf equivalent.')
 
         if i in freeze_layers:
-            trainable=False
+            trainable = False
         else:
-            trainable=True
-        layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
-                                       initializer=initializer, trainable=trainable,
-                                       kernel_regularizer=kernel_regularizer)
+            trainable = True
+
+        if ('filter_bank' in m['fn']) or ('weight_channels.basic' in m['fn']):
+            layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
+                                           initializer=initializer, trainable=trainable,
+                                           kernel_regularizer=kernel_regularizer)
+        else:
+            # don't pass kernel_regularizer (set to None) if not fir or weight chans
+            layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
+                                           initializer=initializer, trainable=trainable)
+
         layers.append(layer)
 
     return layers
