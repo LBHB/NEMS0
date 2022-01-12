@@ -64,7 +64,6 @@ class BaseLayer(tf.keras.layers.Layer):
         if kernel_regularizer is not None:
             #kwargs['kernel_regularizer'] = regularizers.get(kernel_regularizer)(l2=0.001)
             kwargs['kernel_regularizer'] = regularizers.l2(l=0.001)
-            import pdb; pdb.set_trace()
 
         # TODO: clean this up, maybe separate kwargs/fn_kwargs, or method to split out valid tf kwargs from rest
         if 'bounds' in ms_layer:
