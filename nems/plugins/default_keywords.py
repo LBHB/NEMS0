@@ -510,7 +510,7 @@ def pz(kw):
         'mean': np.zeros((n_inputs, 1))+.1,
         'sd': np.ones((n_inputs, 1))*.2,
     }
-
+    plot_fn_idx = 4 if n_inputs <= 3 and n_banks == 1 else 2
     template = {
         'fn': 'nems.modules.fir.pole_zero',
         'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs},
@@ -521,7 +521,7 @@ def pz(kw):
                      'nems.plots.api.strf_local_lin',
                      'nems.plots.api.strf_timeseries',
                      'nems.plots.api.fir_output_all'],
-        'plot_fn_idx': 2,
+        'plot_fn_idx': plot_fn_idx,
         'prior': {
             'poles': ('Normal', p_poles),
             'zeros': ('Normal', p_zeros),
@@ -595,6 +595,7 @@ def do(kw):
     p_delays = {
         'sd': np.full((n_channels, 1), mean_delay)
     }
+    plot_fn_idx = 4 if n_inputs <= 3 and n_banks == 1 else 2
     template = {
         'fn': 'nems.modules.fir.damped_oscillator',
         'fn_kwargs': {'i': 'pred', 'o': 'pred', 'n_coefs': n_coefs, 'chans': n_coefs,
@@ -606,7 +607,7 @@ def do(kw):
                      'nems.plots.api.strf_local_lin',
                      'nems.plots.api.strf_timeseries',
                      'nems.plots.api.fir_output_all'],
-        'plot_fn_idx': 2,
+        'plot_fn_idx': plot_fn_idx,
         'tf_layer': 'nems.tf.layers.DampedOscillator',
         'prior': {
             'f1s': ('HalfNormal', p_f1s),
