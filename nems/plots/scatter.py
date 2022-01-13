@@ -59,6 +59,9 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
           on data plotted from x to y axes. overlay data with curve from the
           module
     '''
+    if 'scatter_color' not in options:
+        options['scatter_color'] = 'darkgray'
+
     if (sig1.nchans > 1) or (sig2.nchans > 1):
         log.warning('sig1 or sig2 chancount > 1, using chan 0')
     if ax:
@@ -73,6 +76,7 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
     keepidx = np.isfinite(m1[0, :]) * np.isfinite(m2[0, :])
     m1 = m1[channels:(channels+1), keepidx]
     m2 = m2[channels:(channels+1), keepidx]
+
 
     for i in range(m2.shape[0]):
         if m1.shape[0] > 1:
@@ -109,7 +113,7 @@ def plot_scatter(sig1, sig2, ax=None, title=None, smoothing_bins=False,
 #            y = s2[1, :]
 
         chan_name = 'Channel {}'.format(i) if not sig2.chans else sig2.chans[i]
-        ax.scatter(x, y, label=chan_name, s=2, color='darkgray')
+        ax.scatter(x, y, label=chan_name, s=2, color=options['scatter_color'])
 
     if module is not None:
         xbounds = ax.get_xbound()
