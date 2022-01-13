@@ -54,6 +54,68 @@ def cc_err(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred',
     return E
 
 
+def cc_err_md(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred', 
+           group_idx=None, group_cc=None, pcproj_std=None, pc_axes=None):
+    '''
+    Given the evaluated data, return the mean squared error for correlation coefficient computed for special groupings of 
+    the data. Mean of two adjacent groups and difference between two adjacent groups. Assumes that xx_sm and xx_lg are in 
+    sequence, which is what ccnorm does by default
+
+    Parameters
+    ----------
+    result : A Recording object
+        Generally the output of `model.evaluate(phi, data)`
+    (these other parameters can be hard-coded into a partial function that is then passed onto the fitter:)
+    pred_name : string
+        Name of prediction in the result recording
+    pred0_name : string
+        Name of prediction in the result recording
+    resp_name : string
+        Name of response in the result recording
+    group_idx: list of array indexes defining which samples belong in which group
+    group_cc: list of CC matrices, one for each group
+    pcproj_std: std of projection onto first N pcs
+    pc_axes: projection vectors for first N pcs--to project prediction and compute difference from
+             actual pcproj_std
+
+    Returns
+    -------
+    E : float
+        Mean-squared difference between the CC matrix for each group
+
+    Example
+    -------
+    >>> result = model.evaluate(data, phi)
+    >>> error = cc_err(result, 'pred', 'resp', <other parameters>)
+
+    '''
+    if type(result) is dict:
+        pred=result[pred_name]
+        pred0=result[pred0_name]
+    else:
+        pred = result[pred_name].as_continuous()
+        pred0 = result[pred0_name].as_continuous()
+    E = 0
+    for idx in range(0,len(group_idx),2):
+        idx2=idx+1
+        ccact_m = group_cc[idx]+group_cc[idx2]
+        ccact_d = group_cc[idx]-group_cc[idx2]
+        c1 = np.cov(pred[:,group_idx[idx]] - pred0[:,group_idx[idx]])
+        c2 = np.cov(pred[:,group_idx[idx2]] - pred0[:,group_idx[idx2]])
+        cm = c1+c2
+        cd = c1-c2
+        E += (np.sum((cm-ccact_m)**2) + np.sum((cd-ccact_d)**2)) / np.sum(ccact_m**2)
+        
+    #for idx,cc_act in zip(group_idx, group_cc):
+    #   E += np.sum((np.cov(pred[:,idx] - pred0[:,idx])-cc_act)**2) / np.sum(cc_act**2)
+    if pc_axes is not None:
+        pcproj = (pred-pred0).T.dot(pc_axes.T).T
+        pp_std = pcproj.std(axis=1)
+        E += np.sum((pcproj_std-pp_std)**2)*10
+    return E
+
+
+
 def cc_err_w(result, pred_name='pred_lv', resp_name='resp', pred0_name='pred', 
              alpha=1, group_idx=None, group_cc=None, pcproj_std=None, pc_axes=None, verbose=False):
     '''

@@ -1,6 +1,8 @@
 import logging
 
 import numpy as np
+from functools import partial
+
 import tensorflow as tf
 from tensorflow import config
 from tensorflow.keras.layers import Conv2D, Dense, Dropout
@@ -11,7 +13,6 @@ from tensorflow.python.framework import tensor_shape
 from tensorflow.python.keras import constraints
 from tensorflow.python.keras import initializers
 from tensorflow.python.keras import regularizers
-
 
 
 log = logging.getLogger(__name__)
@@ -61,7 +62,8 @@ class BaseLayer(tf.keras.layers.Layer):
         }
 
         if kernel_regularizer is not None:
-            kwargs['kernel_regularizer'] = regularizers.get(kernel_regularizer)
+            #kwargs['kernel_regularizer'] = regularizers.get(kernel_regularizer)(l2=0.001)
+            kwargs['kernel_regularizer'] = regularizers.l2(l=0.001)
 
         # TODO: clean this up, maybe separate kwargs/fn_kwargs, or method to split out valid tf kwargs from rest
         if 'bounds' in ms_layer:
