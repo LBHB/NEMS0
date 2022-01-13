@@ -1212,13 +1212,13 @@ class ModelSpec:
             # need to convert the data to a tensor
             stensor = None
             if need_fourth_dim:
-                tensor = tf.convert_to_tensor(data[np.newaxis, ..., np.newaxis])
+                tensor = tf.convert_to_tensor(data[np.newaxis, ..., np.newaxis], dtype='float32')
                 if include_state:
-                    stensor = tf.convert_to_tensor(state_data[np.newaxis, ..., np.newaxis])
+                    stensor = tf.convert_to_tensor(state_data[np.newaxis, ..., np.newaxis], dtype='float32')
             else:
-                tensor = tf.convert_to_tensor(data[np.newaxis])
+                tensor = tf.convert_to_tensor(data[np.newaxis], dtype='float32')
                 if include_state:
-                    stensor = tf.convert_to_tensor(state_data[np.newaxis])
+                    stensor = tf.convert_to_tensor(state_data[np.newaxis], dtype='float32')
 
             if include_state:
                 tensor = [tensor, stensor]
