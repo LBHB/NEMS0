@@ -423,7 +423,7 @@ def pick_best_phi(modelspec=None, est=None, val=None, est_list=None, val_list=No
             elif (metric_fn == 'nems.metrics.mse.nmse') & (criterion == 'mse_fit'):
                 # for backwards compatibility, run the below code to compute metric specified
                 # by criterion.
-                new_modelspec = standard_correlation(est=this_est, val=new_val, modelspec=this_modelspec)
+                new_modelspec = standard_correlation(est=this_est, val=val_list[cell_idx], modelspec=this_modelspec)
                 # average performance across output channels (if more than one output)
                 if x is None:
                    x = new_modelspec.meta[criterion].sum(axis=0)
