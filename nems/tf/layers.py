@@ -63,7 +63,7 @@ class BaseLayer(tf.keras.layers.Layer):
 
         if kernel_regularizer is not None:
             #kwargs['kernel_regularizer'] = regularizers.get(kernel_regularizer)(l2=0.001)
-            kwargs['kernel_regularizer'] = regularizers.l2(l=0.001)
+            kwargs['kernel_regularizer'] = regularizers.l2(l=0.0001)
 
         # TODO: clean this up, maybe separate kwargs/fn_kwargs, or method to split out valid tf kwargs from rest
         if 'bounds' in ms_layer:
@@ -81,6 +81,8 @@ class BaseLayer(tf.keras.layers.Layer):
             kwargs['var_offset'] = ms_layer['fn_kwargs']['var_offset']
         if 'state_type' in ms_layer['fn_kwargs']:
             kwargs['state_type'] = ms_layer['fn_kwargs']['state_type']
+        if 'exclude_chans' in ms_layer['fn_kwargs']:
+            kwargs['exclude_chans'] = ms_layer['fn_kwargs']['exclude_chans']
 
         # TODO: this approach could cause issues if there are name clashes with NEMS kwargs
         pass_through_keys = ['n_inputs', 'crosstalk', 'filters', 'kernel_size',
@@ -829,13 +831,15 @@ class StateDCGain(BaseLayer):
                  seed=0,
                  state_type='both',
                  bounds=None,
+                 exclude_chans=None,
                  *args,
                  **kwargs,
                  ):
         super(StateDCGain, self).__init__(*args, **kwargs)
 
         self.state_type = state_type
-
+        self.exclude_chans = exclude_chans
+        
         # try to infer the number of units if not specified
         if units is None and initializer is None:
             self.units = 1
@@ -893,13 +897,23 @@ class StateDCGain(BaseLayer):
         inputs, state_inputs = inputs
 
         g_transposed = tf.transpose(self.g)
+        if self.exclude_chans is not None:
+            keep_chans = list(np.setdiff1d(np.arange(state_inputs.shape[2]), self.exclude_chans))
+            
+            print(f'StateDCGain keep_chans {keep_chans}')
+            print(f'state_inputs shape {state_inputs.shape}')
 
-        g_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(g_transposed, 0), stride=1, padding='SAME')
+            s_ = tf.gather(state_inputs, indices=keep_chans, axis =2)
+            print(f's_ shape {s_.shape}')
+        else:
+            s_ = tf.identity(state_inputs)
+            
+        g_conv = tf.nn.conv1d(s_, tf.expand_dims(g_transposed, 0), stride=1, padding='SAME')
         if self.state_type == 'gain_only':
             return inputs * g_conv
 
         d_transposed = tf.transpose(self.d)
-        d_conv = tf.nn.conv1d(state_inputs, tf.expand_dims(d_transposed, 0), stride=1, padding='SAME')
+        d_conv = tf.nn.conv1d(s_, tf.expand_dims(d_transposed, 0), stride=1, padding='SAME')
 
         return inputs * g_conv + d_conv
 

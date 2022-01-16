@@ -7,7 +7,8 @@ functions for applying state-related transformations
 import numpy as np
 
 
-def state_dc_gain(rec, i='pred', o='pred', s='state', include_lv=False, c=None, g=None, d=0, **kwargs):
+def state_dc_gain(rec, i='pred', o='pred', s='state', include_lv=False, c=None, g=None, d=0,
+                  exclude_chans=None, **kwargs):
     '''
     Linear DC/gain for each state applied to each predicted channel
 
@@ -20,12 +21,18 @@ def state_dc_gain(rec, i='pred', o='pred', s='state', include_lv=False, c=None, 
     g - gain to scale s by
     d - dc to offset by
     '''
+    # if excluding channels, update state now
+    state = rec[s]._data
+    if exclude_chans is not None:
+        keepidx = [idx for idx in range(0, state.shape[0]) if idx not in exclude_chans]
+        state = state[keepidx, :]
+
     if include_lv:
         def fn(x):
-            st = np.concatenate((rec[s]._data, rec['lv']._data), axis=0)
+            st = np.concatenate((state, rec['lv']._data), axis=0)
             return np.matmul(g, st) * x + np.matmul(d, st)
     else:
-        fn = lambda x: np.matmul(g, rec[s]._data) * x + np.matmul(d, rec[s]._data)
+        fn = lambda x: np.matmul(g, state) * x + np.matmul(d, state)
 
     if c is None:
         return [rec[i].transform(fn, o)]
@@ -48,7 +55,8 @@ def state_dc_gain(rec, i='pred', o='pred', s='state', include_lv=False, c=None, 
         return [new_signal]
 
 def state_gain(rec, i='pred', o='pred', s='state', include_lv=False,
-               fix_across_channels=0, c=None, g=None, gainoffset=0, **kwargs):
+               fix_across_channels=0, c=None, g=None, gainoffset=0,
+               exclude_chans=None, **kwargs):
     '''
     Linear gain for each state applied to each predicted channel
 
@@ -59,9 +67,11 @@ def state_gain(rec, i='pred', o='pred', s='state', include_lv=False,
     s name of state signal
     c channels to ignore
     g - gain to scale s by
+    exclude_channels - remove these channels before 
     '''
 
-    #BACKWARDS compatibility for old models where gainoffset was just called offset (changed to make it less confusable with a dc offset)
+    #BACKWARDS compatibility for old models where gainoffset was just called offset 
+    # (changed to make it less confusable with a dc offset)
     if 'offset' in kwargs:
         if gainoffset == 0 and kwargs['offset'] != 0:
             gainoffset = kwargs['offset']
@@ -75,7 +85,13 @@ def state_gain(rec, i='pred', o='pred', s='state', include_lv=False,
         g = g.copy()
         g[:, :fix_across_channels] = g[0:1,:fix_across_channels]
 
-    fn = lambda x: (np.matmul(g, rec[s]._data) + gainoffset) * x
+    # if excluding channels, update state now
+    state = rec[s]._data
+    if exclude_chans is not None:
+        keepidx = [idx for idx in range(0, state.shape[0]) if idx not in exclude_chans]
+        state = state[keepidx, :]
+
+    fn = lambda x: (np.matmul(g, state) + gainoffset) * x
 
     if c is None:
         return [rec[i].transform(fn, o)]

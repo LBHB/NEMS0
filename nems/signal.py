@@ -1613,14 +1613,20 @@ class RasterizedSignal(SignalBase):
                                 epochs=epochs, chans=chans,
                                 safety_checks=False, **attr)
 
-    def extract_channels(self, chans, name=None):
+    def extract_channels(self, chans=None, chan_idx=None, name=None):
         '''
         Returns a new signal object containing only the specified
         channel indices.
         '''
         array = self.as_continuous()
-        # s is shorthand for slice. Return a 2D array.
-        s = [self.chans.index(c) for c in chans]
+        if chans is not None:
+            # s is shorthand for slice. Return a 2D array.
+            s = [self.chans.index(c) for c in chans]
+        elif chan_idx is not None:
+            # numeric indices passed
+            s = np.array(chan_idx)
+            chans = [self.chans[i] for i in s]
+
         if name is None:
             name = self.name
         return self._modified_copy(array[s], chans=chans, name=name)

@@ -1417,6 +1417,7 @@ def stategain(kw):
         .d -- dc only
         .s -- separate dc term for spont period
         .lv -- concatenate latent variable "lv" onto 'state'. Will need to specify accurate S for this to work.
+        .xN,M - exclude state channels number N, M etc.
     None
     '''
     options = escaped_split(kw, '.')
@@ -1469,15 +1470,19 @@ def stategain(kw):
     # y = (np.matmul(g, rec[s]._data) + offset) * x so .g1 will by initialize with no state-dependence
     gainoffset = 0
     bounds=None
+    exclude_chans = None
+
     for op in options[2:]:
         if op.startswith('o'):
             num = op[1:].replace('\\', '')
             gainoffset = float(num)
             g_mean[:, 0] = 0
-        if op.startswith('b'):
+        elif op.startswith('b'):
             bounds_in = op[1:].replace('\\', '').replace('d', '.')
             bounds_in = bounds_in.split(':')
             bounds = tuple(np.full_like(g_mean,float(bound) - gainoffset) for bound in bounds_in)
+        elif op.startswith("x"):
+            exclude_chans = [int(x) for x in op[1:].split(',')]
 
     plot_fns = ['nems.plots.api.mod_output',
                 'nems.plots.api.spectrogram_output',
@@ -1489,7 +1494,8 @@ def stategain(kw):
         template = {
             'fn': 'nems.modules.state.state_dc_gain',
             'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars, 'n_inputs': n_chans, 'g': g_mean,
-                          'state_type': 'dc_only'},
+                          'state_type': 'dc_only',
+                          'exclude_chans': exclude_chans},
             'plot_fns': plot_fns,
             'plot_fn_idx': 5,
             'prior': {'d': ('Normal', {'mean': d_mean, 'sd': d_sd})}
@@ -1504,7 +1510,8 @@ def stategain(kw):
         template = {
             'fn': 'nems.modules.state.state_gain',
             'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars, 'n_inputs': n_chans,
-                          'state_type':'gain_only', 'gainoffset':gainoffset},
+                          'state_type':'gain_only', 'gainoffset':gainoffset,
+                          'exclude_chans': exclude_chans},
             'plot_fns': plot_fns + ['nems.plots.api.state_gain_plot'],
             'plot_fn_idx': 6,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd})},
@@ -1513,7 +1520,8 @@ def stategain(kw):
     elif include_spont:
         template = {
            'fn': 'nems.modules.state.state_sp_dc_gain',
-            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state},
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state,
+                          'exclude_chans': exclude_chans},
             'plot_fns': plot_fns,
             'plot_fn_idx': 5,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
@@ -1523,7 +1531,8 @@ def stategain(kw):
     else:
         template = {
             'fn': 'nems.modules.state.state_dc_gain',
-            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars, 'n_inputs': n_chans},
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars, 'n_inputs': n_chans,
+                          'state_type': 'both', 'exclude_chans': exclude_chans},
             # chans/vars backwards for compat with tf layer
             'plot_fns': plot_fns,
             'plot_fn_idx': 5,

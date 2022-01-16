@@ -1,3 +1,7 @@
+"""
+nems.plugins.default_fitters.py
+"""
+
 import logging
 import re
 
