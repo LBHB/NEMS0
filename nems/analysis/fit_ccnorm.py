@@ -195,7 +195,7 @@ def fit_ccnorm(modelspec,
     group_cc_raw = [np.cov(resp[:,idx]-pred0[:,idx]) for idx in group_idx]
 
     # some day remove this plotting code
-    if 1:
+    if 0:
         log.info("fit_ccnorm: Plotting cc matrices, should delete this code at some point")
         import matplotlib.pyplot as plt
         cols = 4
