@@ -165,8 +165,6 @@ def newtf(fitkey):
     parm_dict = {}
 
     use_modelspec_init = False
-    optimizer = 'adam'
-    max_iter = 10_000
     cost_function = 'squared_error'
     early_stopping_steps = 5
     early_stopping_tolerance = 5e-4
@@ -176,7 +174,6 @@ def newtf(fitkey):
     batch_size = None
     seed = 0
     initializer = 'random_normal'
-    nl_init = 'tf'
     rand_count = 0
     pick_best = False
     epoch_name = "REFERENCE"
@@ -188,13 +185,17 @@ def newtf(fitkey):
     iters_per_loop = 100
 
     for op in options:
-        if op[:1] == 'i' and op != 'iso':
+        if op.startswith('slicen'):
+            parm_dict['fit_slices_start'] = -int(op[6:])
+        elif op.startswith('slice'):
+            parm_dict['fit_slices_start'] = int(op[5:])
+        elif op[:1] == 'i' and op != 'iso':
             if len(op[1:]) == 0:
-                max_iter = int(1e10)  # just a really large number
+                parm_dict['max_iter'] = int(1e10)  # just a really large number
             else:
-                max_iter = int(op[1:])
+                parm_dict['max_iter'] = int(op[1:])
         elif op == 'nlis':
-            nl_init = "scipy"
+            parm_dict['nl_init'] = "scipy"
         elif op.startswith('mc'):
             # multi-cell_index
             fit_fn = 'nems.tf.cnnlink_new.fit_tf_iterate'
@@ -251,7 +252,7 @@ def newtf(fitkey):
                 initializer = 'truncated_normal'
             elif initializer == 'ln':
                 initializer = 'lecun_normal'
-        elif op=='cont':
+        elif op == 'cont':
             epoch_name = ""
         elif op.startswith('FL'):
             if ':' in op:
@@ -268,18 +269,15 @@ def newtf(fitkey):
         elif op == 'tb':
             use_tensorboard = True
 
-        elif op == 'L2':
-            kernel_regularizer = 'l2'
+        elif op.lower().startswith('l2'):
+            kernel_regularizer = op.lower()
 
     xfspec = []
     if rand_count > 0:
         xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
 
     parm_dict.update({
-        'max_iter': max_iter,
         'use_modelspec_init': use_modelspec_init,
-        'nl_init': nl_init,
-        'optimizer': optimizer,
         'cost_function': cost_function,
         'fit_function': fit_fn,
         'early_stopping_steps': early_stopping_steps,

@@ -861,7 +861,7 @@ def modelspec_remove_input_layers(modelspec, rec, remove_count=0):
     modelspec_trunc.fit_index = modelspec.fit_index
     modelspec_trunc.jack_index = modelspec.jack_index
     
-    return modelspec_sliced, rec_sliced
+    return modelspec_trunc, rec_trunc
 
 
 def modelspec_restore_input_layers(modelspec_trunc, rec_trunc, modelspec_original):
@@ -894,7 +894,8 @@ def modelspec_slice_output_layers(modelspec, rec, slice_channels, slice_at=-1):
     """
     Tweak the model to predict a subset of the response, for multi-dataset fitting
     return the modified rec as well.
-    
+
+    slice_channels : keep these output channels (numerical index!)
     slice_at : start slicing at layer slice_at (default -1 means last layer)
     """
     input_name = modelspec.meta['input_name']
@@ -908,33 +909,79 @@ def modelspec_slice_output_layers(modelspec, rec, slice_channels, slice_at=-1):
 
         return modelspec.copy(), rec
     
-    if slice_at<=0:
+    if slice_at <= 0:
         slice_at = len(modelspec)+slice_at
-        
-    # generate recording starting at layer remove_count
 
-    
-    modelspec_dropped = modelspec.copy()
-    for i in range(dropcount):
-        modelspec_dropped.drop_module(in_place=True)
+    log.info(f"Slicing modules {slice_at} to {len(modelspec)} from modelspec")
 
-    rec_trunc = modelspec_dropped.evaluate(rec.copy(), stop=remove_count)
-    rec_trunc.signals['saved_input'] = rec_trunc[input_name].copy()
-    rec_trunc.signals[input_name] = rec_trunc["pred"]._modified_copy(data=rec_trunc["pred"]._data.copy())
+    # generate recording with sliced outputs
+    rec_sliced = rec.copy()
+    # don't need this, assumption is that the user is saving the original
+    #rec_sliced.signals['saved_output'] = rec_sliced[output_name].copy()
+    rec_sliced[output_name] = rec_sliced[output_name].extract_channels(
+        chan_idx=slice_channels)
 
-    raw_trunc = copy.deepcopy(modelspec.raw)
-    for i_ in range(raw_trunc.shape[0]):
-        for j_ in range(raw_trunc.shape[1]):
-            for k_ in range(raw_trunc.shape[2]):
-                raw_trunc[i_,j_,k_] = modelspec.raw[i_,j_,k_][remove_count:]
-                raw_trunc[i_,j_,k_][0]['fn_kwargs']['i'] = "stim"
+    raw_sliced = copy.deepcopy(modelspec.raw)
+    for i_ in range(raw_sliced.shape[0]):
+        for j_ in range(raw_sliced.shape[1]):
+            for k_ in range(raw_sliced.shape[2]):
+                for l_ in range(slice_at,len(modelspec)):
+                    for parm in raw_sliced[i_,j_,k_][l_]['phi'].keys():
+                        v = raw_sliced[i_,j_,k_][l_]['phi'][parm]
+                        s_old=v.shape
+                        if v.shape[0] == output_count_old:
+                            v_new = v[slice_channels]
+                            s_new=v_new.shape
+                        elif v.shape[1] == output_count_old:
+                            v_new = v[:, slice_channels]
+                            s_new=v_new.shape
 
-    raw_trunc[0,0,0][0]['meta'] = modelspec.meta.copy()
-    
-    modelspec_sliced = ms.ModelSpec(raw=raw_trunc)
+                        log.debug(f"raw[{i_},{j_},{k_}][{l_}]['phi'][{parm}]: {s_old} -> {s_new}")
+                        raw_sliced[i_,j_,k_][l_]['phi'][parm] = v_new
+    modelspec_sliced = ms.ModelSpec(raw=raw_sliced, cell_count=modelspec.cell_count, cell_index=modelspec.cell_index)
+    modelspec_sliced.fit_index = modelspec.fit_index
+    modelspec_sliced.jack_index = modelspec.jack_index
+
+    for l_ in range(slice_at, len(modelspec_sliced)):
+        if 'chans' in modelspec_sliced[l_]['fn_kwargs']:
+            modelspec_sliced[l_]['fn_kwargs']['chans'] = len(slice_channels)
 
     return modelspec_sliced, rec_sliced
 
+def modelspec_restore_sliced_output(modelspec_sliced, rec_sliced, slice_channels, slice_at, modelspec_original, rec_original):
+    """
+    put a newly fit output slice from a modelspec back into modelspec_original
+    """
+    output_name = modelspec_sliced.meta['output_name']
+    output_count_old = rec_original[output_name].shape[0]
+    if slice_at <= 0:
+        slice_at = len(modelspec_original)+slice_at
+
+    log.info(f"Inserting sliced modules {slice_at} to {len(modelspec_original)} into modelspec_original")
+
+    modelspec_restored = modelspec_original.copy()
+    raw_restored = modelspec_restored.raw
+    raw_sliced = modelspec_sliced.raw
+
+    for i_ in range(modelspec_restored.raw.shape[0]):
+        for j_ in range(modelspec_restored.raw.shape[1]):
+            for k_ in range(modelspec_restored.raw.shape[2]):
+                for l_ in range(slice_at, len(modelspec_restored)):
+
+                    for parm in raw_sliced[i_,j_,k_][l_]['phi'].keys():
+                        v = raw_restored[i_,j_,k_][l_]['phi'][parm]
+                        s_old=v.shape
+                        if v.shape[0] == output_count_old:
+                            v[slice_channels] = raw_sliced[i_,j_,k_][l_]['phi'][parm]
+                            s_new = v[slice_channels].shape
+                        elif v.shape[1] == output_count_old:
+                            v[:, slice_channels] = raw_sliced[i_,j_,k_][l_]['phi'][parm]
+                            s_new = v[:, slice_channels].shape
+
+                        log.debug(f"raw[{i_},{j_},{k_}][{l_}]['phi'][{parm}]: {s_new} -> {s_old}")
+                        raw_restored[i_,j_,k_][l_]['phi'][parm] = v
+
+    return modelspec_restored
 
 
 

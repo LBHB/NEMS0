@@ -1108,14 +1108,18 @@ def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
 
 
 def fit_wrapper(modelspec, est=None, fit_function='nems.analysis.api.fit_basic',
-                IsReload=False, **context):
+                fit_slices_start=None, IsReload=False, **context):
     """
-    wrapper to loop through all jacks and fits for a modelspec, calling fit_function to fit each
-    :param modelspec:
-    :param est:
-    :param fit_function:
-    :param IsReload:
-    :param context:
+    Wrapper to loop through all jackknifes, fits and output slices (if/when >1 of any)
+       for a modelspec, calling fit_function to fit each
+    :param modelspec:  modelspec to fit
+    :param est:  nems-format Recording with fit data
+    :param fit_function:  string lib path to fit function
+    :param fit_slices_start: [None] If integer, iterate through output channels and
+       fit each separately. start_at is set to fit_slices_start
+       (assumes freezing common layers or will make for an interesting fit!)
+    :param IsReload:    [False] if True, skip fit and return without doing anything
+    :param context:  pass-through dictionary into fitter
     :return: results = xforms context dictionary update
     """
 
@@ -1140,15 +1144,40 @@ def fit_wrapper(modelspec, est=None, fit_function='nems.analysis.api.fit_basic',
             log.info("Fitting: %s, fit %d/%d, fold %d/%d", fit_function,
                      fit_idx + 1, modelspec.fit_count,
                      jack_idx + 1, modelspec.jack_count)
-            results = fn(modelspec=modelspec, est=e, **context)
 
-            # compatible with direct modelspec return or xforms-ese dictionary
-            if type(results) is dict:
-                if 'modelspec' in results.keys():
-                    modelspec = results['modelspec']
+            if fit_slices_start is not None:
+                output_name = modelspec.meta['output_name']
+                output_count = est[output_name].shape[0]
+                if fit_slices_start <= 0:
+                    # neg, adjust relative to len(modelspec)
+                    slice_at = len(modelspec)+fit_slices_start
+                else:
+                    slice_at = fit_slices_start
+                context['freeze_layers'] = list(range(slice_at))
+                for slice_idx in range(output_count):
+                    log.info("Fitting: %s, fit %d/%d, fold %d/%d SLICE %d/%d",
+                             fit_function,
+                             fit_idx + 1, modelspec.fit_count,
+                             jack_idx + 1, modelspec.jack_count,
+                             slice_idx, output_count)
+
+                    slice_channels = np.array([slice_idx])
+                    modelspec_sliced, est_sliced = init.modelspec_slice_output_layers(modelspec, est, slice_channels, slice_at=slice_at)
+                    results = fn(modelspec=modelspec_sliced, est=est_sliced, **context)
+                    modelspec = init.modelspec_restore_sliced_output(
+                        results['modelspec'], est_sliced, slice_channels,
+                        slice_at, modelspec, est)
+                results['modelspec'] = modelspec
             else:
-                modelspec = results
-                results = {'modelspec', modelspec}
+                results = fn(modelspec=modelspec, est=e, **context)
+
+                # compatible with direct modelspec return or xforms-ese dictionary
+                if type(results) is dict:
+                    if 'modelspec' in results.keys():
+                        modelspec = results['modelspec']
+                else:
+                    modelspec = results
+                    results = {'modelspec', modelspec}
 
     return results
 

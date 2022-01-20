@@ -62,8 +62,17 @@ class BaseLayer(tf.keras.layers.Layer):
         }
 
         if kernel_regularizer is not None:
-            #kwargs['kernel_regularizer'] = regularizers.get(kernel_regularizer)(l2=0.001)
-            kwargs['kernel_regularizer'] = regularizers.l2(l=0.0001)
+            regstr = kernel_regularizer.split(",")
+            kernel_regularizer = regstr[0]
+            if len(regstr)>1:
+                parm = 10**(-int(regstr[1]))
+            else:
+                parm = 0.001
+            if kernel_regularizer.lower() == 'l2':
+                kwargs['kernel_regularizer'] = regularizers.l2(l=parm)
+            else:
+                raise ValueError(f"Need to add support for regularizer {kernel_regularizer}")
+                #kwargs['kernel_regularizer'] = regularizers.get(kernel_regularizer)(l2=0.001)
 
         # TODO: clean this up, maybe separate kwargs/fn_kwargs, or method to split out valid tf kwargs from rest
         if 'bounds' in ms_layer:
