@@ -62,7 +62,7 @@ class BaseLayer(tf.keras.layers.Layer):
         }
 
         if kernel_regularizer is not None:
-            regstr = kernel_regularizer.split(",")
+            regstr = kernel_regularizer.split(":")
             kernel_regularizer = regstr[0]
             if len(regstr)>1:
                 parm = 10**(-int(regstr[1]))
