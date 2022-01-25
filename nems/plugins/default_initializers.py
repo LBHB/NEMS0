@@ -1,6 +1,8 @@
 import logging
 import re
 
+import numpy as np
+
 from nems.utils import escaped_split, keyword_extract_options
 from nems.registry import xform, xmodule
 
@@ -160,6 +162,9 @@ def norm(kw):
             log_compress = -int(op[2:])
         elif op.startswith('l'):
             log_compress = int(op[1:])
+            if log_compress > 10:
+                log_compress = np.array([log_compress/10])
+
     stim_only = ('s' in ops)
     resp_only = ('r' in ops)
 
