@@ -725,7 +725,8 @@ class Recording:
         return self._split_helper(lambda s: s.split_by_epochs(epochs_for_est,
                                                               epochs_for_val))
 
-    def split_using_epoch_occurrence_counts(self, epoch_regex=None, keepfrac=1):
+    def split_using_epoch_occurrence_counts(self, epoch_regex=None, keepfrac=1,
+                                            verbose=False):
         '''
         Returns (est, val) given a recording rec, a signal name 'stim_name', and an
         epoch_regex that matches 'various' epochs. This function will throw an exception
@@ -781,7 +782,10 @@ class Recording:
         if keepfrac<1:
             log.info(f"keepfrac={keepfrac}, keeping {keep_count}/{lo_count} low-rep epochs")
             lo_rep_epochs = lo_rep_epochs[:keep_count]
-        
+
+        if verbose:
+            print(groups)
+
         return self.split_by_epochs(lo_rep_epochs, hi_rep_epochs)
 
     def get_epoch_indices(self, epoch_name, allow_partial_epochs=False):
