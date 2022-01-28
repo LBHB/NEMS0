@@ -446,7 +446,6 @@ def pick_best_phi(modelspec=None, est=None, val=None, est_list=None, val_list=No
         x = x / n
 
         tx = x.copy()
-        import pdb; pdb.set_trace()
         for n in range(keep_n):
            best_idx[j] = int(np.nanargmin(tx))
            new_raw[:, n, j] = modelspec.raw[:, best_idx[j], j]
