@@ -327,7 +327,6 @@ def fit_ccnorm(modelspec,
     # Results should be a list of modelspecs
     # (might only be one in list, but still should be packaged as a list)
     improved_sigma = fitter(sigma, cost_fn, bounds=bounds,
-                            options={'ftol': 1e-6, 'gtol': 1e-6},
                             **fit_kwargs)
     improved_modelspec = unpacker(improved_sigma)
     elapsed_time = (time.time() - start_time)
