@@ -347,17 +347,15 @@ def fit_ccnorm(modelspec,
 
     log.info(f"Updating improved modelspec with fit_idx={improved_modelspec.fit_index}")
     improved_modelspec.meta['fitter'] = 'ccnorm'
+    improved_modelspec.meta['n_parms'] = len(improved_sigma)
     if modelspec.fit_count == 1:
         improved_modelspec.meta['fit_time'] = elapsed_time
-        improved_modelspec.meta['n_parms'] = len(improved_sigma)
         improved_modelspec.meta['loss'] = final_err
     else:
         if modelspec.fit_index == 0:
             improved_modelspec.meta['fit_time'] = np.zeros(improved_modelspec.fit_count)
-            improved_modelspec.meta['n_parms'] = np.zeros(improved_modelspec.fit_count)
             improved_modelspec.meta['loss'] = np.zeros(improved_modelspec.fit_count)
         improved_modelspec.meta['fit_time'][fit_index] = elapsed_time
-        improved_modelspec.meta['n_parms'][fit_index] = len(improved_sigma)
         improved_modelspec.meta['loss'][fit_index] = final_err
 
     return {'modelspec': improved_modelspec}
