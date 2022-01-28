@@ -60,6 +60,72 @@ def cc_shared_space(a,U):
     return cc1
 
 
+def compute_cc_matrices(modelspec, est,
+                        shrink_cc: float = 0,
+                        noise_pcs: int = 0,
+                        shared_pcs: int = 0,
+                        force_psth: bool = False,
+                        verbose=False,
+                        ):
+
+    est = modelspec.evaluate(est, stop=2)
+    if ('pred0' in est.signals.keys()) & (not force_psth):
+        input_name = 'pred0'
+        log.info('Found pred0 for fitting CC')
+    else:
+        input_name = 'psth'
+        log.info('No pred0, using psth for fitting CC')
+
+    conditions = ["_".join(k.split("_")[1:]) for k in est.signals.keys() if k.startswith("mask_")]
+    if (len(conditions)>2) and any([c.split("_")[-1]=='lg' for c in conditions]):
+        conditions.remove("small")
+        conditions.remove("large")
+    #conditions = conditions[0:2]
+    #conditions = ['large','small']
+
+    group_idx = [est['mask_'+c].as_continuous()[0,:] for c in conditions]
+    cg_filtered = [(c, g) for c,g in zip(conditions,group_idx) if g.sum()>0]
+    conditions, group_idx = zip(*cg_filtered)
+
+    for c,g in zip(conditions, group_idx):
+        log.info(f"cc data for {c} len {g.sum()}")
+
+    resp = est['resp'].as_continuous()
+    pred0 = est[input_name].as_continuous()
+    #import pdb; pdb.set_trace()
+    if shrink_cc > 0:
+        log.info(f'cc approx: shrink_cc={shrink_cc}')
+        group_cc = [cc_shrink(resp[:,idx]-pred0[:,idx], sigrat=shrink_cc) for idx in group_idx]
+    elif shared_pcs > 0:
+        log.info(f'cc approx: shared_pcs={shared_pcs}')
+        cc=np.cov(resp-pred0)
+        u,s,vh = np.linalg.svd(cc)
+        U = u[:, :shared_pcs] @ u[:, :shared_pcs].T
+
+        group_cc = [cc_shared_space(resp[:, idx]-pred0[:,idx], U) for idx in group_idx]
+    elif noise_pcs > 0:
+        log.info(f'cc approx: noise_pcs={noise_pcs}')
+        group_cc = [cc_lowrank(resp[:,idx]-pred0[:,idx], n_pcs=noise_pcs) for idx in group_idx]
+    else:
+        group_cc = [np.cov(resp[:,idx]-pred0[:,idx]) for idx in group_idx]
+    group_cc_raw = [np.cov(resp[:,idx]-pred0[:,idx]) for idx in group_idx]
+
+    if verbose:
+        import matplotlib.pyplot as plt
+        cols = 4
+        rows = int(np.ceil(len(group_cc)/2))
+        f, ax = plt.subplots(rows, cols, figsize=(4, 2*rows))
+        ax = ax.flatten()
+        i = 0
+        for g, g_raw, cond in zip(group_cc, group_cc_raw, conditions):
+            mm= np.max(np.abs(g))
+            ax[i*2].imshow(g, cmap='bwr', clim=[-mm,mm], origin='lower')
+            ax[i*2+1].imshow(g_raw, cmap='bwr', clim=[-mm,mm], origin='lower')
+            f.suptitle(cond)
+            i += 1
+
+    return group_idx, group_cc
+
 def fit_ccnorm(modelspec,
         est: recording.Recording,
         metric=None,
@@ -106,8 +172,7 @@ def fit_ccnorm(modelspec,
 
     start_time = time.time()
 
-    modelspec = copy.deepcopy(modelspec)
-
+    fit_index = modelspec.fit_index
     if (exclude_idx is not None) | (freeze_idx is not None) | \
             (exclude_after is not None) | (freeze_after is not None):
         modelspec0 = modelspec.copy()
@@ -115,9 +180,10 @@ def fit_ccnorm(modelspec,
             modelspec, include_idx=None,
             exclude_idx=exclude_idx, exclude_after=exclude_after,
             freeze_idx=freeze_idx, freeze_after=freeze_after)
+        modelspec0.set_fit(fit_index)
+        modelspec.set_fit(fit_index)
     else:
         include_set = None
-
 
     # Computing PCs before masking out unwanted stimuli in order to
     # preserve match with epochs
@@ -194,22 +260,6 @@ def fit_ccnorm(modelspec,
         group_cc = [np.cov(resp[:,idx]-pred0[:,idx]) for idx in group_idx]
     group_cc_raw = [np.cov(resp[:,idx]-pred0[:,idx]) for idx in group_idx]
 
-    # some day remove this plotting code
-    if 0:
-        log.info("fit_ccnorm: Plotting cc matrices, should delete this code at some point")
-        import matplotlib.pyplot as plt
-        cols = 4
-        rows = int(np.ceil(len(group_cc)/2))
-        f, ax = plt.subplots(rows, cols, figsize=(4, 2*rows))
-        ax = ax.flatten()
-        i = 0
-        for g, g_raw, cond in zip(group_cc, group_cc_raw, conditions):
-            mm= np.max(np.abs(g))
-            ax[i*2].imshow(g, cmap='bwr', clim=[-mm,mm], origin='lower')
-            ax[i*2+1].imshow(g_raw, cmap='bwr', clim=[-mm,mm], origin='lower')
-            f.suptitle(cond)
-            i += 1
-
     # variance of projection onto PCs (PCs computed above before masking)
     pcproj0 = (resp-pred0).T.dot(pc_axes.T).T
     pcproj_std = pcproj0.std(axis=1)
@@ -276,7 +326,9 @@ def fit_ccnorm(modelspec,
 
     # Results should be a list of modelspecs
     # (might only be one in list, but still should be packaged as a list)
-    improved_sigma = fitter(sigma, cost_fn, bounds=bounds, **fit_kwargs)
+    improved_sigma = fitter(sigma, cost_fn, bounds=bounds,
+                            options={'ftol': 1e-6, 'gtol': 1e-6},
+                            **fit_kwargs)
     improved_modelspec = unpacker(improved_sigma)
     elapsed_time = (time.time() - start_time)
 
@@ -287,16 +339,29 @@ def fit_ccnorm(modelspec,
     # TODO: Should this maybe be moved to a higher level
     # so it applies to ALL the fittters?
     ms.fit_mode_off(improved_modelspec)
-    ms.set_modelspec_metadata(improved_modelspec, 'fitter', 'ccnorm')
-    ms.set_modelspec_metadata(improved_modelspec, 'fit_time', elapsed_time)
-    ms.set_modelspec_metadata(improved_modelspec, 'n_parms', len(improved_sigma))
 
     if include_set is not None:
         # pull out updated phi values from improved_modelspec, include_set only
         improved_modelspec = \
             modelspec_unfreeze_layers(improved_modelspec, modelspec0, include_set)
+        improved_modelspec.set_fit(fit_index)
 
-    return {'modelspec': improved_modelspec.copy()}
+    log.info(f"Updating improved modelspec with fit_idx={improved_modelspec.fit_index}")
+    improved_modelspec.meta['fitter'] = 'ccnorm'
+    if modelspec.fit_count == 1:
+        improved_modelspec.meta['fit_time'] = elapsed_time
+        improved_modelspec.meta['n_parms'] = len(improved_sigma)
+        improved_modelspec.meta['loss'] = final_err
+    else:
+        if modelspec.fit_index == 0:
+            improved_modelspec.meta['fit_time'] = np.zeros(improved_modelspec.fit_count)
+            improved_modelspec.meta['n_parms'] = np.zeros(improved_modelspec.fit_count)
+            improved_modelspec.meta['loss'] = np.zeros(improved_modelspec.fit_count)
+        improved_modelspec.meta['fit_time'][fit_index] = elapsed_time
+        improved_modelspec.meta['n_parms'][fit_index] = len(improved_sigma)
+        improved_modelspec.meta['loss'][fit_index] = final_err
+
+    return {'modelspec': improved_modelspec}
     # return {'modelspec': improved_modelspec.copy(), 'save_context': True}
 
 

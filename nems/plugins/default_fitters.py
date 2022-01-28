@@ -968,11 +968,14 @@ def ccnorm(fitkey):
 
     xfspec = []
     if rand_count > 1:
-        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
+        freeze_idx=sel_options.get('freeze_idx',None)
+        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count,
+                                                      'freeze_idx': freeze_idx}])
 
     xfspec.append(['nems.xforms.fit_wrapper', sel_options])
 
     if choose_best:
+        keep_n=1
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi',
             {'criterion': 'mse_fit', 'keep_n': keep_n}])
 
