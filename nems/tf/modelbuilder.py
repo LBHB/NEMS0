@@ -108,6 +108,16 @@ def modelspec2tf(modelspec, seed=0, use_modelspec_init=True, fs=100,
     it probably belongs here instead.
 
     """
+    if kernel_regularizer is not None:
+        regstr = kernel_regularizer.split(":")
+        kernel_regularizer_ops = {}
+        if len(regstr) > 2:
+            if regstr[2] == 'firwc':
+                kernel_regularizer_ops['modulenames'] = ['weight_channels.basic', 'filter_bank']
+        else:
+            kernel_regularizer_ops['modulenames'] = ['weight_channels.basic']
+
+
     layers = []
     if freeze_layers is None:
         freeze_layers = []
@@ -123,7 +133,7 @@ def modelspec2tf(modelspec, seed=0, use_modelspec_init=True, fs=100,
         else:
             trainable = True
 
-        if ('weight_channels.basic' in m['fn']):
+        if any(fn in m['fn']  for fn in kernel_regularizer_ops['modulenames']):
             layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
                                            initializer=initializer, trainable=trainable,
                                            kernel_regularizer=kernel_regularizer)
