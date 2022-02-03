@@ -216,7 +216,6 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, skip_init=False,
 
     if IsReload or skip_init:
         return {}
-
     jack_count = modelspec.jack_count
     modelspec = modelspec.copy(jack_index=0)
 
@@ -236,8 +235,10 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, skip_init=False,
                 modelspec = priors.set_mean_phi(modelspec)
             else:
                 modelspec = priors.set_random_phi(modelspec)
-        for i in freeze_idx:
-            modelspec.phi[i] = save_phi[i]
+            for j in freeze_idx:
+                log.debug(f'fit {i} reverting {j}')
+                for k in modelspec.phi[j].keys():
+                    modelspec.phi[j][k] = save_phi[j][k].copy()
 
     modelspec.set_cell(0)
     modelspec.set_fit(0)

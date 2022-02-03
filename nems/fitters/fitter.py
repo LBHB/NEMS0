@@ -131,6 +131,7 @@ def scipy_minimize(sigma, cost_fn, tolerance=None, max_iter=None,
                      "scipy_minimize, using <tolerance> by default: %.2E",
                      tolerance)
         options['ftol'] = tolerance
+        options['gtol'] = tolerance/10
     elif tolerance is None and 'ftol' not in options:
         options['ftol'] = 1e-7
 

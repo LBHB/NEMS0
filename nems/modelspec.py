@@ -892,7 +892,7 @@ class ModelSpec:
 
         # suptitle needs to be after the gridspecs in order to work with constrained_layout
         fig.suptitle(fig_title)
-        fig.set_constrained_layout_pads(w_pad=0.05, h_pad=0.1, w_space=0)
+        fig.set_constrained_layout_pads(w_pad=0.05, h_pad=0.1, wspace=0)
 
         log.info('Quickplot: generated fig with title "{}"'.format(fig_title.replace("\n", " ")))
         return fig
