@@ -853,29 +853,29 @@ def fetch_meta_data(modelspec, r, attrs, cellid=None):
         #    k = a
         v=_fetch_attr_value(modelspec, a, default, cellid)
         setattr(r, a, v)
-        log.debug("modelspec: meta {0}={1}".format(a,v))
+        log.info("modelspec: meta {0}={1}".format(a,v))
 
 
 
 def _fetch_attr_value(modelspec, k, default=0.0, cellid=None):
-    """Return the value of key 'k' of modelspec[0]['meta'], or default."""
+    """Return the value of key 'k' of modelspec.meta, or default."""
 
-    # if modelspec[0]['meta'][k] is a string, return it.
+    # if modelspec.meta[k] is a string, return it.
     # if it's an ndarray or anything else with indices, get the first index;
     # otherwise, just get the value. Then convert to scalar if np data type.
     # or if key doesn't exist at all, return the default value.
-    if k in modelspec[0]['meta']:
-        v = modelspec[0]['meta'][k]
+    if k in modelspec.meta:
+        v = modelspec.meta[k]
         if not isinstance(v, str):
             try:
                 if cellid is not None and type(v==list):
-                    cellids = modelspec[0]['meta']['cellids']
+                    cellids = modelspec.meta['cellids']
                     i = [index for index, value in enumerate(cellids) if value == cellid]
-                    v = modelspec[0]['meta'][k][i[0]]
+                    v = modelspec.meta[k][i[0]]
                 else:
-                    v = modelspec[0]['meta'][k][0]
+                    v = modelspec.meta[k][0]
             except BaseException:
-                v = modelspec[0]['meta'][k]
+                v = modelspec.meta[k]
             finally:
                 try:
                     v = np.asscalar(v)
@@ -886,7 +886,7 @@ def _fetch_attr_value(modelspec, k, default=0.0, cellid=None):
                 except BaseException:
                     pass
         else:
-            v = modelspec[0]['meta'][k]
+            v = modelspec.meta[k]
     else:
         v = default
 

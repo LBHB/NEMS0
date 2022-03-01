@@ -97,10 +97,11 @@ if __name__ == '__main__':
             if len(log_file) == 1:
                 log_file = log_file[0]
                 log.info(f'Found log file: "{str(log_file)}"')
+                log.info('Copying log file to queue log repo.')
+
                 with open(log_file, 'r') as f:
                     log_data = f.read()
 
                 dst_prefix = r'http://' + get_setting('NEMS_BAPHY_API_HOST') + ":" + str(get_setting('NEMS_BAPHY_API_PORT'))
                 dst_loc = dst_prefix + '/queuelog/' + str(queueid)
-                log.info('Copying log file to queue log repo.')
                 save_resource(str(dst_loc), data=log_data)

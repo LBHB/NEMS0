@@ -75,7 +75,7 @@ class BaseLayer(tf.keras.layers.Layer):
             else:
                 parm = 0.001
             if kernel_regularizer.lower() == 'l2':
-                log.info(f'Setting kernel_regularizer to {kernel_regularizer}')
+                log.info(f'Setting kernel_regularizer to {kernel_regularizer} (l={parm})')
                 kwargs['kernel_regularizer'] = regularizers.l2(l=parm)
             else:
                 raise ValueError(f"Need to add support for regularizer {kernel_regularizer}")
