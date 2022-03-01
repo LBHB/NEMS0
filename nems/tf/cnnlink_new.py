@@ -660,8 +660,8 @@ def fit_tf_init(
     ms_modules = [ms['fn'] for ms in modelspec]
     if up_to_idx is None:
         #up_to_idx = first_substring_index(ms_modules, 'levelshift')
-        relu_idx = first_substring_index(reversed(ms_modules), 'relu')
-        lvl_idx = first_substring_index(reversed(ms_modules), 'levelshift')
+        relu_idx = first_substring_index(reversed(ms_modules), 'relu')  #fit to last relu
+        lvl_idx = first_substring_index(reversed(ms_modules), 'levelshift') #fit to last levelshift
         _idxs = [i for i in [relu_idx, lvl_idx, len(modelspec)-1] if i is not None]
         up_to_idx = len(modelspec) - 1 - np.min(_idxs)
         #last_idx = np.min([relu_idx, lvl_idx])
@@ -721,7 +721,7 @@ def fit_tf_init(
     est=est_list[0]
     temp_ms.cell_index = 0
 
-    log.info('Running first init fit: model up to first lvl/relu without stp/gain.')
+    log.info('Running first init fit: model up to last lvl/relu without stp/gain.')
     log.debug('freeze_idxes: %s', freeze_idxes)
     filepath = Path(modelspec.meta['modelpath']) / 'init_part1'
     
@@ -747,6 +747,14 @@ def fit_tf_init(
         meta_save = modelspec.meta.copy()
         for ms_idx, temp_ms_module in zip(init_idxes, temp_ms):
             modelspec[ms_idx] = temp_ms_module
+
+        if modelspec.fit_count > 1:
+            if modelspec.fit_index == 0:
+                meta_save['n_epochs'] = np.zeros(modelspec.fit_count)
+                meta_save['loss'] = np.zeros(modelspec.fit_count)
+            meta_save['n_epochs'][modelspec.fit_index] = temp_ms.meta['n_epochs']
+            meta_save['loss'][modelspec.fit_index] = temp_ms.meta['loss']
+
         modelspec.meta.update(meta_save)
 
         if nl_init == 'skip':
