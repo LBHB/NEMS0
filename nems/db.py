@@ -745,7 +745,6 @@ def update_results_table(modelspec, preview=None,
 
     for cellidx in range(modelspec.cell_count):
         modelspec.cell_index = cellidx
-
         cellids = modelspec.meta.get('cellids', [modelspec.meta.get('cellid','CELL')])
         if ('r_test' in modelspec.meta.keys()) and (len(modelspec.meta['r_test'])<len(cellids)):
             cellids=cellids[:len(modelspec.meta['r_test'])]

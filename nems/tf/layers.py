@@ -28,7 +28,13 @@ class BaseLayer(tf.keras.layers.Layer):
         """Catch args/kwargs that aren't allowed kwargs of keras.layers.Layers"""
         self.fs = kwargs.pop('fs', None)
         self.ms_name = kwargs.pop('ms_name', None)
-        self.kernel_regularizer = kwargs.pop('kernel_regularizer', None)
+        kr = kwargs.pop('kernel_regularizer', None)
+        if kr is not None:
+            log.info(f"kernel regularizer: {kr}")
+            #import pdb; pdb.set_trace()
+
+        self.kernel_regularizer = kr
+
         # Overwrite in other layers' __init__ to change which fn_kwargs get copied
         # (see self.copy_valid_fn_kwargs)
 
@@ -69,6 +75,7 @@ class BaseLayer(tf.keras.layers.Layer):
             else:
                 parm = 0.001
             if kernel_regularizer.lower() == 'l2':
+                log.info(f'Setting kernel_regularizer to {kernel_regularizer}')
                 kwargs['kernel_regularizer'] = regularizers.l2(l=parm)
             else:
                 raise ValueError(f"Need to add support for regularizer {kernel_regularizer}")
@@ -100,6 +107,7 @@ class BaseLayer(tf.keras.layers.Layer):
         kwargs.update(pass_throughs)
 
         if not cls._TF_ONLY:  # TODO: implement proper phi formatting for TF_ONLY layers so that this isn't necessary
+            #import pdb; pdb.set_trace()
             if use_modelspec_init:
                 # convert the phis to tf constants
                 if ms_layer.get('phi',None):
@@ -114,8 +122,8 @@ class BaseLayer(tf.keras.layers.Layer):
                 # if want custom inits for each layer, remove this and change the inits in each layer
                 # kwargs['initializer'] = {k: 'truncated_normal' for k in ms_layer['phi'].keys()}
                 kwargs['initializer'] = {k: initializer for k in ms_layer['phi'].keys()}
-            instance = cls(**kwargs)
 
+            instance = cls(**kwargs)
         else:
             # skip init step, not currently implemented.
             # Instead, directly copy
@@ -1057,13 +1065,82 @@ class Conv2D_NEMS_new(BaseLayer):
 
 
 class Conv2D_NEMS(BaseLayer, Conv2D):
-    _TF_ONLY = True
+    _TF_ONLY = False
     def __init__(self, initializer=None, seed=0, *args, **kwargs):
         '''
         Fork of Keras Conv2D module. Currently only works with specialized conditions (relu may be required) but
         implements a causal filter on the time axis. (SVD updated from JP original code 2020-07-27.)
         '''
         super(Conv2D_NEMS, self).__init__(*args, **kwargs)
+        # force symmetrical padding in frequency, causal in time
+        pad_top = self.kernel_size[0]-1
+        pad_bottom = 0
+        pad_left = int((self.kernel_size[1]-1)/2)
+        pad_right = self.kernel_size[1]-pad_left-1
+        self.padding = [[0, 0], [pad_top,pad_bottom], [pad_left, pad_right], [0, 0]]
+
+        self.initializer = {'coefficients': tf.random_normal_initializer(seed=seed),
+                            'offset': tf.random_normal_initializer(seed=seed)}
+        if initializer is not None:
+            log.debug(f'Conv2D initializing to previous values: {list(initializer.keys())}')
+            self.initializer.update(initializer)
+        if kwargs.get('kernel_regularizer',None) is not None:
+            log.info('kernel regularizer is not None')
+            self.kernel_regularizer = kwargs.get('kernel_regularizer',None)
+            #import pdb; pdb.set_trace()
+        
+    def build(self, input_shape):
+        input_shape = tensor_shape.TensorShape(input_shape)
+        input_channel = input_shape[-1]
+        kernel_shape = list(self.kernel_size) + [input_channel, self.filters]
+        log.info(f'Conv2D build: kernel reg: {self.kernel_regularizer}')
+        #import pdb; pdb.set_trace()
+        self.coefficients = self.add_weight(
+            name='coefficients',
+            shape=kernel_shape,
+            initializer=self.initializer['coefficients'],
+            regularizer=self.kernel_regularizer,
+            #constraint=self.kernel_constraint,
+            trainable=True,
+            dtype=self.dtype)
+        if self.use_bias:
+            self.offset = self.add_weight(
+                name='offset',
+                shape=(1,1,1,self.filters),
+                initializer=self.initializer['offset'],
+                #constraint=self.bias_constraint,
+                trainable=True,
+                dtype=self.dtype)
+        else:
+            self.offset = None
+
+    def call(self, inputs, training=True):
+        # inputs should be [batch, in_height, in_width, in_channels]
+        # self.weights[0] should be [filter_height, filter_width, in_channels, out_channels]
+        x = tf.nn.conv2d(inputs, self.coefficients, [1, 1, 1, 1], padding=self.padding)
+        # x should be [batch, in_height, in_width, out_channels]
+
+        # self.weights[1] should be [1, 1, 1, out_channels]
+        if self.offset is not None:
+            return tf.nn.relu(x - tf.reshape(self.offset, [1, 1, 1, -1]))
+        else:
+            return tf.nn.relu(x)
+
+    def weights_to_phi(self):
+        phi = {'coefficients': self.coefficients.numpy(),
+               'offset': self.offset.numpy()}
+        log.debug(f'Converted {self.name} to modelspec phis.')
+        log.debug(f"Offset : {phi['offset']}")
+        return phi
+
+class Conv2D_NEMS_old(BaseLayer, Conv2D):
+    _TF_ONLY = True
+    def __init__(self, initializer=None, seed=0, *args, **kwargs):
+        '''
+        Fork of Keras Conv2D module. Currently only works with specialized conditions (relu may be required) but
+        implements a causal filter on the time axis. (SVD updated from JP original code 2020-07-27.)
+        '''
+        super(Conv2D_NEMS_old, self).__init__(*args, **kwargs)
         # force symmetrical padding in frequency, causal in time
         pad_top = self.kernel_size[0]-1
         pad_bottom = 0
@@ -1138,10 +1215,12 @@ class WeightChannelsNew(BaseLayer):
 
     def build(self, input_shape):
         ##constraint=tf.keras.constraints.NonNeg(),
+        log.info(f'WeightChannelsNew build: kernel reg: {self.kernel_regularizer}')
         self.coefficients = self.add_weight(name='coefficients',
                                             shape=(input_shape[-2]*input_shape[-1], self.units),
                                             dtype='float32',
                                             initializer=tf.random_normal_initializer,
+                                            regularizer=self.kernel_regularizer,
                                             trainable=True,
                                             )
 

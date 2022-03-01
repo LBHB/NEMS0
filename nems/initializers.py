@@ -206,7 +206,9 @@ def from_keywords_as_list(keyword_string, registry=None, meta={}):
     return [from_keywords(keyword_string, registry, meta)]
 
 
-def rand_phi(modelspec, rand_count=10, IsReload=False, skip_init=False, rand_seed=1234, **context):
+def rand_phi(modelspec, rand_count=10, IsReload=False, skip_init=False,
+             freeze_idx=[],
+             rand_seed=1234, **context):
     """ 
     initialize modelspec phi to random values based on priors
     2021-11-08: svd added support for multiple-cell modelspecs
@@ -226,6 +228,7 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, skip_init=False, rand_see
 
     for cell_idx in range(modelspec.cell_count):
         modelspec.set_cell(cell_idx)
+        save_phi = modelspec.phi.copy()
         for i in range(rand_count):
             modelspec.set_fit(i)
             if i == 0:
@@ -233,6 +236,9 @@ def rand_phi(modelspec, rand_count=10, IsReload=False, skip_init=False, rand_see
                 modelspec = priors.set_mean_phi(modelspec)
             else:
                 modelspec = priors.set_random_phi(modelspec)
+        for i in freeze_idx:
+            modelspec.phi[i] = save_phi[i]
+
     modelspec.set_cell(0)
     modelspec.set_fit(0)
 
@@ -699,9 +705,12 @@ def modelspec_unfreeze_layers(modelspec, modelspec0, include_set):
     :return: modelspec
     """
     modelspecnew = modelspec0.copy()
+    meta_save = modelspec.meta.copy()
     for i in include_set:
         log.info('saving module %d', i)
         modelspecnew[i] = modelspec[i]
+
+    modelspecnew[0]['meta'] = meta_save
 
     return modelspecnew
 

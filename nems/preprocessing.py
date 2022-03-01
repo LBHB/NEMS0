@@ -214,7 +214,7 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=Tru
             else:
                 epoch = epoch[0,...]
 
-            elen = int(round((temp_epochs.loc[epoch_name, 'dur'] * fs)))
+            elen = int(round(np.min(temp_epochs.loc[epoch_name, 'dur'] * fs)))
 
             if epoch.shape[-1] > elen:
                 log.info('truncating epoch_data for epoch %s', epoch_name)
@@ -700,16 +700,18 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
         ematch = resp.get_epoch_bounds(ename)
         # remove events outside of valid trial mask (if excluding incorrect)
         if not include_incorrect:
-            ematch = ep.epoch_intersection(ematch, mask_bounds)
+           ematch = ep.epoch_intersection(ematch, mask_bounds)
         if len(ematch)>0:
            # for CC data, may be "STIM_nnn" tone events that have been excluded in REF analysis
            ematch_new = ematch.copy()
            prematch = np.zeros((ematch.shape[0],1))
            posmatch = np.zeros((ematch.shape[0],1))
            for i,e in enumerate(ematch):
-               x = ep.epoch_intersection(preidx, [e], precision=precision)
+               #x = ep.epoch_intersection(preidx, [e], precision=precision)
+               x = preidx[preidx[:,0]==e[0]]
+
                if len(x):
-                   prematch[i] = np.diff(x)
+                   prematch[i] = np.diff(x[0,:])
                else:
                    log.info('pre missing?')
                    prematch[i] = 0

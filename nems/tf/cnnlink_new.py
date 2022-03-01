@@ -855,13 +855,15 @@ def get_jacobian(model: tf.keras.Model,
                  index: int,
                  out_channel: int = 0
                  ) -> np.array:
-    """Gets the jacobian at the given index.
-
-    This needs to be a tf.function for a huge speed increase."""
+    """
+    Gets the jacobian at the given index.
+    
+    This needs to be a tf.function for a huge speed increase.
+    """
+    
     out_channel=tf.cast(out_channel,tf.int32)
     with tf.GradientTape(persistent=True) as g:
         g.watch(tensor)
         z = model(tensor)[0, index, out_channel]
 
-    w = g.jacobian(z, tensor)
-    return w
+    return g.jacobian(z, tensor)

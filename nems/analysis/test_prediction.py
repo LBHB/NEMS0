@@ -376,24 +376,22 @@ def pick_best_phi(modelspec=None, est=None, val=None, est_list=None, val_list=No
         est_list=[est]
         val_list=[val]
 
-    for cellidx,est,val in zip(range(len(est_list)),est_list,val_list):
-        modelspec.set_cell(cellidx)
-        est, val = nems.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
-        modelspec.recording = val
-        est_list[cellidx] = est
-        val_list[cellidx] = val
-    modelspec.set_cell(0)
+    #for cellidx,est,val in zip(range(len(est_list)),est_list,val_list):
+    #    modelspec.set_cell(cellidx)
+    #    est, val = nems.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
+    #    modelspec.recording = val
+    #    est_list[cellidx] = est
+    #    val_list[cellidx] = val
 
-    # generate prediction for each jack and fit
-    #new_est, new_val = generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit)
+    #import pdb; pdb.set_trace()
 
     jack_count = modelspec.jack_count
     fit_count = modelspec.fit_count
     best_idx = np.zeros(jack_count, dtype=int)
-    new_raw = np.zeros((modelspec.cell_count, keep_n, jack_count), dtype='O')
-    #import pdb; pdb.set_trace()
+    modelspec.set_cell(0)
 
-    # for each jackknife set, figure out best fit
+    # for each jackknife set, figure out best fit. save it to new_raw
+    new_raw = np.zeros((modelspec.cell_count, keep_n, jack_count), dtype='O')
     for j in range(jack_count):
         view_range = [i * jack_count + j for i in range(fit_count)]
         x = None
@@ -402,15 +400,14 @@ def pick_best_phi(modelspec=None, est=None, val=None, est_list=None, val_list=No
         # support for multi-cell, len(est_list)>1 fits
         #import pdb; pdb.set_trace()
  
-        for cell_idx in range(len(est_list)):
-            # set the recording/model for this cell_idx
-            this_est = est_list[cell_idx].view_subset(view_range)
-            this_modelspec = modelspec.copy(jack_index=j)
-            this_modelspec.cell_index = cell_idx
+        for cell_idx, this_est in enumerate(est_list):
+            #this_modelspec = modelspec.copy(jack_index=j)
+            #this_modelspec.cell_index = cell_idx
             modelspec.cell_index = cell_idx
+            modelspec.jack_index = j
 
-            # these functions each generate a vector of losses?
             if 'loss' in modelspec.meta.keys():
+                # quick ranking: use a vector of loss values, one per fitidx stored in meta
                 if x is None:
                     x = modelspec.meta['loss']
                 else:
@@ -423,19 +420,27 @@ def pick_best_phi(modelspec=None, est=None, val=None, est_list=None, val_list=No
             elif (metric_fn == 'nems.metrics.mse.nmse') & (criterion == 'mse_fit'):
                 # for backwards compatibility, run the below code to compute metric specified
                 # by criterion.
-                new_modelspec = standard_correlation(est=this_est, val=val_list[cell_idx], modelspec=this_modelspec)
-                # average performance across output channels (if more than one output)
-                if x is None:
-                   x = new_modelspec.meta[criterion].sum(axis=0)
-                else:
-                   x = x + new_modelspec.meta[criterion].sum(axis=0)
+                # unclear if this works
+                x = np.zeros(modelspec.fit_count)
+                for fitidx in range(modelspec.fit_count):
+                    traw = modelspec.raw[cell_idx, fitidx, j]
+                    tmodelspec=ms.ModelSpec(traw)
+                    this_est = tmodelspec.evaluate(this_est)
+                    this_val = tmodelspec.evaluate(this_val)
+                    tmodelspec = standard_correlation(est=this_est, val=this_val, tmodelspec=modelspec)
+                    # average performance across output channels (if more than one output)
+                    x[fitidx] += tmodelspec.meta[criterion].sum(axis=0)
                 n += new_modelspec.meta[criterion].shape[0]
 
             else:
+                # unclear if this works
                 fn = nems.utils.lookup_fn_at(metric_fn)
                 tx=[]
-                for e in this_est.views():
-                    tx.append(fn(e, **context))
+                for fitidx in range(modelspec.fit_count):
+                    traw = modelspec.raw[cell_idx, fitidx, j]
+                    tmodelspec=ms.ModelSpec(traw)
+                    this_est = tmodelspec.evaluate(this_est)
+                    tx.append(fn(this_est, **context))
                 n = n + tx[0].shape[0]
                 tx = np.concatenate(tx, axis=1).mean(axis=0)
                 if x is None:
@@ -458,6 +463,7 @@ def pick_best_phi(modelspec=None, est=None, val=None, est_list=None, val_list=No
         new_raw[cell_index,0,0][0]['meta'] = modelspec.raw[cell_index,0,0][0]['meta'].copy()
     new_modelspec = ms.ModelSpec(new_raw)
     new_modelspec.set_cell(0)
+    new_modelspec.set_jack(0)
     new_modelspec.meta['rand_'+criterion] = x
 
     return {'modelspec': new_modelspec, 'best_random_idx': best_idx}

@@ -97,6 +97,7 @@ class ModelBuilder:
             optimizer = self.optimizer
 
         model.compile(optimizer, loss=self.loss_fn, metrics=self.metrics)
+
         return model
 
     
@@ -115,7 +116,7 @@ def modelspec2tf(modelspec, seed=0, use_modelspec_init=True, fs=100,
             if regstr[2] == 'firwc':
                 kernel_regularizer_ops['modulenames'] = ['weight_channels.basic', 'filter_bank']
         else:
-            kernel_regularizer_ops['modulenames'] = ['weight_channels.basic']
+            kernel_regularizer_ops['modulenames'] = ['weight_channels.basic', 'Conv2D', 'WeightChannelsNew']
 
 
     layers = []
@@ -133,17 +134,21 @@ def modelspec2tf(modelspec, seed=0, use_modelspec_init=True, fs=100,
         else:
             trainable = True
 
-        if any(fn in m['fn']  for fn in kernel_regularizer_ops['modulenames']):
-            layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
-                                           initializer=initializer, trainable=trainable,
-                                           kernel_regularizer=kernel_regularizer)
-            if kernel_regularizer is not None:
+        if (kernel_regularizer is not None) and \
+            any(fn in m['fn']  for fn in kernel_regularizer_ops['modulenames']):
                 log.info(f"Including {kernel_regularizer} regularizer for {m['fn']}")
+                layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
+                                               initializer=initializer, trainable=trainable,
+                                               kernel_regularizer=kernel_regularizer)
         else:
             # don't pass kernel_regularizer (set to None) if not fir or weight chans
             layer = tf_layer.from_ms_layer(m, use_modelspec_init=use_modelspec_init, seed=seed, fs=fs,
                                            initializer=initializer, trainable=trainable)
-
+        if ('Conv2D' in m['fn']):
+            if 'offset' in m['phi'].keys():
+                log.debug(f"Conv2D initializing offset: {m['phi']['offset']}")
+            else:
+                log.debug("Conv2D initializing offset pseudo-randomly")
         layers.append(layer)
 
     return layers
