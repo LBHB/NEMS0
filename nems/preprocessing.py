@@ -302,7 +302,7 @@ def mask_all_but_correct_references(rec, balance_rep_count=False, include_incorr
     if 'mask' in newrec.signals.keys():
         log.debug('valid bins coming in: %d',np.sum(newrec['mask'].as_continuous()))
 
-    newrec = normalize_epoch_lengths(newrec, resp_sig='resp', epoch_regex='^STIM_',
+    newrec = normalize_epoch_lengths(newrec, resp_sig='resp', epoch_regex='^STIM_|^REF|^TAR',
                                      include_incorrect=include_incorrect)
 
     newrec['resp'] = newrec['resp'].rasterize()
@@ -699,8 +699,8 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
     for ename in epochs_to_extract:
         ematch = resp.get_epoch_bounds(ename)
         # remove events outside of valid trial mask (if excluding incorrect)
-        if not include_incorrect:
-           ematch = ep.epoch_intersection(ematch, mask_bounds)
+        #if not include_incorrect:
+        #   ematch = ep.epoch_intersection(ematch, mask_bounds)
         if len(ematch)>0:
            # for CC data, may be "STIM_nnn" tone events that have been excluded in REF analysis
            ematch_new = ematch.copy()
@@ -1249,7 +1249,7 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
             sd = np.nanstd(D_ref, axis=0, keepdims=True)
         else:
             sd = np.ones(m.shape)
-        D_ref = D_ref[np.sum(np.isfinite(D_ref),axis=1),:]
+        D_ref = D_ref[np.sum(np.isfinite(D_ref),axis=1)>0,:]
         D_ = (D_ref-m)/sd
 
         #import pdb;
@@ -1262,7 +1262,7 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
         rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
 
         r = rec0[pc_sig].extract_epoch('REFERENCE', mask=rec0['mask'])
-        mr = np.mean(r, axis=0)
+        mr = np.nanmean(r, axis=0)
         if prestimbins>0:
             spont = np.mean(mr[:,:prestimbins],axis=1,keepdims=True)
             mr -= spont

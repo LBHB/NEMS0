@@ -443,8 +443,8 @@ def find_prefix(s_list):
                 prefix += b
         i += 1
 
-    while prefix and (prefix[-1] != '_'):
-        prefix = prefix[:-1]
+    #while prefix and (prefix[-1] != '_'):
+    #    prefix = prefix[:-1]
 
     return prefix
 
@@ -472,8 +472,8 @@ def find_suffix(s_list):
         i += 1
     # reverse the order so that it comes out as read left to right
     suffix = suffix[::-1]
-    while suffix and (suffix[0] != '_'):
-        suffix = suffix[1:]
+    #while suffix and (suffix[0] != '_'):
+    #    suffix = suffix[1:]
 
     return suffix
 

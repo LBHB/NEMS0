@@ -8,7 +8,7 @@ import numpy as np
 
 
 def state_dc_gain(rec, i='pred', o='pred', s='state', include_lv=False, c=None, g=None, d=0,
-                  exclude_chans=None, **kwargs):
+                  exclude_chans=None, per_channel=False, **kwargs):
     '''
     Linear DC/gain for each state applied to each predicted channel
 
@@ -27,7 +27,10 @@ def state_dc_gain(rec, i='pred', o='pred', s='state', include_lv=False, c=None, 
         keepidx = [idx for idx in range(0, state.shape[0]) if idx not in exclude_chans]
         state = state[keepidx, :]
 
-    if include_lv:
+    if per_channel:
+        fn = lambda x: g.T * state * x + d.T * state
+        
+    elif include_lv:
         def fn(x):
             st = np.concatenate((state, rec['lv']._data), axis=0)
             return np.matmul(g, st) * x + np.matmul(d, st)

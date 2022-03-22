@@ -1193,6 +1193,20 @@ def get_siteid(s):
     else:
         return s.split("-")[0]
 
+def get_batch_modelnames(batch, cellid_filter=None, modelname_filter=None, min_count=0):
+    
+    sql = "SELECT modelname, count(cellid), avg(r_test), avg(r_ceiling), avg(n_parms)" +\
+        f" FROM Results WHERE batch={batch}"
+    if cellid_filter is not None:
+        sql += f" AND cellid like '{cellid_filter}'"
+    if modelname_filter is not None:
+        sql += f" AND modelname like '%{modelname_filter}%'"
+    
+    d = pd_query(sql)
+    
+    return d
+    
+    
 def get_batch_sites(batch, modelname_filter=None):
     """
     get all siteids and a representative cellid from each site in a batch

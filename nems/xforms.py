@@ -326,9 +326,8 @@ def load_recordings(recording_uri_list=None, normalize=False, cellid=None,
         # Assume a list of cellids was given
         meta['cellids'] = cellid
 
-    rec['resp'] = rec['resp'].extract_channels(meta['cellids'])
-    excluded_cells = list(set(rec['resp'].chans) - set(meta['cellids']))
-
+    #excluded_cells = list(set(rec['resp'].chans) - set(meta['cellids']))
+    excluded_cells = rec['resp'].chans.copy()
     if (save_other_cells_to_state is not None) & (len(excluded_cells) > 0):
 
         if type(save_other_cells_to_state) is str:
@@ -1230,7 +1229,8 @@ def save_recordings(modelspec, est, val, **context):
     return {'modelspec': modelspec}
 
 
-def predict(modelspec, est, val, est_list=None, val_list=None, jackknifed_fit=False, use_mask=True, **context):
+def predict(modelspec, est, val, est_list=None, val_list=None, jackknifed_fit=False,
+            use_mask=True, **context):
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
     # TODO: Add statistics to metadata of every modelspec
     if (val_list is None):
@@ -1249,13 +1249,16 @@ def predict(modelspec, est, val, est_list=None, val_list=None, jackknifed_fit=Fa
 
 
 def add_summary_statistics(est, val, modelspec, est_list=None, val_list=None, rec_list=None, fn='standard_correlation',
-                           rec=None, use_mask=True, **context):
+                           rec=None, use_mask=True, IsReload=False, **context):
     '''
     standard_correlation: average all correlation metrics and add
                           to first modelspec only.
     correlation_per_model: evaluate correlation metrics separately for each
                            modelspec and save results in each modelspec
     '''
+    if IsReload:
+        return {}
+
     corr_fn = getattr(nems.analysis.api, fn)
 
     if est_list is None:
@@ -1325,6 +1328,7 @@ def add_summary_statistics(est, val, modelspec, est_list=None, val_list=None, re
                     modelspec.meta['se_state_mod_m'] = ee
 
     modelspec.set_cell(0)
+    
     return {'modelspec': modelspec}
 
 

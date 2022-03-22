@@ -105,13 +105,24 @@ def wc(kw):
     prior = {'coefficients': ('Normal', p_coefficients)}
     normalize = False
     coefs = None
-
     bounds = None
 
     for op in options[2:]:  # will be empty if only wc and {in}x{out}
         if op == 'z':
             # weighting scheme from https://medium.com/usf-msds/deep-learning-best-practices-1-weight-initialization-14e5c0295b94
             p_coefficients = {'mean': np.zeros((n_outputs, n_inputs)),
+                              'sd': np.full((n_outputs, n_inputs), np.sqrt(2/(n_outputs)))}
+            prior = {'coefficients': ('Normal', p_coefficients)}
+
+        elif op == 'u':
+            # weighting scheme from https://medium.com/usf-msds/deep-learning-best-practices-1-weight-initialization-14e5c0295b94
+            p_coefficients = {'mean': np.zeros((n_outputs, n_inputs))+np.sqrt(2/(n_outputs))/50,
+                              'sd': np.full((n_outputs, n_inputs), np.sqrt(2/(n_outputs)))}
+            prior = {'coefficients': ('Normal', p_coefficients)}
+
+        elif op == 'rnd':
+            # weighting scheme from https://medium.com/usf-msds/deep-learning-best-practices-1-weight-initialization-14e5c0295b94
+            p_coefficients = {'mean': np.random.randn(n_outputs, n_inputs)*np.sqrt(2/(n_outputs))/10,
                               'sd': np.full((n_outputs, n_inputs), np.sqrt(2/(n_outputs)))}
             prior = {'coefficients': ('Normal', p_coefficients)}
 
@@ -163,7 +174,7 @@ def wc(kw):
 
         elif op == 'n':
             normalize = True
-
+            
     if 'n' in options:
         fn_kwargs['normalize_coefs'] = True
 
@@ -1446,6 +1457,7 @@ def stategain(kw):
     gain_only=('g' in options[2:])
     include_spont=('s' in options[2:]) # separate offset for spont than during evoked
     dc_only=('d' in options[2:])
+    per_channel=('per' in options[2:])
     if gain_only and dc_only:
         raise ValueError('Cannot have both gain only and dc only.')
 
@@ -1532,7 +1544,7 @@ def stategain(kw):
         template = {
             'fn': 'nems.modules.state.state_dc_gain',
             'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars, 'n_inputs': n_chans,
-                          'state_type': 'both', 'exclude_chans': exclude_chans},
+                          'state_type': 'both', 'exclude_chans': exclude_chans, 'per_channel': per_channel},
             # chans/vars backwards for compat with tf layer
             'plot_fns': plot_fns,
             'plot_fn_idx': 5,
