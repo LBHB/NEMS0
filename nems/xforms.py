@@ -326,22 +326,22 @@ def load_recordings(recording_uri_list=None, normalize=False, cellid=None,
         # Assume a list of cellids was given
         meta['cellids'] = cellid
 
-    #excluded_cells = list(set(rec['resp'].chans) - set(meta['cellids']))
-    excluded_cells = rec['resp'].chans.copy()
-    if (save_other_cells_to_state is not None) & (len(excluded_cells) > 0):
+    if (save_other_cells_to_state is not None):
 
-        if type(save_other_cells_to_state) is str:
+        if (type(save_other_cells_to_state) is str) & (save_other_cells_to_state!='state'):
+            excluded_cells = rec['resp'].chans.copy()
             pop_var = save_other_cells_to_state
         else:
+            excluded_cells = list(set(rec['resp'].chans) - set(meta['cellids']))
             pop_var = 'state'
+        if (len(excluded_cells) > 0):
+            s = rec['resp'].extract_channels(excluded_cells, name=pop_var).rasterize()
+            rec.add_signal(s)
 
-        s = rec['resp'].extract_channels(excluded_cells, name=pop_var).rasterize()
-        rec.add_signal(s)
-
-        if pop_var == 'state':
-            rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
-        # else:
-        #     raise ValueError('pop_var {} unknown'.format(pop_var))
+            if pop_var == 'state':
+                rec['state_raw'] = rec['state']._modified_copy(rec['state']._data, name='state_raw')
+            # else:
+            #     raise ValueError('pop_var {} unknown'.format(pop_var))
 
     rec['resp'] = rec['resp'].extract_channels(meta['cellids'])
 
@@ -696,6 +696,20 @@ def tev(kw):
     return xfspec
 
 
+@xform()
+def avgreps(kw):
+    ops = kw.split('.')[1:]
+    epoch_regex = '^STIM'
+    if 'seq' in ops:
+        epoch_regex = '^STIM_se'
+    for op in ops:
+        epoch_regex = op
+
+    xfspec = [['nems.xforms.average_away_stim_occurrences', {'epoch_regex': epoch_regex}]]
+
+    return xfspec
+
+
 def average_away_stim_occurrences(est=None, val=None, rec=None,
                                   est_list=None, val_list=None, rec_list=None,
                                   epoch_regex='^STIM', **context):
@@ -707,7 +721,7 @@ def average_away_stim_occurrences(est=None, val=None, rec=None,
     else:
         return_reclist = True
 
-    if est[0] is not None:
+    if (est is not None):
         new_est_list=[]
         new_val_list=[]
         for est, val in zip(est_list, val_list):
