@@ -2705,8 +2705,9 @@ def _list_json_files(files):
     that for which a .CSV and a .JSON file exists.
     '''
     just_fileroot = lambda f: os.path.splitext(os.path.basename(f))[0]
-    jsons = [just_fileroot(f) for f in files if f.endswith('.json')]
-    return list(jsons)
+    jsons = {just_fileroot(f) for f in files if f.endswith('.json')}
+    csvs = {just_fileroot(f) for f in files if f.endswith('.csv')}
+    return list(jsons.intersection(csvs))
 
 def load_signal(basepath):
     '''

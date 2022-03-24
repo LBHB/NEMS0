@@ -1456,7 +1456,14 @@ def load_recording_from_dir(directory_or_targz):
         basepaths = [os.path.join(directory_or_targz, f) for f in files]
         signals = [load_signal(f) for f in basepaths]
         signals_dict = {s.name: s for s in signals}
-        return Recording(signals=signals_dict)
+
+        # find
+        metafilepath = [p for p in os.listdir(directory_or_targz) if '.meta.json' in p] # signleton list
+        metafilepath = os.path.join(directory_or_targz, metafilepath[0])
+        with open(metafilepath, 'r') as f:
+            meta = json.load(f)
+
+        return Recording(signals=signals_dict, meta=meta)
     else:
         m = 'Not a directory: {}'.format(directory_or_targz)
         raise ValueError(m)
