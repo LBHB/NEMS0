@@ -892,6 +892,7 @@ class StateDCGain(BaseLayer):
                                      dtype='float32',
                                      initializer=self.initializer['g'],
                                      constraint=self.g_constraint,
+                                     regularizer=self.kernel_regularizer,
                                      trainable=True,
                                      )
         else:
@@ -907,6 +908,7 @@ class StateDCGain(BaseLayer):
                                      dtype='float32',
                                      initializer=self.initializer['d'],
                                      constraint=self.d_constraint,
+                                     regularizer=self.kernel_regularizer,
                                      trainable=True,
                                      )
 
@@ -946,6 +948,8 @@ class Sum(BaseLayer):
         super(Sum, self).__init__(*args, **kwargs)
 
     def call(self, inputs, training=True):
+        if type(inputs) is list:
+            inputs, state_inputs = inputs
         return tf.math.reduce_sum(inputs, axis=-1, keepdims=True)
 
     def compute_output_shape(self, input_shape):
