@@ -1319,6 +1319,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], generate
         # normalize min-max
         p_raw = newrec["pupil"].as_continuous().copy()
         # p[p < np.nanmax(p)/5] = np.nanmax(p)/5
+        # norm to mean 0, variance 1
         p = p_raw - np.nanmean(p_raw)
         p /= np.nanstd(p)
         # hack to make sure state signal matches size of resp
@@ -1329,6 +1330,12 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], generate
                 p_raw = p_raw[:, :newrec['resp'].shape[1]]
         newrec["pupil"] = newrec["pupil"]._modified_copy(p)
         newrec["pupil_raw"] = newrec["pupil"]._modified_copy(p_raw)
+        
+        if 'pupiln' in state_signals:
+            log.info('norm pupil min/max = 0/1')
+            p = p - np.nanmin(p)
+            p /= np.nanmax(p)
+            newrec["pupiln"] = newrec["pupil"]._modified_copy(p)
 
         for state_signal in [s for s in state_signals if s.startswith('pupil_r')]:
             # copy repetitions of pupil
