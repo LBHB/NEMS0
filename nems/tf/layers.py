@@ -99,6 +99,8 @@ class BaseLayer(tf.keras.layers.Layer):
             kwargs['state_type'] = ms_layer['fn_kwargs']['state_type']
         if 'exclude_chans' in ms_layer['fn_kwargs']:
             kwargs['exclude_chans'] = ms_layer['fn_kwargs']['exclude_chans']
+        if 'per_channel' in ms_layer['fn_kwargs']:
+            kwargs['per_channel'] = ms_layer['fn_kwargs']['per_channel']
 
         # TODO: this approach could cause issues if there are name clashes with NEMS kwargs
         pass_through_keys = ['n_inputs', 'crosstalk', 'filters', 'kernel_size',
@@ -849,6 +851,7 @@ class StateDCGain(BaseLayer):
                  state_type='both',
                  bounds=None,
                  exclude_chans=None,
+                 per_channel=False,
                  *args,
                  **kwargs,
                  ):
@@ -866,7 +869,7 @@ class StateDCGain(BaseLayer):
             self.units = units
 
         self.n_inputs = n_inputs
-
+        self.per_channel = per_channel
         self.initializer = {
                 'g': tf.random_normal_initializer(seed=seed),
                 'd': tf.random_normal_initializer(seed=seed + 1),  # this is halfnorm in NEMS
@@ -915,24 +918,32 @@ class StateDCGain(BaseLayer):
     def call(self, inputs, training=True):
         inputs, state_inputs = inputs
 
-        g_transposed = tf.transpose(self.g)
         if self.exclude_chans is not None:
             keep_chans = list(np.setdiff1d(np.arange(state_inputs.shape[2]), self.exclude_chans))
             
             print(f'StateDCGain keep_chans {keep_chans}')
             print(f'state_inputs shape {state_inputs.shape}')
 
-            s_ = tf.gather(state_inputs, indices=keep_chans, axis =2)
+            s_ = tf.gather(state_inputs, indices=keep_chans, axis=2)
             print(f's_ shape {s_.shape}')
         else:
             s_ = tf.identity(state_inputs)
-            
-        g_conv = tf.nn.conv1d(s_, tf.expand_dims(g_transposed, 0), stride=1, padding='SAME')
+        #import pdb;pdb.set_trace()
+        if self.per_channel:
+            print(f'state gain per channel')
+            g_conv = s_ * tf.expand_dims(self.g, 0)            
+        else:
+            g_transposed = tf.transpose(self.g)
+            g_conv = tf.nn.conv1d(s_, tf.expand_dims(g_transposed, 0), stride=1, padding='SAME')
         if self.state_type == 'gain_only':
             return inputs * g_conv
 
-        d_transposed = tf.transpose(self.d)
-        d_conv = tf.nn.conv1d(s_, tf.expand_dims(d_transposed, 0), stride=1, padding='SAME')
+        if self.per_channel:
+            print(f'state dc per channel')
+            d_conv = s_ * tf.expand_dims(self.d, 0)            
+        else:
+            d_transposed = tf.transpose(self.d)
+            d_conv = tf.nn.conv1d(s_, tf.expand_dims(d_transposed, 0), stride=1, padding='SAME')
 
         return inputs * g_conv + d_conv
 
