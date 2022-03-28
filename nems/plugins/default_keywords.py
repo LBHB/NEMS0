@@ -122,9 +122,15 @@ def wc(kw):
 
         elif op == 'rnd':
             # weighting scheme from https://medium.com/usf-msds/deep-learning-best-practices-1-weight-initialization-14e5c0295b94
-            p_coefficients = {'mean': np.random.randn(n_outputs, n_inputs)*np.sqrt(2/(n_outputs))/10,
+            save_state = np.random.get_state()
+            np.random.seed(100)
+            
+            p_coefficients = {'mean': np.random.randn(n_outputs, n_inputs)*np.sqrt(2/(n_outputs))/50,
                               'sd': np.full((n_outputs, n_inputs), np.sqrt(2/(n_outputs)))}
             prior = {'coefficients': ('Normal', p_coefficients)}
+            
+            # restore random state
+            np.random.set_state(save_state)
 
         elif op == 'c':
 
