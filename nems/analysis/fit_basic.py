@@ -2,6 +2,7 @@ import copy
 import logging
 import time
 from functools import partial
+import numpy as np
 
 from nems.analysis.cost_functions import basic_cost
 from nems.fitters.api import scipy_minimize
@@ -113,9 +114,18 @@ def fit_basic(data, modelspec,
     # so it applies to ALL the fittters?
     ms.fit_mode_off(improved_modelspec)
     ms.set_modelspec_metadata(improved_modelspec, 'fitter', metaname)
-    ms.set_modelspec_metadata(improved_modelspec, 'fit_time', elapsed_time)
     ms.set_modelspec_metadata(improved_modelspec, 'n_parms',
                               len(improved_sigma))
+    if modelspec.fit_count == 1:
+        improved_modelspec.meta['fit_time'] = elapsed_time
+        improved_modelspec.meta['loss'] = final_err
+    else:
+        fit_index = modelspec.fit_index
+        if fit_index == 0:
+            improved_modelspec.meta['fit_time'] = np.zeros(improved_modelspec.fit_count)
+            improved_modelspec.meta['loss'] = np.zeros(improved_modelspec.fit_count)
+        improved_modelspec.meta['fit_time'][fit_index] = elapsed_time
+        improved_modelspec.meta['loss'][fit_index] = final_err
 
     if type(improved_modelspec) is list:
         return [copy.deepcopy(improved_modelspec)]

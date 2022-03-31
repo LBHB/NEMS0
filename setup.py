@@ -18,7 +18,7 @@ GENERAL_REQUIRES = ['numpy', 'scipy', 'matplotlib', 'pandas', 'requests',
 EXTRAS_REQUIRES = {
     'docs': ['sphinx', 'sphinx_rtd_theme', 'pygments-enaml', 'nbsphinx', 'pandoc', 'IPython', 'sphinx_copybutton'],
     'nwb': ['allensdk'],
-    'tensorflow': ['tensorflow==2.2', 'tensorboard', 'tensorflow-probability==0.10.1'],
+    'tensorflow': ['tensorflow==2.2', 'tensorboard'],
     'tests': ['pytest', 'pytest-benchmark'],
     'gui': ['PyQt5', 'pyqtgraph']
 }

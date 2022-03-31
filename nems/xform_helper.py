@@ -300,6 +300,52 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
     return save_data['savepath']
 
 
+def find_model_xform_file(cellid, batch=271,
+        modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01"):
+
+    """
+    Finds root folder for xform save based on the given self, explanatory parameters
+    Enables personalized load functions for specific parts of the save.
+    Parameters
+    ----------
+    cellid : str
+        cellid in celldb database
+    batch : int
+        batch number in celldb database
+    modelname : str
+        modelname in celldb database
+
+    Returns
+    -------
+    uri, old : str, bool
+
+    """
+
+    kws = escaped_split(modelname, '_')
+    old = False
+    if (len(kws) > 3) or ((len(kws) == 3) and kws[1].startswith('stategain')
+                          and not kws[1].startswith('stategain.')):
+        # Check if modelname uses old format.
+        log.info("Using old modelname format ... ")
+        old = True
+
+    d = nd.get_results_file(batch, [modelname], [cellid])
+    filepath = d['modelpath'][0]
+    # TODO add BAPHY_API support . Not implemented on nems_baphy yet?
+    # if get_setting('USE_NEMS_BAPHY_API'):
+    #    prefix = '/auto/data/nems_db' # get_setting('NEMS_RESULTS_DIR')
+    #    uri = filepath.replace(prefix,
+    #                           'http://' + get_setting('NEMS_BAPHY_API_HOST') + ":" + str(get_setting('NEMS_BAPHY_API_PORT')))
+    # else:
+    #    uri = filepath.replace('/auto/data/nems_db/results', get_setting('NEMS_RESULTS_DIR'))
+
+    # hack: hard-coded assumption that server will use this data root
+    uri = filepath.replace('/auto/data/nems_db/results', get_setting('NEMS_RESULTS_DIR'))
+
+    return uri, old
+
+
+
 def load_model_xform(cellid, batch=271,
         modelname="ozgf100ch18_wcg18x2_fir15x2_lvl1_dexp1_fit01",
         eval_model=True, only=None, load_context=False):
@@ -325,27 +371,8 @@ def load_model_xform(cellid, batch=271,
     xfspec, ctx : nested list, dictionary
 
     '''
+    uri, old = find_model_xform_file(cellid, batch=batch, modelname=modelname)
 
-    kws = escaped_split(modelname, '_')
-    old = False
-    if (len(kws) > 3) or ((len(kws) == 3) and kws[1].startswith('stategain')
-                          and not kws[1].startswith('stategain.')):
-        # Check if modelname uses old format.
-        log.info("Using old modelname format ... ")
-        old = True
-
-    d = nd.get_results_file(batch, [modelname], [cellid])
-    filepath = d['modelpath'][0]
-    # TODO add BAPHY_API support . Not implemented on nems_baphy yet?
-    #if get_setting('USE_NEMS_BAPHY_API'):
-    #    prefix = '/auto/data/nems_db' # get_setting('NEMS_RESULTS_DIR')
-    #    uri = filepath.replace(prefix,
-    #                           'http://' + get_setting('NEMS_BAPHY_API_HOST') + ":" + str(get_setting('NEMS_BAPHY_API_PORT')))
-    #else:
-    #    uri = filepath.replace('/auto/data/nems_db/results', get_setting('NEMS_RESULTS_DIR'))
-
-    # hack: hard-coded assumption that server will use this data root
-    uri = filepath.replace('/auto/data/nems_db/results', get_setting('NEMS_RESULTS_DIR'))
     if load_context:
         xfspec, ctx = xforms.load_context(uri)
     elif old:

@@ -11,7 +11,6 @@ from packaging import version
 
 import numpy as np
 import tensorflow as tf
-import tensorflow_probability as tfp
 
 import nems.utils
 from nems import initializers, recording, get_setting
@@ -138,6 +137,7 @@ def _get_tf_data_matrix(rec, signal, epoch_name=None):
         tf_data = np.transpose(rec.apply_mask()[signal].as_continuous()[np.newaxis, ...], [0, 2, 1])
 
     #check for nans
+
 
 
 def fit_tf(
@@ -285,10 +285,6 @@ def fit_tf(
         state_train, state_shape = None, None
         train_data = stim_train
         
-    # correlation for monitoring
-    # TODO: tf.utils?
-    def pearson(y_true, y_pred):
-        return tfp.stats.correlation(y_true, y_pred, event_axis=None, sample_axis=None)
 
     # get the layers and build the model
     cost_fn = loss_functions.get_loss_fn(cost_function)
@@ -318,6 +314,7 @@ def fit_tf(
             decay_rate=0.9
         )
 
+    from nems.tf.loss_functions import pearson
     model = modelbuilder.ModelBuilder(
         name='Test-model',
         layers=model_layers,

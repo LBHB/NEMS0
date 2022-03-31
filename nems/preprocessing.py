@@ -302,7 +302,7 @@ def mask_all_but_correct_references(rec, balance_rep_count=False, include_incorr
     if 'mask' in newrec.signals.keys():
         log.debug('valid bins coming in: %d',np.sum(newrec['mask'].as_continuous()))
 
-    newrec = normalize_epoch_lengths(newrec, resp_sig='resp', epoch_regex='^STIM_',
+    newrec = normalize_epoch_lengths(newrec, resp_sig='resp', epoch_regex='^STIM_|^REF|^TAR',
                                      include_incorrect=include_incorrect)
 
     newrec['resp'] = newrec['resp'].rasterize()
@@ -699,8 +699,8 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
     for ename in epochs_to_extract:
         ematch = resp.get_epoch_bounds(ename)
         # remove events outside of valid trial mask (if excluding incorrect)
-        if not include_incorrect:
-           ematch = ep.epoch_intersection(ematch, mask_bounds)
+        #if not include_incorrect:
+        #   ematch = ep.epoch_intersection(ematch, mask_bounds)
         if len(ematch)>0:
            # for CC data, may be "STIM_nnn" tone events that have been excluded in REF analysis
            ematch_new = ematch.copy()
@@ -1249,7 +1249,7 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
             sd = np.nanstd(D_ref, axis=0, keepdims=True)
         else:
             sd = np.ones(m.shape)
-        D_ref = D_ref[np.sum(np.isfinite(D_ref),axis=1),:]
+        D_ref = D_ref[np.sum(np.isfinite(D_ref),axis=1)>0,:]
         D_ = (D_ref-m)/sd
 
         #import pdb;
@@ -1262,7 +1262,7 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
         rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T)
 
         r = rec0[pc_sig].extract_epoch('REFERENCE', mask=rec0['mask'])
-        mr = np.mean(r, axis=0)
+        mr = np.nanmean(r, axis=0)
         if prestimbins>0:
             spont = np.mean(mr[:,:prestimbins],axis=1,keepdims=True)
             mr -= spont
@@ -1319,6 +1319,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], generate
         # normalize min-max
         p_raw = newrec["pupil"].as_continuous().copy()
         # p[p < np.nanmax(p)/5] = np.nanmax(p)/5
+        # norm to mean 0, variance 1
         p = p_raw - np.nanmean(p_raw)
         p /= np.nanstd(p)
         # hack to make sure state signal matches size of resp
@@ -1329,6 +1330,12 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], generate
                 p_raw = p_raw[:, :newrec['resp'].shape[1]]
         newrec["pupil"] = newrec["pupil"]._modified_copy(p)
         newrec["pupil_raw"] = newrec["pupil"]._modified_copy(p_raw)
+        
+        if 'pupiln' in state_signals:
+            log.info('norm pupil min/max = 0/1')
+            p = p - np.nanmin(p)
+            p /= np.nanmax(p)
+            newrec["pupiln"] = newrec["pupil"]._modified_copy(p)
 
         for state_signal in [s for s in state_signals if s.startswith('pupil_r')]:
             # copy repetitions of pupil

@@ -157,3 +157,23 @@ def tf_shrinkage(mE, sE, shrink_factor=0.5, thresh=False):
     smd = smd * tf.dtypes.cast(smd > 0, smd.dtype)
 
     return 1 - mE * smd
+
+
+# correlation for monitoring
+# TODO: tf.utils?
+#def pearson(y_true, y_pred):
+#    import tensorflow_probability as tfp
+#
+#    return tfp.stats.correlation(y_true, y_pred, event_axis=None, sample_axis=None)
+
+def pearson(y_true, y_pred):
+    x = y_true
+    y = y_pred
+    mx = tf.reduce_mean(x, axis=-2, keepdims=True)
+    my = tf.reduce_mean(y, axis=-2, keepdims=True)
+    xm, ym = x - mx, y - my
+    t1_norm = tf.nn.l2_normalize(xm, axis = -2)
+    t2_norm = tf.nn.l2_normalize(ym, axis = -2)
+    r = tf.reduce_mean(tf.reduce_sum(t1_norm*t2_norm, axis=[-2], keepdims=True))
+
+    return r

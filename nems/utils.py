@@ -15,6 +15,7 @@ from configparser import ConfigParser
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.ndimage import convolve1d
 
 from nems import get_setting
 import nems
@@ -328,7 +329,7 @@ def get_channel_number(sig, channel=None):
     return chanidx
 
 
-def smooth(x,window_len=11,window='hanning'):
+def smooth(x,window_len=11,window='hanning', axis=-1):
     """smooth the data using a window with requested size.
 
     This method is based on the convolution of a scaled window with the signal.
@@ -360,24 +361,21 @@ def smooth(x,window_len=11,window='hanning'):
     NOTE: length(output) != length(input), to correct this: return y[(window_len/2-1):-(window_len/2)] instead of just y.
     """
 
-    if x.ndim != 1:
-        raise ValueError("smooth only accepts 1 dimension arrays.")
-
-    if x.size < window_len:
+    if x.shape[axis] < window_len:
         raise ValueError("Input vector needs to be bigger than window size.")
 
     if window_len<3:
         return x
 
     if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
-        raise ValueError("Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
+        raise ValueError("Window is one of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
     if window_len & 0x1:
         w1 = int((window_len+1)/2)
         w2 = int((window_len+1)/2)
     else:
         w1 = int(window_len/2)+1
         w2 = int(window_len/2)
-    s=np.r_[x[w1-1:0:-1],x,x[-2:-w2-1:-1]]
+
     #print(len(s))
 
     if window == 'flat': #moving average
@@ -385,7 +383,7 @@ def smooth(x,window_len=11,window='hanning'):
     else:
         w=eval('np.'+window+'(window_len)')
 
-    y = np.convolve(w/w.sum(), s, mode='valid')
+    y = convolve1d(x, w/w.sum(), axis=axis, mode='reflect')
 
     return y
 
@@ -443,8 +441,8 @@ def find_prefix(s_list):
                 prefix += b
         i += 1
 
-    while prefix and (prefix[-1] != '_'):
-        prefix = prefix[:-1]
+    #while prefix and (prefix[-1] != '_'):
+    #    prefix = prefix[:-1]
 
     return prefix
 
@@ -472,8 +470,8 @@ def find_suffix(s_list):
         i += 1
     # reverse the order so that it comes out as read left to right
     suffix = suffix[::-1]
-    while suffix and (suffix[0] != '_'):
-        suffix = suffix[1:]
+    #while suffix and (suffix[0] != '_'):
+    #    suffix = suffix[1:]
 
     return suffix
 

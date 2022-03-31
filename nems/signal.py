@@ -1982,13 +1982,9 @@ class RasterizedSignal(SignalBase):
 
     def shuffle_time(self, rand_seed=None, mask=None):
         '''
-        Applies this signal's 2d .as_continuous() matrix representation to
-        function fn, which must be a pure (curried) function of one argument.
-
-        It then packs the return value of fn into a new signal object,
-        identical to this one but with different data.
-
-        Optional argument newname allows a new signal name to be returned.
+        Shuffle a signal in time, applying a different shuffle to each channel.
+        rand_seed - allows identical/pseudo-random shuffling when called on the same singal twice.
+        mask - shuffling will take place only within the segment(s) where mask=True
         '''
         # x = self.as_continuous()   # Always Safe but makes a copy
         x = self._data.copy()  # Much faster; TODO: Test if throws warnings
@@ -2705,8 +2701,9 @@ def _list_json_files(files):
     that for which a .CSV and a .JSON file exists.
     '''
     just_fileroot = lambda f: os.path.splitext(os.path.basename(f))[0]
-    jsons = [just_fileroot(f) for f in files if f.endswith('.json')]
-    return list(jsons)
+    jsons = {just_fileroot(f) for f in files if f.endswith('.json')}
+    csvs = {just_fileroot(f) for f in files if f.endswith('.csv')}
+    return list(jsons.intersection(csvs))
 
 def load_signal(basepath):
     '''
