@@ -1580,3 +1580,17 @@ def save_recording_to_db(recfilepath, meta=None, user="nems", labgroup="",
     log.info("Added new entry %d for: %s.", dataid, recfilepath)
 
     return dataid
+
+def recent_models(batch,N=20):
+    # Loads all results for a given batch, prints the mean r_test for the last N (20).
+    assert type(batch) is int
+    df = pd_query(f"SELECT * from Results WHERE batch={batch}").sort_values(by='lastmod')
+    # df=df[df['cellid'].isin(cellids)]
+    dfm = df.groupby(by='modelname').last().sort_values(by='lastmod')
+    df_mean = df[['modelname', 'r_test', 'r_fit']].groupby(by='modelname').agg('mean')
+    df_count = df[['modelname']].groupby(by='modelname').size()
+    dfm['r_test'] = df_mean['r_test'].round(3)
+    dfm['r_fit'] = df_mean['r_fit'].round(3)
+    dfm['count'] = df[['modelname']].groupby(by='modelname').size()
+    print(dfm[['r_test', 'r_fit', 'count']].tail(N).to_string())
+    return dfm
