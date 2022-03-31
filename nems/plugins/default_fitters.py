@@ -176,6 +176,7 @@ def newtf(fitkey):
     initializer = 'random_normal'
     rand_count = 0
     pick_best = False
+    generate_predictions_for_each_initalization_condition = False
     epoch_name = "REFERENCE"
     freeze_layers = None
     use_tensorboard = False
@@ -217,6 +218,13 @@ def newtf(fitkey):
             use_modelspec_init = True
         elif op == 'b':
             pick_best = True
+        elif op.startswith('rbp'):
+            pick_best = True
+            generate_predictions_for_each_initalization_condition = True
+            if len(op) == 3:
+                rand_count = 10
+            else:
+                rand_count = int(op[3:])
         elif op.startswith('rb'):
             pick_best = True
             if len(op) == 2:
@@ -298,6 +306,8 @@ def newtf(fitkey):
 
     xfspec.append(['nems.xforms.fit_wrapper', parm_dict])
 
+    if generate_predictions_for_each_initalization_condition:
+        xfspec.append(['nems.analysis.test_prediction.predict_and_summarize_for_all_modelspec', {}])
     if pick_best:
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 

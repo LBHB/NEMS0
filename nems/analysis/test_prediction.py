@@ -348,6 +348,73 @@ def basic_error(data, modelspec, cost_function=None,
 
     return error
 
+
+def predict_and_summarize_for_all_modelspec(modelspec=None, est=None, val=None, est_list=None, val_list=None, criterion=['r_test','se_test','mse_test','ll_test'],
+                  metric_fn='nems.metrics.mse.nmse', jackknifed_fit=False, keep_n=1,
+                  IsReload=False, **context):
+    """
+     For models with multiple fits (eg, based on multiple initial conditions),
+      find the best prediction for the recording provided (presumably est data,
+      though possibly something held out)
+
+     For jackknifed fits, pick the best fit for each jackknife set. so a F x J modelspec
+      is reduced in size to 1 x J. Models are tested with est data for that jackknife.
+      This has only been tested with est recording, which is likely should be used.
+
+     :param modelspec: should have fit_count>0
+     :param est: view_count should match fit_count, ie,
+                 after generate_prediction is called
+     :param context: extra context stuff for xforms compatibility.
+     :return: modelspec with fit_count==1
+     """
+    if IsReload:
+        return {}
+    if modelspec.fit_count <= 1:
+        return {}
+
+    if est_list is None:
+        est_list = [est]
+        val_list = [val]
+
+
+    if modelspec.jack_count > 1:
+        log.info('Not supported yet! jackknife + multifit using tf loss to select')
+        import pdb; pdb.set_trace()
+
+    if modelspec.cell_count > 1:
+        log.info('Not tested for mega models. I think it will work but confirm. LAS')
+        import pdb; pdb.set_trace()
+    fit_count = modelspec.fit_count
+    modelspec.set_cell(0) #cell is a misnomer here, means site
+    Ncells = val_list[0]['resp'].shape[0]
+    means = [np.zeros(modelspec.fit_count) for i in range(len(criterion))]
+    if modelspec.cell_count == 1:
+        indiv_cells = [np.zeros((Ncells,modelspec.fit_count)) for i in range(len(criterion))]
+    n=0
+    for cell_idx, (this_est, this_val) in enumerate(zip(est_list, val_list)):
+        #loop through each "cell_idx" (site index for megamodels)
+        for fitidx in range(modelspec.fit_count):
+            #loop through each fitidx
+            traw = modelspec.raw[cell_idx, fitidx, 0]
+            tmodelspec = ms.ModelSpec(traw)
+            this_est = tmodelspec.evaluate(this_est)
+            this_val = tmodelspec.evaluate(this_val)
+            tmodelspec = standard_correlation(est=this_est, val=this_val, modelspec=tmodelspec)
+            # average performance across output channels (if more than one output)
+            for i,criterion_ in enumerate(criterion):
+                means[i][fitidx] += tmodelspec.meta[criterion_].sum(axis=0)
+                if modelspec.cell_count == 1:
+                    indiv_cells[i][:, fitidx] = tmodelspec.meta[criterion_][:, 0]
+        n += tmodelspec.meta[criterion[0]].shape[0]
+
+    for i,criterion_ in enumerate(criterion):
+        means[i] = means[i] / n
+        modelspec.meta['rand_' + criterion_] = means[i]
+        if modelspec.cell_count == 1:
+            modelspec.meta['rand_' + criterion_+'_all'] =  indiv_cells[i]
+
+    return {'modelspec': modelspec}
+
 def pick_best_phi(modelspec=None, est=None, val=None, est_list=None, val_list=None, criterion='mse_fit',
                   metric_fn='nems.metrics.mse.nmse', jackknifed_fit=False, keep_n=1,
                   IsReload=False, **context):
@@ -399,7 +466,7 @@ def pick_best_phi(modelspec=None, est=None, val=None, est_list=None, val_list=No
 
         # support for multi-cell, len(est_list)>1 fits
         #import pdb; pdb.set_trace()
- 
+
         for cell_idx, this_est in enumerate(est_list):
             #this_modelspec = modelspec.copy(jack_index=j)
             #this_modelspec.cell_index = cell_idx
@@ -427,7 +494,7 @@ def pick_best_phi(modelspec=None, est=None, val=None, est_list=None, val_list=No
                     tmodelspec=ms.ModelSpec(traw)
                     this_est = tmodelspec.evaluate(this_est)
                     this_val = tmodelspec.evaluate(this_val)
-                    tmodelspec = standard_correlation(est=this_est, val=this_val, tmodelspec=modelspec)
+                    tmodelspec = standard_correlation(est=this_est, val=this_val, modelspec=tmodelspec)
                     # average performance across output channels (if more than one output)
                     x[fitidx] += tmodelspec.meta[criterion].sum(axis=0)
                 n += new_modelspec.meta[criterion].shape[0]
