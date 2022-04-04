@@ -1434,7 +1434,10 @@ def stategain(kw):
         .d -- dc only
         .s -- separate dc term for spont period
         .lv -- concatenate latent variable "lv" onto 'state'. Will need to specify accurate S for this to work.
-        .xN,M - exclude state channels number N, M etc.
+        .xN,M -- exclude state channels number N, M etc.
+        .oN -- fix gainoffset to N, initialize gain to 0.
+        .bN:M -- set bounds on gain from N to M. N can use d for the decimal place, ex .b0d001:5 means set bounds to [0.001, 5]
+                 This is only coded up for setting bonds on the gain. Add stuff if you need to set bounds for dc.
     None
     '''
     options = escaped_split(kw, '.')
