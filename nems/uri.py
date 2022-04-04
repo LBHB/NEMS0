@@ -155,7 +155,7 @@ def load_resource(uri):
     Loads and returns the resource (probably a JSON) found at URI.
     '''
     if http_uri(uri):
-        print(uri)
+        log.info(f"loading resource: {uri}")
         r = requests.get(uri)
         if r.status_code != 200:
             err = 'HTTP GET failed. Got {}: {}'.format(r.status_code,
@@ -164,6 +164,11 @@ def load_resource(uri):
         if hasattr(r, 'data'):
             return r.data
         else:
+            file_extension=r.url.split(".")[-1]
+            if file_extension=='m':
+                # matlab code? Just return text
+                return r.text
+            # otherwise, assume JSON
             try:
                 return r.json(object_hook=json_numpy_obj_hook)
             except jsonlib.decoder.JSONDecodeError as e:
@@ -174,6 +179,12 @@ def load_resource(uri):
                 log.exception(e)
     elif local_uri(uri):
         filepath = local_uri(uri)
+        file_extension=filepath.split(".")[-1]
+        if file_extension=='m':
+            with open(filepath, mode='r') as f:
+                # matlab code? Just return text
+                return f.read()
+        # else must be JSON
         try:
             with open(filepath, mode='r') as f:
                 if filepath[-5:] == '.json':
