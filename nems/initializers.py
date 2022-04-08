@@ -711,7 +711,7 @@ def modelspec_unfreeze_layers(modelspec, modelspec0, include_set):
         log.info('saving module %d', i)
         modelspecnew[i] = modelspec[i]
 
-    modelspecnew[0]['meta'] = meta_save
+    modelspecnew.meta.update(meta_save)
 
     return modelspecnew
 

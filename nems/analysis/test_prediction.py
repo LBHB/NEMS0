@@ -517,6 +517,9 @@ def pick_best_phi(modelspec=None, est=None, val=None, est_list=None, val_list=No
 
         x = x / n
 
+        if np.any(x==0):
+            raise RuntimeError('Error: At least one elements of modelspec.meta[\'loss\'] is 0. '\
+                    'This will cause this fn to pick that phi, but it\'s probably not. Bug in the code?')
         tx = x.copy()
         for n in range(keep_n):
            best_idx[j] = int(np.nanargmin(tx))
