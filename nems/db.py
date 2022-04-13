@@ -274,10 +274,11 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
 
     queueids = []
     messages = []
-    for note, commandPrompt in zip(notes, commandPrompts):
-        sql = 'SELECT * FROM tQueue WHERE note="' + note +'"'
+    for note, commandPrompt, combo in zip(notes, commandPrompts, combined):
 
+        sql = 'SELECT * FROM tQueue WHERE note="' + note +'"'
         r = conn.execute(sql)
+
         if r.rowcount>0:
             # existing job, figure out what to do with it
 
@@ -309,19 +310,25 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
                     message = "Incomplete entry for: %s exists, skipping.\n" % note
 
         else:
-            # new job
-            sql = "INSERT INTO tQueue (rundataid,progname,priority," +\
-                   "GPU_job,reserve_gb,parmstring,allowqueuemaster,user," +\
-                   "linux_user,note,waitid,codehash,queuedate) VALUES"+\
-                   " ({},'{}',{}," +\
-                   "{},{},'{}',{},'{}'," +\
-                   "'{}','{}',{},'{}',NOW())"
-            sql = sql.format(rundataid, commandPrompt, priority, GPU_job, reserve_gb,
-                             parmstring, allowqueuemaster, user, linux_user,
-                             note, waitid, codeHash)
-            r = conn.execute(sql)
-            queueid = r.lastrowid
-            message = "Added new entry for: %s.\n"  % note
+            sql = f"SELECT * FROM Results WHERE batch={combo[1]} and cellid='{combo[0]}' and modelname='{combo[2]}'"
+            rres = conn.execute(sql)
+            if (rres.rowcount==0) | force_rerun:
+                # new job
+                sql = "INSERT INTO tQueue (rundataid,progname,priority," +\
+                       "GPU_job,reserve_gb,parmstring,allowqueuemaster,user," +\
+                       "linux_user,note,waitid,codehash,queuedate) VALUES"+\
+                       " ({},'{}',{}," +\
+                       "{},{},'{}',{},'{}'," +\
+                       "'{}','{}',{},'{}',NOW())"
+                sql = sql.format(rundataid, commandPrompt, priority, GPU_job, reserve_gb,
+                                 parmstring, allowqueuemaster, user, linux_user,
+                                 note, waitid, codeHash)
+                r = conn.execute(sql)
+                queueid = r.lastrowid
+                message = "Added new entry for: %s.\n"  % note
+            else:
+                message = "Completed Results entry for: %s exists, skipping.\n"  % note
+                queueid = 0
 
         queueids.append(queueid)
         messages.append(message)
