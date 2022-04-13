@@ -98,6 +98,7 @@ def j_corrcoef(result, pred_name='pred', resp_name='resp', njacks=20):
 
         if (np.sum(ff) == 0) or \
            (np.std(pred[ff]) == 0) or \
+           (len(np.unique(pred[ff])) == 1) or  \
            (len(np.unique(resp[ff])) == 1):
             cc[i] = 0
             ee[i] = 0

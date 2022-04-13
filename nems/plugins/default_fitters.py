@@ -176,6 +176,7 @@ def newtf(fitkey):
     initializer = 'random_normal'
     rand_count = 0
     pick_best = False
+    generate_predictions_for_each_initalization_condition = False
     epoch_name = "REFERENCE"
     freeze_layers = None
     use_tensorboard = False
@@ -217,6 +218,13 @@ def newtf(fitkey):
             use_modelspec_init = True
         elif op == 'b':
             pick_best = True
+        elif op.startswith('rbp'):
+            pick_best = True
+            generate_predictions_for_each_initalization_condition = True
+            if len(op) == 3:
+                rand_count = 10
+            else:
+                rand_count = int(op[3:])
         elif op.startswith('rb'):
             pick_best = True
             if len(op) == 2:
@@ -298,6 +306,8 @@ def newtf(fitkey):
 
     xfspec.append(['nems.xforms.fit_wrapper', parm_dict])
 
+    if generate_predictions_for_each_initalization_condition:
+        xfspec.append(['nems.analysis.test_prediction.predict_and_summarize_for_all_modelspec', {}])
     if pick_best:
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
@@ -440,7 +450,7 @@ def tf(fitkey):
                        'learning_rate': learning_rate,
                        'distr': distr,
                    }])
-    
+
     if pick_best:
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
@@ -534,6 +544,7 @@ def init(kw):
     learning_rate = 0.01
     distr = 'norm'
     keep_n = 1
+    generate_predictions_for_each_initalization_condition = False
 
     for op in ops:
         if op == 'st':
@@ -563,6 +574,13 @@ def init(kw):
             metric_options.update({'metric': metric, 'alpha': alpha})
         elif op == 'L2f':
             norm_fir = True
+        elif op.startswith('rbp'):
+            keep_best = True
+            generate_predictions_for_each_initalization_condition = True
+            if len(op) == 3:
+                rand_count = 10
+            else:
+                rand_count = int(op[3:])
         elif op.startswith('rb'):
             if len(op) == 2:
                 rand_count = 10
@@ -690,6 +708,8 @@ def init(kw):
 
     xfspec.append(['nems.xforms.fit_wrapper', sel_options])
 
+    if generate_predictions_for_each_initalization_condition:
+        xfspec.append(['nems.analysis.test_prediction.predict_and_summarize_for_all_modelspec', {}])
     if keep_best:
         xfspec.append(['nems.analysis.test_prediction.pick_best_phi', 
             {'criterion': 'mse_fit', 'keep_n': keep_n}])
