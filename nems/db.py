@@ -263,6 +263,10 @@ def enqueue_models(celllist, batch, modellist, force_rerun=False,
     if script_path in [None, 'None', 'NONE', '']:
         script_path = get_setting('DEFAULT_SCRIPT_PATH')
 
+    # ensures parametes are passed as lists since single strings will successfully enqueue garbage
+    assert type(celllist) is list
+    assert type(modellist) is list
+
     # Convert to list of tuples b/c product object only useable once.
     combined = [(c, b, m) for c, b, m in
                 itertools.product(celllist, [batch], modellist)]
