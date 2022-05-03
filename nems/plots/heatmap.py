@@ -66,7 +66,7 @@ def plot_heatmap(array, xlabel='Time', ylabel='Channel',
     if title is not None:
         ax.set_title(title)
 
-    ax_remove_box(ax)
+    #ax_remove_box(ax)
     return ax
 
 
@@ -204,7 +204,7 @@ def nonparametric_strf(modelspec, idx, ax=None, clim=None, title=None, cmap=None
 
 def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
                  title='STRF', fs=None, chans=None, wc_idx=0, fir_idx=0,
-                 interpolation=None, absolute_value=False, cmap='RdYlBu_r',
+                 interpolation=None, absolute_value=False, cmap=None,
                  manual_extent=None, show_cbar=True, **options):
     """
     chans: list
@@ -221,6 +221,10 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
             fs = modelspec.recording['stim'].fs
         except:
             fs=1
+    if cmap is None:
+        cmap = get_setting('FILTER_CMAP')
+    if cmap is None:
+        cmap = 'RdYlBu_r'
 
     wcc = _get_wc_coefficients(modelspec, idx=wc_idx)
     firc = _get_fir_coefficients(modelspec, idx=fir_idx, fs=fs)
@@ -317,7 +321,7 @@ def strf_heatmap(modelspec, ax=None, clim=None, show_factorized=True,
                  ylabel='Channel In', ax=ax, skip=skip, title=title, fs=fs,
                  interpolation=interpolation, cmap=cmap,
                  manual_extent=manual_extent, show_cbar=show_cbar)
-    ax_remove_box(left=True, bottom=True, ticks=True)
+    #ax_remove_box(left=True, bottom=True, ticks=True)
 
     if chans is not None:
         for i, c in enumerate(chans):

@@ -95,6 +95,8 @@ def jk(kw):
             jk_kwargs['njacks'] = int(op[2:])
         elif op == 'stim':
             jk_kwargs['epoch_name'] = "^STIM_"
+        elif op == 'tr':
+            jk_kwargs['epoch_name'] = "TRIAL"
         elif op == 'm':
             do_split = True
         elif op == 'p':
@@ -158,6 +160,9 @@ def norm(kw):
             norm_method = 'meanstd'
         elif op == 'mm':
             norm_method = 'minmax'
+        elif op == 'sp':
+            norm_method = 'spont'
+            resp_only = ('r' in ops)  # default !
         elif op.startswith('ln'):
             log_compress = -int(op[2:])
         elif op.startswith('l'):

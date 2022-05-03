@@ -1,6 +1,7 @@
 import warnings
 import copy
 import logging
+import logging
 
 import numpy as np
 import pandas as pd
@@ -11,6 +12,7 @@ import scipy.signal as ss
 import nems.epoch as ep
 import nems.signal
 from nems.recording import Recording
+from nems.utils import smooth
 
 log = logging.getLogger(__name__)
 
@@ -504,12 +506,28 @@ def mask_all_but_targets(rec, include_incorrect=True):
         newrec[k].epochs.name = newrec[k].epochs.name.str.replace("TARGET", "REFERENCE")
     return newrec
 
-def mask_incorrect(rec):
+def mask_incorrect(rec, include_ITI=True, ITI_sec_to_include=None, **context):
     """
     Specialized function for removing incorrect trials from data
     collected using baphy during behavior.
     """
     newrec = rec.copy()
+    
+    if include_ITI:
+        e=newrec['resp'].epochs
+        et=e.loc[e.name=="TRIAL"]
+        for i,r in e.loc[e.name.str.endswith("TRIAL")].iterrows():
+            next_trial=et.loc[et.start>r.start,'start'].min()
+            if ~np.isnan(next_trial):
+                # data exists after current trail
+                if ITI_sec_to_include is not None:
+                    # limit amount of post-target data to include
+                    if next_trial > e.at[i,'end']+ITI_sec_to_include:
+                        next_trial = e.at[i,'end']+ITI_sec_to_include
+                e.at[i,'end']=next_trial
+            #print(i, r.start, next_trial)
+        for s in list(newrec.signals.keys()):
+            newrec[s].epochs = e
     newrec = newrec.and_mask(['PASSIVE_EXPERIMENT', 'HIT_TRIAL', 'CORRECT_REJECT_TRIAL', 'MISS_TRIAL'])
 
     return newrec
@@ -753,7 +771,7 @@ def normalize_epoch_lengths(rec, resp_sig='resp', epoch_regex='^STIM_',
                remove_post_stim = True
            elif (minpos<np.max(posmatch)):
                log.info('epoch %s pos varies, fixing to %.3f s', ename, minpos)
-               ematch_new[:,1] = ematch_new[:,0]+prematch.T+dur.T+minpos
+               ematch_new[:,1] = ematch_new[:,0]+minpre+dur.T+minpos
 
            for e_old, e_new in zip(ematch, ematch_new):
                _mask = (np.round(epochs_new['start']-e_old[0], precision)==0) & \
@@ -811,33 +829,22 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^(STIM_|TAR_|CAT_
         epochs_to_extract = ep.epoch_names_matching(resp.epochs, epoch_regex)
 
     # figure out spont rate for subtraction from PSTH
-    try:
-        prestimsilence = resp.extract_epoch('PreStimSilence', mask=mask)
-        if prestimsilence.shape[-1] > 0:        
-            if len(prestimsilence.shape) == 3:
-                spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
-            else:
-                spont_rate = np.nanmean(prestimsilence)
-        else:
-            try:
-                prestimsilence = resp.extract_epoch('TRIALPreStimSilence')
-                if len(prestimsilence.shape) == 3:
-                    spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
-                else:
-                    spont_rate = np.nanmean(prestimsilence)
-            except:
-                raise ValueError("Can't find prestim silence to use for PSTH calculation")
-    except:
+    if np.sum(resp.epochs.name=='ITI')>0:
+        spontname='ITI'
+    elif np.sum(resp.epochs.name=='PreStimSilence')>0:
+        spontname='PreStimSilence'
+    elif np.sum(resp.epochs.name=='TRIALPreStimSilence')>0:
         # special case where the epochs included in mask don't have PreStimSilence,
         # so we get it elsewhere. Designed for CPN data...
-        try:
-            prestimsilence = resp.extract_epoch('TRIALPreStimSilence')
-            if len(prestimsilence.shape) == 3:
-                spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
-            else:
-                spont_rate = np.nanmean(prestimsilence)
-        except:
-            raise ValueError("Can't find prestim silence to use for PSTH calculation")
+        spontname='TRIALPreStimSilence'
+    else:
+        raise ValueError("Can't find pre-stim silence to use for PSTH calculation")
+    prestimsilence = resp.extract_epoch(spontname, mask=mask)
+    if prestimsilence.shape[-1] > 0:
+        if len(prestimsilence.shape) == 3:
+            spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
+        else:
+            spont_rate = np.nanmean(prestimsilence)
 
     NEW_WAY = True
     if NEW_WAY:
@@ -937,7 +944,7 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^(STIM_|TAR_|CAT_
     if channel_per_stim:
         raise ValueError('channel_per_stim not yet supported')
 
-    respavg = resp.replace_epochs(per_stim_psth)
+    respavg = resp.replace_epochs(per_stim_psth, zero_outside=True)
     respavg_with_spont = resp.replace_epochs(per_stim_psth_spont)
     respavg.name = 'psth'
     respavg_with_spont.name = 'psth_sp'
@@ -1271,7 +1278,9 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
         X = ((D-m) / sd) @ u
 
     if compute_power == 'single_trial':
-        X = convolve2d(np.abs(X), np.ones((3,1)) / 3, 'same')
+        smwin = 5
+        X = smooth(np.abs(X), smwin, axis=0)
+        X = X - X.mean(axis=0, keepdims=True)
 
     pc_chans = [f'PC{i}' for i in range(pc_count)]
     rec0[pc_sig] = rec0[resp_sig]._modified_copy(X.T[np.arange(pc_count),:], chans=pc_chans)
@@ -1901,7 +1910,7 @@ def mask_est_val_for_jackknife(rec, epoch_name='TRIAL', epoch_regex=None,
     else:
         log.info('jackknife epoch_regex=%s', epoch_regex)
         epochs_to_extract = ep.epoch_names_matching(rec.epochs, epoch_regex)
-
+    log.info(epochs_to_extract)
     # logging.info("Generating {} jackknifes".format(njacks))
     if rec.get_epoch_indices(epochs_to_extract, allow_partial_epochs=allow_partial_epochs).shape[0]:
         pass

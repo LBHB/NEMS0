@@ -539,7 +539,7 @@ def update_job_complete(queueid=None):
 
     engine = Engine()
     conn = engine.connect()
-    sql = "UPDATE tQueue SET complete=1 WHERE id={}".format(queueid)
+    sql = f"UPDATE tQueue SET complete=1 WHERE id={queueid}"
     r = conn.execute(sql)
     conn.close()
 
