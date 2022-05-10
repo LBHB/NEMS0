@@ -1,3 +1,17 @@
+import matplotlib.pyplot as plt
+font_size=8
+params = {'legend.fontsize': font_size-2,
+          'figure.figsize': (8, 6),
+          'axes.labelsize': font_size,
+          'axes.titlesize': font_size,
+          'axes.spines.right': False,
+          'axes.spines.top': False,
+          'xtick.labelsize': font_size,
+          'ytick.labelsize': font_size,
+          'pdf.fonttype': 42,
+          'ps.fonttype': 42}
+plt.rcParams.update(params)
+
 from .assemble import (simple_grid, freeze_defaults, get_predictions,
                        plot_layout, combine_signal_channels, pad_to_signals)
 from .scatter import plot_scatter, nl_scatter, plot_nl_io

@@ -402,12 +402,12 @@ def normalize_sig(rec=None, rec_list=None, sig='stim', norm_method='meanstd', lo
                from nems.modules.nonlinearity import _dlog
                fn = lambda x: _dlog(x, -log_compress)
                s=s.transform(fn, sig)
-            newrec[sig] = s.normalize(norm_method, b=b, g=g)
+            newrec[sig] = s.normalize(norm_method, b=b, g=g, mask=newrec['mask'])
             new_rec_list.append(newrec)
             if (sig=='stim') and (i==0):
                 b=newrec[sig].norm_baseline
                 g=newrec[sig].norm_gain
-            log.info(f'xforms.normalize_sig: {sig} b={newrec[sig].norm_baseline.mean()}, g={newrec[sig].norm_gain.mean()}, dlog(..., -{log_compress})')
+            log.info(f'xforms.normalize_sig({norm_method}): {sig} b={newrec[sig].norm_baseline.mean()}, g={newrec[sig].norm_gain.mean()}, dlog(..., -{log_compress})')
             
         if return_reclist:
             return {'rec': rec_list[0], 'rec_list': new_rec_list}
@@ -562,11 +562,11 @@ def mask_all_but_targets(rec, **context):
     return {'rec': rec}
 
 
-def mask_incorrect(rec, **context):
+def mask_incorrect(rec, **options):
     '''
     Create mask removing incorrect trials
     '''
-    rec = preproc.mask_incorrect(rec)
+    rec = preproc.mask_incorrect(rec, **options)
 
     return {'rec': rec}
 
@@ -638,24 +638,23 @@ def make_mod_signal(rec, signal='resp'):
 @xform()
 def sev(kw):
     ops = kw.split('.')[1:]
-    epoch_regex = '^STIM'
+    parms={'epoch_regex': '^STIM'}
     continuous=False
-    keepfrac = 1.0
     if 'seq' in ops:
-        epoch_regex='^STIM_se'
+        parms['epoch_regex']='^STIM_se'
     if 'cont' in ops:
         continuous=True
     for op in ops:
         if op.startswith("k"):
-            keepfrac=int(op[1:]) / 100
+            parms['keepfrac']=int(op[1:]) / 100
+        elif op.startswith("f"):
+            parms['filemask']=op[1:]
         else:
-            epoch_regex = op
+            parms['epoch_regex'] = op
     
-    xfspec = [['nems.xforms.split_by_occurrence_counts',
-               {'epoch_regex': epoch_regex, 'keepfrac': keepfrac}]]
+    xfspec = [['nems.xforms.split_by_occurrence_counts', parms]]
     if not continuous:
-        xfspec.append(['nems.xforms.average_away_stim_occurrences',
-         {'epoch_regex': epoch_regex}])
+        xfspec.append(['nems.xforms.average_away_stim_occurrences', parms])
     return xfspec
 
 def split_by_occurrence_counts(rec, epoch_regex='^STIM_', rec_list=None, keepfrac=1, **context):
@@ -670,7 +669,7 @@ def split_by_occurrence_counts(rec, epoch_regex='^STIM_', rec_list=None, keepfra
     val_list = []
 
     for rec in rec_list:
-        est, val = rec.split_using_epoch_occurrence_counts(epoch_regex=epoch_regex, keepfrac=keepfrac)
+        est, val = rec.split_using_epoch_occurrence_counts(epoch_regex=epoch_regex, keepfrac=keepfrac, **context)
         est_list.append(est)
         val_list.append(val)
 
@@ -799,7 +798,7 @@ def split_for_jackknife(rec, modelspecs=None, epoch_name='REFERENCE',
 
 
 def mask_for_jackknife(rec, modelspec=None, epoch_name=None,
-                       epoch_regex='(REFERENCE|TARGET|CATCH)',
+                       epoch_regex='(REFERENCE|TARGET|CATCH|ITI)',
                        by_time=False, njacks=10, IsReload=False,
                        allow_partial_epochs=False, **context):
 
@@ -807,10 +806,11 @@ def mask_for_jackknife(rec, modelspec=None, epoch_name=None,
     _rec['resp'] = _rec['resp'].rasterize()
     if 'stim' in _rec.signals.keys():
         _rec['stim'] = _rec['stim'].rasterize()
-
-    if epoch_regex is None:
+    if epoch_name is not None:
         epoch_regex=epoch_name
-
+    elif epoch_regex is None:
+        epoch_regex=epoch_name
+    
     if by_time != True:
         est_out, val_out, modelspec_out = \
             preproc.mask_est_val_for_jackknife(_rec, modelspec=modelspec,
@@ -1291,11 +1291,11 @@ def add_summary_statistics(est, val, modelspec, est_list=None, val_list=None, re
             else:
                 log.info('Skipping jackknife MI calculations')
                 s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='pred',
-                                    state_sig='state_raw', state_chan=[])
-                #j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='pred',
-                #                    state_sig='state_raw', state_chan=[], njacks=10)
-                j_s = s
-                ee = np.zeros(j_s.shape)
+                                            state_sig='state_raw', state_chan=[])
+                j_s, ee = metrics.j_state_mod_index(val, epoch='REFERENCE', psth_name='pred',
+                                                    state_sig='state_raw', state_chan=[], njacks=10)
+                #j_s = s
+                #ee = np.zeros(j_s.shape)
                 modelspec.meta['state_mod'] = s
                 modelspec.meta['j_state_mod'] = j_s
                 modelspec.meta['se_state_mod'] = ee
@@ -1310,9 +1310,6 @@ def add_summary_statistics(est, val, modelspec, est_list=None, val_list=None, re
                                     state_sig='state_raw', state_chan=[])
                     modelspec.meta['state_mod_gain'] = g
                     modelspec.meta['state_mod_dc'] = dc
-
-
-                # Charlie testing diff ways to calculate mod index
 
                 # try using resp
                 s = metrics.state_mod_index(val, epoch='REFERENCE', psth_name='resp',
@@ -1341,8 +1338,42 @@ def add_summary_statistics(est, val, modelspec, est_list=None, val_list=None, re
                     modelspec.meta['j_state_mod_m'] = j_s
                     modelspec.meta['se_state_mod_m'] = ee
 
+    # figure out spont rate storing in modelspec.meta
+    resp = rec['resp']
+    try:
+        prestimsilence = resp.extract_epoch('PreStimSilence', mask=rec['mask'])
+        if prestimsilence.shape[-1] > 0:
+            if len(prestimsilence.shape) == 3:
+                spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
+            else:
+                spont_rate = np.nanmean(prestimsilence)
+        else:
+            try:
+                prestimsilence = resp.extract_epoch('TRIALPreStimSilence')
+                if len(prestimsilence.shape) == 3:
+                    spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
+                else:
+                    spont_rate = np.nanmean(prestimsilence)
+            except:
+                raise ValueError("Can't find prestim silence to use for PSTH calculation")
+    except:
+        # special case where the epochs included in mask don't have PreStimSilence,
+        # so we get it elsewhere. Designed for CPN data...
+        try:
+            prestimsilence = resp.extract_epoch('TRIALPreStimSilence')
+            if len(prestimsilence.shape) == 3:
+                spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
+            else:
+                spont_rate = np.nanmean(prestimsilence)
+        except:
+            raise ValueError("Can't find prestim silence to use for PSTH calculation")
+    r=resp.extract_epoch('REFERENCE')
+    evoked_mean = r.mean(axis=2).mean(axis=0)-spont_rate
+
+    modelspec.meta['spont_mean']=spont_rate
+    modelspec.meta['evoked_mean']=evoked_mean
     modelspec.set_cell(0)
-    
+
     return {'modelspec': modelspec}
 
 

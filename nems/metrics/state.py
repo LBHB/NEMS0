@@ -26,10 +26,10 @@ def state_mod_split(rec, epoch='REFERENCE', psth_name='pred', channel=None,
     #c = rec[psth_name].chans[chanidx]
     #full_psth = rec[psth_name].loc[c]
     full_psth = rec[psth_name]
-    folded_psth = full_psth.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True)[:, chanidx, :] #* fs
+    folded_psth = full_psth.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True, trunc_at_min=True)[:, chanidx, :] #* fs
 
     full_var = rec[state_sig].loc[state_chan]
-    folded_var = np.squeeze(full_var.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True)) #* fs
+    folded_var = np.squeeze(full_var.extract_epoch(epoch, mask=rec['mask'], allow_incomplete=True, trunc_at_min=True)) #* fs
 
     # compute the mean state for each occurrence
     g = (np.sum(np.isfinite(folded_var), axis=1) > 0)
@@ -174,12 +174,11 @@ def j_state_mod_index(rec, epoch='REFERENCE', psth_name='pred', divisor=None,
 
                 j_mi[jj, :] = state_mod_index(new_rec, epoch=epoch,
                     psth_name=psth_name, divisor=divisor, state_sig=state_sig,
-                    state_chan=state_chan)
-
+                    state_chan=state_chan)[:,0]
             mi[i, :] = np.nanmean(j_mi, axis=0)
             ee[i, :] = np.nanstd(j_mi, axis=0) * np.sqrt(njacks-1)
 
-    return mi, ee
+    return mi.T, ee.T
 
 
 def single_state_mod_index(rec, modelspec, epoch='REFERENCE', psth_name='pred',

@@ -452,7 +452,7 @@ class SignalBase:
         overlapping_epoch : {None, or string}
             if defined, only return occurences of epoch that are spanned by
             occurences of overlapping_epoch
-        mask : {None or signal}
+        mask : {None or vector or signal}
             only include epochs (fully?) spanned by the mask==True
         allow_incomplete: {True, False}  (added CRH 2/4/2020)
             if True, allow mask to not perfectly match epoch lb and ub. However, epoch ub and lb must
@@ -532,7 +532,10 @@ class SignalBase:
 
         if mask is not None:
             # remove instances of the epoch that do not fall in the mask
-            m_data = mask.as_continuous()
+            if type(mask) is np.ndarray:
+                m_data = mask
+            else:
+                m_data = mask.as_continuous()
 
             # get a "reference epoch mask" for safety checking below
             standard_mask = None
@@ -1234,7 +1237,7 @@ class RasterizedSignal(SignalBase):
         return RasterizedSignal(data=data, safety_checks=False, **attributes)
 
     def extract_epoch(self, epoch, boundary_mode='exclude',
-                      fix_overlap='first', allow_empty=False,
+                      fix_overlap='first', allow_empty=False, trunc_at_min=False,
                       overlapping_epoch=None, mask=None, allow_incomplete=False):
         '''
         Extracts all occurances of epoch from the signal.
@@ -1254,6 +1257,9 @@ class RasterizedSignal(SignalBase):
             get_epoch_indices
 
         allow_empty: {False, boolean}
+
+        trunc_at_min: {False, boolean} if True, truncate all epochs
+             to length of shortest match
 
         mask: {None, signal}
             if provided, onlye extract epochs overlapping periods where
@@ -1288,7 +1294,11 @@ class RasterizedSignal(SignalBase):
                 raise IndexError("No matching epochs to extract for: %s\n"
                                  "In signal: %s", epoch, self.name)
 
-        n_samples = np.max(epoch_indices[:, 1]-epoch_indices[:, 0])
+        if trunc_at_min:
+            n_samples = np.min(epoch_indices[:, 1]-epoch_indices[:, 0])
+            epoch_indices[:,1] = epoch_indices[:, 0] + n_samples
+        else:
+            n_samples = np.max(epoch_indices[:, 1]-epoch_indices[:, 0])
         n_epochs = len(epoch_indices)
 
         data = self.as_continuous()
@@ -1314,14 +1324,14 @@ class RasterizedSignal(SignalBase):
                 raise ValueError('Trying to extract invalid range from signal for epoch (out of bounds or negative duration?).')
         return epoch_data
 
-    def normalize(self, normalization='minmax', b=None, g=None):
+    def normalize(self, normalization='minmax', b=None, g=None, mask=None):
         '''
         Returns a copy of this signal with each channel normalized to have a
         mean of 0 and standard deviation of 1.
         '''
         m = self._data * self.norm_gain + self.norm_baseline
         
-        m_normed, b, g = _normalize_data(m, normalization, d=b, g=g)
+        m_normed, b, g = _normalize_data(m, normalization, d=b, g=g, sig=self, mask=mask)
         sig = self._modified_copy(m_normed)
         sig.normalization = normalization
         sig.norm_baseline = b
@@ -1341,6 +1351,49 @@ class RasterizedSignal(SignalBase):
             self._set_cached_props()
         m = self._data
         m_normed = (m - self.channel_mean) / self.channel_std
+        return self._modified_copy(m_normed)
+
+    def normalize_spont(self):
+        '''
+        Returns a copy of this signal with each channel normalized to have a
+        mean of 0 during the PreStimSilence period
+        '''
+        # figure out spont rate for subtraction from PSTH
+        try:
+            #trec=rec.and_mask('REFERENCE',invert=True)
+            #trec=trec.and_mask('TARGET',invert=True)
+            #if trec['mask'].as_continuous().sum()>0:
+            #    prestimsilence = resp.extract_epoch('PreStimSilence', mask=trec['mask'])
+            #else:
+            prestimsilence = self.extract_epoch('PreStimSilence', mask=mask)
+
+            if prestimsilence.shape[-1] > 0:
+                if len(prestimsilence.shape) == 3:
+                    spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
+                else:
+                    spont_rate = np.nanmean(prestimsilence)
+            else:
+                try:
+                    prestimsilence = resp.extract_epoch('TRIALPreStimSilence')
+                    if len(prestimsilence.shape) == 3:
+                        spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
+                    else:
+                        spont_rate = np.nanmean(prestimsilence)
+                except:
+                    raise ValueError("Can't find prestim silence to use for PSTH calculation")
+        except:
+            # special case where the epochs included in mask don't have PreStimSilence,
+            # so we get it elsewhere. Designed for CPN data...
+            try:
+                prestimsilence = resp.extract_epoch('TRIALPreStimSilence')
+                if len(prestimsilence.shape) == 3:
+                    spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
+                else:
+                    spont_rate = np.nanmean(prestimsilence)
+            except:
+                raise ValueError("Can't find prestim silence to use for PSTH calculation")
+
+        m_normed = self._data - spont_rate
         return self._modified_copy(m_normed)
 
     def normalized_by_bounds(self):
@@ -1744,7 +1797,7 @@ class RasterizedSignal(SignalBase):
 
         return self._modified_copy(data)
 
-    def replace_epochs(self, epoch_dict, preserve_nan=True, mask=None):
+    def replace_epochs(self, epoch_dict, preserve_nan=True, zero_outside=False, mask=None):
         '''
         Returns a new signal, created by replacing every occurrence of epochs
         in this signal with whatever is found in the replacement_dict under
@@ -1766,6 +1819,9 @@ class RasterizedSignal(SignalBase):
         '''
 
         data = self.as_continuous().copy()
+        if zero_outside:
+            data[:]=0
+
         if preserve_nan:
             nan_bins = np.isnan(data[0, :])
 
@@ -3041,7 +3097,7 @@ def _merge_epochs(signals):
     return pd.concat(epochs, ignore_index=True)
 
 
-def _normalize_data(data, normalization='minmax', d=None, g=None):
+def _normalize_data(data, normalization='minmax', d=None, g=None, sig=None, mask=None):
 
     if (d is not None) and (g is not None):
         data_out = (data - d) / g
@@ -3069,6 +3125,28 @@ def _normalize_data(data, normalization='minmax', d=None, g=None):
         # avoid divide-by-zero
         g[g == 0] = 1
         data_out = (data - d) / g
+
+    elif normalization == 'spont':
+        try:
+            prestimsilence = sig.extract_epoch('PreStimSilence', mask=mask)
+            if prestimsilence.shape[-1] > 0:
+                if len(prestimsilence.shape) == 3:
+                    d = np.nanmean(prestimsilence, axis=(0, 2))
+                else:
+                    d = np.nanmean(prestimsilence)
+            else:
+                # special case where the epochs included in mask don't have PreStimSilence,
+                # so we get it elsewhere. Designed for CPN data...
+                prestimsilence = sig.extract_epoch('TRIALPreStimSilence')
+                if len(prestimsilence.shape) == 3:
+                    d = np.nanmean(prestimsilence, axis=(0, 2))
+                else:
+                    d = np.nanmean(prestimsilence)
+        except:
+            raise ValueError("Can't find prestim silence to use for PSTH calculation")
+
+        g = np.array([1.0])
+        data_out = data - d
 
     else:
         raise ValueError(f'Signal normalization format {normalization} unknown')

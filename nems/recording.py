@@ -726,7 +726,7 @@ class Recording:
                                                               epochs_for_val))
 
     def split_using_epoch_occurrence_counts(self, epoch_regex=None, keepfrac=1,
-                                            verbose=False):
+                                            filemask=None, verbose=False, **context):
         '''
         Returns (est, val) given a recording rec, a signal name 'stim_name', and an
         epoch_regex that matches 'various' epochs. This function will throw an exception
@@ -743,7 +743,20 @@ class Recording:
         stimulus time histogram (PSTH). This function tries to split the data into those
         two data sets based on the epoch occurrence counts.
         '''
-        groups = ep.group_epochs_by_occurrence_counts(self.epochs, epoch_regex)
+        if filemask is None:
+            groups = ep.group_epochs_by_occurrence_counts(self.epochs, epoch_regex)
+        else:
+            epcopy=self.epochs.copy()
+            epm = ep.epoch_names_matching(epcopy, regex_str=f'^FILE.*{filemask}$')
+            _m = self['resp'].generate_epoch_mask(epm)
+            mask = self['resp']._modified_copy(data=_m)
+            mask = mask.remove_epochs(mask)
+            groups = ep.group_epochs_by_occurrence_counts(mask.epochs, epoch_regex)
+            ep_all = ep.epoch_names_matching(epcopy, regex_str=epoch_regex)
+            ep_sub = sum([e for k,e in groups.items()], [])
+            ep_diff = list(set(ep_all)-set(ep_sub))
+            groups[0]=ep_diff
+
         if len(groups) > 2:
             l=np.array(list(groups.keys()))
             k=l>np.mean(l)
