@@ -659,6 +659,8 @@ def fit_tf_init(
         #up_to_idx = first_substring_index(ms_modules, 'levelshift')
         relu_idx = first_substring_index(reversed(ms_modules), 'relu')  #fit to last relu
         lvl_idx = first_substring_index(reversed(ms_modules), 'levelshift') #fit to last levelshift
+        if lvl_idx is not None:
+            relu_idx=None
         _idxs = [i for i in [relu_idx, lvl_idx, len(modelspec)-1] if i is not None]
         up_to_idx = len(modelspec) - 1 - np.min(_idxs)
         #last_idx = np.min([relu_idx, lvl_idx])
