@@ -831,15 +831,17 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^(STIM_|TAR_|CAT_
     # figure out spont rate for subtraction from PSTH
     if np.sum(resp.epochs.name=='ITI')>0:
         spontname='ITI'
-    elif np.sum(resp.epochs.name=='PreStimSilence')>0:
-        spontname='PreStimSilence'
-    elif np.sum(resp.epochs.name=='TRIALPreStimSilence')>0:
+        prestimsilence = resp.extract_epoch(spontname, mask=mask)
+    elif np.sum(resp.epochs.name == 'TRIALPreStimSilence') > 0:
         # special case where the epochs included in mask don't have PreStimSilence,
         # so we get it elsewhere. Designed for CPN data...
-        spontname='TRIALPreStimSilence'
+        spontname = 'TRIALPreStimSilence'
+        prestimsilence = resp.extract_epoch(spontname)
+    elif np.sum(resp.epochs.name=='PreStimSilence')>0:
+        spontname='PreStimSilence'
+        prestimsilence = resp.extract_epoch(spontname, mask = mask)
     else:
         raise ValueError("Can't find pre-stim silence to use for PSTH calculation")
-    prestimsilence = resp.extract_epoch(spontname, mask=mask)
     if prestimsilence.shape[-1] > 0:
         if len(prestimsilence.shape) == 3:
             spont_rate = np.nanmean(prestimsilence, axis=(0, 2))

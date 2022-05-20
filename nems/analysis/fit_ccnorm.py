@@ -260,6 +260,20 @@ def fit_ccnorm(modelspec,
         group_cc = [np.cov(resp[:,idx]-pred0[:,idx]) for idx in group_idx]
     group_cc_raw = [np.cov(resp[:,idx]-pred0[:,idx]) for idx in group_idx]
 
+    if 0:
+        import matplotlib.pyplot as plt
+        cols = 4
+        rows = int(np.ceil(len(group_cc)/2))
+        f, ax = plt.subplots(rows, cols, figsize=(8, 4*rows))
+        ax = ax.flatten()
+        i = 0
+        for g, g_raw, cond in zip(group_cc, group_cc_raw, conditions):
+            mm= np.max(np.abs(g))
+            ax[i*2].imshow(g, cmap='bwr', clim=[-mm,mm], origin='lower', interpolation='none')
+            ax[i*2+1].imshow(g_raw, cmap='bwr', clim=[-mm,mm], origin='lower', interpolation='none')
+            ax[i*2].set_title(cond)
+            i += 1
+
     # variance of projection onto PCs (PCs computed above before masking)
     pcproj0 = (resp-pred0).T.dot(pc_axes.T).T
     pcproj_std = pcproj0.std(axis=1)

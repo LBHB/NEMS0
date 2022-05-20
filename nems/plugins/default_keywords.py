@@ -1510,7 +1510,9 @@ def stategain(kw):
                 'nems.plots.api.before_and_after',
                 'nems.plots.api.pred_resp',
                 'nems.plots.api.state_vars_timeseries',
-                'nems.plots.api.state_vars_psth_all']
+                'nems.plots.api.state_vars_psth_all',
+                'nems.plots.api.state_gain_plot',
+                'nems.plots.api.state_gain_parameters']
     if dc_only:
         template = {
             'fn': 'nems.modules.state.state_dc_gain',
@@ -1533,7 +1535,7 @@ def stategain(kw):
             'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars, 'n_inputs': n_chans,
                           'state_type':'gain_only', 'gainoffset':gainoffset,
                           'exclude_chans': exclude_chans},
-            'plot_fns': plot_fns + ['nems.plots.api.state_gain_plot'],
+            'plot_fns': plot_fns,
             'plot_fn_idx': 6,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd})},
             'bounds': bounds
@@ -1550,13 +1552,18 @@ def stategain(kw):
                       'sp': ('Normal', {'mean': d_mean, 'sd': d_sd})}
             }
     else:
+        if g_mean.shape[0]>2:
+            plot_fn_idx=6
+        else:
+            plot_fn_idx=5
+
         template = {
             'fn': 'nems.modules.state.state_dc_gain',
             'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars, 'n_inputs': n_chans,
                           'state_type': 'both', 'exclude_chans': exclude_chans, 'per_channel': per_channel},
-            # chans/vars backwards for compat with tf layer
+            # chans/vars backwards for compatibility with tf layer
             'plot_fns': plot_fns,
-            'plot_fn_idx': 5,
+            'plot_fn_idx': plot_fn_idx,
             'prior': {'g': ('Normal', {'mean': g_mean, 'sd': g_sd}),
                       'd': ('Normal', {'mean': d_mean, 'sd': d_sd})}
             }

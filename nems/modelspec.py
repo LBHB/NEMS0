@@ -685,6 +685,7 @@ class ModelSpec:
 
         # determine the plot functions
         plot_fn_modules = []
+        skip_list = ['nems.plots.api.null']
         for mod_idx, m in enumerate(self):
             # do some forward checking here for strf: skip gaussian weights if next is strf
             # clunky, better way?
@@ -698,21 +699,19 @@ class ModelSpec:
                 continue
             if m['plot_fns'] == []:
                 continue
-            if m['plot_fns'][m['plot_fn_idx']] == 'nems.plots.api.null':
+            fn = m['plot_fns'][m['plot_fn_idx']]
+            if fn in skip_list:
                 continue
             if mod_idx in modidx_set:
                 plot_fn_modules.append((mod_idx, self.get_plot_fn(mod_idx)))
-
-        # drop duplicates
-        temp_plot_fn_set = []
-        seen_fn = set()
-        for mod_idx, plot_fn in plot_fn_modules:
-            if plot_fn not in seen_fn:
-                seen_fn.add(plot_fn)
-                temp_plot_fn_set.append((mod_idx, plot_fn))
-
-        plot_fn_modules = temp_plot_fn_set
-
+            # these plot functions always produce the same thing
+            # so should be skipped if they appear more than once
+            if fn in ['nems.plots.api.pred_resp',
+                      'nems.plots.api.state_vars_timeseries',
+                      'nems.plots.api.spectrogram_output',
+                      ]:
+                skip_list.append(fn)
+                
         # use partial so ax can be specified later
         # the format is (fn, col_span), where col_span is 1 for all of these, but will vary for the custom pre-post
         # below fn and col_span should be list, but for simplicity here they are just int and partial and converted
