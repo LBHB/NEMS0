@@ -294,7 +294,7 @@ def fit_model_xform(cellid, batch, modelname, autoPlot=True, saveInDB=False,
 
     for xfa in xfspec:
         if 'postprocess' in xfa[0]:
-            log.info('Running postprocessing kw:' + xfa[0])
+            log.info(f'Running postprocessing kw: {xfa[0]}')
             ctx = xforms.evaluate_step(xfa, ctx)
 
     return save_data['savepath']
