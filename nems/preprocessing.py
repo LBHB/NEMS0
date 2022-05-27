@@ -1259,6 +1259,7 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
         else:
             sd = np.ones(m.shape)
         D_ref = D_ref[np.sum(np.isfinite(D_ref),axis=1)>0,:]
+        sd[sd==0]=1
         D_ = (D_ref-m)/sd
 
         #import pdb;

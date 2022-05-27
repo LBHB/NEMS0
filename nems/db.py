@@ -864,7 +864,7 @@ def fetch_meta_data(modelspec, r, attrs, cellid=None):
         #    k = a
         v=_fetch_attr_value(modelspec, a, default, cellid)
         setattr(r, a, v)
-        log.info("modelspec: meta {0}={1}".format(a,v))
+        #log.info("modelspec: meta {0}={1}".format(a,v))
 
 
 

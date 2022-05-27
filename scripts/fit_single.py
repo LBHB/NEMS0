@@ -76,7 +76,7 @@ if __name__ == '__main__':
         exit(-1)
 
     cellid = sys.argv[1]
-    batch = sys.argv[2]
+    batch = int(sys.argv[2])
     modelname = sys.argv[3]
 
     log.info("Running xform_helper.fit_model_xform({0},{1},{2})".format(cellid, batch, modelname))
