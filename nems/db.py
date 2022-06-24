@@ -1268,7 +1268,7 @@ def get_batch_sites(batch, modelname_filter=None):
     return siteids, cellids
 
 
-def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test', join_how='left'):
+def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test', join_how='left', shortnames=None):
     Results = Tables()['Results']
     if modelnames is None:
         modelnames = ['parm100pt_wcg02_fir15_pupgainctl_fit01_nested5',
@@ -1304,7 +1304,8 @@ def batch_comp(batch=301, modelnames=None, cellids=None, stat='r_test', join_how
         else:
             results = pd.concat((results,bresults), axis=0)
     session.close()
-
+    if shortnames is not None:
+        results.columns=shortnames
     return results
 
 

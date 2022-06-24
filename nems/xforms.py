@@ -1285,7 +1285,10 @@ def add_summary_statistics(est, val, modelspec, est_list=None, val_list=None, re
         log.info(f'cell_index: {cellidx}')
         modelspec = corr_fn(est, val, modelspec=modelspec, rec=rec, use_mask=use_mask)
 
-        if find_module('state', modelspec) is not None:
+        if find_module('lv_norm', modelspec) is not None:
+            log.info('add_summary_statistics: lv_norm model, skipping all MI calculations')
+            
+        elif find_module('state', modelspec) is not None:
             if ('state_raw' not in val.signals.keys()):
                 pass
             else:
