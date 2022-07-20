@@ -5,12 +5,12 @@ import PyQt5.QtGui as qg
 import matplotlib.pyplot as plt
 
 from nems0 import xforms
-from nems.gui.models import ArrayModel
-from nems.gui.canvas import NemsCanvas
-from nems.modelspec import _lookup_fn_at
-import nems.db as nd
-from nems.registry import KeywordRegistry
-from nems.plugins import (default_keywords, default_loaders,
+from nems0.gui.models import ArrayModel
+from nems0.gui.canvas import NemsCanvas
+from nems0.modelspec import _lookup_fn_at
+import nems0.db as nd
+from nems0.registry import KeywordRegistry
+from nems0.plugins import (default_keywords, default_loaders,
                           default_initializers, default_fitters)
 from nems0 import get_setting
 
@@ -29,12 +29,12 @@ class ComparisonWindow(qw.QMainWindow):
         modelspec : ModelSpec
             A NEMS ModelSpec containing at least one module.
         xfspec : nested list
-            A NEMS xforms spec (see nems.xforms) containing at least one step.
+            A NEMS xforms spec (see nems0.xforms) containing at least one step.
         rec : Recording
             A NEMS Recording, generally expected to contain 'stim', 'resp',
             and 'pred' signals.
         ctx : dict
-            A NEMS context dictionary (see nems.xforms)
+            A NEMS context dictionary (see nems0.xforms)
         rec_name : str
             Key used to set rec from ctx instead of passing rec directly,
             e.x. 'val' or 'est'.

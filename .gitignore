@@ -120,6 +120,9 @@ nems.log*
 !**/nems_logs/__init__.py
 **/modelspecs/*
 
+nems0/configs/*
+!nems0/configs/__init__.py
+!nems0/configs/defaults.py
 nems/configs/*
 !nems/configs/__init__.py
 !nems/configs/defaults.py

@@ -76,11 +76,11 @@ QUEUE_TICK_EXTERNAL_CMD = '/auto/users/svd/python/nems_db/bin/qsetload'
 ################################################################################
 # Plugins Registries
 ################################################################################
-# Keyword Plugins, updates nems.plugins.default_keywords
+# Keyword Plugins, updates nems0.plugins.default_keywords
 # ex: KEYWORD_PLUGINS = ['/path/to/keywords/', '/second/path/']
 KEYWORD_PLUGINS = []
 
-# Xforms Plugins, updates nems.plugins.default_loaders, default_fitters, etc.
+# Xforms Plugins, updates nems0.plugins.default_loaders, default_fitters, etc.
 # ex: XF_LOADER_PLUGINS = ['/path/to/my/plugins/loaders/', '/second/path/']
 XFORMS_PLUGINS = []
 
@@ -121,7 +121,7 @@ def configure_logging(filename=None):
             '': {'level': 'INFO'},
             'nems_db': {'level': 'INFO'},
             'nems': {'level': 'INFO'},
-            'nems.analysis.fit_basic': {'level': 'INFO'},
+            'nems0.analysis.fit_basic': {'level': 'INFO'},
             'fontTools': {'level': 'WARNING'}
         },
         'root': {

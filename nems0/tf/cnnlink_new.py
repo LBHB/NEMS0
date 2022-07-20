@@ -467,7 +467,7 @@ def fit_tf(
     except KeyError:
         modelspec.meta['extra_results'] = n_epochs
 
-    nems.utils.progress_fun()
+    nems0.utils.progress_fun()
 
     # clean up temp files
     if job_id is not None:

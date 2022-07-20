@@ -10,13 +10,13 @@ from numpy.linalg import det
 from scipy.ndimage import zoom, gaussian_filter1d
 
 from nems0 import xforms
-import nems.plots.api as nplt
-from nems.plots.api import ax_remove_box, spectrogram, fig2BytesIO
-from nems.plots.heatmap import _get_wc_coefficients, _get_fir_coefficients
-from nems.uri import NumpyEncoder
-from nems.utils import get_setting, smooth
-from nems.modules.fir import per_channel
-from nems.xforms import load_analysis
+import nems0.plots.api as nplt
+from nems0.plots.api import ax_remove_box, spectrogram, fig2BytesIO
+from nems0.plots.heatmap import _get_wc_coefficients, _get_fir_coefficients
+from nems0.uri import NumpyEncoder
+from nems0.utils import get_setting, smooth
+from nems0.modules.fir import per_channel
+from nems0.xforms import load_analysis
 
 log = logging.getLogger(__name__)
 
