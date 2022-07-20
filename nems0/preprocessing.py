@@ -9,10 +9,10 @@ from scipy.signal import convolve2d
 from scipy.integrate import cumtrapz
 import scipy.signal as ss
 
-import nems.epoch as ep
-import nems.signal
-from nems.recording import Recording
-from nems.utils import smooth
+import nems0.epoch as ep
+import nems0.signal
+from nems0.recording import Recording
+from nems0.utils import smooth
 
 log = logging.getLogger(__name__)
 
@@ -1718,7 +1718,7 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], generate
     if 'drift' in state_signals:
         resp_len = rec['resp'].shape[1]
         drift = np.reshape(np.linspace(0,1,resp_len), (1, -1))
-        _s = nems.signal.RasterizedSignal(fs=rec['resp'].fs, data=drift, name="drift",
+        _s = nems0.signal.RasterizedSignal(fs=rec['resp'].fs, data=drift, name="drift",
                                           recording=rec['resp'].recording, chans=["drift"], epochs=rec['resp'].epochs)
         newrec.add_signal(_s)
 
@@ -1807,7 +1807,7 @@ def concatenate_state_channel(rec, sig, state_signal_name='state', generate_base
 
     state_sig_list.append(sig)
 
-    state = nems.signal.RasterizedSignal.concatenate_channels(state_sig_list)
+    state = nems0.signal.RasterizedSignal.concatenate_channels(state_sig_list)
     state.name = state_signal_name
 
     newrec.add_signal(state)
@@ -1821,7 +1821,7 @@ def concatenate_input_channels(rec, input_signals=[], input_name=None):
     for s in input_signals:
         input_sig_list.append(newrec[s])
     input_sig_list.append(newrec[input_name].rasterize())
-    input = nems.signal.RasterizedSignal.concatenate_channels(input_sig_list)
+    input = nems0.signal.RasterizedSignal.concatenate_channels(input_sig_list)
     input.name = input_name
 
     newrec.add_signal(input)

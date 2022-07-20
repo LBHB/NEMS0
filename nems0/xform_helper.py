@@ -8,12 +8,12 @@ import logging
 import os
 import time
 
-import nems.xforms as xforms
-import nems.db as nd
-from nems import get_setting
-from nems.utils import escaped_split, escaped_join
-from nems.registry import KeywordRegistry, xforms_lib, keyword_lib
-from nems.plugins import (default_keywords, default_loaders, default_fitters,
+import nems0.xforms as xforms
+import nems0.db as nd
+from nems0 import get_setting
+from nems0.utils import escaped_split, escaped_join
+from nems0.registry import KeywordRegistry, xforms_lib, keyword_lib
+from nems0.plugins import (default_keywords, default_loaders, default_fitters,
                           default_initializers)
 
 log = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
         The modelname will be parsed into a series of xforms functions using
         xforms and keyword registries.
     meta : dict
-        Additional keyword arguments for nems.initializers.init_from_keywords
+        Additional keyword arguments for nems0.initializers.init_from_keywords
     xforms_kwargs : dict
         Additional keyword arguments for the xforms registry. DEPRECATED??
     kw_kwargs : dict
@@ -44,13 +44,13 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
     xforms_init_context : dict
         Initialization for context. REPLACES xforms_kwargs and kw_kwargs???
     autoPred : boolean
-        If true, will automatically append nems.xforms.predict to the xfspec
+        If true, will automatically append nems0.xforms.predict to the xfspec
         if it is not already present.
     autoStats : boolean
-        If true, will automatically append nems.xforms.add_summary_statistics
+        If true, will automatically append nems0.xforms.add_summary_statistics
         to the xfspec if it is not already present.
     autoPlot : boolean
-        If true, will automatically append nems.xforms.plot_summary to the
+        If true, will automatically append nems0.xforms.plot_summary to the
         xfspec if it is not already present.
 
     Returns
@@ -104,14 +104,14 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
     if xforms_kwargs is not None:
         xforms_init_context.update(xforms_kwargs)
     xforms_lib.kwargs = xforms_init_context.copy()
-    xfspec.append(['nems.xforms.init_context', xforms_init_context])
+    xfspec.append(['nems0.xforms.init_context', xforms_init_context])
 
     # 1) Load the data
     xfspec.extend(_parse_kw_string(load_keywords, xforms_lib))
 
     # 2) generate a modelspec
-    xfspec.append(['nems.xforms.init_from_keywords', {'registry': keyword_lib}])
-    #xfspec.append(['nems.xforms.init_from_keywords', {}])
+    xfspec.append(['nems0.xforms.init_from_keywords', {'registry': keyword_lib}])
+    #xfspec.append(['nems0.xforms.init_from_keywords', {}])
 
     # 3) fit the data
     xfspec.extend(_parse_kw_string(fit_keywords, xforms_lib))
@@ -123,19 +123,19 @@ def generate_xforms_spec(recording_uri=None, modelname=None, meta={},
 
     # 4) generate a prediction (optional)
     if autoPred:
-        if not _xform_exists(xfspec, 'nems.xforms.predict'):
-            xfspec.append(['nems.xforms.predict', {}])
+        if not _xform_exists(xfspec, 'nems0.xforms.predict'):
+            xfspec.append(['nems0.xforms.predict', {}])
 
     # 5) add some performance statistics (optional)
     if autoStats:
-        if not _xform_exists(xfspec, 'nems.xforms.add_summary_statistics'):
-            xfspec.append(['nems.xforms.add_summary_statistics', {}])
+        if not _xform_exists(xfspec, 'nems0.xforms.add_summary_statistics'):
+            xfspec.append(['nems0.xforms.add_summary_statistics', {}])
 
     # 6) generate plots (optional)
     if autoPlot:
-        if not _xform_exists(xfspec, 'nems.xforms.plot_summary'):
+        if not _xform_exists(xfspec, 'nems0.xforms.plot_summary'):
             # log.info('Adding summary plot to xfspec...')
-            xfspec.append(['nems.xforms.plot_summary', {}])
+            xfspec.append(['nems0.xforms.plot_summary', {}])
 
     return xfspec
 

@@ -12,7 +12,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QApplication
 from PyQt5 import uic
 
-from nems import db as nd
+from nems0 import db as nd
 from nems.utils import lookup_fn_at, simple_search #, load_settings, save_settings
 import nems.xform_helper as xhelp
 from nems.gui_new.db_browser import model_browser

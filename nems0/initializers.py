@@ -5,16 +5,16 @@ import os
 
 import numpy as np
 
-from nems.plugins import default_keywords
-from nems.utils import find_module, get_default_savepath
-from nems.analysis.api import fit_basic
-from nems.fitters.api import scipy_minimize
-from nems import xforms
-import nems.priors as priors
-import nems.modelspec as ms
-from nems.uri import save_resource, load_resource
-import nems.metrics.api as metrics
-from nems import get_setting
+from nems0.plugins import default_keywords
+from nems0.utils import find_module, get_default_savepath
+from nems0.analysis.api import fit_basic
+from nems0.fitters.api import scipy_minimize
+from nems0 import xforms
+import nems0.priors as priors
+import nems0.modelspec as ms
+from nems0.uri import save_resource, load_resource
+import nems0.metrics.api as metrics
+from nems0 import get_setting
 
 log = logging.getLogger(__name__)
 #_kws = KeywordRegistry()
@@ -26,7 +26,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, rec_list=Non
                   init_phi_to_mean_prior=True, input_name='stim', output_name='resp'):
     '''
     Returns a modelspec created by splitting keyword_string on underscores
-    and replacing each keyword with what is found in the nems.keywords.defaults
+    and replacing each keyword with what is found in the nems0.keywords.defaults
     registry. You may provide your own keyword registry using the
     registry={...} argument.
     
@@ -35,7 +35,7 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, rec_list=Non
     '''
 
     if registry is None:
-        from nems.xforms import keyword_lib
+        from nems0.xforms import keyword_lib
         registry = keyword_lib
     keywords = keyword_string.split('-')
 
@@ -188,8 +188,8 @@ def from_keywords(keyword_string, registry=None, rec=None, meta={}, rec_list=Non
         #modelspec.meta.update(meta)
 
         print(destination, modelspec.meta['modelpath'])
-
-        del meta['cellids']
+        if 'cellids' in meta.keys():
+            del meta['cellids']
 
     modelspec.cell_index = 0
         
@@ -687,10 +687,10 @@ def modelspec_freeze_layers(modelspec,
             log.info('Excluding module %d (%s)', i, m['fn'])
             if type(m) is dict:
                 # fn = _lookup_fn_at(m['fn'])
-                m['fn'] = 'nems.modules.scale.null'
+                m['fn'] = 'nems0.modules.scale.null'
             else:
                 # it's a NemsModule object, need to divert the .eval method to null
-                m.eval = ms._lookup_fn_at('nems.modules.scale.null')
+                m.eval = ms._lookup_fn_at('nems0.modules.scale.null')
             m['phi'] = {}
             tmodelspec[i] = m
 
@@ -818,10 +818,10 @@ def prefit_subset(est, modelspec, analysis_function=fit_basic,
             log.info('Excluding module %d (%s)', i, m['fn'])
             if type(m) is dict:
                 #fn = _lookup_fn_at(m['fn'])
-                m['fn'] = 'nems.modules.scale.null'
+                m['fn'] = 'nems0.modules.scale.null'
             else:
                 #it's a NemsModule object, need to divert the .eval method to null
-                m.eval = ms._lookup_fn_at('nems.modules.scale.null')
+                m.eval = ms._lookup_fn_at('nems0.modules.scale.null')
             m['phi'] = {}
             tmodelspec[i] = m
     """

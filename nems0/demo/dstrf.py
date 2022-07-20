@@ -9,7 +9,7 @@ import numpy as np
 from numpy.linalg import det
 from scipy.ndimage import zoom, gaussian_filter1d
 
-from nems import xforms
+from nems0 import xforms
 import nems.plots.api as nplt
 from nems.plots.api import ax_remove_box, spectrogram, fig2BytesIO
 from nems.plots.heatmap import _get_wc_coefficients, _get_fir_coefficients

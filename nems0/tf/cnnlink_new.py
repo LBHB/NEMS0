@@ -12,12 +12,12 @@ from packaging import version
 import numpy as np
 import tensorflow as tf
 
-import nems.utils
-from nems import initializers, recording, get_setting
-from nems import modelspec as mslib
-from nems.tf import callbacks, loss_functions, modelbuilder
-from nems.tf.layers import Conv2D_NEMS
-from nems.initializers import init_static_nl
+import nems0.utils
+from nems0 import initializers, recording, get_setting
+from nems0 import modelspec as mslib
+from nems0.tf import callbacks, loss_functions, modelbuilder
+from nems0.tf.layers import Conv2D_NEMS
+from nems0.initializers import init_static_nl
 
 log = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ def tf2modelspec(model, modelspec):
             # check that phis/weights match up in shape
             for model_weights, ms_phis in zip(phis.values(), ms['phi'].values()):
                 if model_weights.shape != ms_phis.shape:
-                    if layer.ms_name == 'nems.modules.nonlinearity.double_exponential':
+                    if layer.ms_name == 'nems0.modules.nonlinearity.double_exponential':
                         continue  # dexp has weird weight shapes due to basic init
                     raise AssertionError(f'Model layer "{layer.ms_name}" weights and modelspec phis do not have matching '
                                          f'shapes!')
@@ -194,7 +194,7 @@ def fit_tf(
     #os.environ['TF_DETERMINISTIC_OPS'] = '1'   # makes output deterministic, but reduces prediction accuracy
 
     log.info('Building tensorflow keras model from modelspec.')
-    nems.utils.progress_fun()
+    nems0.utils.progress_fun()
 
     # figure out where to save model checkpoints
     job_id = os.environ.get('SLURM_JOBID', None)
@@ -314,7 +314,7 @@ def fit_tf(
             decay_rate=0.9
         )
 
-    from nems.tf.loss_functions import pearson
+    from nems0.tf.loss_functions import pearson
     model = modelbuilder.ModelBuilder(
         name='Test-model',
         layers=model_layers,

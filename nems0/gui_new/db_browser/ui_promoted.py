@@ -16,7 +16,7 @@ from matplotlib import pyplot as plt
 
 from sqlalchemy.orm import aliased
 
-from nems import db
+from nems0 import db
 from nems.utils import lookup_fn_at
 
 pg.setConfigOptions(imageAxisOrder='row-major')

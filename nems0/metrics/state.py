@@ -1,7 +1,7 @@
 import copy
 import numpy as np
-import nems.modelspec as ms
-from nems.utils import find_module, get_channel_number
+import nems0.modelspec as ms
+from nems0.utils import find_module, get_channel_number
 import logging
 
 log = logging.getLogger(__name__)

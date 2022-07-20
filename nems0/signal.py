@@ -12,7 +12,7 @@ import pandas as pd
 import numpy as np
 import h5py
 
-from nems.epoch import (remove_overlap, merge_epoch, epoch_contained,
+from nems0.epoch import (remove_overlap, merge_epoch, epoch_contained,
                         epoch_intersection, epoch_names_matching)
 
 log = logging.getLogger(__name__)
@@ -707,7 +707,7 @@ class SignalBase:
         epoch_names : list OR string
             if list, list of epoch names to extract. These will be keys in the
             result dictionary.
-            if string, will find matches via nems.epoch.epoch_names_matching
+            if string, will find matches via nems0.epoch.epoch_names_matching
 
         chans : {None, iterable of strings}
             Names of channels to return. If None, return the full set of
@@ -1050,7 +1050,7 @@ class SignalBase:
         
     def plot_raster(self, epoch="TRIAL", channel=None, ax=None):
         
-        from nems.plots.raster import raster
+        from nems0.plots.raster import raster
 
         if channel is None:
             channel = 0
@@ -1710,7 +1710,7 @@ class RasterizedSignal(SignalBase):
     #     epoch_names : list OR string
     #         if list, list of epoch names to extract. These will be keys in the
     #         result dictionary.
-    #         if string, will find matches via nems.epoch.epoch_names_matching
+    #         if string, will find matches via nems0.epoch.epoch_names_matching
     #
     #     chans : {None, iterable of strings}
     #         Names of channels to return. If None, return the full set of
@@ -2798,7 +2798,7 @@ def load_signal(basepath):
     if 'signal_type' in js.keys():
         signal_type=js['signal_type']
     else:
-        signal_type="nems.signal.RasterizedSignal"
+        signal_type="nems0.signal.RasterizedSignal"
 
     if 'RasterizedSignal' in signal_type:
         mat = pd.read_csv(csvfilepath, header=None).values
@@ -2862,7 +2862,7 @@ def load_signal_from_streams(data_stream, json_stream, epoch_stream=None):
     if 'signal_type' in js.keys():
         signal_type=js['signal_type']
     else:
-        signal_type="nems.signal.RasterizedSignal"
+        signal_type="nems0.signal.RasterizedSignal"
 
     if 'RasterizedSignal' in signal_type:
         mat = pd.read_csv(data_stream, header=None).values

@@ -4,7 +4,7 @@ import PyQt5.QtCore as qc
 import PyQt5.QtGui as qg
 import matplotlib.pyplot as plt
 
-from nems import xforms
+from nems0 import xforms
 from nems.gui.models import ArrayModel
 from nems.gui.canvas import NemsCanvas
 from nems.modelspec import _lookup_fn_at
@@ -12,7 +12,7 @@ import nems.db as nd
 from nems.registry import KeywordRegistry
 from nems.plugins import (default_keywords, default_loaders,
                           default_initializers, default_fitters)
-from nems import get_setting
+from nems0 import get_setting
 
 class ComparisonWindow(qw.QMainWindow):
 

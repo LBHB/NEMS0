@@ -14,13 +14,13 @@ import numpy as np
 import pandas as pd
 import requests
 
-import nems.epoch as ep
-from nems import get_setting
-from nems.signal import SignalBase, RasterizedSignal, PointProcess, merge_selections, \
+import nems0.epoch as ep
+from nems0 import get_setting
+from nems0.signal import SignalBase, RasterizedSignal, PointProcess, merge_selections, \
     list_signals, load_signal, load_signal_from_streams
-from nems.uri import local_uri, http_uri, targz_uri, NumpyEncoder, json_numpy_obj_hook
+from nems0.uri import local_uri, http_uri, targz_uri, NumpyEncoder, json_numpy_obj_hook
 
-from nems.utils import recording_filename_hash, adjust_uri_prefix
+from nems0.utils import recording_filename_hash, adjust_uri_prefix
 
 log = logging.getLogger(__name__)
 
@@ -180,7 +180,7 @@ class Recording:
         rec = Recording.load('http://potoroo/baphy/271/gus016c-a2')
 
         # Load from S3:
-        rec = Recording.load('s3://nems.lbhb... TODO')
+        rec = Recording.load('s3://nems0.lbhb... TODO')
         '''
         if local_uri(uri):
             if targz_uri(uri):
@@ -469,7 +469,7 @@ class Recording:
         rec.save('http://potoroo/recordings/my_recording.tgz')
 
         # Save it to AWS (TODO, Not Implemented, Needs credentials)
-        rec.save('s3://nems.amazonaws.com/somebucket/')
+        rec.save('s3://nems0.amazonaws.com/somebucket/')
         '''
 
         guessed_filename = recording_filename_hash(
@@ -1437,7 +1437,7 @@ def load_recording(uri):
     rec = Recording.load('http://potoroo/baphy/271/gus016c-a2')
 
     # Load from S3:
-    rec = Recording.load('s3://nems.lbhb... TODO')
+    rec = Recording.load('s3://nems0.lbhb... TODO')
     '''
     if type(uri) in [PosixPath, WindowsPath]:
         uri = str(uri)
@@ -1661,7 +1661,7 @@ def jackknife_inverse_merge(rec_list):
     return Recording(signals=new_sigs, meta=rec_list[0].meta.copy())
 
 
-# TODO: Might be a better place for this, but moved it from nems.uri
+# TODO: Might be a better place for this, but moved it from nems0.uri
 #       for now because it was causing circular import issues since
 #       the unpack option depends on code in this module.
 

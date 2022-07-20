@@ -15,33 +15,33 @@ import glob
 import matplotlib.pyplot as plt
 import numpy as np
 
-import nems.db as nd
-import nems.analysis.api
-import nems.initializers as init
-import nems.metrics.api as metrics
-import nems.modelspec as ms
-from nems.modelspec import set_modelspec_metadata, get_modelspec_metadata,\
+import nems0.db as nd
+from nems0 import analysis
+from nems0 import initializers as init
+import nems0.metrics.api as metrics
+from nems0 import modelspec as ms
+from nems0.modelspec import set_modelspec_metadata, get_modelspec_metadata,\
                            get_modelspec_shortname
-import nems.plots.api as nplt
-import nems.preprocessing as preproc
-import nems.priors as priors
-from nems import get_setting
-import nems.analysis as na
-from nems.registry import xforms_lib, keyword_lib, xform, xmodule, scan_for_kw_defs
-#from nems.plugins import (default_keywords, default_loaders, default_fitters,
+import nems0.plots.api as nplt
+import nems0.preprocessing as preproc
+import nems0.priors as priors
+from nems0 import get_setting
+import nems0.analysis as na
+from nems0.registry import xforms_lib, keyword_lib, xform, xmodule, scan_for_kw_defs
+#from nems0.plugins import (default_keywords, default_loaders, default_fitters,
 #                          default_initializers)
-from nems.signal import RasterizedSignal
-from nems.uri import save_resource, load_resource
-from nems.utils import (iso8601_datestring, find_module,
+from nems0.signal import RasterizedSignal
+from nems0.uri import save_resource, load_resource
+from nems0.utils import (iso8601_datestring, find_module,
                         recording_filename_hash, get_default_savepath, lookup_fn_at)
-from nems.fitters.api import scipy_minimize
-from nems.recording import load_recording, Recording
+from nems0.fitters.api import scipy_minimize
+from nems0.recording import load_recording, Recording
 
 log = logging.getLogger(__name__)
 
 # REGISTRY SETUP
 # scan in plugins dir by default
-scan_for_kw_defs(os.path.join(get_setting('NEMS_DIR'),'nems','plugins'))
+scan_for_kw_defs(os.path.join(get_setting('NEMS_DIR'),'nems0','plugins'))
 
 # populate the registry as specified in config settings
 scan_for_kw_defs(get_setting('LIB_PLUGINS'))
@@ -74,7 +74,7 @@ def evaluate_step(xfa, context={}):
     :param xfa: list of 2 or 4 elements specifying function to be evaluated on this step
                 and relevant args for that function.
                 xfa[0] : string of python path to function evaluated on this step. e.g.,
-                         `nems.xforms.load_recording_wrapper`
+                         `nems0.xforms.load_recording_wrapper`
                 xfa[1] : dictionary of args to pass to xfa[0]
                 xfa[2] : optional (DEPRECATED?), indicates context-in keys (if xfa[0] returns a tuple rather than context dict)
                 xfa[3] : optional (DEPRECATED?), context-out keys
@@ -227,7 +227,7 @@ def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
         if true the recording will be saved to a NEMS native recording file. context will
         also be used to generate a hash that determines the file name. future calls will
         then generate a hash and load a matching recording from the cache if it exists.
-        cached recordings are stored in nems.get_config(NEMS_RECORDINGS_DIR)
+        cached recordings are stored in nems0.get_config(NEMS_RECORDINGS_DIR)
         if batch is not None, it will be saved in "<batch>/" subdirectory
         filename will be "<cellid>_<hash>.tgz"
     :param context['batch'] (optional)
@@ -242,7 +242,7 @@ def load_recording_wrapper(load_command=None, exptid="RECORDING", cellid=None,
 
     TODO: option to re-cache
     """
-    data_file = recording_filename_hash(exptid, context, nems.get_setting('NEMS_RECORDINGS_DIR'))
+    data_file = recording_filename_hash(exptid, context, nems0.get_setting('NEMS_RECORDINGS_DIR'))
     if os.path.exists(data_file):
         log.info("Loading cached file %s", data_file)
         rec = load_recording(data_file)
@@ -399,7 +399,7 @@ def normalize_sig(rec=None, rec_list=None, sig='stim', norm_method='meanstd', lo
             s = newrec[sig].rasterize()
 
             if log_compress != 'None':
-               from nems.modules.nonlinearity import _dlog
+               from nems0.modules.nonlinearity import _dlog
                fn = lambda x: _dlog(x, -log_compress)
                s=s.transform(fn, sig)
             newrec[sig] = s.normalize(norm_method, b=b, g=g, mask=newrec['mask'])
@@ -652,9 +652,9 @@ def sev(kw):
         else:
             parms['epoch_regex'] = op
     
-    xfspec = [['nems.xforms.split_by_occurrence_counts', parms]]
+    xfspec = [['nems0.xforms.split_by_occurrence_counts', parms]]
     if not continuous:
-        xfspec.append(['nems.xforms.average_away_stim_occurrences', parms])
+        xfspec.append(['nems0.xforms.average_away_stim_occurrences', parms])
     return xfspec
 
 def split_by_occurrence_counts(rec, epoch_regex='^STIM_', rec_list=None, keepfrac=1, **context):
@@ -690,7 +690,7 @@ def tev(kw):
         elif op.startswith("v"):
             valfrac=int(op[1:]) / 100
 
-    xfspec = [['nems.xforms.split_at_time', {'valfrac': valfrac}]]
+    xfspec = [['nems0.xforms.split_at_time', {'valfrac': valfrac}]]
 
     return xfspec
 
@@ -704,7 +704,7 @@ def avgreps(kw):
     for op in ops:
         epoch_regex = op
 
-    xfspec = [['nems.xforms.average_away_stim_occurrences', {'epoch_regex': epoch_regex}]]
+    xfspec = [['nems0.xforms.average_away_stim_occurrences', {'epoch_regex': epoch_regex}]]
 
     return xfspec
 
@@ -880,9 +880,9 @@ def fit_basic_init(modelspec, est, tolerance=10**-5.5, max_iter=1500, metric='nm
         metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
     else:
         metric_fn = metric
-    modelspec = nems.initializers.prefit_LN(
+    modelspec = nems0.initializers.prefit_LN(
             est, modelspec,
-            analysis_function=nems.analysis.api.fit_basic,
+            analysis_function=nems0.analysis.api.fit_basic,
             fitter=scipy_minimize, metric=metric_fn,
             tolerance=tolerance, max_iter=max_iter, norm_fir=norm_fir,
             nl_kw=nl_kw)
@@ -908,7 +908,7 @@ def fit_basic_subset(modelspec, est, metric='nmse', output_name='resp',
             metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
     else:
         metric_fn = metric
-    modelspec = nems.initializers.prefit_subset(
+    modelspec = nems0.initializers.prefit_subset(
             est, modelspec, metric=metric_fn, **context)
     return {'modelspec': modelspec}
 
@@ -929,9 +929,9 @@ def fit_basic_subset(modelspec, est, metric='nmse', output_name='resp',
                          fit_idx+1, modelspec.fit_count,
                          jack_idx + 1, modelspec.jack_count)
 
-                modelspec = nems.initializers.prefit_LN(
+                modelspec = nems0.initializers.prefit_LN(
                         e, modelspec.set_jack(jack_idx),
-                        analysis_function=nems.analysis.api.fit_basic,
+                        analysis_function=nems0.analysis.api.fit_basic,
                         fitter=scipy_minimize, metric=metric_fn,
                         tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
                         nl_kw=nl_kw)
@@ -940,9 +940,9 @@ def fit_basic_subset(modelspec, est, metric='nmse', output_name='resp',
         #pdb.set_trace()
         for fit_idx in range(modelspec.fit_count):
             log.info("Init fitting model instance %d/%d", fit_idx + 1, modelspec.fit_count)
-            modelspec = nems.initializers.prefit_LN(
+            modelspec = nems0.initializers.prefit_LN(
                     est, modelspec.set_fit(fit_idx),
-                    analysis_function=nems.analysis.api.fit_basic,
+                    analysis_function=nems0.analysis.api.fit_basic,
                     fitter=scipy_minimize, metric=metric_fn,
                     tolerance=tolerance, max_iter=700, norm_fir=norm_fir,
                     nl_kw=nl_kw)
@@ -984,9 +984,9 @@ def fit_state_init(modelspec, est, tolerance=10**-5.5, max_iter=1500, metric='nm
     if fit_sig != 'resp':
         log.info("Subbing %s for resp signal", fit_sig)
         dc['resp'] = dc[fit_sig]
-    modelspec = nems.initializers.prefit_LN(
+    modelspec = nems0.initializers.prefit_LN(
             dc, modelspec,
-            analysis_function=nems.analysis.api.fit_basic,
+            analysis_function=nems0.analysis.api.fit_basic,
             fitter=scipy_minimize, metric=metric_fn,
             tolerance=tolerance, max_iter=max_iter, norm_fir=norm_fir,
             nl_kw=nl_kw)
@@ -995,7 +995,7 @@ def fit_state_init(modelspec, est, tolerance=10**-5.5, max_iter=1500, metric='nm
     # that might have been excluded
     # SVD disabling to speed up
     #fit_kwargs = {'tolerance': tolerance/2, 'max_iter': 500}
-    #modelspec = nems.analysis.api.fit_basic(
+    #modelspec = nems0.analysis.api.fit_basic(
     #        dc, modelspec, fit_kwargs=fit_kwargs, metric=metric_fn,
     #        fitter=scipy_minimize)
 
@@ -1036,7 +1036,7 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
     if IsReload:
         return {}
     metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
-    fitter_fn = getattr(nems.fitters.api, fitter)
+    fitter_fn = getattr(nems0.fitters.api, fitter)
     fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
 
     if modelspec.jack_count < est.view_count:
@@ -1050,7 +1050,7 @@ def fit_basic(modelspec, est, max_iter=1000, tolerance=1e-7,
             log.info("Fitting: fit %d/%d, fold %d/%d (tol=%.2e, max_iter=%d)",
                      fit_idx + 1, modelspec.fit_count,
                      jack_idx + 1, modelspec.jack_count, tolerance, max_iter)
-            modelspec = nems.analysis.api.fit_basic(
+            modelspec = nems0.analysis.api.fit_basic(
                     e, modelspec, fit_kwargs=fit_kwargs,
                     metric=metric_fn, fitter=fitter_fn)
 
@@ -1076,13 +1076,13 @@ def reverse_correlation(modelspec, est, IsReload=False, jackknifed_fit=False,
                              fit_idx + 1, modelspec.fit_count,
                              jack_idx + 1, modelspec.jack_count)
 
-                    modelspec = nems.analysis.api.reverse_correlation(
+                    modelspec = nems0.analysis.api.reverse_correlation(
                             e, modelspec, input_name)
 
         else:
             # standard single shot
             for fit_idx in range(modelspec.fit_count):
-                modelspec = nems.analysis.api.reverse_correlation(
+                modelspec = nems0.analysis.api.reverse_correlation(
                     est, modelspec.set_fit(fit_idx), input_name)
 
     return {'modelspec': modelspec}
@@ -1095,7 +1095,7 @@ def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
     if IsReload:
         return {}
 
-    fitter_fn = getattr(nems.fitters.api, fitter)
+    fitter_fn = getattr(nems0.fitters.api, fitter)
     metric_fn = lambda d: getattr(metrics, metric)(d, 'pred', output_name)
 
     if modelspec.jack_count < est.view_count:

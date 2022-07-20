@@ -8,16 +8,16 @@ import re
 import numpy as np
 from sklearn.decomposition import PCA
 
-from nems.analysis.cost_functions import basic_cost
-from nems.fitters.api import scipy_minimize
-import nems.priors
-import nems.fitters.mappers
-import nems.modelspec as ms
-import nems.metrics.api as metrics
-import nems.segmentors
-import nems.utils
-import nems.recording as recording
-from nems.initializers import modelspec_freeze_layers, modelspec_unfreeze_layers
+from nems0.analysis.cost_functions import basic_cost
+from nems0.fitters.api import scipy_minimize
+import nems0.priors
+import nems0.fitters.mappers
+import nems0.modelspec as ms
+import nems0.metrics.api as metrics
+import nems0.segmentors
+import nems0.utils
+import nems0.recording as recording
+from nems0.initializers import modelspec_freeze_layers, modelspec_unfreeze_layers
 
 log = logging.getLogger(__name__)
 
@@ -174,8 +174,8 @@ def fit_ccnorm(modelspec,
     # Hard-coded
     cost_function = basic_cost
     fitter=scipy_minimize
-    segmentor=nems.segmentors.use_all_data
-    mapper=nems.fitters.mappers.simple_vector
+    segmentor=nems0.segmentors.use_all_data
+    mapper=nems0.fitters.mappers.simple_vector
     fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
 
     start_time = time.time()
@@ -329,7 +329,7 @@ def fit_ccnorm(modelspec,
     packer, unpacker, pack_bounds = mapper(modelspec)
 
     # A function to evaluate the modelspec on the data
-    evaluator = nems.modelspec.evaluate
+    evaluator = nems0.modelspec.evaluate
 
     my_cost_function = cost_function
     my_cost_function.counter = 0
@@ -467,8 +467,8 @@ def fit_pcnorm(modelspec,
     # Hard-coded
     cost_function = basic_cost
     fitter = scipy_minimize
-    segmentor = nems.segmentors.use_all_data
-    mapper = nems.fitters.mappers.simple_vector
+    segmentor = nems0.segmentors.use_all_data
+    mapper = nems0.fitters.mappers.simple_vector
     fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
 
     start_time = time.time()
@@ -527,7 +527,7 @@ def fit_pcnorm(modelspec,
     packer, unpacker, pack_bounds = mapper(modelspec)
 
     # A function to evaluate the modelspec on the data
-    evaluator = nems.modelspec.evaluate
+    evaluator = nems0.modelspec.evaluate
 
     my_cost_function = cost_function
     my_cost_function.counter = 0

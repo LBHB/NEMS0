@@ -81,13 +81,13 @@ if app is None:
     # if it does not exist then a QApplication is created
     app = qw.QApplication(sys.argv)
 
-from nems import xforms
+from nems0 import xforms
 from nems.gui.models import ArrayModel
 from nems.gui.canvas import NemsCanvas, EpochCanvas, MplWindow
 from nems.modelspec import _lookup_fn_at
 import nems.db as nd
 from nems.registry import keyword_lib
-from nems import get_setting
+from nems0 import get_setting
 import matplotlib.pyplot as plt
 log = logging.getLogger(__name__)
 

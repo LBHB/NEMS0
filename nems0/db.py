@@ -16,9 +16,9 @@ from sqlalchemy.ext.automap import automap_base
 import pandas.io.sql as psql
 import sqlite3
 
-import nems
-from nems import get_setting
-from nems.utils import recording_filename_hash
+#import nems
+from . import get_setting
+from . import utils
 
 log = logging.getLogger(__name__)
 __ENGINE__ = None
@@ -87,7 +87,7 @@ def Tables():
 
 def sqlite_test():
 
-    dbfilepath = os.path.join(get_setting('NEMS_RECORDINGS_DIR'), 'nems.db')
+    dbfilepath = os.path.join(get_setting('NEMS_RECORDINGS_DIR'), 'nems0.db')
 
     conn = sqlite3.connect(dbfilepath)
     sql = "SELECT name FROM sqlite_master WHERE type='table' and name like 'Results'"
@@ -98,7 +98,7 @@ def sqlite_test():
         print("Tables missing, need to reinitialize database?")
 
         print("Creating db")
-        scriptfilename = os.path.join(nems.NEMS_PATH, 'scripts', 'db', 'nems.db.sqlite.sql')
+        scriptfilename = os.path.join(nems0.NEMS_PATH, 'scripts', 'db', 'nems0.db.sqlite.sql')
         cursor = conn.cursor()
 
         print("Reading Script...")
@@ -139,7 +139,7 @@ def _get_db_uri():
                 MYSQL_PORT, MYSQL_DB
                 )
     elif sql_engine == 'sqlite':
-        dbfilepath = os.path.join(nems_recording_dir,'nems.db')
+        dbfilepath = os.path.join(nems_recording_dir,'nems0.db')
         if ~os.path.exists(dbfilepath):
             sqlite_test()
         db_uri = 'sqlite:///' + dbfilepath
@@ -1589,7 +1589,7 @@ def save_recording_to_db(recfilepath, meta=None, user="nems", labgroup="",
     if batch > 0:
         path, batchstr = os.path.split(path)
 
-    file_hash = recording_filename_hash(name=pre, meta=meta, uri_path=path,
+    file_hash = utils.recording_filename_hash(name=pre, meta=meta, uri_path=path,
                                         uncompressed=False)
     meta_string = json.dumps(meta, sort_keys=True)
 
