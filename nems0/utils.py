@@ -7,7 +7,7 @@ import time
 import hashlib
 import json
 import os
-from collections import Sequence
+from collections.abc import Sequence
 import logging
 import importlib
 import re

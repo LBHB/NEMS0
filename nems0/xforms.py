@@ -1110,7 +1110,7 @@ def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
             log.info("Iter fitting: fit %d/%d, fold %d/%d",
                      fit_idx + 1, modelspec.fit_count,
                      jack_idx + 1, modelspec.jack_count)
-            modelspec = nems.analysis.api.fit_iteratively(
+            modelspec = nems0.analysis.api.fit_iteratively(
                         e, modelspec, fit_kwargs=fit_kwargs,
                         fitter=fitter_fn, module_sets=module_sets,
                         invert=invert, tolerances=tolerances,
@@ -1120,7 +1120,7 @@ def fit_iteratively(modelspec, est, tol_iter=100, fit_iter=20, IsReload=False,
     return {'modelspec': modelspec}
 
 
-def fit_wrapper(modelspec, est=None, fit_function='nems.analysis.api.fit_basic',
+def fit_wrapper(modelspec, est=None, fit_function='nems0.analysis.api.fit_basic',
                 fit_slices_start=None, IsReload=False, **context):
     """
     Wrapper to loop through all jackknifes, fits and output slices (if/when >1 of any)
@@ -1203,11 +1203,11 @@ def fit_nfold(modelspecs, est, tolerance=1e-7, max_iter=1000,
     raise Warning("DEPRECATED?")
     if not IsReload:
         metric = lambda d: getattr(metrics, metric)(d, 'pred', 'resp')
-        fitter_fn = getattr(nems.fitters.api, fitter)
+        fitter_fn = getattr(nems0.fitters.api, fitter)
         fit_kwargs = {'tolerance': tolerance, 'max_iter': max_iter}
         if fitter == 'coordinate_descent':
             fit_kwargs['step_size'] = 0.1
-        modelspecs = nems.analysis.api.fit_nfold(
+        modelspecs = nems0.analysis.api.fit_nfold(
                 est, modelspecs, fitter=fitter_fn,
                 fit_kwargs=fit_kwargs, analysis=analysis,
                 tolerances=tolerances, module_sets=module_sets,
@@ -1225,7 +1225,7 @@ def fit_n_times_from_random_starts(modelspecs, est, ntimes, subset,
         if len(modelspecs) > 1:
             raise NotImplementedError('I only work on 1 modelspec')
 
-        modelspecs = nems.analysis.api.fit_from_priors(
+        modelspecs = nems0.analysis.api.fit_from_priors(
                 est, modelspecs[0], ntimes=ntimes, subset=subset,
                 analysis=analysis, basic_kwargs=basic_kwargs
                 )
@@ -1248,13 +1248,13 @@ def predict(modelspec, est, val, est_list=None, val_list=None, jackknifed_fit=Fa
     # modelspecs = metrics.add_summary_statistics(est, val, modelspecs)
     # TODO: Add statistics to metadata of every modelspec
     if (val_list is None):
-        est, val = nems.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit, use_mask=use_mask)
+        est, val = nems0.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit, use_mask=use_mask)
         modelspec.recording = val
         return {'val': val, 'est': est, 'modelspec': modelspec}
     else:
         for cellidx,est,val in zip(range(len(est_list)),est_list,val_list):
             modelspec.set_cell(cellidx)
-            est, val = nems.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit, use_mask=use_mask)
+            est, val = nems0.analysis.api.generate_prediction(est, val, modelspec, jackknifed_fit=jackknifed_fit, use_mask=use_mask)
             modelspec.recording = val
             est_list[cellidx] = est
             val_list[cellidx] = val
@@ -1273,7 +1273,7 @@ def add_summary_statistics(est, val, modelspec, est_list=None, val_list=None, re
     if IsReload:
         return {}
 
-    corr_fn = getattr(nems.analysis.api, fn)
+    corr_fn = getattr(nems0.analysis.api, fn)
 
     if est_list is None:
         est_list=[est]
@@ -1438,16 +1438,16 @@ def random_sample_fit(ntimes=10, subset=None, IsReload=False, **context):
 # TODO: Perturb around the modelspec to get confidence intervals
 
 # TODO: Use simulated annealing (Slow, arguably gets stuck less often)
-# modelspecs = nems.analysis.fit_basic(est, modelspec,
-#                                   fitter=nems.fitter.annealing)
+# modelspecs = nems0.analysis.fit_basic(est, modelspec,
+#                                   fitter=nems0.fitter.annealing)
 
 # TODO: Use Metropolis algorithm (Very slow, gives confidence interval)
-# modelspecs = nems.analysis.fit_basic(est, modelspec,
-#                                   fitter=nems.fitter.metropolis)
+# modelspecs = nems0.analysis.fit_basic(est, modelspec,
+#                                   fitter=nems0.fitter.metropolis)
 
 # TODO: Use 10-fold cross-validated evaluation
-# fitter = partial(nems.cross_validator.cross_validate_wrapper, gradient_descent, 10)
-# modelspecs = nems.analysis.fit_cv(est, modelspec, folds=10)
+# fitter = partial(nems0.cross_validator.cross_validate_wrapper, gradient_descent, 10)
+# modelspecs = nems0.analysis.fit_cv(est, modelspec, folds=10)
 
 
 ###############################################################################
@@ -1467,7 +1467,7 @@ def xfspec_shortname(xformspec):
     """
     Given an xformspec, makes a shortname for it.
     """
-    n = len('nems.xforms.')
+    n = len('nems0.xforms.')
     fn_names = [xf[n:] for xf, xfa in xformspec]
     name = ".".join(fn_names)
     return name
@@ -1781,7 +1781,7 @@ def fit_random_subsets(modelspecs, est, nsplits,
     if not IsReload:
         if len(modelspecs) > 1:
             raise ValueError('I only work on 1 modelspec')
-        modelspecs = nems.analysis.api.fit_random_subsets(est,
+        modelspecs = nems0.analysis.api.fit_random_subsets(est,
                                                           modelspecs[0],
                                                           nsplits=nsplits)
     return {'modelspecs': modelspecs}
@@ -1793,7 +1793,7 @@ def fit_equal_subsets(modelspecs, est, nsplits,
     if not IsReload:
         if len(modelspecs) > 1:
             raise ValueError('I only work on 1 modelspec')
-        modelspecs = nems.analysis.api.fit_subsets(est,
+        modelspecs = nems0.analysis.api.fit_subsets(est,
                                                    modelspecs[0],
                                                    nsplits=nsplits)
     return {'modelspecs': modelspecs}
@@ -1805,7 +1805,7 @@ def fit_jackknifes(modelspecs, est, njacks,
     if not IsReload:
         if len(modelspecs) > 1:
             raise ValueError('I only work on 1 modelspec')
-        modelspecs = nems.analysis.api.fit_jackknifes(est,
+        modelspecs = nems0.analysis.api.fit_jackknifes(est,
                                                       modelspecs[0],
                                                       njacks=njacks)
     return {'modelspecs': modelspecs}
@@ -1819,7 +1819,7 @@ def fit_module_sets(modelspecs, est, max_iter=1000, IsReload=False,
         if len(modelspecs) > 1:
             raise NotImplementedError("Not supported for multiple modelspecs")
         modelspecs = [
-                nems.analysis.api.fit_module_sets(
+                nems0.analysis.api.fit_module_sets(
                         est, modelspec, fit_kwargs=fit_kwargs,
                         fitter=fitter, module_sets=module_sets,
                         invert=invert, tolerance=tolerance,

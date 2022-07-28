@@ -2,7 +2,7 @@ import codecs
 import os.path
 from setuptools import find_packages, setup
 
-NAME = 'NEMS'
+NAME = 'NEMS0'
 
 VERSION = '0.0.1a'
 
