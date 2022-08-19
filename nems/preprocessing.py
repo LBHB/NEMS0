@@ -831,15 +831,17 @@ def generate_psth_from_resp(rec, resp_sig='resp', epoch_regex='^(STIM_|TAR_|CAT_
     # figure out spont rate for subtraction from PSTH
     if np.sum(resp.epochs.name=='ITI')>0:
         spontname='ITI'
-    elif np.sum(resp.epochs.name=='PreStimSilence')>0:
-        spontname='PreStimSilence'
-    elif np.sum(resp.epochs.name=='TRIALPreStimSilence')>0:
+        prestimsilence = resp.extract_epoch(spontname, mask=mask)
+    elif np.sum(resp.epochs.name == 'TRIALPreStimSilence') > 0:
         # special case where the epochs included in mask don't have PreStimSilence,
         # so we get it elsewhere. Designed for CPN data...
-        spontname='TRIALPreStimSilence'
+        spontname = 'TRIALPreStimSilence'
+        prestimsilence = resp.extract_epoch(spontname)
+    elif np.sum(resp.epochs.name=='PreStimSilence')>0:
+        spontname='PreStimSilence'
+        prestimsilence = resp.extract_epoch(spontname, mask = mask)
     else:
         raise ValueError("Can't find pre-stim silence to use for PSTH calculation")
-    prestimsilence = resp.extract_epoch(spontname, mask=mask)
     if prestimsilence.shape[-1] > 0:
         if len(prestimsilence.shape) == 3:
             spont_rate = np.nanmean(prestimsilence, axis=(0, 2))
@@ -1257,6 +1259,7 @@ def resp_to_pc(rec, pc_idx=None, resp_sig='resp', pc_sig='pca',
         else:
             sd = np.ones(m.shape)
         D_ref = D_ref[np.sum(np.isfinite(D_ref),axis=1)>0,:]
+        sd[sd==0]=1
         D_ = (D_ref-m)/sd
 
         #import pdb;
@@ -1339,7 +1342,24 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], generate
                 p_raw = p_raw[:, :newrec['resp'].shape[1]]
         newrec["pupil"] = newrec["pupil"]._modified_copy(p)
         newrec["pupil_raw"] = newrec["pupil"]._modified_copy(p_raw)
-        
+
+        if any([s.startswith('pupil') for s in state_signals]):
+            # save raw pupil trace
+            # normalize min-max
+            p_raw = newrec["pupil"].as_continuous().copy()
+            # p[p < np.nanmax(p)/5] = np.nanmax(p)/5
+            # norm to mean 0, variance 1
+            p = p_raw - np.nanmean(p_raw)
+            p /= np.nanstd(p)
+            # hack to make sure state signal matches size of resp
+            if 'resp' in newrec.signals.keys():
+                # import pdb;pdb.set_trace()
+                if p.shape[1] > newrec['resp'].shape[1]:
+                    p = p[:, :newrec['resp'].shape[1]]
+                    p_raw = p_raw[:, :newrec['resp'].shape[1]]
+            newrec["pupil"] = newrec["pupil"]._modified_copy(p)
+            newrec["pupil_raw"] = newrec["pupil"]._modified_copy(p_raw)
+
         if 'pupiln' in state_signals:
             log.info('norm pupil min/max = 0/1')
             p = p - np.nanmin(p)
@@ -1406,6 +1426,19 @@ def make_state_signal(rec, state_signals=['pupil'], permute_signals=[], generate
         newrec['pupil_ev'].chans=['pupil_ev']
         newrec['pupil_bs'] = newrec["pupil"].replace_epoch('TRIAL', pupil_bs)
         newrec['pupil_bs'].chans=['pupil_bs']
+
+    # normalize mean/std of pupil trace if being used
+    if any([s.startswith('facepca') for s in state_signals]):
+        # save raw facepca trace
+        # normalize min-max
+        p_raw = newrec["facepca"].as_continuous().copy()
+        # p[p < np.nanmax(p)/5] = np.nanmax(p)/5
+        # norm to mean 0, variance 1
+        p = p_raw - np.nanmean(p_raw, axis=1, keepdims=True)
+        p /= np.nanstd(p, axis=1, keepdims=True)
+        # hack to make sure state signal matches size of resp
+        newrec["facepca"] = newrec["facepca"]._modified_copy(p)
+        newrec["facepca_raw"] = newrec["facepca"]._modified_copy(p_raw)
 
     if ('each_passive' in state_signals):
         file_epochs = ep.epoch_names_matching(resp.epochs, "^FILE_")
@@ -1816,8 +1849,9 @@ def add_noise_signal(rec, n_chans=None, T=None, noise_name="indep", ref_signal="
     
     # set seed to produce frozen noise
     save_state = np.random.get_state()
-    np.random.seed(rand_seed+n_chans+T)
-
+    rseed=rand_seed+n_chans+T
+    np.random.seed(rseed)
+    log.info(f"add_noise_signal: name={noise_name} using seed {rseed}")
     if distribution=='gaussian':
         d = np.random.randn(n_chans,T)
     elif distribution=='uniform':

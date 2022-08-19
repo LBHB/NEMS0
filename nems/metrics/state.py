@@ -98,7 +98,7 @@ def state_mod_index(rec, epoch='REFERENCE', psth_name='pred', divisor=None,
     #except IndexError:
     #    log.info('no %s epochs found. Trying TARGET instead', epoch)
     #    epoch = 'TARGET'
-    log.info('state_mod_index for {}, {}, {}'.format(psth_name,state_sig,state_chan))
+    log.debug('state_mod_index for {}, {}, {}'.format(psth_name,state_sig,state_chan))
     try:
         low, high = state_mod_split(rec, epoch=epoch, psth_name=psth_name,
                                 state_sig=state_sig, state_chan=state_chan)

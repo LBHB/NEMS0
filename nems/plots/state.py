@@ -400,7 +400,7 @@ def state_vars_psth_all(rec, epoch="REFERENCE", psth_name='resp', psth_name2='pr
     ax_remove_box(ax)
 
 
-def state_gain_plot(modelspec, rec, state_sig='state_raw', ax=None, colors=None, clim=None, title=None, **options):
+def state_gain_plot(modelspec, rec=None, idx=None, state_sig='state_raw', ax=None, colors=None, clim=None, title=None, **options):
 
     state_chan_list = rec[state_sig].chans
     state_idx = find_module('state', modelspec)
@@ -414,8 +414,6 @@ def state_gain_plot(modelspec, rec, state_sig='state_raw', ax=None, colors=None,
     else:
         d = modelspec.phi_mean[state_idx]['d']
         de = modelspec.phi_sem[state_idx]['d']
-
-
 
     MI = modelspec[0]['meta']['state_mod']
     state_chans = modelspec[0]['meta']['state_chans']
@@ -454,11 +452,49 @@ def state_gain_plot(modelspec, rec, state_sig='state_raw', ax=None, colors=None,
         ax.legend(('baseline', 'gain'), frameon=False)
         ax.plot(np.arange(len(state_chans)),np.zeros(len(state_chans)),'k--',
                  linewidth=0.5)
-    if title:
-        ax.title(title)
+
+    if title is None:
+        if 'id' in modelspec[idx].keys():
+            title = " " + modelspec[idx]['id']
+    if title is not None:
+        ax.text(ax.get_xlim()[0],ax.get_ylim()[1],title,
+                va='top',ha='left')
 
     ax_remove_box(ax)
 
+
+def state_gain_parameters(modelspec=None, idx=None, rec=None,
+                          ax=None, title=None, colors=None,
+                          **options):
+    phi = modelspec.phi[idx]
+    if rec is not None:
+        if 'state' in rec.signals.keys():
+            labels=rec['state'].chans
+        else:
+            labels=None
+    if 'g' in phi.keys():
+        x = phi['g']
+    elif 'd' in phi.keys():
+        x = phi['d']
+    else:
+        print(f'state_gain_parameters: nothing to plot for mod {idx}')
+        return
+
+    if ax is None:
+        ax = plt.gca()
+
+    ax.plot(x)
+    if labels is not None:
+        ax.legend(labels, frameon=False)
+    if title is None:
+        if 'id' in modelspec[idx].keys():
+            title = " " + modelspec[idx]['id']
+
+    if title is not None:
+        ax.text(ax.get_xlim()[0],ax.get_ylim()[1],title,
+                va='top',ha='left')
+
+    return ax
 
 def model_per_time(ctx, fit_idx=0):
     """

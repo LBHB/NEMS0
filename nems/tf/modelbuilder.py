@@ -114,7 +114,7 @@ def modelspec2tf(modelspec, seed=0, use_modelspec_init=True, fs=100,
         kernel_regularizer_ops = {}
         if len(regstr) > 2:
             if regstr[2] == 'firwc':
-                kernel_regularizer_ops['modulenames'] = ['weight_channels.basic', 'filter_bank']
+                kernel_regularizer_ops['modulenames'] = ['weight_channels.basic', 'filter_bank', 'fir.basic']
         else:
             kernel_regularizer_ops['modulenames'] = [
                 'weight_channels.basic', 'Conv2D', 'WeightChannelsNew', 'state_dc_gain']

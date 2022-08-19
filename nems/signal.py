@@ -1047,6 +1047,23 @@ class SignalBase:
             ax.set_ylabel('Channel')
 
         ax.set_title(self.name)
+        
+    def plot_raster(self, epoch="TRIAL", channel=None, ax=None):
+        
+        from nems.plots.raster import raster
+
+        if channel is None:
+            channel = 0
+
+        if channel in self.chans:
+            r_ = self.extract_channels([channel])
+            r = r_.extract_epoch(epoch)[:, 0, :]
+        else:
+            r = self.extract_epoch(epoch)[:, channel, :]
+
+        times = np.arange(r.shape[1]) / self.fs
+        title = f"{self.name} chan {channel} epoch {epoch} raster"
+        raster(times, r, ax=ax, title=title)
 
 
 class RasterizedSignal(SignalBase):

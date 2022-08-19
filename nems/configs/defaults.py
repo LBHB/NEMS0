@@ -122,6 +122,7 @@ def configure_logging(filename=None):
             'nems_db': {'level': 'INFO'},
             'nems': {'level': 'INFO'},
             'nems.analysis.fit_basic': {'level': 'INFO'},
+            'fontTools': {'level': 'WARNING'}
         },
         'root': {
             'handlers': ['console'],
