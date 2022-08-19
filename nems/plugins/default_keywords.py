@@ -1514,7 +1514,7 @@ def stategain(kw):
     if dc_only:
         template = {
             'fn': 'nems.modules.state.state_dc_gain',
-            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars, 'n_inputs': n_chans, 'g': g_mean,
+            'fn_kwargs': {'i': 'pred', 'o': 'pred', 's': state, 'chans': n_vars, 'n_inputs': n_chans, 'g': 0,
                           'state_type': 'dc_only',
                           'exclude_chans': exclude_chans},
             'plot_fns': plot_fns,

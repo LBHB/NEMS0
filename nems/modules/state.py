@@ -7,7 +7,7 @@ functions for applying state-related transformations
 import numpy as np
 
 
-def state_dc_gain(rec, i='pred', o='pred', s='state', include_lv=False, c=None, g=None, d=0,
+def state_dc_gain(rec, i='pred', o='pred', s='state', state_type='both', include_lv=False, c=None, g=None, d=0,
                   exclude_chans=None, per_channel=False, **kwargs):
     '''
     Linear DC/gain for each state applied to each predicted channel
@@ -34,6 +34,9 @@ def state_dc_gain(rec, i='pred', o='pred', s='state', include_lv=False, c=None, 
         def fn(x):
             st = np.concatenate((state, rec['lv']._data), axis=0)
             return np.matmul(g, st) * x + np.matmul(d, st)
+
+    elif state_type == 'dc_only':
+        fn = lambda x: x + np.matmul(d, state)
     else:
         fn = lambda x: np.matmul(g, state) * x + np.matmul(d, state)
 

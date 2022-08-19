@@ -929,12 +929,15 @@ class StateDCGain(BaseLayer):
         else:
             s_ = tf.identity(state_inputs)
         #import pdb;pdb.set_trace()
-        if self.per_channel:
+        if self.state_type == 'dc_only':
+            pass
+        elif self.per_channel:
             print(f'state gain per channel')
-            g_conv = s_ * tf.expand_dims(self.g, 0)            
+            g_conv = s_ * tf.expand_dims(self.g, 0)
         else:
             g_transposed = tf.transpose(self.g)
             g_conv = tf.nn.conv1d(s_, tf.expand_dims(g_transposed, 0), stride=1, padding='SAME')
+
         if self.state_type == 'gain_only':
             return inputs * g_conv
 
@@ -945,7 +948,10 @@ class StateDCGain(BaseLayer):
             d_transposed = tf.transpose(self.d)
             d_conv = tf.nn.conv1d(s_, tf.expand_dims(d_transposed, 0), stride=1, padding='SAME')
 
-        return inputs * g_conv + d_conv
+        if self.state_type == 'dc_only':
+            return inputs + d_conv
+        else:
+            return inputs * g_conv + d_conv
 
     def weights_to_phi(self):
         layer_values = self.layer_values

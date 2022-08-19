@@ -232,7 +232,7 @@ def average_away_epoch_occurrences(recording, epoch_regex='^STIM_', use_mask=Tru
         if data.shape[-1] != round(signal.fs * offset):
             raise ValueError('Misalignment issue in averaging signal')
 
-        averaged_signal = signal._modified_copy(data, epochs=new_epochs)
+        averaged_signal = signal.rasterize()._modified_copy(data, epochs=new_epochs)
         averaged_signals[signal_name] = averaged_signal
 
 #        # TODO: Eventually need a smarter check for this in case it's named

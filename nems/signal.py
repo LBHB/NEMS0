@@ -2069,6 +2069,42 @@ class RasterizedSignal(SignalBase):
         newsig.name = newsig.name + '_shuf'
         return newsig
 
+    def randroll_time(self, rand_seed=None, mask=None):
+        """
+        an alternative to shuffling, when temporal continuity is desired. rolls each channel in the signal a random
+        -forward or backwards- amount in time.
+        There is a minute risk that the roll will not be big enough or resonate with some periodicity in the data.
+        """
+        x = self._data.copy()  # Much faster; TODO: Test if throws warnings
+        arr = np.arange(x.shape[1])
+        if mask is None:
+            arr0 = arr[np.isfinite(x[0, :])]
+        else:
+            arr0 = arr[mask.as_continuous()[0, :].astype(bool) & np.isfinite(x[0, :])]
+
+        # defines base roll size based on the total shape of data to be rolled, ensures that the roll does not fall
+        # to close to the original data. Uses luck number 7 because. todo find something not magical
+        min_roll = int(arr0.shape[0] / 7)
+        max_roll = int(arr0.shape[0]*6 / 7)
+
+        if rand_seed is not None:
+            save_state = np.random.get_state()
+            np.random.seed(rand_seed)
+
+        for i in range(x.shape[0]):
+            # rolls each channel independently between (-max_rol, -min_rol] ; [min_rol, max_rol)
+            shift = (max_roll-min_roll) * np.random.random_sample() + min_roll # cont distribution [min, max)
+            flip = np.random.randint(0,2) * 2 - 1 # -1 or 1 to randomly flip directions
+            x[i, arr0] = np.roll(x[i, arr0], int(shift*flip))
+
+        if rand_seed is not None:
+            # restore random state
+            np.random.set_state(save_state)
+
+        newsig = self._modified_copy(x)
+        newsig.name = newsig.name + '_roll'
+        return newsig
+
     def nan_outliers(self, trim_outside_zscore=2.0):
         '''
         Tries to NaN out outliers from the signal. Outliers are defined
@@ -2540,6 +2576,14 @@ class TiledSignal(SignalBase):
         if safety_checks:
             if 'none' != normalization:
                 raise ValueError('normalization not supported for TiledSignal')
+
+    def _modified_copy(self, data, **kwargs):
+        '''
+        For internal use when making various immutable copies of this signal.
+        '''
+        attributes = self._get_attributes()
+        attributes.update(kwargs)
+        return TiledSignal(data=data, safety_checks=False, **attributes)
 
     def rasterize(self, fs=None):
         '''
