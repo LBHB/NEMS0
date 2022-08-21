@@ -559,6 +559,7 @@ def lookup_fn_at(fn_path, ignore_table=False):
     else:
         api, fn_name = split_to_api_and_fn(fn_path)
         api = api.replace('nems_db.xform','nems_lbhb.xform')
+        api = api.replace('nems.','nems0.')
         api_obj = importlib.import_module(api)
         if ignore_table:
             importlib.reload(api_obj)  # force overwrite old imports
