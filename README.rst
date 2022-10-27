@@ -14,7 +14,7 @@ NOTICE!!!!!
 ===========
 
 
-This repository is being phased out and replaced by a "lite" and much more user-friendly version of NEMS. If you need to maintain functionality of the orginal nems tools, you should install the nems_db libary, found here: <https://github.com/LBHB/nems_db/tree/nems0>
+This repository is being phased out and replaced by a "lite" and much more user-friendly version of NEMS at https://github.com/LBHB/NEMS. If you need to maintain functionality of the orginal nems tools, you should install the nems_db libary, found here: <https://github.com/LBHB/nems_db/tree/nems0>
 
 
 **THIS REPOSITORY IS NO LONGER BEING MAINTAINED**
