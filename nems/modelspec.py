@@ -1268,6 +1268,26 @@ class ModelSpec:
 
         return dstrf
 
+    def print_parameter_counts(self):
+        """Print number of parameter values for each phi in each module and the total."""
+        total = 0
+        for i, p in enumerate(self.phi):
+            fn = self.modules[i]['fn']
+            print(f"{fn}")
+            print('-'*len(fn))
+            if p is None: p = {}
+            this_total = 0
+            for k, v in p.items():
+                print(f'{k}:  {v.size}')
+                this_total += v.size
+            print('-'*len(fn))
+            print(f'Total:  {this_total}\n')
+            total += this_total
+
+        print(f'Grand Total:  {total}')
+
+
+
 def get_modelspec_metadata(modelspec):
     """Return a dict of the metadata for this modelspec.
 
