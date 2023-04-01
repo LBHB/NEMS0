@@ -10,17 +10,13 @@
     :target: https://github.com/LBHB/NEMS/blob/master/LICENSE.txt
     :alt: GitHub license
 
-NOTICE!!!!!
-===========
+NOTICE!!
+========
 
+This is an archived version of the Neural Encoding Model System (NEMS).
 
-This repository is being phased out and replaced by a "lite" and much more user-friendly version of NEMS at https://github.com/LBHB/NEMS. If you need to maintain functionality of the orginal nems tools, you should install the nems_db libary, found here: <https://github.com/LBHB/nems_db/tree/nems0>
+This repository is being phased out and replaced by a "lite" and more user-friendly version of NEMS at https://github.com/LBHB/NEMS. However, we are maintaining this repository to support analysis of some published data.
 
-
-**THIS REPOSITORY IS NO LONGER BEING MAINTAINED**
-
-Please don't use this repository unless you know what you're doing
-==================================================================
 
 
 NEMS
