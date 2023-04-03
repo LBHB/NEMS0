@@ -6,22 +6,22 @@ import logging
 import sys
 
 import nems
-import nems.initializers
-import nems.priors
-import nems.preprocessing as preproc
-import nems.modelspec as ms
-import nems.plots.api as nplt
-import nems.analysis.api
-import nems.utils
-import nems.uri
-import nems.xforms as xforms
-import nems.db as nd
-import nems.recording as recording
-from nems.fitters.api import scipy_minimize, coordinate_descent
-from nems.gui.editors import browse_xform_fit
+import nems0.initializers
+import nems0.priors
+import nems0.preprocessing as preproc
+import nems0.modelspec as ms
+import nems0.plots.api as nplt
+import nems0.analysis.api
+import nems0.utils
+import nems0.uri
+import nems0.xforms as xforms
+import nems0.db as nd
+import nems0.recording as recording
+from nems0.fitters.api import scipy_minimize, coordinate_descent
+from nems0.gui.editors import browse_xform_fit
 
-from nems.recording import Recording
-from nems.fitters.api import scipy_minimize
+from nems0.recording import Recording
+from nems0.fitters.api import scipy_minimize
 
 # ----------------------------------------------------------------------------
 # CONFIGURATION

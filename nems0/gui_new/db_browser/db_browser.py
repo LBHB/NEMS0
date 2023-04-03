@@ -6,8 +6,8 @@ from configparser import ConfigParser, DuplicateSectionError
 from PyQt5 import uic
 from PyQt5.QtWidgets import *
 
-from nems import get_setting
-from nems.gui_new.db_browser.ui_promoted import ListViewListModel
+from nems0 import get_setting
+from nems0.gui_new.db_browser.ui_promoted import ListViewListModel
 
 # TEMP ERROR CATCHER
 # Back up the reference to the exceptionhook

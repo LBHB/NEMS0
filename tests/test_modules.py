@@ -1,16 +1,16 @@
 #import pytest
 import numpy as np
 
-import nems.recording as recording
-import nems.signal as signal
-import nems.modules.stp as stp
-import nems.modules.fir as fir
+import nems0.recording as recording
+import nems0.signal as signal
+import nems0.modules.stp as stp
+import nems0.modules.fir as fir
 import matplotlib.pyplot as plt
 
 # ------------------------------------------------------------------------------
 # Weight channels
 # ------------------------------------------------------------------------------
-from nems.modules import weight_channels as wc
+from nems0.modules import weight_channels as wc
 
 
 def test_gaussian_coefficients():

@@ -1,4 +1,4 @@
-from nems.utils import escaped_split, escaped_join
+from nems0.utils import escaped_split, escaped_join
 
 
 def test_split_and_join():

@@ -3,10 +3,10 @@ import random
 import numpy as np
 from functools import partial
 import matplotlib.pyplot as plt
-import nems.epoch as ep
-import nems.modelspec as ms
-import nems.plots.api as nplt
-from nems.recording import Recording
+import nems0.epoch as ep
+import nems0.modelspec as ms
+import nems0.plots.api as nplt
+from nems0.recording import Recording
 
 # specify directories for loading data and fitted modelspec
 signals_dir = '../signals'

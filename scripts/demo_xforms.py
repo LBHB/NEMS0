@@ -4,12 +4,12 @@
 import logging
 import os
 
-import nems.db as nd
-import nems.gui.editors as gui
-import nems.modelspec as ms
-import nems.recording as recording
-import nems.uri
-import nems.xforms as xforms
+import nems0.db as nd
+import nems0.gui.editors as gui
+import nems0.modelspec as ms
+import nems0.recording as recording
+import nems0.uri
+import nems0.xforms as xforms
 
 # ----------------------------------------------------------------------------
 # CONFIGURATION

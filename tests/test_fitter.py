@@ -2,7 +2,7 @@ import pytest
 
 import numpy as np
 
-from nems.fitters.mappers import simple_vector, to_bounds_array
+from nems0.fitters.mappers import simple_vector, to_bounds_array
 
 
 def test_simple_vector_subset(simple_modelspec_with_phi):
@@ -122,14 +122,14 @@ def test_to_bounds_array():
 @pytest.fixture()
 def bounds_modelspec():
     modelspec = [
-            {"fn": "nems.modules.weight_channels.gaussian",
+            {"fn": "nems0.modules.weight_channels.gaussian",
              "fn_kwargs": {"i": "stim", "o": "pred", "n_chan_in": 18},
              "phi": {"mean": np.array([-0.024397602626293702,
                                        0.4698089169449159]),
                      "sd": np.array([0.8668943517628687,
                                      0.36811997663567037])}},
 
-            {"fn": "nems.modules.nonlinearity.double_exponential",
+            {"fn": "nems0.modules.nonlinearity.double_exponential",
              "fn_kwargs": {"i": "pred", "o": "pred"},
              "phi": {"amplitude": 2.071742144205505,
                      "base": -0.3911174879125417,

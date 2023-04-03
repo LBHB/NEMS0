@@ -4,9 +4,9 @@
 import logging
 import os
 
-import nems.db as nd
-import nems.uri
-import nems.xforms as xforms
+import nems0.db as nd
+import nems0.uri
+import nems0.xforms as xforms
 
 # ----------------------------------------------------------------------------
 # CONFIGURATION
@@ -14,8 +14,8 @@ import nems.xforms as xforms
 log = logging.getLogger(__name__)
 
 # figure out data and results paths:
-results_dir = nems.get_setting('NEMS_RESULTS_DIR')
-signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
+results_dir = nems0.get_setting('NEMS_RESULTS_DIR')
+signals_dir = nems0.get_setting('NEMS_RECORDINGS_DIR')
 
 # ----------------------------------------------------------------------------
 # DATA LOADING & PRE-PROCESSING
@@ -40,21 +40,21 @@ xforms_init_context['recording_uri_list'] = [datafile]
 # generate modelspec
 xfspec = []
 # load internally:
-xfspec.append(['nems.xforms.init_context', xforms_init_context])
-xfspec.append(['nems.xforms.load_recordings', {"save_other_cells_to_state": "population"}])
-xfspec.append(['nems.xforms.make_state_signal',
+xfspec.append(['nems0.xforms.init_context', xforms_init_context])
+xfspec.append(['nems0.xforms.load_recordings', {"save_other_cells_to_state": "population"}])
+xfspec.append(['nems0.xforms.make_state_signal',
               {'state_signals': state_signals, 'permute_signals': []}])
-xfspec.append(["nems.xforms.mask_all_but_correct_references", {}])
-xfspec.append(["nems.xforms.generate_psth_from_resp", {"smooth_resp": False, "use_as_input": True, "epoch_regex": "^STIM_"}])
-xfspec.append(['nems.xforms.init_from_keywords', {}])
-xfspec.append(['nems.xforms.mask_for_jackknife', jk_kwargs])
-#xfspec.append(['nems.xforms.fit_state_init', {}])
-xfspec.append(['nems.xforms.fit_basic', {}])
+xfspec.append(["nems0.xforms.mask_all_but_correct_references", {}])
+xfspec.append(["nems0.xforms.generate_psth_from_resp", {"smooth_resp": False, "use_as_input": True, "epoch_regex": "^STIM_"}])
+xfspec.append(['nems0.xforms.init_from_keywords', {}])
+xfspec.append(['nems0.xforms.mask_for_jackknife', jk_kwargs])
+#xfspec.append(['nems0.xforms.fit_state_init', {}])
+xfspec.append(['nems0.xforms.fit_basic', {}])
 
-xfspec.append(['nems.xforms.predict', {}])
-xfspec.append(['nems.xforms.add_summary_statistics', {}])
+xfspec.append(['nems0.xforms.predict', {}])
+xfspec.append(['nems0.xforms.add_summary_statistics', {}])
 # GENERATE PLOTS
-xfspec.append(['nems.xforms.plot_summary', {}])
+xfspec.append(['nems0.xforms.plot_summary', {}])
 
 # actually do the fit
 log_xf = "NO LOG"

@@ -1,5 +1,5 @@
 import numpy as np
-from nems.distributions.api import Normal, HalfNormal
+from nems0.distributions.api import Normal, HalfNormal
 
 
 # TODO: How do we integrate plotting tests?

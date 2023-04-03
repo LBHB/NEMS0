@@ -16,16 +16,16 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-import nems.analysis.api
-import nems.initializers
-import nems.recording as recording
-import nems.preprocessing as preproc
-import nems.uri
-from nems import xforms, xform_helper
-from nems.fitters.api import scipy_minimize
-#from nems.tf.cnnlink_new import fit_tf, fit_tf_init
+import nems0.analysis.api
+import nems0.initializers
+import nems0.recording as recording
+import nems0.preprocessing as preproc
+import nems0.uri
+from nems0 import xforms, xform_helper
+from nems0.fitters.api import scipy_minimize
+#from nems0.tf.cnnlink_new import fit_tf, fit_tf_init
 
-from nems.signal import RasterizedSignal
+from nems0.signal import RasterizedSignal
 
 log = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ signals_dir = Path(nems.NEMS_PATH) / 'recordings'
 modelspecs_dir = Path(nems.NEMS_PATH) / 'modelspecs'
 
 # LOAD AND FORMAT RECORDING DATA
-from nems.plugins.loaders import load_sadagopan
+from nems0.plugins.loaders import load_sadagopan
 fs=50
 cellid='MS_u0004_f0025'
 recname='MS_u0004'
@@ -134,7 +134,7 @@ log.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
 #       Compare performance of results with other metrics.
 
 # uncomment to browse the validation data
-#from nems.gui.editors import EditorWindow
+#from nems0.gui.editors import EditorWindow
 #ex = EditorWindow(modelspec=modelspec, rec=val)
 
 # Generate a summary plot

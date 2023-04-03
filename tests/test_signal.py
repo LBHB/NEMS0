@@ -5,8 +5,8 @@ import pytest
 import numpy as np
 from numpy import nan
 import pandas as pd
-import nems.signal
-from nems.signal import RasterizedSignal, merge_selections, _string_syntax_valid
+import nems0.signal
+from nems0.signal import RasterizedSignal, merge_selections, _string_syntax_valid
 
 
 @pytest.fixture()

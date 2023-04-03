@@ -3,9 +3,9 @@ import pytest
 import numpy as np
 import pandas as pd
 
-from nems.signal import RasterizedSignal
-from nems.recording import Recording
-from nems.preprocessing import average_away_epoch_occurrences
+from nems0.signal import RasterizedSignal
+from nems0.recording import Recording
+from nems0.preprocessing import average_away_epoch_occurrences
 
 
 def make_signal(signal_name='dummy_signal_1', recording_name='dummy_recording',

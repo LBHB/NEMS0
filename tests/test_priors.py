@@ -2,7 +2,7 @@ import pytest
 
 import numpy as np
 
-from nems.priors import set_percentile_bounds
+from nems0.priors import set_percentile_bounds
 
 
 @pytest.mark.xfail  # 'wc' option 'g' bounds changed after 4e77819

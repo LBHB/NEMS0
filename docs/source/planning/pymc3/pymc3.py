@@ -6,7 +6,7 @@ os.environ['MKL_THREADING_LAYER'] = 'GNU'
 import numpy as np
 import pymc3 as mc
 
-from nems.distributions.api import Normal, HalfNormal, Beta, Gamma
+from nems0.distributions.api import Normal, HalfNormal, Beta, Gamma
 
 
 prior_map = {

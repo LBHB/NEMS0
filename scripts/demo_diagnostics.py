@@ -4,18 +4,18 @@
 import os
 import logging
 import nems
-import nems.initializers
-import nems.priors
-import nems.preprocessing as preproc
-import nems.modelspec as ms
-import nems.plots.api as nplt
-import nems.analysis.api
-import nems.utils
-import nems.uri
-import nems.xforms as xforms
+import nems0.initializers
+import nems0.priors
+import nems0.preprocessing as preproc
+import nems0.modelspec as ms
+import nems0.plots.api as nplt
+import nems0.analysis.api
+import nems0.utils
+import nems0.uri
+import nems0.xforms as xforms
 
-from nems.recording import Recording
-from nems.fitters.api import scipy_minimize
+from nems0.recording import Recording
+from nems0.fitters.api import scipy_minimize
 
 # ----------------------------------------------------------------------------
 # CONFIGURATION
@@ -39,11 +39,11 @@ cellid='TAR010c-18-1'
 batch=271
 
 xfspec = []
-xfspec.append(['nems.xforms.load_recordings',
+xfspec.append(['nems0.xforms.load_recordings',
                {'recording_uri_list': recordings}])
-xfspec.append(['nems.xforms.split_by_occurrence_counts',
+xfspec.append(['nems0.xforms.split_by_occurrence_counts',
                {'epoch_regex': '^STIM_'}])
-xfspec.append(['nems.xforms.average_away_stim_occurrences', {}])
+xfspec.append(['nems0.xforms.average_away_stim_occurrences', {}])
 
 # MODEL SPEC
 # modelspecname = 'dlog_wcg18x1_stp1_fir1x15_lvl1_dexp1'
@@ -52,21 +52,21 @@ modelspecname = 'dlog_wcg18x1_fir1x15_lvl1_dexp1'
 
 meta = {'cellid': cellid, 'batch': batch, 'modelname': modelspecname}
 
-xfspec.append(['nems.xforms.init_from_keywords',
+xfspec.append(['nems0.xforms.init_from_keywords',
                {'keywordstring': modelspecname, 'meta': meta}])
 
-xfspec.append(['nems.xforms.fit_basic_init', {}])
-xfspec.append(['nems.xforms.fit_basic', {'maxiter': 1000, 'ftol': 1e-5}])
-# xfspec.append(['nems.xforms.fit_basic', {}])
-# xfspec.append(['nems.xforms.fit_iteratively', {}])
+xfspec.append(['nems0.xforms.fit_basic_init', {}])
+xfspec.append(['nems0.xforms.fit_basic', {'maxiter': 1000, 'ftol': 1e-5}])
+# xfspec.append(['nems0.xforms.fit_basic', {}])
+# xfspec.append(['nems0.xforms.fit_iteratively', {}])
 
-xfspec.append(['nems.xforms.predict',    {}])
-xfspec.append(['nems.analysis.api.standard_correlation', {},
+xfspec.append(['nems0.xforms.predict',    {}])
+xfspec.append(['nems0.analysis.api.standard_correlation', {},
                ['est', 'val', 'modelspecs', 'rec'], ['modelspecs']])
-# xfspec.append(['nems.xforms.add_summary_statistics',    {}])
+# xfspec.append(['nems0.xforms.add_summary_statistics',    {}])
 
 # GENERATE PLOTS
-xfspec.append(['nems.xforms.plot_summary',    {}])
+xfspec.append(['nems0.xforms.plot_summary',    {}])
 
 # actually do the fit
 ctx, log_xf = xforms.evaluate(xfspec)

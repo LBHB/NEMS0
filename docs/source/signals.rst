@@ -86,7 +86,7 @@ Loading a ``Signal`` from a file is trivial:
 
 .. code-block:: python
 
-    from nems.signal import Signal
+    from nems0.signal import Signal
     signal = Signal.load('path/to/my/signalfiles')
 
 Creating your own CSV files is pretty straightforward, but you need to
@@ -184,7 +184,7 @@ You should now be able to load the pupil signal by creating a file at
 
 .. code-block:: python
 
-    from nems.signal import Signal
+    from nems0.signal import Signal
 
     # Note that we don't append the suffix .json or .csv
     # because we are loading two files simultaneously
@@ -230,7 +230,7 @@ signal loader or subclass of ``Signal`` is completely acceptable.
 
 .. code-block:: python
 
-    from nems.signal import Signal
+    from nems0.signal import Signal
 
     numpy_array = load_my_custom_data_format(...)
 

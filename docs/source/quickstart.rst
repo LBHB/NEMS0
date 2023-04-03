@@ -53,7 +53,7 @@ people to use.
 
 .. code-block:: python
 
-    from nems.signal import Signal
+    from nems0.signal import Signal
 
     numpy_array = load_my_custom_data_format(...)
     sig = Signal(data=numpy_array,

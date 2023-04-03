@@ -2,8 +2,8 @@
 
 # This script runs nems.fit_single_model from the command line
 
-from nems import xform_helper
-from nems import xforms
+from nems0 import xform_helper
+from nems0 import xforms
 import sys
 import os
 

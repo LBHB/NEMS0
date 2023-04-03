@@ -2,24 +2,22 @@ import codecs
 import os.path
 from setuptools import find_packages, setup
 
-NAME = 'NEMS'
+NAME = 'NEMS0'
 
-VERSION = '0.0.1a'
+VERSION = '0.1.0'
 
 with codecs.open('README.rst', encoding='utf-8') as f:
     long_description = f.read()
 
 GENERAL_REQUIRES = ['numpy', 'scipy', 'matplotlib', 'pandas', 'requests',
-                    'h5py', 'sqlalchemy', 'configparser']
-# pycharm also requires: tornado
-# TF modules require tensorflow
+                    'h5py', 'sqlalchemy', 'configparser','jupyterlab','tensorflow==2.2','tornado']
 # GUI requires pyqt, pyqtgraph
 
 EXTRAS_REQUIRES = {
     'docs': ['sphinx', 'sphinx_rtd_theme', 'pygments-enaml', 'nbsphinx', 'pandoc', 'IPython', 
              'sphinx_copybutton'],
     'nwb': ['allensdk'],
-    'tensorflow': ['tensorflow==2.2', 'tensorboard'],
+    'tensorflow': ['tensorboard'],
     'tests': ['pytest', 'pytest-benchmark'],
     'gui': ['PyQt5', 'pyqtgraph']
 }

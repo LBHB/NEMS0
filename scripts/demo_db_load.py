@@ -6,10 +6,10 @@ Created on Tue Jan 23 10:11:40 2018
 @author: svd
 """
 
-import nems.plots.api as nplt
-import nems.db as nd
-import nems.xforms as xforms
-from nems.gui.recording_browser import browse_recording, browse_context
+import nems0.plots.api as nplt
+import nems0.db as nd
+import nems0.xforms as xforms
+from nems0.gui.recording_browser import browse_recording, browse_context
 
 cellid='TAR010c-18-1'
 batch=271

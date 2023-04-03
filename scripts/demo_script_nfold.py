@@ -7,18 +7,18 @@ import pandas as pd
 import pickle
 
 import nems
-import nems.initializers
-import nems.priors
-import nems.preprocessing as preproc
-import nems.modelspec as ms
-import nems.plots.api as nplt
-import nems.analysis.api
-import nems.utils
-import nems.uri
-import nems.recording as recording
-from nems.signal import RasterizedSignal
-from nems.fitters.api import scipy_minimize
-from nems.gui.recording_browser import browse_recording, browse_context
+import nems0.initializers
+import nems0.priors
+import nems0.preprocessing as preproc
+import nems0.modelspec as ms
+import nems0.plots.api as nplt
+import nems0.analysis.api
+import nems0.utils
+import nems0.uri
+import nems0.recording as recording
+from nems0.signal import RasterizedSignal
+from nems0.fitters.api import scipy_minimize
+from nems0.gui.recording_browser import browse_recording, browse_context
 
 log = logging.getLogger(__name__)
 

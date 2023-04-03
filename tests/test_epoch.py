@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-from nems.epoch import (epoch_union, epoch_difference, epoch_intersection,
+from nems0.epoch import (epoch_union, epoch_difference, epoch_intersection,
                         epoch_contains, epoch_contained, adjust_epoch_bounds,
                         remove_overlap, find_common_epochs, add_epoch)
 

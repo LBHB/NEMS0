@@ -4,11 +4,11 @@ import scipy
 
 from .timeseries import (timeseries_from_signals, timeseries_from_vectors,
                          ax_remove_box)
-import nems.modelspec as ms
-from nems.utils import get_channel_number, find_module
-from nems.metrics.state import state_mod_split
-from nems.plots.utils import ax_remove_box
-from nems.gui.decorators import scrollable 
+import nems0.modelspec as ms
+from nems0.utils import get_channel_number, find_module
+from nems0.metrics.state import state_mod_split
+from nems0.plots.utils import ax_remove_box
+from nems0.gui.decorators import scrollable
 from .file import save_figure, load_figure_img, load_figure_bytes, fig2BytesIO
 
 line_colors = {'actual_psth': (0,0,0),
@@ -406,7 +406,7 @@ def state_gain_plot(modelspec, rec=None, idx=None, state_sig='state_raw', ax=Non
     state_idx = find_module('state', modelspec)
     g = modelspec.phi_mean[state_idx]['g'].copy()
     ge = modelspec.phi_sem[state_idx]['g']
-    if modelspec[state_idx]['fn'] == 'nems.modules.state.state_gain':
+    if modelspec[state_idx]['fn'] == 'nems0.modules.state.state_gain':
         d = None
         de = None
         gainoffset = modelspec[state_idx]['fn_kwargs']['gainoffset']

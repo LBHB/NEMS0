@@ -12,19 +12,19 @@ import matplotlib.pyplot as plt
 USE_GUI=True
 
 if USE_GUI:
-    import nems.gui.editors as gui
-import nems.initializers
-import nems.epoch as ep
-import nems.priors
-import nems.preprocessing as preproc
-import nems.modelspec as ms
-import nems.plots.api as nplt
-import nems.analysis.api
-import nems.utils
-import nems.uri
-from nems import recording
-from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
-from nems.metrics.state import single_state_mod_index
+    import nems0.gui.editors as gui
+import nems0.initializers
+import nems0.epoch as ep
+import nems0.priors
+import nems0.preprocessing as preproc
+import nems0.modelspec as ms
+import nems0.plots.api as nplt
+import nems0.analysis.api
+import nems0.utils
+import nems0.uri
+from nems0 import recording
+from nems0.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
+from nems0.metrics.state import single_state_mod_index
 
 # ----------------------------------------------------------------------------
 # CONFIGURATION
@@ -114,7 +114,7 @@ modelname = 'stategain.S'
 meta = {'cellid': cellid, 'modelname': modelname}
 
 # Method #1: create from "shorthand" keyword string
-modelspec = nems.initializers.from_keywords(modelname, rec=rec, meta=meta,
+modelspec = nems0.initializers.from_keywords(modelname, rec=rec, meta=meta,
                                             #input_name='psth')
                                             input_name='psth_sp') #don't subtract spont mean w/allen?
 
@@ -137,7 +137,7 @@ est, val, m = preproc.mask_est_val_for_jackknife(rec, modelspecs=None,
 # RUN AN ANALYSIS
 
 # GOAL: Fit your model to your data, producing the improved modelspecs.
-#       Note that: nems.analysis.* will return a list of modelspecs, sorted
+#       Note that: nems0.analysis.* will return a list of modelspecs, sorted
 #       in descending order of how they performed on the fitter's metric.
 
 logging.info('Fitting modelspec(s)...')
@@ -146,7 +146,7 @@ modelspec.tile_jacks(nfolds)
 for jack_index, e in enumerate(est.views()):
     logging.info("Fitting JK {}/{}".format(jack_index+1, nfolds))
     modelspec.jack_index = jack_index
-    modelspec = nems.analysis.api.fit_basic(e, modelspec, fitter=scipy_minimize)
+    modelspec = nems0.analysis.api.fit_basic(e, modelspec, fitter=scipy_minimize)
 
 
 # ----------------------------------------------------------------------------
@@ -161,12 +161,12 @@ ms.save_modelspecs(modelspecs_dir, modelspec.fits())
 logging.info('Generating summary statistics...')
 
 # generate predictions
-est, val = nems.analysis.api.generate_prediction(est, val, modelspec)
+est, val = nems0.analysis.api.generate_prediction(est, val, modelspec)
 
 # evaluate prediction accuracy
-modelspec = nems.analysis.api.standard_correlation(est, val, modelspec)
+modelspec = nems0.analysis.api.standard_correlation(est, val, modelspec)
 #slow with allen data
-s = nems.metrics.api.state_mod_index(val, epoch='REFERENCE',
+s = nems0.metrics.api.state_mod_index(val, epoch='REFERENCE',
                                      psth_name='pred',
                                     state_sig='state', state_chan=[])
 
@@ -198,7 +198,7 @@ epoch_bounds = val['resp'].get_epoch_bounds('REFERENCE')
 possible_occurrences = np.arange(epoch_bounds.shape[1])
 occurrence = possible_occurrences[0]
 time_range = epoch_bounds[occurrence]
-nems.plots.timeseries.timeseries_from_signals(signals=[val['resp'], val['pred']], channels=0, no_legend=False, 
+nems0.plots.timeseries.timeseries_from_signals(signals=[val['resp'], val['pred']], channels=0, no_legend=False,
                                               time_range=time_range, rec=val, sig_name=None)
 
 if USE_GUI:

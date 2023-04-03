@@ -477,7 +477,7 @@ def group_epochs_by_occurrence_counts(epochs, regex=None):
     '''
     d = {}
     # Build a dict of n_occurrences -> [epoch_name1, epoch_name2, etc]
-    for row in epoch_occurrences(epochs, regex).iteritems():
+    for row in epoch_occurrences(epochs, regex).items():
         name, count = row
         if count in d:
             d[count].append(name)

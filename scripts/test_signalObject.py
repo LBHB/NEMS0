@@ -10,8 +10,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 sys.path.append('/auto/users/hellerc/NEMS/')
-from nems.utilities.baphy import baphy_load_dataset, spike_time_to_raster
-from nems.signal import Signal
+from nems0.utilities.baphy import baphy_load_dataset, spike_time_to_raster
+from nems0.signal import Signal
  
 # load data in first (create a spike/response matrix)
 parmfilepath = '/auto/data/daq/Tartufo/TAR010/TAR010c16_p_NAT.m'

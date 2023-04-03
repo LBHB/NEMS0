@@ -12,12 +12,12 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QApplication
 from PyQt5 import uic
 
-from nems import db as nd
-from nems.utils import lookup_fn_at, simple_search #, load_settings, save_settings
-import nems.xform_helper as xhelp
-from nems.gui_new.db_browser import model_browser
+from nems0 import db as nd
+from nems0.utils import lookup_fn_at, simple_search #, load_settings, save_settings
+import nems0.xform_helper as xhelp
+from nems0.gui_new.db_browser import model_browser
 
-from nems.db import Session, Tables, get_batch_cells
+from nems0.db import Session, Tables, get_batch_cells
 import matplotlib.pyplot as plt
 
 qt_creator_file = Path(r'ui') / 'tab_analysis.ui'
@@ -340,7 +340,7 @@ class AnalysisTab(QtBaseClass, Ui_Widget):
             model_comp_pareto(selectedModelname, batch=int(batch),
                               goodcells=selectedCellid)
         elif analysis_name == 'view':
-            import nems.gui.editors as editor
+            import nems0.gui.editors as editor
             xf, ctx = self.get_current_selection()
             self.ex = editor.EditorWidget(modelspec=ctx['modelspec'], rec=ctx['val'], xfspec=xf,
                                           ctx=ctx, parent=self)
@@ -355,7 +355,7 @@ class AnalysisTab(QtBaseClass, Ui_Widget):
         if new:
             self.mb = model_browser.MainWindow(ctx=ctx, xfspec=xf)
         else:
-            import nems.gui.editors as editor
+            import nems0.gui.editors as editor
             self.ex = editor.EditorWidget(modelspec=ctx['modelspec'], rec=ctx['val'], xfspec=xf,
                                           ctx=ctx, parent=self)
             self.ex.show()

@@ -19,10 +19,10 @@ from allensdk.brain_observatory.ecephys import nwb  # for compat
 import pynwb
 
 import nems
-from nems.recording import Recording
-from nems.signal import PointProcess, RasterizedSignal, SignalBase
-from nems.plots.raster import raster
-import nems.epoch as ep
+from nems0.recording import Recording
+from nems0.signal import PointProcess, RasterizedSignal, SignalBase
+from nems0.plots.raster import raster
+import nems0.epoch as ep
 
 
 #copied from nems lbhb  - edit for pupil data
@@ -140,7 +140,7 @@ def from_nwb_pupil(nwb_file, nwb_format,fs=20,with_pupil=False,running_speed=Fal
             epoch_df=epoch_df.append(df_copy,ignore_index=True)
             #expand epoch bounds epochs will overlap to test evoked potential
 #            to_adjust=epoch_df.loc[:,['start','end']].to_numpy()
-#            epoch_df.loc[:,['start','end']] = nems.epoch.adjust_epoch_bounds(to_adjust,-0.1,0.1)
+#            epoch_df.loc[:,['start','end']] = nems0.epoch.adjust_epoch_bounds(to_adjust,-0.1,0.1)
             
             
             # save the spike times as a point process signal frequency set to match other signals 

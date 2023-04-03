@@ -25,13 +25,13 @@ import pandas.io.sql as psql
 # SVD disabling defaults. Must have nems_config/Database_Info.py set up
 
 #import nems_config.defaults
-#from nems.utilities.print import web_print
+#from nems0.utilities.print import web_print
 #
 #try:
 #    import nems_config.Storage_Config as sc
 #    AWS = sc.USE_AWS
 #    # if AWS:
-#    #from nems.EC2_Mgmt import check_instance_count
+#    #from nems0.EC2_Mgmt import check_instance_count
 #except Exception as e:
 #    log.info(e)
 #    sc = nems_config.defaults.STORAGE_DEFAULTS

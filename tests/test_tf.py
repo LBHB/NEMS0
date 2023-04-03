@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from nems.modelspec import eval_ms_layer
-from nems.tf.cnnlink import eval_tf_layer
+from nems0.modelspec import eval_ms_layer
+from nems0.tf.cnnlink import eval_tf_layer
 
 
 @pytest.fixture()

@@ -16,7 +16,7 @@ people to use.
 
 ::
 
-    from nems.signal import Signal
+    from nems0.signal import Signal
 
     numpy_array = load_my_custom_data_format(...)
     sig = Signal(matrix=numpy_array, 

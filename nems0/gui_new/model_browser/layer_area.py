@@ -7,7 +7,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
-from nems.gui_new.model_browser.ui_promoted import PyPlotWidget, PG_PLOTS
+from nems0.gui_new.model_browser.ui_promoted import PyPlotWidget, PG_PLOTS
 
 
 log = logging.getLogger(__name__)

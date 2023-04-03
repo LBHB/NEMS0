@@ -41,7 +41,7 @@
 
 import time
 import skopt
-from nems.termination_condition import error_nondecreasing
+from nems0.termination_condition import error_nondecreasing
 
 per_module_fitters = {'nems.modules.fir': skopt.gp_minimize,
                       'nems.modules.nl/dexp': nems.fitters.take_greedy_10_steps}

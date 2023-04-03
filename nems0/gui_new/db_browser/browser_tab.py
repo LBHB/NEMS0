@@ -7,10 +7,10 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
-from nems import xform_helper, xforms
-from nems.gui import editors
-from nems.gui_new.db_browser.ui_promoted import ListViewListModel
-from nems.utils import lookup_fn_at
+from nems0 import xform_helper, xforms
+from nems0.gui import editors
+from nems0.gui_new.db_browser.ui_promoted import ListViewListModel
+from nems0.utils import lookup_fn_at
 
 log = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 import pytest
 
-from nems.modelspec import get_best_modelspec, sort_modelspecs
+from nems0.modelspec import get_best_modelspec, sort_modelspecs
 
 
 @pytest.fixture()

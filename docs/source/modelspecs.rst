@@ -164,7 +164,7 @@ For example,
 
 .. code-block:: python
 
-    import defaults import nems.keywords.api
+    import defaults import nems0.keywords.api
 
     my_registry = {'mork1': {'fn': 'nems.modules.mork.spork',
                              'api': 'weight_channels',

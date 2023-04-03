@@ -4,10 +4,10 @@
 import logging
 import os
 
-from nems import recording
-import nems.db as nd
-import nems.uri
-import nems.xforms as xforms
+from nems0 import recording
+import nems0.db as nd
+import nems0.uri
+import nems0.xforms as xforms
 
 # ----------------------------------------------------------------------------
 # GLOBAL CONFIGURATION
@@ -15,8 +15,8 @@ import nems.xforms as xforms
 log = logging.getLogger(__name__)
 
 # figure out data and results paths:
-results_dir = nems.get_setting('NEMS_RESULTS_DIR')
-signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
+results_dir = nems0.get_setting('NEMS_RESULTS_DIR')
+signals_dir = nems0.get_setting('NEMS_RECORDINGS_DIR')
 
 # ----------------------------------------------------------------------------
 # DATA LOADING & PRE-PROCESSING
@@ -106,5 +106,5 @@ log.info('Saving metadata to db  ...')
 nd.update_results_table(modelspec)
 
 # illustrate dstrf analysis
-from nems.demo import dstrf
+from nems0.demo import dstrf
 f,d = dstrf.dstrf_sample(ctx=ctx, cellid='TAR010c-18-2')

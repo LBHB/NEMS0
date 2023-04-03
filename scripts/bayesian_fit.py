@@ -1,10 +1,10 @@
 import numpy as np
 
-from nems.signal import load_signals_in_dir
-from nems.model import Model
-from nems.modules.api import (WeightChannelsGaussian, FIR, DoubleExponential)
+from nems0.signal import load_signals_in_dir
+from nems0.model import Model
+from nems0.modules.api import (WeightChannelsGaussian, FIR, DoubleExponential)
 
-from nems.fitters import bayes_fitter as bf
+from nems0.fitters import bayes_fitter as bf
 
 
 if __name__ == '__main__':

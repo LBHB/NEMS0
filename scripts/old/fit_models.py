@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
-import nems.uri
-import nems.xforms as xforms
+import nems0.uri
+import nems0.xforms as xforms
 
 # Rough test of fitting all recordings in a uri:
 

@@ -2,8 +2,8 @@ import pytest
 
 import numpy as np
 
-import nems.xforms as xforms
-import nems.modelspec as ms
+import nems0.xforms as xforms
+import nems0.modelspec as ms
 
 ###############################################################################
 ##################        CONTEXT UTILITIES             #######################
@@ -12,21 +12,21 @@ import nems.modelspec as ms
 @pytest.fixture
 def context():
     modelspecname = 'fir.1x15-lvl.1'
-    load_command = 'nems.demo.loaders.dummy_loader'
+    load_command = 'nems0.demo.loaders.dummy_loader'
     meta = {'cellid': "DUMMY01", 'batch': 0, 'modelname': modelspecname,
             'exptid': "DUMMY"}
 
     xfspec = []
-    xfspec.append(['nems.xforms.load_recording_wrapper',
+    xfspec.append(['nems0.xforms.load_recording_wrapper',
                    {'load_command': load_command, 'exptid': meta['exptid'],
                     'save_cache': False}])
-    xfspec.append(['nems.xforms.split_at_time',
+    xfspec.append(['nems0.xforms.split_at_time',
                    {'valfrac': 0.2}])
-    xfspec.append(['nems.xforms.init_from_keywords',
+    xfspec.append(['nems0.xforms.init_from_keywords',
                    {'keywordstring': modelspecname, 'meta': meta}])
-    xfspec.append(['nems.xforms.fit_basic', {}])
-    xfspec.append(['nems.xforms.predict', {}])
-    xfspec.append(['nems.xforms.add_summary_statistics', {}])
+    xfspec.append(['nems0.xforms.fit_basic', {}])
+    xfspec.append(['nems0.xforms.predict', {}])
+    xfspec.append(['nems0.xforms.add_summary_statistics', {}])
 
     ctx = {}
     ctx, xf_log = xforms.evaluate(xfspec, ctx)

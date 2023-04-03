@@ -1,8 +1,8 @@
 import tensorflow as tf
 import logging
 
-from nems.tf import loss_functions
-from nems.utils import lookup_fn_at
+from nems0.tf import loss_functions
+from nems0.utils import lookup_fn_at
 
 log = logging.getLogger(__name__)
 
@@ -105,7 +105,7 @@ def modelspec2tf(modelspec, seed=0, use_modelspec_init=True, fs=100,
                  initializer='random_normal',
                  freeze_layers=None, kernel_regularizer=None):
     """
-    Was in nems.modelspec, but this is so tightly coupled to tf libraries that
+    Was in nems0.modelspec, but this is so tightly coupled to tf libraries that
     it probably belongs here instead.
 
     """

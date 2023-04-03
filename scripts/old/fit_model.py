@@ -1,5 +1,5 @@
 import sys
-import nems.xforms as xforms
+import nems0.xforms as xforms
 
 
 def fit_model(recording_uri, modelstring, destination):

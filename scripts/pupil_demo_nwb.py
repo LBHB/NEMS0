@@ -20,19 +20,19 @@ import matplotlib.pyplot as plt
 USE_GUI=False
 
 if USE_GUI:
-    import nems.gui.editors as gui
-import nems.initializers
-import nems.epoch as ep
-import nems.priors
-import nems.preprocessing as preproc
-import nems.modelspec as ms
-import nems.plots.api as nplt
-import nems.analysis.api
-import nems.utils
-import nems.uri
-from nems import recording
-from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
-from nems.metrics.state import single_state_mod_index
+    import nems0.gui.editors as gui
+import nems0.initializers
+import nems0.epoch as ep
+import nems0.priors
+import nems0.preprocessing as preproc
+import nems0.modelspec as ms
+import nems0.plots.api as nplt
+import nems0.analysis.api
+import nems0.utils
+import nems0.uri
+from nems0 import recording
+from nems0.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
+from nems0.metrics.state import single_state_mod_index
 
 #from nwb recording fns:
 from pathlib import Path
@@ -48,10 +48,10 @@ from allensdk.brain_observatory.ecephys import nwb  # for compat
 import pynwb
 
 import nems
-from nems.recording import Recording
-from nems.signal import PointProcess, RasterizedSignal, SignalBase
-from nems.plots.raster import raster
-import nems.epoch as ep
+from nems0.recording import Recording
+from nems0.signal import PointProcess, RasterizedSignal, SignalBase
+from nems0.plots.raster import raster
+import nems0.epoch as ep
 
 
 #copied from nems lbhb  - edit for pupil data
@@ -169,7 +169,7 @@ def from_nwb_pupil(nwb_file, nwb_format,fs=20,with_pupil=False,running_speed=Fal
             epoch_df=epoch_df.append(df_copy,ignore_index=True)
             #expand epoch bounds epochs will overlap to test evoked potential
 #            to_adjust=epoch_df.loc[:,['start','end']].to_numpy()
-#            epoch_df.loc[:,['start','end']] = nems.epoch.adjust_epoch_bounds(to_adjust,-0.1,0.1)
+#            epoch_df.loc[:,['start','end']] = nems0.epoch.adjust_epoch_bounds(to_adjust,-0.1,0.1)
             
             
             # save the spike times as a point process signal frequency set to match other signals 
@@ -364,7 +364,7 @@ modelname = 'stategain.S'
 meta = {'cellid': cellid, 'modelname': modelname}
 
 # Method #1: create from "shorthand" keyword string
-modelspec = nems.initializers.from_keywords(modelname, rec=rec, meta=meta,
+modelspec = nems0.initializers.from_keywords(modelname, rec=rec, meta=meta,
                                             input_name='psth_sp')
 #don't subtract spont mean w/allen?
 
@@ -387,7 +387,7 @@ est, val, m = preproc.mask_est_val_for_jackknife(rec, modelspecs=None,
 # RUN AN ANALYSIS
 
 # GOAL: Fit your model to your data, producing the improved modelspecs.
-#       Note that: nems.analysis.* will return a list of modelspecs, sorted
+#       Note that: nems0.analysis.* will return a list of modelspecs, sorted
 #       in descending order of how they performed on the fitter's metric.
 
 logging.info('Fitting modelspec(s)...')

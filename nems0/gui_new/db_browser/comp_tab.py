@@ -7,7 +7,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
-from nems.gui_new.db_browser.ui_promoted import CompModel, ListViewListModel
+from nems0.gui_new.db_browser.ui_promoted import CompModel, ListViewListModel
 
 log = logging.getLogger(__name__)
 

@@ -4,10 +4,10 @@
 import logging
 import os
 
-from nems import recording
-import nems.db as nd
-import nems.uri
-import nems.xforms as xforms
+from nems0 import recording
+import nems0.db as nd
+import nems0.uri
+import nems0.xforms as xforms
 
 # ----------------------------------------------------------------------------
 # GLOBAL CONFIGURATION

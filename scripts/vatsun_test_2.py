@@ -17,15 +17,15 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Qt5Agg")
 
-import nems.analysis.api
-import nems.initializers
-import nems.recording as recording
-import nems.preprocessing as preproc
-import nems.uri
-from nems.fitters.api import scipy_minimize
-#from nems.tf.cnnlink_new import fit_tf, fit_tf_init
+import nems0.analysis.api
+import nems0.initializers
+import nems0.recording as recording
+import nems0.preprocessing as preproc
+import nems0.uri
+from nems0.fitters.api import scipy_minimize
+#from nems0.tf.cnnlink_new import fit_tf, fit_tf_init
 
-from nems.signal import RasterizedSignal
+from nems0.signal import RasterizedSignal
 
 log = logging.getLogger(__name__)
 
@@ -154,7 +154,7 @@ log.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
 log.info('Generating summary plot ...')
 
 # uncomment to browse the validation data
-#from nems.gui.editors import EditorWindow
+#from nems0.gui.editors import EditorWindow
 #ex = EditorWindow(modelspec=modelspec, rec=val)
 
 # Generate a summary plot

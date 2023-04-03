@@ -35,7 +35,7 @@ install:
   - python setup.py develop
 
 before_script:
-  - python -c "import nems.recording; nems.recording.get_demo_recordings('recordings')"
+  - python -c "import nems0.recording; nems0.recording.get_demo_recordings('recordings')"
 
 script:
   - pytest tests

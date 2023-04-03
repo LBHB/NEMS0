@@ -1,7 +1,7 @@
 ################################################################################
 ## Test that shows them all with similar parameters
 # import matplotlib.pyplot as plt
-# from nems.modules.nonlinearity import _double_exponential, _quick_sigmoid, _tanh, _logistic_sigmoid
+# from nems0.modules.nonlinearity import _double_exponential, _quick_sigmoid, _tanh, _logistic_sigmoid
 
 # base = 1
 # amplitude = 2

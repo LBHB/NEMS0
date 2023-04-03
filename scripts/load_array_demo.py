@@ -17,10 +17,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-from nems.recording import load_recording, get_demo_recordings
-import nems.plots.api as nplt
-import nems.epoch as ep
-from nems import get_setting
+from nems0.recording import load_recording, get_demo_recordings
+import nems0.plots.api as nplt
+import nems0.epoch as ep
+from nems0 import get_setting
 
 font_size=12
 params = {'legend.fontsize': font_size-2,

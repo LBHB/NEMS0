@@ -1,6 +1,6 @@
 import os
-import nems.uri
-from nems.recording import get_demo_recordings
+import nems0.uri
+from nems0.recording import get_demo_recordings
 
 # NOTE to LBHB team:
 #    If additional sample data is added in the future, just

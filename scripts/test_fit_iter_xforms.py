@@ -1,4 +1,4 @@
-from nems.xform_helper import fit_model_xforms
+from nems0.xform_helper import fit_model_xforms
 
 recording_uri = '/auto/users/jacob/nems/recordings/TAR010c-18-1.tar.gz'
 modelname = 'ozgf100ch18_wcg18x1_fir1x15_lvl1_dexp1_'

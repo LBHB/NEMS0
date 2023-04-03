@@ -6,9 +6,9 @@ import logging
 
 #matplotlib.use('Qt5Agg')
 
-import nems.gui.editors as gui
-from nems.xform_helper import fit_model_xform, load_model_xform
-from nems import recording, get_setting
+import nems0.gui.editors as gui
+from nems0.xform_helper import fit_model_xform, load_model_xform
+from nems0 import recording, get_setting
 
 log = logging.getLogger(__name__)
 

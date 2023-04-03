@@ -5,8 +5,8 @@ import pytest
 
 from tensorflow import config
 
-from nems.modelspec import eval_ms_layer
-from nems.tf.cnnlink_new import eval_tf_layer
+from nems0.modelspec import eval_ms_layer
+from nems0.tf.cnnlink_new import eval_tf_layer
 
 
 @pytest.fixture()

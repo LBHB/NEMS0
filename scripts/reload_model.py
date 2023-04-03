@@ -1,6 +1,6 @@
 import sys
-import nems.xforms as xforms
-from nems.uri import load_resource
+import nems0.xforms as xforms
+from nems0.uri import load_resource
 
 
 def reload_model(model_uri):

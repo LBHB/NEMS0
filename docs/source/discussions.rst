@@ -8,7 +8,7 @@ up the way that they did. It is probably not useful to non-developers.
 DB ACCESS
 ---------
 
-Direct mysql DB access from NEMS is forbidden; instead, assume you have
+Direct mysql DB access from nems0 is forbidden; instead, assume you have
 the files on disk (they can be fetched via HTTP, jerbs, DAT, or
 whatever)
 

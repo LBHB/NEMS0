@@ -4,12 +4,12 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-import nems.recording as recording
-import nems.plots.api as nplt
-import nems.epoch as ep
-import nems
+import nems0.recording as recording
+import nems0.plots.api as nplt
+import nems0.epoch as ep
+import nems0
 
-signals_dir = nems.get_setting('NEMS_RECORDINGS_DIR')
+signals_dir = nems0.get_setting('NEMS_RECORDINGS_DIR')
 
 #uri = signals_dir + "/por074b-c2.tgz"
 #uri = signals_dir + "/BRT026c-02-1.tgz"

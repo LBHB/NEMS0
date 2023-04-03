@@ -2,9 +2,9 @@ import pytest
 
 import numpy as np
 
-from nems.recording import Recording
-from nems.initializers import from_keywords
-from nems.priors import set_mean_phi
+from nems0.recording import Recording
+from nems0.initializers import from_keywords
+from nems0.priors import set_mean_phi
 
 
 @pytest.fixture

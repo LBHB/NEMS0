@@ -19,21 +19,21 @@ if force_SDB:
     os.environ['OPENBLAS_VERBOSE'] = '2'
     os.environ['OPENBLAS_CORETYPE'] = 'sandybridge'
 
-import nems.xform_helper as xhelp
-import nems.utils
-from nems.uri import save_resource
-from nems import get_setting
+import nems0.xform_helper as xhelp
+import nems0.utils
+from nems0.uri import save_resource
+from nems0 import get_setting
 
 if force_SDB:
     log.info('Setting OPENBLAS_CORETYPE to sandybridge')
 
 try:
-    import nems.db as nd
+    import nems0.db as nd
     db_exists = True
 except Exception as e:
-    # If there's an error import nems.db, probably missing database
+    # If there's an error import nems0.db, probably missing database
     # dependencies. So keep going but don't do any database stuff.
-    print("Problem importing nems.db, can't update tQueue")
+    print("Problem importing nems0.db, can't update tQueue")
     print(e)
     db_exists = False
 
@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
     if 'QUEUEID' in os.environ:
         queueid = os.environ['QUEUEID']
-        nems.utils.progress_fun = nd.update_job_tick
+        nems0.utils.progress_fun = nd.update_job_tick
 
         if 'SLURM_JOB_ID' in os.environ:
             jobid = os.environ['SLURM_JOB_ID']

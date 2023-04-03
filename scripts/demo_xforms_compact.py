@@ -4,18 +4,18 @@
 import os
 import logging
 import nems
-import nems.initializers
-import nems.priors
-import nems.preprocessing as preproc
-import nems.modelspec as ms
-import nems.plots.api as nplt
-import nems.analysis.api
-import nems.utils
-import nems.uri
-import nems.xforms as xforms
+import nems0.initializers
+import nems0.priors
+import nems0.preprocessing as preproc
+import nems0.modelspec as ms
+import nems0.plots.api as nplt
+import nems0.analysis.api
+import nems0.utils
+import nems0.uri
+import nems0.xforms as xforms
 
-from nems.recording import Recording
-from nems.fitters.api import scipy_minimize
+from nems0.recording import Recording
+from nems0.fitters.api import scipy_minimize
 
 # ----------------------------------------------------------------------------
 # CONFIGURATION
@@ -50,8 +50,8 @@ ctx, log_xf = xforms.evaluate(xfspec) # evaluate the fit script
 
 """
 Simplified:
-import nems.recording as recording
-import nems.xforms as xforms
+import nems0.recording as recording
+import nems0.xforms as xforms
     
 recording.get_demo_recordings("/data/recordings/")
 recordings = ["/data/recordings/TAR010c-18-1.tgz"]

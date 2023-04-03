@@ -5,19 +5,19 @@ import os
 import logging
 import pandas as pd
 import pickle
-#from nems.gui.recording_browser import browse_recording, browse_context
+#from nems0.gui.recording_browser import browse_recording, browse_context
 import nems
-import nems.initializers
-import nems.priors
-import nems.preprocessing as preproc
-import nems.modelspec as ms
-import nems.plots.api as nplt
-import nems.analysis.api
-import nems.utils
-import nems.uri
-import nems.recording as recording
-from nems.signal import RasterizedSignal
-from nems.fitters.api import scipy_minimize
+import nems0.initializers
+import nems0.priors
+import nems0.preprocessing as preproc
+import nems0.modelspec as ms
+import nems0.plots.api as nplt
+import nems0.analysis.api
+import nems0.utils
+import nems0.uri
+import nems0.recording as recording
+from nems0.signal import RasterizedSignal
+from nems0.fitters.api import scipy_minimize
 
 log = logging.getLogger(__name__)
 
@@ -26,8 +26,8 @@ log = logging.getLogger(__name__)
 
 
 # figure out data and results paths:
-signals_dir = nems.NEMS_PATH + '/recordings'
-modelspecs_dir = nems.NEMS_PATH + '/modelspecs'
+signals_dir = nems0.NEMS_PATH + '/recordings'
+modelspecs_dir = nems0.NEMS_PATH + '/modelspecs'
 recording.get_demo_recordings(signals_dir)
 
 pkl_file=signals_dir + "/TAR010c-18-1.pkl"
@@ -72,7 +72,7 @@ modelspec_name='wc.18x2.g-fir.2x15-lvl.1'
 # record some meta data for display and saving
 meta = {'cellid': cellid, 'batch': 271,
         'modelname': modelspec_name, 'recording': cellid}
-modelspec = nems.initializers.from_keywords(modelspec_name, meta=meta)
+modelspec = nems0.initializers.from_keywords(modelspec_name, meta=meta)
 
 
 
@@ -80,21 +80,21 @@ modelspec = nems.initializers.from_keywords(modelspec_name, meta=meta)
 # RUN AN ANALYSIS
 
 # GOAL: Fit your model to your data, producing the improved modelspecs.
-#       Note that: nems.analysis.* will return a list of modelspecs, sorted
+#       Note that: nems0.analysis.* will return a list of modelspecs, sorted
 #       in descending order of how they performed on the fitter's metric.
 
 log.info('Fitting modelspec(s)...')
 
 # quick fit linear part first to avoid local minima
-modelspec = nems.initializers.prefit_to_target(
-        est, modelspec, nems.analysis.api.fit_basic,
+modelspec = nems0.initializers.prefit_to_target(
+        est, modelspec, nems0.analysis.api.fit_basic,
         target_module='levelshift',
         fitter=scipy_minimize,
         fit_kwargs={'options': {'ftol': 1e-4, 'maxiter': 500}})
 
 
 # then fit full nonlinear model
-modelspecs = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
+modelspecs = nems0.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
 
 # ----------------------------------------------------------------------------
 # GENERATE SUMMARY STATISTICS
@@ -102,10 +102,10 @@ modelspecs = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
 log.info('Generating summary statistics...')
 
 # generate predictions
-est, val = nems.analysis.api.generate_prediction(est, val, modelspecs)
+est, val = nems0.analysis.api.generate_prediction(est, val, modelspecs)
 
 # evaluate prediction accuracy
-modelspecs = nems.analysis.api.standard_correlation(est, val, modelspecs)
+modelspecs = nems0.analysis.api.standard_correlation(est, val, modelspecs)
 
 log.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
         modelspecs[0][0]['meta']['r_fit'][0],

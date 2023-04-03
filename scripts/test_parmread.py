@@ -12,30 +12,30 @@ import re
 import numpy as np
 import scipy.io
 import scipy.stats
-#import nems.recording as Recording
+#import nems0.recording as Recording
 import pandas as pd
 import matplotlib.pyplot as plt
 
-import nems.utilities.baphy
-import nems.signal
+import nems0.utilities.baphy
+import nems0.signal
 
 # figure out filepath for demo files
 USE_LOCAL_DATA=False
 if USE_LOCAL_DATA:
-    nems_path=os.path.dirname(nems.utilities.__file__)
+    nems_path=os.path.dirname(nems0.utilities.__file__)
     t=nems_path.split('/')
     nems_root='/'.join(t[:-2]) + '/'
-    nems.utilities.baphy.stim_cache_dir=nems_root+'signals/baphy_example/'
-    nems.utilities.baphy.spk_subdir=''
+    nems0.utilities.baphy.stim_cache_dir=nems_root+'signals/baphy_example/'
+    nems0.utilities.baphy.spk_subdir=''
 
 USE_DB=True
 if USE_DB:
-    import nems.db as nd
+    import nems0.db as nd
 
 # Nat sound + pupil example
 #cellid='TAR010c-CC-U'
 #if USE_LOCAL_DATA:
-#    parmfilepath=nems.utilities.baphy.stim_cache_dir+'TAR010c16_p_NAT.m'
+#    parmfilepath=nems0.utilities.baphy.stim_cache_dir+'TAR010c16_p_NAT.m'
 #else:
 #    parmfilepath='/auto/data/daq/Tartufo/TAR010/TAR010c16_p_NAT.m'
 #    options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf', 'chancount': 18, 'cellid': 'all', 'pupil': True}
@@ -57,11 +57,11 @@ if USE_DB:
 #parmfilepath='/auto/data/daq/Oyster/oys035/oys035b04_p_RDT.m'
 #options={'rasterfs': 100, 'includeprestim': True, 'stimfmt': 'ozgf', 'chancount': 18, 
 #         'cellid': cellid, 'pertrial': True}
-#event_times, spike_dict, stim_dict, stim1_dict, stim2_dict, state_dict = nems.utilities.baphy.baphy_load_recording_RDT(parmfilepath,options)
+#event_times, spike_dict, stim_dict, stim1_dict, stim2_dict, state_dict = nems0.utilities.baphy.baphy_load_recording_RDT(parmfilepath,options)
 
 
 # Behavior example
-import nems.signal
+import nems0.signal
 
 cellid='BRT007c-a1'
 #cellid='bbl071d-a2'
@@ -87,10 +87,10 @@ options={'rasterfs': 20, 'includeprestim': True, 'stimfmt': 'parm',
 
 for i,parmfilepath in enumerate(files):
     
-    event_times, spike_dict, stim_dict, state_dict = nems.utilities.baphy.baphy_load_recording(parmfilepath,options)
+    event_times, spike_dict, stim_dict, state_dict = nems0.utilities.baphy.baphy_load_recording(parmfilepath,options)
     
     # generate spike raster
-    raster_all,cellids=nems.utilities.baphy.spike_time_to_raster(spike_dict,fs=options['rasterfs'],event_times=event_times)
+    raster_all,cellids=nems0.utilities.baphy.spike_time_to_raster(spike_dict,fs=options['rasterfs'],event_times=event_times)
     
     rlen=raster_all.shape[1]
     plen=state_dict['pupiltrace'].shape[1]
@@ -100,10 +100,10 @@ for i,parmfilepath in enumerate(files):
         state_dict['pupiltrace']=state_dict['pupiltrace'][:,0:-(rlen-plen)]
         
     # generate response signal
-    t_resp=nems.signal.Signal(fs=options['rasterfs'],matrix=raster_all,name='resp',recording=cellid,chans=cellids,epochs=event_times)
+    t_resp=nems0.signal.Signal(fs=options['rasterfs'],matrix=raster_all,name='resp',recording=cellid,chans=cellids,epochs=event_times)
     
     # generate pupil signals
-    t_pupil=nems.signal.Signal(fs=options['rasterfs'],matrix=state_dict['pupiltrace'],name='state',recording=cellid,chans=['pupil'],epochs=event_times)
+    t_pupil=nems0.signal.Signal(fs=options['rasterfs'],matrix=state_dict['pupiltrace'],name='state',recording=cellid,chans=['pupil'],epochs=event_times)
     
     if i==0:
         resp=t_resp

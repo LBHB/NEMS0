@@ -4,15 +4,15 @@ import copy
 
 import matplotlib.pyplot as plt
 
-import nems.utils
-import nems.modelspec as ms
-from nems.plots.heatmap import (weight_channels_heatmap, fir_heatmap,
+import nems0.utils
+import nems0.modelspec as ms
+from nems0.plots.heatmap import (weight_channels_heatmap, fir_heatmap,
                                 strf_heatmap)
-from nems.plots.scatter import plot_scatter
-from nems.plots.spectrogram import spectrogram_from_epoch
-from nems.plots.timeseries import (timeseries_from_epoch,
+from nems0.plots.scatter import plot_scatter
+from nems0.plots.spectrogram import spectrogram_from_epoch
+from nems0.plots.timeseries import (timeseries_from_epoch,
                                    timeseries_from_signals)
-from nems.plots.histogram import pred_error_hist
+from nems0.plots.histogram import pred_error_hist
 
 log = logging.getLogger(__name__)
 

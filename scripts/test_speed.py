@@ -2,7 +2,7 @@ import numba as nb
 import numpy as np
 import timeit
 
-from nems.modules import nonlinearity as nl
+from nems0.modules import nonlinearity as nl
 
 
 if __name__ == '__main__':

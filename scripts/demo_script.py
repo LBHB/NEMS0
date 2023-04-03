@@ -8,24 +8,26 @@ import gzip
 import numpy as np
 import pandas as pd
 
-import nems.analysis.api
-import nems.initializers
-import nems.recording as recording
-import nems.preprocessing as preproc
-import nems.uri
-from nems.fitters.api import scipy_minimize
-from nems.signal import RasterizedSignal
+import nems0.analysis.api
+import nems0.initializers
+import nems0.recording as recording
+import nems0.preprocessing as preproc
+import nems0.uri
+from nems0.fitters.api import scipy_minimize
+from nems0.signal import RasterizedSignal
 
 log = logging.getLogger(__name__)
 
 # CONFIGURATION
 
 # figure out data and results paths:
-signals_dir = Path(nems.NEMS_PATH) / 'recordings'
-modelspecs_dir = Path(nems.NEMS_PATH) / 'modelspecs'
+signals_dir = Path(nems0.NEMS_PATH) / 'recordings'
+modelspecs_dir = Path(nems0.NEMS_PATH) / 'modelspecs'
 
 # download demo data
 recording.get_demo_recordings(signals_dir)
+
+
 
 # LOAD AND FORMAT RECORDING DATA
 # X (stimulus) is a Frequency X Time matrix, sampled at a rate fs
@@ -127,32 +129,32 @@ meta = {'cellid': cellid,
         'modelname': modelspec_name,
         'recording': est.name
         }
-modelspec = nems.initializers.from_keywords(modelspec_name, meta=meta)
+modelspec = nems0.initializers.from_keywords(modelspec_name, meta=meta)
 
 # RUN AN ANALYSIS
 
 # GOAL: Fit your model to your data, producing the improved modelspecs.
-#       Note that: nems.analysis.* will return a list of modelspecs, sorted
+#       Note that: nems0.analysis.* will return a list of modelspecs, sorted
 #       in descending order of how they performed on the fitter's metric.
 
 log.info('Fitting model ...')
 
 if 'nonlinearity' in modelspec[-1]['fn']:
     # quick fit linear part first to avoid local minima
-    modelspec = nems.initializers.prefit_LN(
+    modelspec = nems0.initializers.prefit_LN(
             est, modelspec, tolerance=1e-4, max_iter=500)
 
 # then fit full nonlinear model
-modelspec = nems.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
+modelspec = nems0.analysis.api.fit_basic(est, modelspec, fitter=scipy_minimize)
 
 # GENERATE SUMMARY STATISTICS
 log.info('Generating summary statistics ...')
 
 # generate predictions
-est, val = nems.analysis.api.generate_prediction(est, val, modelspec)
+est, val = nems0.analysis.api.generate_prediction(est, val, modelspec)
 
 # evaluate prediction accuracy
-modelspec = nems.analysis.api.standard_correlation(est, val, modelspec)
+modelspec = nems0.analysis.api.standard_correlation(est, val, modelspec)
 
 log.info("Performance: r_fit={0:.3f} r_test={1:.3f}".format(
         modelspec.meta['r_fit'][0][0],
@@ -179,7 +181,7 @@ fig.show()
 # fname = nplt.save_figure(fig, modelspecs=modelspecs, save_dir=modelspecs_dir)
 
 # uncomment to browse the validation data
-#from nems.gui.editors import EditorWindow
+#from nems0.gui.editors import EditorWindow
 #ex = EditorWindow(modelspec=modelspec, rec=val)
 
 # TODO SHARE YOUR RESULTS

@@ -115,7 +115,7 @@ gui.ini
 
 **/nems_analysis/static/gen/*
 **/nems_sample*
-nems.log*
+nems0.log*
 **/nems_logs/*
 !**/nems_logs/__init__.py
 **/modelspecs/*

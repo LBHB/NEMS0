@@ -10,16 +10,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import nems
-import nems.initializers
-import nems.epoch as ep
-import nems.priors
-import nems.preprocessing as preproc
-import nems.modelspec as ms
-import nems.plots.api as nplt
-import nems.analysis.api
-import nems.utils
-from nems.recording import Recording
-from nems.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
+import nems0.initializers
+import nems0.epoch as ep
+import nems0.priors
+import nems0.preprocessing as preproc
+import nems0.modelspec as ms
+import nems0.plots.api as nplt
+import nems0.analysis.api
+import nems0.utils
+from nems0.recording import Recording
+from nems0.fitters.api import dummy_fitter, coordinate_descent, scipy_minimize
 
 # ----------------------------------------------------------------------------
 # CONFIGURATION

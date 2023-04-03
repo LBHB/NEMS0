@@ -1,27 +1,13 @@
-.. image:: https://travis-ci.com/LBHB/NEMS.svg?branch=master
-    :target: https://travis-ci.com/LBHB/NEMS
-    :alt: Documentation Status
-
-.. image:: https://readthedocs.org/projects/nems/badge/
-    :target: https://nems.readthedocs.io/en/latest/
-    :alt: Documentation Status
-
-.. image:: https://img.shields.io/github/license/LBHB/NEMS
-    :target: https://github.com/LBHB/NEMS/blob/master/LICENSE.txt
-    :alt: GitHub license
-
 NOTICE!!
 ========
 
-This is an archived version of the Neural Encoding Model System (NEMS).
+NEMS0 is an archived version of the Neural Encoding Model System (NEMS). This repository is being phased out and replaced by a "lite" and more user-friendly version of NEMS at https://github.com/LBHB/NEMS.
 
-This repository is being phased out and replaced by a "lite" and more user-friendly version of NEMS at https://github.com/LBHB/NEMS. However, we are maintaining this repository to support analysis of some published data.
-
+However, we are maintaining this repository to support analysis of some published data.
 
 
 NEMS
 ====
-
 
 NEMS is the Neural Encoding Model System. It is helpful for fitting a
 mathematical model to time series data, plotting the model predictions,
@@ -30,30 +16,31 @@ develop and test `computational models of how sound is encoded in the
 brains of behaving mammals <https://hearingbrain.org>`__, but it will
 work with many different types of timeseries data.
 
-Docs
-----
-
-Full documentation can be found `here <https://nems.readthedocs.io>`__.
-
-Direct link to the some `demos <https://nems.readthedocs.io/en/latest/demos/demos.html>`__. We also have
-a `Gitter chat <https://gitter.im/lbhb/nems>`__ where you can get help from other users.
 
 Installation
 ------------
 
-If you don’t already have Python and Git installed, see the `installation
-instructions <https://nems.readthedocs.io/en/latest/installation.html>`__ for recommended procedures.
+Requirements
+~~~~~~~~~~~~
+
+Installing NEMS requires python (version 3.8 or greater) and git. We recommend using conda to create an environment
+specifically for NEMS.
+
+::
+
+    conda create -n nems python=3.8 ipython
+
 
 Quick Install
 ~~~~~~~~~~~~~
 
-If you already have Python and Git, download NEMS:
+Once you have python and git installed, download NEMS:
 
 ::
 
-   git clone https://github.com/lbhb/NEMS
+   git clone https://github.com/lbhb/NEMS0
 
-Add the NEMS library via pip (where ``./NEMS`` is the installation directory and ``-e`` means editable mode):
+If using conda, make sure you have activated your NEMS environment. Then add the NEMS0 library via pip (where ``./NEMS`` is the installation directory and ``-e`` means editable mode):
 
 ::
 
@@ -74,7 +61,7 @@ results locally:
 
 ::
 
-   cd NEMS/scripts
+   cd NEMS0/scripts
    ipython
 
    In [1]: run demo_script.py

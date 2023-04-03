@@ -3,11 +3,11 @@ from os.path import dirname, join
 import numpy as np
 import pandas as pd
 import pytest
-from nems.recording import Recording, load_recording, get_demo_recordings
-from nems.signal import RasterizedSignal
-import nems
+from nems0.recording import Recording, load_recording, get_demo_recordings
+from nems0.signal import RasterizedSignal
+import nems0
 
-RECORDING_DIR = nems.get_setting("NEMS_RECORDINGS_DIR")
+RECORDING_DIR = nems0.get_setting("NEMS_RECORDINGS_DIR")
 
 
 @pytest.fixture()

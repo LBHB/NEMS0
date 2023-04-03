@@ -12,7 +12,7 @@ from matplotlib.figure import Figure
 from matplotlib import cm
 from matplotlib import pyplot as plt
 
-from nems.utils import lookup_fn_at
+from nems0.utils import lookup_fn_at
 
 pg.setConfigOptions(imageAxisOrder='row-major')
 pg.setConfigOption('background', '#EAEAF2')

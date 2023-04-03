@@ -157,7 +157,7 @@ licks during a detection task):
 
 .. code-block:: python
 
-    from nems.data.epochs import epoch_contain
+    from nems0.data.epochs import epoch_contain
     correct_epoch = epoch_contain(dt_epoch, l_epoch, mode='start')
 
 Then, mask everything but the correct epochs:
@@ -188,7 +188,7 @@ adding one epoch to the other:
 
 .. code-block:: python
 
-    from nems.data.epochs import epoch_intersection, epoch_difference
+    from nems0.data.epochs import epoch_intersection, epoch_difference
 
     ct_epoch = signal.get_epoch_bounds('CorrectTrial')
     prestim_epoch = signal.get_epoch_bounds('PreStimSilence')
@@ -333,7 +333,7 @@ Cross-validation and Jackknifes
 
 .. code-block:: python
 
-    from nems.data.epochs import jacknife_epochs
+    from nems0.data.epochs import jacknife_epochs
     stim = recording.get_signal('stim')
     trials = stim.get_epochs('trials')
 

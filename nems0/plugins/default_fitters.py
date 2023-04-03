@@ -1,12 +1,12 @@
 """
-nems.plugins.default_fitters.py
+nems0.plugins.default_fitters.py
 """
 
 import logging
 import re
 
-from nems.utils import escaped_split, keyword_extract_options
-from nems.registry import xform, xmodule
+from nems0.utils import escaped_split, keyword_extract_options
+from nems0.registry import xform, xmodule
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ def mt(fitkey):
         # Redundant for now since shr is the only option, but will likely
         # add more later.
         metric = 'nmse_shrink'
-    return [['nems.xforms.use_metric', {'metric': metric}]]
+    return [['nems0.xforms.use_metric', {'metric': metric}]]
 
 
 @xform()
@@ -36,7 +36,7 @@ def pred(fitkey):
     '''
     Evaluate model prediction. Added by default in xform_helper.
     '''
-    return [['nems.xforms.predict', {}]]
+    return [['nems0.xforms.predict', {}]]
 
 
 @xform()
@@ -50,7 +50,7 @@ def stats(fitkey):
         if op == 'pm':
             fn = 'correlation_per_model'
 
-    return [['nems.xforms.add_summary_statistics', {'fn': fn}]]
+    return [['nems0.xforms.add_summary_statistics', {'fn': fn}]]
 
 
 @xform()
@@ -71,7 +71,7 @@ def best(fitkey):
             # Assume it's the name of a metakey, and remove any escapes
             metakey = op.replace('\\', '')
 
-    return [['nems.xforms.only_best_modelspec', {'metakey': metakey,
+    return [['nems0.xforms.only_best_modelspec', {'metakey': metakey,
                                                  'comparison': comparison}]]
 
 
@@ -94,7 +94,7 @@ def sort(fitkey):
             # Assume it's the name of a metakey, and remove any escapes
             metakey = op.replace('\\', '')
 
-    return [['nems.xforms.sort_modelspecs', {'metakey': metakey,
+    return [['nems0.xforms.sort_modelspecs', {'metakey': metakey,
                                              'order': order}]]
 
 @xform()
@@ -131,10 +131,10 @@ def basic(fitkey):
 
     xfspec = []
     if rand_count>1:
-        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
-    xfspec.append(['nems.xforms.fit_basic', options])
+        xfspec.append(['nems0.initializers.rand_phi', {'rand_count': rand_count}])
+    xfspec.append(['nems0.xforms.fit_basic', options])
     if choose_best:
-        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
+        xfspec.append(['nems0.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
     return xfspec
 
@@ -151,7 +151,7 @@ def nrc(fitkey):
 
     #options = _extract_options(fitkey)
     #max_iter, tolerance, fitter = _parse_basic(options)
-    xfspec = [['nems.xforms.reverse_correlation', {}]]
+    xfspec = [['nems0.xforms.reverse_correlation', {}]]
 
     return xfspec
 
@@ -181,7 +181,7 @@ def newtf(fitkey):
     freeze_layers = None
     use_tensorboard = False
     kernel_regularizer = None
-    fit_fn = 'nems.tf.cnnlink_new.fit_tf'
+    fit_fn = 'nems0.tf.cnnlink_new.fit_tf'
     options = _extract_options(fitkey)
     iters_per_loop = 100
 
@@ -199,7 +199,7 @@ def newtf(fitkey):
             parm_dict['nl_init'] = "scipy"
         elif op.startswith('mc'):
             # multi-cell_index
-            fit_fn = 'nems.tf.cnnlink_new.fit_tf_iterate'
+            fit_fn = 'nems0.tf.cnnlink_new.fit_tf_iterate'
             if len(op[2:]) > 0:
                 iters_per_loop = int(op[2:])
         elif op == 'mxr':
@@ -282,7 +282,7 @@ def newtf(fitkey):
 
     xfspec = []
     if rand_count > 0:
-        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
+        xfspec.append(['nems0.initializers.rand_phi', {'rand_count': rand_count}])
 
     parm_dict.update({
         'use_modelspec_init': use_modelspec_init,
@@ -304,12 +304,12 @@ def newtf(fitkey):
     if freeze_layers is not None:
         parm_dict['freeze_layers'] = freeze_layers
 
-    xfspec.append(['nems.xforms.fit_wrapper', parm_dict])
+    xfspec.append(['nems0.xforms.fit_wrapper', parm_dict])
 
     if generate_predictions_for_each_initalization_condition:
-        xfspec.append(['nems.analysis.test_prediction.predict_and_summarize_for_all_modelspec', {}])
+        xfspec.append(['nems0.analysis.test_prediction.predict_and_summarize_for_all_modelspec', {}])
     if pick_best:
-        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
+        xfspec.append(['nems0.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
     return xfspec
 
@@ -321,8 +321,8 @@ def tfinit(fitkey):
     TODO
     """
     xfspec = newtf(fitkey)
-    idx = [xf[0] for xf in xfspec].index('nems.xforms.fit_wrapper')
-    xfspec[idx][1]['fit_function'] = 'nems.tf.cnnlink_new.fit_tf_init'
+    idx = [xf[0] for xf in xfspec].index('nems0.xforms.fit_wrapper')
+    xfspec[idx][1]['fit_function'] = 'nems0.tf.cnnlink_new.fit_tf_init'
 
     options = _extract_options(fitkey)
     for op in options:
@@ -436,15 +436,15 @@ def tf(fitkey):
 
     xfspec = []
     if rand_count > 0:
-        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
+        xfspec.append(['nems0.initializers.rand_phi', {'rand_count': rand_count}])
 
-    xfspec.append(['nems.xforms.fit_wrapper',
+    xfspec.append(['nems0.xforms.fit_wrapper',
                    {
                        'max_iter': max_iter,
                        'use_modelspec_init': use_modelspec_init,
                        'optimizer': fitter,
                        'cost_function': loss_type,
-                       'fit_function': 'nems.tf.cnnlink.fit_tf',
+                       'fit_function': 'nems0.tf.cnnlink.fit_tf',
                        'early_stopping_steps': early_stopping_steps,
                        'early_stopping_tolerance': early_stopping_tolerance,
                        'learning_rate': learning_rate,
@@ -452,7 +452,7 @@ def tf(fitkey):
                    }])
 
     if pick_best:
-        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
+        xfspec.append(['nems0.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
     return xfspec
 
@@ -680,7 +680,7 @@ def init(kw):
 
     xfspec = []
     if rand_count > 0:
-        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
+        xfspec.append(['nems0.initializers.rand_phi', {'rand_count': rand_count}])
 
     sel_options.update({'tolerance': tolerance, 'norm_fir': norm_fir,
                         'nl_kw': nl_kw})
@@ -693,25 +693,25 @@ def init(kw):
                        'learning_rate': learning_rate,
                        'distr': distr})
     if tf:
-        sel_options['fit_function'] = 'nems.tf.cnnlink.fit_tf_init'
+        sel_options['fit_function'] = 'nems0.tf.cnnlink.fit_tf_init'
         sel_options['use_modelspec_init'] = use_modelspec_init
     elif st:
-        sel_options['fit_function'] = 'nems.xforms.fit_state_init'
+        sel_options['fit_function'] = 'nems0.xforms.fit_state_init'
         sel_options['fit_sig'] = fit_sig
     elif bsel:
-        sel_options['fit_function'] = 'nems.xforms.fit_basic_subset'
+        sel_options['fit_function'] = 'nems0.xforms.fit_basic_subset'
     else:
-        sel_options['fit_function'] = 'nems.xforms.fit_basic_init'
+        sel_options['fit_function'] = 'nems0.xforms.fit_basic_init'
 
     # save cost function for use by fitter (default is nmse)
     sel_options.update(metric_options)
 
-    xfspec.append(['nems.xforms.fit_wrapper', sel_options])
+    xfspec.append(['nems0.xforms.fit_wrapper', sel_options])
 
     if generate_predictions_for_each_initalization_condition:
-        xfspec.append(['nems.analysis.test_prediction.predict_and_summarize_for_all_modelspec', {}])
+        xfspec.append(['nems0.analysis.test_prediction.predict_and_summarize_for_all_modelspec', {}])
     if keep_best:
-        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', 
+        xfspec.append(['nems0.analysis.test_prediction.pick_best_phi', 
             {'criterion': 'mse_fit', 'keep_n': keep_n}])
 
     return xfspec
@@ -759,18 +759,18 @@ def iter(fitkey):
         _parse_iter(options)
 
     if 'pop' in options:
-        xfspec = [['nems.analysis.fit_pop_model.fit_population_iteratively',
+        xfspec = [['nems0.analysis.fit_pop_model.fit_population_iteratively',
                    {'module_sets': module_sets, 'fitter': fitter,
                     'tolerances': tolerances, 'tol_iter': tol_iter,
                     'fit_iter': fit_iter}]]
 
     else:
-        xfspec = [['nems.xforms.fit_iteratively',
+        xfspec = [['nems0.xforms.fit_iteratively',
                    {'module_sets': module_sets, 'fitter': fitter,
                     'tolerances': tolerances, 'tol_iter': tol_iter,
                     'fit_iter': fit_iter}]]
     if choose_best:
-        xfspec.append(['nems.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
+        xfspec.append(['nems0.analysis.test_prediction.pick_best_phi', {'criterion': 'mse_fit'}])
 
     return xfspec
 
@@ -914,13 +914,13 @@ def initpop(kw):
             flip_pcs = False
 
     if rnd:
-        xfspec = [['nems.xforms.fit_wrapper',
+        xfspec = [['nems0.xforms.fit_wrapper',
                    {'pc_signal': 'rand_resp', 'start_count': start_count,
-                    'fit_function': 'nems.analysis.fit_pop_model.init_pop_rand'}]]
+                    'fit_function': 'nems0.analysis.fit_pop_model.init_pop_rand'}]]
     elif usepcs:
-        xfspec = [['nems.xforms.fit_wrapper',
+        xfspec = [['nems0.xforms.fit_wrapper',
                    {'flip_pcs': flip_pcs,
-                    'fit_function': 'nems.analysis.fit_pop_model.init_pop_pca'}]]
+                    'fit_function': 'nems0.analysis.fit_pop_model.init_pop_pca'}]]
     return xfspec
 
 
@@ -941,7 +941,7 @@ def ccnorm(fitkey):
     max_iter, tolerance, fitter, choose_best, rand_count = _parse_basic(options)
 
     sel_options = {'max_iter': max_iter, 'tolerance': tolerance}
-    sel_options['fit_function'] = 'nems.analysis.fit_ccnorm.fit_ccnorm'
+    sel_options['fit_function'] = 'nems0.analysis.fit_ccnorm.fit_ccnorm'
 
     for op in options:
         if op[:1] == 'w':
@@ -989,18 +989,18 @@ def ccnorm(fitkey):
     xfspec = []
     if rand_count > 1:
         freeze_idx=sel_options.get('freeze_idx',None)
-        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count,
+        xfspec.append(['nems0.initializers.rand_phi', {'rand_count': rand_count,
                                                       'freeze_idx': freeze_idx}])
 
-    xfspec.append(['nems.xforms.fit_wrapper', sel_options])
+    xfspec.append(['nems0.xforms.fit_wrapper', sel_options])
 
     if choose_best:
         keep_n=1
-        xfspec.append(['nems.analysis.test_prediction.pick_best_phi',
+        xfspec.append(['nems0.analysis.test_prediction.pick_best_phi',
             {'criterion': 'mse_fit', 'keep_n': keep_n}])
 
-    xfspec.append(['nems.xforms.predict', {}])
-    xfspec.append(['nems.xforms.add_summary_statistics', {}])
+    xfspec.append(['nems0.xforms.predict', {}])
+    xfspec.append(['nems0.xforms.add_summary_statistics', {}])
     #xfspec.append(['nems_lbhb.stateplots.ddr_pairs', {}])
 
     return xfspec
@@ -1027,21 +1027,21 @@ def pcnorm(fitkey):
             n_pcs = int(op[2:])
 
     sel_options = {'max_iter': max_iter, 'tolerance': tolerance, 'n_pcs': n_pcs}
-    sel_options['fit_function'] = 'nems.analysis.fit_ccnorm.fit_pcnorm'
+    sel_options['fit_function'] = 'nems0.analysis.fit_ccnorm.fit_pcnorm'
 
     xfspec = []
     if rand_count > 1:
-        xfspec.append(['nems.initializers.rand_phi', {'rand_count': rand_count}])
+        xfspec.append(['nems0.initializers.rand_phi', {'rand_count': rand_count}])
 
-    xfspec.append(['nems.xforms.fit_wrapper', sel_options])
+    xfspec.append(['nems0.xforms.fit_wrapper', sel_options])
 
     if choose_best:
-        xfspec.append(['nems.analysis.test_prediction.pick_best_phi',
+        xfspec.append(['nems0.analysis.test_prediction.pick_best_phi',
             {'criterion': 'mse_fit', 'keep_n': keep_n}])
 
-    xfspec.append(['nems.xforms.predict', {}])
-    xfspec.append(['nems.xforms.add_summary_statistics', {}])
-    xfspec.append(['nems.plots.state.cc_comp', {}])
+    xfspec.append(['nems0.xforms.predict', {}])
+    xfspec.append(['nems0.xforms.add_summary_statistics', {}])
+    xfspec.append(['nems0.plots.state.cc_comp', {}])
 
     return xfspec
 

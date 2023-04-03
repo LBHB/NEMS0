@@ -11,13 +11,13 @@ import io
 import re
 import numpy as np
 import scipy.io
-#import nems.recording as Recording
+#import nems0.recording as Recording
 import pandas as pd
 import matplotlib.pyplot as plt
 
-import nems.utilities as nu
-import nems.db as nd
-#import nems.utilities.baphy
+import nems0.utilities as nu
+import nems0.db as nd
+#import nems0.utilities.baphy
 
 # find all cells in A1 / natural sound dataset
 batch=271

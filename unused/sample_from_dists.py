@@ -6,12 +6,12 @@
 
 import scipy.stats as stat
 import numpy as np
-import nems.distributions.normal as normal
-import nems.distributions.half_normal as half_normal
+import nems0.distributions.normal as normal
+import nems0.distributions.half_normal as half_normal
 # workaround for now. best way to get references to the distribution classes?
 # Might be easiest to just rename the distributions in modelpec
 # (i.e. 'Normal' --> 'normal.Normal') so that they can be
-# getattr'd from nems.distributions.
+# getattr'd from nems0.distributions.
 dists = {'Normal': normal.Normal,
          'HalfNormal': half_normal.HalfNormal}
 
