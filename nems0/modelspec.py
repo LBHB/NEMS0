@@ -703,7 +703,9 @@ class ModelSpec:
             if fn in skip_list:
                 continue
             if mod_idx in modidx_set:
-                plot_fn_modules.append((mod_idx, self.get_plot_fn(mod_idx)))
+                plot_fn = self.get_plot_fn(mod_idx)
+                if plot_fn is not None:
+                    plot_fn_modules.append((mod_idx, plot_fn))
             # these plot functions always produce the same thing
             # so should be skipped if they appear more than once
             if fn in ['nems0.plots.api.pred_resp',

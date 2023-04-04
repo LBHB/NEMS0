@@ -23,12 +23,13 @@ Installation
 Requirements
 ~~~~~~~~~~~~
 
-Installing NEMS requires python (version 3.8 or greater) and git. We recommend using conda to create an environment
-specifically for NEMS.
+Installing NEMS requires python (tested with version 3.7) and git. We recommend using conda to create an environment
+specifically for NEMS. More recent versions of python are likely to work, but the Quick Install below may not work
+out of the box, as you may need to make sure that the various dependencies have compatible versions.
 
 ::
 
-    conda create -n nems python=3.8 ipython
+    conda create -n nems python=3.7
 
 
 Quick Install

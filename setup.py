@@ -10,8 +10,9 @@ with codecs.open('README.rst', encoding='utf-8') as f:
     long_description = f.read()
 
 GENERAL_REQUIRES = ['numpy', 'scipy', 'matplotlib', 'pandas', 'requests',
-                    'h5py', 'sqlalchemy', 'configparser','jupyterlab','tensorflow==2.2','tornado']
-# GUI requires pyqt, pyqtgraph
+                    'h5py', 'sqlalchemy', 'configparser','jupyterlab','tensorflow==2.2','tornado',
+                    'PyQt5', 'pyqtgraph']
+# matplotlib qtAgg requires PyQt
 
 EXTRAS_REQUIRES = {
     'docs': ['sphinx', 'sphinx_rtd_theme', 'pygments-enaml', 'nbsphinx', 'pandoc', 'IPython', 
@@ -19,7 +20,6 @@ EXTRAS_REQUIRES = {
     'nwb': ['allensdk'],
     'tensorflow': ['tensorboard'],
     'tests': ['pytest', 'pytest-benchmark'],
-    'gui': ['PyQt5', 'pyqtgraph']
 }
 
 setup(
