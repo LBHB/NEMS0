@@ -10,7 +10,7 @@ with codecs.open('README.rst', encoding='utf-8') as f:
     long_description = f.read()
 
 GENERAL_REQUIRES = ['numpy', 'scipy', 'matplotlib', 'pandas', 'requests',
-                    'h5py', 'sqlalchemy', 'configparser','jupyterlab','tensorflow==2.2','tornado',
+                    'h5py', 'sqlalchemy', 'configparser','jupyterlab','tensorflow==2.11.1','tornado',
                     'PyQt5', 'pyqtgraph']
 # matplotlib qtAgg requires PyQt
 
